@@ -2027,9 +2027,9 @@ bool dtrans::ResolveTypesPass::runImpl(
     Module &M,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
     WholeProgramInfo &WPInfo) {
-  if (!M.getContext().supportsTypedPointers()) {
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
     LLVM_DEBUG(
-        dbgs() << "resolve-types inhibited: opaque pointers not supported\n");
+        dbgs() << "resolve-types inhibited: opaque pointers passes in use\n");
     return false;
   }
 

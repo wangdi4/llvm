@@ -110,6 +110,9 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK-NEXT:      VPO Work-Region Information
 ; CHECK-NEXT:      Demanded bits analysis
 ; CHECK-NEXT:      Loop Access Analysis
+; CHECK-NEXT:      Post-Dominator Tree Construction
+; CHECK-NEXT:      Branch Probability Analysis
+; CHECK-NEXT:      Block Frequency Analysis
 ; CHECK-NEXT:      VPlan Vectorizer
 ; CHECK-NEXT:      Dominator Tree Construction
 ; CHECK-NEXT:      Replace known math operations with optimized library functions

@@ -127,8 +127,11 @@
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
-; Moved up to after XmainOptLevelAnalysis ;INTEL
-; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: JumpThreadingPass
+; CHECK-O-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
@@ -162,8 +165,7 @@
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
-; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
+; COM: CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -217,7 +219,6 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
@@ -228,10 +229,13 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
+; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
+; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
 ; CHECK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: EliminateAvailableExternallyPass
@@ -239,6 +243,9 @@
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: AndersensAA ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: NonLTOGlobalOptPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: PromotePass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: ADCEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: RecomputeGlobalsAAPass
 ; CHECK-EP-OPTIMIZER-EARLY: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: Float2IntPass
@@ -255,6 +262,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-DEFAULT-NEXT:  Running pass: VecClonePass
+; CHECK-DEFAULT-NEXT:  Running analysis: OptReportOptionsAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: CallGraphAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: LazyCallGraphAnalysis
@@ -317,8 +325,11 @@
 ; END INTEL_CUSTOMIZATION
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
-; CHECK-O-NEXT: Running pass: InjectTLIMappings
 ; INTEL_CUSTOMIZATION
+; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-O2-NEXT: Running pass: InjectTLIMappings
+; CHECK-O3-NEXT: Running pass: InjectTLIMappings
+; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
@@ -328,10 +339,19 @@
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-Os-NEXT: Running pass: SLPVectorizerPass
+; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O3-NEXT: Running pass: LoadCoalescingPass
+; CHECK-Os-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O2-NEXT: Running pass: SROAPass
+; CHECK-O3-NEXT: Running pass: SROAPass
+; CHECK-Os-NEXT: Running pass: SROAPass
+; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: VectorCombinePass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopUnrollPass
+; CHECK-O-NEXT: Running pass: SROAPass ;INTEL
 ; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
@@ -346,7 +366,6 @@
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-EP-OPTIMIZER-LAST: Running pass: NoOpModulePass
 ; CHECK-HOT-COLD-SPLIT-NEXT: Running pass: HotColdSplittingPass
 ; CHECK-IR-OUTLINER-NEXT: Running pass: IROutlinerPass

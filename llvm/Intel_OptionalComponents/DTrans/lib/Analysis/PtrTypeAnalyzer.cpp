@@ -106,6 +106,12 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   return false;
 }
 
+// Return 'true' if the Function is marked with the attribute that indicates it
+// is a function created by PAROPT to be used as callback target.
+static bool isPAROPTCreatedFunction(Function &F) {
+  return F.hasFnAttribute("processed-by-vpo");
+}
+
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
@@ -579,6 +585,13 @@ public:
       }
 
       ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&F);
+
+      // We can skip marking the Function type info as 'unhandled' when
+      // encountering PAROPT created functions that don't have metadata, because
+      // they are not directly called.
+      if (isPAROPTCreatedFunction(F))
+        continue;
+
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unable to set declared type for function: "
                         << F.getName() << "\n");
@@ -1081,6 +1094,7 @@ public:
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
+  void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
     ValueTypeInfo *ResultInfo = analyzeValue(&I);
@@ -1100,39 +1114,53 @@ public:
   void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
 
   void visitStoreInst(StoreInst &I) {
+    Value *Ptr = I.getPointerOperand();
 
-    // Analyze the pointer operand to ensure that there is a ValueTypeInfo
-    // object available for it for the DTransSafetyAnalyzer. This is needed to
-    // handle cases where the operand is not a local or global variable. For
-    // example:
-    //   store i32 0, ptrtoint (i64 256 to i32*)
-    ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
-    checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
-                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
+    if (isCompilerConstant(Ptr)) {
+      // If there is something of the form:
+      //   store ptr poison, ptr null
+      //
+      // Create a dummy ValueTypeInfo for the pointer operand so that an object
+      // will be available for the DTransSafetyAnalyzer. There is no need to
+      // track types for the pointer operand.
+      ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(&I, 1);
+      PtrInfo->setCompletelyAnalyzed();
+    } else {
+      // Analyze the pointer operand to ensure that there is a ValueTypeInfo
+      // object available for it for the DTransSafetyAnalyzer. This is needed to
+      // handle cases where the operand is not a local or global variable. For
+      // example:
+      //   store i32 0, ptrtoint (i64 256 to i32*)
+      ValueTypeInfo *PtrInfo = analyzeValue(Ptr);
+      checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Decl);
 
-    // If the pointer operand is used to store a scalar type, note the type
-    // in the usage types for the pointer. TODO: May need to do something
-    // for storing pointer type as well.
-    if (!PtrInfo->getIsPartialPointerUse()) {
-      llvm::Type *ValTy = I.getValueOperand()->getType();
-      if (!dtrans::hasPointerType(ValTy))
-        PtrInfo->addTypeAlias(
-            ValueTypeInfo::VAT_Use,
-            TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+      // If the pointer operand is used to store a scalar type, note the type
+      // in the usage types for the pointer. TODO: May need to do something
+      // for storing pointer type as well.
+      if (!PtrInfo->getIsPartialPointerUse()) {
+        llvm::Type *ValTy = I.getValueOperand()->getType();
+        if (!dtrans::hasPointerType(ValTy))
+          PtrInfo->addTypeAlias(
+              ValueTypeInfo::VAT_Use,
+              TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+      }
     }
 
-    // Storing a 'null' constant is a special case, because a Value of
-    // 'ptr null' may be used to represent any pointer type. For a store of a
-    // 'null' constant we want to capture a type of the value operand so that
+    // Storing a constant, such as 'null' or 'poison', is a special case. The
+    // pointer may be used to represent any pointer type. For a store of a
+    // constant we want to capture a type of the value operand so that
     // the safety analyzer will be able to analyze the instruction without
-    // needing to examine the value being stored with a special case for 'null'
-    // constants.
-    if (isa<ConstantPointerNull>(I.getValueOperand())) {
+    // needing to examine the value being stored with a special case for
+    // constants, so we will just propagate an appropriate type from what is
+    // known about the pointer operand.
+    Value *ValOp = I.getValueOperand();
+    if (isa<ConstantPointerNull>(ValOp) || isa<PoisonValue>(ValOp)) {
       auto &LocalTM = this->TM;
       auto &LocalPTA = this->PTA;
 
       // Propagate the known types from the pointer-operand to ValueInfo that
-      // represents a use of the 'null' constant. This may also, identify that
+      // represents a use of the constant. This may also, identify that
       // it appears that an element-zero location of an aggregate is being
       // stored, in which case the PointerInfo will be updated to reflect that
       // the pointer operand is being used as an element-pointee.
@@ -1172,6 +1200,7 @@ public:
           };
 
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
+      ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(&I, 1);
       PropagateDereferencedType(PtrInfo, ValInfo,
                                 ValueTypeInfo::ValueAnalysisType::VAT_Decl);
       PropagateDereferencedType(PtrInfo, ValInfo,
@@ -1440,6 +1469,9 @@ private:
       break;
     case Instruction::ExtractValue:
       analyzeExtractValueInst(cast<ExtractValueInst>(I), Info);
+      break;
+    case Instruction::Freeze:
+      analyzeFreezeInst(cast<FreezeInst>(I), Info);
       break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
@@ -2140,6 +2172,8 @@ private:
         break;
 
       case Instruction::BitCast:
+      case Instruction::ExtractValue:
+      case Instruction::Freeze:
         if (addDependency(I->getOperand(0), DependentVals))
           populateDependencyStack(I->getOperand(0), DependentVals);
         break;
@@ -2257,6 +2291,27 @@ private:
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, *UseAliasSet.begin());
         ResultInfo->setCompletelyAnalyzed();
       } else {
+        // It may be possible to allow this to handle non-PAROPT created
+        // functions, but for now just handle PAROPT functions that do not get
+        // DTrans metadata information, since they will just be called as
+        // callback functions.
+        if (isPAROPTCreatedFunction(*F)) {
+          ResultInfo->setCompletelyAnalyzed();
+
+          // If there is a dominant pointer to structure type, we can treat
+          // that as the incoming argument type. This allows for a pointer to
+          // a structure to be passed in that is also used as a pointer to
+          // the element zero element.
+          if (ResultInfo->canAliasToAggregatePointer()) {
+            DTransType *DomTy = PTA.getDominantAggregateType(
+                *ResultInfo, ValueTypeInfo::VAT_Use);
+            if (DomTy)
+              ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, DomTy);
+          }
+
+          return;
+        }
+      
         ResultInfo->setUnhandled();
       }
       return;
@@ -2696,22 +2751,83 @@ private:
         return false;
 
       if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
-        // The final argument of the GEP of a structure field element must
-        // always be a constant value when a structure type is indexed. However,
-        // if the alias type we are testing does not match the type of the GEP,
-        // then we may not have a constant value. For example:
-        //   %18 = getelementptr %struct.varray_head_tag,
-        //                       %struct.varray_head_tag* %2, i64 0, i32 4
-        //   %19 = bitcast %union.varray_data_tag* %18 to [1 x i8*]*
-        //   %20 = getelementptr [1 x i8*], [1 x i8*]* %19, i64 0, i64 %21
+        // The final operand of the GEP of a structure type will always be a
+        // constant value when the result of the GEP is the address of a field
+        // within a structure. When the operand is not a constant then the
+        // indexing is into an array. If the alias type that is being tested
+        // matches the type used for the GEP, we should be able to walk the
+        // element zero field of the aggregate type identified by
+        // GetGEPIndexedType() until reaching the source type of the GEP. If a
+        // match of the source type is found, then that type will be added as
+        // the result type of the GEP.
+        // For example:
+        //   Given:
+        //     %arg as the DTrans type '%struct.outer*'
+        //     %gep = getelementptr [16 x ptr], ptr %arg, i64 0, i64 %idx
         //
-        // The pointer type collection analysis would have %19 as being the type
-        // "%union.varray_data_tag*" based on the result of the GEP for %18, and
-        // not the type the GEP is being used as.
+        //   Where:
+        //     %struct.outer = type { %struct.nodeInfo }
+        //     %struct.nodeInfo = type { [16 x ptr], ptr, i64, i64 }
+        //
+        //   %gep can be resolved as being the type of pointer stored in the
+        //   array of %struct.nodeInfo
+        //
+        // However, other cases caused by union types may not be able to be
+        // resolved in this manner because the type used for the GEP does not
+        // correspond to a type within the structure. Those will be marked as
+        // 'unhandled' for now.
+        // For example:
+        //   Given:
+        //     %18 = getelementptr %struct.varray_head_tag,
+        //                         ptr %2, i64 0, i32 4
+        //     %20 = getelementptr [1 x ptr], ptr %18, i64 0, i64 %21
+        //
+        //   Where:
+        //      %union.varray_head_tag = type { i64, i64, i32, ptr,
+        //                                      %union.varray_data_tag }
+        //      %union.varray_data_tag = type { [1 x i64] }
+        //
+        // The pointer type collection analysis would have %18 as being the type
+        // "%union.varray_data_tag*" based on the result of the first GEP. When
+        // evaluating the second GEP, the element zero array type will not match
+        // the type used in the GEP. This case will return 'false' to
+        // conservatively treat the GEP as 'unhandled'
         auto *LastArg =
             dyn_cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
-        if (!LastArg)
-          return false;
+        if (!LastArg) {
+          if (IndexedStTy->getNumFields() == 0)
+            return false;
+
+          DTransType* FieldTy = IndexedStTy->getFieldType(0);
+          if (!FieldTy)
+            return false;
+
+          llvm::Type* GEPSrcTy = GEP.getSourceElementType();
+          DTransType* ElemTy = FieldTy;
+          bool FoundType = false;
+          while (ElemTy->isAggregateType()) {
+            FieldTy = ElemTy;
+            if (ElemTy->isArrayTy())
+              ElemTy = ElemTy->getArrayElementType();
+            else if (auto* NestedStTy = dyn_cast<DTransStructType>(ElemTy))
+              ElemTy = NestedStTy->getFieldType(0);
+            else
+              llvm_unreachable("Expected Array or Structure type\n");
+
+            if (FieldTy->getLLVMType() == GEPSrcTy) {
+              FoundType = true;
+              break;
+            }
+          }
+          if (!FoundType)
+            return false;
+
+          DTransType* PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
+          ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
+          ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, FieldTy, 0);
+
+          return true;
+        }
 
         uint64_t FieldNum = LastArg->getLimitedValue();
         if (FieldNum >= IndexedStTy->getNumFields())
@@ -2900,8 +3016,14 @@ private:
 
       // Try to process the alias type for any of the potential types the base
       // pointer represents.
+      bool FoundType = false;
       for (auto *Alias :
            PointerInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+        // Skip over an i8* type since there is no information that can be
+        // resolved from it.
+        if (Alias == PTA.getDTransI8PtrType())
+          continue;
+
         bool Handled = false;
         if (Alias->isPointerTy())
           Handled = ProcessIndexedElement(Alias->getPointerElementType(), Ops);
@@ -2912,7 +3034,15 @@ private:
           PointerInfo->setUnhandled();
           ResultInfo->setDependsOnUnhandled();
           LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+          break;
         }
+        FoundType = true;
+      }
+      if (!FoundType && PointerInfo->isCompletelyAnalyzed()) {
+        // No type was able to resolved for the GEP using the pointer.
+        PointerInfo->setUnhandled();
+        ResultInfo->setDependsOnUnhandled();
+        LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
       }
       return;
     }
@@ -3365,6 +3495,23 @@ private:
     }
   }
 
+  // The result type of a 'freeze' instruction is the same as the source operand
+  // type. If there is pointer information tracked for the source operand,
+  // propagate it to 'ResultInfo'.
+  void analyzeFreezeInst(FreezeInst *FI, ValueTypeInfo *ResultInfo) {
+    ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(FI, 0);
+    if (!SrcInfo)
+      return;
+
+    propagate(SrcInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+              DerefType::DT_SameType);
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+  }
+
   void analyzeLandingPadInst(LandingPadInst *LP, ValueTypeInfo *ResultInfo) {
     ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, getDTransLandingPadTy());
   }
@@ -3676,6 +3823,8 @@ private:
 
   void analyzeSelectOrPhi(SmallVectorImpl<Value *> &IncomingVals,
                           ValueTypeInfo *ResultInfo) {
+    SmallPtrSet<GlobalObject *, 4> PossibleGlobalWithElidedGEP;
+    bool HasNonGlobalObject = false;
     for (auto *ValIn : IncomingVals) {
       // It's possible the operand to the select or phi is 0 or null, ignore
       // these because they do not supply type information useful for
@@ -3683,6 +3832,27 @@ private:
       if (isCompilerConstant(ValIn))
         continue;
 
+      // Defer processing of Globals merged with other values because it's
+      // possible that the actual use is for the element zero rather than the
+      // type of global variable, when the GEP has been elided. In this case,
+      // first merge the information from the other inputs, and then we will
+      // check if the global should merged using the type of Global, or as an
+      // element-zero access type.
+      //
+      // For example:
+      //   @GetPageGeometry.PageSizes = constant [76 x [2 x ptr]]
+      //   i10 = phi ptr [ @GetPageGeometry.PageSizes, %bb ], [ %i4, %bb2 ]
+      //
+      // When %i4 is identified as type [2 x i8*], then we want to conclude that
+      // there is an elided element zero GEP on the global variable, rather than
+      // treating the result type as also containing [76 x [2 x i8*]]
+      if (auto *GO = dyn_cast<GlobalObject>(ValIn))
+        if (GO->getValueType()->isAggregateType()) {
+          PossibleGlobalWithElidedGEP.insert(GO);
+          continue;
+        }
+
+      HasNonGlobalObject = true;
       ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(ValIn);
       propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
 
@@ -3691,6 +3861,52 @@ private:
 
       if (!SrcInfo->isCompletelyAnalyzed())
         ResultInfo->setPartiallyAnalyzed();
+    }
+
+    if (!PossibleGlobalWithElidedGEP.empty()) {
+      // These sets hold the info that needs to be added from the global
+      // variables. In order to ensure the updates to ResultInfo are
+      // deterministic, we need to check all the Globals against the ResultInfo
+      // before we start adding types into the ResultInfo.
+      SmallPtrSet<ValueTypeInfo*, 4> InfosToMerge;
+      SmallPtrSet<DTransType*, 4> ElementZeroPointeesToAdd;
+      for (auto *GO : PossibleGlobalWithElidedGEP) {
+        ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(GO);
+        bool IsElementZero = false;
+        if (HasNonGlobalObject) {
+          DTransType *GOType =
+              PTA.getDominantAggregateType(*SrcInfo, ValueTypeInfo::VAT_Decl);
+          if (GOType) {
+            for (auto AliasTy :
+                 ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+              if (AliasTy == GOType)
+                continue;
+
+              DTransType* AccessedType = nullptr;
+              if (PTA.isElementZeroAccess(GOType, AliasTy, &AccessedType)) {
+                IsElementZero = true;
+                ElementZeroPointeesToAdd.insert(AccessedType);
+              }
+            }
+          }
+        }
+
+        if (!IsElementZero || !HasNonGlobalObject)
+          InfosToMerge.insert(SrcInfo);
+
+        // Check for the possibility that the Global object was missing
+        // metadata. There is no need to check for "Depends on unhandled" or
+        // "Completely analyzed" because Globals are completely processed
+        // based on their ValueType and metadata.
+        if (SrcInfo->getUnhandled())
+          ResultInfo->setDependsOnUnhandled();
+      }
+
+      for (auto *Info : InfosToMerge)
+        propagate(Info, ResultInfo, true, true, DerefType::DT_SameType);
+
+      for (auto *Ty : ElementZeroPointeesToAdd)
+        ResultInfo->addElementPointee(ValueTypeInfo::VAT_Use, Ty, 0);
     }
   }
 
@@ -4283,9 +4499,24 @@ DTransType *PtrTypeAnalyzerImpl::getDominantAggregateType(
 
     DTransType *DomDerefTy = DomTy->getPointerElementType();
     DTransType *AliasDerefTy = AliasTy->getPointerElementType();
-    if (isElementZeroAccess(DomDerefTy, AliasDerefTy) ||
-        isElementZeroAccess(AliasDerefTy, DomDerefTy))
+
+    // Given that 'DomTy' was '%struct.middle**' and 'AliasTy' was
+    // '%struct.inner**', the pointer-to-pointer type in 'AliasTy' is an element
+    // zero type of the pointer-to-pointer type in 'DomTy'.
+    if (isElementZeroAccess(DomDerefTy, AliasDerefTy)) {
+      DomTyIsElementZeroAccess = true;
       continue;
+    }
+
+    // Given that 'DomTy' was '%struct.inner**' and 'AliasTy' was
+    // '%struct.middle**', the pointer-to-pointer type in 'DomTy' is an element
+    // zero type of the pointer-to-pointer in 'AliasTy', update the 'DomTy' to
+    // be the pointer-to-pointer of the outer type.
+    if (isElementZeroAccess(AliasDerefTy, DomDerefTy)) {
+      DomTy = AliasTy;
+      DomTyIsElementZeroAccess = true;
+      continue;
+    }
 
     // Otherwise, there are conflicting aliases and nothing can be dominant.
     return nullptr;

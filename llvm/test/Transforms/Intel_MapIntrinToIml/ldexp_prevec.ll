@@ -10,50 +10,45 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @vector_foo(float* nocapture %varray, float* nocapture readonly %exp) #0 {
 ; CHECK-LABEL: @vector_foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VARRAY1:%.*]] = bitcast float* [[VARRAY:%.*]] to i8*
-; CHECK-NEXT:    [[EXP3:%.*]] = bitcast float* [[EXP:%.*]] to i8*
+; CHECK-NEXT:    [[EXP2:%.*]] = ptrtoint float* [[EXP:%.*]] to i64
+; CHECK-NEXT:    [[VARRAY1:%.*]] = ptrtoint float* [[VARRAY:%.*]] to i64
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VECTOR_MEMCHECK:%.*]]
 ; CHECK:       vector.memcheck:
-; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr float, float* [[VARRAY]], i64 1000
-; CHECK-NEXT:    [[SCEVGEP2:%.*]] = bitcast float* [[SCEVGEP]] to i8*
-; CHECK-NEXT:    [[SCEVGEP4:%.*]] = getelementptr float, float* [[EXP]], i64 1000
-; CHECK-NEXT:    [[SCEVGEP45:%.*]] = bitcast float* [[SCEVGEP4]] to i8*
-; CHECK-NEXT:    [[BOUND0:%.*]] = icmp ult i8* [[VARRAY1]], [[SCEVGEP45]]
-; CHECK-NEXT:    [[BOUND1:%.*]] = icmp ult i8* [[EXP3]], [[SCEVGEP2]]
-; CHECK-NEXT:    [[FOUND_CONFLICT:%.*]] = and i1 [[BOUND0]], [[BOUND1]]
-; CHECK-NEXT:    br i1 [[FOUND_CONFLICT]], label [[SCALAR_PH]], label [[VECTOR_PH:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[VARRAY1]], [[EXP2]]
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 32
+; CHECK-NEXT:    br i1 [[DIFF_CHECK]], label [[SCALAR_PH]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[STEP_ADD:%.*]] = add <4 x i32> [[VEC_IND]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDEX]], 0
-; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP2:%.*]] = sitofp <4 x i32> [[VEC_IND]] to <4 x float>
-; CHECK-NEXT:    [[TMP3:%.*]] = sitofp <4 x i32> [[STEP_ADD]] to <4 x float>
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[EXP]], i64 [[TMP0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[INDEX]], 0
+; CHECK-NEXT:    [[TMP2:%.*]] = add i64 [[INDEX]], 4
+; CHECK-NEXT:    [[TMP3:%.*]] = sitofp <4 x i32> [[VEC_IND]] to <4 x float>
+; CHECK-NEXT:    [[TMP4:%.*]] = sitofp <4 x i32> [[STEP_ADD]] to <4 x float>
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[EXP]], i64 [[TMP1]]
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP4]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast float* [[TMP6]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP7]], align 4, !alias.scope !0
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP4]], i32 4
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast float* [[TMP8]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD7:%.*]] = load <4 x float>, <4 x float>* [[TMP9]], align 4, !alias.scope !0
-; CHECK-NEXT:    [[TMP10:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP2]], <4 x i32> [[VEC_IND]]) #[[ATTR2:[0-9]+]]
-; CHECK-NEXT:    [[TMP11:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP3]], <4 x i32> [[STEP_ADD]]) #[[ATTR2]]
-; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[TMP0]]
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[EXP]], i64 [[TMP2]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP5]], i32 0
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast float* [[TMP7]] to <4 x float>*
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP8]], align 4
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP5]], i32 4
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast float* [[TMP9]] to <4 x float>*
+; CHECK-NEXT:    [[WIDE_LOAD4:%.*]] = load <4 x float>, <4 x float>* [[TMP10]], align 4
+; CHECK-NEXT:    [[TMP11:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP3]], <4 x i32> [[VEC_IND]]) #[[ATTR2:[0-9]+]]
+; CHECK-NEXT:    [[TMP12:%.*]] = call fast <4 x float> @__svml_ldexpf4(<4 x float> [[TMP4]], <4 x i32> [[STEP_ADD]]) #[[ATTR2]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[TMP1]]
-; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, float* [[TMP12]], i32 0
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast float* [[TMP14]] to <4 x float>*
-; CHECK-NEXT:    store <4 x float> [[TMP10]], <4 x float>* [[TMP15]], align 4, !alias.scope !3, !noalias !0
-; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, float* [[TMP12]], i32 4
-; CHECK-NEXT:    [[TMP17:%.*]] = bitcast float* [[TMP16]] to <4 x float>*
-; CHECK-NEXT:    store <4 x float> [[TMP11]], <4 x float>* [[TMP17]], align 4, !alias.scope !3, !noalias !0
+; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[TMP2]]
+; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, float* [[TMP13]], i32 0
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast float* [[TMP15]] to <4 x float>*
+; CHECK-NEXT:    store <4 x float> [[TMP11]], <4 x float>* [[TMP16]], align 4
+; CHECK-NEXT:    [[TMP17:%.*]] = getelementptr inbounds float, float* [[TMP13]], i32 4
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast float* [[TMP17]] to <4 x float>*
+; CHECK-NEXT:    store <4 x float> [[TMP12]], <4 x float>* [[TMP18]], align 4
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 8
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i32> [[STEP_ADD]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1000
-; CHECK-NEXT:    br i1 [[TMP18]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP5:![0-9]+]]
+; CHECK-NEXT:    [[TMP19:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1000
+; CHECK-NEXT:    br i1 [[TMP19]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       middle.block:
 ; CHECK-NEXT:    [[CMP_N:%.*]] = icmp eq i64 1000, 1000
 ; CHECK-NEXT:    br i1 [[CMP_N]], label [[FOR_END:%.*]], label [[SCALAR_PH]]
@@ -62,16 +57,16 @@ define void @vector_foo(float* nocapture %varray, float* nocapture readonly %exp
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[TMP19:%.*]] = trunc i64 [[INDVARS_IV]] to i32
-; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP19]] to float
+; CHECK-NEXT:    [[TMP20:%.*]] = trunc i64 [[INDVARS_IV]] to i32
+; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP20]] to float
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[EXP]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    [[TMP20:%.*]] = load float, float* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[TMP21:%.*]] = tail call fast float @ldexpf(float [[CONV]], i32 [[TMP19]]) #[[ATTR2]]
+; CHECK-NEXT:    [[TMP21:%.*]] = load float, float* [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[TMP22:%.*]] = tail call fast float @ldexpf(float [[CONV]], i32 [[TMP20]]) #[[ATTR2]]
 ; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds float, float* [[VARRAY]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    store float [[TMP21]], float* [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    store float [[TMP22]], float* [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], 1000
-; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END]], label [[FOR_BODY]], !llvm.loop [[LOOP7:![0-9]+]]
+; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END]], label [[FOR_BODY]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
 ;

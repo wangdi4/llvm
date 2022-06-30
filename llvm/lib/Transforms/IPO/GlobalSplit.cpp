@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -31,6 +31,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/GlobalSplit.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"      // INTEL
@@ -91,6 +97,31 @@ static bool splitGlobal(GlobalVariable &GV) {
 
   IntegerType *Int32Ty = Type::getInt32Ty(GV.getContext());
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Return DTrans metadata if GV has LiteralStructNode metadata.
+  auto GetValidMD = [](GlobalVariable &GV) -> MDNode * {
+    MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(GV);
+    if (!MD)
+      return nullptr;
+    if (auto *RefMD = dyn_cast<MDNode>(MD->getOperand(0))) {
+      // Check if MD is non-pointer reference metadata.
+      auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
+      if (!PtrLevelMD ||
+          cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue() != 0)
+        return nullptr;
+      MD = RefMD;
+    }
+    auto *MDS = dyn_cast<MDString>(MD->getOperand(0));
+    if (!MDS || !MDS->getString().equals("L"))
+      return nullptr;
+    return MD;
+  };
+
+  MDNode *MD = GetValidMD(GV);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   std::vector<GlobalVariable *> SplitGlobals(Init->getNumOperands());
   for (unsigned I = 0; I != Init->getNumOperands(); ++I) {
     // Build a global representing this split piece.
@@ -132,6 +163,18 @@ static bool splitGlobal(GlobalVariable &GV) {
 
     if (GV.hasMetadata(LLVMContext::MD_vcall_visibility))
       SplitGV->setVCallVisibilityMetadata(GV.getVCallVisibility());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (MD) {
+      const unsigned FieldTyStartPos = 2;
+      auto *FieldMD = dyn_cast<MDNode>(MD->getOperand(FieldTyStartPos + I));
+      assert(FieldMD && "Expected metadata node");
+      SplitGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, FieldMD);
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   }
 
   for (User *U : GV.users()) {

@@ -69,7 +69,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG:       Function: _Z3fooPii
 ; VPVALCG-EMPTY:
 ; VPVALCG-NEXT:            BEGIN REGION { modified }
-; VPVALCG:                         + DO i1 = 0, {{.*}} + -1, 12 <DO_LOOP>
+; VPVALCG:                         + DO i1 = 0, {{.*}}, 12 <DO_LOOP>
 ; VPVALCG-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:                    |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC0]] + 1
 ; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]

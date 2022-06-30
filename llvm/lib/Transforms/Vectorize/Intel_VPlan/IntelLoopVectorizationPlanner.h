@@ -66,6 +66,7 @@ extern unsigned DefaultTripCount;
 extern bool VPlanEnablePeeling;
 // Flag to indicate if peeling is enabled in general, including static peeling.
 extern bool VPlanEnableGeneralPeeling;
+extern bool EnableIntDivRemBlendWithSafeValue;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for
@@ -340,9 +341,10 @@ public:
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
-                           VPlanVLSAnalysis *VLSA)
+                           VPlanVLSAnalysis *VLSA,
+                           BlockFrequencyInfo *BFI = nullptr)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), VLSA(VLSA),
-        TheLoop(Lp), LI(LI), DT(DT) {}
+        TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -439,6 +441,10 @@ public:
 
   /// Insert all-zero bypasses for \p Plan.
   void insertAllZeroBypasses(VPlanVector *Plan, unsigned VF);
+
+  /// Transform integer div/rem masked instructions blending
+  /// the second operand with 1.
+  void blendWithSafeValue(void);
 
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.
@@ -630,6 +636,18 @@ protected:
   /// creation and cloning.
   std::list<CfgMergerPlanDescr> MergerVPlans;
 
+  struct VPCostSummary {
+    VPInstructionCost ScalarIterationCost;
+    VPInstructionCost VectorIterationCost;
+    VPInstructionCost Speedup;
+
+    VPCostSummary(VPInstructionCost ScalarIterationCost,
+                  VPInstructionCost VectorIterationCost,
+                  VPInstructionCost Speedup)
+        : ScalarIterationCost(ScalarIterationCost),
+          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {}
+  };
+
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p
@@ -680,6 +698,9 @@ private:
 
   /// The dominators tree.
   class DominatorTree *DT;
+
+  /// Block frequency info
+  BlockFrequencyInfo *BFI;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

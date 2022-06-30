@@ -216,8 +216,10 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> MSSection;
   std::unique_ptr<PragmaHandler> MSRuntimeChecks;
   std::unique_ptr<PragmaHandler> MSIntrinsic;
+  std::unique_ptr<PragmaHandler> MSFunction;
   std::unique_ptr<PragmaHandler> MSOptimize;
   std::unique_ptr<PragmaHandler> MSFenvAccess;
+  std::unique_ptr<PragmaHandler> MSAllocText;
   std::unique_ptr<PragmaHandler> CUDAForceHostDeviceHandler;
   std::unique_ptr<PragmaHandler> OptimizeHandler;
   std::unique_ptr<PragmaHandler> LoopHintHandler;
@@ -467,7 +469,9 @@ public:
     return Actions.incrementMSManglingNumber();
   }
 
-  Decl  *getObjCDeclContext() const { return Actions.getObjCDeclContext(); }
+  ObjCContainerDecl *getObjCDeclContext() const {
+    return Actions.getObjCDeclContext();
+  }
 
   // Type forwarding.  All of these are statically 'void*', but they may all be
   // different actual classes based on the actions in place.
@@ -740,6 +744,10 @@ private:
                              SourceLocation PragmaLocation);
   bool HandlePragmaMSInitSeg(StringRef PragmaName,
                              SourceLocation PragmaLocation);
+  bool HandlePragmaMSFunction(StringRef PragmaName,
+                              SourceLocation PragmaLocation);
+  bool HandlePragmaMSAllocText(StringRef PragmaName,
+                               SourceLocation PragmaLocation);
 
   /// Handle the annotation token produced for
   /// #pragma align...
@@ -1054,18 +1062,18 @@ private:
   /// back.
   class ObjCDeclContextSwitch {
     Parser &P;
-    Decl *DC;
+    ObjCContainerDecl *DC;
     SaveAndRestore<bool> WithinObjCContainer;
   public:
     explicit ObjCDeclContextSwitch(Parser &p)
       : P(p), DC(p.getObjCDeclContext()),
         WithinObjCContainer(P.ParsingInObjCContainer, DC != nullptr) {
       if (DC)
-        P.Actions.ActOnObjCTemporaryExitContainerContext(cast<DeclContext>(DC));
+        P.Actions.ActOnObjCTemporaryExitContainerContext(DC);
     }
     ~ObjCDeclContextSwitch() {
       if (DC)
-        P.Actions.ActOnObjCReenterContainerContext(cast<DeclContext>(DC));
+        P.Actions.ActOnObjCReenterContainerContext(DC);
     }
   };
 
@@ -1667,11 +1675,12 @@ private:
       SmallVectorImpl<IdentifierLocPair> &protocolIdents,
       SourceLocation &rAngleLoc, bool mayBeProtocolList = true);
 
-  void HelperActionsForIvarDeclarations(Decl *interfaceDecl, SourceLocation atLoc,
+  void HelperActionsForIvarDeclarations(ObjCContainerDecl *interfaceDecl,
+                                        SourceLocation atLoc,
                                         BalancedDelimiterTracker &T,
                                         SmallVectorImpl<Decl *> &AllIvarDecls,
                                         bool RBraceMissing);
-  void ParseObjCClassInstanceVariables(Decl *interfaceDecl,
+  void ParseObjCClassInstanceVariables(ObjCContainerDecl *interfaceDecl,
                                        tok::ObjCKeywordKind visibility,
                                        SourceLocation atLoc);
   bool ParseObjCProtocolReferences(SmallVectorImpl<Decl *> &P,
@@ -1916,8 +1925,8 @@ private:
                           ParsedAttributes &Attrs);
   bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributes &Attrs);
   bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributes &Attrs);
-  bool HandlePragmaLoopCount(LoopHint &Hint,
-                             ParsedAttributes &Attrs);
+  bool HandlePragmaLoopCount(LoopHint &Hint, ParsedAttributes &Attrs);
+  bool HandlePragmaVector(LoopHint &Hint, ParsedAttributes &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ParseObjCBoolLiteral();
@@ -1929,8 +1938,6 @@ private:
   ExprResult tryParseCXXIdExpression(CXXScopeSpec &SS, bool isAddressOfOperand,
                                      Token &Replacement);
   ExprResult ParseCXXIdExpression(bool isAddressOfOperand = false);
-
-  ExprResult ParseCXXMaybeMutableAgnosticExpression();
 
   bool areTokensAdjacent(const Token &A, const Token &B);
 
@@ -2228,6 +2235,9 @@ private:
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
                                   ParsedAttributes &Attrs);
+  StmtResult ParsePragmaVector(StmtVector &Stmts, ParsedStmtContext StmtCtx,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributes &Attrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2325,7 +2335,8 @@ private:
     DSC_template_param, // template parameter context
     DSC_template_type_arg, // template type argument context
     DSC_objc_method_result, // ObjC method result context, enables 'instancetype'
-    DSC_condition // condition declaration context
+    DSC_condition, // condition declaration context
+    DSC_association // A _Generic selection expression's type association
   };
 
   /// Is this a context in which we are parsing just a type-specifier (or
@@ -2344,6 +2355,7 @@ private:
     case DeclSpecContext::DSC_type_specifier:
     case DeclSpecContext::DSC_trailing:
     case DeclSpecContext::DSC_alias_declaration:
+    case DeclSpecContext::DSC_association:
       return true;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2368,7 +2380,7 @@ private:
   /// so permit class and enum definitions in addition to non-defining class and
   /// enum elaborated-type-specifiers)?
   static AllowDefiningTypeSpec
-  isDefiningTypeSpecifierContext(DeclSpecContext DSC) {
+  isDefiningTypeSpecifierContext(DeclSpecContext DSC, bool IsCPlusPlus) {
     switch (DSC) {
     case DeclSpecContext::DSC_normal:
     case DeclSpecContext::DSC_class:
@@ -2384,6 +2396,10 @@ private:
     case DeclSpecContext::DSC_template_type_arg:
     case DeclSpecContext::DSC_type_specifier:
       return AllowDefiningTypeSpec::NoButErrorRecovery;
+
+    case DeclSpecContext::DSC_association:
+      return IsCPlusPlus ? AllowDefiningTypeSpec::NoButErrorRecovery
+                         : AllowDefiningTypeSpec::Yes;
 
     case DeclSpecContext::DSC_trailing:
       return AllowDefiningTypeSpec::No;
@@ -2406,6 +2422,7 @@ private:
     case DeclSpecContext::DSC_template_type_arg:
     case DeclSpecContext::DSC_type_specifier:
     case DeclSpecContext::DSC_trailing:
+    case DeclSpecContext::DSC_association:
       return false;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2421,6 +2438,7 @@ private:
     case DeclSpecContext::DSC_top_level:
     case DeclSpecContext::DSC_condition:
     case DeclSpecContext::DSC_type_specifier:
+    case DeclSpecContext::DSC_association:
       return true;
 
     case DeclSpecContext::DSC_objc_method_result:
@@ -2966,6 +2984,8 @@ private:
   void ParseOpenCLKernelAttributes(ParsedAttributes &attrs);
   void ParseOpenCLQualifiers(ParsedAttributes &Attrs);
   void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
+  void ParseCUDAFunctionAttributes(ParsedAttributes &attrs);
+
   VersionTuple ParseVersionTuple(SourceRange &Range);
   void ParseAvailabilityAttribute(IdentifierInfo &Availability,
                                   SourceLocation AvailabilityLoc,
@@ -3516,33 +3536,14 @@ public:
   ExprResult ParseOpenMPParensExpr(StringRef ClauseName, SourceLocation &RLoc,
                                    bool IsAddressOfOperand = false);
 
-  /// Data used for parsing list of variables in OpenMP clauses.
-  struct OpenMPVarListDataTy {
-    Expr *DepModOrTailExpr = nullptr;
-    SourceLocation ColonLoc;
-    SourceLocation RLoc;
-    CXXScopeSpec ReductionOrMapperIdScopeSpec;
-    DeclarationNameInfo ReductionOrMapperId;
-    int ExtraModifier = -1; ///< Additional modifier for linear, map, depend or
-                            ///< lastprivate clause.
-    SmallVector<OpenMPMapModifierKind, NumberOfOMPMapClauseModifiers>
-    MapTypeModifiers;
-    SmallVector<SourceLocation, NumberOfOMPMapClauseModifiers>
-    MapTypeModifiersLoc;
-    SmallVector<OpenMPMotionModifierKind, NumberOfOMPMotionModifiers>
-        MotionModifiers;
-    SmallVector<SourceLocation, NumberOfOMPMotionModifiers> MotionModifiersLoc;
-    bool IsMapTypeImplicit = false;
-    SourceLocation ExtraModifierLoc;
-#if INTEL_COLLAB
-    Expr *AllocAlignModifier = nullptr;
-#endif // INTEL_COLLAB
-  };
-
+  /// Parses a reserved locator like 'omp_all_memory'.
+  bool ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
+                                  Sema::OpenMPVarListDataTy &Data,
+                                  const LangOptions &LangOpts);
   /// Parses clauses with list.
   bool ParseOpenMPVarList(OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
                           SmallVectorImpl<Expr *> &Vars,
-                          OpenMPVarListDataTy &Data);
+                          Sema::OpenMPVarListDataTy &Data);
   bool ParseUnqualifiedId(CXXScopeSpec &SS, ParsedType ObjectType,
                           bool ObjectHadErrors, bool EnteringContext,
                           bool AllowDestructorName, bool AllowConstructorName,
@@ -3550,16 +3551,16 @@ public:
                           SourceLocation *TemplateKWLoc, UnqualifiedId &Result);
 
   /// Parses the mapper modifier in map, to, and from clauses.
-  bool parseMapperModifier(OpenMPVarListDataTy &Data);
+  bool parseMapperModifier(Sema::OpenMPVarListDataTy &Data);
   /// Parses map-type-modifiers in map clause.
   /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
   /// where, map-type-modifier ::= always | close | mapper(mapper-identifier)
-  bool parseMapTypeModifiers(OpenMPVarListDataTy &Data);
+  bool parseMapTypeModifiers(Sema::OpenMPVarListDataTy &Data);
 #if INTEL_COLLAB
   /// Parses allocate-modifiers in allocate clause.
   bool ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
                                     OpenMPClauseKind CKind,
-                                    OpenMPVarListDataTy &Data,
+                                    Sema::OpenMPVarListDataTy &Data,
                                     SourceLocation LParLoc);
 #endif // INTEL_COLLAB
 

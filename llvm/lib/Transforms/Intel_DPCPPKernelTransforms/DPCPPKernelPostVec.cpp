@@ -17,8 +17,8 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-postvec"
@@ -120,7 +120,7 @@ static bool rebindVectorizedKernel(Function *F) {
 
 bool DPCPPKernelPostVecPass::runImpl(Module &M) {
   bool Changed = false;
-  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  auto Kernels = CompilationUtils::getKernels(M);
   for (Function *F : Kernels) {
     // Try to rebind vectorized kernel if missing.
     Changed |= rebindVectorizedKernel(F);
@@ -145,9 +145,10 @@ bool DPCPPKernelPostVecPass::runImpl(Module &M) {
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(), "vectorized_kernel");
+    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
+                             FMD.VectorizedKernel.getID());
     RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
-                             "vectorized_masked_kernel");
+                             FMD.VectorizedMaskedKernel.getID());
   }
 
   return Changed;

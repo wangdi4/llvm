@@ -1,6 +1,6 @@
 //===------------------ SGValueWiden.cpp - Widen values ------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,19 +10,19 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGValueWiden.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
-using namespace DPCPPKernelLoopUtils;
+using namespace CompilationUtils;
+using namespace LoopUtils;
 
 extern bool DPCPPEnableSubGroupEmulation;
 

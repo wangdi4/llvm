@@ -47,6 +47,9 @@ private:
   /// Loop Info analysis.
   LoopInfo *LI;
 
+  /// Block frequency info for CFG build
+  BlockFrequencyInfo *BFI;
+
 protected:
   /// Hold WRegion information for TheLoop, if available.
   const WRNVecLoopNode *const WRLp;
@@ -90,7 +93,8 @@ public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                    VPOVectorizationLegality *Legal,
-                   ScalarEvolution *SE = nullptr);
+                   ScalarEvolution *SE = nullptr,
+                   BlockFrequencyInfo *BFI = nullptr);
 
   virtual ~VPlanHCFGBuilder();
 

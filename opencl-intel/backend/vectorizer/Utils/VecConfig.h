@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@
 #ifndef __VEC_OPTIONS__H__
 #define __VEC_OPTIONS__H__
 
-#include "CompilationUtils.h"
 #include "ICLDevBackendOptions.h"
 #include "cl_cpu_detect.h"
 
@@ -65,34 +64,34 @@ public:
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
     int  GetAPFLevel() const { return m_APFLevel; }
     bool GetStreamingAlways() const { return m_streamingAlways; }
-    bool EnableOCLAA() const { return m_expensiveMemOpts & ExpensiveMemOpts::OCLAA; }
+    bool EnableOCLAA() const;
 
-private:
-  const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
-  ETransposeSize m_transposeSize;
+  private:
+    const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
+    ETransposeSize m_transposeSize;
 
-  std::vector<int> m_dumpIROptionsAfter;
-  std::vector<int> m_dumpIROptionsBefore;
-  const std::string m_dumpIRDir = "";
-  llvm::TargetMachine *m_targetMachine;
-  bool m_debugInfo;
-  bool m_useNativeDebugger;
-  bool m_profiling;
-  bool m_disableOpt;
-  bool m_relaxedMath;
-  bool m_uniformWGSize;
-  // Sets whether we are working as fpga emulator
-  bool m_fpgaEmulator;
-  // Sets whether we are working as EyeQ emulator
-  bool m_eyeqEmulator;
-  // Sets whether the vectorize should output heuristic LL IR inputs
-  bool m_dumpHeuristicIR;
-  // Auto prefetch disable options
-  int m_APFLevel;
+    std::vector<int> m_dumpIROptionsAfter;
+    std::vector<int> m_dumpIROptionsBefore;
+    const std::string m_dumpIRDir = "";
+    llvm::TargetMachine *m_targetMachine;
+    bool m_debugInfo;
+    bool m_useNativeDebugger;
+    bool m_profiling;
+    bool m_disableOpt;
+    bool m_relaxedMath;
+    bool m_uniformWGSize;
+    // Sets whether we are working as fpga emulator
+    bool m_fpgaEmulator;
+    // Sets whether we are working as EyeQ emulator
+    bool m_eyeqEmulator;
+    // Sets whether the vectorize should output heuristic LL IR inputs
+    bool m_dumpHeuristicIR;
+    // Auto prefetch disable options
+    int m_APFLevel;
 
-  int m_rtLoopUnrollFactor;
-  bool m_streamingAlways;
-  unsigned m_expensiveMemOpts;
+    int m_rtLoopUnrollFactor;
+    bool m_streamingAlways;
+    unsigned m_expensiveMemOpts;
 };
 
 

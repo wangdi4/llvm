@@ -30,7 +30,7 @@
 ; for the target construct, even though there's an explicit map on it.
 
 ; CHECK:     define internal void @__omp_offloading_{{.*}}_Z4main{{.*}}(%struct.S* %s1{{.*}})
-; CHECK:       [[S1FPRIV:%s1.fpriv]] = alloca %struct.S, align 1
+; CHECK:       [[S1FPRIV:%s1.fpriv]] = alloca %struct.S, align 8
 
 ; CHECK-DAG:   call i32 (i8*, ...) @printf({{.*}}, i32* noundef [[S1A:%[^ ]+]])
 ; CHECK-DAG:   [[S1A]] = getelementptr inbounds %struct.S, %struct.S* [[S1FPRIV]], i32 0, i32 0

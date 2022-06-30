@@ -156,11 +156,6 @@ TEST(FrameworkTestType, DISABLED_Test_clCheckCPUArchForJIT)
     EXPECT_TRUE(clCheckCPUArchForJIT());
 }
 
-TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
-{
-    EXPECT_TRUE(clBuildProgramTwiceTest());
-}
-
 TEST(FrameworkTestType, Test_clBuildEmptyProgramTest)
 {
     EXPECT_TRUE(clBuildEmptyProgramTest());
@@ -191,12 +186,13 @@ TEST(FrameworkTestType, Test_clGetKernelArgInfoTest)
     EXPECT_TRUE(clGetKernelArgInfoTest());
 }
 
-// Not supported on 32 bit OS.
-#if !defined(_WIN32) || defined(_WIN64)
-TEST(FrameworkTestType, Test_clGetKernelArgInfoWithoutArgMetadataTest) {
-    EXPECT_TRUE(clGetKernelArgInfoWithoutArgMetadataTest());
+TEST(FrameworkTestType, Test_clGetKernelArgInfoNotAvailableTest) {
+    clGetKernelArgInfoNotAvailableTest();
 }
-#endif
+
+TEST(FrameworkTestType, Test_clGetKernelArgInfoAfterLinkTest) {
+    clGetKernelArgInfoAfterLinkTest();
+}
 
 TEST(FrameworkTestType, Test_clSetKernelArgInvalidArgSizeTest)
 {
@@ -369,10 +365,7 @@ TEST(FrameworkTestType, DISABLED_Test_saturated_conversion_NaN_test)
     EXPECT_TRUE(saturated_conversion_NaN_test());
 }
 
-TEST(FrameworkTestType, Test_clLocalStructTest)
-{
-    EXPECT_TRUE(clLocalStructTest());
-}
+TEST(FrameworkTestType, Test_clLocalStructTest) { clLocalStructTest(); }
 
 TEST(FrameworkTestType, Test_opencl_printf_test)
 {

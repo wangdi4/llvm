@@ -373,8 +373,9 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
     if (!LI) continue;
 
     // Load from the buffer.
-    Type *Ty =
-        colorAllocas[i]->getType()->getScalarType()->getPointerElementType();
+    // For allocas, use getAllocatedType() to avoid pointer element type
+    // accesses
+    Type *Ty = cast<AllocaInst>(colorAllocas[i])->getAllocatedType();
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
         Ty, colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     Ty = cast<GetElementPtrInst>(colorPointer)->getResultElementType();
@@ -572,8 +573,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
   ArrayRef<Value *> indicesArr = llvm::makeArrayRef(indices);
   for (unsigned i=0; i<4; ++i) {
     assert(attr.m_colors[i] && "NULL color argument");
-    Type *Ty =
-        colorAllocas[i]->getType()->getScalarType()->getPointerElementType();
+    Type *Ty = cast<AllocaInst>(colorAllocas[i])->getAllocatedType();
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
         Ty, colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,

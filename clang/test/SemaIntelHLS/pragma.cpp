@@ -429,6 +429,30 @@ void foo_ivdep()
   #pragma ivdep array(myArray) safelen(16)
   for (int i=0;i<32;++i) {}
 
+  // expected-warning@+1 {{'ivdep' attribute with value 0 has no effect; attribute ignored}}
+  #pragma ivdep safelen(0)
+  for (int i=0;i<32;++i) {}
+
+  // expected-error@+1 {{invalid value '-1'; must be non-negative}}
+  #pragma ivdep safelen(-1)
+  for (int i=0;i<32;++i) {}
+}
+
+//CHECK: FunctionDecl{{.*}}ivdep_dependent
+template<int LEN>
+int ivdep_dependent(int N) {
+  int temp = 0;
+  // expected-warning@+1 {{'ivdep' attribute with value 1 has no effect; attribute ignored}}
+  #pragma ivdep safelen(LEN)
+  for (int i = 0; i < N; ++i) {
+    temp += i;
+  }
+  return temp;
+}
+
+int ivdep_test() {
+  // expected-note@+1 {{in instantiation of function template specialization 'ivdep_dependent<1>' requested here}}
+  return ivdep_dependent<1>(10);
 }
 
 //CHECK: FunctionDecl{{.*}}foo_ii_at_most
@@ -824,7 +848,7 @@ void test(long* buffer1)
   //CHECK-NEXT: DeclRefExpr{{.*}}'buffer1' 'long *'
   //CHECK-NEXT: WhileStmt
   //CHECK-NEXT: ImplicitCastExpr{{.*}}'bool' <IntegralToBoolean>
-  //CHECK_NEXT: IntegerLiteral{{.*}} 1
+  //CHECK-NEXT: IntegerLiteral{{.*}} 1
   #pragma ivdep array(buffer1)
   while (1) { }
 }

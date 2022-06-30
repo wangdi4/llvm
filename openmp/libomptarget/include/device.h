@@ -1,4 +1,21 @@
 //===----------- device.h - Target independent OpenMP target RTL ----------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -451,16 +468,14 @@ struct DeviceTy {
                              ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                              int32_t NumTeams, int32_t ThreadLimit,
                              void *TgtNDLoopDesc);
-  void get_offload_queue(void *Interop, bool CreateNew);
-  int32_t release_offload_queue(void *);
-  void *get_platform_handle();
-  void setDeviceHandle(void *Interop);
   void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
   int32_t managed_memory_supported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
+  bool registerHostPointer(void *ptr, size_t Size);
+  bool unregisterHostPointer(void *ptr);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
@@ -468,7 +483,7 @@ struct DeviceTy {
   int32_t isSupportedDevice(void *DeviceType);
 #if INTEL_CUSTOMIZATION
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
-                               intptr_t *PreferIDs);
+                               int32_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
   int32_t useInterop(__tgt_interop *Interop);
   int32_t getNumInteropProperties(void);
@@ -499,6 +514,9 @@ struct DeviceTy {
   void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
   // Free per-hw-thread reduction scratch
   void freePerHWThreadScratch(void *Ptr);
+  /// Get device information
+  int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
+                        size_t *InfoSizeRet);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

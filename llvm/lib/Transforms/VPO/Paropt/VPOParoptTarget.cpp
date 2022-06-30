@@ -267,6 +267,10 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       //       i8 addrspace(2)* getelementptr inbounds
       //       ([25 x i8], [25 x i8] addrspace(2)* @.str.as2, i64 0, i64 0)
       //       , ...)
+      // For opaque pointers, the string operand does not have a zero-offset
+      // GEP, and the printf call looks like:
+      //   call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4)
+      //   addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), ...)
       Type* FirstParmTy = FnArgs[0]->getType();
       assert(isa<PointerType>(FirstParmTy) &&
              "First argument to printf should be a pointer.");
@@ -291,8 +295,9 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
           }
           V = CE->getOperand(0);
         }
-        assert(Indices.size() == 2 && "Expected only 1 GetElementPtr in "
-                                      "constant expression!\n");
+        assert((V->getType()->isOpaquePointerTy() || Indices.size() == 2) &&
+               "Expected only 1 GetElementPtr in "
+               "constant expression!\n");
 
         auto OldArg0 = dyn_cast<GlobalVariable>(V);
         assert(OldArg0 != nullptr &&
@@ -307,9 +312,10 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
         NewArg0->setTargetDeclare(true);
 
         // Relink the newly generated string to printf
-        FnArgs[0] =
-            Builder.CreateInBoundsGEP(NewArg0->getValueType(), NewArg0, Indices,
-                                      NewArg0->getName() + ".gep");
+        FnArgs[0] = Indices.empty() ? NewArg0
+                                    : Builder.CreateInBoundsGEP(
+                                          NewArg0->getValueType(), NewArg0,
+                                          Indices, NewArg0->getName() + ".gep");
         LLVM_DEBUG(dbgs() << "New argument 0 of printf: " << *FnArgs[0]
                           << "\n");
       }
@@ -343,6 +349,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 #if INTEL_CUSTOMIZATION
     const SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+    const SmallVectorImpl<bool> &IsFunctionPtr,
     const SmallVectorImpl<Constant *> &ConstSizes) {
 
   assert(isTargetSPIRV() &&
@@ -508,12 +515,12 @@ Function *VPOParoptTransform::finalizeKernelFunction(
        ArgTyI != ArgTyE; ++ArgTyI) {
     auto ArgNum = std::distance(FnTy->param_begin(), ArgTyI);
     auto MapIdx = GetMapIdxForArgNum(ArgNum);
+    bool IsFunctionPointer = IsFunctionPtr[MapIdx];
     uint64_t ArgSize = 0;
     if (auto *PtrTy = dyn_cast<PointerType>(*ArgTyI)) {
-      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
-      // since we will not be able to detect function pointer
-      // arguments after outlining.
-      if (isa<FunctionType>((*ArgTyI)->getPointerElementType())) {
+      if (IsFunctionPointer ||
+          (!PtrTy->isOpaque() &&
+           isa<FunctionType>(PtrTy->getNonOpaquePointerElementType()))) {
         // Kernel arguments representing function pointers
         // must be declared as 64-bit integers.
         Type *ArgTy = Type::getInt64Ty(C);
@@ -615,11 +622,13 @@ Function *VPOParoptTransform::finalizeKernelFunction(
        ++I) {
     auto ArgV = &*NewArgI;
     Value *NewArgV = ArgV;
+    auto ArgNum = std::distance(Fn->arg_begin(), I);
+    auto MapIdx = GetMapIdxForArgNum(ArgNum);
+    bool IsFunctionPointer = IsFunctionPtr[MapIdx];
     if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
-      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
-      // since we will not be able to detect function pointer
-      // arguments after outlining.
-      if (isa<FunctionType>(I->getType()->getPointerElementType())) {
+      if (IsFunctionPointer ||
+          (!OldArgPtrTy->isOpaque() &&
+           isa<FunctionType>(OldArgPtrTy->getNonOpaquePointerElementType()))) {
         // The new argument has 64-bit integer type.
         // We need to cast it to a function pointer type of the original
         // argument.
@@ -1374,8 +1383,11 @@ void VPOParoptTransform::guardSideEffectStatements(
     Value *TeamLocalVal = nullptr;
     auto &DL = StartI->getModule()->getDataLayout();
     MaybeAlign Alignment = llvm::None;
-    if(StartI->getType()->isPointerTy())
-      Alignment = StartI->getPointerAlignment(DL);
+    if (StartI->getType()->isPointerTy()) {
+      Align MinAlign = StartI->getPointerAlignment(DL);
+      if (MinAlign > 1)
+        Alignment = MinAlign;
+    }
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
@@ -1564,12 +1576,15 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
       W->populateBBSet(true);
     }
 
-    // Add noop GEP that renames the value.
-    auto *Ty = Orig->getType()->getScalarType()->getPointerElementType();
-    auto *Copy = GetElementPtrInst::CreateInBounds(
-        Ty, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-        Orig->getName() + ".copy", CopyBlock->getTerminator());
+    // Add noop cast that renames the value.
+    auto *Copy = CastInst::CreateBitOrPointerCast(Orig, Orig->getType(),
+                                                  Orig->getName() + ".copy",
+                                                  CopyBlock->getTerminator());
 
+    LLVM_DEBUG(dbgs() << "renameDuplicateBasesInMapClauses: Renamed map item's "
+                         "base from '";
+               Orig->printAsOperand(dbgs(), false); dbgs() << "' to '";
+               Copy->printAsOperand(dbgs(), false); dbgs() << "'.");
     Item->setOrig(Copy);
     Base.set(Copy);
   };
@@ -1753,18 +1768,18 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
       SmallVector<bool> IsWILocalFirstprivate;
 #endif // INTEL_CUSTOMIZATION
+      SmallVector<bool> IsFunctionPtr;
       bool HasRuntimeEvaluationCaptureSize = false;
-      (void)getTargetDataInfo(W, NewCall, ConstSizes, MapTypes,
-                              Names, Mappers,
+      (void)getTargetDataInfo(W, NewCall, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
                               IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                              HasRuntimeEvaluationCaptureSize);
+                              IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
       NewF = finalizeKernelFunction(WT, NewF, NewCall, MapTypes,
 #if INTEL_CUSTOMIZATION
                                     IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                                    ConstSizes);
+                                    IsFunctionPtr, ConstSizes);
 
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
@@ -2056,7 +2071,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-    bool &hasRuntimeEvaluationCaptureSize, bool VIsTargetKernelArg) const {
+    SmallVectorImpl<bool> &IsFunctionPtr, bool &hasRuntimeEvaluationCaptureSize,
+    bool VIsTargetKernelArg) const {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
                     << " ConstSizes.size()=" << ConstSizes.size()
@@ -2114,6 +2130,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         if (FprivI->getIsWILocal())
           IsWILocal = true;
 #endif // INTEL_CUSTOMIZATION
+      bool MapBaseIsFunctionPtr = MapI->getIsFunctionPointer();
 
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
@@ -2207,13 +2224,15 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         } else
           MapTypes.push_back(getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0,
                                             VIsTargetKernelArg));
+        bool IsMapChainHeadAndParam =
+            (I == 0 && (MapTypes.back() & TGT_MAP_TARGET_PARAM));
 #if INTEL_CUSTOMIZATION
-        if (I == 0 && IsWILocal &&
-            (MapTypes.back() & TGT_MAP_TARGET_PARAM))
-          IsWILocalFirstprivate.push_back(true);
-        else
-          IsWILocalFirstprivate.push_back(false);
+        IsWILocalFirstprivate.push_back(IsMapChainHeadAndParam ? IsWILocal
+                                                               : false);
 #endif // INTEL_CUSTOMIZATION
+        IsFunctionPtr.push_back(IsMapChainHeadAndParam ? MapBaseIsFunctionPtr
+                                                       : false);
+
         // MapName looks like:
         //  @0 = private unnamed_addr constant [40 x i8]
         //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
@@ -2257,15 +2276,39 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
       } else {
-        // TODO: OPAQUEPOINTER: element type must be taken from the clause.
-        Type *ObjectTy = ItemTy->getPointerElementType();
-        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                              DL.getTypeAllocSize(ObjectTy)));
+        auto getFPItemConstSize = [&DL](FirstprivateItem *FprivI) {
+          Type *ElementTy;
+          Value *NumElements;
+          std::tie(ElementTy, NumElements, std::ignore) =
+              VPOParoptUtils::getItemInfo(FprivI);
+          auto ElementSize = DL.getTypeAllocSize(ElementTy);
+          if (!NumElements)
+            return ElementSize;
+
+          if (!isa<ConstantInt>(NumElements)) {
+            // FIXME: This needs to be changed into an assert. It doesn't affect
+            // user code since the frontends send in map-chains for VLAs, but
+            // we have LIT tests that are entering this code path, which should
+            // be updated in a separate NFC change.
+            return ElementSize;
+          }
+
+          auto NumElementsV = cast<ConstantInt>(NumElements)->getZExtValue();
+          return NumElementsV * ElementSize;
+        };
+
+        auto FPSize = getFPItemConstSize(FprivI);
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << ": map-size for firstprivate var '";
+                   FprivI->getOrig()->printAsOperand(dbgs(), false);
+                   dbgs() << "' = " << FPSize << ".\n");
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), FPSize));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO | TGT_MAP_PRIVATE);
       }
 #if INTEL_CUSTOMIZATION
       IsWILocalFirstprivate.push_back(FprivI->getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
+      IsFunctionPtr.push_back(false); // FPTR is applicable to map-chains only.
     }
   }
 
@@ -2279,6 +2322,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 #if INTEL_CUSTOMIZATION
     IsWILocalFirstprivate.push_back(false);
 #endif // INTEL_CUSTOMIZATION
+    IsFunctionPtr.push_back(false); // FPTR is applicable to map-chains only.
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTgtInformationForPtrs:"
@@ -2396,6 +2440,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+    SmallVectorImpl<bool> &IsFunctionPtr,
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
   unsigned NumberOfPtrs = Call->arg_size();
@@ -2415,7 +2460,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #if INTEL_CUSTOMIZATION
                                IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                               HasRuntimeEvaluationCaptureSize);
+                               IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
     } else {
       for (unsigned II = 0; II < Call->arg_size(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
@@ -2423,7 +2468,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #if INTEL_CUSTOMIZATION
                                  IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                                 HasRuntimeEvaluationCaptureSize,
+                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
                                  /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
@@ -2432,7 +2477,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #if INTEL_CUSTOMIZATION
                                  IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                                 HasRuntimeEvaluationCaptureSize,
+                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
                                  /*VIsTargetKernelArg=*/true);
     }
 
@@ -2495,13 +2540,14 @@ CallInst *VPOParoptTransform::genTargetInitCode(
 #if INTEL_CUSTOMIZATION
   SmallVector<bool, 16> IsWILocalFirstprivate;
 #endif // INTEL_CUSTOMIZATION
+  SmallVector<bool, 16> IsFunctionPtr;
   bool HasRuntimeEvaluationCaptureSize = false;
-  Info.NumberOfPtrs = getTargetDataInfo(W, Call,
-      ConstSizes, MapTypes, Names, Mappers,
+  Info.NumberOfPtrs =
+      getTargetDataInfo(W, Call, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
-      IsWILocalFirstprivate,
+                        IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-      HasRuntimeEvaluationCaptureSize);
+                        IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
 
   if (Info.NumberOfPtrs)
     genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes, MapTypes, Names,
@@ -2873,6 +2919,9 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
   auto addFirstprivateForValue = [&](Value *V) {
     FirstprivateC.add(new FirstprivateItem(V));
+    // TODO: OPAQUEPOINTER: We can remove this, since FFE is now emitting
+    // FIRSTPRIVATE clause directly instead of IS_DEVICE_PTR:F90_DV for target
+    // construct.
     NewClauses.push_back({FPrivateClauseName, ClauseBundleTy({V})});
     LLVM_DEBUG(dbgs() << "addFirstprivateForValue: Converted 'IS_DEVICE_PTR(";
                V->printAsOperand(dbgs()); dbgs() << ")' to 'FIRSTPRIVATE(";
@@ -2963,6 +3012,9 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     Value *IDPLoad = LoadBuilder.CreateLoad(LoadedValType, LoadSrc, //  (2)
                                             IDP->getName() + ".load");
     addMapForValue(IDPLoad); //                                         (3)
+    // TODO: OPAQUEPOINTER: This code is obsolete. We would have to add a TYPED
+    // clause here for opaque pointers, but this code path is now obsolete, as
+    // clang FE directly emits map-chains for the is_device_ptr clause.
     PC.add(IDP); //                                                     (4)
     StoreBuilder.CreateStore(IDPLoad, StoreDst); //                     (5)
     LLVM_DEBUG(dbgs() << "addMapAndPrivateForIDP: Converted 'IS_DEVICE_PTR:";
@@ -4864,6 +4916,7 @@ void VPOParoptTransform::getAndReplaceDevicePtrs(WRegionNode *W,
 #if INTEL_CUSTOMIZATION
   SmallVector<bool, 16> IsWILocalFirstprivate;
 #endif // INTEL_CUSTOMIZATION
+  SmallVector<bool, 16> IsFunctionPtr;
 
   (void)addMapForUseDevicePtr(W, VariantCall);
 
@@ -4871,7 +4924,7 @@ void VPOParoptTransform::getAndReplaceDevicePtrs(WRegionNode *W,
 #if INTEL_CUSTOMIZATION
                            IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                           hasRuntimeEvaluationCaptureSize);
+                           IsFunctionPtr, hasRuntimeEvaluationCaptureSize);
 
   CallInst *DummyCall = nullptr;
   genOffloadArraysInit(W, &Info, DummyCall, VariantCall, ConstSizes,
@@ -5135,6 +5188,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
         if (BaseArg == WrapperArg) {
           Type *ArgType = WrapperFnTy->getParamType(WrapperArgNum);
           assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
+          // TODO: OPAQUEPOINTER: Use BaseArg's byval attribute type here.
           VariantWrapperCall->addParamAttr(
               WrapperArgNum,
               Attribute::getWithByValType(C, ArgType->getPointerElementType()));

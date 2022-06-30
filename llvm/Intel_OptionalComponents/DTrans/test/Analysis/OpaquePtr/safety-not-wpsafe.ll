@@ -3,8 +3,8 @@
 ; Test that checks the safety analysis is not run when the input is not
 ; marked as Whole Program Safe
 
-; RUN: opt -dtrans-safetyanalyzer -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -dtrans-safetyanalyzer -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer -disable-output %s 2>&1 | FileCheck %s
 
 %struct.testmember01 = type { i64, i64 }
 %struct.test01 = type { %struct.testmember01* }

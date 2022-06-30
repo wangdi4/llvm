@@ -14,14 +14,13 @@
 ; svml functions from shared RTL. The pass called by test knows nothing about
 ; current cpu architecture, so it replaced "shared" by string which passed through
 ; "-arch" option.
-; In real program "shared" should be replaced by cpu prefix, for example "l9"
-; for AMX arch, ocl_svml_z1/x1_* builtins are not available, "shared" would be
-; replaced with "z0", "x0" (AVX512's cpu prefix) as a workaround.
+; In real program "shared" should be replaced by cpu prefix, for example "z1"/"x1"
+; for AMX arch.
 ;
 ; Imported functions are presented in the "shared_function_name_resolving.ll.rtl"
 ;
 ; The expected results:
-;    @__ocl_svml_shared_acos4       to be resolved to @__ocl_svml_z0/x0_acos4
+;    @__ocl_svml_shared_acos4       to be resolved to @__ocl_svml_z1/x1_acos4
 ;    @__ocl_svml_l9_asin4           to not be changed
 ;    @blabla__ocl_svml_shared_acos4 to not be changed
 ;*****************************************************************************
@@ -38,19 +37,19 @@ entry:
 declare <4 x double> @function_foo4(<4 x double>) nounwind
 
 
-; CHECK-AMX64:  %val1 = call intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_z0_acos4(<4 x double> %in)
+; CHECK-AMX64:  %val1 = call intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_z1_acos4(<4 x double> %in)
 ; CHECK-AMX64:  %val2 = call <4 x double> @__ocl_svml_l9_asin4(<4 x double> %in)
 ; CHECK-AMX64:  %val3 = call <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double> %in)
 
-; CHECK-AMX64:  declare intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_z0_acos4(<4 x double>)
+; CHECK-AMX64:  declare intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_z1_acos4(<4 x double>)
 ; CHECK-AMX64:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK-AMX64:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 
-; CHECK-AMX32:  %val1 = call intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_x0_acos4(<4 x double> %in)
+; CHECK-AMX32:  %val1 = call intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_x1_acos4(<4 x double> %in)
 ; CHECK-AMX32:  %val2 = call <4 x double> @__ocl_svml_l9_asin4(<4 x double> %in)
 ; CHECK-AMX32:  %val3 = call <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double> %in)
 
-; CHECK-AMX32:  declare intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_x0_acos4(<4 x double>)
+; CHECK-AMX32:  declare intel_ocl_bicc_avx512 <4 x double> @__ocl_svml_x1_acos4(<4 x double>)
 ; CHECK-AMX32:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK-AMX32:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 

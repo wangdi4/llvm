@@ -17,8 +17,7 @@
 ; CHECK: [[LEXIT]]:
 ; CHECK: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
-; CHECK_NEXT: %[[INC:.+]] = add nsw i32 %2, 1
-; CHECK_NEXT: store i32 %[[INC]], i32* %[[LPRIV]]
+; CHECK-NEXT: store i32 %[[V]], i32* %l, align 4
 ; CHECK: br label %[[REXIT:[^,]+]]
 ; CHECK: [[REXIT]]:
 

@@ -299,7 +299,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       Intrinsic::ID ID = VPCall->getVectorIntrinsic();
       for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands();
            ++ArgIdx) {
-        if (hasVectorInstrinsicScalarOpd(ID, ArgIdx))
+        if (isVectorIntrinsicWithScalarOpAtArg(ID, ArgIdx))
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::FirstScalar);
         else
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::Vector);
@@ -363,6 +363,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReductionInitScalar: {
+    // All operands of reduction-init-scalar should be scalar strictly.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::ReductionFinal: {
     auto *RedFinal = cast<VPReductionFinal>(Inst);
     // Special processing for each operand of reduction-final.
@@ -387,6 +394,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // return value.
     setSVAKindForInst(RedFinal, SVAKind::Vector);
     setSVAKindForReturnValue(RedFinal, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::ReductionFinalInscan: {
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    // The instruction itself is vectorized, although it produces a scalar
+    // return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
     return true;
   }
 
@@ -426,10 +442,24 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateLastValueNonPODMasked: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
-    // We don't set any specific bits for the allocate-private instruction, it
-    // will decided only based on uses of the instruction. If there are no
-    // users, set Vector conservatively.
+    // Mark as scalar if explicitly marked.
+    auto *VPAlloca = cast<VPAllocatePrivate>(Inst);
+    if (VPAlloca->getIsScalar()) {
+      setSVAKindForInst(Inst, SVAKind::FirstScalar);
+      return true;
+    }
+    // Otherwise, we don't set any specific bits for the allocate-private
+    // instruction, it will decided only based on uses of the instruction.
+    // If there are no users, set Vector conservatively.
     SVABits SetBits = getAllSetBitsFromUsers(Inst);
     setSVABitsForInst(Inst, SetBits);
     return true;
@@ -622,6 +652,24 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::ExtractLastVectorLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // First operand is vector, but the second and third are scalar.
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2 /*ThirdArg*/, SVAKind::FirstScalar);
     return true;
   }
 
@@ -900,7 +948,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
+  case VPInstruction::ReductionInitScalar:
   case VPInstruction::ReductionFinal:
+  case VPInstruction::ReductionFinalInscan:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
@@ -926,6 +976,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalCond:
   case VPInstruction::PrivateFinalArray:
   case VPInstruction::PrivateLastValueNonPOD:
+  case VPInstruction::PrivateLastValueNonPODMasked:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
@@ -936,6 +987,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::TreeConflict:
   case VPInstruction::Permute:
   case VPInstruction::CvtMaskToInt:
+  case VPInstruction::ExtractLastVectorLane:
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction:
     return true;
   default:
     return false;

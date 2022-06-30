@@ -1,6 +1,6 @@
 //=------ SGHelper.h - Helper functions for subgroup emulation - C++ -*------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 
@@ -43,15 +43,14 @@ private:
   Constant *LocalMemFence;
 
   // sub_group_barrier.
-  DPCPPKernelCompilationUtils::InstSet SGBarriers;
+  CompilationUtils::InstSet SGBarriers;
   // dummy_sg_barrier.
-  DPCPPKernelCompilationUtils::InstSet SGDummyBarriers;
+  CompilationUtils::InstSet SGDummyBarriers;
   // functions have sub_group_barrier.
-  DPCPPKernelCompilationUtils::FuncSet SGSyncFunctions;
+  CompilationUtils::FuncSet SGSyncFunctions;
 
-  MapVector<Function *, DPCPPKernelCompilationUtils::InstSet> FuncToBarriers;
-  MapVector<Function *, DPCPPKernelCompilationUtils::InstSet>
-      FuncToDummyBarriers;
+  MapVector<Function *, CompilationUtils::InstSet> FuncToBarriers;
+  MapVector<Function *, CompilationUtils::InstSet> FuncToDummyBarriers;
 
   // Cached sub-group functions.
   Function *GetSGSizeF;
@@ -92,11 +91,11 @@ public:
 
   /// Note this function returns all sub_group_barrier calls including
   /// call in the vectorized kernel.
-  const DPCPPKernelCompilationUtils::FuncSet &getAllSyncFunctions() const;
+  const CompilationUtils::FuncSet &getAllSyncFunctions() const;
 
   /// This function should be called after SGBarrierPropagate function.
   /// Return all functions who call dummy_sg_barrier.
-  DPCPPKernelCompilationUtils::FuncSet getAllFunctionsNeedEmulation();
+  CompilationUtils::FuncSet getAllFunctionsNeedEmulation();
 
   /// Get the first dummy_sg_barrier call in function F
   Instruction *getFirstDummyBarrier(Function *F);
@@ -115,13 +114,11 @@ public:
   static bool isBarrier(Instruction *I);
   static bool isDummyBarrier(Instruction *I);
 
-  const DPCPPKernelCompilationUtils::InstSet &
-  getBarriersForFunction(Function *F);
-  const DPCPPKernelCompilationUtils::InstSet &
-  getDummyBarriersForFunction(Function *F);
+  const CompilationUtils::InstSet &getBarriersForFunction(Function *F);
+  const CompilationUtils::InstSet &getDummyBarriersForFunction(Function *F);
 
   /// Get all dummy_sg_barrier / sub_group_barrier calls.
-  DPCPPKernelCompilationUtils::InstSet getSyncInstsForFunction(Function *F);
+  CompilationUtils::InstSet getSyncInstsForFunction(Function *F);
 
   Value *createGetSubGroupLId(Instruction *IP);
   Value *createGetSubGroupSize(Instruction *IP);

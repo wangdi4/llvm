@@ -485,6 +485,11 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
 
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     return x86::getX86TargetCPU(D, Args, T);
 
   case llvm::Triple::hexagon:
@@ -528,7 +533,7 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
   return LtoJobsArg->getValue();
 }
 
-// CloudABI uses -ffunction-sections and -fdata-sections by default.
+// CloudABI and PS4/PS5 use -ffunction-sections and -fdata-sections by default.
 #if INTEL_CUSTOMIZATION
 bool tools::isUseSeparateSections(const Driver &D,
                                   const llvm::Triple &Triple) {
@@ -536,7 +541,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI;
+  return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
 }
 
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
@@ -614,6 +619,9 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (!Parallelism.empty())
     CmdArgs.push_back(
         Args.MakeArgString("-plugin-opt=jobs=" + Twine(Parallelism)));
+
+  if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
+    CmdArgs.push_back(Args.MakeArgString("-plugin-opt=no-opaque-pointers"));
 
   // If an explicit debugger tuning argument appeared, pass it along.
   if (Arg *A = Args.getLastArg(options::OPT_gTune_Group,
@@ -716,6 +724,11 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-plugin-opt=-vector-library=") + A->getValue()));
+    // -fintel-libirc-allowed
+    if (!Args.hasArg(options::OPT_ffreestanding,
+                     options::OPT_i_no_use_libirc) &&
+        ToolChain.CheckAddIntelLib("libirc", Args))
+      CmdArgs.push_back("-plugin-opt=fintel-libirc-allowed");
   }
   auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (OptArg.getOption().matches(Opt) &&
@@ -1018,11 +1031,6 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
-    if (!Args.hasArg(options::OPT_ffreestanding,
-                     options::OPT_i_no_use_libirc) &&
-        TC.CheckAddIntelLib("libirc", Args))
-      addllvmOption("-intel-libirc-allowed");
-
     bool LoopOptPipelineExplicitOption = llvm::any_of(
         Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
           bool Ret = Option.startswith("-floopopt-pipeline=");
@@ -1236,6 +1244,9 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   if (IsOffloadingHost)
     CmdArgs.push_back("-lomptarget");
 
+  if (IsOffloadingHost && TC.getDriver().isUsingLTO(/* IsOffload */ true))
+    CmdArgs.push_back("-lomptarget.devicertl");
+
   addArchSpecificRPath(TC, Args, CmdArgs);
 
   if (RTKind == Driver::OMPRT_OMP)
@@ -1243,6 +1254,25 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
 
   return true;
+}
+
+void tools::addFortranRuntimeLibs(llvm::opt::ArgStringList &CmdArgs) {
+  CmdArgs.push_back("-lFortran_main");
+  CmdArgs.push_back("-lFortranRuntime");
+  CmdArgs.push_back("-lFortranDecimal");
+}
+
+void tools::addFortranRuntimeLibraryPath(const ToolChain &TC,
+                                         const llvm::opt::ArgList &Args,
+                                         ArgStringList &CmdArgs) {
+  // Default to the <driver-path>/../lib directory. This works fine on the
+  // platforms that we have tested so far. We will probably have to re-fine
+  // this in the future. In particular, on some platforms, we may need to use
+  // lib64 instead of lib.
+  SmallString<256> DefaultLibPath =
+      llvm::sys::path::parent_path(TC.getDriver().Dir);
+  llvm::sys::path::append(DefaultLibPath, "lib");
+  CmdArgs.push_back(Args.MakeArgString("-L" + DefaultLibPath));
 }
 
 static void addSanitizerRuntime(const ToolChain &TC, const ArgList &Args,
@@ -1313,6 +1343,12 @@ void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
       TC.getTriple().isOSNetBSD() ||
       TC.getTriple().isOSOpenBSD())
     CmdArgs.push_back("-lexecinfo");
+  // There is no libresolv on Android, FreeBSD, OpenBSD, etc. On musl
+  // libresolv.a, even if exists, is an empty archive to satisfy POSIX -lresolv
+  // requirement.
+  if (TC.getTriple().isOSLinux() && !TC.getTriple().isAndroid() &&
+      !TC.getTriple().isMusl())
+    CmdArgs.push_back("-lresolv");
 }
 
 static void
@@ -1764,30 +1800,31 @@ tools::ParsePICArgs(const ToolChain &ToolChain, const ArgList &Args) {
             O.matches(options::OPT_fPIE) || O.matches(options::OPT_fPIC);
       } else {
         PIE = PIC = false;
-        if (EffectiveTriple.isPS4()) {
+        if (EffectiveTriple.isPS()) {
           Arg *ModelArg = Args.getLastArg(options::OPT_mcmodel_EQ);
           StringRef Model = ModelArg ? ModelArg->getValue() : "";
           if (Model != "kernel") {
             PIC = true;
-            ToolChain.getDriver().Diag(diag::warn_drv_ps4_force_pic)
-                << LastPICArg->getSpelling();
+            ToolChain.getDriver().Diag(diag::warn_drv_ps_force_pic)
+                << LastPICArg->getSpelling()
+                << (EffectiveTriple.isPS4() ? "PS4" : "PS5");
           }
         }
       }
     }
   }
 
-  // Introduce a Darwin and PS4-specific hack. If the default is PIC, but the
-  // PIC level would've been set to level 1, force it back to level 2 PIC
+  // Introduce a Darwin and PS4/PS5-specific hack. If the default is PIC, but
+  // the PIC level would've been set to level 1, force it back to level 2 PIC
   // instead.
-  if (PIC && (Triple.isOSDarwin() || EffectiveTriple.isPS4()))
+  if (PIC && (Triple.isOSDarwin() || EffectiveTriple.isPS()))
     IsPICLevelTwo |= ToolChain.isPICDefault();
 
   // This kernel flags are a trump-card: they will disable PIC/PIE
   // generation, independent of the argument order.
   if (KernelOrKext &&
       ((!EffectiveTriple.isiOS() || EffectiveTriple.isOSVersionLT(6)) &&
-       !EffectiveTriple.isWatchOS()))
+       !EffectiveTriple.isWatchOS() && !EffectiveTriple.isDriverKit()))
     PIC = PIE = false;
 
   if (Arg *A = Args.getLastArg(options::OPT_mdynamic_no_pic)) {
@@ -2262,8 +2299,13 @@ bool tools::GetSDLFromOffloadArchive(
   for (auto LPath : LibraryPaths) {
     ArchiveOfBundles.clear();
 
-    AOBFileNames.push_back(Twine(LPath + "/libdevice/lib" + Lib + ".a").str());
-    AOBFileNames.push_back(Twine(LPath + "/lib" + Lib + ".a").str());
+    llvm::Triple Triple(D.getTargetTriple());
+    bool IsMSVC = Triple.isWindowsMSVCEnvironment();
+    for (auto Prefix : {"/libdevice/", "/"}) {
+      if (IsMSVC)
+        AOBFileNames.push_back(Twine(LPath + Prefix + Lib + ".lib").str());
+      AOBFileNames.push_back(Twine(LPath + Prefix + "lib" + Lib + ".a").str());
+    }
 
     for (auto AOB : AOBFileNames) {
       if (llvm::sys::fs::exists(AOB)) {
@@ -2609,3 +2651,18 @@ void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
     addArg("-x86-enable-unaligned-vector-move=false");
 }
 #endif // INTEL_CUSTOMIZATION
+
+void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
+                                 const llvm::opt::ArgList &Args,
+                                 llvm::opt::ArgStringList &CmdArgs) {
+  if (Args.hasArg(options::OPT_hip_link) &&
+      !Args.hasArg(options::OPT_nostdlib) &&
+      !Args.hasArg(options::OPT_no_hip_rt)) {
+    TC.AddHIPRuntimeLibArgs(Args, CmdArgs);
+  } else {
+    // Claim "no HIP libraries" arguments if any
+    for (auto Arg : Args.filtered(options::OPT_no_hip_rt)) {
+      Arg->claim();
+    }
+  }
+}

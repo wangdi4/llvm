@@ -35,19 +35,23 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O1,CHECK-POSTLINK-O,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2
+; INTEL_CUSTOMIZATION
+; Added CHECK-POSTLINK-O23SZ target for easier matching.
+
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-pipeline-start='no-op-module' \
 ; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Os,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Os,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Oz,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-Oz,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
+; end INTEL_CUSTOMIZATION
 
 ; Suppress FileCheck --allow-unused-prefixes=false diagnostics.
 ; CHECK-NOEXT: {{^}}
@@ -93,8 +97,11 @@
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
-; Moved up to after XmainOptLevelAnalysis ;INTEL
-; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: JumpThreadingPass
+; CHECK-O-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O-NEXT: Running analysis: InlineAdvisorAnalysis
@@ -126,8 +133,7 @@
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
-; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
+; COM: CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -188,7 +194,6 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
@@ -197,17 +202,24 @@
 ; CHECK-O23SZ-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
+; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
+; CHECK-POSTLINK-O3-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AndersensAA ;INTEL
+; CHECK-POSTLINK-O23SZ-NEXT: Running pass: NonLTOGlobalOptPass ;INTEL
+; CHECK-POSTLINK-O23SZ-NEXT: Running pass: PromotePass ;INTEL
+; CHECK-POSTLINK-O23SZ-NEXT: Running pass: ADCEPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: RecomputeGlobalsAAPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: Float2IntPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerConstantIntrinsicsPass
@@ -219,6 +231,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VecClonePass
+; CHECK-POSTLINK-O-NEXT: Running analysis: OptReportOptionsAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: LazyCallGraphAnalysis
@@ -281,7 +294,13 @@
 ; end INTEL_CUSTOMIZATION
 
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
-; CHECK-POSTLINK-O-NEXT: Running pass: InjectTLIMappings
+; INTEL_CUSTOMIZATION
+; LoopVectorizePass is disabled by default
+; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-POSTLINK-O2-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-O3-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
+; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
@@ -289,10 +308,19 @@
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-POSTLINK-O3-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-POSTLINK-Os-NEXT: Running pass: SLPVectorizerPass
+; INTEL_CUSTOMIZATION
+; CHECK-POSTLINK-O2-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-Os-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-O2-NEXT: Running pass: SROAPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: SROAPass
+; CHECK-POSTLINK-Os-NEXT: Running pass: SROAPass
+; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VectorCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopUnrollPass
+; CHECK-POSTLINK-O-NEXT: Running pass: SROAPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: WarnMissedTransformationsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
@@ -305,7 +333,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass

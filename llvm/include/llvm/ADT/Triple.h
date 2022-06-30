@@ -181,7 +181,15 @@ public:
     SPIRSubArch_gen,
     SPIRSubArch_x86_64,
 
-    PPCSubArch_spe
+    PPCSubArch_spe,
+
+    // SPIR-V sub-arch corresponds to its version.
+    SPIRVSubArch_v10,
+    SPIRVSubArch_v11,
+    SPIRVSubArch_v12,
+    SPIRVSubArch_v13,
+    SPIRVSubArch_v14,
+    SPIRVSubArch_v15,
   };
   enum VendorType {
     UnknownVendor,
@@ -931,7 +939,14 @@ public:
 
   /// Tests whether the target is x86 (32- or 64-bit).
   bool isX86() const {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    return getArch() == Triple::x86 || getArch() == Triple::x86_64 ||
+           getArch() == Triple::x86_64_xucc;
+#else // INTEL_FEATURE_XUCC
     return getArch() == Triple::x86 || getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Tests whether the target is VE
@@ -977,7 +992,7 @@ public:
   }
 
   /// Tests if the environment supports dllimport/export annotations.
-  bool hasDLLImportExport() const { return isOSWindows() || isPS4(); }
+  bool hasDLLImportExport() const { return isOSWindows() || isPS(); }
 
   /// @}
   /// @name Mutators

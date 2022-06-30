@@ -1,6 +1,6 @@
 //==--- DataPerBarrierPass.h - Detect values dependent on TIDs - C++ -*-----==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,13 +14,16 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
 
 /// Collect data on barrier/fiber/dummy barrier instructions.
 class DataPerBarrier {
 public:
+  using BBSet = CompilationUtils::BBSet;
+  using InstSet = CompilationUtils::InstSet;
+
   typedef struct {
     InstSet RelatedBarriers;
   } BarrierRelated;
@@ -29,7 +32,7 @@ public:
     SyncType Type;
   } BarrierData;
 
-  using BasicBlock2BasicBlockSetMap = MapVector<BasicBlock *, BasicBlockSet>;
+  using BasicBlock2BBSetMap = MapVector<BasicBlock *, BBSet>;
   using InstructionSetPerFunctionMap = MapVector<Function *, InstSet>;
   using Barrier2BarrierSetMap = MapVector<Instruction *, BarrierRelated>;
   using BarrierDataPerBarrierMap = MapVector<Instruction *, BarrierData>;
@@ -77,7 +80,7 @@ public:
   /// Return predecessors of a given basic block.
   /// BB pointer to basic block.
   /// Returns basic blocks set of predecessors.
-  BasicBlockSet &getPredecessors(BasicBlock *BB) {
+  BBSet &getPredecessors(BasicBlock *BB) {
     auto iter = PredecessorMap.find(BB);
     if (iter != PredecessorMap.end())
       return iter->second;
@@ -88,7 +91,7 @@ public:
   /// Return Successors of given basic block.
   /// BB pointer to basic block.
   /// Returns basic blocks set of Successors.
-  BasicBlockSet &getSuccessors(BasicBlock *BB) {
+  BBSet &getSuccessors(BasicBlock *BB) {
     assert(SuccessorMap.count(BB) && "basic block has no successor data!");
     return SuccessorMap[BB];
   }
@@ -122,7 +125,7 @@ private:
 
   /// Calculate Predecessors of given basic block.
   /// BB pointer to basic block.
-  BasicBlockSet &FindPredecessors(BasicBlock *BB);
+  BBSet &FindPredecessors(BasicBlock *BB);
 
   /// Calculate Successors of given basic block.
   /// BB pointer to basic block.
@@ -139,8 +142,8 @@ private:
   // Analysis Data for pass user.
   InstructionSetPerFunctionMap SyncsPerFuncMap;
   BarrierDataPerBarrierMap DataPerBarrierMap;
-  BasicBlock2BasicBlockSetMap PredecessorMap;
-  BasicBlock2BasicBlockSetMap SuccessorMap;
+  BasicBlock2BBSetMap PredecessorMap;
+  BasicBlock2BBSetMap SuccessorMap;
   Barrier2BarrierSetMap BarrierPredecessorsMap;
 };
 
@@ -183,7 +186,6 @@ class DataPerBarrierAnalysis
 public:
   using Result = DataPerBarrier;
   Result run(Module &M, ModuleAnalysisManager &MAM);
-  static StringRef name() { return "Intel Kernel DataPerBarrier Analysis"; }
 };
 
 /// Printer pass for DataPerBarrier.

@@ -214,7 +214,14 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
   if (!Triple.isX86())
     return ""; // This routine is only handling x86 targets.
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool Is64Bit = (Triple.getArch() == llvm::Triple::x86_64 ||
+                  Triple.getArch() == llvm::Triple::x86_64_xucc);
+#else // INTEL_FEATURE_XUCC
   bool Is64Bit = Triple.getArch() == llvm::Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Need target hooks.
   if (Triple.isOSDarwin()) {
@@ -224,13 +231,19 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     // Simulators can still run on 10.11 though, like Xcode.
     if (Triple.isMacOSX() && !Triple.isOSVersionLT(10, 12))
       return "penryn";
+
+    if (Triple.isDriverKit())
+      return "nehalem";
+
     // The oldest x86_64 Macs have core2/Merom; the oldest x86 Macs have Yonah.
     return Is64Bit ? "core2" : "yonah";
   }
 
-  // Set up default CPU name for PS4 compilers.
+  // Set up default CPU name for PS4/PS5 compilers.
   if (Triple.isPS4())
     return "btver2";
+  if (Triple.isPS5())
+    return "znver2";
 
   // On Android use targets compatible with gcc
   if (Triple.isAndroid())
@@ -389,5 +402,21 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
+  }
+
+  // Enable/disable straight line speculation hardening.
+  if (Arg *A = Args.getLastArg(options::OPT_mharden_sls_EQ)) {
+    StringRef Scope = A->getValue();
+    if (Scope == "all") {
+      Features.push_back("+harden-sls-ijmp");
+      Features.push_back("+harden-sls-ret");
+    } else if (Scope == "return") {
+      Features.push_back("+harden-sls-ret");
+    } else if (Scope == "indirect-jmp") {
+      Features.push_back("+harden-sls-ijmp");
+    } else if (Scope != "none") {
+      D.Diag(diag::err_drv_unsupported_option_argument)
+          << A->getOption().getName() << Scope;
+    }
   }
 }

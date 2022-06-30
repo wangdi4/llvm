@@ -41,38 +41,38 @@
 // CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xd8]
                tile16move %zmm16, %tmm19
 
-// CHECK:      tilemovrowe %xmm24, %tmm19, %zmm22
+// CHECK:      tilemovrow %xmm24, %tmm19, %zmm22
 // CHECK: encoding: [0x62,0xa2,0x3c,0x40,0x4a,0xf3]
-               tilemovrowe %xmm24, %tmm19, %zmm22
+               tilemovrow %xmm24, %tmm19, %zmm22
 
-// CHECK:      tilemovrowe %xmm24, %tmm2, %zmm22
+// CHECK:      tilemovrow %xmm24, %tmm2, %zmm22
 // CHECK: encoding: [0x62,0xe2,0x3c,0x40,0x4a,0xf2]
-               tilemovrowe %xmm24, %tmm2, %zmm22
+               tilemovrow %xmm24, %tmm2, %zmm22
 
-// CHECK:      tilemovrowe %ecx, %tmm19, %zmm22
+// CHECK:      tilemovrow %ecx, %tmm19, %zmm22
 // CHECK: encoding: [0x62,0xa2,0x75,0x48,0x4a,0xf3]
-               tilemovrowe %ecx, %tmm19, %zmm22
+               tilemovrow %ecx, %tmm19, %zmm22
 
-// CHECK:      tilemovrowe %ecx, %tmm2, %zmm22
+// CHECK:      tilemovrow %ecx, %tmm2, %zmm22
 // CHECK: encoding: [0x62,0xe2,0x75,0x48,0x4a,0xf2]
-               tilemovrowe %ecx, %tmm2, %zmm22
+               tilemovrow %ecx, %tmm2, %zmm22
 
-// CHECK:      tilemovrowe $123, %tmm19, %zmm22
+// CHECK:      tilemovrow $123, %tmm19, %zmm22
 // CHECK: encoding: [0x62,0xa3,0x7d,0x48,0x07,0xf3,0x7b]
-               tilemovrowe $123, %tmm19, %zmm22
+               tilemovrow $123, %tmm19, %zmm22
 
-// CHECK:      tilemovrowe $123, %tmm2, %zmm22
+// CHECK:      tilemovrow $123, %tmm2, %zmm22
 // CHECK: encoding: [0x62,0xe3,0x7d,0x48,0x07,0xf2,0x7b]
-               tilemovrowe $123, %tmm2, %zmm22
+               tilemovrow $123, %tmm2, %zmm22
 
-// CHECK:      tilemovrowe %xmm24, %tmm14, %zmm22
+// CHECK:      tilemovrow %xmm24, %tmm14, %zmm22
 // CHECK: encoding: [0x62,0xc2,0x3c,0x40,0x4a,0xf6]
-               tilemovrowe %xmm24, %tmm14, %zmm22
+               tilemovrow %xmm24, %tmm14, %zmm22
 
-// CHECK:      tilemovrowe %edx, %tmm14, %zmm22
+// CHECK:      tilemovrow %edx, %tmm14, %zmm22
 // CHECK: encoding: [0x62,0xc2,0x6d,0x48,0x4a,0xf6]
-               tilemovrowe %edx, %tmm14, %zmm22
+               tilemovrow %edx, %tmm14, %zmm22
 
-// CHECK:      tilemovrowe $123, %tmm14, %zmm22
+// CHECK:      tilemovrow $123, %tmm14, %zmm22
 // CHECK: encoding: [0x62,0xc3,0x7d,0x48,0x07,0xf6,0x7b]
-               tilemovrowe $123, %tmm14, %zmm22
+               tilemovrow $123, %tmm14, %zmm22

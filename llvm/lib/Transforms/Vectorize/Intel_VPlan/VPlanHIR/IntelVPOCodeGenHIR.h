@@ -216,6 +216,11 @@ public:
   /// scalar op and insertelement instructions into the then branch.
   void serializeInstruction(const VPInstruction *VPInst, RegDDRef *Mask);
 
+  /// Serialize integer div/rem instructions if the divisor is not safe.
+  /// Returns true if the serialization happened and false otherwise.
+  bool serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
+                       OptReportStatsTracker &Stats);
+
   /// Scalarize the given uniform instruction that should not be widened using
   /// operands for lane 0. If Mask is non-null then predicated scalarization is
   /// done on-the-fly by creating a HLIf for !AllZeroCheck(Mask) and inserting
@@ -390,13 +395,20 @@ public:
   }
 
   void dropExternalValsFromMaps() {
-    for (auto It : VPValsToFlushForVF) {
+    for (auto &It : VPValsToFlushForVF) {
       const VPValue *V = It.first;
       assert((isa<VPExternalDef>(V) || isa<VPConstant>(V)) &&
              "Unknown external VPValue.");
-
       VPValWideRefMap.erase(V);
       VPValScalRefMap.erase(V);
+
+      if (!isa<VPExternalDef>(V))
+        continue;
+      // Associate current topmost VPLoop with entries in VPValsToFlushForVF map
+      // that do not have one associated.
+      for (auto &Pair : It.second)
+        if (Pair.second == nullptr)
+          Pair.second = CurTopVPLoop;
     }
   }
 
@@ -508,9 +520,11 @@ public:
     return UnitStrideRefSet.count(Ref);
   }
 
-  // Widen Ref to specified VF if needed and return the widened ref.
+  // Widen Ref to specified VF if needed and return the widened ref. IsUniform
+  // flag is true if the value in Ref is uniform in which case a broadcast
+  // either implicit or explicit is all that is needed.
   RegDDRef *widenRef(const RegDDRef *Ref, unsigned VF,
-                     bool LaneZeroOnly = false);
+                     bool LaneZeroOnly = false, bool IsUniform = false);
 
   // Return the widened DDRef corresponding to VPVal - when we enable full
   // VPValue based codegen, this function will generate the widened DDRef
@@ -657,6 +671,9 @@ private:
   // Main vector loop
   HLLoop *MainLoop;
 
+  // Current topmost VPLoop
+  const VPLoop *CurTopVPLoop = nullptr;
+
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
 
@@ -690,8 +707,14 @@ private:
   // different VPlans. But when generating code for a VPlan we can't use the
   // values generated in another VPlan, due to VFs mismatch and/or domination
   // reasons. The VPPushVF/VPPopVF define the bounds between VPlans so we use
-  // them to drop those maps
-  DenseMap<const VPValue *, RegDDRef *> VPValsToFlushForVF;
+  // them to drop those maps.
+  // We reuse this map to mark liveout symbases assigned to DDRefs corresponding
+  // to VPExternalDefs thus we keep those DDRefs attaching a set of them to each
+  // VPExternalDef due to in some cases we can have more than one symbase
+  // generated (e.g. uniform IFs).
+  DenseMap<const VPValue *,
+           SmallVector<std::pair<RegDDRef *, const VPLoop *>, 2>>
+      VPValsToFlushForVF;
 
   OptReportBuilder &ORBuilder;
   OptReportStatsTracker NonLoopInstStats;
@@ -886,9 +909,14 @@ private:
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
   // generating VF wide constructs. If Widen is false, we generate scalar
-  // constructs for lane given in ScalarLaneID.
+  // constructs for lane given in ScalarLaneID. The OnlyExistingScalarOps
+  // is meaningful when Widen is false and its meaning is as follows.
+  // If the scalar DDRef does not exist, false means that we should read wide
+  // DDRef from the corresponding map and extract the scalar DDRef from it,
+  // true means we return without generating scalar instruction.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask, bool Widen,
-                   unsigned ScalarLaneID = -1);
+                   unsigned ScalarLaneID = -1,
+                   bool OnlyExistingScalarOps = true);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.

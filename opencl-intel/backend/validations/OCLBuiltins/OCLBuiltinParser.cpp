@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,22 +14,19 @@
 
 #define DEBUG_TYPE "OCLBuiltinParser"
 
+#include "OCLBuiltinParser.h"
+#include "Exception.h"
 #include "assert.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/Regex.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include <iostream>
 #include <map>
 #include <sstream>
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/ADT/SmallVector.h"
-
-#include "Exception.h"
-#include "OCLBuiltinParser.h"
-
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
-#include "FunctionDescriptor.h"
-
-#include <iostream>
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;

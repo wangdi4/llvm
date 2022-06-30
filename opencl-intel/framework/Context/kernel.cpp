@@ -16,6 +16,8 @@
 #include "Context.h"
 #include "program.h"
 #include "fe_compiler.h"
+#include "program_for_link.h"
+#include "program_with_source.h"
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
 #include "svm_buffer.h"
@@ -810,6 +812,14 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
     // set the kernel prototype for the current kernel based on its information
     if (NULL != pDeviceKernel)
     {
+        for(auto progKernelNames : m_pProgram->getWithSourceKernelName()){
+            auto Begin = progKernelNames.begin();
+            auto End = progKernelNames.end();
+            if (std::find(Begin, End, m_sKernelPrototype.m_szKernelName) != End){
+                m_KernelBuiltWithSource = true;
+                break;
+            }
+        }
         SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize, maxArgumentBufferAlignment);
         SetKernelArgumentInfo(pDeviceKernel);
     }
@@ -1314,6 +1324,15 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
 {
     size_t stParamSize;
     const void* pValue;
+
+    const SharedPtr<ProgramWithSource> &ProgramSource =
+        GetProgram().DynamicCast<ProgramWithSource>();
+    const SharedPtr<ProgramForLink> &ProgramLink =
+        GetProgram().DynamicCast<ProgramForLink>();
+    if (!ProgramLink && !ProgramSource)
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+    if (ProgramLink && !m_KernelBuiltWithSource)
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
 
     if ( m_vArgumentsInfo.empty() )
     {

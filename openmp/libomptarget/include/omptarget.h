@@ -1,4 +1,21 @@
 //===-------- omptarget.h - Target independent OpenMP target RTL -- C++ -*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -122,6 +139,14 @@ enum TargetAllocTy : int32_t {
 };
 
 #if INTEL_COLLAB
+struct __tgt_interop_obj {
+  int64_t device_id; // OpenMP device id
+  int64_t device_code; // Encoded device id
+  int32_t is_async; // Whether it is for asynchronous operation
+  void *async_obj; // Pointer to the asynchronous object
+  void (*async_handler)(void *); // Callback function for asynchronous operation
+  int32_t plugin_interface; // Plugin selector
+};
 #if INTEL_CUSTOMIZATION
 ///
 /// OpenMP 5.1 interop support types
@@ -156,6 +181,17 @@ typedef enum omp_interop_rc {
     omp_irc_other = -6
 } omp_interop_rc_t;
 
+typedef enum omp_interop_fr {
+  omp_ifr_cuda = 1,
+  omp_ifr_cuda_driver = 2,
+  omp_ifr_opencl = 3,
+  omp_ifr_sycl = 4,
+  omp_ifr_hip = 5,
+  omp_ifr_level_zero = 6,
+  omp_ifr_last = 7
+} omp_interop_fr_t;
+
+
 enum OmpIprValueTy : int32_t {
   OMP_IPR_VALUE_INT = 0,
   OMP_IPR_VALUE_PTR,
@@ -184,6 +220,12 @@ struct __tgt_interop {
   void *DeviceContext;
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
+  // The following field are temporary intel extensions
+  // used for enabling transition from Original Intel interop extension
+  // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
+  // they will be removed.  Simpler to add here then add it in RTLProperty which
+  // require changes in plugin apis which will have to be obsoleted later.
+  __tgt_interop_obj *intel_tmp_ext;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -209,22 +251,6 @@ enum InteropPluginInterfaceTy : int32_t {
   INTEROP_PLUGIN_OPENCL = 1,
   INTEROP_PLUGIN_LEVEL0,
   INTEROP_PLUGIN_X86_64
-};
-
-struct __tgt_interop_obj {
-  int64_t device_id; // OpenMP device id
-  int64_t device_code; // Encoded device id
-  bool is_async; // Whether it is for asynchronous operation
-  void *async_obj; // Pointer to the asynchronous object
-  void (*async_handler)(void *); // Callback function for asynchronous operation
-  void *queue; // Opaque handle to device-dependent offload queue
-  void *platform_handle; // Opaque handle:  For opencl  cl_context,
-                         //for level0  ze_driver_handle_t
-  void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
-                       // Not valid for opencl
-  void *context_handle; // Opaque handle:  For level0 ze_context_handle_t.
-                       // Not valid for opencl
-  int32_t plugin_interface; // Plugin selector
 };
 
 struct __tgt_memory_info {
@@ -440,6 +466,11 @@ EXTERN void *ompx_target_aligned_alloc_host(
     size_t align, size_t size, int device_num);
 EXTERN void *ompx_target_aligned_alloc_shared(
     size_t align, size_t size, int device_num);
+/// Register/unregister Host Pointer
+EXTERN int ompx_target_register_host_pointer(
+    void *ptr, size_t size, int device_num);
+EXTERN void ompx_target_unregister_host_pointer(
+    void *ptr, int device_num);
 
 /// Get number of subdevices supported by the given device ID at the specified
 /// level
@@ -447,6 +478,11 @@ EXTERN int ompx_get_num_subdevices(int device_num, int level);
 
 EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels);
 EXTERN void ompx_kernel_batch_end(int device_num);
+
+/// Return OMP device information
+EXTERN int ompx_get_device_info(int device_num, int info_id,
+                                size_t info_size, void *info_value,
+                                size_t *info_size_ret);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
@@ -710,7 +746,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj);
 // Create an OpenMP 5.1 interop object.
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t device_id, int32_t interop_type, int32_t num_prefers,
-    intptr_t *prefer_ids);
+    int32_t *prefer_ids);
 
 // Release an OpenMP 5.1 interop object.
 EXTERN int __tgt_release_interop(omp_interop_t interop);

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,10 +13,6 @@
 // License.
 
 #include "CompilationUtils.h"
-#include "ImplicitArgsUtils.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
-#include "TypeAlignment.h"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
 
@@ -28,8 +24,12 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
@@ -44,9 +44,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
   const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
 
-  const std::string CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE = "vector-variant-failure";
-  const std::string CompilationUtils::ATTR_VALUE_FAILED_TO_VECTORIZE =
-      "failed to match a vector variant for an indirect call";
   const std::string CompilationUtils::ATTR_VALUE_FAILED_TO_LOWER_INDIRECT_CALL =
       "failed to find a masked vector variant for an indirect call";
 
@@ -579,8 +576,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // TODO Remove the block once OpenCL CPU BE compiler is able to handle
     // LLVM IR converted from SPIR-V correctly.
-    if(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(M))
-       return OclVersion::CL_VER_2_0;
+    if (llvm::CompilationUtils::isGeneratedFromOCLCPP(M))
+      return OclVersion::CL_VER_2_0;
 
     auto oclVersion =
         ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).OpenCLVersionList;
@@ -636,16 +633,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             return true;
 
     return false;
-  }
-
-  bool CompilationUtils::generatedFromSPIRV(const Module &M) {
-    /*
-    Example of the metadata
-    !spirv.Source = !{!0}
-    */
-    auto spirvSource =
-        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).SPIRVSourceList;
-    return spirvSource.hasValue();
   }
 
 Function *CompilationUtils::AddMoreArgsToFunc(

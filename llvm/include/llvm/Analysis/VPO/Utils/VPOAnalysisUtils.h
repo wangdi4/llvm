@@ -68,6 +68,15 @@ constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
 enum Kind { Kind_Local = 1, Kind_Global = 2 };
 } // namespace VPOParoptAtomicFreeReduction
 
+/// opencl address space.
+enum AddressSpace {
+  ADDRESS_SPACE_PRIVATE = 0,
+  ADDRESS_SPACE_GLOBAL = 1,
+  ADDRESS_SPACE_CONSTANT = 2,
+  ADDRESS_SPACE_LOCAL = 3,
+  ADDRESS_SPACE_GENERIC = 4
+};
+
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 
@@ -159,11 +168,18 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "SCALAR"
 ///      Id = QUAL_OMP_DEFAULTMAP_TO
 ///
-/// * Pointer to pointer operands to is/use_device_ptr clause. Example:
+/// * Pointer to pointer operands to linear, is/use_device_ptr, etc. clauses.
+///   Example:
 ///      FullName = "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"
 ///      BaseName = "QUAL.OMP.USE_DEVICE_PTR"
 ///      Modifier = "PTR_TO_PTR"
 ///      Id = QUAL_OMP_USE_DEVICE_PTR
+///
+/// * A function pointer is the base of the map-chain link. Example:
+///      FullName = "QUAL.OMP.MAP:FPTR"
+///      BaseName = "QUAL.OMP.MAP"
+///      Modifier = "FPTR"
+///      Id = QUAL_OMP_MAP
 ///
 /// * TASK modifier on REDUCTION clause. Example:
 ///      FullName = "QUAL.OMP.REDUCTION.ADD:TASK"
@@ -200,6 +216,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
   bool IsAggregate:1;
   bool IsPointer:1;
+  bool IsFunctionPointer:1;
   bool IsPointerToPointer:1;
   bool IsScalar:1;
   bool IsAlways:1;
@@ -221,6 +238,7 @@ private:
   bool IsMapAggr:1;
   // Map clause is for a link in an ongoing map chain.
   bool IsMapChainLink:1;
+
   bool IsIV:1;
 
   // Modidifers for init clause of the interop construct
@@ -265,6 +283,7 @@ public:
   void setIsMapChainLink()         { IsMapChainLink = true; }
   void setIsAggregate()            { IsAggregate = true; }
   void setIsPointer()              { IsPointer = true; }
+  void setIsFunctionPointer()      { IsFunctionPointer = true; }
   void setIsPointerToPointer()     { IsPointerToPointer = true; }
   void setIsScalar()               { IsScalar = true; }
   void setIsIV()                   { IsIV = true; }
@@ -309,6 +328,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool getIsAggregate() const { return IsAggregate; }
   bool getIsPointer() const { return IsPointer; }
+  bool getIsFunctionPointer() const { return IsFunctionPointer; }
   bool getIsPointerToPointer() const { return IsPointerToPointer; }
   bool getIsScalar() const { return IsScalar; }
   bool getIsIV() const { return IsIV; }

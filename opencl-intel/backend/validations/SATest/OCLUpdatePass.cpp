@@ -395,7 +395,7 @@ namespace Validation {
 
             // Calculate required buffer size
             llvm::TargetData TD(m_pModule);
-            size_t uiArraySize = TD.getTypeAllocSize(pLclBuff->getType()->getElementType());
+            size_t uiArraySize = TD.getTypeAllocSize(pLclBuff->getValueType());
             assert ( 0 != uiArraySize );
             // Now retrieve to the offset of the local buffer
             GetElementPtrInst* pLocalAddr =
@@ -859,7 +859,7 @@ namespace Validation {
 
                     // Calculate required buffer size
                     const ArrayType *pArray = dyn_cast<ArrayType>(pLclBuff->getType()->getElementType());
-                    unsigned int uiArraySize = pArray ? 1 : pLclBuff->getType()->getElementType()->getPrimitiveSizeInBits()/8;
+                    unsigned int uiArraySize = pArray ? 1 : pLclBuff->getValueType()->getPrimitiveSizeInBits()/8;
                     assert ( 0 != uiArraySize );
                     while ( NULL != pArray )
                     {

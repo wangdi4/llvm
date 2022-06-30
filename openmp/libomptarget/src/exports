@@ -82,8 +82,11 @@ VERS1.0 {
     ompx_target_aligned_alloc_device;
     ompx_target_aligned_alloc_host;
     ompx_target_aligned_alloc_shared;
+    ompx_target_register_host_pointer;
+    ompx_target_unregister_host_pointer;
     ompx_kernel_batch_begin;
     ompx_kernel_batch_end;
+    ompx_get_device_info;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;

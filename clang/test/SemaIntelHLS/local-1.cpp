@@ -93,7 +93,7 @@ void foo() {
 //CHECK-NEXT: value: Int 2
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
-//CHECK_NEXT: IntegerLiteral{{.*}}2{{$}}
+//CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 
 //CHECK: VarDecl{{.*}}var_two
 //CHECK: MemoryAttr{{.*}}Implicit
@@ -225,7 +225,7 @@ struct foo_five {
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK: FieldDecl{{.*}} f2
 //CHECK-NEXT: MemoryAttr
-//CHECK_NEXT: MaxReplicatesAttr
+//CHECK-NEXT: MaxReplicatesAttr
 //CHECK: ConstantExpr
 //CHECK-NEXT: value: Int 2
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}

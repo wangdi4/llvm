@@ -40,7 +40,7 @@ entry:
 
 ; Target Construct
 ; CHECK: define internal void @__omp_offloading_{{.*}}__Z5lbm_1v_l7(i64 {{.*}})
-; CHECK: {{.*}}.fpriv = alloca i32, align 1
+; CHECK: {{.*}}.fpriv = alloca i32, align 4
 
   %2 = load i32, i32* @NY, align 4, !tbaa !5
   %add = add i32 %2, 2

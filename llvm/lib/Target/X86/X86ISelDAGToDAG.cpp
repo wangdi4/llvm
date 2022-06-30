@@ -547,7 +547,7 @@ namespace {
 
       unsigned StoreSize = N->getMemoryVT().getStoreSize();
 
-      if (N->getAlignment() < StoreSize)
+      if (N->getAlign().value() < StoreSize)
         return false;
 
       switch (StoreSize) {

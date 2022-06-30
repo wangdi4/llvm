@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,11 +15,11 @@
 #ifndef WORK_GROUP_BUILTINS_NAMES
 #define WORK_GROUP_BUILTINS_NAMES
 
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include <map>
 #include <string>
-#include "FunctionDescriptor.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/DerivedTypes.h"
 
 namespace Validation{
 

@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-peeling -hir-verify=0 -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-peeling -hir-verify=0 -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -vplan-enable-peeling -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-peeling -hir-details < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to show issue with ref consistency when the peeled memref has a nested
 ; blob that is defined in the parent loop of the loop being vectorized. When creating
@@ -11,15 +11,11 @@
 
 ; CHECK:                    |   %1 = (%lpp)[i1];
 
-; CHECK:                    |   %NBConv = sext.<4 x i32>.<4 x i64>(%0);
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %NBConv {sb:23}
-; CHECK-NEXT:               |   <RVAL-REG> NON-LINEAR <4 x i32> %0 {sb:6}
-
-; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[%NBConv]));
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:24}
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> %NBConv]) inbounds  {sb:22}
+; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[sext.i32.i64(%0)]));
+; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:23}
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> sext.i32.i64(%0)]) inbounds  {sb:22}
 ; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1 {sb:10}
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR <4 x i64> %NBConv {sb:23}
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 %0 {sb:6}
 ;
 define  void @baz(i64**  %lpp, i32* %off) {
 entry:

@@ -190,6 +190,14 @@ EXTERN double omp_get_wtime(void) {
   return 0.0;
 }
 
+EXTERN void *malloc(size_t size) {
+  return __kmpc_alloc(0, size, NULL);
+}
+
+EXTERN void free(void *ptr) {
+  __kmpc_free(0, ptr, NULL);
+}
+
 #if !KMP_ASSUME_SIMPLE_SPMD_MODE
 // Initialize global barrier
 EXTERN void kmp_global_barrier_init(void) {

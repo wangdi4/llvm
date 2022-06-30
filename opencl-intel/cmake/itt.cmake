@@ -17,13 +17,13 @@ if (OPENCL_INTREE_BUILD)
   set(EXTERNALS_DIR ${PROJECT_SOURCE_DIR}/externals)
 endif()
 
-# disable "implicit-fallthrough" and "self-assign" warnings in
+# disable "implicit-fallthrough", "self-assign" and "static-in-inline"(windows only) warnings in
 # itt/ittnotify/ittnotify_static.c
-if (NOT WIN32)
-  set_source_files_properties(${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c
-                              PROPERTIES COMPILE_FLAGS
-                              "-Wno-implicit-fallthrough -Wno-self-assign")
-endif (NOT WIN32)
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
+set_source_files_properties(${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c
+                            PROPERTIES COMPILE_FLAGS
+                            "-Wno-implicit-fallthrough -Wno-self-assign -Wno-static-in-inline")
+endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 
 include_directories( SYSTEM ${EXTERNALS_DIR}/itt/include
                      ${EXTERNALS_DIR}/itt/ittnotify/ )

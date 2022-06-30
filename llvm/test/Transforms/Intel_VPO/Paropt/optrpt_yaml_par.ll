@@ -21,7 +21,7 @@
 ; }
 ;
 ; CHECK: Pass:{{[ ]*}}openmp
-; CHECK: Construct:{{[ ]*}}master
+; CHECK: Construct:{{[ ]*}}masked
 ; CHECK: String:{{[ ]*}}' construct transformed'
 ; CHECK: Pass:{{[ ]*}}openmp
 ; CHECK: Construct:{{[ ]*}}parallel

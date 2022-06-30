@@ -17,6 +17,8 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+class AssumptionCache;
+
 /// Change the way arguments are passed to kernels.
 /// It changes the kernel to receive as arguments a single buffer which contains
 /// the the kernel's original and implicit arguments. It loads the arguments and
@@ -29,7 +31,9 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, bool UseTLSGlobals, ImplicitArgsInfo *IAInfo);
+  bool runImpl(Module &M, bool UseTLSGlobals,
+               function_ref<AssumptionCache *(Function &F)> GetAC,
+               ImplicitArgsInfo *IAInfo);
 
 private:
   /// Creates a wrapper function for the given function that receives one buffer
@@ -37,8 +41,9 @@ private:
   /// from the buffer, creates a call to the given funciton with the loaded
   /// arguments.
   /// \param F The kernel which is wrapped by the wrapper.
+  /// \param AC AssumptionCache.
   /// \returns true if changed.
-  bool runOnFunction(Function *F);
+  bool runOnFunction(Function *F, AssumptionCache *AC);
 
   /// Creates a new function that receives as argument a single buffer based on
   /// the given function's name, return type and calling convention.
@@ -78,8 +83,8 @@ private:
   Type *getGIDWrapperArgType() const;
   Type *getRuntimeContextWrapperArgType() const;
 
-  /// Emptify wrapped kernel so that it only contains a ret instruction.
-  void emptifyWrappedKernel(Function *F);
+  /// Create a dummy ret instruction in wrapped kernel.
+  void createDummyRetWrappedKernel(Function *Wrapper, Function *F);
 
 private:
   /// The llvm module this pass needs to update.

@@ -29,6 +29,7 @@
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DemandedBits.h"  // INTEL
 #include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopAccessAnalysis.h"
@@ -232,8 +233,12 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     // as we need to extract last value not from (VF-1)th lane but from
     // the lane defined by the execution mask.
     case VPInstruction::PrivateFinalArray:
-    case VPInstruction::PrivateLastValueNonPOD:
       return false;
+    case VPInstruction::PrivateFinalUncond:
+    case VPInstruction::PrivateFinalUncondMem:
+      // Until CG for extract vector by non-const index is implemented.
+      if (I.getType()->isVectorTy())
+        return false;
     }
   return true;
 }
@@ -285,7 +290,9 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
             return VPInst.getOpcode() == VPInstruction::PrivateFinalCond ||
                    VPInst.getOpcode() == VPInstruction::PrivateFinalCondMem ||
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMasked ||
-                   VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem;
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem ||
+                   VPInst.getOpcode() ==
+                       VPInstruction::PrivateLastValueNonPODMasked;
           }),
       [](VPInstruction &VPInst) { return &VPInst; });
 
@@ -300,8 +307,9 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
     VPBasicBlock *VPBBFalse;
     VPInstruction *NextInst = &*std::next(VPInst->getIterator());
 
-    if (VPInst->getOpcode() == VPInstruction::PrivateFinalCondMem ||
-        VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
+    switch (VPInst->getOpcode()) {
+    case VPInstruction::PrivateFinalCondMem:
+    case VPInstruction::PrivateFinalMaskedMem: {
       assert(VPInst->getNumUsers() == 1 &&
              "Expected exactly one user of memory private finalization "
              "instruction");
@@ -309,9 +317,15 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
              isa<VPLoadStoreInst>(NextInst) &&
              "Expected a store instruction next after memory private "
              "finalization instruction");
+      // PrivateFinalCondMem and PrivateFinalMaskedMem requires additional
+      // assertion checks before VPBBFalse can be generated.
+      LLVM_FALLTHROUGH;
+    }
+    case VPInstruction::PrivateLastValueNonPODMasked:
       VPBBFalse = VPBlockUtils::splitBlock(
           VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
-    } else {
+      break;
+    default: {
       VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
                                            VPLI, DT, PDT);
       Builder.setInsertPoint(&*VPBBFalse->begin());
@@ -320,6 +334,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
       Phi->addIncoming(VPInst->getOperand(2), VPBB);
       Phi->addIncoming(VPInst, VPBBTrue);
       DA->updateDivergence(*Phi);
+      break;
+    }
     }
 
     Builder.setInsertPoint(VPBB);
@@ -328,6 +344,9 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
     if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked ||
         VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(1));
+    } else if (VPInst->getOpcode() ==
+               VPInstruction::PrivateLastValueNonPODMasked) {
+      CmpInst = cast<VPCmpInst>(VPInst->getOperand(2));
     } else {
       // The index operand of the VPPrivateFinalCond is initialized with -1,
       // so comparing it with -1 we check the lanes where it was re-assigned.
@@ -394,7 +413,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA,
+                               BFI);
   std::string VPlanName = "";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
@@ -425,6 +445,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     return false;
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
+
+  // Transform masked integer div/rem before CM.
+  LVP.blendWithSafeValue();
 
   unsigned VF;
   VPlanVector *Plan;
@@ -509,15 +532,21 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain)
         addOptReportRemarksForMainPlan(WRLp, PlanDescr);
 
-      // Capture opt-report remarks for vectorized remainder loops.
-      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
-          isa<VPlanVector>(Plan))
-        addOptReportRemarksForVecRemainder(PlanDescr);
+      // Capture opt-report remarks for remainder loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder) {
+        if (isa<VPlanVector>(Plan))
+          addOptReportRemarksForVecRemainder(PlanDescr);
+        else if (isa<VPlanScalar>(Plan))
+          addOptReportRemarksForScalRemainder(PlanDescr);
+      }
 
-      // Capture opt-report remarks for vectorized peel loops.
-      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel &&
-          isa<VPlanVector>(Plan))
-        addOptReportRemarksForVecPeel(PlanDescr);
+      // Capture opt-report remarks for peel loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
+        if (isa<VPlanVector>(Plan))
+          addOptReportRemarksForVecPeel(PlanDescr);
+        else if (isa<VPlanScalar>(Plan))
+          addOptReportRemarksForScalPeel(PlanDescr);
+      }
     }
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
@@ -980,6 +1009,22 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
                                           Twine(PlanDescr.getVF()).str());
 }
 
+void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
+    const CfgMergerPlanDescr &PlanDescr) {
+  assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTRemainder &&
+         "Only remainder loop plan descriptors expected here.");
+  auto *ScalarLpI =
+      cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
+  // TODO: Any other remarks for scalar peel/remainder loops? Should we report
+  // that they were not vectorized?
+  // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
+  OptReportStatsTracker::RemarkRecord R(25519u);
+  if (auto *ScalIRLp = dyn_cast<VPScalarRemainder>(ScalarLpI))
+    ScalIRLp->addOriginRemark(R);
+  else
+    cast<VPScalarRemainderHIR>(ScalarLpI)->addOriginRemark(R);
+}
+
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
     const CfgMergerPlanDescr &PlanDescr) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
@@ -996,6 +1041,20 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
   // Add remark about VF
   OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
                                           Twine(PlanDescr.getVF()).str());
+}
+
+void VPlanDriverImpl::addOptReportRemarksForScalPeel(
+    const CfgMergerPlanDescr &PlanDescr) {
+  assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
+         "Only peel loop plan descriptors expected here.");
+  auto *ScalarLpI =
+      cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
+  // remark #25518: PEEL LOOP FOR VECTORIZATION.
+  OptReportStatsTracker::RemarkRecord R(25518u);
+  if (auto *ScalIRLp = dyn_cast<VPScalarPeel>(ScalarLpI))
+    ScalIRLp->addOriginRemark(R);
+  else
+    cast<VPScalarPeelHIR>(ScalarLpI)->addOriginRemark(R);
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
@@ -1125,6 +1184,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<BlockFrequencyInfoWrapperPass>();
 
   AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
@@ -1171,9 +1231,10 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
   return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
-                      TTI, TLI, nullptr, nullptr, FatalErrorHandler);
+                      TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
 PreservedAnalyses VPlanDriverPass::run(Function &F,
@@ -1196,14 +1257,14 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI,    *SE,
+    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI, *SE,
                                       *TLI, *TTI, BFI, nullptr /* BPI */,
                                       nullptr /* MemorySSA */};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
-                    TLI, nullptr, nullptr, nullptr))
+                    TLI, BFI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -1236,6 +1297,7 @@ bool VPlanDriverImpl::runImpl(
   this->ORE = ORE;
   this->TTI = TTI;
   this->TLI = TLI;
+  this->BFI = BFI;
   this->WR = WR;
   this->FatalErrorHandler = FatalErrorHandler;
 
@@ -1421,6 +1483,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 //#endif
   }
 
+  if (!Lp->isInnermost()) {
+    SmallVector<HLLoop *, 8> InnerLoops;
+    HIRF->getHLNodeUtils().gatherAllLoops(Lp, InnerLoops);
+    unsigned NumMultiExitLps =
+        llvm::count_if(InnerLoops, [](HLLoop *L) { return L->isMultiExit(); });
+    if (Lp->isMultiExit())
+      NumMultiExitLps++;
+    if (NumMultiExitLps > 1) {
+      LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot support multiple "
+                           "multi-exit loops.\n");
+      return false;
+    }
+  }
+
   // If region has SIMD directive mark then mark source loop with SIMD directive
   // so that WarnMissedTransforms pass will detect that this loop is not
   // vectorized later
@@ -1431,7 +1507,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(ORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI);
+  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI, Lp);
 
   HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
@@ -1510,6 +1586,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
+  // Transform masked integer div/rem before CM.
+  LVP.blendWithSafeValue();
+
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;
   VPlanVector *Plan;
@@ -1585,15 +1664,21 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         addOptReportRemarksForMainPlan(WRLp, PlanDescr);
       }
 
-      // Capture opt-report remarks for vectorized remainder loops.
-      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
-          isa<VPlanVector>(Plan))
-        addOptReportRemarksForVecRemainder(PlanDescr);
+      // Capture opt-report remarks for remainder loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder) {
+        if (isa<VPlanVector>(Plan))
+          addOptReportRemarksForVecRemainder(PlanDescr);
+        else if (isa<VPlanScalar>(Plan))
+          addOptReportRemarksForScalRemainder(PlanDescr);
+      }
 
-      // Capture opt-report remarks for vectorized peel loops.
-      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel &&
-          isa<VPlanVector>(Plan))
-        addOptReportRemarksForVecPeel(PlanDescr);
+      // Capture opt-report remarks for peel loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
+        if (isa<VPlanVector>(Plan))
+          addOptReportRemarksForVecPeel(PlanDescr);
+        else if (isa<VPlanScalar>(Plan))
+          addOptReportRemarksForScalPeel(PlanDescr);
+      }
     }
 
     LVP.emitPeelRemainderVPLoops(VF, UF);

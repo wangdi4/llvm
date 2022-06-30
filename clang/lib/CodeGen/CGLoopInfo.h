@@ -124,6 +124,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
+  /// Value for llvm.loop.vector_always_assert.enable metadata.
+  bool VectorizeAlwaysAssertEnable;
+
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
@@ -256,6 +259,10 @@ struct LoopAttributes {
 
   /// Flag for llvm.loop.fusion.disable metatdata.
   bool SYCLNofusionEnable;
+
+  /// Value for fpga_pipeline variant and metadata.
+  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
+      SYCLIntelFPGAPipeline;
 
   /// Value for whether the loop is required to make progress.
   bool MustProgress;
@@ -488,6 +495,10 @@ public:
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
   }
+  /// Set next pushed loop  'vector_always.enable'
+  void setVectorizeAlwaysAssertEnable() {
+    StagedAttrs.VectorizeAlwaysAssertEnable = true;
+  }
   /// Set next pushed loop  'vector_aligned.enable'
   void setVectorizeAlignedEnable() {
     StagedAttrs.VectorizeAlignedEnable = true;
@@ -632,6 +643,11 @@ public:
 
   /// Set flag of nofusion for the next loop pushed.
   void setSYCLNofusionEnable() { StagedAttrs.SYCLNofusionEnable = true; }
+
+  /// Set variant and value of fpga_pipeline for the next loop pushed.
+  void setSYCLIntelFPGAPipeline(const char *Var, unsigned int Value) {
+    StagedAttrs.SYCLIntelFPGAPipeline.push_back({Var, Value});
+  }
 
   /// Set no progress for the next loop pushed.
   void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }

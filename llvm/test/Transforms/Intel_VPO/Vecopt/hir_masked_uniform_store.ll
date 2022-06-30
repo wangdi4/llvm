@@ -47,7 +47,7 @@
 ; generated.
 
 ; Check HIR
-; CHECK: DO i2 = 0, {{.*}} + -1, 4   <DO_LOOP>
+; CHECK: DO i2 = 0, {{.*}}, 4   <DO_LOOP>
 ; CHECK-VPVAL:        [[Mask:%.*]] = {{.*}} >u 1;
 ; CHECK-VPVAL:        [[Load:%.*]] = (<4 x i32>*)(%yarrrr)[0][{{.*}}], Mask = @{[[Mask]]};
 ; CHECK-VPVAL:        (<4 x i32>*)(%ar)[0][{{.*}}] = [[Load]], Mask = @{[[Mask]]};

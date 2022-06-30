@@ -19,6 +19,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   CodeAlign.cpp
   CodeAlignOP.cpp
   CommuteCond.cpp
+  ReuseField.cpp
   DeleteField.cpp
   DeleteFieldOP.cpp
   ReorderFields.cpp
@@ -38,6 +39,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   MemInitTrimDown.cpp
   MemInitTrimDownOP.cpp
   MemManageTrans.cpp
+  MemManageTransOP.cpp
   PaddedPtrPropagation.cpp
   RemoveDTransTypeMetadata.cpp
   SOAToAOS.cpp

@@ -887,7 +887,9 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   ORBuilder(*CheckLoop).addOrigin("Probe loop for row-wise multiversioning");
 #endif
 
-  // Add ZTTs from the outer loops to make sure the accesses are safe:
+  // Add ZTTs from the outer loops to make sure the accesses are safe. This
+  // should be done on an outer if so that ZTTs aren't added directly to loops
+  // with unrelated bounds:
   //
   //    %rwmv.needcheck = 1;
   // + DO i1 = 0, %N1 + -1, 1   <DO_LOOP>
@@ -895,11 +897,13 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |   {
   // |      if (%rwmv.needcheck != 0)
   // |      {
-  // |         + Ztt: if (%N2 > 0 && %K > 0)
-  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
-  // |         |   + DO i3 = 0, %M2 + -1, 1   <DO_LOOP>
-  // |         |   + END LOOP
-  // |         + END LOOP
+  // |         if (%N2 > 0 && %K > 0)
+  // |         {
+  // |            + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |            |   + DO i3 = 0, %M2 + -1, 1   <DO_LOOP>
+  // |            |   + END LOOP
+  // |            + END LOOP
+  // |         }
   // |
   // |         %rwmv.needcheck = 0;
   // |      }
@@ -916,8 +920,10 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |      + END LOOP
   // |   }
   // + END LOOP
+  const HLNode *const PreZTTParent = CheckLoop->getParent();
   HLLoop *const ZTTLoop =
     NonInvariantCheckLoop ? NonInvariantCheckLoop : CheckLoop;
+  HLIf *ZTTIf = nullptr;
   for (const HLLoop *ParentLp                     = Lp->getParentLoop();
        ParentLp != SafeCheckLevelParent; ParentLp = ParentLp->getParentLoop()) {
     assert(ParentLp && "Lp should not be the outermost loop");
@@ -932,7 +938,19 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
           ParentLp->getLHSZttPredicateOperandDDRef(ZTTIter);
       const RegDDRef *const Right =
           ParentLp->getRHSZttPredicateOperandDDRef(ZTTIter);
-      ZTTLoop->addZttPredicate(*ZTTIter, Left->clone(), Right->clone());
+      if (!ZTTIf) {
+        if (ZTTLoop->hasZtt()) {
+          ZTTLoop->extractZtt();
+          ZTTIf = dyn_cast<HLIf>(ZTTLoop->getParent());
+          assert(ZTTIf);
+        } else {
+          ZTTIf = HNU.createHLIf(*ZTTIter, Left->clone(), Right->clone());
+          HNU.insertBefore(ZTTLoop, ZTTIf);
+          HNU.moveAsFirstThenChild(ZTTIf, ZTTLoop);
+          continue;
+        }
+      }
+      ZTTIf->addPredicate(*ZTTIter, Left->clone(), Right->clone());
     }
   }
 
@@ -967,21 +985,20 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
   // |   + END LOOP
   // + END LOOP
-  const HLNode *const PrePeelParent = CheckLoop->getParent();
   HLLoop *const PeelLoop            = CheckLoop->peelFirstIteration();
   auto *const FirstLoad             = cast<HLInst>(PeelLoop->getFirstChild());
   HNU.createAndReplaceTemp(FirstLoad->getLvalDDRef(), "rwmv.first");
   const RegDDRef *const First = FirstLoad->getLvalDDRef();
   PeelLoop->replaceByFirstIteration();
 
-  // Sometimes the process of peeling the loop introduces a new parent if for
-  // the check loop. If this happens, keep track of that if to add things
-  // outside of it if needed.
+  // Sometimes the process of peeling or adding outer ZTTs to the loop
+  // introduces a new parent if for the check loop. If this happens, keep track
+  // of that if to add things outside of it if needed.
   HLIf *OuterIf = nullptr;
-  if (CheckLoop->getParent() != PrePeelParent) {
+  if (CheckLoop->getParent() != PreZTTParent) {
     OuterIf = dyn_cast<HLIf>(CheckLoop->getParent());
     assert(OuterIf);
-    assert(OuterIf->getParent() == PrePeelParent);
+    assert(OuterIf->getParent() == PreZTTParent);
   }
 
   // Add the comparison to check that each value in the array is close to the
@@ -1134,37 +1151,40 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   // |   {
   // |      if (%rwmv.needcheck != 0)
   // |      {
-  // |         + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
-  // |         |   %rwmv.first = (%B)[%M2 * i2];
-  // |         |   %rwmv.allclose = 1;
-  // |         |
-  // |         |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
-  // |         |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
-  // |         |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
-  // |         |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
-  // |         |   |   if (%rwmv.absdiff >u 1.000000e-04)
-  // |         |   |   {
-  // |         |   |      %rwmv.allclose = 0;
-  // |         |   |   }
-  // |         |   + END LOOP
-  // |         |
-  // |         |   %rwmv.rowcase = 0;
-  // |         |   if (%rwmv.allclose != 0)
-  // |         |   {
-  // |         |      if (%rwmv.first == -1.0)
-  // |         |      {
-  // |         |         %rwmv.rowcase = 1;
-  // |         |      }
-  // |         |      else
-  // |         |      {
-  // |         |         if (%rwmv.first == 0.0)
-  // |         |         {
-  // |         |            %rwmv.rowcase = 2;
-  // |         |         }
-  // |         |      }
-  // |         |   }
-  // |         |   (rwmv.rowcases)[i2] = %rwmv.rowcase;
-  // |         + END LOOP
+  // |         if (%N2 > 0 && %K > 0)
+  // |         {
+  // |            + DO i2 = 0, %N2 + -1, 1   <DO_LOOP>
+  // |            |   %rwmv.first = (%B)[%M2 * i2];
+  // |            |   %rwmv.allclose = 1;
+  // |            |
+  // |            |   + DO i3 = 0, %M2 + -2, 1   <DO_LOOP>
+  // |            |   |   %rwmv.next = (%B)[%M2 * i2 + i3 + 1];
+  // |            |   |   %rwmv.diff = %rwmv.next  -  %rwmv.first;
+  // |            |   |   %rwmv.absdiff = @llvm.fabs.f64(%rwmv.diff);
+  // |            |   |   if (%rwmv.absdiff >u 1.000000e-04)
+  // |            |   |   {
+  // |            |   |      %rwmv.allclose = 0;
+  // |            |   |   }
+  // |            |   + END LOOP
+  // |            |
+  // |            |   %rwmv.rowcase = 0;
+  // |            |   if (%rwmv.allclose != 0)
+  // |            |   {
+  // |            |      if (%rwmv.first == -1.0)
+  // |            |      {
+  // |            |         %rwmv.rowcase = 1;
+  // |            |      }
+  // |            |      else
+  // |            |      {
+  // |            |         if (%rwmv.first == 0.0)
+  // |            |         {
+  // |            |            %rwmv.rowcase = 2;
+  // |            |         }
+  // |            |      }
+  // |            |   }
+  // |            |   (rwmv.rowcases)[i2] = %rwmv.rowcase;
+  // |            + END LOOP
+  // |         }
   // |
   // |         %rwmv.needcheck = 0;
   // |      }

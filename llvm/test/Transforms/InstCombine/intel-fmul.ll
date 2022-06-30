@@ -2,11 +2,14 @@
 ; This checks that loop-load-elim is preserving loop structure under NPM
 ; RUN: opt %s -passes='loop-load-elim,instcombine' -S | FileCheck %s
 ; RUN: opt %s -enable-new-pm=0 -instcombine -S | FileCheck %s
+; RUN: opt %s -passes='lto<O3>' -S | FileCheck --check-prefix=LTOO3 %s
 
 ; Make sure we don't sink this invariant fdiv into the loop.
 define void @fmul_loop_invariant_fdiv(float* %a, float %x) {
 ; CHECK-LABEL: @fmul_loop_invariant_fdiv(
 ; CHECK-NEXT:  entry:
+; LTOO3:       entry:
+; LTOO3-NEXT:    [[TMP0:%.*]] = fdiv fast float 1.000000e+00, [[X:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = fdiv fast float 1.000000e+00, [[X:%.*]]
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.cond.cleanup:

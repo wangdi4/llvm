@@ -7,8 +7,8 @@
 ; to trim down capacity values that are passed to constructors of
 ; Arr and Arr1.
 
-; RUN: opt < %s -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt < %s -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; RUN: opt < %s -opaque-pointers -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
 ; RUN: opt < %s -opaque-pointers -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
 
@@ -644,7 +644,7 @@ declare void @llvm.dbg.value(metadata, metadata, metadata)
 !43 = distinct !{!5}
 !44 = distinct !{!21}
 !45 = distinct !{!30}
-!64 = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, !12, !12, !12, !12}
+!64 = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, !10, !10, !10, !10}
 !65 = !{%eh.ThrowInfo zeroinitializer, i32 1}
 !70 = distinct !{!21, !65}
 

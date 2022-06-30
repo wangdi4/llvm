@@ -49,6 +49,7 @@
 ;            Running pass: AlwaysInlinerPass on [module]
 ;            Running analysis: ProfileSummaryAnalysis on [module]
 ;            Running pass: VecClonePass on [module]
+;            Running analysis: OptReportOptionsAnalysis on [module]
 ;            Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}>
 ;CHECK:      Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ; end INTEL_CUSTOMIZATION
@@ -84,9 +85,6 @@
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
-; INTEL_CUSTOMIZATION
-;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
-; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo

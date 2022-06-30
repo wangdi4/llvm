@@ -2350,7 +2350,7 @@ void DwarfDebug::emitStringOffsetsTableHeader() {
 template <typename AccelTableT>
 void DwarfDebug::emitAccel(AccelTableT &Accel, MCSection *Section,
                            StringRef TableName) {
-  Asm->OutStreamer->SwitchSection(Section);
+  Asm->OutStreamer->switchSection(Section);
 
   // Emit the full data.
   emitAppleAccelTable(Asm, Accel, TableName, Section->getBeginSymbol());
@@ -2469,12 +2469,12 @@ void DwarfDebug::emitDebugPubSections() {
     bool GnuStyle = TheU->getCUNode()->getNameTableKind() ==
                     DICompileUnit::DebugNameTableKind::GNU;
 
-    Asm->OutStreamer->SwitchSection(
+    Asm->OutStreamer->switchSection(
         GnuStyle ? Asm->getObjFileLowering().getDwarfGnuPubNamesSection()
                  : Asm->getObjFileLowering().getDwarfPubNamesSection());
     emitDebugPubSection(GnuStyle, "Names", TheU, TheU->getGlobalNames());
 
-    Asm->OutStreamer->SwitchSection(
+    Asm->OutStreamer->switchSection(
         GnuStyle ? Asm->getObjFileLowering().getDwarfGnuPubTypesSection()
                  : Asm->getObjFileLowering().getDwarfPubTypesSection());
     emitDebugPubSection(GnuStyle, "Types", TheU, TheU->getGlobalTypes());
@@ -2884,7 +2884,7 @@ void DwarfDebug::emitDebugLocImpl(MCSection *Sec) {
   if (DebugLocs.getLists().empty())
     return;
 
-  Asm->OutStreamer->SwitchSection(Sec);
+  Asm->OutStreamer->switchSection(Sec);
 
   MCSymbol *TableEnd = nullptr;
   if (getDwarfVersion() >= 5)
@@ -2915,7 +2915,7 @@ void DwarfDebug::emitDebugLocDWO() {
   }
 
   for (const auto &List : DebugLocs.getLists()) {
-    Asm->OutStreamer->SwitchSection(
+    Asm->OutStreamer->switchSection(
         Asm->getObjFileLowering().getDwarfLocDWOSection());
     Asm->OutStreamer->emitLabel(List.Label);
 
@@ -2988,8 +2988,8 @@ void DwarfDebug::emitDebugARanges() {
 
     // Sort the symbols by offset within the section.
     llvm::stable_sort(List, [&](const SymbolCU &A, const SymbolCU &B) {
-      unsigned IA = A.Sym ? Asm->OutStreamer->GetSymbolOrder(A.Sym) : 0;
-      unsigned IB = B.Sym ? Asm->OutStreamer->GetSymbolOrder(B.Sym) : 0;
+      unsigned IA = A.Sym ? Asm->OutStreamer->getSymbolOrder(A.Sym) : 0;
+      unsigned IB = B.Sym ? Asm->OutStreamer->getSymbolOrder(B.Sym) : 0;
 
       // Symbols with no order assigned should be placed at the end.
       // (e.g. section end labels)
@@ -3022,7 +3022,7 @@ void DwarfDebug::emitDebugARanges() {
   }
 
   // Start the dwarf aranges section.
-  Asm->OutStreamer->SwitchSection(
+  Asm->OutStreamer->switchSection(
       Asm->getObjFileLowering().getDwarfARangesSection());
 
   unsigned PtrSize = Asm->MAI->getCodePointerSize();
@@ -3122,7 +3122,7 @@ void DwarfDebug::emitDebugRangesImpl(const DwarfFile &Holder, MCSection *Section
     return !Pair.second->getCUNode()->isDebugDirectivesOnly();
   }));
 
-  Asm->OutStreamer->SwitchSection(Section);
+  Asm->OutStreamer->switchSection(Section);
 
   MCSymbol *TableEnd = nullptr;
   if (getDwarfVersion() >= 5)
@@ -3274,7 +3274,7 @@ void DwarfDebug::emitDebugMacinfoImpl(MCSection *Section) {
     DIMacroNodeArray Macros = CUNode->getMacros();
     if (Macros.empty())
       continue;
-    Asm->OutStreamer->SwitchSection(Section);
+    Asm->OutStreamer->switchSection(Section);
     Asm->OutStreamer->emitLabel(U.getMacroLabelBegin());
     if (UseDebugMacroSection)
       emitMacroHeader(Asm, *this, U, getDwarfVersion());

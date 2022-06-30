@@ -5,7 +5,7 @@
 ; the TargetLibraryInfo analysis runs.
 
 ; CHECK: declare dso_local i8* @__dynamic_cast(i8*, i8*, i8*, i64) local_unnamed_addr #0
-; CHECK: attributes #0 = { mustprogress nofree readonly }
+; CHECK: attributes #0 = { mustprogress nofree readonly willreturn }
 
 %test.class = type { i8 }
 

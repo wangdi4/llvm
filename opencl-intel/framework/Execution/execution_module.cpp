@@ -1951,102 +1951,97 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
 cl_err_code ExecutionModule::RunAutorunKernels(
     const SharedPtr<Program>& program, ApiLogger* apiLogger)
 {
-    std::vector<SharedPtr<Kernel>> kernels;
-    cl_err_code error;
-    error = program->GetAutorunKernels(kernels);
-    if (CL_FAILED(error))
-    {
-        return error;
-    }
+#if defined(_WIN32) && !defined(_WIN64)
+  // FPGA emulator only supports 64bit so this function should not be run on
+  // Windows 32bit. And there is a warning if the function is built on Windows
+  // 32bit: shift count is 32 for global size, which is too big.
+  llvm_unreachable("Not implemented on Windows 32bit!");
+  return CL_ERR_NOT_IMPLEMENTED;
+#else
+  std::vector<SharedPtr<Kernel>> kernels;
+  cl_err_code error;
+  error = program->GetAutorunKernels(kernels);
+  if (CL_FAILED(error)) {
+    return error;
+  }
 
-    if (kernels.empty())
-    {
-        return CL_SUCCESS;
-    }
-
-    cl_uint numDevices = program->GetNumDevices();
-    std::vector<cl_device_id> devices(numDevices);
-    error = program->GetDevices(&devices.front());
-    if (CL_FAILED(error))
-    {
-        return error;
-    }
-
-    std::vector<cl_command_queue> queues(numDevices);
-
-    for (cl_uint i = 0; i < numDevices; ++i)
-    {
-        cl_command_queue_properties properties[] = {
-            CL_QUEUE_PROPERTIES,
-            CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
-            (cl_command_queue_properties)0
-        };
-        queues[i] = CreateCommandQueue(program->GetContext()->GetHandle(),
-                                       devices[i], properties, false, &error);
-        if (CL_FAILED(error))
-        {
-            return error;
-        }
-    }
-
-    for (cl_uint i = 0; i < numDevices; ++i)
-    {
-        for (const auto& kernel: kernels)
-        {
-            size_t localSize[MAX_WORK_DIM] = {0};
-            error = kernel->GetWorkGroupInfo(
-                program->GetContext()->GetDevice(devices[i]),
-                CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
-                sizeof(localSize), localSize, nullptr);
-            if (CL_FAILED(error))
-            {
-                return error;
-            }
-
-            bool isTask = kernel->IsTask(program->GetContext()->GetDevice(
-                  devices[i]).GetPtr());
-
-            // According to spec from PSG:
-            //
-            // The following kernel:
-            // __atrribute__((reqd_work_group_size(X,Y,Z)))
-            // __attribute__((autorun))
-            // __kernel void test() { ... }
-            // Should be launched with
-            //  - global size = (2^32, 2^32, 2^32)
-            //  - local size = (X, Y, Z)
-            //
-            // The following kernel:
-            // __attribute__((max_global_work_dim(0)))
-            // __attribute__((autorun))
-            // __kernel void test() { ... }
-            // Should be launched with
-            //  - global size = (1, 1, 1)
-            //  - local size = (1, 1, 1)
-
-            size_t gsValue = (size_t)1 << (size_t)32;
-            size_t globalSize[MAX_WORK_DIM] = {gsValue, gsValue, gsValue};
-
-            if (isTask)
-            {
-                globalSize[0] = globalSize[1] = globalSize[2] = 1;
-                localSize[0] = localSize[1] = localSize[2] = 1;
-            }
-
-            error = EnqueueNDRangeKernel(
-                queues[i], kernel->GetHandle(), MAX_WORK_DIM, nullptr,
-                globalSize, localSize, 0, nullptr, nullptr, apiLogger);
-            if (CL_FAILED(error))
-            {
-                return error;
-            }
-        }
-
-        Flush(queues[i]);
-        ReleaseCommandQueue(queues[i]);
-    }
-
+  if (kernels.empty()) {
     return CL_SUCCESS;
+  }
+
+  cl_uint numDevices = program->GetNumDevices();
+  std::vector<cl_device_id> devices(numDevices);
+  error = program->GetDevices(&devices.front());
+  if (CL_FAILED(error)) {
+    return error;
+  }
+
+  std::vector<cl_command_queue> queues(numDevices);
+
+  for (cl_uint i = 0; i < numDevices; ++i) {
+    cl_command_queue_properties properties[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+        (cl_command_queue_properties)0};
+    queues[i] = CreateCommandQueue(program->GetContext()->GetHandle(),
+                                   devices[i], properties, false, &error);
+    if (CL_FAILED(error)) {
+      return error;
+    }
+  }
+
+  for (cl_uint i = 0; i < numDevices; ++i) {
+    for (const auto &kernel : kernels) {
+      size_t localSize[MAX_WORK_DIM] = {0};
+      error =
+          kernel->GetWorkGroupInfo(program->GetContext()->GetDevice(devices[i]),
+                                   CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
+                                   sizeof(localSize), localSize, nullptr);
+      if (CL_FAILED(error)) {
+        return error;
+      }
+
+      bool isTask =
+          kernel->IsTask(program->GetContext()->GetDevice(devices[i]).GetPtr());
+
+      // According to spec from PSG:
+      //
+      // The following kernel:
+      // __atrribute__((reqd_work_group_size(X,Y,Z)))
+      // __attribute__((autorun))
+      // __kernel void test() { ... }
+      // Should be launched with
+      //  - global size = (2^32, 2^32, 2^32)
+      //  - local size = (X, Y, Z)
+      //
+      // The following kernel:
+      // __attribute__((max_global_work_dim(0)))
+      // __attribute__((autorun))
+      // __kernel void test() { ... }
+      // Should be launched with
+      //  - global size = (1, 1, 1)
+      //  - local size = (1, 1, 1)
+      size_t gsValue = (size_t)1 << (size_t)32;
+      size_t globalSize[MAX_WORK_DIM] = {gsValue, gsValue, gsValue};
+
+      if (isTask) {
+        globalSize[0] = globalSize[1] = globalSize[2] = 1;
+        localSize[0] = localSize[1] = localSize[2] = 1;
+      }
+
+      error = EnqueueNDRangeKernel(queues[i], kernel->GetHandle(), MAX_WORK_DIM,
+                                   nullptr, globalSize, localSize, 0, nullptr,
+                                   nullptr, apiLogger);
+      if (CL_FAILED(error)) {
+        return error;
+      }
+    }
+
+    Flush(queues[i]);
+    ReleaseCommandQueue(queues[i]);
+  }
+
+  return CL_SUCCESS;
+#endif
 }
 
 /******************************************************************

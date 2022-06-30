@@ -15,7 +15,7 @@ set(TARGET_NAME OclRecorder)
 project(${TARGET_NAME})
 
 #clang include directories, injected for the OCL source recorder
-add_definitions(-DCLANG_HEADERS="${BACKEND_ROOT_DIR}/clang_headers")
+add_definitions(-DCLANG_HEADERS="${OCL_CLANG_HEADER_DIR}")
 
 set(OCL_RECORDER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_RECORDER_IMPORT_DIR ${BACKEND_ROOT_DIR}/../cl_api)
@@ -98,7 +98,7 @@ add_opencl_library (${TARGET_NAME} SHARED
 )
 
 if (OPENCL_INTREE_BUILD)
-  add_dependencies(${TARGET_NAME} intrinsics_gen)
+  add_dependencies(${TARGET_NAME} intrinsics_gen process-intrin-headers)
 endif()
 
 # Create static library for unit tests

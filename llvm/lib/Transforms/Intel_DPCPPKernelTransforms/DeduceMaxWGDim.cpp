@@ -13,14 +13,14 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-deduce-max-dim"
 
@@ -68,12 +68,11 @@ ModulePass *llvm::createDeduceMaxWGDimLegacyPass() {
   return new DeduceMaxWGDimLegacy();
 }
 
-bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService *RTService) {
-  DPCPPKernelLoopUtils::fillAtomicBuiltinUsers(M, RTService,
-                                               ForbiddenFuncUsers);
-  DPCPPKernelLoopUtils::fillInternalFuncUsers(M, ForbiddenFuncUsers);
-  DPCPPKernelLoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
-  DPCPPKernelLoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
+bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService &RTS) {
+  LoopUtils::fillAtomicBuiltinUsers(M, RTS, ForbiddenFuncUsers);
+  LoopUtils::fillInternalFuncUsers(M, ForbiddenFuncUsers);
+  LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
+  LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
 
   // Run on all scalar kernels.
   bool Changed = false;
@@ -96,8 +95,8 @@ bool DeduceMaxWGDimPass::runOnFunction(Function &F) {
     return false;
 
   SmallVector<CallInst *, 8> TIDCalls;
-  DPCPPKernelLoopUtils::getAllCallInFunc(mangledGetGID(), &F, TIDCalls);
-  DPCPPKernelLoopUtils::getAllCallInFunc(mangledGetLID(), &F, TIDCalls);
+  LoopUtils::getAllCallInFunc(mangledGetGID(), &F, TIDCalls);
+  LoopUtils::getAllCallInFunc(mangledGetLID(), &F, TIDCalls);
 
   int MaxDim = -1;
   for (auto *I : TIDCalls) {

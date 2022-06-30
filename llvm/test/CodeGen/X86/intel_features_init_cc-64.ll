@@ -99,9 +99,7 @@ define intel_features_init_cc i32 @__libirc_set_cpu_feature(i64* noalias nocaptu
 ; CHECK-NEXT:  # %bb.3: # %if.end
 ; CHECK-NEXT:    movl %eax, %esi
 ; CHECK-NEXT:    shrl $6, %esi
-; CHECK-NEXT:    movl %esi, %ecx
-; CHECK-NEXT:    shll $6, %ecx
-; CHECK-NEXT:    subl %ecx, %eax
+; CHECK-NEXT:    andl $63, %eax
 ; CHECK-NEXT:    movl $1, %edi
 ; CHECK-NEXT:    movl %eax, %ecx
 ; CHECK-NEXT:    shlq %cl, %rdi

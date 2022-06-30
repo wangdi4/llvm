@@ -43,10 +43,10 @@
 ; CHECK: [[INTPTR]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[INT:![0-9]+]]{{.*}})
 ; CHECK: [[INT]] = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 ;
-; CHECK: [[PARAM2]] = !DILocalVariable(name: "param2", arg: 2, scope: !5, file: !2, type: !8)
-; CHECK: [[L123]] = !DILocation(line: 123, scope: !5)
-; CHECK: [[PARAM1]] = !DILocalVariable(name: "param1", arg: 1, scope: !5, file: !2, type: !8)
-; CHECK: [[L124]] = !DILocation(line: 124, scope: !5)
+; CHECK: [[PARAM2]] = !DILocalVariable(name: "param2", arg: 2, scope: [[SCOPE:![0-9]+]], file: [[FILE:![0-9]+]], type: [[TYPE:![0-9]+]])
+; CHECK: [[L123]] = !DILocation(line: 123, scope: [[SCOPE]])
+; CHECK: [[PARAM1]] = !DILocalVariable(name: "param1", arg: 1, scope: [[SCOPE]], file: [[FILE]], type: [[TYPE]])
+; CHECK: [[L124]] = !DILocation(line: 124, scope: [[SCOPE]])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

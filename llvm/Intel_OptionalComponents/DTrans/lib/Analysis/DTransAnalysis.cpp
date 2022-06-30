@@ -79,6 +79,9 @@ using namespace llvm::PatternMatch;
 // Debug type for verbose field single alloc function analysis output.
 #define DTRANS_FSAF "dtrans-fsaf"
 
+// Debug type for verbose C-rule compatibility testing
+#define DTRANS_CRC "dtrans-crc"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
@@ -2572,7 +2575,15 @@ public:
   static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2,
                                         bool IgnorePointees = false) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    bool RV = typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    DEBUG_WITH_TYPE(DTRANS_CRC, {
+          dbgs() << "dtrans-crc: " << (RV ? "YES " : "NO  ");
+          T1->print(dbgs(), true);
+          dbgs() << " ";
+          T2->print(dbgs(), true);
+          dbgs()  << "\n";
+    });
+    return RV;
   }
 
   // Return true if the Type T may have a distinct compatible Type by
@@ -9391,6 +9402,12 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_FieldSingleAllocFunction;
         else if (TransformationAndTypes.first == "reorderfields")
           TransName = dtrans::DT_ReorderFields;
+        else if (TransformationAndTypes.first == "reusefield")
+          TransName = dtrans::DT_ReuseField;
+        else if (TransformationAndTypes.first == "reusefieldptr")
+          TransName = dtrans::DT_ReuseFieldPtr;
+        else if (TransformationAndTypes.first == "reusefieldptrofptr")
+          TransName = dtrans::DT_ReuseFieldPtrOfPtr;
         else if (TransformationAndTypes.first == "deletefield")
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")
@@ -9564,8 +9581,9 @@ bool DTransAnalysisInfo::analyzeModule(
     DTransImmutableInfo &DTImmutInfo,
     std::function<DominatorTree &(Function &)> GetDomTree) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
-  if (!M.getContext().supportsTypedPointers()) {
-    LLVM_DEBUG(dbgs() << "dtrans: Pointers are opaque ... "
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
+    LLVM_DEBUG(
+        dbgs() << "dtrans: Pointers are opaque or opaque passes requested ... "
                       << "DTransAnalysis didn't run\n");
     return false;
   }
@@ -9866,7 +9884,7 @@ bool DTransAnalysisInfo::analyzeModule(
             cast<StructType>(StructInfo->getLLVMType()), I,
             StructInfo->getField(I).values(),
             StructInfo->getField(I).iavalues(),
-            StructInfo->getField(I).getArrayWithConstantEntries());
+            StructInfo->getField(I).getArrayConstantEntries());
       }
   }
 

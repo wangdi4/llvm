@@ -369,9 +369,9 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
   // GlobalVariable followed by AddrSpaceCast.
   // TODO: OPAQUEPOINTER: Remove this call. It will not be needed after opaque
   // pointers are introduced.
-  assert(isa<PointerType>(CE->getType()) &&
-         CE->getType()->getPointerElementType() ==
-         cast<GlobalVariable>(CE->getOperand(0))->getValueType() &&
+  assert(cast<PointerType>(CE->getType())
+             ->isOpaqueOrPointeeTypeMatches(
+                 cast<GlobalVariable>(CE->getOperand(0))->getValueType()) &&
          "isOMPItemGlobalVAR: Type mismatch for a GlobalVariable and "
          "its addrspacecast.");
 #endif // !ENABLE_OPAQUEPOINTER
@@ -389,6 +389,8 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
   if (!isa<PointerType>(V->getType()))
     return false;
 #if !ENABLE_OPAQUEPOINTER
+  if (V->getType()->isOpaquePointerTy())
+    return true;
 #ifndef NDEBUG
   // Skip a sequence of AddrSpaceCastInst's in hope to reach
   // the AllocaInst.
@@ -403,8 +405,8 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
     // There will only be an AddrSpaceCast, the pointer type cannot be
     // changed.
     V = ASCI->getPointerOperand();
-    if (ASCI->getType()->getPointerElementType() !=
-        V->getType()->getPointerElementType())
+    if (ASCI->getType()->getNonOpaquePointerElementType() !=
+        V->getType()->getNonOpaquePointerElementType())
       ASCIChangedType = true;
   }
 

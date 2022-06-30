@@ -17,8 +17,6 @@ namespace llvm {
 
 class UpdateCallAttrs : public PassInfoMixin<UpdateCallAttrs> {
 public:
-  static StringRef name() { return "UpdateCallAttrs"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);

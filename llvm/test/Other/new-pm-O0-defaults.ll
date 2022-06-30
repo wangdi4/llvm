@@ -36,6 +36,7 @@
 ; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-DIS-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-DIS-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
 ; CHECK-DIS-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-DEFAULT: Running analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
@@ -45,6 +46,7 @@
 ; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-DEFAULT-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
 ; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-CORO-NEXT: Running pass: CoroConditionalWrapper
 ; CHECK-PRE-LINK: Running pass: CanonicalizeAliasesPass

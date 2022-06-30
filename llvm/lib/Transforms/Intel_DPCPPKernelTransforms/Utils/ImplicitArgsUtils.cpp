@@ -1,6 +1,6 @@
 //===- ImplicitArgsUtils.cpp - Implicit argument utilities ----------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,10 +8,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -67,11 +67,12 @@ struct ArgData {
 };
 
 static const ArgData ImpArgs[ImplicitArgsUtils::IA_NUMBER] = {
-    {"pLocalMemBase", true},                           // IA_SLM_BUFFER,
-    {"pWorkDim", false},                               // IA_WORK_GROUP_INFO
-    {"pWGId", true},                                   // IA_WORK_GROUP_ID
-    {"BaseGlbId", true},                               // IA_GLOBAL_BASE_ID
-    {"pSpecialBuf", true},   {"RuntimeHandle", true}}; // IA_RUNTIME_HANDLE
+    {"pLocalMemBase", true},  // IA_SLM_BUFFER,
+    {"pWorkDim", false},      // IA_WORK_GROUP_INFO
+    {"pWGId", true},          // IA_WORK_GROUP_ID
+    {"BaseGlbId", true},      // IA_GLOBAL_BASE_ID
+    {"pSpecialBuf", true},    // IA_BARRIER_BUFFER
+    {"RuntimeHandle", true}}; // IA_RUNTIME_HANDLE
 
 const char *ImplicitArgsUtils::getArgName(unsigned Idx) {
   // TODO: maybe we don't need impargs?

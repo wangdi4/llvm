@@ -21,8 +21,16 @@
 #define PROTOBUFPACKEDMESSAGE_H
 
 #include <vector>
-#include <google/protobuf/message.h>
 
+// Suppress suggest-override warning
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsuggest-override"
+#endif
+#include <google/protobuf/message.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace ProtobufPackedMessage {
 

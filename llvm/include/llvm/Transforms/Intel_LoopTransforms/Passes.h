@@ -174,6 +174,9 @@ FunctionPass *createHIRMultiExitLoopRerollPass();
 /// Creates a pass that recognizes parallel loops.
 FunctionPass *createHIRRecognizeParLoopPass();
 
+/// Create pass that performs min/max idiom recognition for inner loops.
+FunctionPass *createHIRMinMaxRecognitionPass();
+
 /// Create pass that recognize identity matrix.
 FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
 

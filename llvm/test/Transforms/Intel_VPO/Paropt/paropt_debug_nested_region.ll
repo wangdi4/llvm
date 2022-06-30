@@ -33,7 +33,7 @@
 ; -----------------------------------------------------------------------------
 ;
 ; CHECK: define {{.*}} void @__omp_offloading{{.*}} !dbg [[REGION:![0-9]+]] {
-; CHECK:   %i2.ascast.priv = alloca i32, align 1
+; CHECK:   %i2.ascast.priv = alloca i32, align 4
 ; CHECK:   call void @llvm.dbg.declare(metadata i32* %i2.ascast.priv, metadata [[I:![0-9]+]], metadata !DIExpression())
 ; CHECK-NOT:  call void @llvm.dbg.{{.*}}({{.*}}, metadata [[I]]
 ; CHECK:   store i32 0, i32* %i2.ascast.priv, align 4

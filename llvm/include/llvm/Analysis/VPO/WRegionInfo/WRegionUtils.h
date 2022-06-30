@@ -196,6 +196,12 @@ public:
   ///                         If \p H != null, then HIR is assumed; otherwise
   ///                         LLVM IR CFG is assumed (using BB, DT, LI)
 #endif // INTEL_CUSTOMIZATION
+
+  /// Return default address space for the current target.
+  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+  /// \p M is used to identify the current target.
+  static unsigned getDefaultAS(const Module *M);
+
   static void updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
                             WRStack<WRegionNode *> &S, LoopInfo *LI,
                             DominatorTree *DT,
@@ -269,8 +275,14 @@ public:
   /// Get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 
-  /// \brief Get the induction variable of the OMP loop.
-  static PHINode *getOmpCanonicalInductionVariable(Loop *L);
+  /// Get the induction variable of the OMP loop. In case the induction variable
+  /// is not found, the function can either assert or return nullptr depending
+  /// on the value of the input flag AssertIfIVNotFound. We need the nullptr
+  /// version, to accomodate for the case where the loop is optimized away. In
+  /// this case asserting that the induction variable is not found is
+  /// misleading. In all other cases we use the asserting version.
+  static PHINode *
+  getOmpCanonicalInductionVariable(Loop *L, bool AssertIfIVNotFound = true);
 
   /// \brief Get the loop lower bound of the OMP loop.
   static Value *getOmpLoopLowerBound(Loop *L);

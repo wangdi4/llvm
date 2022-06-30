@@ -124,6 +124,33 @@ inline bool isScalarTy(Type *Ty) {
   return (!(Ty->isAggregateType() || Ty->isVectorTy()));
 }
 
+// Return true if the divisor is safe for integer div/rem.
+// Non-constants are considered as unsafe. The known unsafe constant values are:
+// 0 for all and -1 for signed div/rem, (INT_MIN / -1) raises an exception.
+inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
+  bool IsSigned;
+  switch (Opcode) {
+  case Instruction::UDiv:
+  case Instruction::URem:
+    IsSigned = false;
+    break;
+  case Instruction::SDiv:
+  case Instruction::SRem:
+    IsSigned = true;
+    break;
+  default:
+    llvm_unreachable("Unexpected opcode");
+    return false;
+  }
+
+  auto *Const = dyn_cast<VPConstantInt>(Div);
+  if (!Const)
+    return false;
+
+  int64_t Val = Const->getSExtValue();
+  return Val != 0 && (!IsSigned || Val != -1);
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// Helper function to return pointer operand for a VPInstruction representing

@@ -339,13 +339,9 @@ int main(int argc, char** argv)
         rc = 0;
     }
     catch (const cl::Error& err) {
-        cerr << "Error: " << err.what() << "(" << err.err() << ")\n";
-#ifdef _WIN32
-        fprintf(stderr, "ClErrTxt error: %ws\n", ClErrTxt(err.err()));
-#else
-        fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
-#endif // _WIN32
-        rc = 1;
+      cerr << "Error: " << err.what() << "(" << err.err() << ")\n";
+      fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
+      rc = 1;
     }
     catch (const runtime_error& err) {
         cerr << "Error: " << err.what() << endl;

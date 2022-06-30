@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,7 @@
 #ifndef __VECTORIZER_REFERENCE_H__
 #define __VECTORIZER_REFERENCE_H__
 
-#include "FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 
 //
 //This is an array of functions copied from the table by which the previous

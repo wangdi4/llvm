@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,16 +15,16 @@
 #ifndef __BUILTIN_KEEPER_H__
 #define __BUILTIN_KEEPER_H__
 
-#include <string>
-#include <utility>
-#include <exception>
+#include "BuiltinMap.h"
+#include "VersionStrategy.h"
+#include "utils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
-#include "FunctionDescriptor.h"
-#include "VersionStrategy.h"
-#include "BuiltinMap.h"
-#include "ParameterType.h"
-#include "utils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include <exception>
+#include <string>
+#include <utility>
 
 namespace Reflection {
 

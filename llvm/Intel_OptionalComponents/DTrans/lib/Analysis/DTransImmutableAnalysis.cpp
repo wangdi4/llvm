@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/IR/Constants.h"
 
 using namespace llvm;
 
@@ -44,7 +45,7 @@ void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
     const SetVector<Constant *> &LikelyValues,
     const SetVector<Constant *> &LikelyIndirectArrayValues,
-    const SetVector< std::pair<Constant*, Constant*> > &ConsEntriesInArray) {
+    const DenseMap<Constant*, Constant*> &ConstEntriesInArray) {
 
   StructInfo *SInfo = nullptr;
 
@@ -66,8 +67,34 @@ void DTransImmutableInfo::addStructFieldInfo(
   SInfo->Fields[FieldNum].LikelyIndirectArrayValues.assign(
       LikelyIndirectArrayValues.begin(), LikelyIndirectArrayValues.end());
 
-  SInfo->Fields[FieldNum].ConstantEntriesInArray.assign(
-      ConsEntriesInArray.begin(), ConsEntriesInArray.end());
+  if (!ConstEntriesInArray.empty()) {
+
+    // Structure for handling the function that sorts a
+    // SmallVector<std::pair<Constant *, Constant *>>
+    struct SortingArrayConst
+    {
+      typedef std::pair<Constant *, Constant *> ConstVectIterator;
+
+      bool operator()(ConstVectIterator &Lhs, ConstVectIterator &Rhs) const {
+        llvm::ConstantInt *ConstLhs = cast<llvm::ConstantInt>(Lhs.first);
+        llvm::ConstantInt *ConstRhs = cast<llvm::ConstantInt>(Rhs.first);
+
+        return ConstLhs->getZExtValue() < ConstRhs->getZExtValue();
+      }
+    };
+
+    // We need to sort the map to prevent any non-deterministic result.
+    SmallVector<std::pair<Constant*, Constant*>, 2> TempVect;
+    for (auto Pair : ConstEntriesInArray)
+      if (Pair.second)
+        TempVect.push_back(std::make_pair(Pair.first, Pair.second));
+
+    if (!TempVect.empty()) {
+      std::sort(TempVect.begin(), TempVect.end(), SortingArrayConst());
+      SInfo->Fields[FieldNum].ConstantEntriesInArray.assign(
+          TempVect.begin(), TempVect.end());
+    }
+  }
 }
 
 const SmallVectorImpl<llvm::Constant *> *

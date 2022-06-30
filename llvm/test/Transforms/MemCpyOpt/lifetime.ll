@@ -30,11 +30,19 @@ define void @memcpy_memcpy_across_lifetime(i8* noalias %p1, i8* noalias %p2, i8*
 ; CHECK-LABEL: @memcpy_memcpy_across_lifetime(
 ; CHECK-NEXT:    [[A:%.*]] = alloca [16 x i8], align 1
 ; CHECK-NEXT:    [[A8:%.*]] = getelementptr inbounds [16 x i8], [16 x i8]* [[A]], i64 0, i64 0
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull [[A8]])
+; INTEL_CUSTOMIZATION
+; extra GEP inserted by SROA to feed the lifetime call, this is deleted
+; by precodegen. With opaque pointers this will not be created.
+; CHECK-NEXT:    [[A_0_A8_SROA_IDX:%.*]] = getelementptr inbounds [16 x i8], [16 x i8]* [[A]], i64 0, i64 0
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull [[A_0_A8_SROA_IDX]])
 ; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(16) [[A8]], i8* noundef nonnull align 1 dereferenceable(16) [[P1:%.*]], i64 16, i1 false)
 ; CHECK-NEXT:    tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(16) [[P1]], i8* noundef nonnull align 1 dereferenceable(16) [[P2:%.*]], i64 16, i1 false)
 ; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(16) [[P2]], i8* noundef nonnull align 1 dereferenceable(16) [[A8]], i64 16, i1 false)
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull [[A8]])
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[A_0_A8_SROA_IDX5:%.*]] = getelementptr inbounds [16 x i8], [16 x i8]* [[A]], i64 0, i64 0
+; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull [[A_0_A8_SROA_IDX5]])
 ; CHECK-NEXT:    tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(16) [[P3:%.*]], i8* noundef nonnull align 1 dereferenceable(16) [[P2]], i64 16, i1 false)
 ; CHECK-NEXT:    ret void
 ;

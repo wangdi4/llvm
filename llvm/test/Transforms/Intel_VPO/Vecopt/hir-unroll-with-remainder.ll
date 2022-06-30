@@ -7,16 +7,18 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z3vecPlil(i64* nocapture noundef writeonly %A, i32 noundef %c, i64 noundef %N) local_unnamed_addr {
 ; CHECK-LABEL:  Function: _Z3vecPlil
-; CHECK:             + DO i1 = 0, [[VEC_TC20:.*]] + -1, 32   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:             [[LOOP_UB0:%.*]] = [[VEC_TC20:%.*]]  -  1
+; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 32   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |   (<8 x i64>*)([[A0:%.*]])[i1] = i1 + sext.i32.i64([[C0:%.*]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
 ; CHECK-NEXT:        |   (<8 x i64>*)([[A0]])[i1 + 8] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8
 ; CHECK-NEXT:        |   (<8 x i64>*)([[A0]])[i1 + 16] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 16
 ; CHECK-NEXT:        |   (<8 x i64>*)([[A0]])[i1 + 24] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 24
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             + DO i1 = [[PHI_TEMP0:.*]], [[N0:%.*]] + -1, 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
-; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[N0]]
-; CHECK-NEXT:        |   (<8 x i64>*)([[A0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, Mask = @{[[DOTVEC80]]}
-; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[N0]]
+; CHECK:             [[LOOP_UB80:%.*]] = [[N0:%.*]]  -  1
+; CHECK:             + DO i1 = [[PHI_TEMP0:%.*]], [[LOOP_UB80]], 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[N0]]
+; CHECK-NEXT:        |   (<8 x i64>*)([[A0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, Mask = @{[[DOTVEC90]]}
+; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[N0]]
 ; CHECK:             + END LOOP
 entry:
   %conv = sext i32 %c to i64

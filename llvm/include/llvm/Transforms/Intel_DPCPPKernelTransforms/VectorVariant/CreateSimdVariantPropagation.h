@@ -18,8 +18,6 @@ namespace llvm {
 class CreateSimdVariantPropagation
     : public PassInfoMixin<CreateSimdVariantPropagation> {
 public:
-  static StringRef name() { return "CreateSimdVariantPropagation"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);

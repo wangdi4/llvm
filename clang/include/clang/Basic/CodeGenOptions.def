@@ -81,7 +81,9 @@ CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMC
 //                emitted without exposing Intel IP.
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
 CODEGENOPT(IntelAdvancedOptim, 1, 0)
+CODEGENOPT(IntelLibIRCAllowed, 1, 0)
 CODEGENOPT(IntelSpillParms, 1, 0)
+CODEGENOPT(AssumeCountedLoops, 1, 0)
 #if INTEL_FEATURE_SW_DTRANS
 CODEGENOPT(EmitDTransInfo, 1, 0)
 CODEGENOPT(DisableDTransAsserts, 1, 0)
@@ -155,6 +157,10 @@ CODEGENOPT(XRayInstrumentFunctions , 1, 0) ///< Set when -fxray-instrument is
 CODEGENOPT(StackSizeSection  , 1, 0) ///< Set when -fstack-size-section is enabled.
 CODEGENOPT(ForceDwarfFrameSection , 1, 0) ///< Set when -fforce-dwarf-frame is
                                           ///< enabled.
+
+///< Set when -femit-dwarf-unwind is passed.
+ENUM_CODEGENOPT(EmitDwarfUnwind, llvm::EmitDwarfUnwindType, 2,
+                llvm::EmitDwarfUnwindType::Default)
 
 ///< Set when -fxray-always-emit-customevents is enabled.
 CODEGENOPT(XRayAlwaysEmitCustomEvents , 1, 0)

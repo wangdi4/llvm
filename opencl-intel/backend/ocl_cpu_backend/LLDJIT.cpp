@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2021 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,9 +13,8 @@
 // License.
 
 #include "LLDJIT.h"
-
 #include "AsmCompiler.h"
-#include "CompilationUtils.h"
+#include "exceptions.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
@@ -38,6 +37,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include <mutex>
 
 #include "lld/Common/Driver.h"
@@ -70,7 +70,7 @@ LLDJIT::createJIT(std::unique_ptr<Module> M, std::string *ErrorStr,
 
 LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
     : ExecutionEngine(TM->createDataLayout(), std::move(M)), TM(std::move(TM)),
-      DLLHandle(nullptr), ObjCache(nullptr) {
+      DLLHandle(nullptr), ObjCache(nullptr), LogStream(BuildLog) {
   // FIXME: We are managing our modules, so we do not want the base class
   // ExecutionEngine to manage them as well. To avoid double destruction
   // of the first (and only) module added in ExecutionEngine constructor
@@ -174,7 +174,8 @@ void LLDJIT::mapDllFunctions(void *DLLHandle) {
       if (!GO.hasDLLExportStorageClass())
         continue;
       StringRef SymbolName = GO.getName();
-      void *Addr = GetProcAddress(HMod, SymbolName.data());
+      void *Addr =
+          reinterpret_cast<void *>(GetProcAddress(HMod, SymbolName.data()));
       if (Addr)
         updateGlobalMapping(SymbolName, static_cast<uint64_t>(
                                             reinterpret_cast<uintptr_t>(Addr)));
@@ -198,7 +199,8 @@ static void dllExportGlobalVariables(Module *M) {
         F->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
     } else {
       unsigned AS = GV.getAddressSpace();
-      if (IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS))
+      if (CompilationUtils::ADDRESS_SPACE_GLOBAL == AS ||
+          CompilationUtils::ADDRESS_SPACE_CONSTANT == AS)
         GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
     }
   }
@@ -456,7 +458,7 @@ int LLDJIT::compileSymbolJumpTable(
               << ":\n"
                  "sub $8, %rsp\n"
                  "movl $0x"
-              << std::hex << reinterpret_cast<uint32_t>(F)
+              << std::hex << (uint32_t)(reinterpret_cast<size_t>(F))
               << ", 0(%rsp)\n"
                  "movl $0x"
               << std::hex << (reinterpret_cast<size_t>(F) >> 32)
@@ -526,12 +528,9 @@ void LLDJIT::buildDllFromObjs(
 
   Args.push_back(JumpTableObjectFile.FileName().c_str());
 
-  bool Success =
-      lld::coff::link(Args, llvm::outs(), llvm::errs(), false, false);
-  if (!Success) {
-    // TODO: Currently, error message will be written to stdout.
-    throw Exceptions::CompilerException("Linker failed");
-  }
+  // Store LLDJIT log to strings, undefined symbol error is catched here
+  if (!lld::coff::link(Args, LogStream, LogStream, false, false))
+    throw Exceptions::CompilerException("Linker failed: " + getBuildLog());
 }
 
 // FIXME: Rename this.

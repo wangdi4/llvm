@@ -69,7 +69,9 @@ RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
                 sleep_ms(50);
             }
             ThreadCommand cmd = m_cmd_queue.PopFront();
-
+            assert((cmd == EXIT || cmd == SEND_MESSAGE ||
+                    cmd == RECEIVE_MESSAGE) &&
+                   "Invalid command");
             switch (cmd) {
                 case EXIT:
                     log_and_terminate("executing EXIT");
@@ -96,8 +98,6 @@ RETURN_TYPE_ENTRY_POINT DebugCommunicator::Run()
                     m_recv_event.Signal();
                     break;
                 }
-                default:
-                    assert(0);
             }
         }
     }

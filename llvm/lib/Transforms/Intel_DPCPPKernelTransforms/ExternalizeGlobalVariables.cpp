@@ -15,10 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ExternalizeGlobalVariables.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
@@ -71,7 +71,7 @@ bool ExternalizeGlobalVariablesPass::runImpl(Module &M) {
   bool Changed = false;
   SmallSet<Value *, 8> TLSGlobals;
   for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
-    GlobalVariable *GV = DPCPPKernelCompilationUtils::getTLSGlobal(&M, I);
+    GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
     TLSGlobals.insert(GV);
   }
 

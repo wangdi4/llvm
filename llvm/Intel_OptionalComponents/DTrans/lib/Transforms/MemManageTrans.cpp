@@ -7398,6 +7398,25 @@ bool MemManageTransImpl::recognizeDestroyObject(Function *F) {
     Visited.insert(AndI);
     Visited.insert(IC);
 
+    // Get successor of RLoopHeadR if RLoopHeadR has unconditional branch.
+    //
+    // bb283: (Succ)
+    //   br i1 %i254, label %bbnew, label %bb502
+    //
+    // bbnew: (RLoopHeadR)
+    //   %i286 = getelementptr inbounds %Node, Node* %i253, i64 0, i32 0
+    //   br label %bb287
+    //
+    // bb287:
+    //   %i288 = phi %Node" [ %i292, %bb305 ], [ %i284, %bbnew ]
+    //   %i289 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %i288, %i285
+    //   br i1 %i289, label %bb502, label %bb290
+    BasicBlock *Succ = getSingleSucc(RLoopHead);
+    if (Succ) {
+      TargetB = RLoopHead;
+      RLoopHead = Succ;
+    }
+
     BasicBlock *TBlock = nullptr;
     BasicBlock *CheckOwnsBB = nullptr;
     Value *LValue = nullptr;

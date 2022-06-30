@@ -12,6 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{void(i32*, i32*, i32*)* @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
+; CHECK:       entry:
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT:    [[LOCAL_SIZE_DIM0:%.*]] = call i64 @_Z14get_local_sizej(i32 0)
 ; CHECK-NEXT:    [[MAX_GID_DIM0:%.*]] = add i64 [[BASE_GID_DIM0]], [[LOCAL_SIZE_DIM0]]

@@ -31,7 +31,7 @@ class SinCosFoldPass : public PassInfoMixin<SinCosFoldPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 
-  bool runImpl(Function &F, RuntimeService *RTS);
+  bool runImpl(Function &F, RuntimeService &RTS);
 };
 
 } // namespace llvm

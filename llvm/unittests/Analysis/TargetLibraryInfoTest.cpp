@@ -1,4 +1,21 @@
 //===--- TargetLibraryInfoTest.cpp - TLI/LibFunc unit tests ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -74,7 +91,16 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
 
 // Check that we do accept know-correct prototypes.
 TEST_F(TargetLibraryInfoTest, ValidProto) {
+#if INTEL_CUSTOMIZATION
+  // The string containing test asm, was split in 2 parts since the length
+  // of the string constant exceeded C++ limitation.
+  // TODO: It looks reasonable to move all INTEL_CUSTOMIZATION related functions
+  // to a single chunk, which would improve the maintainability. 
+  std::string TestAsm = ""
+#else // INTEL_CUSTOMIZATION
   parseAssembly(
+#endif // INTEL_CUSTOMIZATION
+
       // These functions use a 64-bit size_t; use the appropriate datalayout.
       "target datalayout = \"p:64:64:64\"\n"
 
@@ -96,6 +122,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @acoshf(float)\n"
       "declare x86_fp80 @acoshl(x86_fp80)\n"
       "declare x86_fp80 @acosl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @acospi(double)\n"
+      "declare float @acospif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @aligned_alloc(i64, i64)\n"
       "declare double @asin(double)\n"
       "declare float @asinf(float)\n"
@@ -103,16 +133,26 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @asinhf(float)\n"
       "declare x86_fp80 @asinhl(x86_fp80)\n"
       "declare x86_fp80 @asinl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @asinpi(double)\n"
+      "declare float @asinpif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare double @atan(double)\n"
       "declare double @atan2(double, double)\n"
       "declare float @atan2f(float, float)\n"
       "declare x86_fp80 @atan2l(x86_fp80, x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @atan2pi(double, double)\n"
+      "declare float @atan2pif(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @atanf(float)\n"
       "declare double @atanh(double)\n"
       "declare float @atanhf(float)\n"
       "declare x86_fp80 @atanhl(x86_fp80)\n"
       "declare x86_fp80 @atanl(x86_fp80)\n"
 #if INTEL_CUSTOMIZATION
+      "declare double @atanpi(double)\n"
+      "declare float @atanpif(float)\n"
       "declare i32 @atexit(i8 *)\n"
 #endif // INTEL_CUSTOMIZATION
       "declare double @atof(i8*)\n"
@@ -170,6 +210,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @fabsf(float)\n"
       "declare x86_fp80 @fabsl(x86_fp80)\n"
       "declare i32 @fclose(%struct*)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @fdim(double, double)\n"
+      "declare float @fdimf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @feof(%struct*)\n"
       "declare i32 @ferror(%struct*)\n"
       "declare i32 @fflush(%struct*)\n"
@@ -249,6 +293,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @logf(float)\n"
       "declare x86_fp80 @logl(x86_fp80)\n"
       "declare i8* @malloc(i64)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @maxmag(double, double)\n"
+      "declare float @maxmagf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @memccpy(i8*, i8*, i32, i64)\n"
       "declare i8* @memchr(i8*, i32, i64)\n"
       "declare i32 @memcmp(i8*, i8*, i64)\n"
@@ -258,6 +306,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @memset_pattern16(i8*, i8*, i64)\n"
       "declare void @memset_pattern4(i8*, i8*, i64)\n"
       "declare void @memset_pattern8(i8*, i8*, i64)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @minmag(double, double)\n"
+      "declare float @minmagf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @mkdir(i8*, i16)\n"
       "declare double @modf(double, double*)\n"
       "declare float @modff(float, float*)\n"
@@ -265,12 +317,26 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @nearbyint(double)\n"
       "declare float @nearbyintf(float)\n"
       "declare x86_fp80 @nearbyintl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @nextafter(double, double)\n"
+      "declare float @nextafterf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @pclose(%struct*)\n"
       "declare void @perror(i8*)\n"
       "declare i32 @posix_memalign(i8**, i64, i64)\n"
       "declare double @pow(double, double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @pow2o3(double)\n"
+      "declare float @pow2o3f(float)\n"
+      "declare double @pow3o2(double)\n"
+      "declare float @pow3o2f(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @powf(float, float)\n"
       "declare x86_fp80 @powl(x86_fp80, x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @powr(double, double)\n"
+      "declare float @powrf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @printf(i8*, ...)\n"
       "declare i32 @putc(i32, %struct*)\n"
       "declare i32 @putc_unlocked(i32, %struct*)\n"
@@ -366,6 +432,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @tanhf(float)\n"
       "declare x86_fp80 @tanhl(x86_fp80)\n"
       "declare x86_fp80 @tanl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @tanpi(double)\n"
+      "declare float @tanpif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i64 @times(%struct*)\n"
       "declare %struct* @tmpfile()\n"
       "declare i32 @_Z7toasciii(i32)\n"
@@ -633,6 +703,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"?seekpos@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@V32@H@Z\"(%struct*, %struct*, %struct*, i32)\n"
       "declare %struct* @\"?setbuf@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAPEAV?$basic_streambuf@DU?$char_traits@D@std@@@2@PEAD_J@Z\"(%struct*, i8*, i64)\n"
       "declare %struct* @\"?setbuf@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAPEAV12@PEAD_J@Z\"(%struct*, i8*, i64)\n"
+      "declare void @\"?setstate@?$basic_ios@DU?$char_traits@D@std@@@std@@QEAAXH_N@Z\"(%struct*,i32, i1)\n"
       "declare i64 @\"?showmanyc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JXZ\"(%struct*)\n"
       "declare i32 @\"?sync@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHXZ\"(%struct*)\n"
       "declare i32 @\"?sync@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ\"(%struct*)\n"
@@ -1068,6 +1139,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm(i8*, i32, i32, i8*, i32)\n"
+      "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEmm(%struct*, i32, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc(i8*, i32, i32, i32, i8)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_(i8*, i8*, i8*)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_(%struct *, %struct *)\n"
@@ -1104,6 +1176,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc(%struct*, i8*)\n"
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc(%struct*, i8*)\n"
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc(%struct*, i8*)\n"
+      "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6insertEmRKS4_(%struct*, i32, %struct*)\n"
       "declare void @_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E(i8*, i8*)\n"
       "declare void @_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate(i8*, i32)\n"
       "declare i8* @_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E(i8*, i8*)\n"
@@ -1130,6 +1203,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_(i8*, i8*, i8*, i32)\n"
       "declare %struct* @_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EES4_(%struct*, %struct*, i8)\n"
       "declare void @_ZSt9terminatev()\n"
+      "declare %struct* @_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc(%struct*, i8*)\n"
       "declare i8* @_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_(i8*, i8*)\n"
       "declare void @abort()\n"
       "declare i32 @alphasort(i8*, i8*)\n"
@@ -1392,9 +1466,18 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i16* @wcsncat(i16*, i16*, i64)\n"
       "declare i64 @wcstombs(i8*, i8*, i64)\n"
       "declare i32 @WideCharToMultiByte(i32, i32, i16*, i32, i8*, i32, i8*, i32*)\n"
-      "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n"
+      "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n";
+#else // INTEL_CUSTOMIZATION
+  );
 #endif // INTEL_CUSTOMIZATION
-      );
+
+
+#if INTEL_CUSTOMIZATION
+  TestAsm += ""
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EOS4_(%struct*, %struct*)\n"
+      "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4_(%struct*, %struct*)\n";
+  parseAssembly(TestAsm.c_str());
+#endif // INTEL_CUSTOMIZATION
 
   for (unsigned FI = 0; FI != LibFunc::NumLibFuncs; ++FI) {
     LibFunc LF = (LibFunc)FI;

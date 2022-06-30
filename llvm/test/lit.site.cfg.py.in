@@ -23,6 +23,7 @@ config.have_ocamlopt = @HAVE_OCAMLOPT@
 config.ocaml_flags = "@OCAMLFLAGS@"
 config.include_go_tests = @LLVM_INCLUDE_GO_TESTS@
 config.go_executable = "@GO_EXECUTABLE@"
+config.ptxas_executable = "@PXTAS_EXECUTABLE@"
 config.enable_shared = @ENABLE_SHARED@
 config.enable_assertions = @ENABLE_ASSERTIONS@
 config.targets_to_build = "@TARGETS_TO_BUILD@"
@@ -65,6 +66,7 @@ config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
 config.dxil_tests = @LLVM_INCLUDE_DXIL_TESTS@
+config.have_llvm_driver = @LLVM_TOOL_LLVM_DRIVER_BUILD@
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

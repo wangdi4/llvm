@@ -118,7 +118,7 @@ static cl::opt<bool>
 
 // This is an option used by testing:
 static cl::opt<bool> SkipCostAnalysis("skip-partial-inlining-cost-analysis",
-                                      cl::init(false), cl::ZeroOrMore,
+
                                       cl::ReallyHidden,
                                       cl::desc("Skip Cost Analysis"));
 // Used to determine if a cold region is worth outlining based on
@@ -148,7 +148,7 @@ static cl::opt<unsigned> MaxNumInlineBlocks(
 // Command line option to set the maximum number of partial inlining allowed
 // for the module. The default value of -1 means no limit.
 static cl::opt<int> MaxNumPartialInlining(
-    "max-partial-inlining", cl::init(-1), cl::Hidden, cl::ZeroOrMore,
+    "max-partial-inlining", cl::init(-1), cl::Hidden,
     cl::desc("Max number of partial inlining. The default is unlimited"));
 
 // Used only when PGO or user annotated branch data is absent. It is
@@ -156,7 +156,7 @@ static cl::opt<int> MaxNumPartialInlining(
 // produces larger value, the BFI value will be used.
 static cl::opt<int>
     OutlineRegionFreqPercent("outline-region-freq-percent", cl::init(75),
-                             cl::Hidden, cl::ZeroOrMore,
+                             cl::Hidden,
                              cl::desc("Relative frequency of outline region to "
                                       "the entry block"));
 
@@ -432,9 +432,8 @@ private:
   // of a virtual function
   bool IsVirtualTarget = false;
 
-  // Return true if all the call sites for the input function
-  // are direct calls.
-  bool allCallSitesAreDirect(Function *Func);
+  // Return true if there is at least one direct call for the input function.
+  bool functionHasAtLeastOneDirectCall(Function *Func);
 
   // Return true if the input function is used as a target of
   // a virtual call site, else return false
@@ -1468,26 +1467,23 @@ PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-// Return true if all call sites to the input function are direct
-// calls, else return false.
-bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
 
-  // We start with false because it is possible that the input
-  // function doesn't have any direct call site.
-  bool CallSitesAreDirect = false;
-
+// Return true if there is at least one direct call for the input function.
+bool PartialInlinerImpl::functionHasAtLeastOneDirectCall(Function *Func) {
   for (User *FuncUser : Func->users()) {
+    // NOTE: We don't check for CallBase since the function
+    // getSupportedCallBase only accepts CallInst and InvokeInst, and will
+    // throw an exception for everything else. A CallBase can be used as
+    // a CallBrInst and CGStatepointInst too.
     if (isa<CallInst>(FuncUser) || isa<InvokeInst>(FuncUser)) {
       CallBase *CB = getSupportedCallBase(FuncUser);
       Function *CallFunc = CB->getCalledFunction();
-      if (!CallFunc || CallFunc != Func)
-        return false;
-
-      CallSitesAreDirect = true;
+      if (CallFunc && CallFunc == Func)
+        return true;
     }
   }
 
-  return CallSitesAreDirect;
+  return false;
 }
 
 // Return true if the input function is the target of a virtual
@@ -1580,7 +1576,8 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
     if ((RunLTOPartialInline || LTOPartialInlineVirtual) &&
         !F.hasAddressTaken())
       return {false, nullptr};
-    IsVirtualTarget = isVirtualFunctionTarget(&F) && allCallSitesAreDirect(&F);
+    IsVirtualTarget =
+        isVirtualFunctionTarget(&F) && functionHasAtLeastOneDirectCall(&F);
     if (F.hasAddressTaken() && !IsVirtualTarget)
       return {false, nullptr};
 #else // INTEL_FEATURE_SW_DTRANS

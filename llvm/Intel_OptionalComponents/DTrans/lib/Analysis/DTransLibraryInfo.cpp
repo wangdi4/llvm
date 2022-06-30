@@ -33,12 +33,14 @@ void DTransLibraryInfo::initialize(Module &M) {
   llvm::Type *LLVMI32Type = llvm::Type::getInt32Ty(Ctx);
   llvm::Type *LLVMI64Type = llvm::Type::getInt64Ty(Ctx);
   llvm::Type *LLVMVoidType = llvm::Type::getVoidTy(Ctx);
+  llvm::Type *LLVMMDType = llvm::Type::getMetadataTy(Ctx);
 
   DTransI1Type = TM.getOrCreateAtomicType(LLVMI1Type);
   DTransI8Type = TM.getOrCreateAtomicType(LLVMI8Type);
   DTransI32Type = TM.getOrCreateAtomicType(LLVMI32Type);
   DTransI64Type = TM.getOrCreateAtomicType(LLVMI64Type);
   DTransVoidType = TM.getOrCreateAtomicType(LLVMVoidType);
+  DTransMDType = TM.getOrCreateAtomicType(LLVMMDType);
 
   // TODO: For 32-bit compilations we need to set this to DTransI32Type.
   DTransSizeType = DTransI64Type;
@@ -92,7 +94,10 @@ DTransPointerType *DTransLibraryInfo::findIOPtrType(Module &M) {
   return nullptr;
 }
 
-DTransFunctionType *DTransLibraryInfo::getDTransFunctionType(Function *F) {
+DTransFunctionType *
+DTransLibraryInfo::getDTransFunctionType(const Function *F) {
+  assert(DTransI1Type &&
+         "DTransLibraryInfo class must be initialized before querying");
   auto It = FunctionCache.find(F);
   if (It != FunctionCache.end())
     return It->second;
@@ -103,15 +108,19 @@ DTransFunctionType *DTransLibraryInfo::getDTransFunctionType(Function *F) {
   return DTy;
 }
 
-DTransType *DTransLibraryInfo::getFunctionReturnType(Function *F) {
+DTransType *DTransLibraryInfo::getFunctionReturnType(const Function *F) {
+  assert(DTransI1Type &&
+         "DTransLibraryInfo class must be initialized before querying");
   DTransFunctionType *DTy = getDTransFunctionType(F);
   if (!DTy)
     return nullptr;
   return DTy->getReturnType();
 }
 
-DTransType *DTransLibraryInfo::getFunctionArgumentType(Function *F,
+DTransType *DTransLibraryInfo::getFunctionArgumentType(const Function *F,
                                                        unsigned Idx) {
+  assert(DTransI1Type &&
+         "DTransLibraryInfo class must be initialized before querying");
   DTransFunctionType *DTy = getDTransFunctionType(F);
   if (!DTy)
     return nullptr;
@@ -119,7 +128,8 @@ DTransType *DTransLibraryInfo::getFunctionArgumentType(Function *F,
   return DTy->getArgType(Idx);
 }
 
-DTransFunctionType *DTransLibraryInfo::getDTransFunctionTypeImpl(Function *F) {
+DTransFunctionType *
+DTransLibraryInfo::getDTransFunctionTypeImpl(const Function *F) {
   if (F->isIntrinsic())
     return getDTransFunctionTypeImpl(F->getIntrinsicID());
 
@@ -419,6 +429,11 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(Intrinsic::ID Id) {
     // i8* llvm.stacksave()
     return TM.getOrCreateFunctionType(DTransI8PtrType, {},
                                       /*IsVarArg=*/false);
+
+  case Intrinsic::type_test:
+    // i1 @llvm.type.test(i8*, metadata)
+    return TM.getOrCreateFunctionType(
+        DTransI1Type, {DTransI8PtrType, DTransMDType}, /*IsVarArg=*/false);
 
   case Intrinsic::vacopy:
     // void @llvm.va_copy(i8*, i8*)

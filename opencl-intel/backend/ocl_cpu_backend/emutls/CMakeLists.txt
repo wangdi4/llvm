@@ -6,9 +6,13 @@ set(TARGET_SOURCE_FILES
 
 # Compile emutls built-in without debug information unconditionally
 # The use of the built-in is always implicit and should be hidden from the user
-set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g0")
-set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g0")
-set( CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g0")
+# The -g0 option is only apply for Linux build since there is no equivalent option
+# in MSVC compiler on Windows (It's not supported by clang-cl driver neither).
+if (NOT WIN32)
+  set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g0")
+  set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -g0")
+  set( CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g0")
+endif (NOT WIN32)
 
 
 add_opencl_library(${TARGET_NAME} STATIC

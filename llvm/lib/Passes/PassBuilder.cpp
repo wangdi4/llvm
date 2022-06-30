@@ -170,8 +170,8 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Internalize.h"
@@ -385,6 +385,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMinMaxRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
@@ -587,6 +588,17 @@ bool shouldPopulateClassToPassNames() {
   return PrintPipelinePasses || !printBeforePasses().empty() ||
          !printAfterPasses().empty();
 }
+
+// A pass for testing -print-on-crash.
+// DO NOT USE THIS EXCEPT FOR TESTING!
+class TriggerCrashPass : public PassInfoMixin<TriggerCrashPass> {
+public:
+  PreservedAnalyses run(Module &, ModuleAnalysisManager &) {
+    abort();
+    return PreservedAnalyses::all();
+  }
+  static StringRef name() { return "TriggerCrashPass"; }
+};
 
 } // namespace
 
@@ -811,6 +823,10 @@ Expected<bool> parseSinglePassOption(StringRef Params, StringRef OptionName,
 
 Expected<bool> parseInlinerPassOptions(StringRef Params) {
   return parseSinglePassOption(Params, "only-mandatory", "InlinerPass");
+}
+
+Expected<bool> parseCoroSplitPassOptions(StringRef Params) {
+  return parseSinglePassOption(Params, "reuse-storage", "CoroSplitPass");
 }
 
 Expected<bool> parseEarlyCSEPassOptions(StringRef Params) {

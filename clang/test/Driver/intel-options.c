@@ -172,7 +172,7 @@
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
 // and the true functionality is tested in cl-x86-arch.c
-// RUN: %clang_cl /Zs /WX /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \
+// RUN: %clang_cl /Zs /WX -Wno-deprecated /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \
 // RUN: | FileCheck -check-prefix=MFLAGS %s
 // MFLAGS-NOT: argument unused during compilation
 
@@ -244,11 +244,19 @@
 // CHECK_NOVECLIB-NOT: "-fveclib=SVML"
 
 // -Qno-intel-lib
-// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML %s
-// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
-// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML,CHECK_INTEL_LIB_WIN_NOLIBM %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libm --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOLIBM %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libimf --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOLIBM %s
 // CHECK_INTEL_LIB_WIN_NOIRC-NOT: "--dependent-lib=libircmt"
 // CHECK_INTEL_LIB_WIN_NOSVML-NOT: "--dependent-lib=svml.*"
+// CHECK_INTEL_LIB_WIN_NOLIBM-NOT: "--dependent-lib=libmmt"
 
 // Behavior with Qvla and Qvla- option
 // RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s
@@ -923,3 +931,21 @@
 // RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap=firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
 // RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap:firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
 // CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP: "-fopenmp-declare-target-scalar-defaultmap-firstprivate"
+
+// Warn users most optimizations are disabled when using debug options (-g, -debug, /Z7) without adding explicit -O options.
+// RUN: %clang -### --intel -g -Wall %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -g %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug=all -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug=all %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang_cl -### --intel /Z7 /Wall %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=WARN-DEBUG-Od %s
+// RUN: %clang_cl -### --intel /Z7 %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=NO-WARN-DEBUG-Od %s
+// RUN: %clang -### --intel -g -O2 -Wall %s 2>&1 | FileCheck -DOPTNAME=-g -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug -O2 -Wall %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang -### --intel -debug=all -Wall -O2 %s 2>&1 | FileCheck -DOPTNAME=-debug -check-prefix=NO-WARN-DEBUG-O0 %s
+// RUN: %clang_cl -### --intel /Z7 /O2 /Wall %s 2>&1 | FileCheck -DOPTNAME=/Z7 -check-prefix=NO-WARN-DEBUG-Od %s
+// WARN-DEBUG-O0: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
+// WARN-DEBUG-Od: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
+// NO-WARN-DEBUG-O0-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
+// NO-WARN-DEBUG-Od-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'

@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt -opaque-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 

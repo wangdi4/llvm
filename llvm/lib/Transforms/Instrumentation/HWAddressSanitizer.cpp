@@ -44,9 +44,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/PassRegistry.h"
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Pass.h" // INTEL
+#include "llvm/PassRegistry.h" // INTEL
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -150,7 +150,7 @@ static cl::opt<bool> ClGenerateTagsWithCalls(
     cl::init(false));
 
 static cl::opt<bool> ClGlobals("hwasan-globals", cl::desc("Instrument globals"),
-                               cl::Hidden, cl::init(false), cl::ZeroOrMore);
+                               cl::Hidden, cl::init(false));
 
 static cl::opt<int> ClMatchAllTag(
     "hwasan-match-all-tag",
@@ -196,17 +196,16 @@ static cl::opt<bool>
 static cl::opt<bool>
     ClInstrumentLandingPads("hwasan-instrument-landing-pads",
                             cl::desc("instrument landing pads"), cl::Hidden,
-                            cl::init(false), cl::ZeroOrMore);
+                            cl::init(false));
 
 static cl::opt<bool> ClUseShortGranules(
     "hwasan-use-short-granules",
     cl::desc("use short granules in allocas and outlined checks"), cl::Hidden,
-    cl::init(false), cl::ZeroOrMore);
+    cl::init(false));
 
 static cl::opt<bool> ClInstrumentPersonalityFunctions(
     "hwasan-instrument-personality-functions",
-    cl::desc("instrument personality functions"), cl::Hidden, cl::init(false),
-    cl::ZeroOrMore);
+    cl::desc("instrument personality functions"), cl::Hidden);
 
 static cl::opt<bool> ClInlineAllChecks("hwasan-inline-all-checks",
                                        cl::desc("inline all checks"),
@@ -389,6 +388,7 @@ private:
   GlobalValue *ThreadPtrGlobal = nullptr;
 };
 
+#if INTEL_CUSTOMIZATION
 class HWAddressSanitizerLegacyPass : public FunctionPass {
 public:
   // Pass identification, replacement for typeid.
@@ -451,9 +451,11 @@ private:
   bool Recover;
   bool DisableOptimization;
 };
+#endif // INTEL_CUSTOMIZATION
 
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
 char HWAddressSanitizerLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(
@@ -475,6 +477,7 @@ llvm::createHWAddressSanitizerLegacyPassPass(bool CompileKernel, bool Recover,
   return new HWAddressSanitizerLegacyPass(CompileKernel, Recover,
                                           DisableOptimization);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
                                               ModuleAnalysisManager &MAM) {
@@ -803,7 +806,7 @@ bool HWAddressSanitizer::ignoreAccess(Instruction *Inst, Value *Ptr) {
 void HWAddressSanitizer::getInterestingMemoryOperands(
     Instruction *I, SmallVectorImpl<InterestingMemoryOperand> &Interesting) {
   // Skip memory accesses inserted by another instrumentation.
-  if (I->hasMetadata("nosanitize"))
+  if (I->hasMetadata(LLVMContext::MD_nosanitize))
     return;
 
   // Do not instrument the load fetching the dynamic shadow address.

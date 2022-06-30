@@ -1989,6 +1989,7 @@ bool llvm::promoteLoopAccessesToScalars(
 
   bool DereferenceableInPH = false;
   bool SafeToInsertStore = false;
+  bool StoreIsGuanteedToExecute = false;
   bool FoundLoadToPromote = false;
 
   SmallVector<Instruction *, 64> LoopUses;
@@ -2069,10 +2070,12 @@ bool llvm::promoteLoopAccessesToScalars(
         // alignment than any other guaranteed stores, in which case we can
         // raise the alignment on the promoted store.
         Align InstAlignment = Store->getAlign();
-
+        bool GuaranteedToExecute =
+            SafetyInfo->isGuaranteedToExecute(*UI, DT, CurLoop);
+        StoreIsGuanteedToExecute |= GuaranteedToExecute;
         if (!DereferenceableInPH || !SafeToInsertStore ||
             (InstAlignment > Alignment)) {
-          if (SafetyInfo->isGuaranteedToExecute(*UI, DT, CurLoop)) {
+          if (GuaranteedToExecute) {
             DereferenceableInPH = true;
             SafeToInsertStore = true;
             Alignment = std::max(Alignment, InstAlignment);
@@ -2197,21 +2200,26 @@ bool llvm::promoteLoopAccessesToScalars(
 
   // Set up the preheader to have a definition of the value.  It is the live-out
   // value from the preheader that uses in the loop will use.
-  LoadInst *PreheaderLoad = new LoadInst(
-      AccessTy, SomePtr, SomePtr->getName() + ".promoted",
-      Preheader->getTerminator());
-  if (SawUnorderedAtomic)
-    PreheaderLoad->setOrdering(AtomicOrdering::Unordered);
-  PreheaderLoad->setAlignment(Alignment);
-  PreheaderLoad->setDebugLoc(DebugLoc());
-  if (AATags)
-    PreheaderLoad->setAAMetadata(AATags);
-  SSA.AddAvailableValue(Preheader, PreheaderLoad);
+  LoadInst *PreheaderLoad = nullptr;
+  if (FoundLoadToPromote || !StoreIsGuanteedToExecute) {
+    PreheaderLoad =
+        new LoadInst(AccessTy, SomePtr, SomePtr->getName() + ".promoted",
+                     Preheader->getTerminator());
+    if (SawUnorderedAtomic)
+      PreheaderLoad->setOrdering(AtomicOrdering::Unordered);
+    PreheaderLoad->setAlignment(Alignment);
+    PreheaderLoad->setDebugLoc(DebugLoc());
+    if (AATags)
+      PreheaderLoad->setAAMetadata(AATags);
 
-  MemoryAccess *PreheaderLoadMemoryAccess = MSSAU.createMemoryAccessInBB(
-      PreheaderLoad, nullptr, PreheaderLoad->getParent(), MemorySSA::End);
-  MemoryUse *NewMemUse = cast<MemoryUse>(PreheaderLoadMemoryAccess);
-  MSSAU.insertUse(NewMemUse, /*RenameUses=*/true);
+    MemoryAccess *PreheaderLoadMemoryAccess = MSSAU.createMemoryAccessInBB(
+        PreheaderLoad, nullptr, PreheaderLoad->getParent(), MemorySSA::End);
+    MemoryUse *NewMemUse = cast<MemoryUse>(PreheaderLoadMemoryAccess);
+    MSSAU.insertUse(NewMemUse, /*RenameUses=*/true);
+    SSA.AddAvailableValue(Preheader, PreheaderLoad);
+  } else {
+    SSA.AddAvailableValue(Preheader, PoisonValue::get(AccessTy));
+  }
 
   if (VerifyMemorySSA)
     MSSAU.getMemorySSA()->verifyMemorySSA();
@@ -2222,7 +2230,7 @@ bool llvm::promoteLoopAccessesToScalars(
   if (VerifyMemorySSA)
     MSSAU.getMemorySSA()->verifyMemorySSA();
   // If the SSAUpdater didn't use the load in the preheader, just zap it now.
-  if (PreheaderLoad->use_empty())
+  if (PreheaderLoad && PreheaderLoad->use_empty())
     eraseInstruction(*PreheaderLoad, *SafetyInfo, MSSAU);
 
   return true;

@@ -144,10 +144,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       !C.getDriver().IsCLMode()) {
     if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl))
       CmdArgs.push_back("-defaultlib:msvcrt");
-    else { // INTEL
+#if INTEL_CUSTOMIZATION
+    else {
       CmdArgs.push_back("-defaultlib:libcmt");
-      CmdArgs.push_back("-defaultlib:libmmt"); // INTEL
-    }  // INTEL
+      if (getToolChain().CheckAddIntelLib("libm", Args) &&
+          getToolChain().CheckAddIntelLib("libimf", Args))
+        CmdArgs.push_back("-defaultlib:libmmt");
+    }
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-defaultlib:oldnames");
   }
 
@@ -159,6 +163,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-defaultlib:sycld.lib");
     else
       CmdArgs.push_back("-defaultlib:sycl.lib");
+    CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   }
 
   for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ))
@@ -169,6 +174,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
+  if (C.getDriver().IsDPCPPMode())
+    CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
       C.getDriver().IsIntelMode()) {
@@ -469,6 +476,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     A.renderAsInput(Args, CmdArgs);
   }
 
+  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+
   TC.addProfileRTLibs(Args, CmdArgs);
 
   std::vector<const char *> Environment;
@@ -507,10 +516,16 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
     }
     // Add any Intel defaults.
-    if (C.getDriver().IsIntelMode())
+    if (C.getDriver().IsIntelMode()) {
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
                                              A->getValue()));
+      // -fintel-libirc-allowed
+      if (!Args.hasArg(options::OPT_ffreestanding,
+                       options::OPT_i_no_use_libirc) &&
+          TC.CheckAddIntelLib("libirc", Args))
+        CmdArgs.push_back("-opt:fintel-libirc-allowed");
+    }
     auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
       if (OptArg.getOption().matches(Opt) &&
           x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
@@ -678,8 +693,8 @@ bool MSVCToolChain::IsUnwindTablesDefault(const ArgList &Args) const {
   // All non-x86_32 Windows targets require unwind tables. However, LLVM
   // doesn't know how to generate them for all targets, so only enable
   // the ones that are actually implemented.
-  return getArch() == llvm::Triple::x86_64 ||
-         getArch() == llvm::Triple::aarch64;
+  return getArch() == llvm::Triple::x86_64 || getArch() == llvm::Triple::arm ||
+         getArch() == llvm::Triple::thumb || getArch() == llvm::Triple::aarch64;
 }
 
 bool MSVCToolChain::isPICDefault() const {
@@ -704,6 +719,13 @@ void MSVCToolChain::AddCudaIncludeArgs(const ArgList &DriverArgs,
 void MSVCToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
                                       ArgStringList &CC1Args) const {
   RocmInstallation.AddHIPIncludeArgs(DriverArgs, CC1Args);
+}
+
+void MSVCToolChain::AddHIPRuntimeLibArgs(const ArgList &Args,
+                                         ArgStringList &CmdArgs) const {
+  CmdArgs.append({Args.MakeArgString(StringRef("-libpath:") +
+                                     RocmInstallation.getLibPath()),
+                  "amdhip64.lib"});
 }
 
 void MSVCToolChain::printVerboseInfo(raw_ostream &OS) const {
@@ -1259,7 +1281,7 @@ void MSVCToolChain::addClangTargetOptions(
     Action::OffloadKind DeviceOffloadKind) const {
   // MSVC STL kindly allows removing all usages of typeid by defining
   // _HAS_STATIC_RTTI to 0. Do so, when compiling with -fno-rtti
-  if (DriverArgs.hasArg(options::OPT_fno_rtti, options::OPT_frtti,
-                        /*Default=*/false))
+  if (DriverArgs.hasFlag(options::OPT_fno_rtti, options::OPT_frtti,
+                         /*Default=*/false))
     CC1Args.push_back("-D_HAS_STATIC_RTTI=0");
 }

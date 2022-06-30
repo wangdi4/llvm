@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
 
 ; This test verifies that the DTrans delete field pass correctly transforms
 ; structures with global arrays of instances with non-default initializers.

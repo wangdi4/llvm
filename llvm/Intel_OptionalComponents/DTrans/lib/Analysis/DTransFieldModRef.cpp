@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.cpp - DTrans Field ModRef Analysis-----------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1655,25 +1655,22 @@ AnalysisKey DTransFieldModRefAnalysis::Key;
 
 DTransFieldModRefAnalysis::Result
 DTransFieldModRefAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-
-  // TODO: Uncomment this when we want to start running the compiler with opaque
-  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
-  // opaque pointer version of analysis to allow HIR to get the
-  // DTransFieldModRefResult without needing to choose which analysis should be
-  // run.
-  //if (!DTransInfo.useDTransAnalysis()) {
-  //  auto &DTSafetyInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
-  //  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
-  //  DTransModRefAnalyzer Analyzer;
-  //  Analyzer.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
-  //  return FMRResult;
-  //}
-
   FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
-  DTransModRefAnalyzer Analyzer;
-  Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
+
+  // Run the typed pointer version of DTrans when using typed pointers.
+  if (M.getContext().supportsTypedPointers()) {
+    // TODO: This block should be removed when only opaque pointers are supported.
+    auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+    DTransModRefAnalyzer Analyzer;
+    Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
+  } else {
+    auto &DTSafetyInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
+    FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
+    DTransModRefAnalyzer Analyzer;
+    Analyzer.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
+  }
+
   return FMRResult;
 }
 

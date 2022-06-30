@@ -13,10 +13,10 @@
 // License.
 
 #include "debug_server.h"
-#include "debugservermessages.pb.h"
+#include "cl_env.h"
 #include "debug_communicator.h"
 #include "debuginfo_utils.h"
-#include "cl_env.h"
+#include "debugservermessages_wrapper.h"
 #include "google/protobuf/text_format.h"
 
 // These can be defined as macros in earlier headers and can interfere with
@@ -865,40 +865,41 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
         ss << "Breakpoint hit at " << absPath << ":" << lineno << "\n";
         DEBUG_SERVER_LOG(ss.str());
         stopped = true;
-    }
-    else {
-        switch (d->m_runningmode) {
-            case DebugServerImpl::RUNNING_NORMAL:
-                // Don't stop - since a previous HasBreakpointAt test failed.
-                //
-                stopped = false;
-                break;
-            case DebugServerImpl::RUNNING_STEP_IN:
-                stopped = true;
-                break;
-            case DebugServerImpl::RUNNING_STEP_OVER:
-                // When stepping over, we won't stop inside a function call
-                // made from this line. The next stoppoint can, however, end up
-                // higher in the stack (maybe the stopoint from which we're
-                // stepping over is on a 'return'), so check for at most as
-                // deep as saved level.
-                //
-                if (d->m_stack.size() <= d->m_saved_stack_level) {
-                    stopped = true;
-                }
-                break;
-            case DebugServerImpl::RUNNING_STEP_OUT:
-                // When stepping out, we want to end up strictly less deep in
-                // the stack.
-                //
-                if (d->m_stack.size() < d->m_saved_stack_level) {
-                    stopped = true;
-                }
-                break;
-            default:
-                assert(0 && "unreachable");
-                break;
+    } else {
+      assert((d->m_runningmode == DebugServerImpl::RUNNING_NORMAL ||
+              d->m_runningmode == DebugServerImpl::RUNNING_STEP_IN ||
+              d->m_runningmode == DebugServerImpl::RUNNING_STEP_OVER ||
+              d->m_runningmode == DebugServerImpl::RUNNING_STEP_OUT) &&
+             "Invalid debugger running mode!");
+      switch (d->m_runningmode) {
+      case DebugServerImpl::RUNNING_NORMAL:
+        // Don't stop - since a previous HasBreakpointAt test failed.
+        //
+        stopped = false;
+        break;
+      case DebugServerImpl::RUNNING_STEP_IN:
+        stopped = true;
+        break;
+      case DebugServerImpl::RUNNING_STEP_OVER:
+        // When stepping over, we won't stop inside a function call
+        // made from this line. The next stoppoint can, however, end up
+        // higher in the stack (maybe the stopoint from which we're
+        // stepping over is on a 'return'), so check for at most as
+        // deep as saved level.
+        //
+        if (d->m_stack.size() <= d->m_saved_stack_level) {
+          stopped = true;
         }
+        break;
+      case DebugServerImpl::RUNNING_STEP_OUT:
+        // When stepping out, we want to end up strictly less deep in
+        // the stack.
+        //
+        if (d->m_stack.size() < d->m_saved_stack_level) {
+          stopped = true;
+        }
+        break;
+      }
     }
 
     if (stopped) {

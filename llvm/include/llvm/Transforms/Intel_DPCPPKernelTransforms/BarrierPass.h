@@ -1,6 +1,6 @@
 //==--- BarrierPass.h - Main Barrier pass - C++ -*--------------------------==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,7 +20,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 #include <map>
 
@@ -44,15 +44,19 @@ public:
   explicit KernelBarrier(bool IsNativeDebug = false,
                          bool useTLSGlobals = false);
 
-  static StringRef name() { return "Intel Kernel Barrier"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
 
 private:
+  using BBSet = CompilationUtils::BBSet;
+  using FuncSet = CompilationUtils::FuncSet;
+  using InstSet = CompilationUtils::InstSet;
+  using InstVec = CompilationUtils::InstVec;
+  using ValueVec = CompilationUtils::ValueVec;
+
   using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
-  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BasicBlockSet>;
+  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BBSet>;
   using BasicBlockToBasicBlockVectorTy =
       DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
   using BasicBlockToInstructionMapVectorTy =
@@ -152,10 +156,10 @@ private:
 
   /// fixSynclessTIDUsers - Patch functions which are users of get_*_id() and do
   /// not produce the values within.
-  void fixSynclessTIDUsers(Module &M, const FuncSet &);
+  bool fixSynclessTIDUsers(Module &M, const FuncSet &FuncsWithSync);
 
   /// Remove all instructions in ToRemoveInstructions.
-  void eraseAllToRemoveInstructions();
+  bool eraseAllToRemoveInstructions();
 
   /// Update Map with structure stride size for each kernel.
   /// M module to optimize.
@@ -190,24 +194,21 @@ private:
   }
   Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(LocalIdValues, Dim, B);
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = createGetPtrToLocalId(
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(
         LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
@@ -240,21 +241,12 @@ private:
               &*CurrentBarrierKeyValues->TheFunction->getEntryBlock().begin());
         LocalIdValues = CurrentBarrierKeyValues->LocalIdValues;
       }
-      *Ptr = createGetPtrToLocalId(LocalIdValues,
-                                   ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
+      *Ptr = CompilationUtils::createGetPtrToLocalId(
+          LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
     }
     return *Ptr;
   }
-  Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
-                               IRBuilder<> &B) {
-    SmallVector<Value *, 4> Indices;
-    Indices.push_back(ConstZero);
-    Indices.push_back(Dim);
-    return B.CreateInBoundsGEP(
-        LocalIdValues->getType()->getScalarType()->getPointerElementType(),
-        LocalIdValues, Indices,
-        DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
-  }
+
   Value *getLocalSize(unsigned Dim) {
     return CurrentBarrierKeyValues->LocalSize[Dim];
   }
@@ -291,8 +283,6 @@ private:
   void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
                             DenseMap<Function *, size_t> &PrivateSizeMap);
 
-  static const unsigned MaxNumDims = 3;
-
   const DataLayout *DL;
 
   /// This is barrier utility class.
@@ -315,20 +305,20 @@ private:
   /// This holds type of the TLS global containing local ids.
   ArrayType *LocalIdArrayTy;
   /// This holds cached GEP instructions for local ids.
-  Value *PtrLocalId[MaxNumDims];
+  Value *PtrLocalId[MAX_WORK_DIM];
 
   Value *ConstZero;
   Value *ConstOne;
 
   /// This holds instruction to be removed in the processed function/module.
-  InstVector InstructionsToRemove;
+  InstVec InstructionsToRemove;
 
   /// This holds the container of all Group-A values in processed function.
-  ValueVector *AllocaValues;
+  ValueVec *AllocaValues;
   /// This holds the container of all Group-B.1 values in processed function.
-  ValueVector *SpecialValues;
+  ValueVec *SpecialValues;
   /// This holds the container of all Group-B.2 values in processed function.
-  ValueVector *CrossBarrierValues;
+  ValueVec *CrossBarrierValues;
 
   /// This holds the container of all sync instructions in processed function.
   InstSet *SyncInstructions;
@@ -345,17 +335,17 @@ private:
           SpecialBufferValue(0), CurrSBIndex(0), StructureSizeValue(0),
           CurrentVectorizedWidthValue(0) {
       Value *V = 0;
-      std::fill(PtrLocalId, LocalSize + MaxNumDims, V);
-      std::fill(LocalSize, LocalSize + MaxNumDims, V);
+      std::fill(PtrLocalId, LocalSize + MAX_WORK_DIM, V);
+      std::fill(LocalSize, LocalSize + MAX_WORK_DIM, V);
     }
     /// Pointer to function is needed because it is not always known how a
     /// BarrierKeyValues was obtained.
     Function *TheFunction;
     unsigned NumDims;
-    /// This value is an array of size_t with MaxNumDims elements.
+    /// This value is an array of size_t with MAX_WORK_DIM elements.
     Value *LocalIdValues;
     /// This array of pointers is used to cache GEP instructions.
-    Value *PtrLocalId[MaxNumDims];
+    Value *PtrLocalId[MAX_WORK_DIM];
 
     /// This holds the alloca value of processed barrier id.
     Value *CurrBarrierId;
@@ -363,7 +353,7 @@ private:
     Value *SpecialBufferValue;
     /// This holds the alloca value of current stride offset in Special Buffer.
     Value *CurrSBIndex;
-    Value *LocalSize[MaxNumDims];
+    Value *LocalSize[MAX_WORK_DIM];
     /// This holds the constant value of structure size of Special Buffer.
     Value *StructureSizeValue;
     Value *CurrentVectorizedWidthValue;

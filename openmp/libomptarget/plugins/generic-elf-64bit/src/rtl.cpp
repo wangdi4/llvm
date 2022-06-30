@@ -271,6 +271,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceInfo.getOffloadEntriesTable(device_id);
 }
 
+void __tgt_rtl_print_device_info(int32_t device_id) {
+  printf("    This is a generic-elf-64bit device\n");
+}
+
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -364,8 +368,13 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     args[i] = &ptrs[i];
   }
 
+#if INTEL_COLLAB
+  ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arg_num,
+                                   &ffi_type_void, args_types.data());
+#else // INTEL_COLLAB
   ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arg_num,
                                    &ffi_type_void, &args_types[0]);
+#endif // INTEL_COLLAB
 
   assert(status == FFI_OK && "Unable to prepare target launch!");
 
@@ -376,7 +385,11 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
 
   void (*entry)(void);
   *((void **)&entry) = tgt_entry_ptr;
+#if INTEL_COLLAB
+  ffi_call(&cif, entry, NULL, args.data());
+#else // INTEL_COLLAB
   ffi_call(&cif, entry, NULL, &args[0]);
+#endif // INTEL_COLLAB
   return OFFLOAD_SUCCESS;
 }
 

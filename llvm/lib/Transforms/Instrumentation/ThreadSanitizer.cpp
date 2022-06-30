@@ -38,12 +38,13 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/EscapeEnumerator.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -173,6 +174,7 @@ private:
   FunctionCallee MemmoveFn, MemcpyFn, MemsetFn;
 };
 
+#if INTEL_CUSTOMIZATION
 struct ThreadSanitizerLegacyPass : FunctionPass {
   ThreadSanitizerLegacyPass() : FunctionPass(ID) {
     initializeThreadSanitizerLegacyPassPass(*PassRegistry::getPassRegistry());
@@ -185,6 +187,7 @@ struct ThreadSanitizerLegacyPass : FunctionPass {
 private:
   Optional<ThreadSanitizer> TSan;
 };
+#endif // INTEL_CUSTOMIZATION
 
 void insertModuleCtor(Module &M) {
   getOrCreateSanitizerCtorAndInitFunctions(
@@ -194,7 +197,6 @@ void insertModuleCtor(Module &M) {
       // time. Hook them into the global ctors list in that case:
       [&](Function *Ctor, FunctionCallee) { appendToGlobalCtors(M, Ctor, 0); });
 }
-
 }  // namespace
 
 PreservedAnalyses ThreadSanitizerPass::run(Function &F,
@@ -211,6 +213,7 @@ PreservedAnalyses ModuleThreadSanitizerPass::run(Module &M,
   return PreservedAnalyses::none();
 }
 
+#if INTEL_CUSTOMIZATION
 char ThreadSanitizerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(ThreadSanitizerLegacyPass, "tsan",
                       "ThreadSanitizer: detects data races.", false, false)
@@ -241,6 +244,7 @@ bool ThreadSanitizerLegacyPass::runOnFunction(Function &F) {
 FunctionPass *llvm::createThreadSanitizerLegacyPassPass() {
   return new ThreadSanitizerLegacyPass();
 }
+#endif // INTEL_CUSTOMIZATION
 
 void ThreadSanitizer::initialize(Module &M) {
   const DataLayout &DL = M.getDataLayout();
@@ -537,10 +541,11 @@ static bool isTsanAtomic(const Instruction *I) {
 }
 
 void ThreadSanitizer::InsertRuntimeIgnores(Function &F) {
-  IRBuilder<> IRB(F.getEntryBlock().getFirstNonPHI());
+  InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHI());
   IRB.CreateCall(TsanIgnoreBegin);
   EscapeEnumerator EE(F, "tsan_ignore_cleanup", ClHandleCxxExceptions);
   while (IRBuilder<> *AtExit = EE.Next()) {
+    InstrumentationIRBuilder::ensureDebugInfo(*AtExit, F);
     AtExit->CreateCall(TsanIgnoreEnd);
   }
 }
@@ -623,7 +628,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
   // Instrument function entry/exit points if there were instrumented accesses.
   if ((Res || HasCalls) && ClInstrumentFuncEntryExit) {
-    IRBuilder<> IRB(F.getEntryBlock().getFirstNonPHI());
+    InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHI());
     Value *ReturnAddress = IRB.CreateCall(
         Intrinsic::getDeclaration(F.getParent(), Intrinsic::returnaddress),
         IRB.getInt32(0));
@@ -631,6 +636,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
     EscapeEnumerator EE(F, "tsan_cleanup", ClHandleCxxExceptions);
     while (IRBuilder<> *AtExit = EE.Next()) {
+      InstrumentationIRBuilder::ensureDebugInfo(*AtExit, F);
       AtExit->CreateCall(TsanFuncExit, {});
     }
     Res = true;
@@ -640,7 +646,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
 bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
                                             const DataLayout &DL) {
-  IRBuilder<> IRB(II.Inst);
+  InstrumentationIRBuilder IRB(II.Inst);
   const bool IsWrite = isa<StoreInst>(*II.Inst);
   Value *Addr = IsWrite ? cast<StoreInst>(II.Inst)->getPointerOperand()
                         : cast<LoadInst>(II.Inst)->getPointerOperand();
@@ -680,8 +686,8 @@ bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
     return true;
   }
 
-  const unsigned Alignment = IsWrite ? cast<StoreInst>(II.Inst)->getAlignment()
-                                     : cast<LoadInst>(II.Inst)->getAlignment();
+  const Align Alignment = IsWrite ? cast<StoreInst>(II.Inst)->getAlign()
+                                  : cast<LoadInst>(II.Inst)->getAlign();
   const bool IsCompoundRW =
       ClCompoundReadBeforeWrite && (II.Flags & InstructionInfo::kCompoundRW);
   const bool IsVolatile = ClDistinguishVolatile &&
@@ -691,7 +697,7 @@ bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
 
   const uint32_t TypeSize = DL.getTypeStoreSizeInBits(OrigTy);
   FunctionCallee OnAccessFunc = nullptr;
-  if (Alignment == 0 || Alignment >= 8 || (Alignment % (TypeSize / 8)) == 0) {
+  if (Alignment >= Align(8) || (Alignment.value() % (TypeSize / 8)) == 0) {
     if (IsCompoundRW)
       OnAccessFunc = TsanCompoundRW[Idx];
     else if (IsVolatile)
@@ -769,7 +775,7 @@ bool ThreadSanitizer::instrumentMemIntrinsic(Instruction *I) {
 // http://www.hpl.hp.com/personal/Hans_Boehm/c++mm/
 
 bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
-  IRBuilder<> IRB(I);
+  InstrumentationIRBuilder IRB(I);
   if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
     Value *Addr = LI->getPointerOperand();
     Type *OrigTy = LI->getType();

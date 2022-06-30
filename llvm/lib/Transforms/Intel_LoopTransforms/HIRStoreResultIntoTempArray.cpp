@@ -461,31 +461,6 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
   return true;
 }
 
-static bool compareInsts(HLInst *Inst1, HLInst *Inst2) {
-  auto *LLVMInst1 = Inst1->getLLVMInstruction();
-  auto *LLVMInst2 = Inst2->getLLVMInstruction();
-
-  if (LLVMInst1->getOpcode() != LLVMInst2->getOpcode()) {
-    return false;
-  }
-
-  if (auto *FPInst1 = dyn_cast<FPMathOperator>(LLVMInst1)) {
-    auto *FPInst2 = dyn_cast<FPMathOperator>(LLVMInst2);
-
-    if (!FPInst2 || (FPInst1->isFast() != FPInst2->isFast())) {
-      return false;
-    }
-  }
-
-  unsigned NumOperands1 = Inst1->getNumOperands();
-  unsigned NumOperands2 = Inst2->getNumOperands();
-
-  if (NumOperands1 != NumOperands2) {
-    return false;
-  }
-  return true;
-}
-
 static bool compareLvals(HLInst *Inst1, HLInst *Inst2) {
   auto *Lval1 = Inst1->getLvalDDRef();
   auto *Lval2 = Inst2->getLvalDDRef();
@@ -521,7 +496,7 @@ static bool compareLvals(HLInst *Inst1, HLInst *Inst2) {
 // END DO
 static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
                         HLLoop *InnermostLp) {
-  if (!compareInsts(Inst1, Inst2)) {
+  if (!Inst1->isSameOperationAs(Inst2)) {
     return false;
   }
 
@@ -1417,7 +1392,7 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2,
 
 static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG1,
                         DDGraph &DDG2, unsigned InnermostLoopLevel) {
-  if (!compareInsts(Inst1, Inst2)) {
+  if (!Inst1->isSameOperationAs(Inst2)) {
     return false;
   }
 

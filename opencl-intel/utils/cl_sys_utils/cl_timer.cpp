@@ -47,11 +47,10 @@ unsigned long long Timer::GetCurrentTicks()
 unsigned long long Timer::GetFrequency()
 {
 #ifdef _WIN32
-    static LARGE_INTEGER s_freq = { 0 };
-    if (0 == s_freq.QuadPart)
-    {
-        QueryPerformanceFrequency(&s_freq);
-        assert(0 != s_freq.QuadPart);
+  static LARGE_INTEGER s_freq = {{0, 0}};
+  if (0 == s_freq.QuadPart) {
+    QueryPerformanceFrequency(&s_freq);
+    assert(0 != s_freq.QuadPart);
     }
 
     return s_freq.QuadPart;

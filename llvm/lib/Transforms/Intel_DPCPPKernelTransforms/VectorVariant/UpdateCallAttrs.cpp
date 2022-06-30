@@ -17,7 +17,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
-#define DEBUG_TYPE "UpdateCallAttrs"
+#define DEBUG_TYPE "dpcpp-kernel-update-call-attrs"
 
 using namespace llvm;
 

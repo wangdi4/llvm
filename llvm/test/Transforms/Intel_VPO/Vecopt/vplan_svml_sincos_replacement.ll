@@ -37,24 +37,25 @@
 ;   }
 ; }
 
-; RUN: opt -vplan-enable-soa=false -vector-library=SVML -vplan-vec -vplan-force-vf=8 -S %s | FileCheck %s
-
-; CHECK-LABEL: entry
-; CHECK:         [[COSPTR_VEC:%.*]] = alloca <8 x float>
-; CHECK-NEXT:    [[COSPTR_BC:%.*]] = bitcast <8 x float>* [[COSPTR_VEC]] to float*
-; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-
-; CHECK-LABEL: vector.body
-; CHECK:         {{.*}} = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]])
-; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
-
+; RUN: opt -vector-library=SVML -vplan-vec -vplan-force-vf=8 -S %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 declare float @_Z6sincosfPf(float, float*)
 
+; OCL sincos call with simple scalar private cos pointer operand.
 define void @foo(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
+; CHECK-LABEL: define void @foo
+; CHECK:       entry
+; CHECK:         [[COSPTR_VEC:%.*]] = alloca <8 x float>
+; CHECK-NEXT:    [[COSPTR_BC:%.*]] = bitcast <8 x float>* [[COSPTR_VEC]] to float*
+; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+
+; CHECK:       vector.body
+; CHECK:         {{.*}} = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]])
+; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
+;
 entry:
   %cosPtr = alloca float
   br label %simd.begin.region
@@ -70,6 +71,50 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %load1 = load float, float addrspace(1)* %gep1, align 4
   %sinPtr = call float @_Z6sincosfPf(float %load1, float* %cosPtr)
   %cosVal = load float, float* %cosPtr
+  %add = fadd float %cosVal, %sinPtr
+  %gep2 = getelementptr inbounds float, float addrspace(1)* %uni2, i64 %index64
+  store float %add, float addrspace(1)* %gep2, align 4
+  br label %simd.loop.exit
+
+simd.loop.exit:                                   ; preds = %simd.loop
+  %indvar = add nuw i32 %index, 1
+  %vl.cond = icmp ult i32 %indvar, 8
+  br i1 %vl.cond, label %simd.loop, label %simd.end.region
+
+simd.end.region:                                  ; preds = %simd.loop.exit
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
+; OCL sincos call with ArrayType private cos pointer operand.
+define void @foo_array(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
+; CHECK-LABEL: define void @foo_array
+; CHECK:       entry
+; CHECK:         [[COSPTR_VEC:%.*]] = alloca [8 x [2 x float]], align 4
+; CHECK:         [[COSPTR_VEC_BC:%.*]] = bitcast [8 x [2 x float]]* [[COSPTR_VEC]] to [2 x float]*
+; CHECK:         [[COSPTR_VEC_BASE_ADDR:%.*]] = getelementptr [2 x float], [2 x float]* [[COSPTR_VEC_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+
+; CHECK:       vector.body
+; CHECK:         [[COSPTR_GEP:%.*]] = getelementptr inbounds [2 x float], <8 x [2 x float]*> [[COSPTR_VEC_BASE_ADDR]], <8 x i64> zeroinitializer, <8 x i64> zeroinitializer
+; CHECK-8:       {{.*}} = extractelement <8 x float*> [[COSPTR_GEP]], i32 {{.*}}
+; CHECK-8:       {{.*}} = call float @_Z6sincosfPf(float {{.*}}, float* {{.*}})
+;
+entry:
+  %cosPtr = alloca [2 x float], align 4
+  br label %simd.begin.region
+
+simd.begin.region:                                ; preds = %6
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(float addrspace(1)* %uni1, float addrspace(1)* %uni2), "QUAL.OMP.PRIVATE"([2 x float]* %cosPtr), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  br label %simd.loop
+
+simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
+  %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
+  %index64 = sext i32 %index to i64
+  %gep1 = getelementptr inbounds float, float addrspace(1)* %uni1, i64 %index64
+  %load1 = load float, float addrspace(1)* %gep1, align 4
+  %cosPtr.gep = getelementptr inbounds [2 x float], [2 x float]* %cosPtr, i64 0, i64 0
+  %sinPtr = call float @_Z6sincosfPf(float %load1, float* nonnull %cosPtr.gep)
+  %cosVal = load float, float* %cosPtr.gep
   %add = fadd float %cosVal, %sinPtr
   %gep2 = getelementptr inbounds float, float addrspace(1)* %uni2, i64 %index64
   store float %add, float addrspace(1)* %gep2, align 4

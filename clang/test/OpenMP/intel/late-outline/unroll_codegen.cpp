@@ -192,13 +192,13 @@ void func_factor(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP34:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_J]], align 4
 // CHECK-NEXT:    [[TMP35:%.*]] = load i32, ptr [[DOTUNROLLED_IV_J]], align 4
 // CHECK-NEXT:    [[ADD47:%.*]] = add i32 [[TMP35]], 2
-// CHECK-NEXT:    [[CMP48:%.*]] = icmp ule i32 [[TMP34]], [[ADD47]]
+// CHECK-NEXT:    [[CMP48:%.*]] = icmp ult i32 [[TMP34]], [[ADD47]]
 // CHECK-NEXT:    br i1 [[CMP48]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP36:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_J]], align 4
 // CHECK-NEXT:    [[TMP37:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_7]], align 4
 // CHECK-NEXT:    [[ADD49:%.*]] = add i32 [[TMP37]], 1
-// CHECK-NEXT:    [[CMP50:%.*]] = icmp ule i32 [[TMP36]], [[ADD49]]
+// CHECK-NEXT:    [[CMP50:%.*]] = icmp ult i32 [[TMP36]], [[ADD49]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP38:%.*]] = phi i1 [ false, [[FOR_COND]] ], [ [[CMP50]], [[LAND_RHS]] ]
@@ -324,13 +324,13 @@ void func_for_collapse_outer(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP18:%.*]] = load i32, ptr [[DOTUNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD12:%.*]] = add i32 [[TMP18]], 2
-// CHECK-NEXT:    [[CMP13:%.*]] = icmp ule i32 [[TMP17]], [[ADD12]]
+// CHECK-NEXT:    [[CMP13:%.*]] = icmp ult i32 [[TMP17]], [[ADD12]]
 // CHECK-NEXT:    br i1 [[CMP13]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_16]], align 4
 // CHECK-NEXT:    [[ADD14:%.*]] = add i32 [[TMP20]], 1
-// CHECK-NEXT:    [[CMP15:%.*]] = icmp ule i32 [[TMP19]], [[ADD14]]
+// CHECK-NEXT:    [[CMP15:%.*]] = icmp ult i32 [[TMP19]], [[ADD14]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP21:%.*]] = phi i1 [ false, [[FOR_COND]] ], [ [[CMP15]], [[LAND_RHS]] ]
@@ -522,13 +522,13 @@ void func_heuristic(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP18:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[DOTUNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD12:%.*]] = add i32 [[TMP19]], 7
-// CHECK-NEXT:    [[CMP13:%.*]] = icmp ule i32 [[TMP18]], [[ADD12]]
+// CHECK-NEXT:    [[CMP13:%.*]] = icmp ult i32 [[TMP18]], [[ADD12]]
 // CHECK-NEXT:    br i1 [[CMP13]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP21:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_26]], align 4
 // CHECK-NEXT:    [[ADD14:%.*]] = add i32 [[TMP21]], 1
-// CHECK-NEXT:    [[CMP15:%.*]] = icmp ule i32 [[TMP20]], [[ADD14]]
+// CHECK-NEXT:    [[CMP15:%.*]] = icmp ult i32 [[TMP20]], [[ADD14]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP22:%.*]] = phi i1 [ false, [[FOR_COND]] ], [ [[CMP15]], [[LAND_RHS]] ]
@@ -735,13 +735,13 @@ void func_partial(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[DOTUNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD27:%.*]] = add i32 [[TMP28]], 2
-// CHECK-NEXT:    [[CMP28:%.*]] = icmp ule i32 [[TMP27]], [[ADD27]]
+// CHECK-NEXT:    [[CMP28:%.*]] = icmp ult i32 [[TMP27]], [[ADD27]]
 // CHECK-NEXT:    br i1 [[CMP28]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP29:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP30:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_36]], align 4
 // CHECK-NEXT:    [[ADD29:%.*]] = add i32 [[TMP30]], 1
-// CHECK-NEXT:    [[CMP30:%.*]] = icmp ule i32 [[TMP29]], [[ADD29]]
+// CHECK-NEXT:    [[CMP30:%.*]] = icmp ult i32 [[TMP29]], [[ADD29]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP31:%.*]] = phi i1 [ false, [[FOR_COND26]] ], [ [[CMP30]], [[LAND_RHS]] ]
@@ -889,13 +889,13 @@ void func_tile_for(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[TMP21:%.*]] = load i32, ptr [[DOTUNROLLED_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD18:%.*]] = add i32 [[TMP21]], 2
-// CHECK-NEXT:    [[CMP19:%.*]] = icmp ule i32 [[TMP20]], [[ADD18]]
+// CHECK-NEXT:    [[CMP19:%.*]] = icmp ult i32 [[TMP20]], [[ADD18]]
 // CHECK-NEXT:    br i1 [[CMP19]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[TMP23:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_46]], align 4
 // CHECK-NEXT:    [[ADD20:%.*]] = add i32 [[TMP23]], 1
-// CHECK-NEXT:    [[CMP21:%.*]] = icmp ule i32 [[TMP22]], [[ADD20]]
+// CHECK-NEXT:    [[CMP21:%.*]] = icmp ult i32 [[TMP22]], [[ADD20]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP24:%.*]] = phi i1 [ false, [[FOR_COND]] ], [ [[CMP21]], [[LAND_RHS]] ]
@@ -912,13 +912,13 @@ void func_tile_for(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[DOTUNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD25:%.*]] = add i32 [[TMP28]], 2
-// CHECK-NEXT:    [[CMP26:%.*]] = icmp ule i32 [[TMP27]], [[ADD25]]
+// CHECK-NEXT:    [[CMP26:%.*]] = icmp ult i32 [[TMP27]], [[ADD25]]
 // CHECK-NEXT:    br i1 [[CMP26]], label [[LAND_RHS27:%.*]], label [[LAND_END30:%.*]]
 // CHECK:       land.rhs27:
 // CHECK-NEXT:    [[TMP29:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP30:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_44]], align 4
 // CHECK-NEXT:    [[ADD28:%.*]] = add i32 [[TMP30]], 1
-// CHECK-NEXT:    [[CMP29:%.*]] = icmp ule i32 [[TMP29]], [[ADD28]]
+// CHECK-NEXT:    [[CMP29:%.*]] = icmp ult i32 [[TMP29]], [[ADD28]]
 // CHECK-NEXT:    br label [[LAND_END30]]
 // CHECK:       land.end30:
 // CHECK-NEXT:    [[TMP31:%.*]] = phi i1 [ false, [[FOR_COND24]] ], [ [[CMP29]], [[LAND_RHS27]] ]
@@ -1064,13 +1064,13 @@ void func_unroll_for_attr(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[TMP21:%.*]] = load i32, ptr [[DOTUNROLLED_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD18:%.*]] = add i32 [[TMP21]], 2
-// CHECK-NEXT:    [[CMP19:%.*]] = icmp ule i32 [[TMP20]], [[ADD18]]
+// CHECK-NEXT:    [[CMP19:%.*]] = icmp ult i32 [[TMP20]], [[ADD18]]
 // CHECK-NEXT:    br i1 [[CMP19]], label [[LAND_RHS:%.*]], label [[LAND_END:%.*]]
 // CHECK:       land.rhs:
 // CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV__UNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[TMP23:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_54]], align 4
 // CHECK-NEXT:    [[ADD20:%.*]] = add i32 [[TMP23]], 1
-// CHECK-NEXT:    [[CMP21:%.*]] = icmp ule i32 [[TMP22]], [[ADD20]]
+// CHECK-NEXT:    [[CMP21:%.*]] = icmp ult i32 [[TMP22]], [[ADD20]]
 // CHECK-NEXT:    br label [[LAND_END]]
 // CHECK:       land.end:
 // CHECK-NEXT:    [[TMP24:%.*]] = phi i1 [ false, [[FOR_COND]] ], [ [[CMP21]], [[LAND_RHS]] ]
@@ -1087,13 +1087,13 @@ void func_unroll_for_attr(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[DOTUNROLLED_IV_I]], align 4
 // CHECK-NEXT:    [[ADD25:%.*]] = add i32 [[TMP28]], 2
-// CHECK-NEXT:    [[CMP26:%.*]] = icmp ule i32 [[TMP27]], [[ADD25]]
+// CHECK-NEXT:    [[CMP26:%.*]] = icmp ult i32 [[TMP27]], [[ADD25]]
 // CHECK-NEXT:    br i1 [[CMP26]], label [[LAND_RHS27:%.*]], label [[LAND_END30:%.*]]
 // CHECK:       land.rhs27:
 // CHECK-NEXT:    [[TMP29:%.*]] = load i32, ptr [[DOTUNROLL_INNER_IV_I]], align 4
 // CHECK-NEXT:    [[TMP30:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_52]], align 4
 // CHECK-NEXT:    [[ADD28:%.*]] = add i32 [[TMP30]], 1
-// CHECK-NEXT:    [[CMP29:%.*]] = icmp ule i32 [[TMP29]], [[ADD28]]
+// CHECK-NEXT:    [[CMP29:%.*]] = icmp ult i32 [[TMP29]], [[ADD28]]
 // CHECK-NEXT:    br label [[LAND_END30]]
 // CHECK:       land.end30:
 // CHECK-NEXT:    [[TMP31:%.*]] = phi i1 [ false, [[FOR_COND24]] ], [ [[CMP29]], [[LAND_RHS27]] ]

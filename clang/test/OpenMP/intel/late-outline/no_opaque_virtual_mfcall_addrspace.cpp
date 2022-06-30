@@ -96,6 +96,7 @@ void test_1(A *p) {
 struct __attribute__((visibility("hidden"))) [[clang::lto_visibility_public]] B {
  #pragma omp declare target
   virtual void foo();
+ #pragma omp end declare target
 };
 
 // CHECK-LABEL: @_Z6test_2P1B(
@@ -268,5 +269,6 @@ void foo(S *s, void (S::*p)()) {
  #pragma omp target
   (s->*p)();
 }
+ #pragma omp end declare target
 
 // end INTEL_COLLAB

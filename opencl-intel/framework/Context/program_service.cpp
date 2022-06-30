@@ -27,6 +27,7 @@
 #include "cl_autoptr_ex.h"
 #include <cl_local_array.h>
 #include "program_with_il.h"
+#include "program_with_source.h"
 #include <cl_synch_objects.h>
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
@@ -276,6 +277,21 @@ void CompileTask::Cancel()
     SetComplete(CL_BUILD_ERROR);
 }
 
+static void getAllKernelNamesFromSource(
+        SharedPtr<Program> *ppInputLinkProgs,
+        std::vector<std::vector<std::string>> &WithSourceKernelNames,
+        unsigned int numInputPrograms) {
+
+    assert(WithSourceKernelNames.size() >= numInputPrograms);
+
+    std::vector<std::vector<std::string>> TempKernelNames;
+    for (unsigned int I = 0; I < numInputPrograms; ++I)
+        if (ppInputLinkProgs[I].DynamicCast<ProgramWithSource>())
+            TempKernelNames.push_back(WithSourceKernelNames[I]);
+
+     WithSourceKernelNames.assign(TempKernelNames.begin(), TempKernelNames.end());
+}
+
 LinkTask::LinkTask(_cl_context_int*             context,
                    const SharedPtr<Program>&    pProg,
                    const ConstSharedPtr<FrontEndCompiler>&  pFECompiler,
@@ -347,8 +363,15 @@ bool LinkTask::Execute()
                                    pOutBinary.getOutPtr(),
                                    &uiOutBinarySize,
                                    linkLog,
-                                   &bIsLibrary);
+                                   &bIsLibrary,
+                                   &m_pProg->getWithSourceKernelName());
     }
+
+    // filter to get all kernels name which come from ProgramWithSource
+    if (useInputPrograms)
+        getAllKernelNamesFromSource(m_ppPrograms,
+                                    m_pProg->getWithSourceKernelName(),
+                                    m_uiNumPrograms);
 
     if (0 == uiOutBinarySize)
     {
@@ -1343,8 +1366,12 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
     return CL_SUCCESS;
 }
 
-cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_uint num_devices, const cl_device_id *device_list, const char *options, pfnNotifyBuildDone pfn_notify, void *user_data)
-{
+cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
+                                         cl_uint num_devices,
+                                         const cl_device_id *device_list,
+                                         const char *options,
+                                         pfnNotifyBuildDone pfn_notify,
+                                         void *user_data) {
     if (program->GetNumKernels() > 0)
     {
         return CL_INVALID_OPERATION;
@@ -1490,6 +1517,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                     break;
                 }
                 //Else: some changes to build options. Need to build.
+                program->ClearFinalizedFlag();
                 //Intentional fall through.
             }
             LLVM_FALLTHROUGH;

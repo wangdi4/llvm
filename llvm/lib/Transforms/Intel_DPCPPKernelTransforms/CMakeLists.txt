@@ -9,17 +9,19 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   BarrierPass.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
+  BuiltinLICM.cpp
   BuiltinLibInfoAnalysis.cpp
+  ChannelPipeTransformation.cpp
   CleanupWrappedKernel.cpp
   CoerceTypes.cpp
   CoerceWin64Types.cpp
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
   DeduceMaxWGDim.cpp
+  DetectRecursion.cpp
+  DPCPPAliasAnalysis.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelAnalysis.cpp
-  DPCPPKernelCompilationUtils.cpp
-  DPCPPKernelLoopUtils.cpp
   DPCPPKernelPostVec.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
@@ -33,30 +35,43 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp
+  InferArgumentAlias.cpp
+  InfiniteLoopCreator.cpp
   InstToFuncCall.cpp
   InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
-  KernelBarrierUtils.cpp
   LinearIdResolver.cpp
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
   LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
+  OptimizeIDivAndIRem.cpp
+  PatchCallbackArgs.cpp
   PhiCanonicalization.cpp
+  PipeIOTransformation.cpp
+  PipeOrdering.cpp
+  PipeSupport.cpp
   PrepareKernelArgs.cpp
+  PreventDivCrashes.cpp
   ProfilingInfo.cpp
   ReduceCrossBarrierValues.cpp
   RedundantPhiNodePass.cpp
+  RelaxedMath.cpp
   RemoveAtexit.cpp
+  RemoveDuplicatedBarrier.cpp
+  ReplaceScalarWithMask.cpp
+  ReqdSubGroupSize.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
   ResolveVarTIDCall.cpp
   ResolveWICall.cpp
+  SetPreferVectorWidth.cpp
   SetVectorizationFactor.cpp
   SinCosFold.cpp
   SoaAllocaAnalysis.cpp
+  SpecializeConstant.cpp
   SplitBBonBarrierPass.cpp
   SplitBBonBarrierPass.cpp
   SubgroupEmulation/SGBarrierPropagate.cpp
@@ -68,19 +83,23 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
   TaskSeqAsyncHandling.cpp
-  Utils/CPUDetect.cpp
+  Utils/BarrierUtils.cpp
+  Utils/CompilationUtils.cpp
   Utils/DPCPPChannelPipeUtils.cpp
   Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp
+  Utils/LoopUtils.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
+  Utils/Predicator.cpp
   Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
   Utils/WGBoundDecoder.cpp
   VectorizationDimensionAnalysis.cpp
+  VectorKernelElimination.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/IndirectCallLowering.cpp
   VectorVariant/SGSizeCollector.cpp
@@ -92,6 +111,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WGLoopBoundaries.cpp
   WIRelatedValuePass.cpp
   WIRelatedValuePass.cpp
+  WeightedInstCount.cpp
   WorkItemAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -109,10 +129,3 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Support
   TransformUtils
 )
-
-# FIXME: There is no corresponding argument in add_llvm_component_library with
-# the same semantic as target_include_directories. It's not typical to include
-# additional directories the way below. This require some redesign for headers
-# layout. Community changes can break this.
-target_include_directories(LLVMIntel_DPCPPKernelTransforms
-  PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)

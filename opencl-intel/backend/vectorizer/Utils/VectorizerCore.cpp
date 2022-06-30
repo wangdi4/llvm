@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils.h"
@@ -61,7 +62,6 @@ extern "C" FunctionPass* createAVX512ResolverPass();
 extern "C" FunctionPass *
 createX86ResolverPass(Intel::OpenCL::Utils::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
-extern "C" FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
 
 static FunctionPass *createResolverPass(const CPUDetect *CpuId) {
@@ -192,6 +192,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
                                          .getResult()
                                          .getBuiltinModules();
   std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
+  VectorVariant::ISAClass ISA =
+      Intel::VectorizerCommon::getCPUIdISA(m_pConfig->GetCpuId());
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////
   V_PRINT(VectorizerCore, "\nBefore preparations!\n");
@@ -216,9 +218,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm1.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_scalarizer"));
     fpm1.add(createDeadCodeEliminationPass());
 
-    WeightedInstCounter* preCounter = nullptr;
+    WeightedInstCountAnalysisLegacy *preCounter = nullptr;
     if (!forcedVecWidth) {
-      preCounter = (WeightedInstCounter*)createWeightedInstCounter(true, m_pConfig->GetCpuId());
+      preCounter = (WeightedInstCountAnalysisLegacy *)
+          llvm::createWeightedInstCountAnalysisLegacyPass(ISA, true);
       fpm1.add(preCounter);
     }
     fpm1.add(createScalarizer(m_pConfig->GetCpuId()));
@@ -264,11 +267,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
       m_canUniteWorkgroups = chooser->getCanUniteWorkgroups();
       if(!forcedVecWidth) {
          V_ASSERT(preCounter && "pre counter should be initialized");
-         m_packetWidth = preCounter->getDesiredWidth();
-         m_preWeight = preCounter->getWeight();
+         m_packetWidth = preCounter->getResult().getDesiredVF();
+         m_preWeight = preCounter->getResult().getWeight();
          // for statistical purposes, we need to keep the
          // prevectorization costs until after vectorization.
-         preCounter->copyBlockCosts(&preVectorizationCosts);
+         preCounter->getResult().copyBlockCosts(&preVectorizationCosts);
       } else {
          m_packetWidth = forcedVecWidth;
       }
@@ -342,9 +345,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
 
     //We only need the "post" run if there's doubt about what to do.
-    WeightedInstCounter* postCounter = nullptr;
+    WeightedInstCountAnalysisLegacy *postCounter = nullptr;
     if (!forcedVecWidth) {
-      postCounter = (WeightedInstCounter*) createWeightedInstCounter(false,  m_pConfig->GetCpuId());
+      postCounter = (WeightedInstCountAnalysisLegacy *)
+          llvm::createWeightedInstCountAnalysisLegacyPass(ISA, false);
       fpm2.add(postCounter);
     }
 
@@ -371,17 +375,18 @@ bool VectorizerCore::runOnFunction(Function &F) {
     if (!forcedVecWidth)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
       // for statistical purposes:: //////////////////////////////////////////////
-      postCounter->countPerBlockHeuristics(F, &preVectorizationCosts, m_packetWidth);
+      postCounter->getResult().countPerBlockHeuristics(&preVectorizationCosts,
+                                                       m_packetWidth);
       preVectorizationCosts.clear();
       ////////////////////////////////////////////////////////////////////////////
-      m_postWeight = postCounter->getWeight();
+      m_postWeight = postCounter->getResult().getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
 #ifndef NDEBUG
       int attemptedWidth = m_packetWidth;
 #endif
       // TODO: I'm allowing forced vec width to override the subgroup size for now.
       // It's debatable how exactly that should behave.
-      if ((Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) &&
+      if ((Ratio >= InstCountResult::RatioMultiplier * m_packetWidth) &&
           (!KernelHasSubgroups)) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;

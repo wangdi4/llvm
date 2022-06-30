@@ -10,8 +10,8 @@ define dso_local void @foo(i64* noalias nocapture %larr, i64* noalias nocapture 
 ;
 ; CHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
 ; CHECK:        Cost 4 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
-; CHECK-NEXT:   Cost 1 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
-; CHECK-NEXT:   Cost 5 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
+; CHECK-NEXT:   Cost 2 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
+; CHECK-NEXT:   Cost 6 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
 ;
 entry:
   br label %for.body

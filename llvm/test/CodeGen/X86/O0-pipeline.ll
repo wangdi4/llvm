@@ -22,7 +22,6 @@
 ; CHECK-NEXT:       X86 transform matrix intrinsics to amx intrinsics ;INTEL
 ; CHECK-NEXT:       Lower AMX intrinsics
 ; CHECK-NEXT:       Lower AMX type for load/store
-; CHECK-NEXT:       Pre AMX Tile Config
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:       Lower Garbage Collection Instructions
 ; CHECK-NEXT:       Shadow Stack GC Lowering
@@ -60,6 +59,7 @@
 ; CHECK-NEXT:       X86 EFLAGS copy lowering
 ; CHECK-NEXT:       X86 DynAlloca Expander
 ; CHECK-NEXT:       X86 Pre-RA pseudo instruction expansion pass ;INTEL
+; CHECK-NEXT:       Fast Tile Register Preconfigure
 ; CHECK-NEXT:       Eliminate PHI nodes for register allocation
 ; CHECK-NEXT:       Two-Address instruction pass
 ; CHECK-NEXT:       Fast Register Allocator

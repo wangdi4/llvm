@@ -18,7 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
-#include "IntelVPlanEntityDescr.h"
+#include "IntelVPlanLegalityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
@@ -38,6 +38,7 @@ class Function;
 namespace vpo {
 class VPOVectorizationLegality;
 extern bool ForceComplexTyReductionVec;
+extern bool ForceInscanReductionVec;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -66,7 +67,9 @@ public:
     ArrayLastprivateNonPod,
     ArrayPrivate,
     UserDefinedReduction,
-    UnsupportedReductionOp
+    UnsupportedReductionOp,
+    InscanReduction,
+    VectorCondLastPrivate, // need CG implementation
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -88,6 +91,10 @@ public:
       return "User defined reductions are not supported.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
+    case BailoutReason::InscanReduction:
+      return "Inscan reduction is not supported.\n";
+    case BailoutReason::VectorCondLastPrivate:
+      return "Conditional lastprivate of a vector type is not supported.\n";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -96,6 +103,11 @@ public:
   /// reduction
   static bool forceComplexTyReductionVec() {
     return ForceComplexTyReductionVec;
+  }
+
+  /// Return true if requested to vectorize a loop with inscan reduction.
+  static bool forceInscanReductionVec() {
+    return ForceInscanReductionVec;
   }
 
 protected:
@@ -160,8 +172,34 @@ private:
       }
     };
 
+    assert(
+        (std::count_if(WRLp->getChildren().begin(), WRLp->getChildren().end(),
+                       [](const WRegionNode *WRNode) {
+                         return isa<WRNScanNode>(WRNode);
+                       }) <= 1) &&
+        "Not more than one scan region is expected!");
+    DenseMap<uint64_t, InscanReductionKind> InscanReductionMap;
+    // Locate the scan region if present.
+    WRNScanNode *WRScan = nullptr;
+    for (auto WRNode : WRLp->getChildren())
+      if (WRNScanNode *WRSc = dyn_cast<WRNScanNode>(WRNode)) {
+        WRScan = WRSc;
+        break;
+      }
+    if (WRScan) {
+      for (const InclusiveItem *Item : WRScan->getInclusive().items()) {
+        InscanReductionMap.insert(
+            {Item->getInscanIdx(), InscanReductionKind::Inclusive});
+      }
+      for (const ExclusiveItem *Item : WRScan->getExclusive().items()) {
+        InscanReductionMap.insert(
+            {Item->getInscanIdx(), InscanReductionKind::Exclusive});
+      }
+    }
+
     for (ReductionItem *Item : WRLp->getRed().items())
-      if (!IsSupportedReduction(Item) || !visitReduction(Item))
+      if (!IsSupportedReduction(Item) ||
+          !visitReduction(Item, InscanReductionMap))
         return false;
     return true;
   }
@@ -235,7 +273,8 @@ private:
 
     if (Item->getIsNonPod()) {
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast);
+                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
+                     Item->getIsF90NonPod());
       return true;
     }
     addLoopPrivate(Val, Type, PrivateKindTy::NonLast);
@@ -261,9 +300,14 @@ private:
       if (isa<ArrayType>(Type) || NumElements)
         return bailout(BailoutReason::ArrayLastprivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     Item->getCopyAssign(), PrivateKindTy::Last);
+                     Item->getCopyAssign(), PrivateKindTy::Last,
+                     Item->getIsF90NonPod());
       return true;
     }
+
+    // Until CG to extract vector by non-const index is implemented.
+    if (Item->getIsConditional() && Type->isVectorTy())
+      return bailout(BailoutReason::VectorCondLastPrivate);
 
     addLoopPrivate(Val, Type,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
@@ -292,9 +336,13 @@ private:
 
   /// Register explicit reduction variable
   /// Return true if successfully consumed.
-  bool visitReduction(const ReductionItem *Item) {
+  bool visitReduction(const ReductionItem *Item,
+                      DenseMap<uint64_t, InscanReductionKind> &InscanMap) {
     if (!forceComplexTyReductionVec() && Item->getIsComplex())
       return bailout(BailoutReason::ComplexTyReduction);
+
+    if (!forceInscanReductionVec() && Item->getIsInscan())
+      return bailout(BailoutReason::InscanReduction);
 
     Type *Type = nullptr;
     Value *NumElements = nullptr;
@@ -307,7 +355,12 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
-    addReduction(Val, Kind);
+    if (Item->getIsInscan()) {
+      assert(InscanMap.count(Item->getInscanIdx()) &&
+             "The inscan item must be present in the separating pragma");
+      addReduction(Val, Kind, InscanMap[Item->getInscanIdx()]);
+    } else
+      addReduction(Val, Kind, None);
     return true;
   }
 
@@ -317,9 +370,10 @@ private:
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
-                      Function *CopyAssign, PrivateKindTy Kind) {
+                      Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(
-        Val, Ty, Constr, Destr, CopyAssign, Kind);
+        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90NonPod);
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind) {
@@ -330,8 +384,10 @@ private:
     return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, Step);
   }
 
-  void addReduction(ValueTy *V, RecurKind Kind) {
-    return static_cast<LegalityTy *>(this)->addReduction(V, Kind);
+  void addReduction(ValueTy *V, RecurKind Kind,
+                    Optional<InscanReductionKind> InscanRedKind) {
+    return static_cast<LegalityTy *>(this)->addReduction(
+      V, Kind, InscanRedKind);
   }
 };
 
@@ -344,6 +400,12 @@ class VPOVectorizationLegality final
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
+
+  struct InMemoryReductionDescr {
+    RecurKind Kind;
+    Optional<InscanReductionKind> InscanRedKind;
+    Instruction *UpdateInst;
+  };
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);
@@ -365,8 +427,7 @@ public:
       MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
-  using InMemoryReductionList =
-      MapVector<Value *, std::pair<RecurKind, Instruction *>>;
+  using InMemoryReductionList = MapVector<Value *, InMemoryReductionDescr>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -553,11 +614,11 @@ private:
 
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign,
-                      PrivateKindTy Kind) {
-    Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrNonPODTy>(
-                      PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign)});
+                      Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
+    Privates.insert({PrivVal, std::make_unique<PrivDescrNonPODTy>(
+                                  PrivVal, PrivTy, Kind, Constr, Destr,
+                                  CopyAssign, IsF90NonPod)});
   }
 
   /// Add an in memory POD private to the vector of private values.
@@ -574,12 +635,14 @@ private:
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
-  void addReduction(Value *V, RecurKind Kind);
+  void addReduction(Value *V, RecurKind Kind,
+                    Optional<InscanReductionKind> InscanRedKind);
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
-  void parseBinOpReduction(Value *V, RecurKind Kind);
+  void parseBinOpReduction(Value *V, RecurKind Kind,
+                           Optional<InscanReductionKind> InscanRedKind);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

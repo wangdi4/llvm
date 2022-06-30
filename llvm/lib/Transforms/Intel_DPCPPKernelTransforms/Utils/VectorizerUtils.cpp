@@ -1,6 +1,6 @@
 //===-- VectorizerUtils.cpp - Vectorizer utilities --------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,16 +9,16 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
-#include "NameMangleAPI.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
 
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 namespace {
 
@@ -364,13 +364,9 @@ static bool isShuffleVectorTruncate(ShuffleVectorInst *SVI) {
 
 namespace VectorizerUtils {
 
-bool CanVectorize::canVectorizeForVPO(Function &F, RuntimeService *RTService,
-                                      FuncSet &UnsupportedFuncs,
+bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
                                       bool EnableDirectCallVectorization,
                                       bool EnableSGDirectCallVectorization) {
-  if (hasVariableGetTIDAccess(F, RTService))
-    return false;
-
   if (!EnableDirectCallVectorization) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     bool HasSG =
@@ -383,25 +379,8 @@ bool CanVectorize::canVectorizeForVPO(Function &F, RuntimeService *RTService,
   return true;
 }
 
-bool CanVectorize::hasVariableGetTIDAccess(Function &F,
-                                           RuntimeService *RTService) {
-  for (auto &I : instructions(F)) {
-    if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-      bool Err;
-      std::tie(std::ignore, Err, std::ignore) = RTService->isTIDGenerator(CI);
-      // We are unable to vectorize this code because get_global_id is messed
-      // up.
-      if (Err)
-        return true;
-    }
-  }
-
-  // TID access is okay.
-  return false;
-}
-
 FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
-  using namespace llvm::DPCPPKernelCompilationUtils;
+  using namespace llvm::CompilationUtils;
 
   // Add all kernels to root functions.
   // Kernels assumes to have implicit barrier.
@@ -434,7 +413,7 @@ FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
   // Fill UnsupportedFuncs set with all functions that calls directly or
   // undirectly functions from the root functions set.
   FuncSet UnsupportedFuncs;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
+  LoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
 
   return UnsupportedFuncs;
 }

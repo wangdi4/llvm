@@ -90,6 +90,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86LowerAMXIntrinsicsLegacyPassPass(PR);
   initializeX86LowerAMXTypeLegacyPassPass(PR);
   initializeX86PreAMXConfigPassPass(PR);
+  initializeX86PreTileConfigPass(PR);
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
   initializeFixupBWInstPassPass(PR);
@@ -101,6 +102,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CmovConverterPassPass(PR);
   initializeX86CiscizationHelperPassPass(PR); // INTEL
   initializeX86TileConfigPass(PR);
+  initializeX86FastPreTileConfigPass(PR);
   initializeX86FastTileConfigPass(PR);
   initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
@@ -117,6 +119,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PartialReductionPass(PR);
   initializePseudoProbeInserterPass(PR);
 #if INTEL_CUSTOMIZATION
+  initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
   initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
@@ -476,11 +479,8 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXIntrinsicsPass());
   addPass(createX86LowerAMXTypePass());
 
-  if (TM->getOptLevel() == CodeGenOpt::None)
-    addPass(createX86PreAMXConfigPass());
-
-  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
-    insertPass(&HeteroArchOptID, &X86InstCombineID); // INTEL
+  if (TM->getOptLevel() == CodeGenOpt::Aggressive)             // INTEL
+    insertPass(&ExpandVectorPredicationID, &X86InstCombineID); // INTEL
 
   TargetPassConfig::addIRPasses();
 
@@ -588,6 +588,7 @@ void X86PassConfig::addPreRegAlloc() {
     addPass(&LiveRangeShrinkID);
     addPass(createX86FixupSetCC());
 #if INTEL_CUSTOMIZATION
+    addPass(createX86AvoidMemoryRenamingBlocks());
     addPass(createX86GenerateLEAs());
 #endif // INTEL_CUSTOMIZATION
     addPass(createX86OptimizeLEAs());
@@ -602,9 +603,10 @@ void X86PassConfig::addPreRegAlloc() {
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (getOptLevel() != CodeGenOpt::None) {
+  if (getOptLevel() != CodeGenOpt::None)
     addPass(createX86PreTileConfigPass());
-  }
+  else
+    addPass(createX86FastPreTileConfigPass());
 }
 
 void X86PassConfig::addMachineSSAOptimization() {

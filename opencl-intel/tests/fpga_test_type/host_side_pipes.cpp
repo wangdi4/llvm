@@ -352,22 +352,6 @@ TEST_F(TestHostSidePipes, QueryMaxPipes) {
   ASSERT_GT(maxWritePipes, 0U);
 }
 
-TEST_F(TestHostSidePipes, KernelArgType) {
-  cl_bool expectedAttrs[] = {CL_TRUE, CL_TRUE, CL_FALSE};
-  for (size_t i = 0; i < sizeof(expectedAttrs) / sizeof(*expectedAttrs); ++i) {
-    size_t valueSizeRet = 0;
-    cl_bool gotAttr = CL_FALSE;
-    cl_int err = clGetKernelArgInfo(m_loopback, i,
-                                    CL_KERNEL_ARG_HOST_ACCESSIBLE_PIPE_INTEL,
-                                    sizeof(gotAttr), &gotAttr, &valueSizeRet);
-
-    ASSERT_EQ(CL_SUCCESS, err) << "clGetKernelArgInfo failed";
-    ASSERT_EQ(sizeof(gotAttr), valueSizeRet);
-    ASSERT_EQ(expectedAttrs[i], gotAttr)
-        << "host accessible attribute mismatches";
-  }
-}
-
 TEST_F(TestHostSidePipes, KernelArgMismatchNegative) {
   //  The direction indicated in the clCreatePipe flag must be
   //  opposite to the pipe access type specified on the kernel

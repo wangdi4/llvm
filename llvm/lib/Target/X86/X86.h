@@ -113,6 +113,9 @@ FunctionPass *createX86DynAllocaExpander();
 /// Return a pass that config the tile registers.
 FunctionPass *createX86TileConfigPass();
 
+/// Return a pass that preconfig the tile registers before fast reg allocation.
+FunctionPass *createX86FastPreTileConfigPass();
+
 /// Return a pass that config the tile registers after fast reg allocation.
 FunctionPass *createX86FastTileConfigPass();
 
@@ -188,6 +191,9 @@ FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
 FunctionPass *createX86SplitLongBlockPass();
 
+/// Return a pass that avoids creating store forward block issues in the hardware.
+FunctionPass *createX86AvoidMemoryRenamingBlocks();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -239,11 +245,13 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
+void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86FastPreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
 void initializeX86TileConfigPass(PassRegistry &);
 void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);

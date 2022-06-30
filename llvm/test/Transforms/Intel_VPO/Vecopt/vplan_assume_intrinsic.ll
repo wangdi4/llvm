@@ -1,10 +1,10 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 < %s | FileCheck %s
 
 ;CHECK:       vector.body:                                      ; preds = %vector.body, %VPlannedBB1
-;CHECK_NEXT:      [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB0:%.*]] ], [ [[TMP28:%.*]], [[VECTOR_BODY:%.*]] ]
-;CHECK_NEXT:      [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB0:%.*]]], [ %0, [[VECTOR_BODY]] ]
-;CHECK_NEXT:      call void @llvm.assume(i1 true) [ "align"(double* [[A:%.*]], i64 32) ] 
-;CHECK_NEXT:      %0 = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+;CHECK-NEXT:      [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB0:%.*]] ], [ [[TMP28:%.*]], [[VECTOR_BODY:%.*]] ]
+;CHECK-NEXT:      [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB0:%.*]]], [ %0, [[VECTOR_BODY]] ]
+;CHECK-NEXT:      call void @llvm.assume(i1 true) [ "align"(i64* [[A:%.*]], i64 32) ] 
+;CHECK-NEXT:      %0 = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 
 define void @foo(i64* noalias %lp1, i64* noalias %lp2, i64 %n1) {
 entry:

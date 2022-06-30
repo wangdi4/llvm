@@ -97,7 +97,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK:                         [[RED_INIT:%red.init*]] = 0
 ; CGCHECK-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_080:%.*]],  0
 ; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
-; CGCHECK:                         + DO i1 = 0, {{.*}} + -1, 12   <DO_LOOP>
+; CGCHECK:                         + DO i1 = 0, {{.*}}, 12   <DO_LOOP>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]

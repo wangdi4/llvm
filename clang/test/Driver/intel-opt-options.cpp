@@ -210,4 +210,5 @@
 
 // Check for a binary "name" match
 // RUN: not %clangxx --intel --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
+// RUN: not %clangxx --intel --dpcpp --- -### -c %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK1 %s
 // SUPPORT-CHECK1: icpx: error: unsupported option '---'

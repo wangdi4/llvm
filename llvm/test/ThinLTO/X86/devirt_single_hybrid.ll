@@ -6,6 +6,7 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit %p/Inputs/devirt_single_hybrid_bar.ll -o %t-bar.bc
 
 ; RUN: llvm-lto2 run -save-temps %t-main.bc %t-foo.bc %t-bar.bc -pass-remarks=. -o %t \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -28,7 +29,7 @@
 
 ; REMARK-COUNT-3: single-impl: devirtualized a call to _ZNK1A1fEv
 
-; IMPORT:       define available_externally hidden i32 @_ZNK1A1fEv(%struct.A* %this)
+; IMPORT:       define available_externally hidden i32 @_ZNK1A1fEv(ptr %this)
 ; IMPORT-NEXT:  entry:
 ; IMPORT-NEXT:      ret i32 3
 

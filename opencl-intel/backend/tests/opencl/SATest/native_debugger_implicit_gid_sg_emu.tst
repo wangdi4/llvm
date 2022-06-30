@@ -1,7 +1,7 @@
 ;;; Test implict gid variables inserted in subgroup emulation for GDB (native debugger):
 ;;; __ocl_dbg_gid0, __ocl_dbg_gid1, __ocl_dbg_gid2
 
-; RUN: SATest -BUILD --vectorizer-type=vpo --native-subgroups -cpuarch=skx -config=%s.cfg --dump-llvm-file - | FileCheck %s
+; RUN: SATest -BUILD --vectorizer-type=vpo -cpuarch=skx -config=%s.cfg --dump-llvm-file - | FileCheck %s
 
 ; Test kernel
 ; __kernel void main_kernel(__global int* buf_in, __global int* buf_out) {

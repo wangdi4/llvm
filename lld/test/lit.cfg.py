@@ -124,7 +124,8 @@ llvm_config.feature_config(
                           'RISCV': 'riscv',
                           'Sparc': 'sparc',
                           'WebAssembly': 'wasm',
-                          'X86': 'x86'})
+                          'X86': 'x86'}),
+     ('--assertion-mode', {'ON': 'asserts'}),
      ])
 
 # INTEL_CUSTOMIZATION

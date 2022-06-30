@@ -202,6 +202,7 @@ struct Configuration {
   bool ignoreFunctionAddressEquality;
 # if INTEL_CUSTOMIZATION
   bool intelAdvancedOptim = false;
+  bool intelLibIRCAllowed = false;
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
   bool ltoPGOWarnMismatch;
@@ -219,6 +220,7 @@ struct Configuration {
   bool nostdlib;
   bool oFormatBinary;
   bool omagic;
+  bool opaquePointers;
   bool optEB = false;
   bool optEL = false;
   bool optimizeBBJumps;

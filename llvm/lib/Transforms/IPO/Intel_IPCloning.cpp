@@ -3634,6 +3634,22 @@ private:
 };
 
 bool Splitter::canSplitBlocks() {
+
+  auto NoteCounts = [&](Function &F,
+                        SetVector<BasicBlock *> &Visited) {
+    LLVM_DEBUG({
+      unsigned VisitedCount = 0;
+      unsigned NonVisitedCount = 0;
+      for (auto &BB : F)
+        if (Visited.count(&BB))
+          VisitedCount++;
+        else
+          NonVisitedCount++;
+      dbgs() << "MRCS: Can split blocks: Visited: " << VisitedCount
+             << " NonVisted: " << NonVisitedCount << "\n";
+    });
+  };
+
   LLVM_DEBUG(dbgs() << "MRCS: START ANALYSIS: " << F->getName() << "\n");
   SetVector<BasicBlock *> Worklist;
   Worklist.insert(&F->getEntryBlock());
@@ -3677,9 +3693,13 @@ bool Splitter::canSplitBlocks() {
   }
   BasicBlock *BBSplit0 = BBSwitch0->getUniquePredecessor();
   if (!BBSplit0) {
-    LLVM_DEBUG(dbgs() << "MRCS: EXIT: canSplitBlocks: "
-                      << "Switch block without unique predecessor\n");
-    return false;
+    // Use the switch block if there is no unique precessor.
+    Visited.remove(BBSwitch0);
+    Visited.remove(BBReturn0);
+    BBSplit = BBSwitch0;
+    BBReturn = BBReturn0;
+    NoteCounts(*F, Visited);
+    return true;
   }
   Visited.remove(BBSwitch0);
   auto BI = dyn_cast<BranchInst>(BBSplit0->getTerminator());
@@ -3704,17 +3724,7 @@ bool Splitter::canSplitBlocks() {
   BBSplit = BBSplit0;
   Visited.remove(BBReturn0);
   BBReturn = BBReturn0;
-  LLVM_DEBUG({
-    unsigned VisitedCount = 0;
-    unsigned NonVisitedCount = 0;
-    for (auto &BB : *F)
-      if (Visited.count(&BB))
-        VisitedCount++;
-      else
-        NonVisitedCount++;
-    dbgs() << "MRCS: Can split blocks: Visited: " << VisitedCount
-           << " NonVisted: " << NonVisitedCount << "\n";
-  });
+  NoteCounts(*F, Visited);
   return true;
 }
 
@@ -4484,6 +4494,9 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   *Arg = ArgLast;
   *NewSplitValue = cast<PHINode>(VMap[SplitValue]);
   *NewBBSplit = cast<BasicBlock>(VMap[BBSplit]);
+  // CMPLRLLVM-37247: Mark this split function so that we can inhibit
+  // argument promotion on it.
+  NewF->addFnAttr("ip-clone-split-function");
   return NewF;
 }
 

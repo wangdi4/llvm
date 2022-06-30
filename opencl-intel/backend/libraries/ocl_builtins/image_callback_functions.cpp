@@ -13,7 +13,7 @@
 // License.
 
 #define __OPENCL__
-#include <intrin.h>
+#include "opencl-intrin-wrapper.h"
 
 #include "cl_image_declaration.h"
 #include "GENERIC/ll_intrinsics.h"

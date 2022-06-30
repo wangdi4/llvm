@@ -1,5 +1,7 @@
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s
-; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s
+; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -opaque-pointers -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 
 ; transfer debug info from global variables to pLocalMemBase
 
@@ -11,19 +13,26 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 @a.__local = internal addrspace(3) global [4 x i32] undef, align 4, !dbg !0
 @b.__local = internal addrspace(3) global [4 x i64] undef, align 8, !dbg !17
 
-; CHECK-LABEL: define void @main_kernel
+; NONOPAQUE-LABEL: define void @main_kernel
+; OPAQUE-LABEL: define void @main_kernel
 define void @main_kernel() !dbg !2 {
 entry:
 ; DebugInfo of @a.__local is transferred to pLocalMemBase, with offset 0 (omitted)
-; CHECK: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
-; CHECK-SAME: metadata ![[#A_LOCAL:]],
-; CHECK-SAME: metadata !DIExpression(DW_OP_deref)
+; NONOPAQUE: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
+; NONOPAQUE-SAME: metadata ![[#A_LOCAL:]],
+; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref)
+; OPAQUE: call void @llvm.dbg.value(metadata ptr addrspace(3) %pLocalMemBase,
+; OPAQUE-SAME: metadata ![[#A_LOCAL:]],
+; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref)
   store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.__local, i64 0, i64 0), align 4, !dbg !37
 
 ; DebugInfo of @b.__local is transferred to pLocalMemBase, with offset 128 (size of [4 x i32])
-; CHECK: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
-; CHECK-SAME: metadata ![[#B_LOCAL:]],
-; CHECK-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 128)
+; NONOPAQUE: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
+; NONOPAQUE-SAME: metadata ![[#B_LOCAL:]],
+; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 128)
+; OPAQUE: call void @llvm.dbg.value(metadata ptr addrspace(3) %pLocalMemBase,
+; OPAQUE-SAME: metadata ![[#B_LOCAL:]],
+; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 128)
   store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.__local, i64 0, i64 0), align 8, !dbg !40
   ret void
 }

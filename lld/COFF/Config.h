@@ -174,6 +174,9 @@ struct Configuration {
 #if INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltonewpassmanager
   bool ltoNewPassManager = false;
+
+  // Used for /opt:fintel-libirc-allowed
+  bool intelLibIRCAllowed = false;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;

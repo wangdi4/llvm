@@ -73,15 +73,16 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/Coroutines/CoroCleanup.h"
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Coroutines.h"                  // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"      // INTEL
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"      // INTEL
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
@@ -622,6 +623,7 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.UnsafeFPMath = LangOpts.UnsafeFPMath;
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
+  Options.IntelLibIRCAllowed = CodeGenOpts.IntelLibIRCAllowed;
   Options.IntelSpillParms = CodeGenOpts.IntelSpillParms;
 #endif // INTEL_CUSTOMIZATION
   Options.ApproxFuncFPMath = LangOpts.ApproxFunc;
@@ -685,9 +687,13 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   }
 
   Options.MCOptions.SplitDwarfFile = CodeGenOpts.SplitDwarfFile;
+  Options.MCOptions.EmitDwarfUnwind = CodeGenOpts.getEmitDwarfUnwind();
   Options.MCOptions.MCRelaxAll = CodeGenOpts.RelaxAll;
   Options.MCOptions.MCSaveTempLabels = CodeGenOpts.SaveTempLabels;
-  Options.MCOptions.MCUseDwarfDirectory = !CodeGenOpts.NoDwarfDirectoryAsm;
+  Options.MCOptions.MCUseDwarfDirectory =
+      CodeGenOpts.NoDwarfDirectoryAsm
+          ? llvm::MCTargetOptions::DisableDwarfDirectory
+          : llvm::MCTargetOptions::EnableDwarfDirectory;
   Options.MCOptions.MCNoExecStack = CodeGenOpts.NoExecStack;
   Options.MCOptions.MCIncrementalLinkerCompatible =
       CodeGenOpts.IncrementalLinkerCompatible;
@@ -1543,6 +1549,17 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
             MPM.addPass(InstrProfiling(*Options, false));
           });
 
+#if INTEL_CUSTOMIZATION
+    // Multiversion functions marked for auto cpu dispatching.
+    if (!TargetOpts.AutoMultiVersionTargets.empty() &&
+        CodeGenOpts.OptimizationLevel > 1) {
+      PB.registerPipelineStartEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            MPM.addPass(AutoCPUClonePass());
+          });
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (CodeGenOpts.OptimizationLevel == 0) {
       MPM = PB.buildO0DefaultPipeline(Level, IsLTO || IsThinLTO);
     } else if (IsThinLTO) {
@@ -1560,12 +1577,14 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   }
   if (LangOpts.SYCLIsDevice) {
     MPM.addPass(SYCLMutatePrintfAddrspacePass());
+    if (!CodeGenOpts.DisableLLVMPasses && LangOpts.EnableDAEInSpirKernels)
+      MPM.addPass(DeadArgumentEliminationSYCLPass());
   }
 
   // Add SPIRITTAnnotations pass to the pass manager if
   // -fsycl-instrument-device-code option was passed. This option can be used
   // only with spir triple.
-  if (CodeGenOpts.SPIRITTAnnotations) {
+  if (LangOpts.SYCLIsDevice && CodeGenOpts.SPIRITTAnnotations) {
     assert(llvm::Triple(TheModule->getTargetTriple()).isSPIR() &&
            "ITT annotations can only be added to a module with spir target");
     MPM.addPass(SPIRITTAnnotationsPass());
@@ -1908,33 +1927,16 @@ void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
     return;
 
   for (StringRef OffloadObject : CGOpts.OffloadObjects) {
-    SmallVector<StringRef, 4> ObjectFields;
-    OffloadObject.split(ObjectFields, ',');
-
-    if (ObjectFields.size() != 4) {
-      auto DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "Expected at least four arguments '%0'");
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ObjectOrErr =
+        llvm::MemoryBuffer::getFileOrSTDIN(OffloadObject);
+    if (std::error_code EC = ObjectOrErr.getError()) {
+      auto DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                          "could not open '%0' for embedding");
       Diags.Report(DiagID) << OffloadObject;
       return;
     }
 
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ObjectOrErr =
-        llvm::MemoryBuffer::getFileOrSTDIN(ObjectFields[0]);
-    if (std::error_code EC = ObjectOrErr.getError()) {
-      auto DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                          "could not open '%0' for embedding");
-      Diags.Report(DiagID) << ObjectFields[0];
-      return;
-    }
-
-    OffloadBinary::OffloadingImage Image{};
-    Image.TheImageKind = getImageKind(ObjectFields[0].rsplit(".").second);
-    Image.TheOffloadKind = getOffloadKind(ObjectFields[1]);
-    Image.StringData = {{"triple", ObjectFields[2]}, {"arch", ObjectFields[3]}};
-    Image.Image = **ObjectOrErr;
-
-    std::unique_ptr<MemoryBuffer> OffloadBuffer = OffloadBinary::write(Image);
-    llvm::embedBufferInModule(*M, *OffloadBuffer, ".llvm.offloading",
-                              Align(OffloadBinary::getAlignment()));
+    llvm::embedBufferInModule(*M, **ObjectOrErr, ".llvm.offloading",
+                              Align(object::OffloadBinary::getAlignment()));
   }
 }

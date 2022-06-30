@@ -60,6 +60,9 @@ protected:
 };
 
 TEST_F(TestIOAttribute, PipesBlocking) {
+#ifdef _WIN32
+  GTEST_SKIP();
+#endif
   const std::string programSource = "                                        \n\
     __kernel void test_io(                                                   \n\
         read_only pipe int p1 __attribute__((io(\"test_pipes_bl_in\")))      \n\
@@ -111,6 +114,9 @@ TEST_F(TestIOAttribute, ChannelsBlocking) {
 }
 
 TEST_F(TestIOAttribute, PipesNonBlocking) {
+#ifdef _WIN32
+  GTEST_SKIP();
+#endif
   const std::string programSource = "                                        \n\
     __kernel void test_io(                                                   \n\
         read_only pipe int p1 __attribute__((io(\"test_pipes_in\"))),        \n\

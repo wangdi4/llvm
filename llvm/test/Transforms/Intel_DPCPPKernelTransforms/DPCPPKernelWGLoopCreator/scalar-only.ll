@@ -12,6 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* %out, i32* %dummy) #0 !no_barrier_path !{i1 1} {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
+; CHECK:       entry:
 ; CHECK-NEXT:    [[OUT_ADDR:%.*]] = alloca i32*, align 8
 ; CHECK-NEXT:    [[DUMMY_ADDR:%.*]] = alloca i32*, align 8
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)

@@ -1,6 +1,6 @@
 //===----  Intel_AutoCPUClone.cpp - Intel Automatic CPU Dispatch ---------===//
 //
-// Copyright (C) Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -95,12 +95,52 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
          (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
 }
 
+static void
+emitWrapperBasedResolver(Function &Fn, std::string OrigName,
+                         SmallVector<MultiVersionResolverOption> &MVOptions,
+                         Function*& Resolver, GlobalValue*& Dispatcher) {
+
+  Resolver = Function::Create(Fn.getFunctionType(), Fn.getLinkage(),
+                              OrigName, Fn.getParent());
+  Resolver->setVisibility(Fn.getVisibility());
+  Resolver->setDSOLocal(Fn.isDSOLocal());
+
+  Dispatcher = Resolver;
+
+  emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
+                           true /*UseLibIRC*/);
+
+  // TODO: Comdat?
+  // TODO: CodeGenModule::SetCommonAttributes ?
+}
+
+static void
+emitIFuncBasedResolver(Function &Fn, std::string OrigName,
+                       SmallVector<MultiVersionResolverOption> &MVOptions,
+                       Function*& Resolver, GlobalValue*& Dispatcher) {
+
+  FunctionType *ResolverTy = FunctionType::get(Fn.getType(), false /*IsVarArg*/);
+  Resolver = Function::Create(ResolverTy, Fn.getLinkage(),
+                              OrigName + ".resolver", Fn.getParent());
+  Resolver->setVisibility(Fn.getVisibility());
+  Resolver->setDSOLocal(Fn.isDSOLocal());
+
+  Dispatcher = GlobalIFunc::create(Fn.getValueType(), 0, Fn.getLinkage(),
+                                   OrigName, Resolver, Fn.getParent());
+  Dispatcher->setVisibility(Fn.getVisibility());
+  Dispatcher->setDSOLocal(Fn.isDSOLocal());
+
+  emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
+                           true /*UseLibIRC*/);
+
+  // TODO: Comdat?
+  // TODO: CodeGenModule::SetCommonAttributes ?
+}
+
 static bool cloneFunctions(Module &M,
                            function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
-  // Windows is not supported so far.
+
   const Triple TT{M.getTargetTriple()};
-  if (!TT.isOSLinux())
-    return false;
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
@@ -118,7 +158,7 @@ static bool cloneFunctions(Module &M,
   // Multiversion functions marked for auto cpu dispatching.
   for (Function &Fn : M) {
 
-    if (Fn.isDeclaration())
+    if (Fn.isDeclaration() || Fn.hasOptNone())
       continue;
 
     if (!Fn.hasMetadata("llvm.auto.cpu.dispatch"))
@@ -199,9 +239,9 @@ static bool cloneFunctions(Module &M,
       Function *New = CloneFunction(&Fn, VMap);
 
       New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
-      std::string Features =
-          LibIRCDispatchFeatures.str();
+      std::string Features = LibIRCDispatchFeatures.str();
 
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
@@ -251,32 +291,16 @@ static bool cloneFunctions(Module &M,
 
     stable_sort(MVOptions, libIRCMVResolverOptionComparator);
 
-    FunctionType *ResolverTy =
-        FunctionType::get(Fn.getType(), false /*IsVarArg*/);
+    Function* Resolver = nullptr;
+    GlobalValue* Dispatcher = nullptr;
+    if (TT.isOSWindows())
+      emitWrapperBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
+    else
+      emitIFuncBasedResolver(Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
-    auto *Resolver = Function::Create(ResolverTy, Fn.getLinkage(),
-                                      OrigName + ".resolver", Fn.getParent());
-    Resolver->setVisibility(Fn.getVisibility());
-    Resolver->setDSOLocal(Fn.isDSOLocal());
-
-    GlobalIFunc *GIF = GlobalIFunc::create(
-        Fn.getValueType(), 0, Fn.getLinkage(), "", Resolver, Fn.getParent());
-    GIF->setVisibility(Fn.getVisibility());
-    GIF->setDSOLocal(Fn.isDSOLocal());
-    GIF->setName(OrigName);
-
-    if (Fn.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage &&
-        Fn.getLinkage() != GlobalValue::LinkageTypes::PrivateLinkage)
-      appendToCompilerUsed(M, {GIF});
-
-    emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
-                             true /*UseLibIRC*/);
+    Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
     Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-
-    // TODO: Comdat?
-    // TODO: CodeGenModule::SetCommonAttributes ?
-
-    Orig2MultiFuncs[&Fn] = {Resolver, GIF, std::move(Clones)};
+    Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
     Changed = true;
   }
 

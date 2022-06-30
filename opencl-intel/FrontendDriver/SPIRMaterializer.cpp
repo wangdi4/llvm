@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,15 +16,15 @@
 #include "FrontendResultImpl.h"
 #include "SPIRMaterializer.h"
 
-#include "NameMangleAPI.h"
-
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 
@@ -86,6 +86,25 @@ static void updateMetadata(llvm::Module &M) {
   }
 
   M.eraseNamedMetadata(Kernels);
+
+  // OpenCL CTS SPIR 1.2 bitcode is compiled with LLVM 3.2 and TBAA metadata
+  //   !18 = !{!19, !19, i64 0}
+  //   !19 = !{!"int", !20}
+  //   !20 = !{!"omnipotent char", !21}
+  //   !21 = !{!"Simple C/C++ TBAA"}
+  // would be considered as no-alias with current LLVM TBAA metadata
+  //   !21 = !{!"Simple C/C++ TBAA"}
+  //   !22 = !{!23, !23, i64 0}
+  //   !23 = !{!"int", !24, i64 0}
+  //   !24 = !{!"omnipotent char", !21, i64 0}
+  // although the two metadata have the same semantic.
+  // The two different metadata could be mixed after BuiltinImport pass and
+  // cause correctness issue after alias-based optimization.
+  // According to LLVM "IR Backwards Compatibility", non-debug metadata is
+  // defined to be safe to drop, so we drop all TBAA metadata.
+  for (auto &F : M)
+    for (auto &I : instructions(&F))
+      I.setMetadata(LLVMContext::MD_tbaa, nullptr);
 }
 
 static std::string updateImageTypeName(StringRef Name, StringRef Acc) {

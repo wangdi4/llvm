@@ -988,16 +988,27 @@ static bool isRelevantAttr(Sema &S, const Decl *D, const Attr *A) {
   }
 
   if (const auto *BA = dyn_cast<BuiltinAttr>(A)) {
-    // Do not treat 'std::forward' as a builtin if it takes an rvalue reference
-    // type and returns an lvalue reference type. The library implementation
-    // will produce an error in this case; don't get in its way.
-    if (BA->getID() == Builtin::BIforward) {
-      const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    switch (BA->getID()) {
+    case Builtin::BIforward:
+      // Do not treat 'std::forward' as a builtin if it takes an rvalue reference
+      // type and returns an lvalue reference type. The library implementation
+      // will produce an error in this case; don't get in its way.
       if (FD && FD->getNumParams() >= 1 &&
           FD->getParamDecl(0)->getType()->isRValueReferenceType() &&
           FD->getReturnType()->isLValueReferenceType()) {
         return false;
       }
+      LLVM_FALLTHROUGH;
+    case Builtin::BImove:
+    case Builtin::BImove_if_noexcept:
+      // HACK: Super-old versions of libc++ (3.1 and earlier) provide
+      // std::forward and std::move overloads that sometimes return by value
+      // instead of by reference when building in C++98 mode. Don't treat such
+      // cases as builtins.
+      if (FD && !FD->getReturnType()->isReferenceType())
+        return false;
+      break;
     }
   }
 
@@ -4356,13 +4367,15 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
     return nullptr;
 
   // Substitute the current template arguments.
-  const TemplateArgumentListInfo &TemplateArgsInfo = D->getTemplateArgsInfo();
-  VarTemplateArgsInfo.setLAngleLoc(TemplateArgsInfo.getLAngleLoc());
-  VarTemplateArgsInfo.setRAngleLoc(TemplateArgsInfo.getRAngleLoc());
+  if (const ASTTemplateArgumentListInfo *TemplateArgsInfo =
+          D->getTemplateArgsInfo()) {
+    VarTemplateArgsInfo.setLAngleLoc(TemplateArgsInfo->getLAngleLoc());
+    VarTemplateArgsInfo.setRAngleLoc(TemplateArgsInfo->getRAngleLoc());
 
-  if (SemaRef.SubstTemplateArguments(TemplateArgsInfo.arguments(), TemplateArgs,
-                                     VarTemplateArgsInfo))
-    return nullptr;
+    if (SemaRef.SubstTemplateArguments(TemplateArgsInfo->arguments(),
+                                       TemplateArgs, VarTemplateArgsInfo))
+      return nullptr;
+  }
 
   // Check that the template argument list is well-formed for this template.
   SmallVector<TemplateArgument, 4> Converted;
@@ -6121,8 +6134,18 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
     // declaration of the definition.
     TemplateDeclInstantiator Instantiator(*this, Var->getDeclContext(),
                                           TemplateArgs);
+
+    TemplateArgumentListInfo TemplateArgInfo;
+    if (const ASTTemplateArgumentListInfo *ArgInfo =
+            VarSpec->getTemplateArgsInfo()) {
+      TemplateArgInfo.setLAngleLoc(ArgInfo->getLAngleLoc());
+      TemplateArgInfo.setRAngleLoc(ArgInfo->getRAngleLoc());
+      for (const TemplateArgumentLoc &Arg : ArgInfo->arguments())
+        TemplateArgInfo.addArgument(Arg);
+    }
+
     Var = cast_or_null<VarDecl>(Instantiator.VisitVarTemplateSpecializationDecl(
-        VarSpec->getSpecializedTemplate(), Def, VarSpec->getTemplateArgsInfo(),
+        VarSpec->getSpecializedTemplate(), Def, TemplateArgInfo,
         VarSpec->getTemplateArgs().asArray(), VarSpec));
     if (Var) {
       llvm::PointerUnion<VarTemplateDecl *,

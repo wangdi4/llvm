@@ -41,7 +41,6 @@ endif(NOT WIN32)
 #
 set( INCLUDE_DIRS
             ${LLVM_INCLUDE_DIRS}
-            ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils
             ${CCLANG_DEV_INCLUDE_DIRS}
             ${CL_API_HEADERS}
             ${OCL_SOURCE_DIR}/backend/name_mangling

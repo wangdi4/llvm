@@ -93,8 +93,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
     inline bool IsShuttingDown()    { return (UseShutdownHandler::shutdown_mode > UseShutdownHandler::WORKING); }    
 
     // call this function directly only if renaming is required (ex. when DLL is not loaded manually)
-    extern "C" void RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn );
-
+    extern "C"
+#ifdef _WIN32
+        __declspec(dllexport)
+#endif
+            void RegisterGlobalAtExitNotification(IAtExitCentralPoint *fn);
 }}}
 
 #define USE_SHUTDOWN_HANDLER( local_dll_callback ) Intel::OpenCL::Utils::UseShutdownHandler use_shutdown_handler( local_dll_callback )

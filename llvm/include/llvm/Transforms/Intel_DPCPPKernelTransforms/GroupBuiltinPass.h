@@ -1,6 +1,6 @@
 //===--- GroupBuiltinPass.h - Process WorkGroup Builtins --------*- C++ -*-===//
 //
-// Copyright (C) 2020 - 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
 
@@ -28,16 +28,11 @@ class GroupBuiltinPass : public PassInfoMixin<GroupBuiltinPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  bool runImpl(Module &M, BuiltinLibInfo *BLI);
-
-  explicit GroupBuiltinPass(ArrayRef<Module *> BuiltinModuleList = {}){};
+  bool runImpl(Module &M, RuntimeService &RTS);
 
 private:
   /// This module
   Module *M;
-
-  /// Runtime service.
-  RuntimeService *RTService;
 
   /// This context
   LLVMContext *Context;
@@ -69,7 +64,7 @@ public:
   static char ID;
 
   /// \brief C'tor
-  explicit GroupBuiltinLegacy(ArrayRef<Module *> BuiltinModuleList = {});
+  explicit GroupBuiltinLegacy();
 
   /// \brief Provides name of pass
   StringRef getPassName() const override {

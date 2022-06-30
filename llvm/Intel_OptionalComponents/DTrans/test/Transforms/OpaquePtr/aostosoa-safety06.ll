@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -whole-program-assume -dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 

@@ -117,6 +117,13 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc(OPT_DESC " keep loopnests perfect"));
 
+constexpr unsigned DefaultMaxCasesThreshold = 8;
+
+static cl::opt<unsigned> MaxCasesThreshold(
+    OPT_SWITCH "-max-cases-threshold", cl::init(DefaultMaxCasesThreshold),
+    cl::Hidden, cl::desc("Don't apply opt predicate in a switch instruction if"
+    "the number of cases is larger than this threshold."));
+
 namespace {
 
 // Partial Unswitch context
@@ -809,13 +816,28 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
                             ParentLoop->child_end());
     HLNodeUtils::visitRange(ThenUnsafe, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(ElseUnsafe, If->else_begin(), If->else_end());
-    PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch |
-                                ThenUnsafe.hasUnsafeCall() |
+    PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch ||
+                                ThenUnsafe.hasUnsafeCall() ||
                                 LoopUnsafe.hasUnsafeCall();
-    PUC.IsUpdatedInElseBranch = PUC.IsUpdatedInElseBranch |
-                                ElseUnsafe.hasUnsafeCall() |
+    PUC.IsUpdatedInElseBranch = PUC.IsUpdatedInElseBranch ||
+                                ElseUnsafe.hasUnsafeCall() ||
                                 LoopUnsafe.hasUnsafeCall();
     IsCandidate = PUC.isPUCandidate();
+  }
+
+  // Disable the optimization for the current node if it represents a switch
+  // statement, and the number of cases is larger than MaxCasesThreshold.
+  if (IsCandidate && isa<HLSwitch>(Node)) {
+    auto *Switch = cast<HLSwitch>(Node);
+    IsCandidate = Switch->getNumCases() <= MaxCasesThreshold;
+    LLVM_DEBUG({
+      if (!IsCandidate) {
+        dbgs() << "Disabling opportunity for ";
+        Node->dumpHeader();
+        dbgs() << " because the number of cases is larger than max allowed("
+               << MaxCasesThreshold << ")\n";
+      }
+    });
   }
 
   LLVM_DEBUG(dbgs() << "Opportunity: ");

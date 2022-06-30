@@ -170,8 +170,10 @@ public:
   // its underlying Instruction.
   VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         ArrayRef<VPValue *> Operands,
-                        Instruction *Inst = nullptr) {
-    VPInstruction *NewVPInst = createInstruction(Opcode, BaseTy, Operands);
+                        Instruction *Inst = nullptr,
+                        const Twine &Name = "") {
+    VPInstruction *NewVPInst =
+      createInstruction(Opcode, BaseTy, Operands, Name);
     if (Inst)
       NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
@@ -179,7 +181,8 @@ public:
   VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
-    return createNaryOp(Opcode, BaseTy, ArrayRef<VPValue *>(Operands), Inst);
+    return createNaryOp(Opcode, BaseTy,
+                        ArrayRef<VPValue *>(Operands), Inst);
   }
 
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.

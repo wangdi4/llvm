@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,17 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CompilerConfig.h"
 #include "Kernel.h"
+#include "CompilerConfig.h"
 #include "KernelProperties.h"
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
-#include "exceptions.h"
 #include "Serializer.h"
 #include "SerializerCompatibility.h"
-
 #include "cpu_dev_limits.h"
+#include "exceptions.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -36,8 +36,6 @@
 #else
 #include <ucontext.h>
 #endif
-
-#include <llvm/Support/raw_ostream.h>
 
 static size_t GCD(size_t a, size_t b) {
   while (1) {
@@ -663,7 +661,7 @@ static void WINAPI CreateFiberExRoutineFunc(LPVOID params) {
 
 static llvm::once_flag PrintErrorMessageOnce;
 
-static void ErrorExit(LPTSTR lpszFunction) {
+static void ErrorExit(LPCTSTR lpszFunction) {
   // Display the error message and exit the process
   llvm::call_once(PrintErrorMessageOnce, [&]() {
     DWORD LastError = GetLastError();
@@ -684,7 +682,7 @@ static void ErrorExit(LPTSTR lpszFunction) {
       }
 
       std::string FunctionName(lpszFunction,
-                               lpszFunction + lstrlen((LPCTSTR)lpszFunction));
+                               lpszFunction + lstrlen(lpszFunction));
       std::string ErrorMessage((LPTSTR)MessageBuffer,
                                (LPTSTR)MessageBuffer + BufferLength);
       // TODO: use LOG_ERROR (It needs to implement LogErrorW since backend
@@ -754,14 +752,14 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     LPVOID primaryFiber = nullptr, fiber = nullptr;
     primaryFiber = ConvertThreadToFiber(nullptr);
     if (!primaryFiber)
-      ErrorExit((LPTSTR)TEXT("ConvertThreadToFiber"));
+      ErrorExit(TEXT("ConvertThreadToFiber"));
 
     FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
                            primaryFiber};
     fiber = CreateFiberEx(m_stackActualSize, 0,
                           0, CreateFiberExRoutineFunc, &fiberData);
     if (!fiber)
-      ErrorExit((LPTSTR)TEXT("CreateFiberEx"));
+      ErrorExit(TEXT("CreateFiberEx"));
 
     SwitchToFiber(fiber);
     DeleteFiber(fiber);

@@ -25,7 +25,7 @@ namespace OpenCL {
 namespace Utils {
 
 #ifdef WIN32
-#pragma PACK_ON
+#pragma pack(push)
 #endif
 
 typedef struct {
@@ -89,7 +89,7 @@ extern "C" void *ASM_FUNCTION get_next_line_address() __attribute__((noinline));
 #endif
 
 #ifdef WIN32
-#pragma PACK_OFF
+#pragma pack(pop)
 #endif
 
 } // namespace Utils

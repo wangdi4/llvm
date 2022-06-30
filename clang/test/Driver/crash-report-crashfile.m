@@ -17,10 +17,10 @@
 @import simple;
 const int x = MODULE_MACRO;
 
-// CRASH_ENV: failing because environment variable 'FORCE_CLANG_DIAGNOSTICS_CRASH' is set
 // INTEL_CUSTOMIZATION
 // CRASH_ENV: PLEASE append the compiler options
 // end INTEL_CUSTOMIZATION
+// CRASH_ENV: failing because environment variable 'FORCE_CLANG_DIAGNOSTICS_CRASH' is set
 // CRASH_ENV: Preprocessed source(s) and associated run script(s) are located at:
 // CRASH_ENV-NEXT: note: diagnostic msg: {{.*}}.m
 // CRASH_ENV-NEXT: note: diagnostic msg: {{.*}}.cache

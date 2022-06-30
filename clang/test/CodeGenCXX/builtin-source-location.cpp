@@ -2,7 +2,7 @@
 
 // This needs to be performed before #line directives which alter filename
 // INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -no-opaque-pointers -fintel-compatibility-enable=DisplayFullFilePath -fmacro-prefix-map=%p=/UNLIKELY/PATH -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK-PREFIX-MAP
+// RUN: %clang_cc1 -no-opaque-pointers -fintel-compatibility-enable=DisplayFullFilePath -fno-file-reproducible -fmacro-prefix-map=%p=/UNLIKELY/PATH -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK-PREFIX-MAP
 // end INTEL_CUSTOMIZATION
 //
 // CHECK-PREFIX-MAP: /UNLIKELY/PATH{{/|\\\\}}builtin-source-location.cpp

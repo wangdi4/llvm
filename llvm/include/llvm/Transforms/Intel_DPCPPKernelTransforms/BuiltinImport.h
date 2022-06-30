@@ -22,11 +22,7 @@ class BuiltinLibInfo;
 /// Import builtin function from builtin modules.
 class BuiltinImportPass : public PassInfoMixin<BuiltinImportPass> {
 public:
-  BuiltinImportPass(const SmallVector<Module *, 2> &BuiltinModules =
-                        SmallVector<Module *, 2>(),
-                    StringRef CPUPrefix = "");
-
-  static StringRef name() { return "BuiltinImportPass"; }
+  BuiltinImportPass(StringRef CPUPrefix = "");
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 

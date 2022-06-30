@@ -28,6 +28,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/FileManager.h"
@@ -1551,7 +1552,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       } else {
         FN += PLoc.getFilename();
       }
-      getLangOpts().remapPathPrefix(FN);
+      processPathForFileMacro(FN, getLangOpts(), getTargetInfo());
       Lexer::Stringify(FN);
       OS << '"' << FN << '"';
     }
@@ -1682,7 +1683,9 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
           case Builtin::BI__builtin_intel_fpga_reg:
             return LangOpts.SYCLIsDevice;
           default:
-            return true;
+            return Builtin::evaluateRequiredTargetFeatures(
+                getBuiltinInfo().getRequiredFeatures(II->getBuiltinID()),
+                getTargetInfo().getTargetOpts().FeatureMap);
           }
           return true;
         } else if (II->getTokenID() != tok::identifier ||
@@ -1729,8 +1732,9 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       [this](Token &Tok, bool &HasLexedNextToken) -> int {
         IdentifierInfo *II = ExpectFeatureIdentifierInfo(Tok, *this,
                                            diag::err_feature_check_malformed);
-        return II ? hasAttribute(AttrSyntax::GNU, nullptr, II,
-                                 getTargetInfo(), getLangOpts()) : 0;
+        return II ? hasAttribute(AttributeCommonInfo::Syntax::AS_GNU, nullptr,
+                                 II, getTargetInfo(), getLangOpts())
+                  : 0;
       });
   } else if (II == Ident__has_declspec) {
     EvaluateFeatureLikeBuiltinMacro(OS, Tok, II, *this, true,
@@ -1740,8 +1744,8 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
         if (II) {
           const LangOptions &LangOpts = getLangOpts();
           return LangOpts.DeclSpecKeyword &&
-                 hasAttribute(AttrSyntax::Declspec, nullptr, II,
-                              getTargetInfo(), LangOpts);
+                 hasAttribute(AttributeCommonInfo::Syntax::AS_Declspec, nullptr,
+                              II, getTargetInfo(), LangOpts);
         }
 
         return false;
@@ -1770,7 +1774,9 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
                                              diag::err_feature_check_malformed);
           }
 
-          AttrSyntax Syntax = IsCXX ? AttrSyntax::CXX : AttrSyntax::C;
+          AttributeCommonInfo::Syntax Syntax =
+              IsCXX ? AttributeCommonInfo::Syntax::AS_CXX11
+                    : AttributeCommonInfo::Syntax::AS_C2x;
           return II ? hasAttribute(Syntax, ScopeII, II, getTargetInfo(),
                                    getLangOpts())
                     : 0;
@@ -1927,4 +1933,17 @@ void Preprocessor::markMacroAsUsed(MacroInfo *MI) {
   if (MI->isWarnIfUnused() && !MI->isUsed())
     WarnUnusedMacroLocs.erase(MI->getDefinitionLoc());
   MI->setIsUsed(true);
+}
+
+void Preprocessor::processPathForFileMacro(SmallVectorImpl<char> &Path,
+                                           const LangOptions &LangOpts,
+                                           const TargetInfo &TI) {
+  LangOpts.remapPathPrefix(Path);
+  if (LangOpts.UseTargetPathSeparator) {
+    if (TI.getTriple().isOSWindows())
+      llvm::sys::path::remove_dots(Path, false,
+                                   llvm::sys::path::Style::windows_backslash);
+    else
+      llvm::sys::path::remove_dots(Path, false, llvm::sys::path::Style::posix);
+  }
 }

@@ -4,7 +4,7 @@
 ; When the parallel region is code extracted, make sure the privatized
 ; variables "a" and "b" retain the debug information.
 
-; CHECK: @a.ascast.priv.__global = internal addrspace(1) global i32 0, align 1
+; CHECK: @a.ascast.priv.__global = internal addrspace(1) global i32 0
 ;
 ; CHECK: define{{.*}} void @__omp_offloading_{{.*}} !dbg [[WREGION:![0-9]+]] {
 ; CHECK:   %b.ascast.priv = alloca i64

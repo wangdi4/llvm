@@ -1,4 +1,21 @@
 //===-- IPO/OpenMPOpt.cpp - Collection of OpenMP specific optimizations ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -58,17 +75,16 @@ using namespace omp;
 #define DEBUG_TYPE "openmp-opt"
 
 static cl::opt<bool> DisableOpenMPOptimizations(
-    "openmp-opt-disable", cl::ZeroOrMore,
-    cl::desc("Disable OpenMP specific optimizations."), cl::Hidden,
-    cl::init(false));
+    "openmp-opt-disable", cl::desc("Disable OpenMP specific optimizations."),
+    cl::Hidden, cl::init(false));
 
 static cl::opt<bool> EnableParallelRegionMerging(
-    "openmp-opt-enable-merging", cl::ZeroOrMore,
+    "openmp-opt-enable-merging",
     cl::desc("Enable the OpenMP region merging optimization."), cl::Hidden,
     cl::init(false));
 
 static cl::opt<bool>
-    DisableInternalization("openmp-opt-disable-internalization", cl::ZeroOrMore,
+    DisableInternalization("openmp-opt-disable-internalization",
                            cl::desc("Disable function internalization."),
                            cl::Hidden, cl::init(false));
 
@@ -84,47 +100,47 @@ static cl::opt<bool> HideMemoryTransferLatency(
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> DisableOpenMPOptDeglobalization(
-    "openmp-opt-disable-deglobalization", cl::ZeroOrMore,
+    "openmp-opt-disable-deglobalization",
     cl::desc("Disable OpenMP optimizations involving deglobalization."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> DisableOpenMPOptSPMDization(
-    "openmp-opt-disable-spmdization", cl::ZeroOrMore,
+    "openmp-opt-disable-spmdization",
     cl::desc("Disable OpenMP optimizations involving SPMD-ization."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> DisableOpenMPOptFolding(
-    "openmp-opt-disable-folding", cl::ZeroOrMore,
+    "openmp-opt-disable-folding",
     cl::desc("Disable OpenMP optimizations involving folding."), cl::Hidden,
     cl::init(false));
 
 static cl::opt<bool> DisableOpenMPOptStateMachineRewrite(
-    "openmp-opt-disable-state-machine-rewrite", cl::ZeroOrMore,
+    "openmp-opt-disable-state-machine-rewrite",
     cl::desc("Disable OpenMP optimizations that replace the state machine."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> DisableOpenMPOptBarrierElimination(
-    "openmp-opt-disable-barrier-elimination", cl::ZeroOrMore,
+    "openmp-opt-disable-barrier-elimination",
     cl::desc("Disable OpenMP optimizations that eliminate barriers."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> PrintModuleAfterOptimizations(
-    "openmp-opt-print-module-after", cl::ZeroOrMore,
+    "openmp-opt-print-module-after",
     cl::desc("Print the current module after OpenMP optimizations."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> PrintModuleBeforeOptimizations(
-    "openmp-opt-print-module-before", cl::ZeroOrMore,
+    "openmp-opt-print-module-before",
     cl::desc("Print the current module before OpenMP optimizations."),
     cl::Hidden, cl::init(false));
 
 static cl::opt<bool> AlwaysInlineDeviceFunctions(
-    "openmp-opt-inline-device", cl::ZeroOrMore,
+    "openmp-opt-inline-device",
     cl::desc("Inline all applicible functions on the device."), cl::Hidden,
     cl::init(false));
 
 static cl::opt<bool>
-    EnableVerboseRemarks("openmp-opt-verbose-remarks", cl::ZeroOrMore,
+    EnableVerboseRemarks("openmp-opt-verbose-remarks",
                          cl::desc("Enables more verbose remarks."), cl::Hidden,
                          cl::init(false));
 
@@ -935,8 +951,7 @@ private:
     SmallDenseMap<BasicBlock *, SmallPtrSet<Instruction *, 4>> BB2PRMap;
 
     BasicBlock *StartBB = nullptr, *EndBB = nullptr;
-    auto BodyGenCB = [&](InsertPointTy AllocaIP, InsertPointTy CodeGenIP,
-                         BasicBlock &ContinuationIP) {
+    auto BodyGenCB = [&](InsertPointTy AllocaIP, InsertPointTy CodeGenIP) {
       BasicBlock *CGStartBB = CodeGenIP.getBlock();
       BasicBlock *CGEndBB =
           SplitBlock(CGStartBB, &*CodeGenIP.getPoint(), DT, LI);
@@ -975,8 +990,7 @@ private:
       const DebugLoc DL = ParentBB->getTerminator()->getDebugLoc();
       ParentBB->getTerminator()->eraseFromParent();
 
-      auto BodyGenCB = [&](InsertPointTy AllocaIP, InsertPointTy CodeGenIP,
-                           BasicBlock &ContinuationIP) {
+      auto BodyGenCB = [&](InsertPointTy AllocaIP, InsertPointTy CodeGenIP) {
         BasicBlock *CGStartBB = CodeGenIP.getBlock();
         BasicBlock *CGEndBB =
             SplitBlock(CGStartBB, &*CodeGenIP.getPoint(), DT, LI);
@@ -2484,7 +2498,8 @@ struct AAICVTrackerFunction : public AAICVTracker {
 
     if (ICVTrackingAA.isAssumedTracked()) {
       Optional<Value *> URV = ICVTrackingAA.getUniqueReplacementValue(ICV);
-      if (!URV || (*URV && AA::isValidAtPosition(**URV, I, OMPInfoCache)))
+      if (!URV || (*URV && AA::isValidAtPosition(AA::ValueAndContext(**URV, I),
+                                                 OMPInfoCache)))
         return URV;
     }
 
@@ -2667,7 +2682,7 @@ struct AAICVTrackerCallSite : AAICVTracker {
     if (!ReplVal.hasValue() || !ReplVal.getValue())
       return ChangeStatus::UNCHANGED;
 
-    A.changeValueAfterManifest(*getCtxI(), **ReplVal);
+    A.changeAfterManifest(IRPosition::inst(*getCtxI()), **ReplVal);
     A.deleteAfterManifest(*getCtxI());
 
     return ChangeStatus::CHANGED;
@@ -3064,7 +3079,7 @@ struct AAHeapToSharedFunction : public AAHeapToShared {
              "HeapToShared on allocation without alignment attribute");
       SharedMem->setAlignment(MaybeAlign(Alignment));
 
-      A.changeValueAfterManifest(*CB, *NewBuffer);
+      A.changeAfterManifest(IRPosition::callsite_returned(*CB), *NewBuffer);
       A.deleteAfterManifest(*CB);
       A.deleteAfterManifest(*FreeCalls.front());
 
@@ -4506,7 +4521,7 @@ struct AAFoldRuntimeCallCallSiteReturned : AAFoldRuntimeCall {
 
     if (SimplifiedValue.hasValue() && SimplifiedValue.getValue()) {
       Instruction &I = *getCtxI();
-      A.changeValueAfterManifest(I, **SimplifiedValue);
+      A.changeAfterManifest(IRPosition::inst(I), **SimplifiedValue);
       A.deleteAfterManifest(I);
 
       CallBase *CB = dyn_cast<CallBase>(&I);
@@ -4989,6 +5004,27 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       }
 
     Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
+#if INTEL_CUSTOMIZATION
+    // Attributor::internalizeFunctions call clones InternalizeFns functions
+    // adding ".internalized" suffix to their names. If one of the functions
+    // has vector-variants attribute, it becomes invalid since function name is
+    // not consistent with it anymore. So we need to update all vector-variants
+    // attributes to be consistent with the function name changes.
+    for (auto It = InternalizedMap.begin(); It != InternalizedMap.end(); It++) {
+      Function *F = It->second;
+      if (F->hasFnAttribute("vector-variants")) {
+        Attribute Attr = F->getFnAttribute("vector-variants");
+        std::string OrigName = It->first->getName().str();
+        std::string NewName = F->getName().str();
+        std::string S = Attr.getValueAsString().str();
+        for (size_t Index = 0;
+             (Index = S.find(OrigName, Index)) != std::string::npos;
+             Index += NewName.length())
+          S.replace(Index, OrigName.length(), NewName);
+        F->addFnAttr("vector-variants", S);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Look at every function in the Module unless it was internalized.

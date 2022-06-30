@@ -83,13 +83,6 @@ attributes #4 = { convergent nounwind readnone }
 !9 = !{i1 false}
 !10 = !{i32 22}
 ;; get_global_id resolve
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %p.addr.addr = alloca <3 x double> addrspace(1)**, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %data.addr = alloca <3 x double>*, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %i.addr = alloca i64*, align 8
-;; barrier key values
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pLocalIds = alloca [3 x i64], align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()

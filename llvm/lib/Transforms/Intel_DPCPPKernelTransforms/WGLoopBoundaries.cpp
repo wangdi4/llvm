@@ -9,23 +9,25 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WGLoopBoundaries.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-wg-loop-bound"
 
@@ -33,7 +35,7 @@ namespace {
 
 class WGLoopBoundariesImpl {
 public:
-  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService *RTService)
+  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService)
       : M(M), RTService(RTService),
         DPCPP_STAT_INIT(CreatedEarlyExit,
                         "one if early exit (or late start) was done for the "
@@ -71,7 +73,7 @@ private:
   Function *F;
 
   LLVMContext *Ctx;
-  const RuntimeService *RTService;
+  const RuntimeService &RTService;
 
   /// size_t type.
   Type *IndTy;
@@ -98,10 +100,6 @@ private:
   TIDDescVec TIDDescs;
   /// Vector of uniform early exit descriptions.
   SmallVector<UniformDesc, 4> UniDescs;
-  /// Indicate whether there are calls to get***id with non-constant argument.
-  bool HasVariableTid;
-  /// Contains calls to get***id with variable argument.
-  SmallPtrSet<CallInst *, 2> VariableTIDCalls;
   /// The dim's entry holds the get***id of dimension dim.
   SmallVector<SmallVector<CallInst *, 4>, 4> TIDByDim;
   /// Holds instruction marked for removal.
@@ -333,8 +331,8 @@ bool WGLoopBoundariesImpl::run() {
     return Changed;
 
   Ctx = &M.getContext();
-  NumDim = RTService->getNumJitDimensions();
-  IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+  NumDim = RTService.getNumJitDimensions();
+  IndTy = LoopUtils::getIndTy(&M);
   ConstOne = ConstantInt::get(IndTy, 1);
   ConstZero = ConstantInt::get(IndTy, 0);
 
@@ -360,13 +358,13 @@ void WGLoopBoundariesImpl::collectWIUniqueFuncUsers() {
   FuncSet WIUniqueFuncs;
   for (Function &F : M) {
     StringRef Name = F.getName();
-    if (RTService->isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
+    if (RTService.isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
       WIUniqueFuncs.insert(&F);
   }
 
   // Obtain all the recursive users of the atomic/pipe functions.
   if (!WIUniqueFuncs.empty())
-    DPCPPKernelLoopUtils::fillFuncUsersSet(WIUniqueFuncs, WIUniqueFuncUsers);
+    LoopUtils::fillFuncUsersSet(WIUniqueFuncs, WIUniqueFuncUsers);
 }
 
 bool WGLoopBoundariesImpl::isUniform(Value *V) {
@@ -391,7 +389,6 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
       // If the function is defined in the module, it is not uniform.
       // If the function is ID generator, it is not uniform.
       if (!Callee || !Callee->isDeclaration() ||
-          VariableTIDCalls.contains(CI) ||
           isWorkGroupDivergent(Callee->getName()) || TIDs.count(CI)) {
         Uni[I] = false;
         LLVM_DEBUG(dbgs() << "Callee " << Callee->getName()
@@ -417,11 +414,8 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
 void WGLoopBoundariesImpl::processTIDCall(CallInst *CI, bool IsGID) {
   assert(CI->getType() == IndTy && "mismatch get***id type");
   auto *DimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-  if (!DimC) {
-    HasVariableTid = true;
-    VariableTIDCalls.insert(CI);
-    return;
-  }
+  assert(DimC && "unexpected variable TID");
+
   unsigned Dim = static_cast<unsigned>(DimC->getValue().getZExtValue());
   assert(Dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
   // All dimension above NumDim are uniform so we don't need to add them.
@@ -433,7 +427,6 @@ void WGLoopBoundariesImpl::processTIDCall(CallInst *CI, bool IsGID) {
 
 void WGLoopBoundariesImpl::collectTIDData() {
   // First clear the tids data structures.
-  HasVariableTid = false;
   TIDs.clear();
   TIDByDim.clear();
   TIDByDim.resize(NumDim); // allocate vector for each dimension
@@ -441,7 +434,7 @@ void WGLoopBoundariesImpl::collectTIDData() {
   auto ProcessTIDCalls = [this](bool IsGID) {
     std::string TIDName = IsGID ? mangledGetGID() : mangledGetLID();
     SmallVector<CallInst *, 4> TIDCalls;
-    DPCPPKernelLoopUtils::getAllCallInFunc(TIDName, F, TIDCalls);
+    LoopUtils::getAllCallInFunc(TIDName, F, TIDCalls);
     for (auto *CI : TIDCalls) {
       processTIDCall(CI, IsGID);
     }
@@ -450,6 +443,70 @@ void WGLoopBoundariesImpl::collectTIDData() {
   ProcessTIDCalls(true);
   // Go over all get_local_id
   ProcessTIDCalls(false);
+}
+
+/// This is a relaxed version of llvm::isGuaranteedNotToBeUndefOrPoison.
+/// We assume
+///   * operations on kernel argument won't produce undef or poison.
+///   * a few other cases won't produce undef or poison. See the code blocks
+///     below with 'continue'.
+/// This is intended for better WG boundary computation and vectorization.
+static bool isNotUndefOrPoison(Use *FreezeOpUse) {
+  for (Use *U : make_range(po_begin(FreezeOpUse), po_end(FreezeOpUse))) {
+    Value *V = U->get();
+    assert(V && "invalid value");
+
+    if (isa<Argument>(V))
+      continue;
+
+    if (auto *C = dyn_cast<Constant>(V)) {
+      if (isa<UndefValue>(C))
+        return false;
+      if (isa<ConstantInt>(C) || isa<GlobalVariable>(C) || isa<ConstantFP>(C) ||
+          isa<ConstantPointerNull>(C) || isa<Function>(C))
+        continue;
+      if (C->getType()->isVectorTy() && !isa<ConstantExpr>(C) &&
+          (C->containsUndefOrPoisonElement() ||
+           C->containsConstantExpression()))
+        return false;
+    }
+
+    auto *StrippedV = V->stripPointerCastsSameRepresentation();
+    if (isa<AllocaInst>(StrippedV) || isa<GlobalVariable>(StrippedV) ||
+        isa<Function>(StrippedV) || isa<ConstantPointerNull>(StrippedV))
+      continue;
+
+    if (auto *Opr = dyn_cast<Operator>(V))
+      continue;
+
+    if (auto *LI = dyn_cast<LoadInst>(V))
+      if (LI->hasMetadata(LLVMContext::MD_noundef) ||
+          LI->hasMetadata(LLVMContext::MD_dereferenceable) ||
+          LI->hasMetadata(LLVMContext::MD_dereferenceable_or_null))
+        continue;
+
+    return false;
+  }
+  return true;
+}
+
+// Freeze on TID call or some values can hurt WGLoopBoundaries or divergence
+// analysis in vectorizer. So we attempt to remove the FreezeInst.
+//
+// TODO Removing Freeze on non-TID call values, which won't impact
+// WGLoopBoundaries computation, shall be moved elsewhere. Currently I don't
+// know the best place to put this functionality.
+static void removeFreeze(Function &F) {
+  for (auto &I : make_early_inc_range(instructions(&F))) {
+    if (!isa<FreezeInst>(&I))
+      continue;
+    Use *U = &I.getOperandUse(0);
+    if (isNotUndefOrPoison(U)) {
+      LLVM_DEBUG(dbgs() << "Remove Freeze: " << I << "\n");
+      I.replaceAllUsesWith(U->get());
+      I.eraseFromParent();
+    }
+  }
 }
 
 bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
@@ -468,6 +525,8 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   collectTIDData();
   // Collect uniform data from the current basic block.
   collectBlockData(&F.getEntryBlock());
+
+  removeFreeze(F);
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min/max with uniform value.
@@ -587,7 +646,7 @@ bool WGLoopBoundariesImpl::handleBuiltinBoundMinMax(Instruction *TidInst) {
   StringRef CalleeName = Callee->getName();
   bool IsMinBuiltin;
   bool IsSigned;
-  if (!RTService->isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
+  if (!RTService.isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
     return false;
   assert(CI->arg_size() == 2 && "bad min,max signature");
 
@@ -704,11 +763,6 @@ bool WGLoopBoundariesImpl::obtainBoundaryCmpSelect(ICmpInst *Cmp, Value *Bound,
 }
 
 bool WGLoopBoundariesImpl::findAndHandleTIDMinMaxBound() {
-  // In case there are get***id with variable argument, we can not know who
-  // are the users of each dimension.
-  if (HasVariableTid)
-    return false;
-
   // In case there is an atomic/pipe call we cannot avoid running two work items
   // that use essentially the same id (due to min(get***id(),uniform) as the
   // atomic/pipe call may have different consequences for the same id.
@@ -1169,8 +1223,8 @@ void WGLoopBoundariesImpl::replaceTidWithBound(bool IsGID, unsigned Dim,
                                                Value *ToRep) {
   assert(ToRep->getType() == IndTy && "bad type");
   SmallVector<CallInst *, 4> TidCalls;
-  DPCPPKernelLoopUtils::getAllCallInFunc(
-      IsGID ? mangledGetGID() : mangledGetLID(), F, TidCalls);
+  LoopUtils::getAllCallInFunc(IsGID ? mangledGetGID() : mangledGetLID(), F,
+                              TidCalls);
   for (auto *TidCall : TidCalls) {
     auto *DimConst = cast<ConstantInt>(TidCall->getOperand(0));
     unsigned DimArg = DimConst->getZExtValue();
@@ -1441,7 +1495,7 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
       Function *Callee = cast<CallInst>(&I)->getCalledFunction();
       if (!Callee)
         return true; // Indirect call may have side effect.
-      if (!RTService->hasNoSideEffect(Callee->getName()))
+      if (!RTService.hasNoSideEffect(Callee->getName()))
         return true;
       break;
     }
@@ -1450,7 +1504,8 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
   return false;
 }
 
-static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
@@ -1463,15 +1518,16 @@ static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
                                            Compare, "", BB);
     return SelectInst::Create(SelectA, A, B, "", BB);
   }
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
-static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
   auto *Compare = new ICmpInst(*BB, Pred, A, B, "");
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
 Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
@@ -1493,7 +1549,11 @@ Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
   // Thus in case border is crossed, we take the original bound instead. We
   // will avoid using it since it is compared after the original boundaries.
   if (NewBound != Bound)
-    NewBound = getMax(TD.IsSigned, Bound, NewBound, BB);
+    NewBound =
+        getMax(TD.IsSigned, Bound, NewBound, BB,
+               AppendWithDimension(TD.IsUpperBound ? "upper.bound.correct"
+                                                   : "lower.bound.correct",
+                                   TD.Dim));
 
   return NewBound;
 }
@@ -1505,10 +1565,11 @@ void WGLoopBoundariesImpl::fillInitialBoundaries(BasicBlock *BB) {
   LoopSizes.clear();
   StringRef BaseGIDName = nameGetBaseGID();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
-    CallInst *LocalSize = DPCPPKernelLoopUtils::getWICall(
-        &M, mangledGetLocalSize(), IndTy, Dim, BB);
-    CallInst *BaseGID =
-        DPCPPKernelLoopUtils::getWICall(&M, BaseGIDName, IndTy, Dim, BB);
+    CallInst *LocalSize =
+        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB,
+                             AppendWithDimension("local.size", Dim));
+    CallInst *BaseGID = LoopUtils::getWICall(
+        &M, BaseGIDName, IndTy, Dim, BB, AppendWithDimension("base.gid", Dim));
     LocalSizes.push_back(LocalSize);
     BaseGIDs.push_back(BaseGID);
     LowerBounds.push_back(BaseGID);
@@ -1548,12 +1609,15 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
     // trivial one (local_size + base_gid).
     if (!UpperBounds[Dim])
       UpperBounds[Dim] = BinaryOperator::Create(
-          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim], "", BB);
+          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim],
+          AppendWithDimension("init.upper.bound", Dim), BB);
     // Create min/max between the bound and previous upper/lower bound.
     if (TD.IsUpperBound)
-      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB);
+      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB,
+                                AppendWithDimension("upper.bound", Dim));
     else
-      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB);
+      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB,
+                                AppendWithDimension("lower.bound", Dim));
   }
 
   // If there is early exit on dimension i, set the loop size as the
@@ -1562,7 +1626,8 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
   for (unsigned Dim = 0; Dim < NumDim; ++Dim)
     if (HasEE[Dim])
       LoopSizes[Dim] = BinaryOperator::Create(
-          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim], "", BB);
+          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim],
+          AppendWithDimension("loop.size", Dim), BB);
 }
 
 Value *WGLoopBoundariesImpl::obtainUniformCond(BasicBlock *BB, VMap &ValueMap) {
@@ -1668,9 +1733,10 @@ public:
   StringRef getPassName() const override { return "WGLoopBoundariesLegacy"; }
 
   bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+    auto &RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                          .getResult()
+                          .getRuntimeService();
+    WGLoopBoundariesImpl Impl(M, RTService);
     return Impl.run();
   }
 
@@ -1695,7 +1761,7 @@ ModulePass *llvm::createWGLoopBoundariesLegacyPass() {
 
 PreservedAnalyses WGLoopBoundariesPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {
-  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
-  WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+  auto &RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  WGLoopBoundariesImpl Impl(M, RTService);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

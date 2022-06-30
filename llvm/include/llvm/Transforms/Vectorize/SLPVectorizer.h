@@ -36,6 +36,9 @@ class GetElementPtrInst;
 class InsertElementInst;
 class InsertValueInst;
 class Instruction;
+#ifdef INTEL_COLLAB
+class InstructionCost;
+#endif // INTEL_COLLAB
 class LoopInfo;
 class OptimizationRemarkEmitter;
 class PHINode;
@@ -88,6 +91,11 @@ private:
   ///       every time we run into a memory barrier.
   void collectSeedInstructions(BasicBlock *BB);
 
+#ifdef INTEL_COLLAB
+  /// Adjust cost if vectorizing a tree will lose FMA opportunities.
+  void adjustForFMAs(InstructionCost &Cost, ArrayRef<Value *> &VL);
+#endif // INTEL_COLLAB
+
   /// Try to vectorize a chain that starts at two arithmetic instrs.
   bool tryToVectorizePair(Value *A, Value *B, slpvectorizer::BoUpSLP &R);
 
@@ -133,7 +141,7 @@ private:
   bool vectorizeChainsInBlock(BasicBlock *BB, slpvectorizer::BoUpSLP &R);
 
   bool vectorizeStoreChain(ArrayRef<Value *> Chain, slpvectorizer::BoUpSLP &R,
-                           unsigned Idx);
+                           unsigned Idx, unsigned MinVF);
 
   bool vectorizeStores(ArrayRef<StoreInst *> Stores, slpvectorizer::BoUpSLP &R);
 

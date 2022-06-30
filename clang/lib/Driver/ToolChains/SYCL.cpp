@@ -150,21 +150,16 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
 // The list should match pre-built SYCL device library files located in
 // compiler package. Once we add or remove any SYCL device library files,
 // the list should be updated accordingly.
-static llvm::SmallVector<StringRef, 16> SYCLDeviceLibList{
-    "crt",
-    "cmath",
-    "cmath-fp64",
-    "complex",
-    "complex-fp64",
-    "itt-compiler-wrappers",
-    "itt-stubs",
-    "itt-user-wrappers",
-    "fallback-cassert",
-    "fallback-cstring",
-    "fallback-cmath",
-    "fallback-cmath-fp64",
-    "fallback-complex",
-    "fallback-complex-fp64"};
+static llvm::SmallVector<StringRef, 16> SYCLDeviceLibList {
+  "crt", "cmath", "cmath-fp64", "complex", "complex-fp64",
+#if defined(_WIN32)
+      "msvc-math",
+#endif
+      "imf", "imf-fp64", "itt-compiler-wrappers", "itt-stubs",
+      "itt-user-wrappers", "fallback-cassert", "fallback-cstring",
+      "fallback-cmath", "fallback-cmath-fp64", "fallback-complex",
+      "fallback-complex-fp64", "fallback-imf", "fallback-imf-fp64"
+};
 
 #if INTEL_CUSTOMIZATION
 // The list should match pre-built OMP device library files located in
@@ -470,7 +465,11 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", ForeachExt, ParallelJobs);
   } else
@@ -644,7 +643,11 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   addFPGATimingDiagnostic(Cmd, C);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, ReportOptArg, ForeachExt, ParallelJobs);
   } else
@@ -683,6 +686,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  // Strip out -cl-no-match-sincospi in case it was used to disable the
+  // default setting.
+  CmdArgs.erase(llvm::remove_if(CmdArgs,
+                                [&](auto Cur) {
+                                  return !strcmp(Cur, "-cl-no-match-sincospi");
+                                }),
+                CmdArgs.end());
 #endif // INTEL_CUSTOMIZATION
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
@@ -691,7 +701,11 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", "out", ParallelJobs);
   } else
@@ -732,7 +746,11 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", "out", ParallelJobs);
   } else
@@ -754,6 +772,12 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
   getProgramPaths().push_back(std::string(Bin));
 #endif // INTEL_CUSTOMIZATION
+
+  // Diagnose unsupported options only once.
+  // All sanitizer options are not currently supported.
+  for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
+    D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
+        << A->getAsString(Args) << getTriple().str();
 }
 
 void SYCLToolChain::addClangTargetOptions(
@@ -775,6 +799,8 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       // Filter out any options we do not want to pass along to the device
       // compilation.
       switch ((options::ID)A->getOption().getID()) {
+      case options::OPT_fsanitize_EQ:
+        break;
       default:
         DAL->append(A);
         break;
@@ -886,9 +912,20 @@ void SYCLToolChain::AddImpliedTargetArgs(
       IsMSVCOd = true;
   }
   if (DeviceOffloadKind == Action::OFK_OpenMP) {
-    if (IsGen)
+    if (IsGen) {
       // Add -cl-take-global-addresses by default for GEN/ocloc
       BeArgs.push_back("-cl-take-global-address");
+      // Add -cl-match-sincospi by default for GEN/ocloc, but do a quick
+      // check for -cl-no-match-sincospi if somebody passed it to disable.
+      ArgStringList TargArgs;
+      Args.AddAllArgValues(TargArgs, options::OPT_Xs, options::OPT_Xs_separate);
+      Args.AddAllArgValues(TargArgs, options::OPT_Xopenmp_backend,
+                           options::OPT_Xopenmp_backend_EQ);
+      if (llvm::find_if(TargArgs, [&](auto Cur) {
+            return !strcmp(Cur, "-cl-no-match-sincospi");
+          }) == TargArgs.end())
+        BeArgs.push_back("-cl-match-sincospi");
+    }
     // -vc-codegen is the default with -fopenmp-target-simd
     if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
         (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))

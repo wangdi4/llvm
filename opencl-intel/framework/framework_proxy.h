@@ -215,9 +215,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             
         void Initialize();
         void Release(bool bTerminate);
-        
-        // static instance of the framework factory class
-        static  FrameworkProxy * m_pInstance;
 
         static cl_icd_dispatch             ICDDispatchTable;
         static SOCLCRTDispatchTable        CRTDispatchTable;

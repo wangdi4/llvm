@@ -25,7 +25,6 @@ add_custom_target(VectorizationInfoGen ALL
 )
 
 include_directories(BEFORE "Heuristic")
-include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "Predication")
 include_directories(BEFORE "OCLBranchProbability")
@@ -58,12 +57,9 @@ set(TARGET_INCLUDE_FILES
   ChooseVectorizationDimension/ChooseVectorizationDimension.h
   Heuristic/InstCounter.h
   IRPrinter/IRPrinter.h
-  LoopHandler/CLBuiltinLICM.h
   LoopHandler/CLStreamSampler.h
   OCLBranchProbability/OCLBranchProbability.h
-  OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
-  PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
   Predication/PhiCanon.h
   Predication/Predicator.h
@@ -77,7 +73,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
-  VectorKernelDiscard/VectorKernelDiscard.h
   VolcanoWrapper/Main.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
@@ -86,13 +81,10 @@ set(TARGET_SOURCE_FILES
   ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   Heuristic/InstCounter.cpp
   IRPrinter/IRPrinter.cpp
-  LoopHandler/CLBuiltinLICM.cpp
   LoopHandler/CLStreamSampler.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
-  OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
-  PostDominanceFrontier/PostDominanceFrontier.cpp
   Predication/Linearizer.cpp
   Predication/PhiCanon.cpp
   Predication/Predicator.cpp
@@ -103,9 +95,9 @@ set(TARGET_SOURCE_FILES
   Scalarizer/PreScalarizeScan.cpp
   Scalarizer/Scalarize.cpp
   Utils/SimplifyGEP.cpp
+  Utils/VecConfig.cpp
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
-  VectorKernelDiscard/VectorKernelDiscard.cpp
   VolcanoWrapper/Main.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )

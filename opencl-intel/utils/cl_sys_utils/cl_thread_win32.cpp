@@ -24,22 +24,17 @@ using namespace Intel::OpenCL::Utils;
 const unsigned int MAX_UINT = 0xffffffff;
 
 /************************************************************************
- * Creates thread object. Doesn't create 
-/************************************************************************/
-OclThread::OclThread(string name, bool bAutoDelete ):
-m_threadHandle(nullptr),
-m_threadId(MAX_UINT),
-m_running(false),
-m_Name(name),
-m_bAutoDelete(bAutoDelete)
-{
-}
+ * Creates thread object. Doesn't create
+ ************************************************************************/
+OclThread::OclThread(string name, bool bAutoDelete)
+    : m_threadHandle(nullptr), m_threadId(MAX_UINT), m_running(false),
+      m_bAutoDelete(bAutoDelete), m_Name(name) {}
 
 /************************************************************************
  * Destroys the thread object.
  * If the thread is running, the function wait for it completion iff the
  * thread is not joined already (If m_join == 0).
-/************************************************************************/
+ ************************************************************************/
 OclThread::~OclThread()
 {
     if( m_running )
@@ -51,9 +46,9 @@ OclThread::~OclThread()
 }
 
 /************************************************************************
- * Cleans the private members 
- * 
-/************************************************************************/
+ * Cleans the private members
+ *
+ ************************************************************************/
 void OclThread::Clean()
 {
     // m_running = false;	-- thread still can run when cleaning
@@ -73,7 +68,7 @@ void OclThread::Clean()
  * When thread starts, it calls to this static function.
  * The function calls the worker run function.
  * when the function ends.
-/************************************************************************/
+ ************************************************************************/
 typedef struct tagTHREADNAME_INFO
 {
 	DWORD dwType; // must be 0x1000
@@ -118,7 +113,7 @@ RETURN_TYPE_ENTRY_POINT OclThread::ThreadEntryPoint(void* threadObject)
 /************************************************************************
  * Starts new thread and immediately runs it.
  * You can start the thread only if the thread isn't running
-/************************************************************************/
+ ************************************************************************/
 int OclThread::Start()
 {
 	cl_start;
@@ -152,7 +147,7 @@ int OclThread::Start()
  * The function notifies the thread to stop and wait for its completion.
  * Note that this function may wait for long time.
  *
-/************************************************************************/
+ ************************************************************************/
 int OclThread::Join()
 {
     if(m_running)
@@ -165,13 +160,13 @@ int OclThread::Join()
 	    return WaitForCompletion();
     }
     return THREAD_RESULT_SUCCESS;
-}   
+}
 
 /************************************************************************
  * Wait until the running thread is finished.
  * If there isn't any running thread, error value is returned
  * If trying to join, joined thread, error value is returned
-/************************************************************************/
+ ************************************************************************/
 int OclThread::WaitForCompletion()
 {
 	// If threadHandle already released or I try to wait for myself, return error.
@@ -186,11 +181,11 @@ int OclThread::WaitForCompletion()
 
 /************************************************************************
  * Terminate the thread immediately.
- * Be careful when using this function, since the thread exists before 
+ * Be careful when using this function, since the thread exists before
  * distructors can be called. It might keep the environment unstable.
  * Note that only user space thread is terminate. Kernel space threads such
  * as the Graphics driver thread may continue to work.
-/************************************************************************/
+ ************************************************************************/
 void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 {
 	if ( nullptr != m_threadHandle )
@@ -212,7 +207,7 @@ bool OclThread::isSelf()
 
 /************************************************************************
  *
-/************************************************************************/
+ ************************************************************************/
 void OclThread::Exit(RETURN_TYPE_ENTRY_POINT exitCode)
 {
 	m_running = false;
@@ -225,7 +220,7 @@ void OclThread::Exit(RETURN_TYPE_ENTRY_POINT exitCode)
 
 /************************************************************************
  * Sets the thread affinity
-/************************************************************************/
+ ************************************************************************/
 int OclThread::SetAffinity(unsigned char ucAffinity)
 {
 #if defined (WINDOWS_ONECORE)

@@ -157,8 +157,13 @@ public:
     UseRef = Ref;
   }
 
+  /// Returns true if substitution is invalidated due to reordering of rval's
+  /// def inst.
+  bool isInvalidatedByReordering(SmallPtrSetImpl<HLInst *> &MovedRvalDefs,
+                                 HLDDNode *UseNode);
+
   // Substitutes temp in the stored use ref.
-  void substituteInUseRef();
+  void substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs);
 
   RegDDRef *getLastUseRef() const {
     assert(!isLoad() && "Attempt to access last use of load temp!");
@@ -243,7 +248,48 @@ bool TempInfo::setSingleRvalDefInst(HLInst *RvalDefInst) {
   return true;
 }
 
-void TempInfo::substituteInUseRef() {
+// Skip the substitution if the reordering of rval's def inst prevents
+// substitution.
+// This is a separate check because visitor misses checking rval def insts
+// in their new location in HIR if they are reordered.
+//
+// For example, in the case below t2 load temp is substitutable before
+// reordering but not afterwards-
+//
+// t1.out = t1
+// t1 = t1 + 1
+// t2 = A[t1.out]
+// t3 = t2
+//
+// t2 = A[t1]
+// t1 = t1 + 1
+// t3 = t2
+bool TempInfo::isInvalidatedByReordering(
+    SmallPtrSetImpl<HLInst *> &MovedRvalDefs, HLDDNode *UseNode) {
+
+  if (MovedRvalDefs.empty()) {
+    return false;
+  }
+
+  unsigned DefTSNum = DefInst->getTopSortNum();
+  unsigned UseTSNum = UseNode->getTopSortNum();
+
+  for (auto *RvalDef : MovedRvalDefs) {
+    unsigned RvalDefTSNum = RvalDef->getTopSortNum();
+
+    if (RvalDefTSNum > DefTSNum && RvalDefTSNum < UseTSNum) {
+      unsigned LvalBlobIndex = RvalDef->getLvalBlobIndex();
+
+      if (DefInst->usesTempBlob(LvalBlobIndex)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+void TempInfo::substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs) {
   assert(isLoad() && "Attempt to access use ref for copy temp!");
 
   if (auto UseRef = getUseRef()) {
@@ -252,31 +298,8 @@ void TempInfo::substituteInUseRef() {
     RegDDRef *LvalRef = nullptr;
     unsigned Index = getBlobIndex();
 
-    // Skip the substitution if the def inst's next node prevents substitution.
-    // We check the next node because visitor could miss checking the next node
-    // if it changed due to reordering. This is the case where this load temp
-    // was a UseInst of a liveout copy temp and RvalDefInst of the liveout copy
-    // temp was moved after the load.
-    //
-    // For example, in the case below t2 load temp is substitutable before
-    // reordering but not afterwards-
-    //
-    // t1.out = t1
-    // t1 = t1 + 1
-    // t2 = A[t1.out]
-    // t3 = t2
-    //
-    // t2 = A[t1]
-    // t1 = t1 + 1
-    // t3 = t2
-    HLInst *NextInstAfterDef = dyn_cast<HLInst>(DefInst->getNextNode());
-
-    if (NextInstAfterDef && (NextInstAfterDef != UseInst)) {
-      unsigned NextInstLvalBlobIndex = NextInstAfterDef->getLvalBlobIndex();
-
-      if (DefInst->usesTempBlob(NextInstLvalBlobIndex)) {
-        return;
-      }
+    if (isInvalidatedByReordering(MovedRvalDefs, UseNode)) {
+      return;
     }
 
     // If use is in the copy, replace use inst by def inst by changing its lval.
@@ -569,6 +592,7 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
 // Visitor class which populates/updates/substitutes temps.
 class TempSubstituter final : public HLNodeVisitorBase {
   HIRFramework *HIRF;
+  SmallPtrSet<HLInst *, 8> MovedRvalDefs;
   SmallVector<TempInfo, 32> CandidateTemps;
   bool SIMDDirSeen;
   bool HasEmptyNodes;
@@ -656,9 +680,16 @@ void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {
     // If use cannot be moved before single rval definition of temp, we can
     // try if single rval definition of temp can be moved after use.
     // If reordering is unsuccessful, make the temp invalid.
-    if (!Temp.movedUseBeforeRvalDef(Node) && !Temp.movedRvalDefAfterUse(Node)) {
-      Temp.markInvalid();
-      return;
+    if (!Temp.movedUseBeforeRvalDef(Node)) {
+      bool Moved = Temp.movedRvalDefAfterUse(Node);
+
+      if (Moved) {
+        MovedRvalDefs.insert(Temp.getSingleRvalDefInst());
+
+      } else {
+        Temp.markInvalid();
+        return;
+      }
     }
 
   } else {
@@ -911,7 +942,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
 
       // Load temp is substituted once we have traversed the entire region and
       // determined that it has a single use.
-      Temp.substituteInUseRef();
+      Temp.substituteInUseRef(MovedRvalDefs);
 
     } else {
 
@@ -966,6 +997,8 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
 }
 
 void TempSubstituter::substituteTemps(HLRegion *Reg) {
+  MovedRvalDefs.clear();
+
   HLNodeUtils::visitRange(*this, Reg->child_begin(), Reg->child_end());
   eliminateSubstitutedTemps(Reg);
 

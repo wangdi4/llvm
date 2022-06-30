@@ -180,13 +180,18 @@ public:
   const_bb_iterator bb_begin() const { return BBlocks.begin(); }
   const_bb_iterator bb_end() const { return BBlocks.end(); }
 
-  const_bb_iterator non_loop_bb_begin() { return NonLoopBBlocks.begin(); }
-  const_bb_iterator non_loop_bb_end() { return NonLoopBBlocks.end(); }
+  const_bb_iterator non_loop_bb_begin() const { return NonLoopBBlocks.begin(); }
+  const_bb_iterator non_loop_bb_end() const { return NonLoopBBlocks.end(); }
 
   const_live_in_iterator live_in_begin() const { return LiveInMap.begin(); }
   const_live_in_iterator live_in_end() const { return LiveInMap.end(); }
   const_live_out_iterator live_out_begin() const { return LiveOutMap.begin(); }
   const_live_out_iterator live_out_end() const { return LiveOutMap.end(); }
+
+  bool isNonLoopBlock(const BasicBlock *BB) const {
+    return (std::find(non_loop_bb_begin(), non_loop_bb_end(), BB) !=
+            non_loop_bb_end());
+  }
 
   // Returns symbase of a liveout value. Asserts, if the value is not liveout.
   unsigned getLiveOutSymbase(const Instruction *Temp) const {

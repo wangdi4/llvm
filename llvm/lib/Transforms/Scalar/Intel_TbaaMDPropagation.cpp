@@ -81,6 +81,8 @@
 
 using namespace llvm;
 
+#define DEBUG_TYPE "tbaa-prop"
+
 namespace {
 
 struct TbaaMDPropagationImpl : public InstVisitor<TbaaMDPropagationImpl> {
@@ -89,6 +91,7 @@ public:
   void visitLoad(LoadInst &LI);
   void visitStore(StoreInst &SI);
   void visitIntrinsicInst(IntrinsicInst &II);
+  void removeBadArgMD(Function *F);
 
 private:
   friend class InstVisitor<TbaaMDPropagationImpl>;
@@ -266,6 +269,144 @@ void TbaaMDPropagationImpl::visitStore(StoreInst &SI) {
   propagateIntelTBAAToMemInst(SI, SI.getPointerOperand());
 }
 
+// Recognize this pattern:
+// define internal ... @callee(ptr p1, ptr p2) {
+//    ... load ptr, ptr %p2 !tbaa !0
+//   store ptr ..., ptr %p2 !tbaa !0
+// }
+//
+// define ... @caller(...) {
+//   %actual = getelementptr .... !intel-tbaa !1
+//   call ... callee(... , %actual)
+// }
+// !0 = {!2, !2, i64 ... }
+// !1 = {!3, !4, i64 ... }
+// !2 = {"pointer@type1", ...}
+// !3 = {"struct@s1", ... }
+// !4 = {"pointer@type2", ...}
+//
+// The caller is typecasting the address of a pointer type struct field,
+// to a different pointer type. This creates a possible aliasing error.
+//
+// void callee(...*p1, type1 **p2) {
+//   *p2 = ...
+//   ... = p2->...
+// }
+//
+// callee(..., (type1**)&s->actual) // "actual" is *type2, addr is **type2
+//
+// For this situation, remove the TBAA information on the 2 callee accesses.
+// The "F" arg is the callee. There are multiple callers (users of F).
+void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
+  // For the most part, we want to trust TBAA, so we restrict this code to
+  // the exact pattern above.
+  // Check internal (static) linkage.
+  if (!F->hasInternalLinkage())
+    return;
+
+  // Check for 2 args, both opaque pointer type.
+  if (F->arg_size() != 2)
+    return;
+  if (!F->getArg(0)->getType()->isOpaquePointerTy() ||
+      !F->getArg(1)->getType()->isOpaquePointerTy())
+    return;
+
+  // This function takes an instruction with intel-tbaa or tbaa MD, and
+  // looks for this pattern:
+  //   ![intel-]tbaa = !{xxx, !at, xxx}
+  //   !at = !{"pointer@something", ...}
+  //
+  // The TBAA node is a "struct path node" with access type !at.
+  // This can be either a struct field {!0, !at, ...}
+  // or a scalar type {!at, !at, ...}.
+  // If the access type has a name "pointer@XXX", returns the name string
+  // as an Optional<StringRef> (llvm::None if no match).
+  auto getTBAAPtrTypeAccess = [=](Instruction *I) -> Optional<StringRef> {
+    MDNode *TBAA = I->getMetadata(LLVMContext::MD_intel_tbaa);
+    if (!TBAA)
+      TBAA = I->getMetadata(LLVMContext::MD_tbaa);
+    if (!TBAA)
+      return llvm::None;
+    if (TBAA->getNumOperands() != 3)
+      return llvm::None;
+    // Get the access type node which is the 2nd operand (operand 1).
+    MDNode *FieldMD = dyn_cast<MDNode>(TBAA->getOperand(1));
+    if (!FieldMD || FieldMD->getNumOperands() != 3)
+      return llvm::None;
+
+    // Check the access type name string (operand 0) for "pointer@".
+    MDString *Tag = dyn_cast<MDString>(FieldMD->getOperand(0));
+    if (!Tag)
+      return llvm::None;
+    if (Tag->getString().contains("pointer@"))
+      return Optional<StringRef>(Tag->getString());
+    return llvm::None;
+  };
+
+  // We are only interested in the 2nd arg of the callee.
+
+  // Check that the 2nd arg has 1 load use, 1 store use.
+  auto *Formal1 = F->getArg(1);
+  unsigned numLoads = 0, numStores = 0;
+  for (auto *U : Formal1->users()) {
+    if (isa<LoadInst>(U))
+      numLoads++;
+    else if (isa<StoreInst>(U))
+      numStores++;
+    else
+      return;
+    if (numLoads > 1 || numStores > 1)
+      return;
+  }
+  if (numLoads != 1 || numStores != 1)
+    return;
+
+  // Get the **pointer type name string from the first use (a load or store).
+  Instruction *FirstUse = cast<Instruction>(*Formal1->user_begin());
+  Optional<StringRef> FormalArgType = getTBAAPtrTypeAccess(FirstUse);
+  if (!FormalArgType)
+    return;
+
+  // Now check the callers of F, for a GEP parameter whose type name string
+  // does not match the formal's type name.
+  bool MismatchedTypes = false;
+  for (auto *U : F->users()) {
+    auto *Call = dyn_cast<CallBase>(U);
+    if (!Call)
+      return;
+    // callee name + 2 args = 3 ops
+    if (Call->getNumOperands() != 3)
+      return;
+    // 2nd arg is GEP
+    auto *GEP = dyn_cast<GetElementPtrInst>(Call->getOperand(1));
+    if (!GEP)
+      return;
+    // GEP is **ptr type
+    Optional<StringRef> CallArgType = getTBAAPtrTypeAccess(GEP);
+    if (!CallArgType)
+      return;
+
+    // Check the actual's typename against the formal's typename.
+    if (CallArgType.getValue() != FormalArgType.getValue()) {
+      MismatchedTypes = true;
+      break;
+    }
+  }
+  if (!MismatchedTypes)
+    return;
+
+  // If any caller mismatched types, remove the TBAA on the uses of
+  // the formal parameter.
+  for (auto *U : Formal1->users()) {
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      if (I->getMetadata(LLVMContext::MD_tbaa)) {
+        LLVM_DEBUG(dbgs() << "Removing TBAA info on: " << *I << "\n");
+        I->setMetadata(LLVMContext::MD_tbaa, nullptr);
+      }
+    }
+  }
+}
+
 bool runTbaaMDPropagation(Function &F) {
   TbaaMDPropagationImpl impl;
   for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
@@ -278,6 +419,7 @@ bool runTbaaMDPropagation(Function &F) {
       impl.visit(&I);
     }
   }
+  impl.removeBadArgMD(&F);
   return false; // FIXME: Should this return true when something changes?
 }
 

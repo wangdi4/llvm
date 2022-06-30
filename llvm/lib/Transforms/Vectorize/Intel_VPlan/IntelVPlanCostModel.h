@@ -76,6 +76,9 @@ public:
   /// Get TTI based cost of a single instruction \p VPInst.
   VPInstructionCost getTTICost(const VPInstruction *VPInst);
 
+  /// Return cost of all-zero check instruction
+  VPInstructionCost getAllZeroCheckInstrCost(Type *VecSrcTy, Type *DestTy);
+
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
   // of Load/Store VPInstruction given VF and Alignment on input.
   VPInstructionCost getLoadStoreCost(
@@ -96,7 +99,7 @@ public:
   /// This method guarantees to never return zero by returning default alignment
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
-  unsigned getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
+  Align getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
@@ -193,6 +196,9 @@ private:
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
     const Instruction *I = nullptr) const;
+
+  // Return cost of VPConflictInsn
+  VPInstructionCost getConflictInsnCost(unsigned VF, unsigned ElementSizeBits);
 };
 
 // Class HeuristicsList is designed to hold Heuristics objects. It is a
@@ -233,9 +239,9 @@ public:
     H.printCostChange(RefCost, Cost, S, OS);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    // Once any heuristics in the pipeline returns Unknown cost
+    // Once any heuristics in the pipeline returns Unknown/Invalid cost
     // return it immediately.
-    if (Cost.isUnknown())
+    if (!Cost.isValid())
       return;
     this->Base::apply(TTICost, Cost, S, OS);
   }
@@ -276,17 +282,16 @@ public:
   /// Get Cost for the range of basic blocks specified through \p Begin and
   /// \p End with optionally specified peeling \p PeelingVariant and optionally
   /// specified pointer to output stream \p OS if debug output is requested.
-  virtual VPInstructionCost getBlockRangeCost(
-    const VPBasicBlock *Begin, const VPBasicBlock *End,
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) = 0;
+  virtual VPInstructionCost
+  getBlockRangeCost(const VPBasicBlock *Begin, const VPBasicBlock *End,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") = 0;
 
-  /// Get Cost for VPlan with optionally specified peeling \p PeelingVariant
-  /// and optionally specified pointer to output stream \p OS if debug output
-  /// is requested.
-  virtual VPInstructionCost getCost(
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) = 0;
+  /// Get the pair of Costs (iteration cost and preheader/postexit cost) for
+  /// VPlan with optionally specified peeling \p PeelingVariant and optionally
+  /// specified pointer to output stream \p OS if debug output is requested.
+  virtual VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                                 raw_ostream *OS = nullptr) = 0;
 
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
@@ -318,6 +323,8 @@ template <typename HeuristicsListVPInstTy,
 class VPlanCostModelWithHeuristics :
     public VPlanTTICostModel, public VPlanCostModelInterface {
 private:
+  using BlockPair = std::pair<const VPBasicBlock*, const VPBasicBlock*>;
+
   HeuristicsListVPInstTy HeuristicsListVPInst;
   HeuristicsListVPBlockTy HeuristicsListVPBlock;
   HeuristicsListVPlanTy HeuristicsListVPlan;
@@ -373,9 +380,10 @@ private:
     for (const VPInstruction &VPInst : *VPBB) {
       VPInstructionCost InstCost = getCostImpl(&VPInst, OS);
       // TODO:
-      // For now we skip unknown and invalid costs. Eventually we might want to
-      // assert that we don't have Invalid or Unknown costs for instructions.
-      if (!InstCost.isValid())
+      // For now we skip Unknown costs. Eventually we may want to allow Unknown
+      // cost to propage to the final VPlan cost once every instructions
+      // is modelled.
+      if (InstCost.isUnknown())
         continue;
       BaseCost += InstCost;
     }
@@ -395,15 +403,46 @@ private:
   // Internal helper function to reduce code duplication.
   template <typename RangeTy>
   VPInstructionCost getRangeCost(RangeTy Range, raw_ostream *OS) {
-    VPInstructionCost Cost = 0;
-    for (auto *Block : Range) {
-      VPInstructionCost BlkCost = getCostImpl(Block, OS);
-      if (BlkCost.isUnknown())
-        continue;
-      Cost += BlkCost;
-    }
-    return Cost;
+    VPInstructionCost RangeCost =
+      std::accumulate(Range.begin(), Range.end(), VPInstructionCost(0),
+                      [=](VPInstructionCost Cost, const VPBasicBlock *VPBlk) {
+                        return Cost + getCostImpl(VPBlk, OS);});
+    return RangeCost;
   }
+
+  inline BlockPair getVPlanPreLoopBeginEndBlocks() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+    const VPBasicBlock *Preheader = L->getLoopPreheader();
+    return std::make_pair(&Plan->getEntryBlock(), Preheader);
+  }
+
+  inline BlockPair getVPlanAfterLoopBeginEndBlocks() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+
+    const VPBasicBlock *Latch = L->getLoopLatch();
+    assert(Latch->getNumSuccessors() == 2 && "Expected two latch successors");
+
+    const VPBasicBlock *ExitBB = Latch->getSuccessor(0);
+    if (ExitBB == L->getHeader())
+      ExitBB = Latch->getSuccessor(1);
+
+    const VPBasicBlock *LastBB = &*Plan->getExitBlock();
+    return std::make_pair(ExitBB, LastBB);
+  }
+
+  inline decltype(auto) getVPlanLoopRange() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+    return sese_depth_first(L->getHeader(), L->getLoopLatch());
+  }
+
+  VPInstructionCost
+  getBlockRangeCost(BlockPair BeginEnd,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") {
+    return getBlockRangeCost(BeginEnd.first, BeginEnd.second, PeelingVariant,
+                             OS, RangeName);
+  }
+
 
   // Ctor is private.
   // CM objects should be created using special interface of planner class
@@ -437,27 +476,29 @@ protected:
 
 public:
   VPlanCostModelWithHeuristics() = delete;
-  VPInstructionCost getBlockRangeCost(
-    const VPBasicBlock *Begin,
-    const VPBasicBlock *End,
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) final {
+
+  VPInstructionCost
+  getBlockRangeCost(const VPBasicBlock *Begin, const VPBasicBlock *End,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") final {
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
         DefaultPeelingVariant,
         PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
     VPInstructionCost Cost = getRangeCost(sese_depth_first(Begin, End), OS);
-    CM_DEBUG(OS, *OS << "Cost Model for Block range " <<
-             Begin->getName() << " : " << End->getName() <<
-             " for VF = " << VF << " resulted Cost = " << Cost << '\n';);
+    CM_DEBUG(OS,
+             StringRef Hdr = RangeName.empty() ? "Block range" : RangeName;
+             *OS << "Cost Model for " << Hdr << " " << Begin->getName() << " : "
+                 << End->getName() << " for VF = " << VF
+                 << " resulted Cost = " << Cost << '\n';);
 
     // TODO: Consider which (and how) VPlan heuristics we should run here.
     return Cost;
   }
 
-  VPInstructionCost getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
-                            raw_ostream *OS = nullptr) final {
+  VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                        raw_ostream *OS = nullptr) final {
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
         DefaultPeelingVariant,
@@ -465,15 +506,18 @@ public:
 
     // Initialize heuristics VPlan level data for each VPlan level getCost
     // call.
-    // Note that VPBlack and VPInstruction level getCost interfaces and
+    // Note that VPBlock and VPInstruction level getCost interfaces and
     // getBlockRangeCost interface bypass the initialization call.
     HeuristicsListVPlan.initForVPlan();
 
     CM_DEBUG(OS, *OS << "Cost Model for VPlan " << Plan->getName() <<
              " with VF = " <<VF << ":\n";);
 
-    VPInstructionCost BaseCost =
-      getRangeCost(depth_first(&Plan->getEntryBlock()), OS);
+    VPInstructionCost PreHdrCost =
+        getBlockRangeCost(getVPlanPreLoopBeginEndBlocks(),
+                          nullptr /* peeling */, OS, "Loop preheader");
+
+    VPInstructionCost BaseCost = getRangeCost(getVPlanLoopRange(), OS);
 
     CM_DEBUG(OS, *OS << "Base Cost: " << BaseCost << '\n';);
 
@@ -484,7 +528,11 @@ public:
              if (BaseCost != TotCost)
                *OS << "Total Cost: " << TotCost << '\n';);
 
-    return TotCost;
+    VPInstructionCost PostExitCost =
+        getBlockRangeCost(getVPlanAfterLoopBeginEndBlocks(),
+                          nullptr /* peeling */, OS, "Loop postexit");
+
+    return std::make_pair(TotCost, PostExitCost + PreHdrCost);
   }
 
   /// This method is proxy to implementation in TTI cost model, which returns

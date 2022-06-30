@@ -135,6 +135,11 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-m32");
     break;
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
     CmdArgs.push_back("-m64");
@@ -331,6 +336,9 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
     return "elf64_s390";
   case llvm::Triple::x86_64:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
 #endif  // INTEL_FEATURE_CSA
@@ -970,6 +978,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   } else
     AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
+  addHIPRuntimeLibArgs(ToolChain, Args, CmdArgs);
+
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
       !D.IsIntelMode())
@@ -1044,6 +1054,20 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
   Args.ClaimAllArgs(options::OPT_stdlib_EQ);
 
+  // Additional linker set-up and flags for Fortran. This is required in order
+  // to generate executables. As Fortran runtime depends on the C runtime,
+  // these dependencies need to be listed before the C runtime below (i.e.
+  // AddRuntTimeLibs).
+  //
+  // NOTE: Generating executables by Flang is considered an "experimental"
+  // feature and hence this is guarded with a command line option.
+  // TODO: Make this work unconditionally once Flang is mature enough.
+  if (D.IsFlangMode() && Args.hasArg(options::OPT_flang_experimental_exec)) {
+    addFortranRuntimeLibraryPath(ToolChain, Args, CmdArgs);
+    addFortranRuntimeLibs(CmdArgs);
+    CmdArgs.push_back("-lm");
+  }
+
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_r)) {
     if (!Args.hasArg(options::OPT_nodefaultlibs)) {
       if (IsStatic || IsStaticPIE)
@@ -1105,6 +1129,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           CmdArgs.push_back("-Bdynamic");
 #endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
+        CmdArgs.push_back("-lsycl-devicelib-host");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
         if (Args.hasArg(options::OPT_fintelfpga))
@@ -2558,7 +2583,7 @@ void Generic_GCC::GCCInstallationDetector::init(
     if (!VFS.exists(Prefix))
       continue;
     for (StringRef Suffix : CandidateLibDirs) {
-      const std::string LibDir = Prefix + Suffix.str();
+      const std::string LibDir = concat(Prefix, Suffix);
       if (!VFS.exists(LibDir))
         continue;
       // Maybe filter out <libdir>/gcc and <libdir>/gcc-cross.
@@ -2624,7 +2649,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     // so we need to find those /usr/gcc/*/lib/gcc libdirs and go with
     // /usr/gcc/<version> as a prefix.
 
-    std::string PrefixDir = SysRoot.str() + "/usr/gcc";
+    std::string PrefixDir = concat(SysRoot, "/usr/gcc");
     std::error_code EC;
     for (llvm::vfs::directory_iterator LI = D.getVFS().dir_begin(PrefixDir, EC),
                                        LE;
@@ -2646,20 +2671,39 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     return;
   }
 
-  // Non-Solaris is much simpler - most systems just go with "/usr".
-  if (SysRoot.empty() && TargetTriple.getOS() == llvm::Triple::Linux) {
-    // Yet, still look for RHEL/CentOS devtoolsets and gcc-toolsets.
-    Prefixes.push_back("/opt/rh/gcc-toolset-10/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-10/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-9/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-8/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-7/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-6/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-4/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-3/root/usr");
-    Prefixes.push_back("/opt/rh/devtoolset-2/root/usr");
+  // For Linux, if --sysroot is not specified, look for RHEL/CentOS devtoolsets
+  // and gcc-toolsets.
+  if (SysRoot.empty() && TargetTriple.getOS() == llvm::Triple::Linux &&
+      D.getVFS().exists("/opt/rh")) {
+    // Find the directory in /opt/rh/ starting with gcc-toolset-* or
+    // devtoolset-* with the highest version number and add that
+    // one to our prefixes.
+    std::string ChosenToolsetDir;
+    unsigned ChosenToolsetVersion = 0;
+    std::error_code EC;
+    for (llvm::vfs::directory_iterator LI = D.getVFS().dir_begin("/opt/rh", EC),
+                                       LE;
+         !EC && LI != LE; LI = LI.increment(EC)) {
+      StringRef ToolsetDir = llvm::sys::path::filename(LI->path());
+      unsigned ToolsetVersion;
+      if ((!ToolsetDir.startswith("gcc-toolset-") &&
+           !ToolsetDir.startswith("devtoolset-")) ||
+          ToolsetDir.substr(ToolsetDir.rfind('-') + 1)
+              .getAsInteger(10, ToolsetVersion))
+        continue;
+
+      if (ToolsetVersion > ChosenToolsetVersion) {
+        ChosenToolsetVersion = ToolsetVersion;
+        ChosenToolsetDir = "/opt/rh/" + ToolsetDir.str();
+      }
+    }
+
+    if (ChosenToolsetVersion > 0)
+      Prefixes.push_back(ChosenToolsetDir + "/root/usr");
   }
-  Prefixes.push_back(SysRoot.str() + "/usr");
+
+  // Fall back to /usr which is used by most non-Solaris systems.
+  Prefixes.push_back(concat(SysRoot, "/usr"));
 }
 
 /*static*/ void Generic_GCC::GCCInstallationDetector::CollectLibDirsAndTriples(
@@ -2710,7 +2754,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       "x86_64-redhat-linux",    "x86_64-suse-linux",
       "x86_64-manbo-linux-gnu", "x86_64-linux-gnu",
       "x86_64-slackware-linux", "x86_64-unknown-linux",
-      "x86_64-amazon-linux"};
+      "x86_64-amazon-linux",    "x86_64-generic-linux"}; // INTEL
   static const char *const X32Triples[] = {"x86_64-linux-gnux32",
                                            "x86_64-pc-linux-gnux32"};
   static const char *const X32LibDirs[] = {"/libx32", "/lib"};
@@ -3187,7 +3231,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooConfigs(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     const SmallVectorImpl<StringRef> &CandidateTriples,
     const SmallVectorImpl<StringRef> &CandidateBiarchTriples) {
-  if (!D.getVFS().exists(D.SysRoot + GentooConfigDir))
+  if (!D.getVFS().exists(concat(D.SysRoot, GentooConfigDir)))
     return false;
 
   for (StringRef CandidateTriple : CandidateTriples) {
@@ -3206,8 +3250,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     StringRef CandidateTriple, bool NeedsBiarchSuffix) {
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> File =
-      D.getVFS().getBufferForFile(D.SysRoot + GentooConfigDir + "/config-" +
-                                  CandidateTriple.str());
+      D.getVFS().getBufferForFile(concat(D.SysRoot, GentooConfigDir,
+                                         "/config-" + CandidateTriple.str()));
   if (File) {
     SmallVector<StringRef, 2> Lines;
     File.get()->getBuffer().split(Lines, "\n");
@@ -3218,8 +3262,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
         continue;
       // Process the config file pointed to by CURRENT.
       llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ConfigFile =
-          D.getVFS().getBufferForFile(D.SysRoot + GentooConfigDir + "/" +
-                                      Line.str());
+          D.getVFS().getBufferForFile(
+              concat(D.SysRoot, GentooConfigDir, "/" + Line));
       std::pair<StringRef, StringRef> ActiveVersion = Line.rsplit('-');
       // List of paths to scan for libraries.
       SmallVector<StringRef, 4> GentooScanPaths;
@@ -3252,7 +3296,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
 
       // Scan all paths for GCC libraries.
       for (const auto &GentooScanPath : GentooScanPaths) {
-        std::string GentooPath = D.SysRoot + std::string(GentooScanPath);
+        std::string GentooPath = concat(D.SysRoot, GentooScanPath);
         if (D.getVFS().exists(GentooPath + "/crtbegin.o")) {
           if (!ScanGCCForMultilibs(TargetTriple, Args, GentooPath,
                                    NeedsBiarchSuffix))
@@ -3279,6 +3323,15 @@ Generic_GCC::Generic_GCC(const Driver &D, const llvm::Triple &Triple,
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
+#if INTEL_CUSTOMIZATION
+  // Diagnose unsupported options only once.
+  if (Triple.isSPIR()) {
+    // All sanitizer options are not currently supported for spir64.
+    for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
+      D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
+          << A->getAsString(Args) << Triple.str();
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 Generic_GCC::~Generic_GCC() {}
@@ -3401,6 +3454,11 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::ve:
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;
@@ -3611,9 +3669,9 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   // If this is a development, non-installed, clang, libcxx will
   // not be found at ../include/c++ but it likely to be found at
   // one of the following two locations:
-  if (AddIncludePath(SysRoot + "/usr/local/include"))
+  if (AddIncludePath(concat(SysRoot, "/usr/local/include")))
     return;
-  if (AddIncludePath(SysRoot + "/usr/include"))
+  if (AddIncludePath(concat(SysRoot, "/usr/include")))
     return;
 }
 
@@ -3756,6 +3814,14 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
       case options::OPT_fpie:
       case options::OPT_fno_pie:
         break;
+#if INTEL_CUSTOMIZATION
+      case options::OPT_fsanitize_EQ:
+        // -fsanitize is not valid for spir64 targets, restrict it from being
+        // used during the device compilation.
+        if (!getTriple().isSPIR())
+          DAL->append(A);
+        break;
+#endif // INTEL_CUSTOMIZATION
       }
     }
     return DAL;

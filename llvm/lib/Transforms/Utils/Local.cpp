@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -29,6 +29,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -535,6 +540,13 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
     if (isMathLibCallNoop(Call, TLI))
       return true;
 
+  // Non-volatile atomic loads from constants can be removed.
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    if (auto *GV = dyn_cast<GlobalVariable>(
+            LI->getPointerOperand()->stripPointerCasts()))
+      if (!LI->isVolatile() && GV->isConstant())
+        return true;
+
   return false;
 }
 
@@ -703,7 +715,7 @@ simplifyAndDCEInstruction(Instruction *I,
     return true;
   }
 
-  if (Value *SimpleV = SimplifyInstruction(I, DL)) {
+  if (Value *SimpleV = simplifyInstruction(I, DL)) {
     // Add the users to the worklist. CAREFUL: an instruction can use itself,
     // in the case of a phi node.
     for (User *U : I->users()) {
@@ -1154,7 +1166,7 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
     // If there is more than one pred of succ, and there are PHI nodes in
     // the successor, then we need to add incoming edges for the PHI nodes
     //
-    const PredBlockVector BBPreds(pred_begin(BB), pred_end(BB));
+    const PredBlockVector BBPreds(predecessors(BB));
 
     // Loop over all of the PHI nodes in the successor of BB.
     for (BasicBlock::iterator I = Succ->begin(); isa<PHINode>(I); ++I) {
@@ -1414,7 +1426,7 @@ Align llvm::getOrEnforceKnownAlignment(Value *V, MaybeAlign PrefAlign,
 static bool PhiHasDebugValue(DILocalVariable *DIVar,
                              DIExpression *DIExpr,
                              PHINode *APN) {
-  // Since we can't guarantee that the original dbg.declare instrinsic
+  // Since we can't guarantee that the original dbg.declare intrinsic
   // is removed by LowerDbgDeclare(), we need to make sure that we are
   // not inserting the same dbg.value intrinsic over and over.
   SmallVector<DbgValueInst *, 1> DbgValues;
@@ -1493,7 +1505,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
     LLVM_DEBUG(dbgs() << "Failed to convert dbg.declare to dbg.value: "
                       << *DII << '\n');
     // For now, when there is a store to parts of the variable (but we do not
-    // know which part) we insert an dbg.value instrinsic to indicate that we
+    // know which part) we insert an dbg.value intrinsic to indicate that we
     // know nothing about the variable's content.
     DV = UndefValue::get(DV->getType());
     Builder.insertDbgValueIntrinsic(DV, DIVar, DIExpr, NewLoc, SI);
@@ -2277,8 +2289,12 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
   II->setDebugLoc(CI->getDebugLoc());
   II->setCallingConv(CI->getCallingConv());
   II->setAttributes(CI->getAttributes());
+  II->setMetadata(LLVMContext::MD_prof, CI->getMetadata(LLVMContext::MD_prof));
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  dtransOP::DTransTypeMetadataPropagator::copyDTransMetadata(II, CI);
+#endif // INTEL_FEATURE_SW_DTRANS
   if (IR && IR->isClassicIREnabled())
     IR->updateActiveCallSiteTarget(CI, II);
   if (MDIR && MDIR->isMDIREnabled())
@@ -2416,7 +2432,7 @@ static bool markAliveBlocks(Function &F,
           Changed = true;
         }
         if (II->doesNotThrow() && canSimplifyInvokeNoUnwind(&F)) {
-          if (II->use_empty() && II->onlyReadsMemory()) {
+          if (II->use_empty() && !II->mayHaveSideEffects()) {
             // jump to the normal destination branch.
             BasicBlock *NormalDestBB = II->getNormalDest();
             BasicBlock *UnwindDestBB = II->getUnwindDest();

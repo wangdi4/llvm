@@ -1,6 +1,6 @@
 //===- LoopPeeling.h - Loop peeling utilities ----------------------*- C++-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,12 +8,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoopPeeling.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopPeeling.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-loop-peeling"
@@ -61,7 +61,8 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 namespace LoopDynamicPeeling {
 
 Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
-                                   ArrayRef<Value *> InitGIDs) {
+                                   ArrayRef<Value *> InitGIDs,
+                                   Value *MaxPeelSize) {
   // Search for load or store instruction with intel.preferred_alignment
   // metadata inside vector entry basic block.
   Instruction *PeelTarget = nullptr;
@@ -79,7 +80,7 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
   // peeling target's pointer operand and clone them into EntryBB.
   // Post-order traversal guarantees that defs are visited before their uses.
   Module *M = EntryBB.getModule();
-  auto *ConstZero = ConstantInt::get(DPCPPKernelLoopUtils::getIndTy(M), 0);
+  auto *ConstZero = ConstantInt::get(LoopUtils::getIndTy(M), 0);
   Use *PtrUse = PeelTarget->getOperandList() + PeelTarget->getNumOperands() - 1;
   Value *Ptr = PtrUse->get();
   assert(Ptr == getLoadStorePointerOperand(PeelTarget) &&
@@ -87,8 +88,8 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
          "operand!");
   Value *PeelPtr = nullptr;
   if (auto *PtrI = dyn_cast<Instruction>(Ptr)) {
-    std::string GID = DPCPPKernelCompilationUtils::mangledGetGID();
-    std::string LID = DPCPPKernelCompilationUtils::mangledGetLID();
+    std::string GID = CompilationUtils::mangledGetGID();
+    std::string LID = CompilationUtils::mangledGetLID();
     ValueToValueMapTy VMap;
     Instruction *PreviousBBEnd = &EntryBB.back();
     SmallSet<Instruction *, 8> Visited;
@@ -201,6 +202,10 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
       Builder.CreateSelect(AddrReqAlignCmp, DynamicPeelCount,
                            ConstantInt::get(IntPtrTy, 0), NamePrefix + "size");
 
+  // Peel size should be not exceed the limit.
+  PeelSize =
+      Builder.CreateBinaryIntrinsic(Intrinsic::umin, MaxPeelSize, PeelSize,
+                                    nullptr, NamePrefix + "actual.size");
   return PeelSize;
 }
 

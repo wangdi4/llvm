@@ -15,10 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InternalizeGlobalVariables.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
@@ -67,7 +67,7 @@ bool InternalizeGlobalVariablesPass::runImpl(Module &M) {
   bool Changed = false;
   SmallSet<Value *, 8> TLSGlobals;
   for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
-    GlobalVariable *GV = DPCPPKernelCompilationUtils::getTLSGlobal(&M, I);
+    GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
     TLSGlobals.insert(GV);
   }
   for (auto &GVar : M.globals()) {
@@ -75,8 +75,8 @@ bool InternalizeGlobalVariablesPass::runImpl(Module &M) {
     // weak_odr linkage may not be discarded.
     unsigned AS = GVar.getAddressSpace();
     bool MayNotDiscardLinkage =
-        (DPCPPKernelCompilationUtils::ADDRESS_SPACE_GLOBAL == AS ||
-         DPCPPKernelCompilationUtils::ADDRESS_SPACE_CONSTANT == AS) &&
+        (CompilationUtils::ADDRESS_SPACE_GLOBAL == AS ||
+         CompilationUtils::ADDRESS_SPACE_CONSTANT == AS) &&
         (GVar.hasCommonLinkage() || GVar.hasExternalLinkage() ||
          GVar.hasWeakLinkage() || GVar.hasWeakODRLinkage());
     if (TLSGlobals.count(&GVar) || MayNotDiscardLinkage ||

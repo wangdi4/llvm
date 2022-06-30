@@ -88,6 +88,10 @@ void GlobalValue::copyAttributesFrom(const GlobalValue *Src) {
   setThreadPrivate(Src->isThreadPrivate());
   setTargetDeclare(Src->isTargetDeclare());
 #endif  // INTEL_COLLAB
+  if (Src->hasSanitizerMetadata())
+    setSanitizerMetadata(Src->getSanitizerMetadata());
+  else
+    removeSanitizerMetadata();
 }
 
 void GlobalValue::removeFromParent() {
@@ -242,6 +246,25 @@ void GlobalValue::setPartition(StringRef S) {
   // Update the HasPartition field. Setting the partition to the empty string
   // means this global no longer has a partition.
   HasPartition = !S.empty();
+}
+
+using SanitizerMetadata = GlobalValue::SanitizerMetadata;
+const SanitizerMetadata &GlobalValue::getSanitizerMetadata() const {
+  assert(hasSanitizerMetadata());
+  assert(getContext().pImpl->GlobalValueSanitizerMetadata.count(this));
+  return getContext().pImpl->GlobalValueSanitizerMetadata[this];
+}
+
+void GlobalValue::setSanitizerMetadata(const SanitizerMetadata &Meta) {
+  getContext().pImpl->GlobalValueSanitizerMetadata[this] = Meta;
+  HasSanitizerMetadata = true;
+}
+
+void GlobalValue::removeSanitizerMetadata() {
+  DenseMap<const GlobalValue *, SanitizerMetadata> &MetadataMap =
+      getContext().pImpl->GlobalValueSanitizerMetadata;
+  MetadataMap.erase(this);
+  HasSanitizerMetadata = false;
 }
 
 StringRef GlobalObject::getSectionImpl() const {

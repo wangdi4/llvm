@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR2_ADDR]],
-// CHECK_SAME: ptr @_ZTS2S2.omp.def_constr,
+// CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr)
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ARR3_ADDR]]
@@ -519,7 +519,7 @@ int main(int argc, char **argv) {
 
 // CHECK-NOT: define internal void @_ZTSA10_2S1.omp.destr(ptr %0)
 
-// CHECK_NOT: define internal ptr @_ZTSA10_2S2.omp.def_constr(ptr %0)
+// CHECK-NOT: define internal ptr @_ZTSA10_2S2.omp.def_constr(ptr %0)
 
 // CHECK-NOT: define internal void @_ZTSA10_2S2.omp.destr(ptr %0)
 

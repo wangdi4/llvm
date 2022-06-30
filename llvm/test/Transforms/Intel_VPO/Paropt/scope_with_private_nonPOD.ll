@@ -20,7 +20,7 @@
 
 ; Note: The test IR is hand-generated
 
-; CHECK: %aaa.priv = alloca %class.A, align 1
+; CHECK: %aaa.priv = alloca %class.A, align 8
 ; CHECK: call void @__kmpc_scope(%struct.ident_t* {{.*}}, i32 {{.*}}, i8* null)
 ; CHECK-NEXT: %1 = call %class.A* @_ZTS1A.omp.def_constr(%class.A* %aaa.priv)
 ; CHECK: call void @_ZTS1A.omp.destr(%class.A* %aaa.priv)
@@ -38,7 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: mustprogress noinline optnone uwtable
 define dso_local void @_Z3foov() #0 {
 entry:
-  %aaa = alloca %class.A, align 1
+  %aaa = alloca %class.A, align 8
   call void @_ZN1AC1Ev(%class.A* nonnull align 1 dereferenceable(1) %aaa)
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCOPE"(), "QUAL.OMP.PRIVATE:NONPOD"(%class.A* %aaa, %class.A* (%class.A*)* @_ZTS1A.omp.def_constr, void (%class.A*)* @_ZTS1A.omp.destr) ]
   call void @_Z3barv() #2

@@ -3,7 +3,6 @@
 include "avx2/AVX2.td"
 
 defset list<OclBuiltinImpl> avx512f_impls = {
-  include "avx512f/relational_impl.td"
   include "avx512f/math_impl.td"
 }
 

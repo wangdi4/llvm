@@ -19,8 +19,8 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 
 #include "../IntelLoopVectorizationLegality.h"
-#include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
+#include "../IntelVPlanLegalityDescr.h"
 #include "IntelVPlanVerifierHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h"
 
@@ -207,11 +207,11 @@ private:
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign,
-                      PrivateKindTy Kind) {
+                      Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
-                                    CopyAssign);
+                                    CopyAssign, IsF90NonPod);
   }
 
   /// Add an explicit POD private to PrivatesList
@@ -231,8 +231,10 @@ private:
     LinearList.emplace_back(LinearVal, Step);
   }
   /// Add an explicit reduction variable
-  void addReduction(RegDDRef *V, RecurKind Kind) {
+  void addReduction(RegDDRef *V, RecurKind Kind,
+                    Optional<InscanReductionKind> InscanDescr) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.

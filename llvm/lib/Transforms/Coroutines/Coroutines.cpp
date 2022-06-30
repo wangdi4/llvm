@@ -10,14 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Coroutines.h"
+#include "llvm/Transforms/Coroutines.h" // INTEL
 #include "CoroInstr.h"
 #include "CoroInternal.h"
-#include "llvm-c/Transforms/Coroutines.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm-c/Transforms/Coroutines.h" // INTEL
+#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL
+#include "llvm/IR/LegacyPassManager.h" // INTEL
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Transforms/IPO.h" // INTEL
+#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -26,14 +30,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstddef>
@@ -41,6 +41,7 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
 void llvm::initializeCoroutines(PassRegistry &Registry) {
   initializeCoroEarlyLegacyPass(Registry);
   initializeCoroSplitLegacyPass(Registry);
@@ -89,6 +90,7 @@ void llvm::addCoroutinePassesToExtensionPoints(PassManagerBuilder &Builder) {
   Builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                        addCoroutineOptimizerLastPasses);
 }
+#endif // INTEL_CUSTOMIZATION 
 
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
@@ -202,6 +204,7 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
 // FIXME: This code is stolen from CallGraph::addToCallGraph(Function *F), which
 // happens to be private. It is better for this functionality exposed by the
 // CallGraph.
@@ -241,6 +244,7 @@ void coro::updateCallGraph(Function &ParentFunc, ArrayRef<Function *> NewFuncs,
 
   SCC.initialize(Nodes);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static void clear(coro::Shape &Shape) {
   Shape.CoroBegin = nullptr;
@@ -747,6 +751,7 @@ void CoroAsyncEndInst::checkWellFormed() const {
          MustTailCallFunc);
 }
 
+#if INTEL_CUSTOMIZATION
 void LLVMAddCoroEarlyPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createCoroEarlyLegacyPass());
 }
@@ -768,3 +773,4 @@ LLVMPassManagerBuilderAddCoroutinePassesToExtensionPoints(LLVMPassManagerBuilder
   PassManagerBuilder *Builder = unwrap(PMB);
   addCoroutinePassesToExtensionPoints(*Builder);
 }
+#endif // INTEL_CUSTOMIZATION

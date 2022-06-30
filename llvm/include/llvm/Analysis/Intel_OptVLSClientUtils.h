@@ -109,7 +109,7 @@ public:
   static DenseMap<uint64_t, Value *>
   genLLVMIR(IRBuilder<> &Builder, const OVLSInstructionVector &InstVec,
             ShuffleVectorInst *InterleavingShuffleInst, Value *Addr,
-            Type *ElemTy, unsigned Alignment);
+            Type *ElemTy, MaybeAlign Alignment);
 };
 }
 #endif

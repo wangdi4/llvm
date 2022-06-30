@@ -1,6 +1,6 @@
 //==--- WIRelatedValue.h - Detect values dependent on TIDs - C++ -*---------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
 
@@ -88,7 +88,7 @@ private:
 
   /// This is a list of all functions to be fixed in processed module
   /// that are ordered according to call graph from leaf to root.
-  FuncVector OrderedFunctionsToAnalyze;
+  CompilationUtils::FuncVec OrderedFunctionsToAnalyze;
 
   /// Internal Data used to calculate user Analysis Data.
   /// Saves which values changed in this round.
@@ -108,7 +108,6 @@ class WIRelatedValueAnalysis
 public:
   using Result = WIRelatedValue;
   Result run(Module &M, ModuleAnalysisManager &AM);
-  static StringRef name() { return "Intel Kernel WIRelatedValue Analysis"; }
 };
 
 /// Printer pass for WIRelatedValue.

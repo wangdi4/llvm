@@ -292,7 +292,7 @@ KMPC_REDUCTION(OP_ADD, add, double)
 /// Dynamic memory allocation support
 ///
 
-INLINE void *__kmp_alloc(size_t align, size_t size) {
+INLINE void *__kmp_alloc_fetch_add(size_t align, size_t size) {
   if (size == 0)
     return NULL;
 
@@ -314,17 +314,184 @@ INLINE void *__kmp_alloc(size_t align, size_t size) {
   return NULL;
 }
 
+/// 64-bit memory block descriptor stores block usage for 32 blocks, where each
+/// two bits store the state of a single block as follows.
+/// 0x3: block itself is used as a single allocation
+/// 0x2: block is lower/upper bound of an allocation that use multiple blocks
+/// 0x1: block is busy (part of multi-block allocation but it is not boundary)
+/// 0x0: block is free
+#define KMP_MEM_NUM_BLOCKS_PER_DESC 32
+#define KMP_MEM_NUM_DESCS_PER_COUNTER 32
+#define KMP_MEM_NUM_BLOCKS_PER_COUNTER \
+  (KMP_MEM_NUM_BLOCKS_PER_DESC * KMP_MEM_NUM_DESCS_PER_COUNTER)
+#define KMP_MEM_DESC_BUSY_SBLOCK ((ulong)0x3)
+#define KMP_MEM_DESC_BUSY_MBOUND ((ulong)0x2)
+#define KMP_MEM_DESC_BUSY_MBLOCK ((ulong)0x1)
+#define KMP_UINT32_MAX (~((uint)0))
+
+INLINE uint __kmp_claim_blocks(kmp_mem_heap_t *heap, uint desc_id,
+                               uint num_blocks) {
+  // The last descriptor may have less number of blocks
+  uint block_ub = 0;
+  if (heap->num_block_desc == desc_id + 1)
+    block_ub = heap->num_blocks % KMP_MEM_NUM_BLOCKS_PER_DESC;
+  if (block_ub == 0)
+    block_ub = KMP_MEM_NUM_BLOCKS_PER_DESC;
+
+  // Prepare block mask for the requested number of blocks
+  ulong block_mask = 0;
+  if (num_blocks < KMP_MEM_NUM_BLOCKS_PER_DESC)
+    block_mask = ((ulong)1 << (2 * num_blocks)) - 1;
+  else
+    block_mask = ~block_mask;
+
+  // Prepare desired bits for the requested number of blocks
+  ulong desired_bits = 0;
+  if (num_blocks == 1) {
+    desired_bits = KMP_MEM_DESC_BUSY_SBLOCK;
+  } else {
+    desired_bits = KMP_MEM_DESC_BUSY_MBOUND << 2;
+    for (uint i = 1; i < num_blocks - 1; i++)
+      desired_bits = (desired_bits | KMP_MEM_DESC_BUSY_MBLOCK) << 2;
+    desired_bits = desired_bits | KMP_MEM_DESC_BUSY_MBOUND;
+  }
+
+  volatile atomic_ulong *desc =
+      (volatile atomic_ulong *)&heap->block_desc[desc_id];
+
+  // Try to claim free blocks with CAS on the free descriptor bits
+  for (uint i = 0; i < block_ub; i += num_blocks) {
+    if (block_ub - i < num_blocks)
+      break;
+    if ((atomic_load(desc) & block_mask) == 0) {
+      ulong expected = atomic_load(desc) & ~block_mask;
+      ulong desired = expected | desired_bits;
+      if (atomic_compare_exchange_strong(desc, &expected, desired))
+        return i + desc_id * KMP_MEM_NUM_BLOCKS_PER_DESC;
+    }
+    desired_bits <<= (2 * num_blocks);
+    block_mask <<= (2 * num_blocks);
+  }
+  return KMP_UINT32_MAX;
+}
+
+INLINE void *__kmp_alloc(size_t align, size_t size) {
+  void *ret = NULL;
+  kmp_mem_pool_t *pool =
+      (kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
+  if (!pool)
+    return ret;
+
+  for (uint i = 0; i < pool->num_heaps; i++) {
+    kmp_mem_heap_t *heap = &pool->heap_desc[i];
+    if (heap->max_size < size)
+      continue; // Requires heap with bigger block size
+    uint num_blocks = (size + heap->block_size - 1) / heap->block_size;
+    for (uint j = 0; j < heap->num_block_desc;) {
+      // Let different WIs check different descriptor if possible
+      uint k = (j + __kmp_get_global_id()) % heap->num_block_desc;
+      uint counter_id = k / KMP_MEM_NUM_DESCS_PER_COUNTER;
+      volatile atomic_uint *counter =
+          (volatile atomic_uint *)&heap->block_counter[counter_id];
+      if (j % KMP_MEM_NUM_DESCS_PER_COUNTER == 0) {
+        // Skip descriptors that are fully used.
+        uint remaining_blocks =
+            KMP_MEM_NUM_BLOCKS_PER_COUNTER - atomic_load(counter);
+        if (remaining_blocks < num_blocks) {
+          j += KMP_MEM_NUM_DESCS_PER_COUNTER;
+          continue;
+        }
+      }
+      uint block_id = __kmp_claim_blocks(heap, k, num_blocks);
+      if (block_id != KMP_UINT32_MAX) {
+        ret = (void *)(heap->alloc_base + block_id * heap->block_size);
+        atomic_fetch_add(counter, num_blocks);
+        return ret;
+      }
+      j++;
+    }
+  }
+  return ret;
+}
+
+INLINE void __kmp_dealloc(void *ptr) {
+  uintptr_t ptrint = (uintptr_t)ptr;
+  kmp_mem_pool_t *pool =
+      (kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
+  if (!pool || !ptrint)
+    return;
+
+  for (uint i = 0; i < pool->num_heaps; i++) {
+    kmp_mem_heap_t *heap = (kmp_mem_heap_t *)&pool->heap_desc[i];
+    if (ptrint < heap->alloc_base)
+      return; // Invalid pointer range
+    uintptr_t heap_ub = heap->alloc_base + pool->heap_size;
+    if (ptrint >= heap_ub)
+      continue; // Memory does not belong to this heap
+
+    // Obtain block descriptor ID and offset
+    uint block_id = (ptrint - heap->alloc_base) / heap->block_size;
+    uint desc_id = block_id / KMP_MEM_NUM_BLOCKS_PER_DESC;
+    uint desc_offset = block_id % KMP_MEM_NUM_BLOCKS_PER_DESC;
+
+    // Prepare desired block mask while checking the descriptor encoding
+    volatile atomic_ulong *desc =
+        (volatile atomic_ulong *)&heap->block_desc[desc_id];
+    ulong desc_val = atomic_load(desc);
+    desc_val >>= (2 * desc_offset);
+    bool bounded = false;
+    ulong desired_mask = 0;
+    uint num_blocks = 0;
+    while (true) {
+      ulong mask = desc_val & 0x3;
+      if (!mask)
+        break; // Unused block
+      desired_mask = (desired_mask << 2) | 0x3;
+      num_blocks++;
+      if (mask == KMP_MEM_DESC_BUSY_SBLOCK) {
+        break; // Single-block allocation
+      } else if (mask == KMP_MEM_DESC_BUSY_MBOUND) {
+        if (bounded)
+          break; // Multi-block allocation with matching bound
+        bounded = true;
+      }
+      desc_val >>= 2;
+    }
+    desired_mask = ~(desired_mask << (2 * desc_offset));
+
+    // We need to use this loop since we would like to update partial bits of
+    // the descriptor.
+    bool done = false;
+    do {
+      ulong expected = atomic_load(desc);
+      ulong desired = (expected & desired_mask);
+      done = atomic_compare_exchange_strong(desc, &expected, desired);
+    } while (!done);
+    uint counter_id = desc_id / KMP_MEM_NUM_DESCS_PER_COUNTER;
+    volatile atomic_uint *counter =
+        (volatile atomic_uint *)&heap->block_counter[counter_id];
+    atomic_fetch_sub(counter, num_blocks);
+    break;
+  }
+}
+
 EXTERN void *__kmpc_alloc(int gtid, size_t size, omp_allocator_handle_t al) {
-  return __kmp_alloc(0, size);
+  return __kmpc_aligned_alloc(gtid, 0, size, al);
 }
 
 EXTERN void *__kmpc_aligned_alloc(int gtid, size_t align, size_t size,
                                   omp_allocator_handle_t al) {
-  return __kmp_alloc(align, size);
+  // Use available allocator. We expect only one of them is enabled.
+  if (__omp_spirv_program_data.dyna_mem_cur)
+    return __kmp_alloc_fetch_add(align, size);
+  else if (__omp_spirv_program_data.dyna_mem_pool)
+    return __kmp_alloc(align, size);
+  return NULL;
 }
 
 EXTERN void __kmpc_free(int gtid, void *ptr, omp_allocator_handle_t al) {
-  // Not supported
+  if (__omp_spirv_program_data.dyna_mem_pool)
+    __kmp_dealloc(ptr);
 }
 
 #endif // INTEL_COLLAB

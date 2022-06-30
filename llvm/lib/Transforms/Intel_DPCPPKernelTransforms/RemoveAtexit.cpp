@@ -18,8 +18,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
@@ -69,8 +69,7 @@ bool RemoveAtExitPass::runImpl(Module &M) {
     if (!isa<CallInst>(U))
       continue;
     auto *CI = cast<CallInst>(U);
-    if (!DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(
-            CI->getFunction()))
+    if (!CompilationUtils::isGlobalCtorDtorOrCPPFunc(CI->getFunction()))
       continue;
     assert(CI->use_empty() && "It should have no users");
     CI->eraseFromParent();

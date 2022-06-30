@@ -33,7 +33,10 @@ static void computeBlocksDominatingExit(
   assert(BB && "Loop exits canonicalization hasn't been done!");
   assert(DT.dominates(Header, BB) && "Loop has multiple entries!");
   while (BB != Header) {
-    BB = DT.getNode(BB)->getIDom()->getBlock();
+    assert(DT.getNode(BB) && "Invalid dominator tree.");
+    auto *IDom = DT.getNode(BB)->getIDom();
+    assert(IDom && "Block does not have immediate dominator.");
+    BB = IDom->getBlock();
 
     // LCSSA.cpp has a check for the following:
     //

@@ -394,6 +394,10 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__HLSL_VERSION",
                         Twine((unsigned)LangOpts.getHLSLVersion()));
 
+    if (LangOpts.NativeHalfType)
+      Builder.defineMacro("__HLSL_ENABLE_16_BIT",
+                          Twine((unsigned)LangOpts.getHLSLVersion()));
+
     // Shader target information
     // "enums" for shader stages
     Builder.defineMacro("__SHADER_STAGE_VERTEX",
@@ -423,7 +427,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     if (TI.getTriple().getOS() == llvm::Triple::ShaderModel) {
       VersionTuple Version = TI.getTriple().getOSVersion();
       Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(Version.getMajor()));
-      unsigned Minor = Version.getMinor() ? *Version.getMinor() : 0;
+      unsigned Minor = Version.getMinor().getValueOr(0);
       Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(Minor));
     }
     return;
@@ -715,7 +719,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_implicit_move", "202011L");
     Builder.defineMacro("__cpp_size_t_suffix", "202011L");
     Builder.defineMacro("__cpp_if_consteval", "202106L");
-    Builder.defineMacro("__cpp_­multidimensional_­subscript", "202110L");
+    Builder.defineMacro("__cpp_multidimensional_subscript", "202110L");
   }
   if (LangOpts.Char8)
     Builder.defineMacro("__cpp_char8_t", "201811L");
@@ -1313,6 +1317,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     case 52:
       Builder.defineMacro("_OPENMP", "202111");
       break;
+    case 50:
     default:
       // Default version is OpenMP 5.0
       Builder.defineMacro("_OPENMP", "201811");
@@ -1348,8 +1353,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
     const llvm::Triple &DeviceTriple = TI.getTriple();
     const llvm::Triple::SubArchType DeviceSubArch = DeviceTriple.getSubArch();
-    if (DeviceTriple.isSPIR() &&
-        DeviceSubArch != llvm::Triple::SPIRSubArch_fpga)
+    if (DeviceTriple.isNVPTX() ||
+        (DeviceTriple.isSPIR() &&
+         DeviceSubArch != llvm::Triple::SPIRSubArch_fpga))
       Builder.defineMacro("SYCL_USE_NATIVE_FP_ATOMICS");
     // Enable generation of USM address spaces for FPGA.
     if (DeviceSubArch == llvm::Triple::SPIRSubArch_fpga) {
@@ -1482,5 +1488,5 @@ void clang::InitializePreprocessor(
                              InitOpts.PrecompiledPreambleBytes.second);
 
   // Copy PredefinedBuffer into the Preprocessor.
-  PP.setPredefines(Predefines.str());
+  PP.setPredefines(std::move(PredefineBuffer));
 }

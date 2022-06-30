@@ -83,10 +83,8 @@ bool Program::Finalize() {
       auto *programHandle = deviceProgram->GetDeviceProgramHandle();
       if (!programHandle)
         continue;
-      cl_dev_err_code err =
-          device->GetDeviceAgent()->clDevFinalizeProgram(programHandle);
-      assert(err == CL_DEV_SUCCESS && "failed to finalize program");
-      if (err != CL_DEV_SUCCESS)
+      if (device->GetDeviceAgent()->clDevFinalizeProgram(programHandle) !=
+          CL_DEV_SUCCESS)
         return false;
       deviceProgram->CollectGlobalVariablePointers();
       validProgramForAnyDevice = true;
@@ -98,6 +96,11 @@ bool Program::Finalize() {
     }
   }
   return true;
+}
+
+void Program::ClearFinalizedFlag() {
+  std::lock_guard<std::mutex> locked(m_finalizeMutex);
+  m_isFinalized = false;
 }
 
 cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,

@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.h -----------------------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -152,7 +152,11 @@ public:
       : IsBottom(false), IsRead(false), IsWritten(false),
         IsOnlyWrittenWithNull(false), ConstantValue(nullptr),
         RequiresSingleNonNullValue(false),
-        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {}
+        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {
+#if INTEL_FEATURE_SW_ADVANCED
+    IsConstantDisabled = false;
+#endif // INTEL_FEATURE_SW_ADVANCED
+  }
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
   DopeVectorFieldUse(DopeVectorFieldUse &&) = default;
@@ -255,6 +259,15 @@ public:
 
   bool isNotForDVCPLoad(LoadInst *LI) { return NotForDVCPLoads.contains(LI); }
 
+#if INTEL_FEATURE_SW_ADVANCED
+  // Set the value of the constant collected as nullptr and lock that the value
+  // can't be used.
+  void disableConstantValue() {
+    IsConstantDisabled = true;
+    ConstantValue = nullptr;
+  }
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -266,6 +279,10 @@ private:
   bool IsRead;
   bool IsWritten;
   bool IsOnlyWrittenWithNull;
+#if INTEL_FEATURE_SW_ADVANCED
+  // If true, then the constant collected can't be used for DVCP
+  bool IsConstantDisabled;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;
@@ -335,7 +352,9 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject) : DVObject(DVObject) {
+  DopeVectorAnalyzer(Value *DVObject,
+    std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
+    DVObject(DVObject), GetTLI(GetTLI) {
     assert(
         DVObject->getType()->isPointerTy() &&
         DVObject->getType()->getPointerElementType()->isStructTy() &&
@@ -414,6 +433,34 @@ public:
     return StrideAddr[Dim];
   }
 
+  // Check whether information is available about the extent for the specified
+  // dimension.
+  bool hasExtentField(uint32_t Dim) const {
+    if (ExtentAddr.size() <= Dim)
+      return false;
+    return ExtentAddr[Dim].hasFieldAddr();
+  }
+
+  // Get the extent field information for the specified dimension.
+  const DopeVectorFieldUse &getExtentField(uint32_t Dim) const {
+    assert(hasExtentField(Dim) && "Invalid request");
+    return ExtentAddr[Dim];
+  }
+
+  // Check whether information is available about the lower bound for the
+  // specified dimension.
+  bool hasLowerBoundField(uint32_t Dim) const {
+    if (LowerBoundAddr.size() <= Dim)
+      return false;
+    return LowerBoundAddr[Dim].hasFieldAddr();
+  }
+
+  // Get the lower bound field information for the specified dimension.
+  const DopeVectorFieldUse &getLowerBoundField(uint32_t Dim) const {
+    assert(hasLowerBoundField(Dim) && "Invalid request");
+    return LowerBoundAddr[Dim];
+  }
+
   // Get all the store instructions for the stride field for the specified
   // dimension.
   iterator_range<DopeVectorFieldUse::StoreInstSetIter>
@@ -484,8 +531,10 @@ public:
   // If \p ForCreation is set, it means the analysis is for the construction of
   // the dope vector, and requires addresses for all fields to be identified.
   // When it is not set, it is allowed to only identify a subset of the Value
-  // objects holding field addresses.
-  void analyze(bool ForCreation);
+  // objects holding field addresses. If IsLocal is true, then it means that
+  // the analysis process will verify that the dope vector is not used outside
+  // of the function.
+  void analyze(bool ForCreation, bool IsLocal = false);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -616,6 +665,8 @@ private:
   // created the dope vector, the same uplevel variable is passed to all of
   // them.
   UplevelDVField Uplevel;
+
+  std::function<const TargetLibraryInfo &(Function &F)> *GetTLI;
 };
 
 // Helper class to handle all the information related to one dope vector.
@@ -836,6 +887,11 @@ public:
   // Return true if the current dope vector is a copy dope vector
   bool getIsCopyDopeVector() const { return IsCopyDopeVector; }
 
+#if INTEL_FEATURE_SW_ADVANCED
+  // Disable the constant collected for the given dope vector field.
+  void disableDVField(DopeVectorFieldType DVField);
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
   void print(uint64_t Indent);
@@ -998,6 +1054,11 @@ public:
   // Return all nested dope vectors
   auto getAllNestedDopeVectors() const { return NestedDopeVectors; }
 
+  // Return true if the pointer address of the current global dope vector is a
+  // pointer to another dope vector, or if it is a pointer to a structure where
+  // at least one field is a dope vector. Else, return false.
+  bool isCandidateForNestedDopeVectors(const DataLayout &DL);
+
   // Return true if the current global contains nested dope vectors
   bool hasNestedDopeVectors() { return !NestedDopeVectors.empty(); }
 
@@ -1008,6 +1069,12 @@ public:
   void collectAndValidate(const DataLayout &DL, bool ForDVCP);
 
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Disable the constant propagation for the lower bound field in the global
+  // global dope vector, and the nested dope vectors.
+  void disableLowerBound();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the information for debug purposes.
@@ -1053,8 +1120,7 @@ private:
   void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
 
   // Validate that all the data was collected correctly
-  void validateGlobalDopeVector();
-
+  void validateGlobalDopeVector(const DataLayout &DL);
 
   // Identify if the current dope vector is copied to local dope vectors. If
   // so, then generate a list of new nested dope vectors to be analyzed. The

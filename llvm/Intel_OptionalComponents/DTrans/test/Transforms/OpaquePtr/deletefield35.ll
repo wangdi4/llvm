@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 ; Check that byte-flattened GEP indices get updated for nested types.
 ; Also, checks that the memset call size is updated for the call

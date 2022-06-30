@@ -741,7 +741,7 @@ bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
   for (Function &F : M) {
     // The function must be local, no varargs and shouldn't be naked.
     if (F.isDeclaration() || F.arg_empty() ||
-        !F.hasLocalLinkage() || F.isVarArg() ||
+        !F.hasLocalLinkage() || F.isVarArg() || F.hasAddressTaken() ||
         F.hasFnAttribute(Attribute::Naked))
       continue;
 

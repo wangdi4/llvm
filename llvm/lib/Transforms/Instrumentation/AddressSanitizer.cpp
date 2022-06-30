@@ -61,9 +61,9 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/MC/MCSectionMachO.h"
+#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/Pass.h"
+#include "llvm/MC/MCSectionMachO.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -623,6 +623,7 @@ static uint64_t GetCtorAndDtorPriority(Triple &TargetTriple) {
 
 namespace {
 
+#if INTEL_CUSTOMIZATION
 /// Module analysis for getting various metadata about the module.
 class ASanGlobalsMetadataWrapperPass : public ModulePass {
 public:
@@ -653,6 +654,7 @@ private:
 };
 
 char ASanGlobalsMetadataWrapperPass::ID = 0;
+#endif // INTEL_CUSTOMIZATION
 
 /// AddressSanitizer: instrument the code in module to find memory bugs.
 struct AddressSanitizer {
@@ -789,6 +791,7 @@ private:
   FunctionCallee AMDGPUAddressPrivate;
 };
 
+#if INTEL_CUSTOMIZATION
 class AddressSanitizerLegacyPass : public FunctionPass {
 public:
   static char ID;
@@ -834,6 +837,7 @@ private:
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
 };
+#endif // INTEL_CUSTOMIZATION
 
 class ModuleAddressSanitizer {
 public:
@@ -933,6 +937,7 @@ private:
   Function *AsanDtorFunction = nullptr;
 };
 
+#if INTEL_CUSTOMIZATION
 class ModuleAddressSanitizerLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -970,6 +975,7 @@ private:
   bool UseOdrIndicator;
   AsanDtorKind DestructorKind;
 };
+#endif // INTEL_CUSTOMIZATION
 
 // Stack poisoning does not play well with exception handling.
 // When an exception is thrown, we essentially bypass the code
@@ -1309,6 +1315,7 @@ PreservedAnalyses ModuleAddressSanitizerPass::run(Module &M,
   return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
+#if INTEL_CUSTOMIZATION
 INITIALIZE_PASS(ASanGlobalsMetadataWrapperPass, "asan-globals-md",
                 "Read metadata to mark which globals should be instrumented "
                 "when running ASan.",
@@ -1351,6 +1358,7 @@ ModulePass *llvm::createModuleAddressSanitizerLegacyPassPass(
   return new ModuleAddressSanitizerLegacyPass(
       CompileKernel, Recover, UseGlobalsGC, UseOdrIndicator, Destructor);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static size_t TypeSizeToSizeIndex(uint32_t TypeSize) {
   size_t Res = countTrailingZeros(TypeSize / 8);
@@ -1490,10 +1498,6 @@ bool AddressSanitizer::ignoreAccess(Instruction *Inst, Value *Ptr) {
 
 void AddressSanitizer::getInterestingMemoryOperands(
     Instruction *I, SmallVectorImpl<InterestingMemoryOperand> &Interesting) {
-  // Skip memory accesses inserted by another instrumentation.
-  if (I->hasMetadata("nosanitize"))
-    return;
-
   // Do not instrument the load fetching the dynamic shadow address.
   if (LocalDynamicShadow == I)
     return;
@@ -2897,6 +2901,9 @@ bool AddressSanitizer::instrumentFunction(Function &F,
     int NumInsnsPerBB = 0;
     for (auto &Inst : BB) {
       if (LooksLikeCodeInBug11395(&Inst)) return false;
+      // Skip instructions inserted by another instrumentation.
+      if (Inst.hasMetadata(LLVMContext::MD_nosanitize))
+        continue;
       SmallVector<InterestingMemoryOperand, 1> InterestingOperands;
       getInterestingMemoryOperands(&Inst, InterestingOperands);
 
@@ -2931,7 +2938,7 @@ bool AddressSanitizer::instrumentFunction(Function &F,
         if (auto *CB = dyn_cast<CallBase>(&Inst)) {
           // A call inside BB.
           TempsToInstrument.clear();
-          if (CB->doesNotReturn() && !CB->hasMetadata("nosanitize"))
+          if (CB->doesNotReturn())
             NoReturnCalls.push_back(CB);
         }
         if (CallInst *CI = dyn_cast<CallInst>(&Inst))
@@ -3326,7 +3333,7 @@ void FunctionStackPoisoner::processStaticAllocas() {
     ASanStackVariableDescription D = {AI->getName().data(),
                                       ASan.getAllocaSizeInBytes(*AI),
                                       0,
-                                      AI->getAlignment(),
+                                      AI->getAlign().value(),
                                       AI,
                                       0,
                                       0};
@@ -3590,7 +3597,7 @@ void FunctionStackPoisoner::poisonAlloca(Value *V, uint64_t Size,
 void FunctionStackPoisoner::handleDynamicAllocaCall(AllocaInst *AI) {
   IRBuilder<> IRB(AI);
 
-  const uint64_t Alignment = std::max(kAllocaRzSize, AI->getAlignment());
+  const Align Alignment = std::max(Align(kAllocaRzSize), AI->getAlign());
   const uint64_t AllocaRedzoneMask = kAllocaRzSize - 1;
 
   Value *Zero = Constant::getNullValue(IntptrTy);
@@ -3621,17 +3628,19 @@ void FunctionStackPoisoner::handleDynamicAllocaCall(AllocaInst *AI) {
   // Alignment is added to locate left redzone, PartialPadding for possible
   // partial redzone and kAllocaRzSize for right redzone respectively.
   Value *AdditionalChunkSize = IRB.CreateAdd(
-      ConstantInt::get(IntptrTy, Alignment + kAllocaRzSize), PartialPadding);
+      ConstantInt::get(IntptrTy, Alignment.value() + kAllocaRzSize),
+      PartialPadding);
 
   Value *NewSize = IRB.CreateAdd(OldSize, AdditionalChunkSize);
 
   // Insert new alloca with new NewSize and Alignment params.
   AllocaInst *NewAlloca = IRB.CreateAlloca(IRB.getInt8Ty(), NewSize);
-  NewAlloca->setAlignment(Align(Alignment));
+  NewAlloca->setAlignment(Alignment);
 
   // NewAddress = Address + Alignment
-  Value *NewAddress = IRB.CreateAdd(IRB.CreatePtrToInt(NewAlloca, IntptrTy),
-                                    ConstantInt::get(IntptrTy, Alignment));
+  Value *NewAddress =
+      IRB.CreateAdd(IRB.CreatePtrToInt(NewAlloca, IntptrTy),
+                    ConstantInt::get(IntptrTy, Alignment.value()));
 
   // Insert __asan_alloca_poison call for new created alloca.
   IRB.CreateCall(AsanAllocaPoisonFunc, {NewAddress, OldSize});

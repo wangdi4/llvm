@@ -1,70 +1,68 @@
-; RUN: opt < %s -dtrans-inline-heuristics -inline -S -enable-new-pm=0 -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt < %s -dtrans-inline-heuristics -passes='require<profile-summary>,cgscc(inline)' -S -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -dtrans-inline-heuristics -inline -S -enable-new-pm=0 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -dtrans-inline-heuristics -passes='require<profile-summary>,cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+; RUN: opt < %s -inline -enable-new-pm=0 -pre-lto-inline-cost -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt < %s -passes='require<profile-summary>,cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -S -enable-new-pm=0 -pre-lto-inline-cost -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='require<profile-summary>,cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
-; Test that functions with attribute Hot are NOT recognized in the inline
-; report as 'Hot' because the attribute is ignored when
-; -dtrans-inline-heuristics is used.
+; Check that @bar is not inlined on the compile step of an -lfto compilation
+; because @baz might get converted from a single callsite to multiple callsite
+; function.
 
-; CHECK-CL-LABEL: define i32 @simpleFunction(i32 %a)
-; CHECK-CL-LABEL: define i32 @HotFunction(i32 %a)
-; CHECK-CL-LABEL: define i32 @HotFunction2(i32 %a)
-; CHECK-CL-LABEL: define i32 @bar(i32 %a)
-; CHECK-CL-NOT: tail call i32 @HotFunction(i32 5)
-; CHECK-CL: tail call i32 @simpleFunction(i32 6)
-; CHECK-CL-NOT: tail call i32 @HotFunction2(i32 5)
+; CHECK-CL-LABEL: declare i32 @baz
+; CHECK-CL-LABEL: define i32 @bar
+; CHECK-CL: call i32 @baz
+; CHECK-CL-LABEL: define i32 @foo
 
-; CHECK-LABEL: COMPILE FUNC: simpleFunction
-; CHECK-LABEL: COMPILE FUNC: HotFunction
-; CHECK-LABEL: COMPILE FUNC: HotFunction2
 ; CHECK-LABEL: COMPILE FUNC: bar
-; CHECK: INLINE: HotFunction{{.*}}Callee is single basic block
-; CHECK-NOT: INLINE: simpleFunction
-; CHECK: INLINE: HotFunction2{{.*}}Callee is single basic block
+; CHECK: EXTERN: baz
+; CHECK-LABEL: COMPILE FUNC: foo
+; CHECK: bar {{.*}}Inlining is not profitable
+; CHECK: bar {{.*}}Inlining is not profitable
 
-; CHECK-MD-LABEL: define i32 @simpleFunction(i32 %a)
-; CHECK-MD-LABEL: define i32 @HotFunction(i32 %a)
-; CHECK-MD-LABEL: define i32 @HotFunction2(i32 %a)
-; CHECK-MD-LABEL: define i32 @bar(i32 %a)
-; CHECK-MD-NOT: tail call i32 @HotFunction(i32 5)
-; CHECK-MD: tail call i32 @simpleFunction(i32 6)
-; CHECK-MD-NOT: tail call i32 @HotFunction2(i32 5)
+; CHECK-MD-LABEL: declare {{.*}} i32 @baz
+; CHECK-MD-LABEL: define i32 @bar
+; CHECK-MD: call i32 @baz
+; CHECK-MD-LABEL: define i32 @foo
 
-@a = global i32 4
+declare i32 @baz(i32 %x)
 
-; This function should be greater than the default threshold (225).
-; Function Attrs: nounwind readnone uwtable
-define i32 @simpleFunction(i32 %a) #0 "function-inline-cost"="1000" {
+define i32 @bar(i32 %y1)  "function-inline-cost"="300" {
 entry:
-  ret i32 %a
+  %cmp = icmp ugt i32 %y1, 0
+  br i1 %cmp, label %call, label %ret
+call:
+  %y3 = call i32 @baz(i32 %y1)
+  br label %ret
+ret:
+  %y4 = phi i32 [ %y1, %entry ], [ %y3, %call ]
+  ret i32 %y4
 }
 
-; This function should be smaller than the default threshold (225).
-; Function Attrs: nounwind cold readnone uwtable
-define i32 @HotFunction(i32 %a) #1 "function-inline-cost"="220" {
-entry:
-  ret i32 %a
+define i32 @foo(i32 %y1) {
+  %y3 = call i32 @bar(i32 %y1), !prof !21
+  %y4 = call i32 @bar(i32 %y1), !prof !21
+  %y5 = add i32 %y3, %y4
+  ret i32 %y5
 }
 
-; This function should be larger than the default threshold (225), but
-; smaller than the hot threshold (325).
-define i32 @HotFunction2(i32 %a) #1 "function-inline-cost"="320" {
-entry:
-  ret i32 %a
-}
+declare i32 @__gxx_personality_v0(...)
 
-; Function Attrs: nounwind readnone uwtable
-define i32 @bar(i32 %a) #0 {
-entry:
-  %0 = tail call i32 @HotFunction(i32 5)
-  %1 = tail call i32 @simpleFunction(i32 6)
-  %2 = tail call i32 @HotFunction2(i32 5)
-  %3 = add i32 %0, %1
-  %add = add i32 %2, %3
-  ret i32 %add
-}
+!llvm.module.flags = !{!1}
+!21 = !{!"branch_weights", i64 300}
 
-declare void @extern()
-attributes #0 = { nounwind readnone uwtable }
-attributes #1 = { nounwind hot readnone uwtable }
+!1 = !{i32 1, !"ProfileSummary", !2}
+!2 = !{!3, !4, !5, !6, !7, !8, !9, !10}
+!3 = !{!"ProfileFormat", !"SampleProfile"}
+!4 = !{!"TotalCount", i64 10000}
+!5 = !{!"MaxCount", i64 1000}
+!6 = !{!"MaxInternalCount", i64 1}
+!7 = !{!"MaxFunctionCount", i64 1000}
+!8 = !{!"NumCounts", i64 3}
+!9 = !{!"NumFunctions", i64 3}
+!10 = !{!"DetailedSummary", !11}
+!11 = !{!12, !13, !14}
+!12 = !{i32 10000, i64 100, i32 1}
+!13 = !{i32 999000, i64 100, i32 1}
+!14 = !{i32 999999, i64 1, i32 2}
+; end INTEL_FEATURE_SW_ADVANCED

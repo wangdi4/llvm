@@ -516,7 +516,8 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
+  if (PP.getLangOpts().CPlusPlus && !PP.getLangOpts().CPlusPlus17 &&
+      PP.getLangOpts().AlignedAllocation &&
       PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
     NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
     if (StdNamespace->isImplicit()) {
@@ -1247,6 +1248,7 @@ void Sema::ActOnEndOfTranslationUnit() {
 
   DiagnoseUnterminatedPragmaAlignPack();
   DiagnoseUnterminatedPragmaAttribute();
+  DiagnoseUnterminatedOpenMPDeclareTarget();
 
   // All delayed member exception specs should be checked or we end up accepting
   // incompatible declarations.

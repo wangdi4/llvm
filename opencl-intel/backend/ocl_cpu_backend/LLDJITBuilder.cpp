@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,9 +13,8 @@
 // License.
 
 #include "LLDJITBuilder.h"
-
 #include "CPUCompiler.h"
-#include "CompilationUtils.h"
+#include "exceptions.h"
 
 #include "lld/Common/Driver.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -24,7 +23,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <algorithm>
@@ -45,7 +44,7 @@ LLDJITBuilder::CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM) {
   auto EE = LLDJIT::createJIT(std::move(ModuleOwner), &Err,
                               std::unique_ptr<llvm::TargetMachine>(TM));
   if (!EE)
-    throw Exceptions::CompilerException(
+    throw Intel::OpenCL::DeviceBackend::Exceptions::CompilerException(
         "Failed to create LLDJIT execution engine");
 
   return EE;
@@ -121,7 +120,7 @@ void LLDJITBuilder::adjustFunctionAttributes(llvm::Module *M) {
 
 // Set dllexport storage class for all kernel/wrapper functions.
 void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {
-  auto Kernels = DPCPPKernelCompilationUtils::getAllKernels(*M);
+  auto Kernels = llvm::CompilationUtils::getAllKernels(*M);
   for (auto *F : Kernels) {
     F->setDLLStorageClass(
         llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);

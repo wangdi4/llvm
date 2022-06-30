@@ -25,7 +25,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
@@ -41,7 +40,6 @@ namespace intel {
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension,
                           "ChooseVectorizationDimension",
                           "Choosing Vectorization Dimension", false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(ChooseVectorizationDimension,
                         "ChooseVectorizationDimension",
@@ -55,15 +53,11 @@ ChooseVectorizationDimension::ChooseVectorizationDimension()
 }
 
 void ChooseVectorizationDimension::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
   AU.addRequired<WorkItemAnalysisLegacy>();
 }
 
 bool ChooseVectorizationDimension::runOnFunction(Function &F) {
-  const auto *RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                              .getResult()
-                              .getRuntimeService();
-  if (!VDInfo.preCheckDimZero(F, RTService)) {
+  if (!VDInfo.preCheckDimZero(F)) {
     WorkItemInfo &WIInfo = getAnalysis<WorkItemAnalysisLegacy>().getResult();
     VDInfo.compute(F, WIInfo);
   }

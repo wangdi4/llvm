@@ -47,14 +47,15 @@ using namespace llvm::vpo;
 
 // Calculates the cost of \p Plan for given \p VF. If \p Plan is not available
 // (nullptr) then this function returns an invalid VPInstructionCost.
-VPInstructionCost
-VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
+VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF,
+                                                 VPlanVector *Plan) {
   if (Plan) {
     // TODO: no peeling should be accounted here, update after interface
     // changes.
     return Planner.createCostModel(Plan, VF)->getCost();
   }
-  return VPInstructionCost::getInvalid();
+  return std::make_pair(VPInstructionCost::getInvalid(),
+                        VPInstructionCost::getInvalid());
 }
 
 // Peel loop's trip count might be available at compile-time or it might be
@@ -72,7 +73,8 @@ unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
 // Selects the best peeling variant (none, scalar, masked vector).
 VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
-  if (!PeelingVariant || getScalarPeelTripCount(MainLoopVF) == 0) {
+  if (!PeelingVariant || !ScalarIterCost.isValid() ||
+      getScalarPeelTripCount(MainLoopVF) == 0) {
     PeelKind = PeelLoopKind::None;
     LoopCost = 0;
     PeelTC = 0;
@@ -81,15 +83,18 @@ VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
   // Calculates the total cost of the masked vector peel loop.
   VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
-  VPInstructionCost MaskedVectorCost =
-    calculatePlanCost(MainLoopVF, MaskedModePlan);
+  VPInstructionCost MaskedVectorIterCost, MaskedVectorOverhead;
+  std::tie(MaskedVectorIterCost, MaskedVectorOverhead) =
+      calculatePlanCost(MainLoopVF, MaskedModePlan);
 
   unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
-  if (MaskedVectorCost.isValid() &&
-      ScalarIterCost * ScalarTC > MaskedVectorCost && EnableVectorizedPeelOpt) {
+  if (MaskedVectorIterCost.isValid() && MaskedVectorOverhead.isValid() &&
+      (ScalarIterCost * ScalarTC >
+       (MaskedVectorIterCost + MaskedVectorOverhead)) &&
+      EnableVectorizedPeelOpt) {
     PeelKind = PeelLoopKind::MaskedVector;
     PeelTC = ScalarTC;
-    LoopCost = MaskedVectorCost;
+    LoopCost = MaskedVectorIterCost + MaskedVectorOverhead;
   } else {
     PeelKind = PeelLoopKind::Scalar;
     PeelTC = ScalarTC;
@@ -166,18 +171,19 @@ void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
                         << TempVF << "\n");
       continue;
     }
-    VPInstructionCost TempCost =
-      calculatePlanCost(TempVF, RemPlan) * (MaxRemainderTC / TempVF);
-    if (!TempCost.isValid()) {
+    VPInstructionCost TempIterCost, TempOverhead;
+    std::tie(TempIterCost, TempOverhead) = calculatePlanCost(TempVF, RemPlan);
+    if (!TempIterCost.isValid() || !TempOverhead.isValid()) {
       LLVM_DEBUG(dbgs() << "Remainder evaluator skips VF=" << TempVF
-                        << " as corresponding VPlan cost is " << TempCost
-                        << "\n");
+                        << " as corresponding VPlan cost is not valid\n");
       continue;
     }
+    VPInstructionCost TempCost =
+        TempOverhead + TempIterCost * (MaxRemainderTC / TempVF);
     LLVM_DEBUG(dbgs() << "Remainder evaluator unmasked cost for VF=" << TempVF
-                      << " :\n Pure vector cost=" << TempCost << " x "
+                      << " :\n Vector cost=" << TempCost << "= " << TempIterCost <<" x "
                       << (MaxRemainderTC / TempVF)
-                      << " iterations \n Scalar cost="
+                      << " iterations + " << TempOverhead << "\n Scalar cost="
                       << (ScalarIterCost * (MaxRemainderTC % TempVF)) << " x "
                       << (MaxRemainderTC % TempVF) << " iterations\n");
     // Cost of the new scalar remainder loop.
@@ -208,10 +214,11 @@ VPlanRemainderEvaluator::calculateBestVariant() {
 
   // Calculates the total cost for masked mode loop if it is available.
   VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
-  VPInstructionCost MaskedVectorCost =
+  VPInstructionCost MaskedVectorIterCost, MaskedOverhead;
+  std::tie(MaskedVectorIterCost, MaskedOverhead) =
       calculatePlanCost(MainLoopVF, MaskedModePlan);
-  if (MaskedVectorCost.isValid())
-    MaskedVectorCost = MaskedVectorCost * MainLoopUF;
+  VPInstructionCost MaskedVectorCost = MaskedOverhead +
+    MaskedVectorIterCost * MainLoopUF;
 
   // Calculate VF and the total cost for vector variant with possible scalar
   // remainder.
@@ -246,12 +253,14 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   if (Planner.isVecRemainderEnforced())
     LoopCost = VPInstructionCost::getMax();
 
-  if (MaskedVectorCost.isValid() && LoopCost > MaskedVectorCost &&
+  if (MaskedVectorCost.isValid() && LoopCost.isValid() &&
+      LoopCost > MaskedVectorCost &&
       (Planner.isVecRemainderEnforced() || EnableMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;
   }
-  if (UnMaskedVectorCost.isValid() && LoopCost > UnMaskedVectorCost &&
+  if (UnMaskedVectorCost.isValid() && LoopCost.isValid() &&
+      LoopCost > UnMaskedVectorCost &&
       (Planner.isVecRemainderEnforced() ||
        EnableNonMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::VectorScalar;

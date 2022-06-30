@@ -201,19 +201,6 @@ bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
 
   const VPInstruction *MaybePredInst = dyn_cast<VPInstruction>(MaybePred);
   const VPInstruction *BaseCondInst = dyn_cast<VPInstruction>(BaseCond);
-  // Handle potential case where the block-predicate of a loop header is a
-  // phi and one of the incoming values to it is the block-predicate of the
-  // preheader. For example:
-  //
-  // preheader:
-  //  %pred = block-predicate %0
-  //  br %header
-  //
-  // header:
-  //  %iv = phi
-  //  %mask = phi [ %0 ],[ %mask.next ]
-  //  %pred.header = block-predicate %mask
-  //
   if (BaseCondInst && MaybePredInst &&
       MaybePredInst->getOpcode() == Instruction::PHI) {
     const VPBasicBlock *MaybePredParent = MaybePredInst->getParent();
@@ -225,6 +212,19 @@ bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
     assert(Preheader && "Preheader is expected to exist for the loop");
     VPBasicBlock *Header = VPLp->getHeader();
     if (BaseCondParent == Preheader && MaybePredParent == Header) {
+      // Handle potential case where the block-predicate of a loop header is a
+      // phi and one of the incoming values to it is the block-predicate of the
+      // preheader. For example:
+      //
+      // preheader:
+      //  %pred = block-predicate %0
+      //  br %header
+      //
+      // header:
+      //  %iv = phi
+      //  %mask = phi [ %0 ],[ %mask.next ]
+      //  %pred.header = block-predicate %mask
+      //
       const VPPHINode *HeaderPhi = cast<VPPHINode>(MaybePredInst);
       VPValue *PreheaderPred = Preheader->getBlockPredicate();
       if (PreheaderPred == BaseCond)
@@ -433,10 +433,29 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
   return false;
 }
 
+VPValue* VPlanAllZeroBypass::loopWasMadeUniform(VPLoop *VPLp) {
+  if (VPLp) {
+    auto *Latch = VPLp->getLoopLatch();
+    auto *BranchInst = dyn_cast<VPBranchInst>(Latch->getTerminator());
+    if (BranchInst && BranchInst->isConditional()) {
+      auto *BranchCond = BranchInst->getCondition();
+      auto *AllZeroCheck = dyn_cast<VPInstruction>(BranchCond);
+      if (AllZeroCheck &&
+          AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck)
+        return AllZeroCheck->getOperand(0);
+    }
+  }
+  return nullptr;
+}
+
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
     Optional<unsigned> VF) {
+
+  // Probability is very low that for large VFs all lanes are 0.
+  if (VF && *VF >= 32)
+    return;
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -454,6 +473,27 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     if (!BlockPred || !Block->getSingleSuccessor() ||
         regionFoundForBlock(Block, BlockPred, RegionsCollected))
       continue;
+    VPLoop *VPLp = VPLI->getLoopFor(Block);
+    if (auto *ExitCond = loopWasMadeUniform(VPLp)) {
+      // Filter out any candidates where any blocks inside loops that have been
+      // made uniform by loopcfu have a block-predicate that is the same as the
+      // the condition of the all-zero check at the latch. There is no reason
+      // to insert bypasses for these blocks because the loop body is already
+      // controlled by the same condition. Since this function collects non-loop
+      // regions only, this will not prevent a loop bypass from being inserted
+      // where these massaged loops have a divergent top test.
+      // BlockPred should be phi for loops made uniform, but this check
+      // shouldn't harm anything.
+      if (BlockPred == ExitCond)
+        continue;
+
+      auto *VPPhi = dyn_cast<VPPHINode>(BlockPred);
+      if (VPPhi && any_of(VPPhi->incoming_values(),
+                          [ExitCond] (const VPValue *IncomingVal) {
+                              return IncomingVal == ExitCond;
+                         }))
+        continue;
+    }
     CandidateBlocks.push_back(Block);
   }
 
@@ -515,7 +555,6 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
           RegionBlocks.insert(*BlockIt);
           LastBB = *(++BlockIt);
         }
-        ++BlockIt;
       }
 
       // Bypass region will include blocks that only compute predicates and

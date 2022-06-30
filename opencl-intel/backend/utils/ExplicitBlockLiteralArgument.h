@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,9 +15,9 @@
 #ifndef __EXPLICITBLOCKLITERAL_ARGUMENT_H__
 #define __EXPLICITBLOCKLITERAL_ARGUMENT_H__
 
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
 #include "cl_device_api.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

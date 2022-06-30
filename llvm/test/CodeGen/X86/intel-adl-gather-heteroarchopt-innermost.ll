@@ -146,6 +146,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    notl %r14d
 ; X64-NEXT:    addl %r9d, %r14d
 ; X64-NEXT:    movq (%rdx,%r14,8), %rbx
+; X64-NEXT:    addq $4, %rbx
 ; X64-NEXT:    vxorpd %xmm9, %xmm9, %xmm9
 ; X64-NEXT:    xorl %eax, %eax
 ; X64-NEXT:    vxorpd %xmm12, %xmm12, %xmm12
@@ -155,39 +156,39 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:  .LBB0_12: # %loop.90.clone
 ; X64-NEXT:    # Parent Loop BB0_11 Depth=1
 ; X64-NEXT:    # => This Inner Loop Header: Depth=2
-; X64-NEXT:    movl 12(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
-; X64-NEXT:    movl 16(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm5[0],mem[0]
-; X64-NEXT:    movl 4(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
 ; X64-NEXT:    movl 8(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm6[0],mem[0]
-; X64-NEXT:    movl 28(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
-; X64-NEXT:    movl 32(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovhpd {{.*#+}} xmm11 = xmm7[0],mem[0]
-; X64-NEXT:    movl 20(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
-; X64-NEXT:    movl 24(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovhpd {{.*#+}} xmm5 = xmm5[0],mem[0]
-; X64-NEXT:    movl 44(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X64-NEXT:    movl 48(%rbx,%rax,4), %ebp
-; X64-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
-; X64-NEXT:    movl 36(%rbx,%rax,4), %ebp
+; X64-NEXT:    movl 12(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm5[0],mem[0]
+; X64-NEXT:    movl (%rbx,%rax,4), %ebp
 ; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X64-NEXT:    movl 4(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm6[0],mem[0]
+; X64-NEXT:    movl 24(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X64-NEXT:    movl 28(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovhpd {{.*#+}} xmm11 = xmm7[0],mem[0]
+; X64-NEXT:    movl 16(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
+; X64-NEXT:    movl 20(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovhpd {{.*#+}} xmm5 = xmm5[0],mem[0]
 ; X64-NEXT:    movl 40(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X64-NEXT:    movl 44(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
+; X64-NEXT:    movl 32(%rbx,%rax,4), %ebp
+; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X64-NEXT:    movl 36(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vmovhpd {{.*#+}} xmm6 = xmm6[0],mem[0]
-; X64-NEXT:    movl 60(%rbx,%rax,4), %ebp
+; X64-NEXT:    movl 56(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vinsertf128 $1, %xmm8, %ymm10, %ymm8
 ; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
-; X64-NEXT:    movl 64(%rbx,%rax,4), %ebp
+; X64-NEXT:    movl 60(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
-; X64-NEXT:    movl 52(%rbx,%rax,4), %ebp
+; X64-NEXT:    movl 48(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vinsertf128 $1, %xmm11, %ymm5, %ymm5
 ; X64-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
-; X64-NEXT:    movl 56(%rbx,%rax,4), %ebp
+; X64-NEXT:    movl 52(%rbx,%rax,4), %ebp
 ; X64-NEXT:    vmovhpd {{.*#+}} xmm2 = xmm2[0],mem[0]
 ; X64-NEXT:    vinsertf128 $1, %xmm1, %ymm6, %ymm1
 ; X64-NEXT:    vinsertf128 $1, %xmm7, %ymm2, %ymm2

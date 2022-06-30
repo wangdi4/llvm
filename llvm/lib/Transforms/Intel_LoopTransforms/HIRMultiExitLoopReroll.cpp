@@ -499,46 +499,8 @@ bool HIRMultiExitLoopReroll::haveLiveoutCorrespondence(
 bool HIRMultiExitLoopReroll::corresponds(const HLInst *HInst1,
                                          const HLInst *HInst2) {
 
-  auto *Inst1 = HInst1->getLLVMInstruction();
-  auto *Inst2 = HInst2->getLLVMInstruction();
-
-  if (Inst1->getOpcode() != Inst2->getOpcode()) {
-    // GEP/Subscript and copy instructions can correspond to each other in HIR
-    // so we should allow them. Inside HIR clients create copy instructions
-    // instead of GEPs due to its ease.
-    //
-    // For example-
-    //
-    // %t1 = &(%A)[4*i1]  // can be copy inst
-    //
-    // %t2 = &(%A)[4*i1 + 1] // can be GEP inst
-    if ((!HInst1->isCopyInst() || !isa<GEPOrSubsOperator>(Inst2)) &&
-        (!HInst2->isCopyInst() || !isa<GEPOrSubsOperator>(Inst1))) {
-      return false;
-    }
-  }
-
-  if (isa<CmpInst>(Inst1) || isa<SelectInst>(Inst1)) {
-    if (HInst1->getPredicate() != HInst2->getPredicate()) {
-      return false;
-    }
-  }
-
-  if (auto *FPInst1 = dyn_cast<FPMathOperator>(Inst1)) {
-    auto *FPInst2 = dyn_cast<FPMathOperator>(Inst2);
-
-    if (!FPInst2 || (FPInst1->isFast() != FPInst2->isFast())) {
-      return false;
-    }
-  }
-
-  if (auto *BinOpInst1 = dyn_cast<OverflowingBinaryOperator>(Inst1)) {
-    auto *BinOpInst2 = cast<OverflowingBinaryOperator>(Inst2);
-
-    if ((BinOpInst1->hasNoUnsignedWrap() != BinOpInst2->hasNoUnsignedWrap()) ||
-        (BinOpInst1->hasNoSignedWrap() != BinOpInst2->hasNoSignedWrap())) {
-      return false;
-    }
+  if (!HInst1->isSameOperationAs(HInst2, true)) {
+    return false;
   }
 
   auto *RvalIt1 = HInst1->rval_op_ddref_begin();

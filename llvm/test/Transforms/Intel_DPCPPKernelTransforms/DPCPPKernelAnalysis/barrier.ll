@@ -4,11 +4,16 @@
 ; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK: Kernel <kernel_contains_barrier>: NoBarrierPath=0
-; CHECK: Kernel <kernel_not_contains_barrier>: NoBarrierPath=1
-; CHECK: Kernel <kernel_call_func_call_barrier>: NoBarrierPath=0
-; CHECK: Kernel <kernel_call_func_call_func_call_barrier>: NoBarrierPath=0
-; CHECK: Kernel <kernel_call_func_no_call_barrier>: NoBarrierPath=1
+; CHECK: Kernel <kernel_contains_barrier>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_not_contains_barrier>:
+; CHECK-NEXT: NoBarrierPath=1
+; CHECK: Kernel <kernel_call_func_call_barrier>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_call_func_call_func_call_barrier>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_call_func_no_call_barrier>:
+; CHECK-NEXT: NoBarrierPath=1
 
 define void @func_no_call_barrier() nounwind {
   ret void

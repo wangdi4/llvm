@@ -308,15 +308,15 @@ static bool isNoopPtrIntCastPair(const Operator *I2P, const DataLayout &DL,
   // arithmetic may also be undefined after invalid pointer reinterpret cast.
   // However, as we confirm through the target hooks that it's a no-op
   // addrspacecast, it doesn't matter since the bits should be the same.
+  unsigned P2IOp0AS = P2I->getOperand(0)->getType()->getPointerAddressSpace();
+  unsigned I2PAS = I2P->getType()->getPointerAddressSpace();
   return CastInst::isNoopCast(Instruction::CastOps(I2P->getOpcode()),
                               I2P->getOperand(0)->getType(), I2P->getType(),
                               DL) &&
          CastInst::isNoopCast(Instruction::CastOps(P2I->getOpcode()),
                               P2I->getOperand(0)->getType(), P2I->getType(),
                               DL) &&
-         TTI->isNoopAddrSpaceCast(
-             P2I->getOperand(0)->getType()->getPointerAddressSpace(),
-             I2P->getType()->getPointerAddressSpace());
+         (P2IOp0AS == I2PAS || TTI->isNoopAddrSpaceCast(P2IOp0AS, I2PAS));
 }
 
 // Returns true if V is an address expression.
@@ -1062,8 +1062,7 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
   MDNode *NoAliasMD = MI->getMetadata(LLVMContext::MD_noalias);
 
   if (auto *MSI = dyn_cast<MemSetInst>(MI)) {
-    B.CreateMemSet(NewV, MSI->getValue(), MSI->getLength(),
-                   MaybeAlign(MSI->getDestAlignment()),
+    B.CreateMemSet(NewV, MSI->getValue(), MSI->getLength(), MSI->getDestAlign(),
                    false, // isVolatile
                    TBAA, ScopeMD, NoAliasMD);
   } else if (auto *MTI = dyn_cast<MemTransferInst>(MI)) {
@@ -1582,7 +1581,12 @@ PreservedAnalyses InferAddressSpacesPass::run(Function &F,
           .run(F);
   if (Changed) {
     PreservedAnalyses PA;
+#if INTEL_COLLAB
+    // handleMemIntrinsicPtrUse may create new memory intrinsic calls and then
+    // call graph is changed.
+#else // INTEL_COLLAB
     PA.preserveSet<CFGAnalyses>();
+#endif // INTEL_COLLAB
     PA.preserve<DominatorTreeAnalysis>();
     return PA;
   }

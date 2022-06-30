@@ -1078,6 +1078,7 @@ void HIRLoopDistribution::distributeLoop(
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       NewLoops[I]->setDistributedForMemRec();
     }
+
     HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
 
@@ -1642,6 +1643,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
   ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
+  invalidateLoop(Lp);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
   return Success;
 }

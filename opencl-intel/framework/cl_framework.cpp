@@ -589,10 +589,11 @@ cl_context CL_API_CALL clCreateContext(const cl_context_properties * properties,
         START_LOG_API(clCreateContext);
         apiLogger << "const cl_context_properties * properties";
         apiLogger.PrintProperties(properties)
-                  << "cl_uint num_devices" << num_devices
-                  << "const cl_device_id * devices" << devices
-                  << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
-                  << user_data << "cl_int * errcode_ret" << errcode_ret;
+            << "cl_uint num_devices" << num_devices
+            << "const cl_device_id * devices" << devices
+            << "logging_fn pfn_notify" << (size_t)pfn_notify
+            << "void * user_data" << user_data << "cl_int * errcode_ret"
+            << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret),
@@ -615,7 +616,7 @@ cl_int CL_API_CALL clSetContextDestructorCallback(
     apiLogger
         << "cl_context context" << context
         << "void (CL_CALLBACK *pfnNotify)(cl_program program, void * userData)"
-        << pfnNotify << "void * userData" << pUserData;
+        << (size_t)pfnNotify << "void * userData" << pUserData;
     CALL_TRACED_API_LOGGER(
         CONTEXT_MODULE, cl_int,
         SetContextDestructorCallback(context, pfnNotify, pUserData),
@@ -652,8 +653,10 @@ cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * pro
         START_LOG_API(clCreateContextFromType);
         apiLogger << "const cl_context_properties * properties";
         apiLogger.PrintProperties(properties) << "cl_device_type device_type";
-        apiLogger.PrintMacroCode(device_type) << "logging_fn pfn_notify" << pfn_notify << "void * user_data"
-                  << user_data << "cl_int * errcode_ret" << errcode_ret;
+        apiLogger.PrintMacroCode(device_type)
+            << "logging_fn pfn_notify" << (size_t)pfn_notify
+            << "void * user_data" << user_data << "cl_int * errcode_ret"
+            << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret),
@@ -942,9 +945,12 @@ cl_int CL_API_CALL clSetMemObjectDestructorCallback(cl_mem      memObj,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(CL_API_CALLclSetMemObjectDestructorCallback);
-        apiLogger << "cl_mem memObj" << memObj << "mem_dtor_fn pfn_notify" << pfn_notify << "void * pUserData" << pUserData;
-	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData),
-           clSetMemObjectDestructorCallback, &memObj, &pfn_notify, &pUserData);
+        apiLogger << "cl_mem memObj" << memObj << "mem_dtor_fn pfn_notify"
+                  << (size_t)pfn_notify << "void * pUserData" << pUserData;
+        CALL_TRACED_API_LOGGER(
+            CONTEXT_MODULE, cl_int,
+            SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData),
+            clSetMemObjectDestructorCallback, &memObj, &pfn_notify, &pUserData);
     }
     else
     {
@@ -1459,9 +1465,16 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
     {
         START_LOG_API(clBuildProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id * device_list" << device_list << "const char * options";
-        apiLogger.PrintCStringVal(BuildOptions) << "void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data)" << pfn_notify << "void * user_data" << user_data;
-	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, BuildOptions, pfn_notify, user_data),
-           clBuildProgram, &program, &num_devices, &device_list, &BuildOptions, &pfn_notify, &user_data);
+        apiLogger.PrintCStringVal(BuildOptions)
+            << "void (CL_CALLBACK *pfn_notify)(cl_program program, void * "
+               "user_data)"
+            << (size_t)pfn_notify << "void * user_data" << user_data;
+        CALL_TRACED_API_LOGGER(
+            CONTEXT_MODULE, cl_int,
+            BuildProgram(program, num_devices, device_list, BuildOptions,
+                         pfn_notify, user_data),
+            clBuildProgram, &program, &num_devices, &device_list, &BuildOptions,
+            &pfn_notify, &user_data);
     }
     else
     {
@@ -2418,7 +2431,16 @@ cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueNativeKernel);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "void (CL_CALLBACK *user_func)(void *)" << user_func << "void * args" << args << "size_t cb_args" << cb_args << "cl_uint num_mem_objects" << num_mem_objects << "const cl_mem * mem_list" << mem_list << "const void ** args_mem_loc" << args_mem_loc << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
+        apiLogger << "cl_command_queue command_queue" << command_queue
+                  << "void (CL_CALLBACK *user_func)(void *)"
+                  << (size_t)user_func << "void * args" << args
+                  << "size_t cb_args" << cb_args << "cl_uint num_mem_objects"
+                  << num_mem_objects << "const cl_mem * mem_list" << mem_list
+                  << "const void ** args_mem_loc" << args_mem_loc
+                  << "cl_uint num_events_in_wait_list"
+                  << num_events_in_wait_list
+                  << "const cl_event * event_wait_list" << event_wait_list
+                  << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, &apiLogger),
@@ -2519,10 +2541,17 @@ cl_int CL_API_CALL clSetEventCallback(cl_event    evt,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(CL_API_CALLclSetEventCallback);
-        apiLogger << "cl_event evt" << evt << "cl_int command_exec_callback_type" << command_exec_callback_type
-            << "void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *)" << pfn_notify << "void * user_data" << user_data;
-	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetEventCallback(evt, command_exec_callback_type, pfn_notify, user_data),
-           clSetEventCallback, &evt, &command_exec_callback_type, &pfn_notify, &user_data);
+        apiLogger << "cl_event evt" << evt
+                  << "cl_int command_exec_callback_type"
+                  << command_exec_callback_type
+                  << "void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *)"
+                  << (size_t)pfn_notify << "void * user_data" << user_data;
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int,
+                               SetEventCallback(evt, command_exec_callback_type,
+                                                pfn_notify, user_data),
+                               clSetEventCallback, &evt,
+                               &command_exec_callback_type, &pfn_notify,
+                               &user_data);
     }
     else
     {
@@ -2775,7 +2804,13 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
     {
         START_LOG_API(clCompileProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
-        apiLogger.PrintCStringVal(BuildOptions) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
+        apiLogger.PrintCStringVal(BuildOptions)
+            << "cl_uint num_input_headers" << num_input_headers
+            << "const cl_program *input_headers" << input_headers
+            << "const char **header_include_names" << header_include_names
+            << "void (CL_CALLBACK *pfn_notify)(cl_program program, void "
+               "*user_data)"
+            << (size_t)pfn_notify << "void *user_data" << user_data;
         CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, BuildOptions,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data),
             clCompileProgram, &program, &num_devices, &device_list, &BuildOptions, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
@@ -2803,7 +2838,13 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
     {
         START_LOG_API(clLinkProgram);
         apiLogger << "cl_context context" << context << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
-        apiLogger.PrintCStringVal(options) << "cl_uint num_input_programs" << num_input_programs << "const cl_program *input_programs" << input_programs << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data << "cl_int *errcode_ret" << errcode_ret;
+        apiLogger.PrintCStringVal(options)
+            << "cl_uint num_input_programs" << num_input_programs
+            << "const cl_program *input_programs" << input_programs
+            << "void (CL_CALLBACK *pfn_notify)(cl_program program, void "
+               "*user_data)"
+            << (size_t)pfn_notify << "void *user_data" << user_data
+            << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
         CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
@@ -2874,8 +2915,17 @@ cl_int CL_API_CALL clEnqueueSVMFree(cl_command_queue command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueSVMFree);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_svm_pointers" << num_svm_pointers << "void* svm_pointers[]" << svm_pointers
-            << "void (CL_CALLBACK* pfn_free_func)(cl_command_queue queue queue, cl_uint num_svm_pointers, void* svm_pointers[], void* user_data)" << pfn_free_func << "void* user_data" << user_data << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
+        apiLogger << "cl_command_queue command_queue" << command_queue
+                  << "cl_uint num_svm_pointers" << num_svm_pointers
+                  << "void* svm_pointers[]" << svm_pointers
+                  << "void (CL_CALLBACK* pfn_free_func)(cl_command_queue queue "
+                     "queue, cl_uint num_svm_pointers, void* svm_pointers[], "
+                     "void* user_data)"
+                  << (size_t)pfn_free_func << "void* user_data" << user_data
+                  << "cl_uint num_events_in_wait_list"
+                  << num_events_in_wait_list
+                  << "const cl_event* event_wait_list" << event_wait_list
+                  << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,

@@ -30,7 +30,7 @@ OclMutex::OclMutex( unsigned int uiSpinCount )
 OclMutex::~OclMutex()
 {
     DeleteCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
-    delete m_mutexHndl;
+    delete ((LPCRITICAL_SECTION)m_mutexHndl);
     m_mutexHndl = nullptr;
 }
 

@@ -119,8 +119,8 @@
 //   etc.) are currently set to some arbitrary values. They should be tuned.
 // - Currently, the generated groups must fully match the nodes across all trees
 //   in the clusters. This could be relaxed and still have profitable groups.
-// - Currently, we can only handle simple "unary" associations (i.e. << Const).
-//   This could be extended to arbitrary associations.
+// - Currently, we can only handle simple operations for distribution (i.e. << Const).
+//   This could be extended.
 
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
 #include "llvm/ADT/DenseMap.h"
@@ -193,7 +193,7 @@ static cl::opt<bool>
                                 cl::desc("Enable canonicalization of groups."));
 
 static cl::opt<unsigned> MemCanonicalizationMaxGroupSize(
-    "addsub-reassoc-memcan-max-group-size", cl::init(64), cl::Hidden,
+    "addsub-reassoc-memcan-max-group-size", cl::init(8), cl::Hidden,
     cl::desc(
         "The maximum group size to be considered for mem canonicalization."));
 
@@ -206,56 +206,26 @@ static cl::opt<int> MaxScoringSearchDepth(
     "addsub-reassoc-max-scoring-depth", cl::init(4), cl::Hidden,
     cl::desc("The maximum search depth to find the optimal scoring."));
 
-// TODO: Get rid of "unary associations" term from the pass source code.
-// The term itself doesn't even sound like having any sense and
-// it took me a while to realize what was really meant.
-// What was actually "thought" to mean is applying what is known in math as
-// distributivity property. If for example we have an expression
-// like (a + b + c) * n, then when using distributivity property we can think
-// of it as being same as a * n + b * n + c * n.
-// In context of this pass this is supported thus far for left shift by
-// a constant value only. So that when we see an expression like here
-// x + y + z + (a + b + c) << C (assuming all x, y, z, a, b, c are not another
-// "+/-"-kind subexpressions) then without enabling this thing
-// "x", "y", "z" and "S", where S is the shift instruction itself, i.e.
-// whole "(a + b + c) << C" thing,  will form the expression tree leaves.
-// When this stuff is enabled then the same expression will be represented with
-// leaves: "x", "y", "z", "a<<C", "b<<C", and "c<<C". This in theory may enable
-// finding more common subexpressions. Information about "<<C" is written as
-// sidecar vector in OpcodeData class.
-// It is still not clear what "memcan" part of the option name here refers to.
-// My guess is that it is related to a specific pattern:
-//   %i0 = load i8, i8* %gep
-//   %i2 = zext i8 %i0 to i32
-//   %i3 = shl i32 %i2, 16
-// which is quite common in x264_pixel_satd_16x16 function (x264 test case) and
-// support for "<<C" was implemented in conjunction with another feature for
-// reason to reduce cost of "looking through" such leaves for loads (for more
-// details see findLoadDistance()). That stuff was added to generate optimized
-// expressions ordered way (see also EnableGroupCanonicalization and other
-// "memcan" options).
-//
-// MaxUnaryAssociations actually relates to how many shift ops can be allowed
-// to be subsumed. i.e. if we have initial expression:
-//    x + y + z + (...) << C1 + (...) << C2,
-// where "..." inside the parens are some other subexpressions of "+/-" kind.
-// Having value of 1 here means that either "<< C1" or "<<C2" will be subsumed
-// into leaves (of a corresponding subexpression) but not both of them.
-
-
-static cl::opt<bool> EnableUnaryAssociations(
-    "addsub-reassoc-memcan-enable-unary-associations", cl::init(true),
-    cl::Hidden,
-    cl::desc("Enable non-add/sub tree members in the tree, e.g. (<< 4)."));
-
-static cl::opt<unsigned> MaxUnaryAssociations(
-    "addsub-reassoc-max-unary-associations", cl::init(1), cl::Hidden,
-    cl::desc(
-        "The maximum number of allowed non-add/sub associations in the tree."));
-
-static cl::opt<bool> OptimizeUnaryAssociations(
-    "addsub-reassoc-optimize-unary-associations", cl::init(false), cl::Hidden,
-    cl::desc("Optimize code generation for the associative instructions."));
+// Here in the pass we may exploit what is known in math as distributivity
+// property. Thus far we only handle left shift by a constant operations
+// for distribution (see canBeDistributed() routine for details).
+// For an expression like "x + (a + b + c) * n", using distributivity property
+// we can think of it as being same  as "x + a * n + b * n + c * n".
+// For example, we have this (assuming x, y, z, a, b, c are all terminals):
+//   S = (a + b + c) << Const
+//   T = x + y + z + S
+// then canonical (linear) representation of T would be: +x, +y, +z, +S.
+// But if T is the only user of S then we can pull it into the tree and
+// distribute left shift over "a","b",and "c"  then the tree now will be
+// represented by form: +x, +y, +z, +a*, +b*, +c*,
+// where "*" means additional (distributed) operation over these operands.
+// This in theory may enable finding more common subexpressions.
+// MaxDistributedOps parameter specifies how many ops can be subsumed for
+// distribution. Value of 0 disables the feature.
+static cl::opt<unsigned> MaxDistributedOps(
+    "addsub-reassoc-max-distributed-instructions", cl::init(1), cl::Hidden,
+    cl::desc("The maximum number of allowed operations to distribute "
+             "into a tree (exploiting distributive property)."));
 
 static cl::opt<bool> EnableSharedLeaves(
     "addsub-reassoc-unshare-leaves", cl::init(true), cl::Hidden,
@@ -338,20 +308,15 @@ LLVM_DUMP_METHOD static const char *getOpcodeSymbol(unsigned Opcode) {
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Returns true if 'I' is an associative instruction of the allowed opcode.
-// We currently allow instructions with one constant operand and one add/sub.
-static inline bool isAllowedAssocInstr(const Instruction *I) {
-  if (!EnableUnaryAssociations)
+// Return true if we can distribute the instruction operation on
+// a tree leaf. Thus far we can only distribute left shift by a constant.
+static inline bool canBeDistributed(const Instruction *I) {
+  if (MaxDistributedOps == 0)
     return false;
-
-  switch (I->getOpcode()) {
-  case Instruction::Shl:
-    // Shifts should have a constant RHS operand.
-    return isa<Constant>(I->getOperand(1));
-  default:
-    return false;
-  }
+  // Shifts should have a constant RHS operand.
+  return I->getOpcode() == Instruction::Shl && isa<Constant>(I->getOperand(1));
 }
+
 static unsigned ReverseOpcode(unsigned Opc) {
   switch (Opc) {
   case Instruction::Add:
@@ -435,35 +400,16 @@ static bool areInSameBB(Instruction *I1, Instruction *I2) {
   return true;
 }
 
-// Replace an Add/Sub 'I' with an equivalent Sub/Add instruction.
-// Begin of AddSubReassociatePass::AssocOpcodeData
-
-AssocOpcodeData::AssocOpcodeData(const Instruction *I) {
-  assert(isAllowedAssocInstr(I) && "Expected Assoc Instr");
-  Opcode = I->getOpcode();
-  assert((isa<Constant>(I->getOperand(0)) || isa<Constant>(I->getOperand(1))) &&
-         "Expected exactly one constant operand");
-  Const = isa<Constant>(I->getOperand(0)) ? cast<Constant>(I->getOperand(0))
-                                          : cast<Constant>(I->getOperand(1));
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-LLVM_DUMP_METHOD void AssocOpcodeData::dump() const {
-  dbgs() << "(" << getOpcodeSymbol(Opcode);
-  if (Const)
-    dbgs() << " " << *Const;
-  dbgs() << ")";
-}
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // Begin of AddSubReassociatePass::OpcodeData
+
 void OpcodeData::reverse() { Opcode = ReverseOpcode(Opcode); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void OpcodeData::dump() const {
   dbgs() << "(" << getOpcodeSymbol(Opcode) << ")";
-  for (auto &AssocOpcode : AssocOpcodeVec)
-    AssocOpcode.dump();
+
+  for (const DistributedOp &Op : getDistributedOps())
+    dbgs() << "(" << getOpcodeSymbol(Op.first) << " " << *Op.second << ")";
 }
 
 LLVM_DUMP_METHOD void CanonNode::dump(unsigned Padding) const {
@@ -510,17 +456,15 @@ Instruction *CanonForm::generateInstruction(const OpcodeData &Opcode,
   // Currently we only apply optimization for "fast" math operations only.
   MathFlags.setFast(true);
 
-  // First emit all associative instructions if any.
-  for (const AssocOpcodeData &Data : llvm::reverse(Opcode)) {
-    Instruction::BinaryOps BinOpcode =
-        static_cast<Instruction::BinaryOps>(Data.getOpcode());
-    Instruction *NewAssocI =
-        BinaryOperator::Create(BinOpcode, Leaf, Data.getConst());
-    NewAssocI->insertBefore(IP);
+  // First emit distributed operations (if any).
+  for (const OpcodeData::DistributedOp &Op : Opcode.getDistributedOps()) {
+    auto Opcode = static_cast<Instruction::BinaryOps>(Op.first);
+    Instruction *I = BinaryOperator::Create(Opcode, Leaf, Op.second);
+    I->insertBefore(IP);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    NewAssocI->setName(Name);
+    I->setName(Name);
 #endif
-    Leaf = NewAssocI;
+    Leaf = I;
   }
 
   // Second generate resulting instruction itself.
@@ -649,7 +593,7 @@ bool isLegalTrunkInstr(const Instruction *I, const Instruction *Root,
   // "compatible" with the root.
   // Otherwise check whether the instruction is okay for root.
   if (Root) {
-    if ((isAddSubKind(Root) && !(isAddSubKind(I) || isAllowedAssocInstr(I))) ||
+    if ((isAddSubKind(Root) && !(isAddSubKind(I) || canBeDistributed(I))) ||
         (isFAddSub(Root) && !isFAddSub(I)) ||
         (isFMulDiv(Root) && !isFMulDiv(I)))
       return false;
@@ -1068,8 +1012,9 @@ LLVM_DUMP_METHOD void dumpGroupAndTrees(const Group &G,
 
 static auto findCompatibleOpcode(const OpcodeData &Opc,
                                  ArrayRef<const OpcodeData *> Opcodes) {
-  return find_if(
-      Opcodes, [&Opc](const OpcodeData *OD) { return OD->isAssocEqual(Opc); });
+  return find_if(Opcodes, [&Opc](const OpcodeData *OD) {
+    return OD->areDistributedOpsEqual(Opc);
+  });
 }
 
 static auto findMatchingOpcode(const OpcodeData &Opc,
@@ -1173,9 +1118,8 @@ void AddSubReassociate::buildMaxReuseGroups(
     // It not only gives us a group itself but also list of tries the group
     // is applicable to. The later is needed to delete information about found
     // group from the histogram table.
-    SmallVector<std::pair<decltype(LeafHistVec)::iterator, const OpcodeData>,
-                16>
-        LocalGroup;
+    using HistVecItTy = decltype(LeafHistVec)::iterator;
+    SmallVector<std::pair<HistVecItTy, const OpcodeData>, 16> LocalGroup;
     // FoundTrees keeps set of trees where current leaf appears.
     // The boolean part of the pair records whether opcode was the exact
     // match (if not the exact match then the opcode is reversed).
@@ -1271,8 +1215,8 @@ void AddSubReassociate::buildMaxReuseGroups(
 
     // "Transform" local group to an external format.
     Group G;
-    for (const auto &Elem : LocalGroup)
-      G.appendLeaf(Elem.first->first, Elem.second);
+    for (const std::pair<HistVecItTy, const OpcodeData> &Elem : LocalGroup)
+      G.appendLeaf(Elem.first->first /*Leaf*/, Elem.second /*Opcode*/);
 
     // Populate list of trees current group is applicable to. Please note that
     // we have to preserve incoming order (order in Cluster) since code
@@ -1286,9 +1230,10 @@ void AddSubReassociate::buildMaxReuseGroups(
     }
 
     // Remove current group from the 'LeafHistVec'.
-    for (auto &GroupElem : LocalGroup) {
-      TreeCollectionTy &TreeVec = GroupElem.first->second;
-      const OpcodeData GroupOpcode = GroupElem.second;
+    for (const std::pair<HistVecItTy, const OpcodeData> &Elem : LocalGroup) {
+      // The "Elem.first" iterator points to a {Value*, TreeCollectionTy} pair.
+      TreeCollectionTy &TreeVec = Elem.first->second;
+      const OpcodeData GroupOpcode = Elem.second;
 
       TreeVec.erase(
           remove_if(TreeVec,
@@ -1507,15 +1452,16 @@ void AddSubReassociate::clusterTrees() {
 
 unsigned AddSubReassociate::growTree(Tree *Tree, unsigned GrowthLimit,
                                      SmallVectorImpl<CanonNode> &&WorkList) {
-  unsigned NumAssociations = 0;
+  unsigned NumDistributedIns = 0;
   // Keep trying to grow tree until the WorkList is empty
   // or growth allowance reached.
   unsigned LeavesAdded = 0;
+  const Instruction *Root = Tree->getRoot();
   while (!WorkList.empty()) {
     CanonNode LastOp = WorkList.pop_back_val();
     auto *I = cast<Instruction>(LastOp.getLeaf());
 
-    assert(isLegalTrunkInstr(I, Tree->getRoot(), DL) &&
+    assert(isLegalTrunkInstr(I, Root, DL) &&
            "Work list item can't be trunk instruction.");
 
     // If current instruction starts another tree then just clear that tree
@@ -1526,23 +1472,19 @@ unsigned AddSubReassociate::growTree(Tree *Tree, unsigned GrowthLimit,
     if (It != Trees.end())
       It->get()->clear();
 
-    bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
-    // Collect the unary associative instructions that apply for 'I'.
-    if (IsAllowedAssocInstrI)
-      LastOp.appendAssocInstruction(I);
+    // Remember the operand number if one is pulled in
+    int PulledOpNum = canBeDistributed(I) ? LastOp.addDistributedOp(I) : -1;
 
     for (int OpIdx : {0, 1}) {
-      Value *Op = I->getOperand(OpIdx);
+      // Skip the operand which was pulled in as it does not contribute to
+      // the tree directly.
+      if (PulledOpNum == OpIdx)
+        continue;
 
+      Value *Op = I->getOperand(OpIdx);
       // Skip self referencing instructions.
       if (Op == I)
         continue;
-
-      // Skip the constant operand of a UnaryAssociative instruction. It
-      // should not be part of the tree.
-      if (IsAllowedAssocInstrI && isa<Constant>(Op)) {
-        continue;
-      }
 
       // As we build the tree bottom-up we need to keep track of the
       // 'canonicalized opcode'. This is the opcode that the trunk node will
@@ -1568,10 +1510,10 @@ unsigned AddSubReassociate::growTree(Tree *Tree, unsigned GrowthLimit,
       if (OpI && Op->hasOneUse() &&
           // Check against growth limit
           (LeavesAdded + 2 * WorkList.size()) < GrowthLimit &&
-          areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, Tree->getRoot(), DL) &&
-          (!isAllowedAssocInstr(OpI) ||
-           // Check number of allowed assoc instruction.
-           (++NumAssociations <= MaxUnaryAssociations))) {
+          areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, Root, DL) &&
+          // Check number of allowed ops we can distribute.
+          (!canBeDistributed(OpI) ||
+           ++NumDistributedIns <= MaxDistributedOps)) {
         // Push the operand to the WorkList to continue the walk up the code.
         WorkList.push_back(CanonNode(Op, OpCanonOpcode));
       } else {
@@ -1584,8 +1526,7 @@ unsigned AddSubReassociate::growTree(Tree *Tree, unsigned GrowthLimit,
         // having multiple uses within same tree are not. It is determined later
         // in findSharedleaves() routine and further tree growth is performed by
         // extendTrees().
-        if (Op->hasNUsesOrMore(2) &&
-            isLegalTrunkInstr(OpI, Tree->getRoot(), DL))
+        if (Op->hasNUsesOrMore(2) && isLegalTrunkInstr(OpI, Root, DL))
           Tree->setSharedLeafCandidate(true);
       }
     }
@@ -1815,11 +1756,12 @@ bool AddSubReassociate::run() {
         // Compute difference in instruction count for each group.
         for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
           Group &G = GroupAndTrees.first;
-          int UniqAssocInsrs, TotalAssocInsrs;
-          std::tie(UniqAssocInsrs, TotalAssocInsrs) = G.getAssocInstrCnt();
+          int UniqDistributions, TotalDistributions;
+          std::tie(UniqDistributions, TotalDistributions) =
+              G.collectDistributedOpsStatistics();
           int TreeNum = GroupAndTrees.second.size();
-          int OrigCost = (G.size() + UniqAssocInsrs) * TreeNum;
-          int NewCost = (G.size() - 1 + TotalAssocInsrs + TreeNum);
+          int OrigCost = (G.size() + UniqDistributions) * TreeNum;
+          int NewCost = (G.size() - 1 + TotalDistributions + TreeNum);
           Score += OrigCost - NewCost;
         }
 
@@ -1838,6 +1780,7 @@ bool AddSubReassociate::run() {
         // For each tree in AffectedTrees remove its IR representation.
         for (Tree *T : AffectedTrees)
           T->removeTreeFromIR();
+
         removeCommonNodes();
 
         // 4. Now that we've got the best groups we can generate code.

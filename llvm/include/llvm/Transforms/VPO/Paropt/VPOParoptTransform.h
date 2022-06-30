@@ -92,15 +92,6 @@ namespace vpo {
 
 extern cl::opt<bool> UseMapperAPI;
 
-/// opencl address space.
-enum AddressSpace {
-  ADDRESS_SPACE_PRIVATE = 0,
-  ADDRESS_SPACE_GLOBAL = 1,
-  ADDRESS_SPACE_CONSTANT = 2,
-  ADDRESS_SPACE_LOCAL = 3,
-  ADDRESS_SPACE_GENERIC = 4
-};
-
 /// Device architectures supported
 enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
@@ -1194,6 +1185,10 @@ private:
   /// __private storage class vs __global storage class.
   /// \p IsWILocalFirstprivate is used only for SPIR-V targets.
 #endif // INTEL_CUSTOMIZATION
+  /// \p IsFunctionPtr holds 'true' for pointers to functions.
+  /// The result is used to create pointer-to-int (and back) casts for
+  /// function pointers passed into kernel functions for SPIR-V targets (to
+  /// align with the OpenCL convention).
   /// \p HasRuntimeEvaluationCaptureSize is set to true
   /// iff any of the mappings requires dynamically computed size,
   /// otherwise, it is set to false.
@@ -1207,6 +1202,7 @@ private:
 #if INTEL_CUSTOMIZATION
       SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+      SmallVectorImpl<bool> &IsFunctionPtr,
       bool &HasRuntimeEvaluationCaptureSize) const;
 
   /// Generate the initialization code for the directive omp target
@@ -1271,6 +1267,12 @@ private:
   ///                 storage class vs __global storage class.
   ///                 This result is used only for SPIR-V targets.
 #endif // INTEL_CUSTOMIZATION
+  /// \param [out]    IsFunctionPtr
+  ///                 'true' for pointers to functions. The result is
+  ///                 used to create pointer-to-int (and back) casts
+  ///                 for function pointers passed into kernel functions
+  ///                 for SPIR-V targets (to align with the OpenCL
+  ///                 convention).
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
@@ -1283,6 +1285,7 @@ private:
 #if INTEL_CUSTOMIZATION
                                 SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+                                SmallVectorImpl<bool> &IsFunctionPtr,
                                 bool &hasRuntimeEvaluationCaptureSize,
                                 bool VIsTargetKernelArg = false) const;
 
@@ -1458,6 +1461,9 @@ private:
 
   /// Insert a flush call
   bool genFlush(WRegionNode *W);
+
+  /// Generate prefetch code
+  bool genPrefetchCode(WRegionNode *W, bool IsTargetSPIRV);
 
   /// \name Cancellation Specific Functions
   /// {@
@@ -1881,6 +1887,9 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// Check if loop is optimized away.
+  bool isLoopOptimizedAway(WRegionNode *W);
+
   /// For the given loop \p Index in the loop kind region \p W
   /// promote the loop's IV and UB variables to registers.
   void registerizeLoopEssentialValues(WRegionNode *W, unsigned Index);
@@ -1893,8 +1902,9 @@ private:
   void simplifyLoopPHINodes(const Loop &L, const SimplifyQuery &SQ) const;
 
   /// Transform the Ith level of the loop in the region W into the
-  /// OMP canonical loop form.
-  void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
+  /// OMP canonical loop form. In case the loop is optimized away, set
+  /// LoopOptimizedAway and return false, otherwise return true.
+  bool regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
 
   /// Transform the given do-while loop into the canonical form
   /// as follows.
@@ -2064,6 +2074,7 @@ private:
 #if INTEL_CUSTOMIZATION
       const SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+      const SmallVectorImpl<bool> &IsFunctionPtr,
       const SmallVectorImpl<Constant *> &ConstSizes);
 
   ///  Generate the iteration space partitioning code based on OpenCL.

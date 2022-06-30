@@ -534,9 +534,12 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
   }
 
   // If the instruction itself is non-SCEVable return true.
+  // Compare instructions are propagated to their uses in if/select by parser so
+  // they should be considered as SCEVable.
   // Note that we are only checking for commonly occuring non-scevable
   // instructions.
-  if (!ScopedSE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
+  if ((!isa<CmpInst>(CurInst) && !ScopedSE->isSCEVable(CurInst->getType())) ||
+      isa<LoadInst>(CurInst) ||
       (isa<CallInst>(CurInst) && !isa<IntrinsicInst>(CurInst))) {
     return true;
   }
@@ -1133,6 +1136,7 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     return;
   }
 
+  IntrinsicInst *RegionEntryIntrin = nullptr;
   if (CurRegIt->isLoopMaterializationCandidate()) {
     ModifiedIR = true;
 
@@ -1163,8 +1167,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
 
     splitNonLoopRegionExit(SplitPos);
 
-  } else if (auto *RegionEntryIntrin =
-                 findRegionEntryIntrinsic(RegionEntryBB)) {
+  } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
+             (RegionEntryIntrin = findRegionEntryIntrinsic(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
     // starting at that instruction if-
     // 1) It is not the first bblock instruction, Or

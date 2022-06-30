@@ -85,8 +85,9 @@ static ToolChain::RTTIMode CalculateRTTIMode(const ArgList &Args,
       return ToolChain::RM_Disabled;
   }
 
-  // -frtti is default, except for the PS4.
-  return (Triple.isPS4()) ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
+  // -frtti is default, except for the PS4/PS5 and DriverKit.
+  bool NoRTTI = Triple.isPS() || Triple.isDriverKit();
+  return NoRTTI ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
 }
 
 ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
@@ -121,6 +122,34 @@ bool ToolChain::useIntegratedAs() const {
   return Args.hasFlag(options::OPT_fintegrated_as,
                       options::OPT_fno_integrated_as,
                       IsIntegratedAssemblerDefault());
+}
+
+bool ToolChain::useIntegratedBackend() const {
+  assert(
+      ((IsIntegratedBackendDefault() && IsIntegratedBackendSupported()) ||
+       (!IsIntegratedBackendDefault() || IsNonIntegratedBackendSupported())) &&
+      "(Non-)integrated backend set incorrectly!");
+
+  bool IBackend = Args.hasFlag(options::OPT_fintegrated_objemitter,
+                               options::OPT_fno_integrated_objemitter,
+                               IsIntegratedBackendDefault());
+
+  // Diagnose when integrated-objemitter options are not supported by this
+  // toolchain.
+  unsigned DiagID;
+  if ((IBackend && !IsIntegratedBackendSupported()) ||
+      (!IBackend && !IsNonIntegratedBackendSupported()))
+    DiagID = clang::diag::err_drv_unsupported_opt_for_target;
+  else
+    DiagID = clang::diag::warn_drv_unsupported_opt_for_target;
+  Arg *A = Args.getLastArg(options::OPT_fno_integrated_objemitter);
+  if (A && !IsNonIntegratedBackendSupported())
+    D.Diag(DiagID) << A->getAsString(Args) << Triple.getTriple();
+  A = Args.getLastArg(options::OPT_fintegrated_objemitter);
+  if (A && !IsIntegratedBackendSupported())
+    D.Diag(DiagID) << A->getAsString(Args) << Triple.getTriple();
+
+  return IBackend;
 }
 
 bool ToolChain::useRelaxRelocations() const {
@@ -350,6 +379,12 @@ Tool *ToolChain::getOffloadWrapper() const {
   return OffloadWrapper.get();
 }
 
+Tool *ToolChain::getOffloadPackager() const {
+  if (!OffloadPackager)
+    OffloadPackager.reset(new tools::OffloadPackager(*this));
+  return OffloadPackager.get();
+}
+
 Tool *ToolChain::getOffloadDeps() const {
   if (!OffloadDeps)
     OffloadDeps.reset(new tools::OffloadDeps(*this));
@@ -444,6 +479,8 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::OffloadWrapperJobClass:
     return getOffloadWrapper();
+  case Action::OffloadPackagerJobClass:
+    return getOffloadPackager();
 
   case Action::OffloadDepsJobClass:
     return getOffloadDeps();
@@ -804,6 +841,11 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
   default:
     return getTripleString();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64: {
     llvm::Triple Triple = getTriple();
     if (!Triple.isOSBinFormatMachO())
@@ -1001,6 +1043,14 @@ void ToolChain::addExternCSystemIncludeIfExists(const ArgList &DriverArgs,
   }
 }
 
+/*static*/ std::string ToolChain::concat(StringRef Path, const Twine &A,
+                                         const Twine &B, const Twine &C,
+                                         const Twine &D) {
+  SmallString<128> Result(Path);
+  llvm::sys::path::append(Result, llvm::sys::path::Style::posix, A, B, C, D);
+  return std::string(Result);
+}
+
 std::string ToolChain::detectLibcxxVersion(StringRef IncludePath) const {
   std::error_code EC;
   int MaxVersion = 0;
@@ -1104,7 +1154,7 @@ static StringRef getIntelLibArgVal(StringRef LibName) {
           .Cases("libimf", "-limf", "libimf")
           .Cases("libsvml", "-lsvml", "libsvml")
           .Cases("libirng", "-lirng", "libirng")
-          .Default("");
+          .Default(LibName);
   return LibArg;
 }
 
@@ -1401,14 +1451,15 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
         LibName += "d";
       MKLLibs.push_back(Args.MakeArgString(LibName));
     }
-    auto addMKLExt = [&Args](std::string LN, const llvm::Triple &Triple) {
+    auto addMKLExt = [&Args, IsMSVC](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64) {
         if (Args.hasArg(options::OPT_fsycl))
           LibName.append("_ilp64");
         else
           LibName.append("_lp64");
-      }
+      } else if (IsMSVC && Triple.getArch() == llvm::Triple::x86)
+        LibName.append("_c");
       return LibName;
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
@@ -1531,10 +1582,20 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
       getTriple().getArch() == llvm::Triple::x86_64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
-      getTriple().isAArch64())
+      getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       getTriple().isAArch64(64) || getTriple().isRISCV())
     Res |= SanitizerKind::ShadowCallStack;
   if (getTriple().isAArch64(64))
@@ -1633,10 +1694,17 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       // AMD GPU is a special case, as -mcpu is required for the device
       // compilation, except for SYCL which uses --offload-arch.
       if (SameTripleAsHost || (getTriple().getArch() == llvm::Triple::amdgcn &&
-                               DeviceOffloadKind != Action::OFK_SYCL))
+                               DeviceOffloadKind != Action::OFK_SYCL)) {
         DAL->append(A);
-      else
-        Modified = true;
+        continue;
+      }
+      // SPIR-V special case for -mlong-double
+      if (getTriple().isSPIR() &&
+          A->getOption().matches(options::OPT_LongDouble_Group)) {
+        DAL->append(A);
+        continue;
+      }
+      Modified = true;
       continue;
     }
 
@@ -1655,6 +1723,28 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     unsigned Prev;
     bool XOffloadTargetNoTriple;
 
+#if INTEL_CUSTOMIZATION
+    auto parseTriple = [&](Arg *A) {
+      StringRef Val(A->getValue());
+      std::pair<StringRef, StringRef> T = Val.split('=');
+      if (!T.second.empty()) {
+        // Add the the original -fopenmp-targets option without the additional
+        // arguments, then add the arguments.
+        Arg *ArgReplace =
+            new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
+                    Args.getBaseArgs().MakeIndex(A->getSpelling()),
+                    Args.MakeArgString(T.first));
+        std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
+        OffloadTargetArg->setBaseArg(A);
+        Arg *A4 = OffloadTargetArg.release();
+        AllocatedArgs.push_back(A4);
+        DAL->append(A4);
+        Modified = true;
+      } else
+        DAL->append(A);
+    };
+#endif // INTEL_CUSTOMIZATION
+
     // TODO: functionality between OpenMP offloading and SYCL offloading
     // is similar, can be improved
     if (DeviceOffloadKind == Action::OFK_OpenMP) {
@@ -1671,23 +1761,7 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
 #if INTEL_CUSTOMIZATION
       } else if (A->getOption().matches(options::OPT_fopenmp_targets_EQ)) {
         // Capture options from -fopenmp-targets=<triple>=<opts>
-        StringRef Val(A->getValue());
-        std::pair<StringRef, StringRef> T = Val.split('=');
-        if (!T.second.empty()) {
-          // Add the the original -fopenmp-targets option without the additional
-          // arguments, then add the arguments.
-          Arg *ArgReplace =
-              new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
-                      Args.getBaseArgs().MakeIndex(A->getSpelling()),
-                      Args.MakeArgString(T.first));
-          std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
-          OffloadTargetArg->setBaseArg(A);
-          Arg *A4 = OffloadTargetArg.release();
-          AllocatedArgs.push_back(A4);
-          DAL->append(A4);
-          Modified = true;
-        } else
-          DAL->append(A);
+        parseTriple(A);
         continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
@@ -1706,6 +1780,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
         else
           continue;
+#if INTEL_CUSTOMIZATION
+      } else if (A->getOption().matches(options::OPT_fsycl_targets_EQ)) {
+        // Capture options from -fsycl-targets=<triple>=<opts>
+        parseTriple(A);
+        continue;
+#endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
         // Passing device args: -Xsycl-target-frontend -opt=val.
         Index = Args.getBaseArgs().MakeIndex(A->getValue(0));
@@ -1733,7 +1813,7 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       // improved upon
       auto SingleTargetTripleCount = [&Args](OptSpecifier Opt) {
         const Arg *TargetArg = Args.getLastArg(Opt);
-        if (TargetArg && TargetArg->getValues().size() == 1)
+        if (!TargetArg || TargetArg->getValues().size() == 1)
           return true;
         return false;
       };
@@ -1760,49 +1840,54 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     Modified = true;
   }
 #if INTEL_CUSTOMIZATION
-  // -fopenmp-targets=<triple>=<opts> support parsing.
-  for (StringRef Val : Args.getAllArgValues(options::OPT_fopenmp_targets_EQ)) {
-    // Capture options from -fopenmp-targets=<triple>=<opts>
-    std::pair<StringRef, StringRef> T = Val.split('=');
-    if (T.second.empty())
-      continue;
-    // Tokenize the string.
-    SmallVector<const char *, 8> TargetArgs;
-    llvm::BumpPtrAllocator BPA;
-    llvm::StringSaver S(BPA);
-    llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-    // Setup masks so Windows options aren't picked up for parsing
-    // Linux options
-    unsigned IncludedFlagsBitmask = 0;
-    unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-    if (getDriver().IsCLMode()) {
-      // Include CL and Core options.
-      IncludedFlagsBitmask |= options::CLOption;
-      IncludedFlagsBitmask |= options::CoreOption;
-    } else
-      ExcludedFlagsBitmask |= options::CLOption;
-    unsigned MissingArgIndex, MissingArgCount;
-    InputArgList NewArgs =
-        Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                       IncludedFlagsBitmask, ExcludedFlagsBitmask);
-    for (Arg *NA : NewArgs) {
-      // Add the new arguments.
-      Arg *OffloadArg;
-      if (NA->getNumValues()) {
-        StringRef Value(NA->getValue());
-        OffloadArg = new Arg(
-            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-            Args.getBaseArgs().MakeIndex(NA->getSpelling()),
-            Args.MakeArgString(Value.data()));
-      } else {
-        OffloadArg = new Arg(
-            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-            Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+  auto parseTargetOpts = [&](OptSpecifier Id) {
+    for (StringRef Val : Args.getAllArgValues(Id)) {
+      std::pair<StringRef, StringRef> T = Val.split('=');
+      if (T.second.empty())
+        continue;
+      // Tokenize the string.
+      SmallVector<const char *, 8> TargetArgs;
+      llvm::BumpPtrAllocator BPA;
+      llvm::StringSaver S(BPA);
+      llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+      // Setup masks so Windows options aren't picked up for parsing
+      // Linux options
+      unsigned IncludedFlagsBitmask = 0;
+      unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+      if (getDriver().IsCLMode()) {
+        // Include CL and Core options.
+        IncludedFlagsBitmask |= options::CLOption;
+        IncludedFlagsBitmask |= options::CoreOption;
+      } else
+        ExcludedFlagsBitmask |= options::CLOption;
+      unsigned MissingArgIndex, MissingArgCount;
+      InputArgList NewArgs =
+          Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                         IncludedFlagsBitmask, ExcludedFlagsBitmask);
+      for (Arg *NA : NewArgs) {
+        // Add the new arguments.
+        Arg *OffloadArg;
+        if (NA->getNumValues()) {
+          StringRef Value(NA->getValue());
+          OffloadArg = new Arg(
+              NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+              Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+              Args.MakeArgString(Value.data()));
+        } else {
+          OffloadArg = new Arg(
+              NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+              Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+        }
+        DAL->append(OffloadArg);
+        Modified = true;
       }
-      DAL->append(OffloadArg);
-      Modified = true;
     }
-  }
+  };
+
+  // -fopenmp-targets=<triple>=<opts> support parsing.
+  parseTargetOpts(options::OPT_fopenmp_targets_EQ);
+  // -fsycl-targets=<triple>=<opts> support parsing.
+  parseTargetOpts(options::OPT_fsycl_targets_EQ);
 #endif // INTEL_CUSTOMIZATION
   if (Modified)
     return DAL;

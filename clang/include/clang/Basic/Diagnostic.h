@@ -57,7 +57,8 @@
 
 namespace llvm {
 class Error;
-}
+class raw_ostream;
+} // namespace llvm
 
 namespace clang {
 
@@ -1430,7 +1431,13 @@ inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
 }
 
 inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
-                                             int64_t I) {
+                                             long I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_sint);
+  return DB;
+}
+
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             long long I) {
   DB.AddTaggedVal(I, DiagnosticsEngine::ak_sint);
   return DB;
 }
@@ -1452,7 +1459,13 @@ inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
 }
 
 inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
-                                             uint64_t I) {
+                                             unsigned long I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
+  return DB;
+}
+
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             unsigned long long I) {
   DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
   return DB;
 }
@@ -1743,6 +1756,9 @@ public:
     return llvm::makeArrayRef(FixIts);
   }
 };
+
+// Simple debug printing of StoredDiagnostic.
+llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const StoredDiagnostic &);
 
 /// Abstract interface, implemented by clients of the front-end, which
 /// formats and prints fully processed diagnostics.

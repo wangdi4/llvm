@@ -19,7 +19,7 @@
 ; handled for the WILOCAL firstprivate on the outer target.
 
 ; IGNOREFP: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
-; IGNOREFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 1
+; IGNOREFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 4
 ; IGNOREFP:   [[X_CAST:%[^ ]+]] = addrspacecast i32* [[X_TGTFP]] to i32 addrspace(4)*
 ; IGNOREFP:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; IGNOREFP:   store i32 [[X_VAL_CAST]], i32* [[X_TGTFP]], align 4
@@ -32,9 +32,9 @@
 ; With firstprivate handling on teams construct enabled, the clause is only
 ; handled for both teams as well as the outer target constructs.
 
-; HANDLEFP: [[X_TEAMFP:@x.ascast.fpriv.__local]] = internal addrspace(3) global i32 0, align 1
+; HANDLEFP: [[X_TEAMFP:@x.ascast.fpriv.__local]] = internal addrspace(3) global i32 0
 ; HANDLEFP: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
-; HANDLEFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 1
+; HANDLEFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 4
 ; HANDLEFP:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; HANDLEFP:   store i32 [[X_VAL_CAST]], i32* [[X_TGTFP]], align 4
 ; HANDLEFP:   [[X_TGTFP_VAL:%[^ ]+]] = load i32, i32* [[X_TGTFP]], align 4

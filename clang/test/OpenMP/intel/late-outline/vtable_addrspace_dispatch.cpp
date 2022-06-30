@@ -16,7 +16,7 @@
 // CHECK-SAME:   [ptr addrspace(4) null,
 // CHECK-SAME:    ptr addrspace(4) addrspacecast (ptr @_ZTI1C to ptr addrspace(4)),
 // CHECK-SAME:    ptr addrspace(4) addrspacecast (ptr @_ZN1C3fooEi to ptr addrspace(4)),
-// CHECK_SAME:    ptr addrspace(4) addrspacecast (ptr @_ZN1C3fooEPi to ptr addrspace(4))]
+// CHECK-SAME:    ptr addrspace(4) addrspacecast (ptr @_ZN1C3fooEPi to ptr addrspace(4))]
 // CHECK-SAME: }
 
 // CHECK: [[ZTV1B:@_ZTV1B]] = linkonce_odr target_declare unnamed_addr addrspace(1) constant { [5 x ptr addrspace(4)], [6 x ptr addrspace(4)] }

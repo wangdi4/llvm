@@ -123,8 +123,12 @@ bool CheckInt(const char * name, cl_long expected, cl_long result)
 	{
 		printf("FAIL: %s\n",name);
 	}
-	printf("\t\texpected = %ld, result = %ld\n", expected, result);
-	return bRes;
+#if defined(_WIN32)
+        printf("\t\texpected = %lld, result = %lld\n", expected, result);
+#else
+        printf("\t\texpected = %ld, result = %ld\n", expected, result);
+#endif
+        return bRes;
 }
 
 bool SilentCheckInt(const char * name, cl_long expected, cl_long result)
@@ -134,8 +138,14 @@ bool SilentCheckInt(const char * name, cl_long expected, cl_long result)
 	if (!bRes)
 	{
 		printf("FAIL: %s\n",name);
-		printf("\t\texpected = %ld, result = %ld\n", expected, result);
-	}
+#if defined(_WIN32)
+                printf("\t\texpected = %lld, result = %lld\n", expected,
+                       result);
+#else
+                printf("\t\texpected = %ld, result = %ld\n", expected,
+                       result);
+#endif
+        }
 	return bRes;
 }
 
@@ -151,8 +161,12 @@ bool CheckSize(const char * name, size_t expected, size_t result)
 	{
 		printf("FAIL: %s\n",name);
 	}
-	printf("\t\texpected = %ld, result = %ld\n", expected, result);
-	return bRes;
+#if defined(_WIN32)
+        printf("\t\texpected = %lld, result = %lld\n", expected, result);
+#else
+        printf("\t\texpected = %ld, result = %ld\n", expected, result);
+#endif
+        return bRes;
 }
 
 bool CheckHandle(const char * name, cl_platform_id expected, cl_platform_id result)
@@ -230,8 +244,14 @@ bool SilentCheckSize(const char * name, size_t expected, size_t result)
 	if (!bRes)
 	{
 		printf("FAIL: %s\n",name);
-		printf("\t\texpected = %ld, result = %ld\n", expected, result);
-	}
+#if defined(_WIN32)
+                printf("\t\texpected = %lld, result = %lld\n", expected,
+                       result);
+#else
+                printf("\t\texpected = %ld, result = %ld\n", expected,
+                       result);
+#endif
+        }
 	return bRes;
 }
 

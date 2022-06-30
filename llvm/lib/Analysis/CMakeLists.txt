@@ -229,6 +229,7 @@ add_llvm_component_library(LLVMAnalysis
   SyncDependenceAnalysis.cpp
   SyntheticCountsUtils.cpp
   TFUtils.cpp
+  TensorSpec.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp
   Trace.cpp
@@ -255,9 +256,19 @@ add_llvm_component_library(LLVMAnalysis
 # end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  LLVMDemangle
+# end INTEL_FEATURE_SW_ADVANCED
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   ${MLLinkDeps}
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  LLVMDemangle
+# end INTEL_FEATURE_SW_ADVANCED
+# end INTEL_CUSTOMIZATION
 
   LINK_COMPONENTS
   BinaryFormat

@@ -131,12 +131,19 @@ const char *CopyAndAdvance(const char *src, const char *srcEnd, T &dest) {
 
 // An accumulator that writes into a FILE* stream.
 //
-StreamOutputAccumulator::StreamOutputAccumulator(FILE* stream)
-    : stream(stream), count(0)
-{
-    #if (defined(_WIN32) || defined(_WIN64))
-        hStdout=nullptr;
-    #endif
+StreamOutputAccumulator::StreamOutputAccumulator(FILE *
+#if !defined(_WIN32)
+                                                     stream
+#endif
+                                                 )
+    :
+#if !defined(_WIN32)
+      stream(stream),
+#endif
+      count(0) {
+#if (defined(_WIN32) || defined(_WIN64))
+  hStdout = nullptr;
+#endif
 }
 
 void StreamOutputAccumulator::append(char c)

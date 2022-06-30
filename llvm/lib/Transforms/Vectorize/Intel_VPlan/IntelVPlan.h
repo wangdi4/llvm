@@ -595,7 +595,10 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
+    ReductionInitScalar, // Initializes scalar inscan reduction accumulator
+                         // with an Identity value.
     ReductionFinal,
+    ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
     Subscript,
     Blend,
@@ -644,11 +647,54 @@ public:
                            // mask.
     PrivateFinalArray,
     PrivateLastValueNonPOD,
+    CompressStore, // generate llvm.masked.compressstore intrinsic, for
+                   // unit stride stores
+
+    CompressStoreNonu, // generate vcompress intrinsic and masked scatter
+                       // mask for scatter: (-1 >> popcnt(exec_mask))
+
+    ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
+                // loads
+
+    ExpandLoadNonu, // generate masked gather, and vexpand intrinsic mask for
+                    // gather: (-1 >> popcnt(exec_mask))
+
+    CompressExpandIndexInit,  // placeholder for initial value of index
+    CompressExpandIndexFinal, // placeholder for the final value of index
+
+    CompressExpandIndex,     // calculate vector of indexes for non-unit stride
+                             // compress/expand
+    CompressExpandIndexUnit, // calculate scalar index for unit stride
+                             // compress/expand
+
+    CompressExpandIndexInc, // compress/expand index increment
+                            // operands: index, stride, mask
+                            // generate: index += stride * pocnt(mask);
+    PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
     TreeConflict,
     CvtMaskToInt,
     Permute,
+    RunningInclusiveReduction, // Represents running inclusive reduction for
+                               // inscan reduction vectorization:
+                               // E.g., operation for type T:
+                               // T4 running-inclusive-reduction(T4 vx, T x) {
+                               //   return [vx3 + vx2 + vx1 + vx0 + x,
+                               //           vx2 + vx1 + vx0 + x,
+                               //           vx1 + vx0 + x,
+                               //           vx0 + x];
+                               // }
+    RunningExclusiveReduction, // Represents running exclusive reduction for
+                               // inscan reduction vectorization:
+                               // e.g, operation for type T:
+                               // T4 running-exclusive-reduction(T4 vx, T x) {
+                               //   return [vx2 + vx1 + vx0 + x,
+                               //           vx1 + vx0 +x,
+                               //           vx0 + x,
+                               //           x];
+                               // }
+    ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
   };
 
 private:
@@ -996,16 +1042,16 @@ private:
   }
 };
 
-/// Concrete class to represent last value calculation for private nonPODs in
-/// VPlan.
-class VPPrivateLastValueNonPODInst : public VPInstruction {
+/// Concrete class to represent last value calculation for masked and non-masked
+/// private nonPODs in VPlan.
+template <unsigned InstOpcode>
+class VPPrivateLastValueNonPODTemplInst : public VPInstruction {
 public:
-  /// Create VPPrivateLastValueNonPODInst with its BaseType, operands and
+  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
   /// private object copyassign function pointer.
-  VPPrivateLastValueNonPODInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                               Function *CopyAssign)
-      : VPInstruction(VPInstruction::PrivateLastValueNonPOD, BaseTy, Operands),
-        CopyAssign(CopyAssign) {}
+  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                    Function *CopyAssign)
+      : VPInstruction(InstOpcode, BaseTy, Operands), CopyAssign(CopyAssign) {}
 
   /// Return the copyassign function stored by this instruction
   Function *getCopyAssign() const { return CopyAssign; }
@@ -1013,23 +1059,27 @@ public:
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+    return VPI->getOpcode() == InstOpcode;
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
 protected:
-  virtual VPPrivateLastValueNonPODInst *cloneImpl() const final {
-    SmallVector<VPValue *, 2> Ops;
-    for (auto &O : operands())
-      Ops.push_back(O);
-    return new VPPrivateLastValueNonPODInst(getType(), Ops, getCopyAssign());
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPPrivateLastValueNonPODTemplInst<InstOpcode>(getType(), Ops,
+                                                             getCopyAssign());
   }
 
 private:
   Function *CopyAssign = nullptr;
 };
+
+using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<
+    VPInstruction::PrivateLastValueNonPODMasked>;
+using VPPrivateLastValueNonPODInst =
+    VPPrivateLastValueNonPODTemplInst<VPInstruction::PrivateLastValueNonPOD>;
 
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {
@@ -1655,7 +1705,7 @@ public:
 
   VPLoadStoreInst(unsigned Opcode, Type *Ty, ArrayRef<VPValue *> Operands)
       : VPInstruction(Opcode, Ty, Operands) {
-    assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+    assert((isLoadOpcode(Opcode) || isStoreOpcode(Opcode)) &&
            "Invalid opcode for load/store instruction.");
   }
 
@@ -1742,10 +1792,20 @@ public:
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
   }
 
+  static bool isLoadOpcode(unsigned Opcode) {
+    return (Opcode == Instruction::Load || Opcode == ExpandLoad ||
+            Opcode == ExpandLoadNonu);
+  }
+
+  static bool isStoreOpcode(unsigned Opcode) {
+    return (Opcode == Instruction::Store || Opcode == CompressStore ||
+            Opcode == CompressStoreNonu);
+  }
+
   unsigned getPointerOperandIndex() const {
-    if (getOpcode() == Instruction::Load)
+    if (isLoadOpcode(getOpcode()))
       return 0;
-    assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
+    assert(isStoreOpcode(getOpcode()) && "Unknown LoadStore opcode");
     return 1;
   }
 
@@ -1762,15 +1822,14 @@ public:
   }
 
   Type *getValueType() const {
-    if (getOpcode() == Instruction::Load)
+    if (isLoadOpcode(getOpcode()))
       return getType();
     return getOperand(0)->getType();
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == Instruction::Load ||
-           VPI->getOpcode() == Instruction::Store;
+    return isLoadOpcode(VPI->getOpcode()) || isStoreOpcode(VPI->getOpcode());
   }
 
   static bool classof(const VPValue *V) {
@@ -2513,8 +2572,9 @@ public:
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}), UsesStartValue(UseStart) {}
 
-  VPReductionInit(VPValue *Identity, VPValue *StartValue)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
+  VPReductionInit(VPValue *Identity, VPValue *StartValue,
+                  unsigned Opcode = VPInstruction::ReductionInit)
+      : VPInstruction(Opcode, Identity->getType(),
                       {Identity, StartValue}), UsesStartValue(true) {}
 
   /// Return operand that corresponds to the indentity value.
@@ -2557,13 +2617,28 @@ protected:
     if (getNumOperands() == 1)
       return new VPReductionInit(getIdentityOperand(), UsesStartValue);
     else if (getNumOperands() == 2)
-      return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
+      return new VPReductionInit(getIdentityOperand(), getStartValueOperand(),
+                                 getOpcode());
     else
       llvm_unreachable("Too many operands.");
   }
 
 private:
   bool UsesStartValue;
+};
+
+// Initialize a scalar reduction, like inscan reduction.
+// The start value is always used.
+// Identity is not needed, use it for consistency.
+class VPReductionInitScalar : public VPReductionInit {
+public:
+  VPReductionInitScalar(VPValue *Identity, VPValue *StartValue) :
+    VPReductionInit(Identity, StartValue, VPInstruction::ReductionInitScalar) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionInitScalar;
+  }
 };
 
 // VPInstruction for reduction last value calculation.
@@ -2595,9 +2670,9 @@ public:
         BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
   /// Constructor for optimized summation
-  VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
-                      {ReducVec}),
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                   unsigned Opcode = VPInstruction::ReductionFinal)
+      : VPInstruction(Opcode, ReducVec->getType(), {ReducVec}),
         BinOpcode(BinOp), Signed(false), IsLinearIndex(false) {}
 
   /// Constructor for index part of min/max+index reduction.
@@ -2704,7 +2779,8 @@ protected:
           getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
           cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
     else if (getStartValueOperand() == nullptr)
-      return new VPReductionFinal(getBinOpcode(), getReducingOperand());
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getOpcode());
     else
       return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
                                   getStartValueOperand(), isSigned());
@@ -2714,6 +2790,20 @@ private:
   unsigned BinOpcode;
   bool Signed;
   bool IsLinearIndex;
+};
+
+
+/// Finalization of inscan reduction is not required.
+/// Returns the input operand.
+class VPReductionFinalInscan : public VPReductionFinal {
+public:
+  VPReductionFinalInscan(unsigned BinOp, VPValue *ReducVec)
+    : VPReductionFinal(BinOp, ReducVec, VPInstruction::ReductionFinalInscan) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionFinalInscan;
+  }
 };
 
 /// Concrete class for representing a vector of steps of arithmetic progression.
@@ -2858,6 +2948,13 @@ class VPPeelRemainderImpl : public VPInstruction {
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
 
+  /// Set of origin opt-report remarks for scalar loop used for annotation
+  /// purposes.
+  SmallVector<OptReportStatsTracker::RemarkRecord, 4> OriginRemarks;
+
+  /// Set of general opt-report remarks for scalar loop.
+  SmallVector<OptReportStatsTracker::RemarkRecord, 4> GeneralRemarks;
+
   static LLVMContext &getContext(Loop *Lp) {
     return Lp->getHeader()->getContext();
   }
@@ -2919,6 +3016,26 @@ public:
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     OpLiveInMap[Idx] = U;
+  }
+
+  /// Add a new origin remark for outgoing scalar loop.
+  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
+    OriginRemarks.push_back(R);
+  }
+
+  /// Add a new general remark for outgoing scalar loop.
+  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
+    GeneralRemarks.push_back(R);
+  }
+
+  /// Get all origin remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
+    return OriginRemarks;
+  }
+
+  /// Get all general remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
+    return GeneralRemarks;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -3356,10 +3473,11 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment,
+                    bool IsScalar = false)
       : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
         AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment) {}
+        OrigAlignment(OrigAlignment), IsScalar(IsScalar) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3396,11 +3514,14 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
+  /// Return if this is a scalar allocation.
+  bool getIsScalar() const { return IsScalar; }
+
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
     auto Ret = new VPAllocatePrivate(
-      getType(), getAllocatedType(), getOrigAlignment());
+      getType(), getAllocatedType(), getOrigAlignment(), getIsScalar());
     if (isSOASafe())
       Ret->setSOASafe();
     if (isSOAProfitable())
@@ -3413,6 +3534,7 @@ private:
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
+  bool IsScalar;
 };
 
 /// Return index of some active lane. Currently we use the first one but users
@@ -4085,8 +4207,7 @@ public:
   // Utility to obtain the LLVM X86 conflict intrinsic that this VPInstruction
   // will be lowered to. Returns Intrinsic::not_intrinsic if input size is
   // unexpected.
-  Intrinsic::ID getConflictIntrinsic(unsigned VF) const {
-    unsigned TypeSize = getOperand(0)->getType()->getPrimitiveSizeInBits();
+  Intrinsic::ID getConflictIntrinsic(unsigned VF, unsigned TypeSize) const {
     unsigned InputSize = TypeSize * VF;
     if (TypeSize == 32) {
       switch (InputSize) {
@@ -4496,6 +4617,26 @@ public:
   /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
   void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
+  /// Return true if adding instructions at specified loop depth starting
+  /// from topmost loop being vectorized will cause us to exceed maximum
+  /// allowed loop nesting level.
+  bool exceedsMaxLoopNestingLevel(unsigned InstDepth) {
+    // This check is only relevant for HIR path where we have a limit
+    // on maximum allowed loop nesting. For LLVM IR case, OrigLoopNestingLevel
+    // remains set to 0.
+    if (!OrigLoopNestingLevel)
+      return false;
+
+    return OrigLoopNestingLevel + InstDepth > loopopt::MaxLoopNestLevel;
+  }
+
+  void setOrigLoopNestingLevel(unsigned Level) { OrigLoopNestingLevel = Level; }
+
+  unsigned getOrigLoopNestingLevel() const { return OrigLoopNestingLevel; }
+
+  void setPrintingEnabled(bool V) { PrintingEnabled = V;}
+  bool isPrintingEnabled() const { return PrintingEnabled;}
+
 private:
   void addLiveInValue(VPLiveInValue *V) {
     assert(V->getMergeId() == LiveInValues.size() &&
@@ -4542,6 +4683,15 @@ private:
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.
   bool ExplicitRemainderUsed = false;
+
+  /// Set to false when printing is not enabled, e.g. by -filter-print-funcs.
+  bool PrintingEnabled = true;
+
+  /// Nesting level of outermost loop being vectorized. VPlan transformations
+  /// may generated additional loops and we cannot exceed the maximum
+  /// nesting level allowed for HIR. Currently this field is only used in the
+  /// HIR path to check such optimizations(TreeConflict lowering for now).
+  unsigned OrigLoopNestingLevel = 0;
 };
 
 /// Class to represent VPlan for scalar-loops.
@@ -4570,6 +4720,10 @@ public:
 
   void setNeedCloneOrigLoop(bool V);
   bool getNeedCloneOrigLoop() const { return NeedCloneOrigLoop; }
+
+  /// Utility to retrieve VPInstruction that represents the scalar loop in this
+  /// scalar VPlan.
+  VPInstruction *getScalarLoopInst();
 
 protected:
   VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
@@ -5024,6 +5178,8 @@ public:
 // Several inline functions to hide the #if machinery from the callers.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
+  if (!Plan->isPrintingEnabled()) // to not print string headers
+    return;
   DEBUG_WITH_TYPE("vplan-dumps",
                   dbgs() << "VPlan after " << Transformation << ":\n";
                   Plan->dump(dbgs()));
@@ -5119,6 +5275,8 @@ struct FuncVecVPlanDumpControl : public VPlanDumpControl {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
+  if (!Plan.isPrintingEnabled()) // to not print string headers
+    return;
   DEBUG_WITH_TYPE("vplan-dumps", dbgs()
                                      << "VPlan after "
                                      << Control.getPassDescription() << ":\n";

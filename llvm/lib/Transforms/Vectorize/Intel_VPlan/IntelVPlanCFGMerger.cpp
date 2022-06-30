@@ -399,6 +399,9 @@ protected:
         new VPlanType(MainPlan.getExternals(), MainPlan.getUnlinkedVPInsts());
     setPlanName(MainPlan);
 
+    // Copy PrintingEnabled flag
+    NewPlan->setPrintingEnabled(MainPlan.isPrintingEnabled());
+
     // Create live-in and live-out lists.
     auto *ScalarInOuts = NewPlan->getExternals().getScalarLoopInOuts(OrigLoop);
 

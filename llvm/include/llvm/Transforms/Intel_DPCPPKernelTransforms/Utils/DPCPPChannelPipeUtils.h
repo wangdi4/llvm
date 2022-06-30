@@ -17,9 +17,12 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_CHANNEL_PIPE_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_CHANNEL_PIPE_UTILS_H
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
 namespace DPCPPChannelPipeUtils {
@@ -30,6 +33,31 @@ struct ChannelPipeMD {
   int Depth;
   std::string IO;
 };
+
+enum ChannelDepthMode { Strict, Default, IgnoreDepth };
+
+ChannelPipeMD getChannelPipeMetadata(
+    GlobalVariable *Channel,
+    int ChannelDepthEmulationMode = ChannelDepthMode::Strict);
+
+struct ChannelKind {
+  enum AccessKind {
+    NONE, // not a channel
+    READ,
+    WRITE
+  };
+
+  AccessKind Access;
+  bool Blocking;
+
+  bool operator==(const ChannelKind &LHS) const {
+    return Access == LHS.Access && Blocking == LHS.Blocking;
+  }
+
+  operator bool() const { return Access != AccessKind::NONE; }
+};
+
+ChannelKind getChannelKind(const StringRef);
 
 /// Emitting warning messages of large-size channel declaration.
 class LargeChannelPipeWarningDiagInfo : public DiagnosticInfo {
@@ -68,9 +96,55 @@ void setPipeMetadata(GlobalVariable *PipeStorageVar, const ChannelPipeMD &MD);
 /// Create __pipe_global_ctor() function body.
 Function *createPipeGlobalCtor(Module &M);
 
+/// Create __pipe_global_dtor() function body.
+Function *createPipeGlobalDtor(Module &M);
+
 void initializeGlobalPipeScalar(GlobalVariable *PipeStorageVar,
                                 const ChannelPipeMD &MD, Function *GlobalCtor,
                                 Function *PipeInit);
+
+void initializeGlobalPipeReleaseCall(Function *GlobalDtor,
+                                     Function *PipeReleaseFunc,
+                                     GlobalVariable *PipeGV);
+
+GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
+                                       const ChannelPipeMD &MD);
+
+namespace OpenCLInterface {
+int __pipe_get_total_size_fpga(int packet_size, int depth, int mode);
+} // namespace OpenCLInterface
+
+/// A helper class for checking pipe types.
+class PipeTypesHelper {
+  PointerType *PipeRWTy;
+  PointerType *PipeROTy;
+  PointerType *PipeWOTy;
+
+  PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
+                  Type *PipeWOStorageTy);
+
+public:
+  PipeTypesHelper(const Module &M);
+
+  bool hasPipeTypes() const { return PipeRWTy || PipeROTy || PipeWOTy; }
+
+  /// Check if Ty is read_only or write_only pipe type.
+  bool isLocalPipeType(Type *Ty) const;
+
+  /// Check if Ty is read_write pipe type.
+  bool isGlobalPipeType(Type *Ty) const;
+
+  bool isPipeType(Type *Ty) const;
+
+  bool isPipeArrayType(Type *Ty) const;
+};
+
+inline bool isPipeBuiltin(StringRef Name) {
+  return CompilationUtils::getPipeKind(Name);
+}
+
+Function *getPipeBuiltin(Module &M, RuntimeService &RTS,
+                         const CompilationUtils::PipeKind &Kind);
 
 } // namespace DPCPPChannelPipeUtils
 } // namespace llvm

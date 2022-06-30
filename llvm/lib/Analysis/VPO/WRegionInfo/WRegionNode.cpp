@@ -78,7 +78,6 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNPrefetch, "prefetch"},
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
-    {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNMasked, "masked"},
     {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
@@ -941,6 +940,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
     if (ClauseInfo.getIsArraySection())
+      // TODO: OPAQUEPOINTER: Need typed use_device_addr/has_device_addr
+      // to handle array sections?
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
         if (isa<PointerType>(PtrTy->getPointerElementType()))
           IsPointerToPointer = true;
@@ -1014,15 +1015,38 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   }
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
-  if (IsConditional)
-    assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
-           "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 #if INTEL_CUSTOMIZATION
-  if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod()) {
-    // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
+  bool IsNonPod = ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod();
+  // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
 #else // INTEL_CUSTOMIZATION
-  if (ClauseInfo.getIsNonPod()) {
+  bool IsNonPod = ClauseInfo.getIsNonPod();
 #endif // INTEL_CUSTOMIZATION
+
+  assert(!IsConditional ||
+         ClauseID == QUAL_OMP_LASTPRIVATE &&
+             "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
+  assert((!IsConditional || !IsNonPod) &&
+         "NonPod can't be conditional by OMP standard.");
+
+  auto addModifiersToItem = [&](ClauseItemTy *I) {
+    if (IsByRef)
+      I->setIsByRef(true);
+    if (IsConditional)
+      I->setIsConditional(true);
+    if (IsNonPod)
+      I->setIsNonPod(true);
+    if (ClauseInfo.getIsTyped())
+      I->setIsTyped(true);
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector())
+      I->setIsF90DopeVector(true);
+    I->setIsWILocal(ClauseInfo.getIsWILocal());
+    if (ClauseInfo.getIsF90NonPod())
+      I->setIsF90NonPod(true);
+#endif // INTEL_CUSTOMIZATION
+  };
+
+  if (IsNonPod) {
     // NONPOD representation requires multiple args per var:
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
@@ -1042,18 +1066,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       return;
     }
     ClauseItemTy *Item = new ClauseItemTy(Args, IsTyped);
-    Item->setIsByRef(IsByRef);
-    Item->setIsNonPod(true);
-    assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
+    addModifiersToItem(Item);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       Item->setHOrig(CurrentBundleDDRefs[0]);
-    if (ClauseInfo.getIsF90DopeVector())
-      Item->setIsF90DopeVector(true);
-    Item->setIsWILocal(ClauseInfo.getIsWILocal());
-    if (ClauseInfo.getIsF90NonPod())
-      Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else if (IsTyped) { // Typed PODs
@@ -1064,20 +1081,20 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       return;
     }
     C.add(V);
-    C.back()->setIsTyped(true);
+    addModifiersToItem(C.back());
     C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector()) {
+      C.back()->setPointeeElementTypeFromIR(Args[2]->getType());
+      C.back()->setNumElements(
+          ConstantInt::get(Type::getInt32Ty(Args[2]->getContext()), 1));
+    } else
+#endif // INTEL_CUSTOMIZATION
     C.back()->setNumElements(Args[2]);
-    if (IsByRef)
-      C.back()->setIsByRef(true);
-    if (IsConditional)
-      C.back()->setIsConditional(true);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[0]);
-    if (ClauseInfo.getIsF90DopeVector())
-      C.back()->setIsF90DopeVector(true);
-    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -1088,17 +1105,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
         continue;
       }
       C.add(V);
-      if (IsByRef)
-        C.back()->setIsByRef(true);
-      if (IsConditional)
-        C.back()->setIsConditional(true);
+      addModifiersToItem(C.back());
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(ClauseID))
         C.back()->setHOrig(CurrentBundleDDRefs[I]);
-      if (ClauseInfo.getIsF90DopeVector())
-        C.back()->setIsF90DopeVector(true);
-      C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
   }
@@ -1244,6 +1255,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
       MI->setIsByRef(ClauseInfo.getIsByRef());
+      MI->setIsFunctionPointer(ClauseInfo.getIsFunctionPointer());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -1353,6 +1365,9 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
     LI->setIsIV(ClauseInfo.getIsIV());
+    if (ClauseInfo.getIsPointerToPointer()) {
+      LI->setIsPointerToPointer(true);
+    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID())) {
@@ -1365,7 +1380,14 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
       LI->setIsTyped(IsTyped);
       Type *V1 = Args[I + 1]->getType();
       Value *V2 = Args[I + 2];
-      LI->setOrigItemElementTypeFromIR(V1);
+      if (LI->getIsPointerToPointer()) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        LI->setOrigItemElementTypeFromIR(PointerType::get(V1, AS));
+        LI->setPointeeElementTypeFromIR(V1);
+      } else {
+        LI->setOrigItemElementTypeFromIR(V1);
+      }
       LI->setNumElements(V2);
       break;
     }
@@ -1540,6 +1562,12 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         LLVMContext &Ctxt = V->getContext();
         RI->setIsTyped(true);
         RI->setOrigItemElementTypeFromIR(Args[I + 1]->getType());
+#if INTEL_CUSTOMIZATION
+        if (ClauseInfo.getIsF90DopeVector()) {
+          RI->setPointeeElementTypeFromIR(Args[I + 2]->getType());
+          RI->setNumElements(ConstantInt::get(Type::getInt32Ty(Ctxt), 1));
+        } else
+#endif // INTEL_CUSTOMIZATION
         RI->setNumElements(Args[I + 2]);
         RI->setArraySectionOffset(
             Constant::getNullValue(Type::getInt32Ty(Ctxt)));
@@ -1910,17 +1938,28 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_DATA: {
-    // "QUAL.OMP.DATA"(TYPE** %ptr, i32 <hint>, size_t <NumElem>)
-    assert(NumArgs == 3 && "Expected 3 arguments for DATA clause");
+    // "QUAL.OMP.DATA"(ptr %ptr, TYPE null, i64 <NumElements>, i32 <hint>)
+    assert((NumArgs == 3 || NumArgs == 4) &&
+           "Expected 3 or 4 arguments for DATA clause");
+    bool IsTyped = false;
+    int Offset = 0;
+    Type *DataTy = nullptr;
     Value *Ptr = Args[0];
-    assert(isa<ConstantInt>(Args[1]) && "Hint must be a constant integer");
-    assert(isa<ConstantInt>(Args[2]) &&
-           "Number of elements must be a constant integer");
-    ConstantInt *CI = cast<ConstantInt>(Args[1]);
+    if (NumArgs == 4) {
+      Offset = 1;
+      DataTy = Args[1]->getType();
+      IsTyped = true;
+    }
+    assert(isa<ConstantInt>(Args[1 + Offset]) &&
+           "Hint must be a constant integer");
+    ConstantInt *CI = cast<ConstantInt>(Args[1 + Offset]);
     unsigned Hint = CI->getZExtValue();
-    CI = cast<ConstantInt>(Args[2]);
-    uint64_t NumElem = CI->getZExtValue();
-    DataItem *Item = new DataItem(Ptr, Hint, NumElem);
+    Value *NumElements = Args[2 + Offset];
+    assert((NumElements->getType()->isIntegerTy(32) ||
+            NumElements->getType()->isIntegerTy(64)) &&
+           "Number of elements must be an integer");
+    DataItem *Item = new DataItem(Ptr, DataTy, NumElements, Hint);
+    Item->setIsTyped(IsTyped);
     DataClause &C = getData();
     C.add(Item);
     break;
@@ -2027,13 +2066,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // IVs are all null or nonnull; cannot have some null and some nonnull
         break;
       }
-      // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = nullptr;
       if (ClauseInfo.getIsTyped())
         VTy = Args[++I]->getType();
       else
         VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getPointerElementType()
+                  ? V->getType()->getNonOpaquePointerElementType()
                   : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
@@ -2046,13 +2084,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         assert(I==0 && "malformed NORMALIZED_UB clause");
         break;
       }
-      // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = nullptr;
       if (ClauseInfo.getIsTyped())
         VTy = Args[++I]->getType();
       else
         VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getPointerElementType()
+                  ? V->getType()->getNonOpaquePointerElementType()
                   : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
@@ -2092,7 +2129,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // OPAQUEPOINTER: replace this with llvm_unreachable.
         assert(!PtrTy->isOpaque() &&
                "NUM_TEAMS must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getPointerElementType();
+        ItemTy = PtrTy->getNonOpaquePointerElementType();
       }
       setNumTeamsType(ItemTy);
       break;
@@ -2110,7 +2147,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // OPAQUEPOINTER: replace this with llvm_unreachable.
         assert(!PtrTy->isOpaque() &&
                "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getPointerElementType();
+        ItemTy = PtrTy->getNonOpaquePointerElementType();
       }
       setThreadLimitType(ItemTy);
       break;

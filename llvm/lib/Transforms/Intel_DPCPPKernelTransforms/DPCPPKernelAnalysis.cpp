@@ -1,6 +1,6 @@
-//==--- DPCPPKernelAnalysis.cpp - Detect barriers in DPCPP kernels- C++ -*--==//
+//==--- DPCPPKernelAnalysis.cpp - Analyze DPCPP kernel properties - C++ -*--==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,22 +9,21 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-analysis"
 
 using namespace llvm;
-
-static cl::opt<bool> DPCPPEnableNativeSubgroups(
-    "dpcpp-enable-native-subgroups", cl::init(true), cl::Hidden,
-    cl::desc("Enable native subgroup functionality"));
+using namespace CompilationUtils;
 
 namespace {
 
@@ -43,11 +42,20 @@ public:
   StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 
   bool runOnModule(Module &M) override {
-    return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph());
+    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                    .getResult()
+                    .getRuntimeService();
+    auto GetLI = [&](Function &F) -> LoopInfo & {
+      return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+    return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
+                        RTS, GetLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     AU.addRequired<CallGraphWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -63,11 +71,12 @@ private:
 char DPCPPKernelAnalysisLegacy::ID = 0;
 
 INITIALIZE_PASS_BEGIN(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                      "Analyze which function go in barrier route", false,
-                      false)
+                      "Analyze kernel properties", false, false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_END(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                    "Analyze which function go in barrier route", false, false)
+                    "Analyze kernel properties", false, false)
 
 void DPCPPKernelAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
   Impl.print(OS, M);
@@ -79,46 +88,9 @@ ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module
-  FuncSet SyncFunctions =
-      DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(*M);
+  FuncSet SyncFunctions = getAllSyncBuiltinsDecls(*M);
 
-  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
-}
-
-void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs() {
-  FuncSet DirectTIDUsers;
-  std::string LID = DPCPPKernelCompilationUtils::mangledGetLID();
-  std::string GID = DPCPPKernelCompilationUtils::mangledGetGID();
-  fillUnsupportedTIDFuncs(LID, DirectTIDUsers);
-  fillUnsupportedTIDFuncs(GID, DirectTIDUsers);
-  DPCPPKernelLoopUtils::fillFuncUsersSet(DirectTIDUsers, UnsupportedFuncs);
-}
-
-bool DPCPPKernelAnalysisPass::isUnsupportedDim(Value *V) {
-  ConstantInt *ConstDim = dyn_cast<ConstantInt>(V);
-  // If arg is not a constant return true OR,
-  // if it is illegal constant.
-  if (!ConstDim || ConstDim->getValue().getZExtValue() > 2)
-    return true;
-  return false;
-}
-
-void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs(StringRef Name,
-                                                      FuncSet &DirectTIDUsers) {
-  Function *F = M->getFunction(Name);
-  if (!F)
-    return;
-  for (auto *U : F->users()) {
-    CallInst *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
-    // if the tid is variable add it to the set
-    Function *CallingFunc = CI->getParent()->getParent();
-    DirectTIDUsers.insert(CallingFunc);
-    if (isUnsupportedDim(CI->getArgOperand(0))) {
-      UnsupportedFuncs.insert(CI->getParent()->getParent());
-    }
-  }
+  LoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillKernelCallers() {
@@ -128,7 +100,7 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
     FuncSet KernelRootSet;
     FuncSet KernelUsers;
     KernelRootSet.insert(Kernel);
-    DPCPPKernelLoopUtils::fillFuncUsersSet(KernelRootSet, KernelUsers);
+    LoopUtils::fillFuncUsersSet(KernelRootSet, KernelUsers);
     // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
     // multiple time (because of the WG loop of the calling kernel).
@@ -139,11 +111,11 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
   // Also can not use explicit loops on kernel callers since the barrier
   // pass need to handle them in order to process the called kernels.
   FuncSet KernelSet(Kernels.begin(), Kernels.end());
-  DPCPPKernelLoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
+  LoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
-  using namespace DPCPPKernelCompilationUtils;
+  using namespace CompilationUtils;
   for (auto &F : *M) {
     if (F.isDeclaration())
       continue;
@@ -158,24 +130,89 @@ void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
   }
 }
 
-bool DPCPPKernelAnalysisPass::runImpl(Module &M, CallGraph &CG) {
+static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
+                                 Function *F) {
+  auto *Node = CG[F];
+  for (auto It = df_begin(Node), E = df_end(Node); It != E; ++It) {
+    for (const auto &Pair : **It) {
+      if (!Pair.first)
+        continue;
+      CallInst *CI = cast<CallInst>(*Pair.first);
+      Function *CalledFunc = Pair.second->getFunction();
+      if (!CalledFunc || !RTS.isAtomicBuiltin(CalledFunc->getName()))
+        continue;
+      Value *Arg0 = CI->getOperand(0);
+
+      // handle atomic_work_item_fence(cl_mem_fence_flags flags,
+      // memory_order order, memory_scope scope) builtin.
+      if (isAtomicWorkItemFenceBuiltin(CalledFunc->getName())) {
+        // !!! MUST be aligned with define in clang/lib/Headers/opencl-c-base.h
+        // #define CLK_GLOBAL_MEM_FENCE   0x2
+        static const uint64_t CLK_GLOBAL_MEM_FENCE = 2;
+        if (auto *C = dyn_cast<ConstantInt>(Arg0)) {
+          return C->getZExtValue() & CLK_GLOBAL_MEM_FENCE;
+        } else {
+          // 0th argument is not constant.
+          // Assume the worst case - has CLK_GLOBAL_MEM_FENCE flag set.
+          return true;
+        }
+      }
+
+      // After switching GenericAddressStaticResolutionPass to
+      // InferAddressSpacesPass, it's legal for a pointer to remain as
+      // unresolved and live in generic address space until CodeGen. So if a
+      // pointer is in generic address space, we just ignore it and assume
+      // that it won't access global address space. This assumption won't
+      // affect the correctness of the program, as the global synchronization
+      // information is only used to calculate the workgroup size (see
+      // Kernel.cpp and search 'HasGlobalSyncOperation' keyword) for
+      // performance tunning.
+
+      // [OpenCL 2.0] The following condition covers pipe built-ins as well
+      // because the first arguments is a pipe which is a __global opaque
+      // pointer.
+      if (cast<PointerType>(Arg0->getType())->getAddressSpace() ==
+          ADDRESS_SPACE_GLOBAL)
+        return true;
+    }
+  }
+  return false;
+}
+
+static size_t getExecutionEstimation(unsigned Depth) {
+  return (size_t)pow(10.f, (int)Depth);
+}
+
+/// Previously this is calculated before Barrier and PrepareKernelArgs Passes.
+/// TODO This is a rough calculation. WeightedInstCount probably provides better
+/// estimation.
+static size_t getExecutionLength(Function *F, LoopInfo &LI) {
+  size_t Length = 0;
+  for (auto &BB : *F) {
+    Length += BB.size() * getExecutionEstimation(LI.getLoopDepth(&BB));
+  }
+  return Length;
+}
+
+bool DPCPPKernelAnalysisPass::runImpl(
+    Module &M, CallGraph &CG, const RuntimeService &RTS,
+    function_ref<LoopInfo &(Function &)> GetLI) {
   this->M = &M;
   UnsupportedFuncs.clear();
-  auto KernelList = DPCPPKernelCompilationUtils::getKernels(M);
+  auto KernelList = CompilationUtils::getKernels(M);
   Kernels.insert(KernelList.begin(), KernelList.end());
 
   fillKernelCallers();
   fillSyncUsersFuncs();
-  fillUnsupportedTIDFuncs();
-  if (DPCPPEnableNativeSubgroups)
-    fillSubgroupCallingFuncs(CG);
+  fillSubgroupCallingFuncs(CG);
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
-    KIMD.NoBarrierPath.set(!UnsupportedFuncs.count(Kernel));
-    if (DPCPPEnableNativeSubgroups)
-      KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.count(Kernel));
+    KIMD.NoBarrierPath.set(!UnsupportedFuncs.contains(Kernel));
+    KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
+    KIMD.KernelHasGlobalSync.set(hasAtomicBuiltinCall(CG, RTS, Kernel));
+    KIMD.KernelExecutionLength.set(getExecutionLength(Kernel, GetLI(*Kernel)));
   }
 
   LLVM_DEBUG(print(dbgs(), this->M));
@@ -195,11 +232,14 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
     StringRef FuncName = Kernel->getName();
 
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
-    bool NoBarrierPath = KIMD.NoBarrierPath.get();
-    bool KernelHasSubgroups = KIMD.KernelHasSubgroups.get();
-
-    OS << "Kernel <" << FuncName << ">: NoBarrierPath=" << NoBarrierPath
-       << " KernelHasSubgroups=" << KernelHasSubgroups << '\n';
+    OS << "Kernel <" << FuncName << ">:\n";
+    OS.indent(2) << "NoBarrierPath=" << KIMD.NoBarrierPath.get() << "\n";
+    OS.indent(2) << "KernelHasSubgroups=" << KIMD.KernelHasSubgroups.get()
+                 << "\n";
+    OS.indent(2) << "KernelHasGlobalSync=" << KIMD.KernelHasGlobalSync.get()
+                 << "\n";
+    OS.indent(2) << "KernelExecutionLength=" << KIMD.KernelExecutionLength.get()
+                 << "\n";
   }
 
   OS << "\nFunctions that call subgroup builtins:\n";
@@ -209,6 +249,12 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
 PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  (void)runImpl(M, AM.getResult<CallGraphAnalysis>(M));
+  RuntimeService &RTS =
+      AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetLI = [&](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+  (void)runImpl(M, AM.getResult<CallGraphAnalysis>(M), RTS, GetLI);
   return PreservedAnalyses::all();
 }

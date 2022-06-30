@@ -317,6 +317,7 @@ private:
   void visitCmpInst(CmpInst &I);
   void visitExtractValueInst(ExtractValueInst &EVI);
   void visitInsertValueInst(InsertValueInst &IVI);
+  void visitFreezeInst(FreezeInst &I);
 
   void visitCatchSwitchInst(CatchSwitchInst &CPI) {
     markOverdefined(&CPI);
@@ -563,7 +564,7 @@ void SCCPInstVisitor::markArgInFuncSpecialization(
     LLVM_DEBUG(dbgs() << "SCCP: Marking argument "
                       << NewArg->getNameOrAsOperand() << "\n");
 
-    if (OldArg == Iter->Formal) {
+    if (Iter != Args.end() && OldArg == Iter->Formal) {
       // Mark the argument constants in the new function.
       markConstant(NewArg, Iter->Actual);
       ++Iter;
@@ -1020,7 +1021,7 @@ void SCCPInstVisitor::visitBinaryOperator(Instruction &I) {
   if ((V1State.isConstant() || V2State.isConstant())) {
     Value *V1 = isConstant(V1State) ? getConstant(V1State) : I.getOperand(0);
     Value *V2 = isConstant(V2State) ? getConstant(V2State) : I.getOperand(1);
-    Value *R = SimplifyBinOp(I.getOpcode(), V1, V2, SimplifyQuery(DL));
+    Value *R = simplifyBinOp(I.getOpcode(), V1, V2, SimplifyQuery(DL));
     auto *C = dyn_cast_or_null<Constant>(R);
     if (C) {
       // X op Y -> undef.
@@ -1088,6 +1089,42 @@ void SCCPInstVisitor::visitCmpInst(CmpInst &I) {
     return;
 
   markOverdefined(&I);
+}
+
+// Propagate FreezeInst when the operand is a SelectInst or Phi of SelectInsts.
+void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
+  if (ValueState[&I].isOverdefined())
+    return;
+
+  Value *Op = I.getOperand(0);
+  if (!(isa<SelectInst>(Op) || isa<PHINode>(Op)) ||
+      !I.getType()->isIntegerTy()) {
+    markOverdefined(&I);
+    return;
+  }
+
+  if (PHINode *phi = dyn_cast<PHINode>(Op)) {
+    for (unsigned i = 0, e = phi->getNumIncomingValues(); i != e; ++i) {
+      if (!isa<SelectInst>(phi->getIncomingValue(i))) {
+        markOverdefined(&I);
+        return;
+      }
+    }
+  }
+
+  ValueLatticeElement OpSt = getValueState(Op);
+  if (OpSt.isUnknownOrUndef())
+    return;
+  if (Constant *OpC = getConstant(OpSt)) {
+    markConstant(&I, OpC);
+  } else {
+    auto &LV = getValueState(&I);
+    ConstantRange OpRange =
+        OpSt.isConstantRange()
+            ? OpSt.getConstantRange()
+            : ConstantRange::getFull(Op->getType()->getScalarSizeInBits());
+    mergeInValue(LV, &I, ValueLatticeElement::getRange(OpRange));
+  }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1452,17 +1489,6 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
         return;
       }
 
-      // TODO: Actually filp MayIncludeUndef for the created range to false,
-      // once most places in the optimizer respect the branches on
-      // undef/poison are UB rule. The reason why the new range cannot be
-      // undef is as follows below:
-      // The new range is based on a branch condition. That guarantees that
-      // neither of the compare operands can be undef in the branch targets,
-      // unless we have conditions that are always true/false (e.g. icmp ule
-      // i32, %a, i32_max). For the latter overdefined/empty range will be
-      // inferred, but the branch will get folded accordingly anyways.
-      bool MayIncludeUndef = !isa<PredicateAssume>(PI);
-
       ValueLatticeElement CondVal = getValueState(OtherOp);
       ValueLatticeElement &IV = ValueState[&CB];
       if (CondVal.isConstantRange() || CopyOfVal.isConstantRange()) {
@@ -1487,9 +1513,15 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
         if (!CopyOfCR.contains(NewCR) && CopyOfCR.getSingleMissingElement())
           NewCR = CopyOfCR;
 
+        // The new range is based on a branch condition. That guarantees that
+        // neither of the compare operands can be undef in the branch targets,
+        // unless we have conditions that are always true/false (e.g. icmp ule
+        // i32, %a, i32_max). For the latter overdefined/empty range will be
+        // inferred, but the branch will get folded accordingly anyways.
         addAdditionalUser(OtherOp, &CB);
-        mergeInValue(IV, &CB,
-                     ValueLatticeElement::getRange(NewCR, MayIncludeUndef));
+        mergeInValue(
+            IV, &CB,
+            ValueLatticeElement::getRange(NewCR, /*MayIncludeUndef*/ false));
         return;
       } else if (Pred == CmpInst::ICMP_EQ && CondVal.isConstant()) {
         // For non-integer values or integer constant expressions, only
@@ -1497,8 +1529,7 @@ void SCCPInstVisitor::handleCallResult(CallBase &CB) {
         addAdditionalUser(OtherOp, &CB);
         mergeInValue(IV, &CB, CondVal);
         return;
-      } else if (Pred == CmpInst::ICMP_NE && CondVal.isConstant() &&
-                 !MayIncludeUndef) {
+      } else if (Pred == CmpInst::ICMP_NE && CondVal.isConstant()) {
         // Propagate inequalities.
         addAdditionalUser(OtherOp, &CB);
         mergeInValue(IV, &CB,

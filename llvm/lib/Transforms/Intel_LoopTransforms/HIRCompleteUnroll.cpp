@@ -154,6 +154,11 @@ static cl::opt<unsigned> UnrolledLoopDDRefThreshold(
     cl::desc("Maximum number of DDRefs allowed in "
              "completely unrolled loopnest. 0 means default threshold."));
 
+static cl::opt<unsigned> FunctionProfitableLoopDDRefsThreshold(
+    "hir-complete-unroll-function-ddref-threshold", cl::init(20000), cl::Hidden,
+    cl::desc("Maximum number of DDRefs allowed in the unroll candidate "
+             "loopnests of the function to trigger automatic unrolling."));
+
 static cl::opt<unsigned> SmallLoopMemRefThreshold(
     "hir-complete-unroll-small-memref-threshold", cl::init(16), cl::Hidden,
     cl::desc("Threshold for memory refs in small loops (higher probability of "
@@ -224,7 +229,8 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
 #if INTEL_FEATURE_SW_DTRANS
       DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
-      IsPreVec(IsPreVec), PragmaOnlyUnroll(PragmaOnlyUnroll) {
+      IsPreVec(IsPreVec), PragmaOnlyUnroll(PragmaOnlyUnroll),
+      CumulativeProfitableLoopDDRefs(0) {
 
   Limits.SavingsThreshold =
       IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
@@ -684,6 +690,9 @@ public:
 
   // Returns true if loopnest is profitable.
   bool isProfitable() const;
+
+  /// Returns number of ddrefs in the unrolled loop.
+  unsigned getNumNonSimplifiedDDRefs() const { return NumDDRefs; }
 
   // Returns true if loop has a small body.
   bool isSmallLoop(unsigned TripCount) const;
@@ -2777,6 +2786,73 @@ void HIRCompleteUnroll::processCompleteUnroll(
   transformLoops();
 }
 
+/// Checks whether all instruction in range are vector instructions.
+struct AllVectorCodeChecker final : public HLNodeVisitorBase {
+  bool IsAllVectorCode = true;
+
+  void visit(const HLNode *) {}
+
+  void visit(const HLInst *HInst) {
+    auto *Inst = HInst->getLLVMInstruction();
+    auto *LvalRef = HInst->getLvalDDRef();
+
+    if (!isa<InsertElementInst>(Inst) && !isa<ExtractElementInst>(Inst) &&
+        (!LvalRef || !LvalRef->getDestType()->isVectorTy())) {
+      IsAllVectorCode = false;
+    }
+  }
+
+  void postVisit(const HLNode *) {}
+
+  bool isDone() const { return !IsAllVectorCode; }
+};
+
+/// Returns true if all instructions in loop are vector instructions.
+static bool hasAllVectorCode(const HLLoop *Lp) {
+
+  AllVectorCodeChecker AVCC;
+
+  HLNodeUtils::visitRange(AVCC, Lp->child_begin(), Lp->child_end());
+
+  return AVCC.IsAllVectorCode;
+}
+
+// Returns the threshold for non-simplifyable ddrefs allowed in profitable
+// loops. The threshold is reduced if the first few loops only have vector code.
+static unsigned
+getFunctionDDRefThreshold(SmallVectorImpl<HLLoop *> &CandidateLoops) {
+
+  unsigned NumInnermostLoops = 0;
+  const unsigned VectorLoopThreshold = 5;
+
+  unsigned FuncDDRefThreshold = FunctionProfitableLoopDDRefsThreshold;
+
+  // Check if first few loops have all vector code.
+  for (auto *Lp : CandidateLoops) {
+
+    const HLLoop *InnermostLoop = nullptr;
+
+    if (Lp->isInnermost()) {
+      InnermostLoop = Lp;
+
+    } else if (!HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
+      continue;
+    }
+
+    if (!hasAllVectorCode(InnermostLoop)) {
+      return FuncDDRefThreshold;
+    }
+
+    ++NumInnermostLoops;
+
+    if (NumInnermostLoops == VectorLoopThreshold) {
+      return FuncDDRefThreshold / 10;
+    }
+  }
+
+  return FuncDDRefThreshold;
+}
+
 void HIRCompleteUnroll::refineCandidates() {
 
   for (unsigned Index = 0; Index != CandidateLoops.size();) {
@@ -2802,6 +2878,20 @@ void HIRCompleteUnroll::refineCandidates() {
     CandidateLoops.insert(CandidateLoops.begin() + Index,
                           ChildCandidateLoops.begin(),
                           ChildCandidateLoops.end());
+  }
+
+  // Heuristics for throttling all automatic unrolling in the current function
+  // to contain compile time. If we increase code size too much later passes
+  // might have trouble dealing with it. Enabling unrolling on only some of the
+  // loops doesn't seem to be working for the motivating test case.
+  if (CumulativeProfitableLoopDDRefs >
+      getFunctionDDRefThreshold(CandidateLoops)) {
+    CandidateLoops.erase(
+        std::remove_if(CandidateLoops.begin(), CandidateLoops.end(),
+                       [&](HLLoop *Loop) {
+                         return !Loop->hasCompleteUnrollEnablingPragma();
+                       }),
+        CandidateLoops.end());
   }
 }
 
@@ -3131,6 +3221,8 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
         PrevLoopnestAllocaStores[Pair.first] = Loop;
       }
     }
+
+    CumulativeProfitableLoopDDRefs += PA.getNumNonSimplifiedDDRefs();
 
     return true;
   }

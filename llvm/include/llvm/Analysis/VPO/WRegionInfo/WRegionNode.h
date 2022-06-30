@@ -637,6 +637,7 @@ public:
   virtual WRNLoopInfo &getWRNLoopInfo()         {WRNERROR("WRNLoopInfo");     }
   virtual const WRNLoopInfo &getWRNLoopInfo() const
                                                 {WRNERROR("WRNLoopInfo");     }
+  virtual int getOmpLoopDepth()           const {WRNERROR("Loop Depth");      }
 
   // Task
 
@@ -875,6 +876,9 @@ public:
   bool getIsOmpLoopTransform() const {
     return Attributes & WRNIsOmpLoopTransform;
   }
+  bool getIsOmpLoopOrLoopTransform() const {
+    return Attributes & (WRNIsOmpLoop | WRNIsOmpLoopTransform);
+  }
   bool getIsSections()     const { return Attributes & WRNIsSections; }
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
@@ -948,7 +952,6 @@ public:
     WRNFlush,
     WRNPrefetch,
     WRNOrdered,
-    WRNMaster,
     WRNMasked,
     WRNSingle,
     WRNTaskgroup,

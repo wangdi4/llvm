@@ -199,6 +199,12 @@ inline Function *getCalledFunction(const CallBase &Call) {
 bool compareStructName(const llvm::StructType *Ty1,
                        const llvm::StructType *Ty2);
 
+// Return 'true' if the DTrans passes for opaque pointers should execute.
+// If the opaque pointer passes are to be used, then the typed pointers will be
+// treated as no-op passes. Otherwise, the typed pointer passes will execute,
+// and the opaque pointer passes will be treated as no-ops.
+bool shouldRunOpaquePointerPasses(Module &M);
+
 } // namespace dtrans
 } // namespace llvm
 

@@ -1,6 +1,6 @@
 //==--- DataPerBarrierValue.cpp - Collect Data per value - C++ -*-----------==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,8 +14,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
@@ -73,7 +73,8 @@ void DataPerValue::analyze(Module &M) {
     runOnFunction(F);
 
   // Find all functions that call synchronize instructions.
-  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet FunctionsWithSync =
+      Utils.getAllFunctionsWithSynchronization();
 
   // Collect data for each function with synchronize instruction.
   for (Function *F : FunctionsWithSync)
@@ -156,11 +157,11 @@ void DataPerValue::runOnFunction(Function &F) {
       Function *CalledFunc = CI->getCalledFunction();
       if (CalledFunc && !CalledFunc->getReturnType()->isVoidTy()) {
         StringRef FuncName = CalledFunc->getName();
-        if (DPCPPKernelCompilationUtils::isWorkGroupUniform(FuncName)) {
+        if (CompilationUtils::isWorkGroupUniform(FuncName)) {
           // Uniform WG functions always produce cross-barrier value.
           CrossBarrierValuesPerFuncMap[&F].push_back(Inst);
           continue;
-        } else if (DPCPPKernelCompilationUtils::isWorkGroupScan(FuncName)) {
+        } else if (CompilationUtils::isWorkGroupScan(FuncName)) {
           // Call instructions to WG functions which produce WI-specific
           // result, need to be stored in the special buffer.
           assert(WRV->isWIRelated(Inst) && "Must be work-item realted value!");
@@ -272,7 +273,7 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Instruction *Inst,
 
 void DataPerValue::calculateOffsets(Function &F) {
 
-  ValueVector &SpecialValues = SpecialValuesPerFuncMap[&F];
+  CompilationUtils::ValueVec &SpecialValues = SpecialValuesPerFuncMap[&F];
   SpecialBufferData &BufferData = getSpecialBufferData(&F);
 
   // Run over all special values in function.
@@ -281,7 +282,7 @@ void DataPerValue::calculateOffsets(Function &F) {
     ValueOffsetMap[Val] = getValueOffset(Val, Val->getType(), 0, BufferData);
   }
 
-  ValueVector &AllocaValues = AllocaValuesPerFuncMap[&F];
+  CompilationUtils::ValueVec &AllocaValues = AllocaValuesPerFuncMap[&F];
 
   // Run over all alloca values in function.
   for (Value *Val : AllocaValues) {
@@ -289,7 +290,7 @@ void DataPerValue::calculateOffsets(Function &F) {
     // Get Offset of alloca instruction contained type.
     ValueOffsetMap[Val] =
         getValueOffset(Val, Val->getType()->getContainedType(0),
-                       AI->getAlignment(), BufferData);
+                       AI->getAlign().value(), BufferData);
   }
 }
 
@@ -449,7 +450,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-A Values\n";
   for (const auto &KV : AllocaValuesPerFuncMap) {
     const Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-A.
       continue;
@@ -470,7 +471,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-B.1 Values\n";
   for (const auto &KV : SpecialValuesPerFuncMap) {
     const Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-B.1.
       continue;
@@ -491,7 +492,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-B.2 Values\n";
   for (const auto &KV : CrossBarrierValuesPerFuncMap) {
     Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-B.2.
       continue;

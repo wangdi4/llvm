@@ -345,8 +345,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
+  case VPInstruction::ReductionInitScalar:
+    return "reduction-init-scalar";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
+  case VPInstruction::ReductionFinalInscan:
+    return "reduction-final-inscan";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
   case VPInstruction::Subscript:
@@ -419,8 +423,34 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vpconflict-insn";
   case VPInstruction::PrivateLastValueNonPOD:
     return "private-last-value-nonpod";
+  case VPInstruction::PrivateLastValueNonPODMasked:
+    return "private-last-value-nonpod-masked";
   case VPInstruction::CvtMaskToInt:
     return "convert-mask-to-int";
+  case VPInstruction::ExpandLoad:
+    return "expand-load";
+  case VPInstruction::ExpandLoadNonu:
+    return "expand-load-nonu";
+  case VPInstruction::CompressStore:
+    return "compress-store";
+  case VPInstruction::CompressStoreNonu:
+    return "compress-store-nonu";
+  case VPInstruction::CompressExpandIndexInit:
+    return "compress-expand-index-init";
+  case VPInstruction::CompressExpandIndexFinal:
+    return "compress-expand-index-final";
+  case VPInstruction::CompressExpandIndex:
+    return "compress-expand-index";
+  case VPInstruction::CompressExpandIndexUnit:
+    return "compress-expand-index-unit";
+  case VPInstruction::CompressExpandIndexInc:
+    return "compress-expand-index-inc";
+  case VPInstruction::RunningInclusiveReduction:
+    return "running-inclusive-reduction";
+  case VPInstruction::RunningExclusiveReduction:
+    return "running-exclusive-reduction";
+  case VPInstruction::ExtractLastVectorLane:
+    return "extract-last-vector-lane";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -578,6 +608,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
       << "}";
+    break;
+  }
+  case VPInstruction::AllocatePrivate: {
+    O << getOpcodeName(getOpcode());
+    if (cast<const VPAllocatePrivate>(this)->getIsScalar())
+      O << "-scalar";
     break;
   }
   case Instruction::ICmp:
@@ -873,117 +909,48 @@ void VPlanVector::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
 // basic blocks as needed, and fills them all.
 void VPlanVector::execute(VPTransformState *State) {
   VPLoop *VLoop = getMainLoop(false);
-  State->ILV->setVPlan(this, getLoopEntities(VLoop));
+  State->ILV->setVPlan(this);
 
   IRBuilder<>::InsertPointGuard Guard(State->Builder);
-  // The code below (until hasExplicitRemainder check) won't be needed when
-  // explicit remainder becomes the only option.
-  BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
-  BasicBlock *MiddleBlock;
 
-  if (hasExplicitRemainder()) {
-    State->CFG.InsertBefore = State->ILV->getOrigLoop()->getExitBlock();
-    State->CFG.PrevBB = State->ILV->getOrigLoop()->getLoopPreheader();
-    // Find first VPBB that is on the path to vector loop. We can't
-    // place vector instructions before that block, this might lead
-    // to unnecessary vector code executed when the vector path is
-    // not taken (e.g. after TC check).
-    // Supposing that CFG is built like below
-    //
-    // pred.block:
-    //   %vectorTC = vector-trip-count %op
-    //   %c = icmp eq i64 %vectorTC, 0
-    //   br i1 %c, label vector.ph, label %scalar.ph
-    // vector.ph:
-    //   ...
-    // vector.body:
-    //   ...
-    // Here vector.ph is the needed block. We go from loop preheader
-    // back by single predecessor until find the block with more than
-    // one succesor.
-    // TODO. That might need correction if we will insert some
-    // if-then-else initilization sequences before VPLoop preheader.
-    VPBasicBlock *BB;
-    for (BB = VLoop->getLoopPreheader();
-         BB && BB->getSinglePredecessor() &&
-         BB->getSinglePredecessor()->getNumSuccessors() == 1;
-         BB = BB->getSinglePredecessor()) {
-      if (any_of(*BB, [](VPInstruction &Inst) {
-            return isa<VPVectorTripCountCalculation>(Inst);
-          }))
-        break;
-    }
-    assert(BB && "Can't find first executable VPlan block");
-    State->CFG.FirstExecutableVPBB = BB;
-  } else {
-    BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
-    assert(VectorHeaderBB &&
-           "Loop preheader does not have a single successor.");
-    // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
-    // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
-    // file.
-    auto *HTerm = VectorHeaderBB->getTerminator();
-    MiddleBlock = HTerm->getSuccessor(0);
-    assert(MiddleBlock->getName().startswith("middle.block") &&
-           "Code is not in sync!");
-
-    // Temporarily terminate with unreachable until CFG is rewired.
-    // Note: this asserts xform code's assumption that getFirstInsertionPt()
-    VectorHeaderBB->getTerminator()->eraseFromParent();
-    State->Builder.SetInsertPoint(VectorHeaderBB);
-    State->Builder.CreateUnreachable();
-    // Set insertion point to vector loop PH
-    State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
-
-    // Generate code in loop body of vectorized version.
-    State->CFG.PrevVPBB = nullptr;
-    State->CFG.PrevBB = VectorPreHeaderBB;
-    State->CFG.InsertBefore = MiddleBlock;
+  State->CFG.InsertBefore = State->ILV->getOrigLoop()->getExitBlock();
+  State->CFG.PrevBB = State->ILV->getOrigLoop()->getLoopPreheader();
+  // Find first VPBB that is on the path to vector loop. We can't
+  // place vector instructions before that block, this might lead
+  // to unnecessary vector code executed when the vector path is
+  // not taken (e.g. after TC check).
+  // Supposing that CFG is built like below
+  //
+  // pred.block:
+  //   %vectorTC = vector-trip-count %op
+  //   %c = icmp eq i64 %vectorTC, 0
+  //   br i1 %c, label vector.ph, label %scalar.ph
+  // vector.ph:
+  //   ...
+  // vector.body:
+  //   ...
+  // Here vector.ph is the needed block. We go from loop preheader
+  // back by single predecessor until find the block with more than
+  // one succesor.
+  // TODO. That might need correction if we will insert some
+  // if-then-else initilization sequences before VPLoop preheader.
+  VPBasicBlock *BB;
+  for (BB = VLoop->getLoopPreheader();
+       BB && BB->getSinglePredecessor() &&
+       BB->getSinglePredecessor()->getNumSuccessors() == 1;
+       BB = BB->getSinglePredecessor()) {
+    if (any_of(*BB, [](VPInstruction &Inst) {
+          return isa<VPVectorTripCountCalculation>(Inst);
+        }))
+      break;
   }
-
+  assert(BB && "Can't find first executable VPlan block");
+  State->CFG.FirstExecutableVPBB = BB;
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
     LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << BB->getName() << '\n');
     BB->execute(State);
   }
-
-  if (hasExplicitRemainder())
-    // The rest is not needed in this case.
-    return;
-
-  // Fix the edges for blocks in VPBBsToFix list.
-  for (auto VPBB : State->CFG.VPBBsToFix) {
-    BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
-    assert(BB && "Unexpected null basic block for VPBB");
-
-    unsigned Idx = 0;
-    auto *BBTerminator = BB->getTerminator();
-
-    for (VPBasicBlock *SuccVPBB : VPBB->getSuccessors()) {
-      BBTerminator->setSuccessor(Idx, State->CFG.VPBB2IRBB[SuccVPBB]);
-      ++Idx;
-    }
-  }
-
-  // Create an unconditional branch from the Plan's exit block to the middle
-  // block that contains top-test for entering remainder.
-  BasicBlock *LastBB = State->CFG.PrevBB;
-  assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
-         "Expected VPlan CFG to terminate with unreachable");
-
-  // TODO - currently we assume MiddleBlock and LastBB do not have any PHIs.
-  // This will need to be addressed if this changes.
-  assert(!isa<PHINode>(MiddleBlock->begin()) &&
-         "Middle block starts with a PHI");
-  assert(!isa<PHINode>(LastBB->begin()) && "LastBB starts with a PHI");
-
-  LastBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(MiddleBlock, LastBB);
-
-  // Do no try to update dominator tree as we may be generating vector loops
-  // with inner loops. Right now we are not marking any analyses as
-  // preserved - so this should be ok.
-  // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1052,13 +1019,10 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
       Plan(P) {}
 
 VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  auto It = llvm::find_if(vpinstructions(&Plan), [](const VPInstruction &I) {
-    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I);
-  });
-
-  if (It != vpinstructions(&Plan).end())
-    return &*It;
-  llvm_unreachable("can't find scalar peel");
+  VPInstruction *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
+  assert((isa<VPScalarPeel>(LoopI) || isa<VPScalarPeelHIR>(LoopI)) &&
+         "Scalar loop instruction expected for peel adapter VPlan.");
+  return LoopI;
 }
 
 // Visit all orig-liveout-hir instructions and update original loop UB.
@@ -1156,6 +1120,8 @@ void VPlan::print(raw_ostream &OS, unsigned Indent) const {
 }
 
 void VPlan::dump(raw_ostream &OS) const {
+  if (!isPrintingEnabled())
+    return;
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
@@ -1220,6 +1186,8 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
 }
 
 void VPlanPrinter::dump(bool CFGOnly) {
+  if (!Plan.isPrintingEnabled())
+    return;
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
@@ -1321,31 +1289,27 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   NeedCloneOrigLoop = V;
   if (!V)
     return;
-  for (VPBasicBlock &B : *this) {
-    auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
-      switch (I.getOpcode()) {
-      case VPInstruction::ScalarPeel:
-      case VPInstruction::ScalarRemainder:
-      case VPInstruction::ScalarPeelHIR:
-      case VPInstruction::ScalarRemainderHIR:
-        return true;
-      default:
-        return false;
-      }
-    });
-    if (LoopI != B.end()) {
-      if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
-        IRPeel->setCloningRequired();
-      else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
-        IRRem->setCloningRequired();
-      else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
-        HIRPeel->setCloningRequired();
-      else
-        cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
-      return;
-    }
-  }
-  llvm_unreachable("can't find loop instruction");
+
+  VPInstruction *LoopI = getScalarLoopInst();
+  if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
+    IRPeel->setCloningRequired();
+  else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
+    IRRem->setCloningRequired();
+  else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
+    HIRPeel->setCloningRequired();
+  else
+    cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
+}
+
+VPInstruction *VPlanScalar::getScalarLoopInst() {
+  auto It = llvm::find_if(vpinstructions(this), [](VPInstruction &I) {
+    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I) ||
+           isa<VPScalarRemainder>(&I) || isa<VPScalarRemainderHIR>(&I);
+  });
+
+  if (It != vpinstructions(this).end())
+    return &*It;
+  llvm_unreachable("can't find scalar loop instruction");
 }
 
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
@@ -1713,6 +1677,12 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
       TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }
+
+  // Copy loop nesting level
+  TargetPlan->setOrigLoopNestingLevel(getOrigLoopNestingLevel());
+
+  // Copy PrintingEnabled flag
+  TargetPlan->setPrintingEnabled(isPrintingEnabled());
 }
 
 VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {

@@ -110,6 +110,8 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   linkDescriptor.pBinaryContainers = &irBuffer;
   size_t execsize = res->GetIRSize();
   linkDescriptor.puiBinariesSizes = &execsize;
+  vector<vector<string>> KernelNames;
+  linkDescriptor.pKernelNames = &KernelNames;
   rc = m_pCompiler->LinkPrograms(&linkDescriptor, &executableResult);
   if (rc || nullptr == executableResult)
     throw ocl_string_exception("linkage failed");

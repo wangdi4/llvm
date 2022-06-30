@@ -554,6 +554,10 @@ void Parser::initializePragmaHandlers() {
     PP.AddPragmaHandler(MSCodeSeg.get());
     MSSection = std::make_unique<PragmaMSPragma>("section");
     PP.AddPragmaHandler(MSSection.get());
+    MSFunction = std::make_unique<PragmaMSPragma>("function");
+    PP.AddPragmaHandler(MSFunction.get());
+    MSAllocText = std::make_unique<PragmaMSPragma>("alloc_text");
+    PP.AddPragmaHandler(MSAllocText.get());
     MSRuntimeChecks = std::make_unique<PragmaMSRuntimeChecksHandler>();
     PP.AddPragmaHandler(MSRuntimeChecks.get());
     MSIntrinsic = std::make_unique<PragmaMSIntrinsicHandler>();
@@ -735,6 +739,10 @@ void Parser::resetPragmaHandlers() {
     MSCodeSeg.reset();
     PP.RemovePragmaHandler(MSSection.get());
     MSSection.reset();
+    PP.RemovePragmaHandler(MSFunction.get());
+    MSFunction.reset();
+    PP.RemovePragmaHandler(MSAllocText.get());
+    MSAllocText.reset();
     PP.RemovePragmaHandler(MSRuntimeChecks.get());
     MSRuntimeChecks.reset();
     PP.RemovePragmaHandler(MSIntrinsic.get());
@@ -1217,13 +1225,16 @@ void Parser::HandlePragmaMSPragma() {
   // Figure out which #pragma we're dealing with.  The switch has no default
   // because lex shouldn't emit the annotation token for unrecognized pragmas.
   typedef bool (Parser::*PragmaHandler)(StringRef, SourceLocation);
-  PragmaHandler Handler = llvm::StringSwitch<PragmaHandler>(PragmaName)
-    .Case("data_seg", &Parser::HandlePragmaMSSegment)
-    .Case("bss_seg", &Parser::HandlePragmaMSSegment)
-    .Case("const_seg", &Parser::HandlePragmaMSSegment)
-    .Case("code_seg", &Parser::HandlePragmaMSSegment)
-    .Case("section", &Parser::HandlePragmaMSSection)
-    .Case("init_seg", &Parser::HandlePragmaMSInitSeg);
+  PragmaHandler Handler =
+      llvm::StringSwitch<PragmaHandler>(PragmaName)
+          .Case("data_seg", &Parser::HandlePragmaMSSegment)
+          .Case("bss_seg", &Parser::HandlePragmaMSSegment)
+          .Case("const_seg", &Parser::HandlePragmaMSSegment)
+          .Case("code_seg", &Parser::HandlePragmaMSSegment)
+          .Case("section", &Parser::HandlePragmaMSSection)
+          .Case("init_seg", &Parser::HandlePragmaMSInitSeg)
+          .Case("function", &Parser::HandlePragmaMSFunction)
+          .Case("alloc_text", &Parser::HandlePragmaMSAllocText);
 
   if (!(this->*Handler)(PragmaName, PragmaLocation)) {
     // Pragma handling failed, and has been diagnosed.  Slurp up the tokens
@@ -1460,6 +1471,65 @@ bool Parser::HandlePragmaMSInitSeg(StringRef PragmaName,
   return true;
 }
 
+bool Parser::HandlePragmaMSAllocText(StringRef PragmaName,
+                                     SourceLocation PragmaLocation) {
+  Token FirstTok = Tok;
+  if (ExpectAndConsume(tok::l_paren, diag::warn_pragma_expected_lparen,
+                       PragmaName))
+    return false;
+
+  StringRef Section;
+  if (Tok.is(tok::string_literal)) {
+    ExprResult StringResult = ParseStringLiteralExpression();
+    if (StringResult.isInvalid())
+      return false; // Already diagnosed.
+    StringLiteral *SegmentName = cast<StringLiteral>(StringResult.get());
+    if (SegmentName->getCharByteWidth() != 1) {
+      PP.Diag(PragmaLocation, diag::warn_pragma_expected_non_wide_string)
+          << PragmaName;
+      return false;
+    }
+    Section = SegmentName->getString();
+  } else if (Tok.is(tok::identifier)) {
+    Section = Tok.getIdentifierInfo()->getName();
+    PP.Lex(Tok);
+  } else {
+    PP.Diag(PragmaLocation, diag::warn_pragma_expected_section_name)
+        << PragmaName;
+    return false;
+  }
+
+  if (ExpectAndConsume(tok::comma, diag::warn_pragma_expected_comma,
+                       PragmaName))
+    return false;
+
+  SmallVector<std::tuple<IdentifierInfo *, SourceLocation>> Functions;
+  while (true) {
+    if (Tok.isNot(tok::identifier)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_identifier)
+          << PragmaName;
+      return false;
+    }
+
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    Functions.emplace_back(II, Tok.getLocation());
+
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::comma))
+      break;
+    PP.Lex(Tok);
+  }
+
+  if (ExpectAndConsume(tok::r_paren, diag::warn_pragma_expected_rparen,
+                       PragmaName) ||
+      ExpectAndConsume(tok::eof, diag::warn_pragma_extra_tokens_at_eol,
+                       PragmaName))
+    return false;
+
+  Actions.ActOnPragmaMSAllocText(FirstTok.getLocation(), Section, Functions);
+  return true;
+}
+
 namespace {
 struct PragmaLoopHintInfo {
   Token PragmaName;
@@ -1517,6 +1587,8 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
           PragmaNameInfo->getName() == "max_concurrency";
   bool PragmaMaxInterleaving =
           PragmaNameInfo->getName() == "max_interleaving";
+  bool PragmaIvdep =
+          PragmaNameInfo->getName() == "ivdep";
 #endif // INTEL_CUSTOMIZATION
   auto IsLoopHint = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
 #if INTEL_CUSTOMIZATION
@@ -1714,7 +1786,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 
 #if INTEL_CUSTOMIZATION
     bool AllowZero = false;
-    if (PragmaSpeculatedIterations ||
+    if (PragmaSpeculatedIterations || PragmaIvdep ||
         PragmaMaxConcurrency || PragmaMaxInterleaving)
       AllowZero = true;
     if ((PragmaUnroll || PragmaUnrollAndJam) &&
@@ -3337,14 +3409,6 @@ void PragmaCommentHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  // On PS4, issue a warning about any pragma comments other than
-  // #pragma comment lib.
-  if (PP.getTargetInfo().getTriple().isPS4() && Kind != PCK_Lib) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_comment_ignored)
-      << II->getName();
-    return;
-  }
-
   // Read the optional string if present.
   PP.Lex(Tok);
   std::string ArgumentString;
@@ -4681,42 +4745,101 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false, /*IsReinject*/false);
 }
 
+/// Handle the \#pragma vector directive.
+///
+/// The syntax is
+/// \#pragma vector {always[assert]|aligned|[no]dynamic_align|[no]vecremainder}
+///
 void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
                                        PragmaIntroducer Introducer,
-                                       Token &Tok) {
-  // Incoming token is "vector" for
-  // "#pragma vector {always[assert]|aligned|unaligned|
-  //  temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}"
-  Token PragmaNameTok = Tok;
-  SmallVector<Token, 2> TokenList;
-
-  if (Tok.isNot(tok::identifier) && Tok.isNot(tok::eod)) {
-    PP.Diag(Tok.getLocation(), diag::err_pragma_loop_invalid_option)
-        << "vector";
-    return;
+                                       Token &FirstTok) {
+  Token PragmaName = FirstTok;
+  SmallVector<Token, 4> Pragma;
+  Token Tok;
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_vector);
+  PragmaLoopHintInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
+  Info->Option = Tok;
+  Tok.setAnnotationValue(static_cast<void *>(Info));
+  Tok.setLocation(Introducer.Loc);
+  Pragma.push_back(Tok);
+  Pragma.push_back(FirstTok);
+  while (Tok.isNot(tok::eod) && Tok.isNot(tok::eof)) {
+    PP.Lex(Tok);
+    Pragma.push_back(Tok);
   }
+  SourceLocation EodLoc = Tok.getLocation();
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_vector_end);
+  Tok.setLocation(EodLoc);
+  Pragma.push_back(Tok);
+  auto Toks = std::make_unique<Token[]>(Pragma.size());
+  std::copy(Pragma.begin(), Pragma.end(), Toks.get());
+  PP.EnterTokenStream(std::move(Toks), Pragma.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
+}
 
-  PP.Lex(Tok);
+StmtResult Parser::ParsePragmaVector(StmtVector &Stmts,
+                                     ParsedStmtContext StmtCtx,
+                                     SourceLocation *TrailingElseLoc,
+                                     ParsedAttributes &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributes TempAttrs(AttrFactory);
+  // Get loop hints and consume annotated token.
+  bool HasAttrs = false;
+  assert(Tok.is(tok::annot_pragma_vector));
+  LoopHint Hint;
+  HasAttrs = HandlePragmaVector(Hint, TempAttrs);
+  if (!HasAttrs) {
+    while (Tok.isNot(tok::annot_pragma_vector_end))
+      ConsumeAnyToken();
+    ConsumeAnyToken(); // Consume annot_pragma_vector_end
+  }
+  MaybeParseCXX11Attributes(Attrs);
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+  if (HasAttrs)
+    Attrs.takeAllFrom(TempAttrs);
+  return S;
+}
 
-  auto AddLoopHintToken = [&TokenList, &PP, &PragmaNameTok](Token &OptionTok) {
-    Token LoopHintTok;
-    auto *Info =
-        new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaNameTok);
-    Info->Option = OptionTok;
-    LoopHintTok.startToken();
-    LoopHintTok.setKind(tok::annot_pragma_loop_hint);
-    LoopHintTok.setLocation(PragmaNameTok.getLocation());
-    LoopHintTok.setAnnotationEndLoc(PragmaNameTok.getLocation());
-    LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
-    TokenList.push_back(LoopHintTok);
+bool Parser::HandlePragmaVector(LoopHint &Hint,
+                                ParsedAttributes &Attrs) {
+  assert(Tok.is(tok::annot_pragma_vector));
+  PragmaLoopHintInfo *Info =
+      static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
+  ConsumeAnyToken();  // Consume annot_pragma_vector
+  // processing 'vector'
+  IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+  assert(OptionInfo->isStr("vector"));
+  auto AddNewAttr = [&Hint, &Attrs, Info, this](Token &OptionTok,
+                                                IdentifierInfo *OptionInfo) {
+    IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
+    Hint.PragmaNameLoc = IdentifierLoc::create(
+        Actions.Context, Info->PragmaName.getLocation(), PragmaNameInfo);
+    Hint.OptionLoc = IdentifierLoc::create(Actions.Context,
+                                           OptionTok.getLocation(), OptionInfo);
+    Hint.Range =
+        SourceRange(Info->PragmaName.getLocation(), OptionTok.getLocation());
+    ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
+                            ArgsUnion(Hint.ValueExpr),
+                            ArgsUnion(Hint.ArrayExpr)};
+    Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
+                 OptionTok.getLocation(), ArgHints, 5, ParsedAttr::AS_Pragma);
   };
+  if (NextToken().is(tok::eod))
+    AddNewAttr(Tok, OptionInfo);
+  ConsumeToken(); // Consume vector token
 
-  // Parse the options and create a LoopHint for each.
+  bool HasAlways = false;
   while (Tok.is(tok::identifier)) {
-    Token OptionTok = Tok;
-    IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+    OptionInfo = Tok.getIdentifierInfo();
+    if (OptionInfo->isStr("always"))
+      HasAlways = true;
     bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
                            .Case("always", true)
+                           .Case("assert", HasAlways)
                            .Case("aligned", true)
                            .Case("dynamic_align", true)
                            .Case("nodynamic_align", true)
@@ -4724,29 +4847,22 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
                            .Case("novecremainder", true)
                            .Default(false);
     if (!OptionValid) {
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
-          << /*MissingOption=*/false << OptionInfo;
-      return;
+      bool MissingOption = !HasAlways && OptionInfo->getName() == "assert";
+      Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
+          << MissingOption << OptionInfo;
     }
-    AddLoopHintToken(OptionTok);
-    PP.Lex(Tok);
+    AddNewAttr(Tok, OptionInfo);
+    ConsumeToken(); // Consume Option token
   }
 
   if (Tok.isNot(tok::eod)) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+    Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
         << "vector";
-    return;
+    return false;
   }
-
-  // If there were no options, add the hint for plain '#pragma vector'.
-  if (TokenList.empty())
-    AddLoopHintToken(PragmaNameTok);
-
-  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
-  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
-
-  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
-                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
+  ConsumeToken();  // Consume eod
+  ConsumeAnyToken();  // Consume annot_pragma_vector_end
+  return true;
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -4799,6 +4915,41 @@ void PragmaMSIntrinsicHandler::HandlePragma(Preprocessor &PP,
   if (Tok.isNot(tok::eod))
     PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
         << "intrinsic";
+}
+
+bool Parser::HandlePragmaMSFunction(StringRef PragmaName,
+                                    SourceLocation PragmaLocation) {
+  Token FirstTok = Tok;
+
+  if (ExpectAndConsume(tok::l_paren, diag::warn_pragma_expected_lparen,
+                       PragmaName))
+    return false;
+
+  bool SuggestIntrinH = !PP.isMacroDefined("__INTRIN_H");
+
+  llvm::SmallVector<StringRef> NoBuiltins;
+  while (Tok.is(tok::identifier)) {
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    if (!II->getBuiltinID())
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_intrinsic_builtin)
+          << II << SuggestIntrinH;
+    else
+      NoBuiltins.emplace_back(II->getName());
+
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::comma))
+      break;
+    PP.Lex(Tok); // ,
+  }
+
+  if (ExpectAndConsume(tok::r_paren, diag::warn_pragma_expected_rparen,
+                       PragmaName) ||
+      ExpectAndConsume(tok::eof, diag::warn_pragma_extra_tokens_at_eol,
+                       PragmaName))
+    return false;
+
+  Actions.ActOnPragmaMSFunction(FirstTok.getLocation(), NoBuiltins);
+  return true;
 }
 
 // #pragma optimize("gsty", on|off)

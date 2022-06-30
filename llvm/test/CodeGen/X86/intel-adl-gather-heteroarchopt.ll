@@ -305,12 +305,12 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X86-NEXT:    jmp .LBB0_12
 ; X86-NEXT:  .LBB0_8:
-; X86-NEXT:    xorl %eax, %eax
+; X86-NEXT:    xorl %esi, %esi
 ; X86-NEXT:    .p2align 4, 0x90
 ; X86-NEXT:  .LBB0_9: # %loop.39.clone
 ; X86-NEXT:    # =>This Loop Header: Depth=1
 ; X86-NEXT:    # Child Loop BB0_10 Depth 2
-; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    movl %esi, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
 ; X86-NEXT:    vmovsd %xmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Spill
 ; X86-NEXT:    movl %ebx, %eax
 ; X86-NEXT:    notl %eax
@@ -378,11 +378,11 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:  # %bb.11: # %afterloop.48.clone
 ; X86-NEXT:    # in Loop: Header=BB0_9 Depth=1
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Reload
-; X86-NEXT:    movl %edi, %esi
-; X86-NEXT:    addl $1, %esi
+; X86-NEXT:    movl %edi, %eax
+; X86-NEXT:    addl $1, %eax
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %ebx # 4-byte Reload
-; X86-NEXT:    movl %ebx, %eax
-; X86-NEXT:    adcl $0, %eax
+; X86-NEXT:    movl %ebx, %esi
+; X86-NEXT:    adcl $0, %esi
 ; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Folded Reload
 ; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %ebx # 4-byte Folded Reload
 ; X86-NEXT:    orl %edi, %ebx
@@ -396,7 +396,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
 ; X86-NEXT:    # xmm1 = mem[0],zero
 ; X86-NEXT:    vaddsd %xmm0, %xmm1, %xmm0
-; X86-NEXT:    movl %esi, %ebx
+; X86-NEXT:    movl %eax, %ebx
 ; X86-NEXT:    movl 24(%ebp), %edi
 ; X86-NEXT:    jne .LBB0_9
 ; X86-NEXT:  .LBB0_12: # %for.cond.cleanup

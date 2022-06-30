@@ -103,6 +103,7 @@ static lto::Config createConfig() {
   c.Options.DataSections = true;
 #if INTEL_CUSTOMIZATION
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
+  c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 
   // Linking for an executable
   if (!config->relocatable)
@@ -190,6 +191,8 @@ static lto::Config createConfig() {
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
   c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
 
+  c.OpaquePointers = config->opaquePointers;
+
   if (config->emitLLVM) {
     c.PostInternalizeModuleHook = [](size_t task, const Module &m) {
       if (std::unique_ptr<raw_fd_ostream> os =
@@ -273,8 +276,11 @@ void BitcodeCompiler::add(BitcodeFile &f) {
     //    for doing final link.
     // 2) Symbols that are used in regular objects.
     // 3) C named sections if we have corresponding __start_/__stop_ symbol.
-    // 4) Symbols that are defined in bitcode files and used for dynamic linking.
+    // 4) Symbols that are defined in bitcode files and used for dynamic
+    //    linking.
+    // 5) Symbols that will be referenced after linker wrapping is performed.
     r.VisibleToRegularObj = config->relocatable || sym->isUsedInRegularObj ||
+                            sym->referencedAfterWrap ||
                             (r.Prevailing && sym->includeInDynsym()) ||
                             usedStartStop.count(objSym.getSectionName());
     // Identify symbols exported dynamically, and that therefore could be

@@ -27,10 +27,8 @@ namespace DeviceBackend {
 class OptimizerLTO : public Optimizer {
 public:
   OptimizerLTO(llvm::Module &M,
-               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig &Config, bool DebugPassManager);
-
-  ~OptimizerLTO();
+               llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
+               const intel::OptimizerConfig &Config);
 
   /// Run pass manager on a module.
   void Optimize(llvm::raw_ostream &LogStream) override;
@@ -53,8 +51,6 @@ private:
 
   /// Register passes that run at the end of pipeline.
   void registerLastPasses(llvm::ModulePassManager &MPM);
-
-  bool DebugPassManager;
 
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 };

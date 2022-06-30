@@ -40,7 +40,7 @@ int y;
 // CHECK-NEXT:    [[TMP0:%.*]] = load [10 x %class.C]*, [10 x %class.C]** [[X_ADDR]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.SIMD"()
-// CHECK_SAME: "QUAL.OMP.REDUCTION.UDR:BYREF.ARRSECT.INSCAN"([10 x %class.C]** [[X_ADDR]], i64 1, i64 2, i64 5, i64 1, i8* null, i8* null, void (%class.C*, %class.C*)* @.omp_combiner., void (%class.C*, %class.C*)* @.omp_initializer., i64 1)
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF.ARRSECT.INSCAN"([10 x %class.C]** [[X_ADDR]], i64 1, i64 2, i64 5, i64 1, i8* null, i8* null, void (%class.C*, %class.C*)* @.omp_combiner., void (%class.C*, %class.C*)* @.omp_initializer., i64 1)
 // CHECK-SAME "QUAL.OMP.REDUCTION.ADD:INSCAN"(i32* @y, i64 2)
 // CHECK-NEXT:    store i32 0, i32* [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]

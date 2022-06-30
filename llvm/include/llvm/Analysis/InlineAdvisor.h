@@ -61,6 +61,28 @@ using namespace InlineReportTypes; // INTEL
 /// training.
 enum class InliningAdvisorMode : int { Default, Release, Development };
 
+// Each entry represents an inline driver.
+enum class InlinePass : int {
+  AlwaysInliner,
+  CGSCCInliner,
+  EarlyInliner,
+  ModuleInliner,
+  MLInliner,
+  ReplayCGSCCInliner,
+  ReplaySampleProfileInliner,
+  SampleProfileInliner,
+};
+
+/// Provides context on when an inline advisor is constructed in the pipeline
+/// (e.g., link phase, inline driver).
+struct InlineContext {
+  ThinOrFullLTOPhase LTOPhase;
+
+  InlinePass Pass;
+};
+
+std::string AnnotateInlinePassName(InlineContext IC);
+
 class InlineAdvisor;
 /// Capture state between an inlining decision having had been made, and
 /// its impact being observable. When collecting model training data, this
@@ -202,8 +224,12 @@ public:
     OS << "Unimplemented InlineAdvisor print\n";
   }
 
+  /// NOTE pass name is annotated only when inline advisor constructor provides InlineContext.
+  const char *getAnnotatedInlinePassName();
+
 protected:
-  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
+  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                Optional<InlineContext> IC = NoneType::None);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -215,6 +241,7 @@ protected:
 
   Module &M;
   FunctionAnalysisManager &FAM;
+  const Optional<InlineContext> IC;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   enum class MandatoryInliningKind { NotMandatory, Always, Never };

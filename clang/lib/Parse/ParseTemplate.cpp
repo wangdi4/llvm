@@ -217,9 +217,12 @@ Decl *Parser::ParseSingleDeclarationAfterTemplate(
 
   if (Context == DeclaratorContext::Member) {
     // We are parsing a member template.
-    ParseCXXClassMemberDeclaration(AS, AccessAttrs, TemplateInfo,
-                                   &DiagsFromTParams);
-    return nullptr;
+    DeclGroupPtrTy D = ParseCXXClassMemberDeclaration(
+        AS, AccessAttrs, TemplateInfo, &DiagsFromTParams);
+
+    if (!D || !D.get().isSingleDecl())
+      return nullptr;
+    return D.get().getSingleDecl();
   }
 
   ParsedAttributes prefixAttrs(AttrFactory);

@@ -1,4 +1,4 @@
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,6 +19,7 @@
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
+#include "OptimizerOCL.h"
 #include "VecConfig.h"
 #include "cl_config.h"
 #include "cl_env.h"
@@ -34,7 +35,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #ifdef _WIN32
@@ -71,20 +72,6 @@ const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
  */
 namespace Utils
 {
-/**
- * Generates the log record (to the given stream) enumerating the given external function names
- */
-static void LogUndefinedExternals(llvm::raw_ostream& logs, const std::vector<std::string>& externals)
-{
-    logs << "Error: unimplemented function(s) used:\n";
-
-    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
-    {
-        logs << *i << "\n";
-    }
-    //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
-}
-
 /**
  * Generates the log record (to the given stream) enumerating function names
    with recursive calls
@@ -250,7 +237,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     if( s_globalStateInitialized )
         return;
 
-    OptimizerOCL::initializePasses();
+    OptimizerOCLLegacy::initializePasses();
 
     SmallVector<const char*, 32> Args;
 
@@ -297,21 +284,32 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     s_globalStateInitialized = true;
 }
 
-static void applyBuildProgramLLVMOptions(PassManagerType PMType) {
-  if (PMType != PM_LTO_LEGACY && PMType != PM_LTO_NEW)
-    return;
-
-  SmallVector<const char *, 4> Args;
+/// Commandline setting should be eventually moved into
+/// Compiler::InitGlobalState once we switch to LTO pipeline.
+static void
+applyBuildProgramLLVMOptions(PassManagerType PMType,
+                             const Intel::OpenCL::Utils::CPUDetect *CPUId) {
+  SmallVector<const char *, 8> Args;
   Args.push_back("Compiler");
 
-  /// Disable unrolling with runtime trip count. It is harmful for
-  /// sycl_benchmarks/dnnbench-pooling.
-  Args.push_back("-unroll-runtime=false");
+  // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
+  // obtain correct ISA.
+  std::string ISA = "-dpcpp-vector-variant-isa-encoding-override=";
+  ISA += CPUId->HasAVX512Core() ? "AVX512Core"
+         : CPUId->HasAVX2()     ? "AVX2"
+         : CPUId->HasAVX1()     ? "AVX1"
+                                : "SSE42";
+  Args.push_back(ISA.c_str());
+
+  // Disable unrolling with runtime trip count. It is harmful for
+  // sycl_benchmarks/dnnbench-pooling.
+  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO)
+    Args.push_back("-unroll-runtime=false");
 
   // inline threshold is not exposed by standard new pass manager pipeline, so
   // we have to set threshold globally here.
-  if (PMType == PM_LTO_NEW)
-    Args.push_back("-inline-threshold=4096");
+  if (PMType == PM_LTO)
+    Args.push_back("-inline-threshold=16384");
 
   Args.push_back(nullptr);
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
@@ -327,22 +325,18 @@ void Compiler::Terminate()
     llvm::llvm_shutdown();
 }
 
-Compiler::Compiler(const ICompilerConfig& config):
-    m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
-    m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
-    m_transposeSize(config.GetTransposeSize()),
-    m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
-    m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
-    m_debug(false),
-    m_disableOptimization(false),
-    m_useNativeDebugger(true),
-    m_streamingAlways(config.GetStreamingAlways()),
-    m_expensiveMemOpts(config.GetExpensiveMemOpts()),
-    m_passManagerType(config.GetPassManagerType()),
-    m_debugPassManager(config.DebugPassManager())
-{
-    // WORKAROUND!!! See the notes in TerminationBlocker description
-   static Utils::TerminationBlocker blocker;
+Compiler::Compiler(const ICompilerConfig &config)
+    : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
+      m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
+      m_transposeSize(config.GetTransposeSize()),
+      m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
+      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
+      m_disableOptimization(false), m_useNativeDebugger(true),
+      m_streamingAlways(config.GetStreamingAlways()),
+      m_expensiveMemOpts(config.GetExpensiveMemOpts()),
+      m_passManagerType(config.GetPassManagerType()) {
+  // WORKAROUND!!! See the notes in TerminationBlocker description
+  static Utils::TerminationBlocker blocker;
 }
 
 Compiler::~Compiler()
@@ -398,7 +392,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
   // could improve the precision (Only apply this for OpenCL program).
-  if (!DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+  if (!llvm::CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
@@ -420,41 +414,6 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   }
 
   return TargetMachine;
-}
-
-/*
- * This is a static method which check whether undefined external symbols
- * are from MPIR library or not.
- */
-static bool
-isUndefinedExternalsFromMPIRLib(const std::vector<std::string> &externals) {
-  static StringSet<> symbolFromMPIRLib = {"_ihc_mutex_create",
-                                          "_ihc_mutex_delete",
-                                          "_ihc_mutex_lock",
-                                          "_ihc_mutex_unlock",
-                                          "_ihc_cond_create",
-                                          "_ihc_cond_delete",
-                                          "_ihc_cond_notify_one",
-                                          "_ihc_cond_wait",
-                                          "_ihc_pthread_create",
-                                          "_ihc_pthread_join",
-                                          "_ihc_pthread_detach",
-                                          "_Znwy",
-                                          "_ZdlPvy",
-                                          "_ZSt14_Xlength_errorPKc",
-                                          "_ZdlPv"};
-  for (std::vector<std::string>::const_iterator i = externals.begin(),
-                                                e = externals.end();
-       i != e; ++i) {
-    std::string ele = *i;
-    // Deal with string with space, e.g "_Z7unknownv is undefined "
-    std::string symbol =
-        ele.find(' ') != std::string::npos ? ele.substr(0, ele.find(' ')) : ele;
-    if (symbolFromMPIRLib.find(symbol) != symbolFromMPIRLib.end()) {
-      return true;
-    }
-  }
-  return false;
 }
 
 llvm::Module *
@@ -486,13 +445,13 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     m_disableOptimization = buildOptions.GetDisableOpt();
     m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
-    // Default to C++ legacy pipeline if triple is spir64_x86_64.
+    // Default to C++ new-pm pipeline if triple is spir64_x86_64.
     llvm::Triple TT(pModule->getTargetTriple());
     if (m_passManagerType == PM_NONE &&
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
-      m_passManagerType = PM_LTO_LEGACY;
+      m_passManagerType = PM_LTO;
 
-    applyBuildProgramLLVMOptions(m_passManagerType);
+    applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
 
     materializeSpirTriple(pModule);
 
@@ -527,9 +486,13 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       optimizer = std::make_unique<OptimizerLTOLegacyPM>(*pModule, BIModules,
                                                          optimizerConfig);
       break;
-    case PM_LTO_NEW:
-      optimizer = std::make_unique<OptimizerLTO>(
-          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
+    case PM_LTO:
+      optimizer =
+          std::make_unique<OptimizerLTO>(*pModule, BIModules, optimizerConfig);
+      break;
+    case PM_OCL_LEGACY:
+      optimizer = std::make_unique<OptimizerOCLLegacy>(*pModule, BIModules,
+                                                       optimizerConfig);
       break;
     default:
       optimizer =
@@ -542,9 +505,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     if (optimizer->hasVectorVariantFailure()) {
       std::map<std::string, std::vector<std::string>> Reasons;
       for (auto &F : *pModule)
-        if (F.hasFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)) {
+        if (F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure)) {
           std::string Value =
-              F.getFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)
+              F.getFnAttribute(llvm::KernelAttribute::VectorVariantFailure)
                   .getValueAsString()
                   .str();
           Reasons[Value].push_back(F.getName().str());
@@ -557,18 +520,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       throw Exceptions::UserErrorCompilerException(
           "Vector-variant processing problem for an indirect function call.",
           CL_DEV_INVALID_BINARY);
-    }
-
-    if (optimizer->hasUndefinedExternals()) {
-      auto undefExternals = optimizer->GetUndefinedExternals();
-      if (m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty() &&
-          isUndefinedExternalsFromMPIRLib(undefExternals)) {
-        pResult->LogS() << this->getBuiltinInitLog() << "\n";
-      }
-
-      Utils::LogUndefinedExternals(pResult->LogS(), undefExternals);
-      throw Exceptions::CompilerException("Failed to parse IR",
-                                          CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer->hasUnsupportedRecursion()) {

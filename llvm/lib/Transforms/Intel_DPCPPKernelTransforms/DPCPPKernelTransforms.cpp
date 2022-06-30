@@ -22,7 +22,9 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeBarrierInFunctionLegacyPass(Registry);
   initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
+  initializeBuiltinLICMLegacyPass(Registry);
   initializeBuiltinLibInfoAnalysisLegacyPass(Registry);
+  initializeChannelPipeTransformationLegacyPass(Registry);
   initializeCleanupWrappedKernelLegacyPass(Registry);
   initializeCoerceTypesLegacyPass(Registry);
   initializeCoerceWin64TypesLegacyPass(Registry);
@@ -30,6 +32,9 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDataPerBarrierWrapperPass(Registry);
   initializeDataPerValueWrapperPass(Registry);
   initializeDeduceMaxWGDimLegacyPass(Registry);
+  initializeDetectRecursionLegacyPass(Registry);
+  initializeDPCPPAliasAnalysisLegacyPass(Registry);
+  initializeDPCPPExternalAliasAnalysisLegacyPass(Registry);
   initializeDPCPPEqualizerLegacyPass(Registry);
   initializeDPCPPKernelAnalysisLegacyPass(Registry);
   initializeDPCPPKernelPostVecPass(Registry);
@@ -44,6 +49,8 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeImplicitArgsAnalysisLegacyPass(Registry);
   initializeImplicitGIDLegacyPass(Registry);
   initializeIndirectCallLoweringLegacyPass(Registry);
+  initializeInferArgumentAliasLegacyPass(Registry);
+  initializeInfiniteLoopCreatorLegacyPass(Registry);
   initializeInstToFuncCallLegacyPass(Registry);
   initializeInternalizeGlobalVariablesLegacyPass(Registry);
   initializeInternalizeNonKernelFuncLegacyPass(Registry);
@@ -53,18 +60,29 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeLocalBuffersLegacyPass(Registry);
   initializeLoopStridedCodeMotionLegacyPass(Registry);
   initializeLoopWIAnalysisLegacyPass(Registry);
+  initializeOptimizeIDivAndIRemLegacyPass(Registry);
+  initializePatchCallbackArgsLegacyPass(Registry);
   initializePhiCanonicalizationLegacyPass(Registry);
+  initializePipeIOTransformationLegacyPass(Registry);
+  initializePipeOrderingLegacyPass(Registry);
+  initializePipeSupportLegacyPass(Registry);
   initializePrepareKernelArgsLegacyPass(Registry);
+  initializePreventDivCrashesLegacyPass(Registry);
   initializeProfilingInfoLegacyPass(Registry);
   initializeReduceCrossBarrierValuesLegacyPass(Registry);
   initializeRedundantPhiNodeLegacyPass(Registry);
+  initializeRelaxedMathLegacyPass(Registry);
   initializeRemoveAtExitLegacyPass(Registry);
+  initializeRemoveDuplicatedBarrierLegacyPass(Registry);
+  initializeReplaceScalarWithMaskLegacyPass(Registry);
+  initializeReqdSubGroupSizeLegacyPass(Registry);
   initializeResolveMatrixFillLegacyPass(Registry);
   initializeResolveMatrixLayoutLegacyPass(Registry);
   initializeResolveMatrixWISliceLegacyPass(Registry);
   initializeResolveSubGroupWICallLegacyPass(Registry);
   initializeResolveVarTIDCallLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
+  initializeSetPreferVectorWidthLegacyPass(Registry);
   initializeSetVectorizationFactorLegacyPass(Registry);
   initializeSGBarrierPropagateLegacyPass(Registry);
   initializeSGBarrierSimplifyLegacyPass(Registry);
@@ -80,11 +98,13 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeTaskSeqAsyncHandlingLegacyPass(Registry);
   initializeUpdateCallAttrsLegacyPass(Registry);
   initializeVectorizationDimensionAnalysisLegacyPass(Registry);
+  initializeVectorKernelEliminationLegacyPass(Registry);
   initializeVectorVariantFillInLegacyPass(Registry);
   initializeVectorVariantLoweringLegacyPass(Registry);
   initializeVFAnalysisLegacyPass(Registry);
   initializeWGLoopBoundariesLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
+  initializeWeightedInstCountAnalysisLegacyPass(Registry);
   initializeWorkItemAnalysisLegacyPass(Registry);
 }
 

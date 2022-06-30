@@ -4,6 +4,6 @@ RUN: SATest -tsize=4 -BUILD -config=%s.sycl.cfg -dump-llvm-file - | FileCheck %s
 Checks DPCPPKernelVecClone assumes global id fits in i32 for OpenCL program, but
 not for SYCL program.
 
-CHECK-LABEL: define void @test
+CHECK-LABEL: define dso_local void @test
 CHECK-OCL-NOT: ashr exact <4 x i64> %{{.*}}, <i64 32, i64 32, i64 32, i64 32>
 CHECK-SYCL: ashr exact <4 x i64> %{{.*}}, <i64 32, i64 32, i64 32, i64 32>

@@ -176,11 +176,12 @@ Value *SimplifyIndvar::foldIVUser(Instruction *UseInst, Instruction *IVOperand) 
       D = ConstantInt::get(UseInst->getContext(),
                            APInt::getOneBitSet(BitWidth, D->getZExtValue()));
     }
-    FoldedExpr = SE->getUDivExpr(SE->getSCEV(IVSrc), SE->getSCEV(D));
+    const auto *LHS = SE->getSCEV(IVSrc);
+    const auto *RHS = SE->getSCEV(D);
+    FoldedExpr = SE->getUDivExpr(LHS, RHS);
     // We might have 'exact' flag set at this point which will no longer be
     // correct after we make the replacement.
-    if (UseInst->isExact() &&
-        SE->getSCEV(IVSrc) != SE->getMulExpr(FoldedExpr, SE->getSCEV(D)))
+    if (UseInst->isExact() && LHS != SE->getMulExpr(FoldedExpr, RHS))
       MustDropExactFlag = true;
   }
   // We have something that might fold it's operand. Compare SCEVs.
@@ -697,6 +698,22 @@ bool SimplifyIndvar::eliminateIdentitySCEV(Instruction *UseInst,
       (SE->getSCEV(UseInst) != SE->getSCEV(IVOperand)))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // In opaque pointer mode, UseInst and IVOperand always have the same type so
+  // the getType() check above doesn't work. This results in GEPs with trailing
+  // 0 struct offsets getting eliminated which is a problem for pattern matching
+  // code in loopopt passes so we supppress the optimization with an equivalent
+  // opaque ptr mode check.
+  if (UseInst->getParent()->getParent()->isPreLoopOpt()) {
+
+    auto *UseGep = dyn_cast<GetElementPtrInst>(UseInst);
+    auto *IVGep = dyn_cast<GetElementPtrInst>(IVOperand);
+
+    if (UseGep && IVGep &&
+        (UseGep->getResultElementType() != IVGep->getResultElementType()))
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
   // getSCEV(X) == getSCEV(Y) does not guarantee that X and Y are related in the
   // dominator tree, even if X is an operand to Y.  For instance, in
   //
@@ -1773,10 +1790,6 @@ Instruction *WidenIV::widenIVUse(WidenIV::NarrowIVDefUse DU, SCEVExpander &Rewri
     truncateIVUse(DU, DT, LI);
     return nullptr;
   }
-  // Assume block terminators cannot evaluate to a recurrence. We can't to
-  // insert a Trunc after a terminator if there happens to be a critical edge.
-  assert(DU.NarrowUse != DU.NarrowUse->getParent()->getTerminator() &&
-         "SCEV is not expected to evaluate a block terminator");
 
   // Reuse the IV increment that SCEVExpander created as long as it dominates
   // NarrowUse.

@@ -33,14 +33,14 @@
 ; //int main() { foo(); }
 
 ; Check for the private copy of @c for the target construct
-; CHECK: [[C_TGT:@c.*__global]] = internal addrspace(1) global %class.C zeroinitializer, align 1
+; CHECK: [[C_TGT:@c.*__global]] = internal addrspace(1) global %class.C zeroinitializer
 ; CHECK-DAG: call spir_func %class.C addrspace(4)* @_ZTS1C.omp.def_constr(%class.C addrspace(4)* addrspacecast (%class.C addrspace(1)* [[C_TGT]] to %class.C addrspace(4)*))
 ; CHECK-DAG: [[C_TGT_X:%[^ ]+]] = getelementptr inbounds %class.C, %class.C addrspace(1)* [[C_TGT]], i32 0, i32 0
 ; CHECK-DAG: store i32 333, i32 addrspace(1)* [[C_TGT_X]], align 4
 ; CHECK-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* addrspacecast (%class.C addrspace(1)* [[C_TGT]] to %class.C addrspace(4)*))
 
 ; Check for the private copy of @c for the parallel construct
-; CHECK-DAG: [[C_PAR:%c.*]] = alloca %class.C, align 1
+; CHECK-DAG: [[C_PAR:%c.*]] = alloca %class.C, align 8
 ; CHECK-DAG: {{%[^ ]+}} = call spir_func %class.C addrspace(4)* @_ZTS1C.omp.def_constr(%class.C addrspace(4)* [[C_PAR_CAST:%[^, ]+]])
 ; CHECK-DAG: [[C_PAR_CAST]] = addrspacecast %class.C* [[C_PAR]] to %class.C addrspace(4)*
 ; CHECK-DAG: [[C_PAR_X:%[^ ]+]] = getelementptr inbounds %class.C, %class.C* [[C_PAR]], i32 0, i32 0

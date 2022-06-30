@@ -225,9 +225,17 @@ VPValue* getReductionUpdateOp(VPGeneralMemOptConflict *VPConflict,
     // updating value.
     VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
     VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
-    RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
+    // if Op0 == Op1, then we have something like the following:
+    //   V = A[idx];
+    //   A[idx] = V + V;
+    // Don't assert for such cases and set
+    // RednUpdateOp = VPConflict->getConflictLoad().
+    if (Op0 == Op1)
+      RednUpdateOp = VPConflict->getConflictLoad();
+    else
+      RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
     assert(isa<VPConstant>(RednUpdateOp) ||
-           isa<VPExternalDef>(RednUpdateOp) &&
+           isa<VPExternalDef>(RednUpdateOp) || Op0 == Op1 &&
                "Constant or external definition is expected.");
   } else {
     assert(VPConflict->getNumOperands() == 4 &&
@@ -390,11 +398,12 @@ VPValue* createPermuteIntrinsic(StringRef Name, Type *Ty, VPValue *PermuteVals,
     return VPBldr.create<VPPermute>(Name, Ty, PermuteVals, Control);
 }
 
-// Do the actual tree conflict lowering using the double permute tree reduction
-// algorithm described in <TODO: put link location here>. Due to the size of
-// the IR generated, please refer to vplan_lower_tree_conflict*.ll tests. The
-// Vlan dump can also be used with these tests through
-// VPlanLowerTreeConflictControl (-vplan-print-after-lower-tree-conflict)
+// llvm/test/Transforms/Intel_VPO/Vecopt/vplan_tree_conflict_verify.ll can
+// be used as a reference for the final output of the double permute tree
+// reduction algorithm.
+//
+// For a tutorial on how the double permute tree reduction algorithm works,
+// please visit the VPO Team Wiki page.
 bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
                                                     unsigned VF, Function &Fn) {
 
@@ -402,23 +411,66 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
   auto *DA = Plan->getVPlanDA();
   auto *VPLI = Plan->getVPLoopInfo();
   auto *C = Plan->getLLVMContext();
-  SmallVector<VPTreeConflict *, 2> TreeConflicts;
+  SmallMapVector<VPTreeConflict *, VPValue*, 2> TreeConflicts;
   bool TreeConflictsLowered = false;
 
+  // Collect tree conflict instructions and associated block-predicate. We need
+  // to collect the block-predicates before lowering because once the lowering
+  // starts blocks are split and this information is lost.
   for (auto &VPInst : vpinstructions(Plan))
-    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst))
-      TreeConflicts.push_back(TreeConflict);
+    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst)) {
+      VPValue *Pred = TreeConflict->getParent()->getPredicate();
+      TreeConflicts[TreeConflict] = Pred;
+    }
 
-  for (auto *TreeConflict : TreeConflicts) {
+  for (auto TreeConflictItem : TreeConflicts) {
+    VPTreeConflict *TreeConflict = TreeConflictItem.first;
     assert(TreeConflict->getNumUsers() == 1 &&
            cast<VPInstruction>(*TreeConflict->users().begin())->getOpcode() ==
                Instruction::Store &&
                "VPTreeConflict can only have a store user.");
 
     auto *TreeConflictParent = TreeConflict->getParent();
-    auto *Pred = TreeConflictParent->getPredicate();
+    auto *Pred = TreeConflictItem.second;
 
-    // Generate the conflict loop.
+    // The tree conflict lowering performs the following transformation on the
+    // VPlan.
+    //
+    // Incoming VPlan:
+    //
+    // VectorLoopPreheader
+    //         |
+    //         |      -------------------------
+    //         |      |                        |
+    //         |      v                        |
+    // TreeConflictParent (vector loop header) |
+    // (contains tree-conflict instruction) --->
+    //         |
+    //         |
+    //   VectorLoopExit
+    //
+    //
+    // TreeConflictParent is transformed to:
+    //
+    //
+    //                Conflict pre-check:
+    //       (contains vconflict, initial mask check)
+    //             /                      \
+    //            /                        |
+    //            |            Conflict loop preheader (empty)
+    //            |                        |
+    //            |                        |
+    //            |                Conflict loop header
+    //            |           (compute running sum, next mask)
+    //            |                        |
+    //            |                        |
+    //            |              Conflict loop exit (empty)
+    //             \                      /
+    //              \                    /
+    //                   PostConflict
+    //          (final update of reduction op)
+
+    // Generate the conflict loop structure.
     auto SplitIt = TreeConflict->getIterator();
     auto *ConflictPreheader =
         VPBlockUtils::splitBlock(TreeConflictParent, SplitIt, VPLI,
@@ -618,7 +670,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     // splitting happened for the conflict loop. Necessary for conditional
     // tree conflict lowering.
     if (Pred) {
-      auto *BlockPredInst = VPBldr.createPred(TreeConflictParent->getPredicate());
+      auto *BlockPredInst = VPBldr.createPred(Pred);
       PostConflict->setBlockPredicate(BlockPredInst);
     }
 

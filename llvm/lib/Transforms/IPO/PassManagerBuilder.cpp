@@ -35,13 +35,14 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/InlineCost.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/InlineCost.h"
+#include "llvm/IR/Verifier.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -49,7 +50,6 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PrintPasses.h" // INTEL
-#include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Target/CGPassBuilderOption.h"
@@ -124,19 +124,15 @@ cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
 
-static cl::opt<bool>
-EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
-                   cl::desc("Run the early jump threading pass"));
 cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
 
-static cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing",
-                                          cl::init(true), cl::Hidden,
-                                          cl::ZeroOrMore,
-                                          cl::desc("Enable load coalescing"));
+cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing", cl::init(true),
+                                   cl::Hidden, cl::ZeroOrMore,
+                                   cl::desc("Enable load coalescing"));
 
-static cl::opt<bool>
+cl::opt<bool>
     EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
                        cl::desc("Run SROA pass after the SLP vectorizer"));
 
@@ -155,8 +151,7 @@ cl::opt<ThroughputMode> ThroughputModeOpt(
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
-cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
-                                 cl::Hidden, cl::ZeroOrMore,
+cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::Hidden,
                                  cl::desc("Run Partial inlinining pass"));
 
 #if INTEL_CUSTOMIZATION
@@ -272,7 +267,7 @@ cl::opt<bool> RunLoopOptFrameworkOnly(
     cl::desc("Enables loopopt framework without any transformation passes"));
 
 // register promotion for global vars at -O2 and above.
-static cl::opt<bool> EnableNonLTOGlobalVarOpt(
+cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 
@@ -287,7 +282,7 @@ static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::desc("Enable Tbaa Propagation"));
 
 // Andersen AliasAnalysis
-static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
+cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 
 // Indirect call Conv
@@ -358,7 +353,7 @@ static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
   cl::init(false), cl::Hidden,
   cl::desc("Enable Function Multi-versioning"));
 
-static cl::opt<bool> EnableHandlePragmaVectorAligned(
+cl::opt<bool> EnableHandlePragmaVectorAligned(
     "enable-handle-pragma-vector-aligned", cl::init(true),
     cl::desc("Enable Handle Pragma Vector Aligned pass"));
 
@@ -374,7 +369,7 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
   cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
 
-static cl::opt<bool> EnableArgNoAliasProp(
+cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
 
@@ -389,6 +384,10 @@ cl::opt<bool> EnableVPOParoptTargetInline(
 static cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
                                     cl::Hidden, cl::ZeroOrMore,
                                     cl::desc("Add LSR pass before code gen."));
+
+cl::opt<bool>
+    EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
+                       cl::desc("Run the early jump threading pass"));
 #endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool> EnableDFAJumpThreading("enable-dfa-jump-thread",
@@ -403,8 +402,8 @@ static cl::opt<bool>
     EnablePerformThinLTO("perform-thinlto", cl::init(false), cl::Hidden,
                          cl::desc("Enable performing ThinLTO."));
 
-cl::opt<bool> EnableHotColdSplit("hot-cold-split", cl::init(false),
-    cl::ZeroOrMore, cl::desc("Enable hot-cold splitting pass"));
+cl::opt<bool> EnableHotColdSplit("hot-cold-split",
+                                 cl::desc("Enable hot-cold splitting pass"));
 
 cl::opt<bool> EnableIROutliner("ir-outliner", cl::init(false), cl::Hidden,
     cl::desc("Enable ir outliner pass"));
@@ -418,12 +417,12 @@ cl::opt<bool>
                       cl::desc("Disable pre-instrumentation inliner"));
 
 cl::opt<int> PreInlineThreshold(
-    "preinline-threshold", cl::Hidden, cl::init(75), cl::ZeroOrMore,
+    "preinline-threshold", cl::Hidden, cl::init(75),
     cl::desc("Control the amount of inlining in pre-instrumentation inliner "
              "(default = 75)"));
 
 cl::opt<bool>
-    EnableGVNHoist("enable-gvn-hoist", cl::init(false), cl::ZeroOrMore,
+    EnableGVNHoist("enable-gvn-hoist",
                    cl::desc("Enable the GVN hoisting pass (default = off)"));
 
 static cl::opt<bool>
@@ -431,13 +430,17 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Disable shrink-wrap library calls"));
 
+#if INTEL_CUSTOMIZATION
+// The "legacy" loop unswitcher currently has better performance on
+// polyhedron.
 static cl::opt<bool> EnableSimpleLoopUnswitch(
     "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
     cl::desc("Enable the simple loop unswitch pass. Also enables independent "
              "cleanup passes integrated into the loop pass manager pipeline."));
+#endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool>
-    EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
+    EnableGVNSink("enable-gvn-sink",
                   cl::desc("Enable the GVN sinking pass (default = off)"));
 
 // This option is used in simplifying testing SampleFDO optimizations for
@@ -858,21 +861,25 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
-  if (!SYCLOptimizationMode) {
-    // Begin the loop pass pipeline.
+  if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+
+#if INTEL_CUSTOMIZATION
     if (EnableSimpleLoopUnswitch) {
       // The simple loop unswitch pass relies on separate cleanup passes.
-      // Schedule them first so when we re-process a loop they run before other
-      // loop passes.
+      // Schedule  them first so when we re-process a loop they run before
+      // other loop passes.
       MPM.add(createLoopInstSimplifyPass());
       MPM.add(createLoopSimplifyCFGPass());
     }
+#endif // INTEL_CUSTOMIZATION
+
     // Try to remove as much code from the loop header as possible,
     // to reduce amount of IR that will have to be duplicated. However,
     // do not perform speculative hoisting the first time as LICM
     // will destroy metadata that may not need to be destroyed if run
     // after loop rotation.
     // TODO: Investigate promotion cap for O1.
+
 #if INTEL_CUSTOMIZATION
     // 27770/28531: This extra pass causes high spill rates in some
     // benchmarks.
@@ -885,11 +892,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
-    if (EnableSimpleLoopUnswitch)
-      MPM.add(createSimpleLoopUnswitchLegacyPass());
-    else
-      MPM.add(
-          createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+#if INTEL_CUSTOMIZATION
+  if (EnableSimpleLoopUnswitch)
+    MPM.add(createSimpleLoopUnswitchLegacyPass());
+  else
+    MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+#endif // INTEL_CUSTOMIZATION
+
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
     // the need for this.
@@ -920,7 +929,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
-  }
+
+} // broken formatting on this line to simplify pulldown
 
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
@@ -1106,7 +1116,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
     PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                           /*AllowSpeculation=*/true));
-    PM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+    PM.add(createSimpleLoopUnswitchLegacyPass());
     PM.add(createCFGSimplificationPass(
         SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
@@ -1404,10 +1414,14 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   // Clean up after IPCP & DAE
   addInstructionCombiningPass(MPM, !DTransEnabled);
-#endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
+  // In 2019, "false" was passed to the AllowCFGSimps parameter.
+  // In 2020, after the FreezeSelect arg was added, the Allow CFGSimps parm
+  // was accidentally left at default (true) [e9e5aace]
+  // Leaving it "true" for now as it has been 2 years without regressions.
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
-    MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
+    MPM.add(createJumpThreadingPass()); // INTEL
+#endif // INTEL_CUSTOMIZATION
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
@@ -1925,6 +1939,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     addDTransLegacyPasses(PM);
   }
 #endif // INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
+  // Multiversion and mark for inlining functions for tiling
+  if (DTransEnabled)
+    PM.add(createTileMVInlMarkerLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
   PM.add(createDopeVectorConstPropLegacyPass());
   PM.add(createArgumentPromotionPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1970,8 +1989,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelArgumentAlignmentLegacyPass());
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
-    // Multiversion and mark for inlining functions for tiling
-    PM.add(createTileMVInlMarkerLegacyPass());
   }
 
   bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
@@ -2082,7 +2099,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
   addExtensionsToPM(EP_Peephole, PM);
-  PM.add(createJumpThreadingPass(/*FreezeSelectCond*/ true));
+  PM.add(createJumpThreadingPass());
 
   // Break up allocas
   PM.add(createSROAPass());
@@ -2181,8 +2198,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   addExtensionsToPM(EP_Peephole, PM);
 
-  PM.add(createJumpThreadingPass(/*FreezeSelectCond*/ true));
-
 #if INTEL_CUSTOMIZATION
   PM.add(createForcedCMOVGenerationPass()); // To help CMOV generation
 #endif // INTEL_CUSTOMIZATION
@@ -2191,6 +2206,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunInliner)
     PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
+  PM.add(createJumpThreadingPass());
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
@@ -2516,6 +2532,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
     PM.add(createHIRDeadStoreEliminationPass());
     PM.add(createHIRLoopReversalPass());
+    PM.add(createHIRMinMaxRecognitionPass());
     PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
 
     if (SizeLevel == 0) {

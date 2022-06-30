@@ -190,18 +190,18 @@ namespace {
       (void) llvm::createDeadCodeEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDependenceAnalysisWrapperPass();
-      (void) llvm::createDomOnlyPrinterPass();
-      (void) llvm::createDomPrinterPass();
-      (void) llvm::createDomOnlyViewerPass();
-      (void) llvm::createDomViewerPass();
-      (void) llvm::createGCOVProfilerPass();
 #if INTEL_CUSTOMIZATION
+      (void) llvm::createGCOVProfilerPass();
       (void) llvm::createPGOInstrumentationGenLegacyPass();
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOInstrumentationGenCreateVarLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
       (void) llvm::createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
+      (void) llvm::createDomOnlyPrinterWrapperPassPass();
+      (void) llvm::createDomPrinterWrapperPassPass();
+      (void) llvm::createDomOnlyViewerWrapperPassPass();
+      (void) llvm::createDomViewerWrapperPassPass();
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
@@ -239,7 +239,9 @@ namespace {
       (void) llvm::createLoopRerollPass();
       (void) llvm::createLoopUnrollPass();
       (void) llvm::createLoopUnrollAndJamPass();
+#if INTEL_CUSTOMIZATION
       (void) llvm::createLoopUnswitchPass();
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createLoopVersioningLICMPass();
       (void) llvm::createLoopIdiomPass();
       (void) llvm::createLoopRotatePass();
@@ -258,10 +260,10 @@ namespace {
       (void) llvm::createPromoteMemoryToRegisterPass();
       (void) llvm::createDemoteRegisterToMemoryPass();
       (void) llvm::createPruneEHPass();
-      (void) llvm::createPostDomOnlyPrinterPass();
-      (void) llvm::createPostDomPrinterPass();
-      (void) llvm::createPostDomOnlyViewerPass();
-      (void) llvm::createPostDomViewerPass();
+      (void)llvm::createPostDomOnlyPrinterWrapperPassPass();
+      (void)llvm::createPostDomPrinterWrapperPassPass();
+      (void)llvm::createPostDomOnlyViewerWrapperPassPass();
+      (void)llvm::createPostDomViewerWrapperPassPass();
       (void) llvm::createReassociatePass();
       (void) llvm::createRedundantDbgInstEliminationPass();
       (void) llvm::createRegionInfoPass();
@@ -355,6 +357,7 @@ namespace {
       (void) llvm::createUnifyLoopExitsPass();
       (void) llvm::createFixIrreduciblePass();
       (void)llvm::createFunctionSpecializationPass();
+      (void)llvm::createSelectOptimizePass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -430,6 +433,7 @@ namespace {
       (void) llvm::createHIRLastValueComputationPass();
       (void) llvm::createHIRPropagateCastedIVPass();
       (void) llvm::createHIRMultiExitLoopRerollPass();
+      (void) llvm::createHIRMinMaxRecognitionPass();
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
@@ -448,8 +452,11 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createBuiltinLICMLegacyPass();
       (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
+      (void)llvm::createDPCPPAliasAnalysisLegacyPass();
+      (void)llvm::createDPCPPExternalAliasAnalysisLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void)llvm::createDPCPPKernelVecClonePass();
       (void)llvm::createDPCPPKernelPostVecPass();
@@ -458,6 +465,7 @@ namespace {
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
       (void)llvm::createDPCPPRewritePipesLegacyPass();
       (void)llvm::createDeduceMaxWGDimLegacyPass();
+      (void)llvm::createDetectRecursionLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createExternalizeGlobalVariablesLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
@@ -472,6 +480,8 @@ namespace {
       (void)llvm::createBarrierInFunctionLegacyPass();
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
       (void)llvm::createImplicitGIDLegacyPass();
+      (void)llvm::createInferArgumentAliasLegacyPass();
+      (void)llvm::createInfiniteLoopCreatorLegacyPass();
       (void)llvm::createInstToFuncCallLegacyPass();
       (void)llvm::createInternalizeGlobalVariablesLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
@@ -484,13 +494,19 @@ namespace {
       (void)llvm::createAddNTAttrLegacyPass();
       (void)llvm::createAddTLSGlobalsLegacyPass();
       (void)llvm::createAutorunReplicatorLegacyPass();
+      (void)llvm::createOptimizeIDivAndIRemLegacyPass();
+      (void)llvm::createRelaxedMathLegacyPass();
       (void)llvm::createRemoveAtExitLegacyPass();
+      (void)llvm::createRemoveDuplicatedBarrierLegacyPass(false);
+      (void)llvm::createReplaceScalarWithMaskLegacyPass();
+      (void)llvm::createReqdSubGroupSizeLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveVarTIDCallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createSetPreferVectorWidthLegacyPass();
       (void)llvm::createSGBarrierPropagateLegacyPass();
       (void)llvm::createSGBarrierSimplifyLegacyPass();
       (void)llvm::createSGBuiltinLegacyPass();
@@ -499,8 +515,14 @@ namespace {
       (void)llvm::createSGValueWidenLegacyPass();
       (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
+      (void)llvm::createPatchCallbackArgsLegacyPass(false);
+      (void)llvm::createPipeIOTransformationLegacyPass();
+      (void)llvm::createPipeOrderingLegacyPass();
+      (void)llvm::createPipeSupportLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createPreventDivCrashesLegacyPass();
       (void)llvm::createProfilingInfoLegacyPass();
+      (void)llvm::createChannelPipeTransformationLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
@@ -516,8 +538,10 @@ namespace {
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createVectorKernelEliminationLegacyPass();
       (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
       (void)llvm::createWGLoopBoundariesLegacyPass();
+      (void)llvm::createWeightedInstCountAnalysisLegacyPass();
       (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls

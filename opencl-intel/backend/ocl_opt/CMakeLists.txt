@@ -21,28 +21,12 @@ include_directories(${LLVM_INCLUDE_DIRS}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltinLibInfo
-    ChannelPipeTransformation
-    ChannelsUsageAnalysis
     DebugInfoPass
-    DetectRecursion
-    InfiniteLoopCreator
-    KernelInfo
     LLVMBarrier
     LLVMVectorizer
-    SubGroupAdaptation
-    OclFunctionAttrs
-    PatchCallbackArgs
-    PipeIOTransformation
-    PipeOrdering
-    PipeSupport
     Prefetch
-    PreventDivCrashes
-    RelaxedPass
-    SetPreferVectorWidth
     SmartGVN
     StripIntelIP
-    OCLAliasAnalysis
-    UndefExternalFuncs
 )
 
 # Dependencies of the passes
@@ -116,7 +100,7 @@ else()
 endif()
 # end INTEL_FEATURE_SW_DTRANS
 
-add_opencl_executable(${OCL_OPT}
+add_opencl_executable(oclopt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
   GraphPrinters.cpp

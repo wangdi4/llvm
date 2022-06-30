@@ -19,6 +19,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   -use-new-pm=true \
 ; end INTEL_CUSTOMIZATION
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test2,px \
@@ -62,14 +63,12 @@ cont:
 
 ; CHECK-IR0: define weak_odr i32 @test
 ; CHECK-IR0-NEXT: entry:
-; CHECK-IR0-NEXT: %0 = bitcast
 ; CHECK-IR0-NEXT: %vtable5 =
 ; CHECK-IR0-NEXT: tail call void @llvm.trap()
 ; CHECK-IR0-NEXT: unreachable
 ; CHECK-IR0-NEXT: }
 ; CHECK-IR0: define weak_odr i32 @testb
 ; CHECK-IR0-NEXT: entry:
-; CHECK-IR0-NEXT: %0 = bitcast
 ; CHECK-IR0-NEXT: %vtable5 =
 ; CHECK-IR0-NEXT: tail call void @llvm.trap()
 ; CHECK-IR0-NEXT: unreachable

@@ -1006,6 +1006,17 @@ bool AndersensAAResult::isPointsToType(Type *Ty) const {
   return false;
 }
 
+// Returns true if Ty can be used to hold pointer value.
+// For now, returns false if Ty is either floating point type
+// or integer type that is smaller than size of pointer.
+bool  AndersensAAResult::isPtrCompatibleTy(Type *Ty) const {
+  if (Ty->isFloatingPointTy())
+    return false;
+  if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
+    return false;
+  return true;
+}
+
 /// getNode - Return the node corresponding to the specified pointer scalar.
 ///
 unsigned AndersensAAResult::getNode(Value *V) {
@@ -1347,7 +1358,6 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
                                                bool OrLocal) {
-
   if (ValueNodes.size() == 0) {
     return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
@@ -1551,6 +1561,10 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
   // Add all the GlobalIFunc.
   for (GlobalIFunc &GIF : M.ifuncs())
     ValueNodes[&GIF] = NumObjects++;
+
+  // Add all aliases.
+  for (auto &GA : M.aliases())
+    ValueNodes[&GA] = NumObjects++;
 
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
@@ -2032,6 +2046,10 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       CreateConstraint(Constraint::Copy, getNode(&GIF), getReturnNode(RF));
   }
 
+  // GlobalAlias: Treat it as Universal.
+  for (auto &GA : M.aliases())
+    CreateConstraint(Constraint::Copy, getNode(&GA), UniversalSet);
+
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
   bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
@@ -2276,33 +2294,29 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     if (!BC)
       return false;
     // Check source type of Bitcast is pointer to pointer to some type.
+    // Check getPointerElementType only when typed pointers are available.
     if (!BC->getSrcTy()->isPointerTy() ||
-       !BC->getSrcTy()->getPointerElementType()->isPointerTy())
-      return false;
-    return true;
-  };
-
-  // Returns true if Ty can be used to hold pointer value.
-  // For now, returns false if Ty is either floating point type
-  // or integer type that is smaller than size of pointer.
-  auto IsPtrCompatibleTy = [this](Type *Ty) {
-    if (Ty->isFloatingPointTy())
-      return false;
-    if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
+        BC->getSrcTy()->isOpaquePointerTy() ||
+        !BC->getSrcTy()->getNonOpaquePointerElementType()->isPointerTy())
       return false;
     return true;
   };
 
   ConstantExpr *CE;
-  if (Constant *C = dyn_cast<Constant>(SI.getOperand(0))) {
-    if (!isPointsToType(SI.getOperand(0)->getType()) &&
-        (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
-         dyn_cast<GlobalValue>(C) == nullptr ||
-         dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+
+  Value *ValOp = SI.getValueOperand();
+  Value *PtrOp = SI.getPointerOperand();
+  if (Constant *C = dyn_cast<Constant>(ValOp)) {
+    // Conservatively skip only if value is Undef/Nullptr/ConstantFP/
+    // ConstantInt.
+    if (isa<UndefValue>(C) ||
+        isa<ConstantPointerNull>(C) ||
+        (!isPtrCompatibleTy(ValOp->getType()) &&
+        (isa<ConstantFP>(C) || isa<ConstantInt>(C))))
       return;
   }
 
-  if (isPointsToType(SI.getOperand(0)->getType()) ||
+  if (isPointsToType(ValOp->getType()) ||
       NonPointerAssignments.count(&SI)) {
   // CQ377860: So far, “value to store” operand of “Instruction::Store”
   // is treated as either “value” or constant expression. But, it is
@@ -2314,17 +2328,16 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback),
   // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback),
   // void (i8*)** %18
-    if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
+    if ((CE = dyn_cast<ConstantExpr>(ValOp)) &&
         (CE->getOpcode() == Instruction::Select)) {
       // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
-      unsigned SIN = getNode(SI.getOperand(1));
+      unsigned SIN = getNode(PtrOp);
       CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(1)));
       CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(2)));
     }
     else {
       // store P1, P2  -->  <Store/P2/P1>
-      CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
-                       getNode(SI.getOperand(0)));
+      CreateConstraint(Constraint::Store, getNode(PtrOp), getNode(ValOp));
     }
   }
   // CMPLRLLVM-8888: Analysis shouldn't ignore non-pointer store
@@ -2339,7 +2352,6 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // TODO: Analysis needs to be improved to compute more accurate
   // points-to info by analyzing the non-pointer value that is being
   // stored.
-  Value *ValOp = SI.getValueOperand();
   if (!isPointsToType(ValOp->getType())) {
     if (IsLoadingPtrAsInt(ValOp)) {
       //      %5 = bitcast %struct.p** %0 to i64*
@@ -2352,15 +2364,14 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
       else
         LN = getNodeValue(*LI);
       CreateConstraint(Constraint::Load, LN, getNode(LI->getPointerOperand()));
-      CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()), LN);
+      CreateConstraint(Constraint::Store, getNode(PtrOp), LN);
     } else {
       Type *Ty = ValOp->getType();
       // Some stores can be ignored based on type of stored value.
       // Assuming that pointers are not converted to floating point
       // types or integer types that are smaller than pointer size.
-      if (IsPtrCompatibleTy(Ty))
-        CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()),
-                         UniversalSet);
+      if (isPtrCompatibleTy(Ty))
+        CreateConstraint(Constraint::Store, getNode(PtrOp), UniversalSet);
     }
   }
 }
@@ -2396,12 +2407,15 @@ void AndersensAAResult::visitPHINode(PHINode &PN) {
       NonPointerAssignments.count(&PN)) {
     unsigned PNN = getNodeValue(PN);
     for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
-    // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
-      if (Constant *C = dyn_cast<Constant>(PN.getIncomingValue(i))) {
-        if (!isPointsToType(PN.getType()) &&
-            (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
-            dyn_cast<GlobalValue>(C) == nullptr ||
-            dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+      Value *V = PN.getIncomingValue(i);
+      // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
+      if (Constant *C = dyn_cast<Constant>(V)) {
+        // Conservatively skip only if value is Undef/Nullptr/ConstantFP/
+        // ConstantInt.
+        if (isa<UndefValue>(C) ||
+            isa<ConstantPointerNull>(C) ||
+            (!isPtrCompatibleTy(V->getType()) &&
+            (isa<ConstantFP>(C) || isa<ConstantInt>(C))))
           continue;
       }
       CreateConstraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i)));
@@ -2555,7 +2569,6 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   //
   // Callee can be found by parsing getCalledValue but it may not be 
   // useful due to mismatch of args and formals. Decided to go conservative. 
-  //
   if (F == nullptr && isa<ConstantExpr>(CB->getCalledOperand())) {
     AddConstraintsForInitActualsToUniversalSet(CB);
     return;
@@ -2585,6 +2598,15 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
 }
 
 void AndersensAAResult::checkCall(CallBase &CB) {
+  // Treat InlineAsm as unhandled instruction for now. Skip Andersens
+  // completely if InlineAsm instrucion is noticed since it is rarely used
+  // in regular applications. If needed, InlineAsm instruction can be
+  // modeled by using "ParseConstraints()".
+  if (CB.isInlineAsm()) {
+    SkipAndersensAnalysis = true;
+    return;
+  }
+
   Function *F = CB.getCalledFunction();
   if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
       unsigned ObjectIndex = getObject(&CB);
@@ -2595,6 +2617,14 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   }
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
+
+  if (!F) {
+    // Get target function if CalledVal is GlobalAlias and treat it
+    // as direct call.
+    Value *CalledVal = CB.getCalledOperand()->stripPointerCasts();
+    if (auto *GA = dyn_cast<GlobalAlias>(CalledVal))
+      F = dyn_cast<Function>(GA->getAliaseeObject());
+  }
 
   if (F) {
     AddConstraintsForCall(&CB, F);
@@ -2744,14 +2774,24 @@ void AndersensAAResult::ClumpAddressTaken() {
 #define DEBUG_TYPE "anders-aa"
 }
 
-//
-//
+// Treat indirect calls and their arguments as possible source
+// of points-to info.
 void AndersensAAResult::CollectPossibleIndirectNodes(void) {
   PossibleSourceOfPointsToInfo.clear();
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
     if (isTrackableType(IndirectCallList[i]->getType())) {
       PossibleSourceOfPointsToInfo.insert(
                     getNode(IndirectCallList[i]));
+    }
+    // Treat "actual" as possible source of points-to info since
+    // edges are added during points-to propagation.
+    CallBase *CB = IndirectCallList[i];
+    auto arg_itr = CB->arg_begin();
+    auto arg_end = CB->arg_end();
+    for (; arg_itr != arg_end; ++arg_itr) {
+      Value* actual = *arg_itr;
+      if (isTrackableType(actual->getType()))
+        PossibleSourceOfPointsToInfo.insert(getNode(actual));
     }
   }
 }
@@ -3723,8 +3763,8 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallBase *CB) {
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
     if (isPointsToType(actual->getType())) {
-      // TODO: Need to think more about it. ICC is not doing it.
-      // Need to check with small test cases.
+      // Add edges from actual of 'CB' to UniversalSet
+      AddEdgeInGraph(getNode(actual), UniversalSet);
     }
   }
 }
@@ -6559,9 +6599,7 @@ void AndersensAAResult::AnalyzeCalls() {
     ProcessCall(IndirectCallList[i]);
   for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
     CallBase *CB = DirectCallList[i];
-    const Value *V = CB->getCalledOperand();
-    if (isa<InlineAsm>(*V))
-      continue;
+    assert(!isa<InlineAsm>(*CB->getCalledOperand()) && "No InlineAsm call expected");
 
     Instruction *II = CB;
     if (isa<DbgInfoIntrinsic>(II))

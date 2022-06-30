@@ -1,60 +1,68 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // vim:ts=2:sw=2:et:
 // integer conversion intrinsics in LLVM IR
 
 // sext
-let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32],
+let Types = ExpandTypesByVFAndFlatten<[v1i8], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def sext_i16 : OclBuiltin<"__ocl_sext_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-               Except<[v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
-def sext_i32 : OclBuiltin<"__ocl_sext_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-               Except<[v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
+def sext_i16 : OclBuiltin<"__ocl_sext_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def sext_i32 : OclBuiltin<"__ocl_sext_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def sext_i64 : OclBuiltin<"__ocl_sext_$Arg0Symgentype_$ReturnSymgentype", (outs i64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
 // zext
-let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32],
+let Types = ExpandTypesByVFAndFlatten<[v1i8], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
-def zext_i16 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-               Except<[v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-                       v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
-def zext_i32 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-               Except<[v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
+def zext_i16 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def zext_i32 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def zext_i64 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
-// fpext
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+// fpext/fptrunc
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def fpext_f16 : OclBuiltin<"__ocl_fpext_$Arg0Symgentype_$ReturnSymgentype", (outs gentype:$ret), (ins f16gentype:$x), [], [], 0, 0>;
-}
-
-// fptrunc
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def fptrunc_f16 : OclBuiltin<"__ocl_fptrunc_$Arg0Symgentype_$ReturnSymgentype", (outs f16gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
 // trunc
-let Types = [v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64],
+let Types = ExpandTypesByVFAndFlatten<[v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def trunc_i8  : OclBuiltin<"__ocl_trunc_$Arg0Symgentype_$ReturnSymgentype", (outs  i8gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
-def trunc_i16 : OclBuiltin<"__ocl_trunc_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-                Except<[v1i16, v2i16, v3i16, v4i16, v8i16, v16i16]>;
-def trunc_i32 : OclBuiltin<"__ocl_trunc_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>,
-                Except<[v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
-                        v1i32, v2i32, v3i32, v4i32, v8i32, v16i32]>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def trunc_i16 : OclBuiltin<"__ocl_trunc_$Arg0Symgentype_$ReturnSymgentype", (outs i16gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def trunc_i32 : OclBuiltin<"__ocl_trunc_$Arg0Symgentype_$ReturnSymgentype", (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
-let Types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+let Types = ExpandTypesByVFAndFlatten<[v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def trunc_f32 : OclBuiltin<"__ocl_trunc_$Arg0Type_$ReturnType", (outs f32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }

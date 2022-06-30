@@ -16,7 +16,7 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-//                                    instrinsics
+//                                    intrinsics
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -45,6 +45,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PatternMatch.h" //INTEL
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -70,9 +71,9 @@ static cl::opt<unsigned>
                       "tryScalarizeGEP. (default = 1)"));
 
 static cl::opt<unsigned>
-MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
+MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(3),
   cl::desc("Maximum constant count in GEP's elements when it can do "
-    "tryScalarizeGEP. (default = 1)"));
+    "tryScalarizeGEP. (default = 3)"));
 
 static cl::opt<unsigned>
 MaxScalar("scalarize-masked-mem-intrin-max-scalar", cl::Hidden, cl::init(10),
@@ -631,9 +632,26 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
     ++LoadCount;
     if (LoadCount <= MaxLoads)
       return true;
-  } else if (auto ZExt = dyn_cast<ZExtInst>(V))
-    return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
+  } else if (isa<SExtInst>(V) || isa<ZExtInst>(V)) {
+    auto *Ext = cast<CastInst>(V);
+    return isSplatAndConst(Ext->getOperand(0), Depth + 1, LoadCount, ConstCount,
+                           ScalarCount);
+  } else if (auto Shuf = dyn_cast<ShuffleVectorInst>(V)) {
+    auto *SrcTy = dyn_cast<FixedVectorType>(Shuf->getOperand(0)->getType());
+    if (!SrcTy)
+      return false;
+
+    int NumSrcElts = SrcTy->getNumElements();
+    auto ShufMask = Shuf->getShuffleMask();
+    for (int I = 0, NumElts = ShufMask.size(); I < NumElts; ++I) {
+      if (ShufMask[I] == -1)
+        continue;
+      if (NumSrcElts < ShufMask[I])
+        return false;
+    }
+    return isSplatAndConst(Shuf->getOperand(0), Depth + 1, LoadCount,
                            ConstCount, ScalarCount);
+  }
 
   return false;
 }
@@ -667,16 +685,57 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
     if (createBinOpExpr(LHS, RHS, Element, Builder) ||
         createBinOpExpr(RHS, LHS, Element, Builder))
       return Builder.CreateBinOp(Bin->getOpcode(), LHS, RHS);
-  } else if (auto ZExt = dyn_cast<ZExtInst>(V)) {
-    auto Src = createSplatAndConstExpr(ZExt->getOperand(0), Element, Builder);
-    auto DstTy = dyn_cast<VectorType>(ZExt->getType());
+  } else if (isa<SExtInst>(V) || isa<ZExtInst>(V)) {
+    auto *Ext = cast<CastInst>(V);
+    Value *Src = createSplatAndConstExpr(Ext->getOperand(0), Element, Builder);
+    auto *DstTy = dyn_cast<VectorType>(Ext->getType());
     assert(DstTy && "DstTy must be ");
-    auto ScalarDstTy = DstTy->getElementType();
-    return Builder.CreateZExt(Src, ScalarDstTy);
-  } else if (auto Load = dyn_cast<LoadInst>(V))
-    return Builder.CreateExtractElement(Load, Element);
-
+    Type *ScalarDstTy = DstTy->getElementType();
+    return Builder.CreateCast(Ext->getOpcode(), Src, ScalarDstTy);
+  } else if (auto Shuf = dyn_cast<ShuffleVectorInst>(V)) {
+    auto ShufMask = Shuf->getShuffleMask();
+    auto ShufTy = cast<FixedVectorType>(Shuf->getOperand(0)->getType());
+    if (ShufMask[Element] == -1)
+      return UndefValue::get(ShufTy->getElementType());
+    return createSplatAndConstExpr(Shuf->getOperand(0), ShufMask[Element],
+                                   Builder);
+  } else if (auto Load = dyn_cast<LoadInst>(V)) {
+    Value *Ptrs = Load->getPointerOperand();
+    auto *PtrsTy = cast<PointerType>(Ptrs->getType());
+    auto *DataTy = cast<FixedVectorType>(Load->getType());
+    Type *ElemTy = DataTy->getElementType();
+    auto *NewPtrTy = PointerType::get(ElemTy, PtrsTy->getAddressSpace());
+    Value *NewPtr = Builder.CreateBitCast(Ptrs, NewPtrTy);
+    Value *NewGEP = Builder.CreateConstGEP1_32(ElemTy, NewPtr, Element);
+    return Builder.CreateLoad(ElemTy, NewGEP);
+  }
   llvm_unreachable("Not reachable.");
+  return nullptr;
+}
+
+// Get splat value if the input is a splat vector or return nullptr.
+// The value may be extracted from a splat constants vector or from
+// a sequence of instructions that broadcast a single value into a vector.
+// If there is BitCast for the splat value return the type after BitCast.
+static Value *getSplatValueBitCast(const Value *V, Type *&CastType) {
+  using namespace llvm;
+  using namespace llvm::PatternMatch;
+  CastType = nullptr;
+  Value *Splat = getSplatValue(V);
+  if (Splat)
+    return Splat;
+
+  auto VecType = cast<FixedVectorType>(V->getType());
+  if (VecType) {
+    // shuf (bitcast (inselt ?, Splat, 0)), ?, <0, undef, 0, ...>
+    if (match(V,
+              m_Shuffle(m_BitCast(m_InsertElt(m_Value(),
+                  m_Value(Splat), m_ZeroInt())),
+                        m_Value(), m_ZeroMask()))) {
+      CastType = VecType->getElementType();
+      return Splat;
+    }
+  }
   return nullptr;
 }
 
@@ -692,16 +751,37 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
                               const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
   Type *BasePtrTy = GEP->getSourceElementType();
+  BitCastInst *BC = nullptr;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
-    Value *Splat = getSplatValue(Base);
+    Type *CastType;
+    Value *Splat = getSplatValueBitCast(Base, CastType);
     if (Splat) {
+      if (CastType) {
+        // handle following example:
+        //   %t1 = insertelement <2 x float*> poison, float* %Splat, i64 0
+        //   %t2 = bitcast <2 x float*> %t1 to <2 x i8*>
+        //   %Base = shufflevector <2 x i8*> %t2, <2 x i8*> poison, <2 x i32> zeroinitializer
+        Splat = Builder.CreateBitCast(Splat, CastType);
+      }
       Base = Splat;
     } else {
       auto NGEP = dyn_cast<GetElementPtrInst>(Base);
-      if (!NGEP)
-        return nullptr;
+      if (!NGEP) {
+        BC = dyn_cast<BitCastInst>(Base);
+        if (BC) {
+          // handle following example:
+          //   %NGEP = getelementptr inbounds i8, <2 x i8*> %4, <2 x i64> %12
+          //   %BC = bitcast <2 x i8*> %NGEP to <2 x float*>
+          //   %GP = getelementptr inbounds float, <2 x float*> %14, <2 x i64> %BC
+          NGEP = dyn_cast<GetElementPtrInst>(BC->getOperand(0));
+          if (!NGEP)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+      }
       Base = tryScalarizeGEP(NGEP, Element, Builder, LoadCount,
                              ConstCount, ScalarCount, TTI);
       if (!Base)
@@ -755,6 +835,10 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
   }
 
   // Create a GEP from the scalar components.
+  if (BC) {
+    auto BCTy = cast<FixedVectorType>(BC->getType());
+    Base = Builder.CreateBitCast(Base, BCTy->getElementType());
+  }
   return Builder.CreateGEP(BasePtrTy, Base, Indices, "Ptr" + Twine(Element));
 }
 
@@ -764,10 +848,17 @@ static Value *getScalarAddress(Value *Ptrs, unsigned Element,
   unsigned LoadCount = 0;
   unsigned ConstCount = 0;
   unsigned ScalarCount = 0;
-  if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
+
+  auto BC = dyn_cast<BitCastInst>(Ptrs);
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(BC ? BC->getOperand(0) : Ptrs))
     if (Value *V = tryScalarizeGEP(GEP, Element, Builder, LoadCount,
-                                   ConstCount, ScalarCount, TTI))
+                                   ConstCount, ScalarCount, TTI)) {
+      if (BC) {
+        auto BCTy = cast<FixedVectorType>(BC->getType());
+        return Builder.CreateBitCast(V, BCTy->getElementType());
+      }
       return V;
+    }
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
 }

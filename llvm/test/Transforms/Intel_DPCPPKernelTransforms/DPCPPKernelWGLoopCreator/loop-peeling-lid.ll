@@ -27,8 +27,8 @@ entry:
 ; CHECK-NEXT: %init.gid.dim0 = extractvalue [7 x i64] %early_exit_call, 1
 ; CHECK-NEXT: %loop.size.dim0 = extractvalue [7 x i64] %early_exit_call, 2
 ; CHECK-NEXT: %max.gid.dim0 = add i64 %init.gid.dim0, %loop.size.dim0
-; CHECK-NEXT: [[LSize0:%.*]] = tail call i64 @_Z14get_local_sizej(i32 0) #2
-; CHECK-NEXT: [[GroupID0:%.*]] = tail call i64 @_Z12get_group_idj(i32 0) #2
+; CHECK-NEXT: [[LSize0:%.*]] = tail call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT: [[GroupID0:%.*]] = tail call i64 @_Z12get_group_idj(i32 0)
 ; CHECK-NEXT: [[MUL0:%.*]] = mul i64 [[LSize0]], [[GroupID0]]
 ; CHECK-NEXT: add i64 [[MUL0]], 0
 
@@ -39,8 +39,9 @@ entry:
 ; CHECK-NEXT: %peel.ptr2int.and.req.align = and i64 %peel.ptr2int, 3
 ; CHECK-NEXT: %peel.ptr2int.req.aligned = icmp eq i64 %peel.ptr2int.and.req.align, 0
 ; CHECK-NEXT: %peel.size = select i1 %peel.ptr2int.req.aligned, i64 %peel.count.dynamic, i64 0
-; CHECK-NEXT: %max.peel.gid = add i64 %peel.size, %init.gid.dim0
-; CHECK-NEXT: %vector.scalar.size = sub i64 %loop.size.dim0, %peel.size
+; CHECK-NEXT: %peel.actual.size = call i64 @llvm.umin.i64(i64 %loop.size.dim0, i64 %peel.size)
+; CHECK-NEXT: %max.peel.gid = add i64 %peel.actual.size, %init.gid.dim0
+; CHECK-NEXT: %vector.scalar.size = sub i64 %loop.size.dim0, %peel.actual.size
 ; CHECK-NEXT: %vector.size = ashr i64 %vector.scalar.size, 4
 ; CHECK-NEXT: %num.vector.wi = shl i64 %vector.size, 4
 ; CHECK-NEXT: %max.vector.gid = add i64 %num.vector.wi, %max.peel.gid
@@ -50,7 +51,7 @@ entry:
 ; CHECK-NEXT: br label %peel_if
 
 ; CHECK-LABEL: peel_if:
-; CHECK-NEXT: [[PeelCMP:%[0-9]+]] = icmp ne i64 %peel.size, 0
+; CHECK-NEXT: [[PeelCMP:%[0-9]+]] = icmp ne i64 %peel.actual.size, 0
 ; CHECK-NEXT: br i1 [[PeelCMP]], label %peel_pre_head, label %vect_if
 
 ; CHECK-LABEL: peel_pre_head:

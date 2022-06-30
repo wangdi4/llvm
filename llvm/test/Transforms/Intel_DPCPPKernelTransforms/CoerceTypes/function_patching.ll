@@ -1,7 +1,12 @@
 ; RUN: opt -dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-types -S %s -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-coerce-types -S %s -o - | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -o - | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
+
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -S %s -o - | FileCheck %s --check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -o - | FileCheck %s --check-prefixes=CHECK,OPAQUE
 
 ; This test checks caller and callee patching that makes use of the coerced arguments
 
@@ -42,18 +47,31 @@ entry:
   %0 = bitcast %struct.OneWord* %OW to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %0) #3
   %call = call i64 @oneWord(%struct.OneWord* byval(%struct.OneWord) align 8 %OW) #4
-; CHECK: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord* %OW to i64*
-; CHECK-NEXT: [[LOAD:%[a-zA-Z0-9]+]] = load i64, i64* [[BC]]
-; CHECK-NEXT: call i64 @oneWord(i64 [[LOAD]]
+; NONOPAQUE: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord* %OW to i64*
+; NONOPAQUE-NEXT: [[LOAD:%[a-zA-Z0-9]+]] = load i64, i64* [[BC]]
+; NONOPAQUE-NEXT: call i64 @oneWord(i64 [[LOAD]]
+
+; OPAQUE: call void @llvm.lifetime.start.p0(i64 8, ptr %{{.*}})
+; OPAQUE-NEXT: [[LOAD:%[a-zA-Z0-9]+]] = load i64, ptr %OW
+; OPAQUE-NEXT: call i64 @oneWord(i64 [[LOAD]]
+
   %1 = bitcast %struct.TwoWords* %TW to i8*
   call void @llvm.lifetime.start.p0i8(i64 16, i8* %1) #3
   %call1 = call i64 @twoWords(%struct.TwoWords* byval(%struct.TwoWords) align 8 %TW) #4
-; CHECK: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.TwoWords* %TW to %struct.TwoWords.coerce.0*
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, %struct.TwoWords.coerce.0* [[BC]], i32 0, i32 0
-; CHECK-NEXT: [[LOAD0:%[a-zA-Z0-9]+]] = load i64, i64* [[GEP]]
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, %struct.TwoWords.coerce.0* [[BC]], i32 0, i32 1
-; CHECK-NEXT: [[LOAD1:%[a-zA-Z0-9]+]] = load i64, i64* [[GEP]]
-; CHECK-NEXT: call i64 @twoWords(i64 [[LOAD0]], i64 [[LOAD1]])
+; NONOPAQUE: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.TwoWords* %TW to %struct.TwoWords.coerce.0*
+; NONOPAQUE-NEXT: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, %struct.TwoWords.coerce.0* [[BC]], i32 0, i32 0
+; NONOPAQUE-NEXT: [[LOAD0:%[a-zA-Z0-9]+]] = load i64, i64* [[GEP0]]
+; NONOPAQUE-NEXT: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, %struct.TwoWords.coerce.0* [[BC]], i32 0, i32 1
+; NONOPAQUE-NEXT: [[LOAD1:%[a-zA-Z0-9]+]] = load i64, i64* [[GEP1]]
+; NONOPAQUE-NEXT: call i64 @twoWords(i64 [[LOAD0]], i64 [[LOAD1]])
+
+; OPAQUE: call void @llvm.lifetime.start.p0(i64 16, ptr %{{.*}})
+; OPAQUE-NEXT: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, ptr %TW, i32 0, i32 0
+; OPAQUE-NEXT: [[LOAD0:%[a-zA-Z0-9]+]] = load i64, ptr [[GEP0]]
+; OPAQUE-NEXT: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce.0, ptr %TW, i32 0, i32 1
+; OPAQUE-NEXT: [[LOAD1:%[a-zA-Z0-9]+]] = load i64, ptr [[GEP1]]
+; OPAQUE-NEXT: call i64 @twoWords(i64 [[LOAD0]], i64 [[LOAD1]])
+
   %2 = bitcast %struct.TwoWords* %TW to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %2) #3
   %3 = bitcast %struct.OneWord* %OW to i8*
@@ -63,23 +81,35 @@ entry:
 
 ; CHECK: define i64 @oneWord(i64 %arg.coerce.high)
 ; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord, align 8
-; CHECK-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord* [[ALLOCA]] to i64*
-; CHECK-NEXT: store i64 %arg.coerce.high, i64* [[BC]]
-; CHECK-NEXT: getelementptr inbounds %struct.OneWord, %struct.OneWord* [[ALLOCA]], i32 0, i32 0
+; NONOPAQUE-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord* [[ALLOCA]] to i64*
+; NONOPAQUE-NEXT: store i64 %arg.coerce.high, i64* [[BC]]
+; NONOPAQUE-NEXT: getelementptr inbounds %struct.OneWord, %struct.OneWord* [[ALLOCA]], i32 0, i32 0
+; OPAQUE-NEXT: store i64 %arg.coerce.high, ptr [[ALLOCA]]
+; OPAQUE-NEXT: getelementptr inbounds %struct.OneWord, ptr [[ALLOCA]], i32 0, i32 0
 
 ; CHECK: define i64 @twoWords(i64 %arg.coerce.high, i64 %arg.coerce.low)
 ; CHECK: [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.TwoWords, align 8
-; CHECK-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.TwoWords* %0 to %struct.TwoWords.coerce*
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, %struct.TwoWords.coerce* [[BC]], i32 0, i32 0
-; CHECK-NEXT: store i64 %arg.coerce.high, i64* [[GEP]]
-; CHECK-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, %struct.TwoWords.coerce* [[BC]], i32 0, i32 1
-; CHECK-NEXT: store i64 %arg.coerce.low, i64* [[GEP]]
-; CHECK-NEXT: getelementptr inbounds %struct.TwoWords, %struct.TwoWords* [[ALLOCA]], i32 0, i32 0
+; NONOPAQUE-NEXT: [[BC:%[a-zA-Z0-9]+]] = bitcast %struct.TwoWords* %0 to %struct.TwoWords.coerce*
+; NONOPAQUE-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, %struct.TwoWords.coerce* [[BC]], i32 0, i32 0
+; NONOPAQUE-NEXT: store i64 %arg.coerce.high, i64* [[GEP]]
+; NONOPAQUE-NEXT: [[GEP:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, %struct.TwoWords.coerce* [[BC]], i32 0, i32 1
+; NONOPAQUE-NEXT: store i64 %arg.coerce.low, i64* [[GEP]]
+; NONOPAQUE-NEXT: getelementptr inbounds %struct.TwoWords, %struct.TwoWords* [[ALLOCA]], i32 0, i32 0
+; OPAQUE-NEXT: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, ptr [[ALLOCA]], i32 0, i32 0
+; OPAQUE-NEXT: store i64 %arg.coerce.high, ptr [[GEP0]]
+; OPAQUE-NEXT: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr %struct.TwoWords.coerce, ptr [[ALLOCA]], i32 0, i32 1
+; OPAQUE-NEXT: store i64 %arg.coerce.low, ptr [[GEP1]]
+; OPAQUE-NEXT: getelementptr inbounds %struct.TwoWords, ptr [[ALLOCA]], i32 0, i32 0
 
 define void @checkAllocaAddrspace(%struct.OneWord addrspace(4)* byval(%struct.OneWord) align 16 %arg) #0 {
 ; CHECK:  define void @checkAllocaAddrspace(i64 %arg.coerce.high)
 ; CHECK-NEXT:  [[ALLOCA:%[a-zA-Z0-9]+]] = alloca %struct.OneWord, align 16
-; CHECK-NEXT:  %2 = addrspacecast %struct.OneWord* [[ALLOCA]] to %struct.OneWord addrspace(4)*
+; NONOPAQUE-NEXT: [[ADDRCAST:%[a-zA-Z0-9]+]] = addrspacecast %struct.OneWord* [[ALLOCA]] to %struct.OneWord addrspace(4)*
+; NONOPAQUE-NEXT: [[BITCAST:%[a-zA-Z0-9]+]] = bitcast %struct.OneWord addrspace(4)* [[ADDRCAST]] to i64 addrspace(4)*
+; NONOPAQUE-NEXT: store i64 %{{.*}}, i64 addrspace(4)* [[BITCAST]], align 8
+
+; OPAQUE-NEXT: [[ADDRCAST:%[a-zA-Z0-9]+]] = addrspacecast ptr [[ALLOCA]] to ptr addrspace(4)
+; OPAQUE-NEXT: store i64 %{{.*}}, ptr addrspace(4) [[ADDRCAST]], align 8
  ret void
 }
 

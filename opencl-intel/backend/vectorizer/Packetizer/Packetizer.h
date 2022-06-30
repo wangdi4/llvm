@@ -47,7 +47,7 @@ struct MemoryOperation {
   Value *Mask;
   Value *Ptr;
   Value *Data;
-  unsigned int Alignment;
+  MaybeAlign Alignment;
   // If these values are set, then Base + Index = Ptr.
   Value *Base;
   Value *Index;

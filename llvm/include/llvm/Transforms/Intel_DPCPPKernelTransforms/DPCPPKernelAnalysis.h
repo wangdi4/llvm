@@ -1,6 +1,6 @@
-//==--- DPCPPKernelAnalysis.h - Detect barriers in DPCPP kernels- C++ -*---==//
+//==--- DPCPPKernelAnalysis.h - Analyze DPCPP kernel properties -- C++ -*---==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,41 +13,33 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
+class LoopInfo;
+class RuntimeService;
 
-// This class implements a pass that recieves a module and assigns each function
-// an attribute indicating whether a kernel will take WGLoopCreator
-// path or Barrier path.
-// kernels can take WGLoopCreator if the following conditions
-// are met:
-// 1. does not have a barrier path.
-// 2. does not contain a variable get***id call (although can be handled)
-// 3. does not contain call to kernel or called by another kernel.
-// 4. does not contain call to function that use get***id calls.
-// both 3,4 should be eliminated by the inliner.
-//
-// This pass also analyzes whether function/kernel contains subgroup builtin
-// calls.
+/// This pass analyze kernel properties and adds function attribute or metadata.
+///   1. a metadata indicating whether a kernel will take WGLoopCreator
+///      path or Barrier path.
+///   2. an attribute and metadata whether function/kernel contains subgroup
+///      builtin.
+///   3. a metadata indicating there is global atomic in the kernel
+///   4. a metadata indicating execution length, which is an estimated length of
+///      instructions in the kernel.
 class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
-  static StringRef name() { return "DPCPPKernelAnalysisPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
-  bool runImpl(Module &M, CallGraph &CG);
+  bool runImpl(Module &M, CallGraph &CG, const RuntimeService &RTS,
+               function_ref<LoopInfo &(Function &)> GetLI);
 
   void print(raw_ostream &OS, const Module *M) const;
 
 private:
   using FuncVec = SmallVector<Function *, 8>;
-  using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
-
-  /// Returns true iff the Value is constant int < 3
-  /// V - value to check.
-  bool isUnsupportedDim(Value *V);
+  using FuncSet = CompilationUtils::FuncSet;
 
   /// Fills the unsupported set with function that call (also indirectly)
   /// barrier (or implemented using barrier).
@@ -55,18 +47,7 @@ private:
 
   /// Fills the unsupported set with function that have non constant
   /// dimension get***id calls, or indirect calls to get***id.
-  void fillUnsupportedTIDFuncs();
-
-  /// Fills the unsupported set with function that have non constant
-  /// dimension get***id calls, or indirect calls to get***id.
   void fillKernelCallers();
-
-  /// Fills the unsupported set with function that have non constant
-  /// dimension get***id calls, and gets the direct users of the call
-  /// into TIDUsers.
-  /// Name - name of get***id.
-  /// DirectTIDUsers - set of direct get***id users.
-  void fillUnsupportedTIDFuncs(StringRef Name, FuncSet &DirectTIDUsers);
 
   /// Fills the subgroup-calling function set -- functions containing subroup
   /// builtins or subgroup barrier.

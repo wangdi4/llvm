@@ -3720,17 +3720,29 @@ void Sema::ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc,
   SyclOptReportCreator opt_report(*this, kernel_decl, KernelObj->getLocation());
 
   KernelObjVisitor Visitor{*this};
-  Visitor.VisitRecordBases(KernelObj, kernel_decl, kernel_body, int_header,
-                           int_footer, opt_report);
-  Visitor.VisitRecordFields(KernelObj, kernel_decl, kernel_body, int_header,
-                            int_footer, opt_report);
+
+  // Visit handlers to generate information for optimization record only if
+  // optimization record is saved.
+  if (!getLangOpts().OptRecordFile.empty()) {
+    Visitor.VisitRecordBases(KernelObj, kernel_decl, kernel_body, int_header,
+                             int_footer, opt_report);
+    Visitor.VisitRecordFields(KernelObj, kernel_decl, kernel_body, int_header,
+                              int_footer, opt_report);
+  } else {
+    Visitor.VisitRecordBases(KernelObj, kernel_decl, kernel_body, int_header,
+                             int_footer);
+    Visitor.VisitRecordFields(KernelObj, kernel_decl, kernel_body, int_header,
+                              int_footer);
+  }
 
   if (ParmVarDecl *KernelHandlerArg =
           getSyclKernelHandlerArg(KernelCallerFunc)) {
     kernel_decl.handleSyclKernelHandlerType();
     kernel_body.handleSyclKernelHandlerType(KernelHandlerArg);
     int_header.handleSyclKernelHandlerType(KernelHandlerArg->getType());
-    opt_report.handleSyclKernelHandlerType();
+
+    if (!getLangOpts().OptRecordFile.empty())
+      opt_report.handleSyclKernelHandlerType();
   }
 }
 
@@ -3768,6 +3780,12 @@ static void CheckSYCL2020SubGroupSizes(Sema &S, FunctionDecl *SYCLKernel,
   // If they are the same, no error.
   if (CalcEffectiveSubGroup(S.Context, S.getLangOpts(), SYCLKernel) ==
       CalcEffectiveSubGroup(S.Context, S.getLangOpts(), FD))
+    return;
+
+  // No need to validate __spirv routines here since they
+  // are mapped to the equivalent SPIRV operations.
+  const IdentifierInfo *II = FD->getIdentifier();
+  if (II && II->getName().startswith("__spirv_"))
     return;
 
   // Else we need to figure out why they don't match.

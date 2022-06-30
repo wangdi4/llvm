@@ -1,5 +1,5 @@
 /****************************************************************************
-  Copyright (c) Intel Corporation (2012,2013).
+  Copyright (c) Intel Corporation (2012-2022).
 
   INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
   LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -15,10 +15,10 @@
 
 \****************************************************************************/
 
-#include "FunctionDescriptor.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
 #include "gtest_wrapper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 #include <algorithm>
 #include <map>
 #include <stdint.h>

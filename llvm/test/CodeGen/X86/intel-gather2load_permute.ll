@@ -1042,30 +1042,26 @@ define dso_local <6 x float> @Array4294967304x_Gather6x_AllOneMask(i32* nocaptur
 ;
 ; X86-AVX2-LABEL: Array4294967304x_Gather6x_AllOneMask:
 ; X86-AVX2:       # %bb.0: # %entry
-; X86-AVX2-NEXT:    pushl %ebx
+; X86-AVX2-NEXT:    pushl %ebp
 ; X86-AVX2-NEXT:    .cfi_def_cfa_offset 8
-; X86-AVX2-NEXT:    pushl %edi
+; X86-AVX2-NEXT:    pushl %ebx
 ; X86-AVX2-NEXT:    .cfi_def_cfa_offset 12
-; X86-AVX2-NEXT:    pushl %esi
+; X86-AVX2-NEXT:    pushl %edi
 ; X86-AVX2-NEXT:    .cfi_def_cfa_offset 16
-; X86-AVX2-NEXT:    .cfi_offset %esi, -16
-; X86-AVX2-NEXT:    .cfi_offset %edi, -12
-; X86-AVX2-NEXT:    .cfi_offset %ebx, -8
+; X86-AVX2-NEXT:    pushl %esi
+; X86-AVX2-NEXT:    .cfi_def_cfa_offset 20
+; X86-AVX2-NEXT:    .cfi_offset %esi, -20
+; X86-AVX2-NEXT:    .cfi_offset %edi, -16
+; X86-AVX2-NEXT:    .cfi_offset %ebx, -12
+; X86-AVX2-NEXT:    .cfi_offset %ebp, -8
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpinsrd $1, 20(%eax), %xmm0, %xmm0
-; X86-AVX2-NEXT:    vmovdqu (%eax), %xmm1
-; X86-AVX2-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
-; X86-AVX2-NEXT:    vpslld $2, %ymm0, %ymm0
-; X86-AVX2-NEXT:    vpbroadcastd {{[0-9]+}}(%esp), %ymm1
-; X86-AVX2-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
-; X86-AVX2-NEXT:    vmovd %xmm0, %eax
-; X86-AVX2-NEXT:    vpextrd $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vpextrd $2, %xmm0, %edx
-; X86-AVX2-NEXT:    vpextrd $3, %xmm0, %esi
-; X86-AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm0
-; X86-AVX2-NEXT:    vmovd %xmm0, %edi
-; X86-AVX2-NEXT:    vpextrd $1, %xmm0, %ebx
+; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-AVX2-NEXT:    movl (%ecx), %edx
+; X86-AVX2-NEXT:    movl 4(%ecx), %esi
+; X86-AVX2-NEXT:    movl 8(%ecx), %edi
+; X86-AVX2-NEXT:    movl 12(%ecx), %ebx
+; X86-AVX2-NEXT:    movl 16(%ecx), %ebp
+; X86-AVX2-NEXT:    movl 20(%ecx), %ecx
 ; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],mem[0],xmm0[2,3]
 ; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
@@ -1074,10 +1070,12 @@ define dso_local <6 x float> @Array4294967304x_Gather6x_AllOneMask(i32* nocaptur
 ; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    vinsertf128 $1, %xmm0, %ymm1, %ymm0
 ; X86-AVX2-NEXT:    popl %esi
-; X86-AVX2-NEXT:    .cfi_def_cfa_offset 12
+; X86-AVX2-NEXT:    .cfi_def_cfa_offset 16
 ; X86-AVX2-NEXT:    popl %edi
-; X86-AVX2-NEXT:    .cfi_def_cfa_offset 8
+; X86-AVX2-NEXT:    .cfi_def_cfa_offset 12
 ; X86-AVX2-NEXT:    popl %ebx
+; X86-AVX2-NEXT:    .cfi_def_cfa_offset 8
+; X86-AVX2-NEXT:    popl %ebp
 ; X86-AVX2-NEXT:    .cfi_def_cfa_offset 4
 ; X86-AVX2-NEXT:    retl
 entry:

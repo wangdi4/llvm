@@ -144,6 +144,10 @@ private:
 public:
   VPlanAllZeroBypass(VPlanVector &Plan) : Plan(Plan){};
 
+  /// Returns the loop exit condition of \p VPLp if it was made uniform by
+  /// loopcfu.
+  VPValue* loopWasMadeUniform(VPLoop *VPLp);
+
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for non-loops.
   void collectAllZeroBypassNonLoopRegions(

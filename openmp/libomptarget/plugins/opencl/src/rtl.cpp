@@ -71,9 +71,7 @@
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define OCL_KERNEL_BEGIN(ID)
@@ -360,11 +358,16 @@ struct ProfileDataTy {
     kernelId = 0;
     for (const auto &d : data) {
       double hostTime = 1e-9 * d.second.host * resolution;
-      double deviceTime = 1e-9 * d.second.device * resolution;
+      double deviceTime = 0.0;
       std::string key(d.first);
 
-      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix) {
         key = kernelPrefix + std::to_string(kernelId++);
+        deviceTime = 1e-9 * d.second.device * resolution;
+      } else if (d.first.substr(0, 8) == "DataRead" ||
+                 d.first.substr(0, 9) == "DataWrite") {
+        deviceTime = 1e-9 * d.second.device * resolution;
+      }
 
       fprintf(stderr, "-- %s: %20.3f %20.3f\n",
               alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
@@ -429,10 +432,11 @@ struct PlatformInfoTy {
       CALL_CL_RV(ExtensionFunctionPointers[i],
                  clGetExtensionFunctionAddressForPlatform, platform,
                  ExtensionFunctionNames[i]);
-      if (ExtensionFunctionPointers[i])
+      if (ExtensionFunctionPointers[i]) {
         DP("Extension %s is found.\n", ExtensionFunctionNames[i]);
-      else
+      } else {
         DP("Warning: Extension %s is not found.\n", ExtensionFunctionNames[i]);
+      }
     }
   }
 };
@@ -515,6 +519,36 @@ enum DataTransferMethodTy {
 };
 
 #if INTEL_CUSTOMIZATION
+struct DynamicMemHeapTy {
+  /// Base address memory is allocated from
+  uintptr_t AllocBase = 0;
+  /// Minimal size served by the current heap
+  size_t BlockSize = 0;
+  /// Max size served by the current heap
+  size_t MaxSize = 0;
+  /// Available memory blocks
+  uint32_t NumBlocks = 0;
+  /// Number of block descriptors
+  uint32_t NumBlockDesc = 0;
+  /// Number of block counters
+  uint32_t NumBlockCounter = 0;
+  /// List of memory block descriptors
+  uint64_t *BlockDesc = nullptr;
+  /// List of memory block counters
+  uint32_t *BlockCounter = nullptr;
+};
+
+struct DynamicMemPoolTy {
+  /// Location of device memory blocks
+  void *PoolBase = nullptr;
+  /// Heap size common to all heaps
+  size_t HeapSize = 0;
+  /// Number of heaps available
+  uint32_t NumHeaps = 0;
+  /// Heap descriptors (using fixed-size array to simplify memory allocation)
+  DynamicMemHeapTy HeapDesc[8];
+};
+
 /// Program data to be initialized.
 /// TODO: include other runtime parameters if necessary.
 struct ProgramDataTy {
@@ -526,6 +560,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
+  void *DynamicMemPool = nullptr;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -646,6 +681,9 @@ public:
 
   /// Reset program data on device.
   int32_t resetProgramData();
+
+  /// Initialize dynamic memory pool for device.
+  void *initDynamicMemPool();
 
   /// Return the cached program data
   const ProgramDataTy &getPGMData() { return PGMData; }
@@ -918,6 +956,10 @@ struct RTLOptionTy {
 #if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
+  /// Dynamic kernel memory allocation method
+  /// 0: atomic_add with no free()
+  /// 1: pool-based allocator with free() support
+  uint32_t KernelDynamicMemoryMethod = 1;
 #endif // INTEL_CUSTOMIZATION
 
   // This is a factor applied to the number of WGs computed
@@ -1141,16 +1183,42 @@ struct RTLOptionTy {
     }
 
 #if INTEL_CUSTOMIZATION
-    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>[,<Method>]
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
-      size_t Value = std::stoi(Env);
-      const size_t MaxValue = 2048;
-      if (Value > MaxValue) {
-        WARNING("Requested dynamic memory size %zu MB exceeds allowed limit -- "
-                "setting it to %zu MB\n", Value, MaxValue);
-        Value = MaxValue;
+      std::string Value(Env);
+      size_t Size = 0;
+      auto Pos = Value.find(",");
+      if (Pos == std::string::npos) {
+        Size = std::stoi(Value);
+      } else if (Value.substr(Pos + 1) == "0") {
+        KernelDynamicMemoryMethod = 0;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else if (Value.substr(Pos + 1) == "1") {
+        KernelDynamicMemoryMethod = 1;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else {
+        DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
+        Size = 0;
       }
-      KernelDynamicMemorySize = Value << 20;
+      if (Size > 0) {
+        size_t MaxSize;
+        if (KernelDynamicMemoryMethod == 0) {
+          MaxSize = 2048;
+        } else {
+          // Round up to power of 2
+          uint32_t P = 1;
+          while (P < Size)
+            P *= 2;
+          Size = P;
+          MaxSize = 512;
+        }
+        if (Size > MaxSize) {
+          WARNING("Requested dynamic memory size %zu MB exceeds allowed limit "
+                  " -- setting it to %zu MB\n", Size, MaxSize);
+          Size = MaxSize;
+        }
+        KernelDynamicMemorySize = Size << 20;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2248,8 +2316,9 @@ static void decideLoopKernelGroupArguments(
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
     assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
-    DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
-       PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
+       ", Stride = %" PRId64 "\n",
+       i, level[i].Lb, level[i].Ub, level[i].Stride);
     if (level[i].Ub < level[i].Lb)
       tripCounts[i] = 0;
     else
@@ -2427,8 +2496,10 @@ static void decideKernelGroupArguments(
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
+#if INTEL_CUSTOMIZATION
   size_t simdWidth = KernelProperty.SIMDWidth;
   DP("Assumed kernel SIMD width is %zu\n", simdWidth);
+#endif // INTEL_CUSTOMIZATION
   DP("Preferred group size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
@@ -2642,10 +2713,10 @@ static inline int32_t runTargetTeamNDRegion(
   }
 #endif // INTEL_INTERNAL_BUILD
 
-  DP("Group sizes = {%zu, %zu, %zu}\n", LocalWorkSize[0], LocalWorkSize[1],
+  DP("Team sizes = {%zu, %zu, %zu}\n", LocalWorkSize[0], LocalWorkSize[1],
      LocalWorkSize[2]);
-  DP("Group counts = {%zu, %zu, %zu}\n", GlobalWorkSize[0] / LocalWorkSize[0],
-     GlobalWorkSize[1] / LocalWorkSize[1],
+  DP("Number of teams = {%zu, %zu, %zu}\n",
+     GlobalWorkSize[0] / LocalWorkSize[0], GlobalWorkSize[1] / LocalWorkSize[1],
      GlobalWorkSize[2] / LocalWorkSize[2]);
 
   // Protect thread-unsafe OpenCL API calls
@@ -2701,6 +2772,7 @@ static inline int32_t runTargetTeamNDRegion(
   };
   auto &AllocInfos = DeviceInfo->MemAllocInfo;
 
+#if INTEL_CUSTOMIZATION
   // Kernel dynamic memory is indirect access
   // FIXME: handle cases with multiple OpenCLProgramTy objects.
   auto KernelDynamicMem =
@@ -2709,6 +2781,13 @@ static inline int32_t runTargetTeamNDRegion(
     ImplicitUSMArgs.push_back((void *)KernelDynamicMem);
     HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
   }
+  auto DynamicMemPool =
+      DeviceInfo->Programs[DeviceId].back().getPGMData().DynamicMemPool;
+  if (DynamicMemPool) {
+    ImplicitUSMArgs.push_back((void *)DynamicMemPool);
+    HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Kernel-dependent implicit arguments
   for (auto Ptr : KernelProperty.ImplicitArgs) {
@@ -2918,8 +2997,8 @@ const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
 std::unique_ptr<std::vector<cl_mem_properties_intel>>
 RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
   std::vector<cl_mem_properties_intel> Properties;
-  size_t MaxSize = MaxMemAllocSize[DeviceId];
 #if INTEL_CUSTOMIZATION
+  size_t MaxSize = MaxMemAllocSize[DeviceId];
   if (Option.DeviceType == CL_DEVICE_TYPE_GPU && Size > MaxSize) {
     Properties.push_back(CL_MEM_FLAGS_INTEL);
     Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
@@ -3388,7 +3467,7 @@ int32_t OpenCLProgramTy::buildKernels() {
   EntriesTimer.stop();
 
   // We are supposed to have a single final program at this point
-  for (auto I = 0; I < NumEntries; I++) {
+  for (size_t I = 0; I < NumEntries; I++) {
     // Size is 0 means that it is kernel function.
     auto Size = Image->EntriesBegin[I].size;
     char *Name = Image->EntriesBegin[I].name;
@@ -3477,10 +3556,16 @@ int32_t OpenCLProgramTy::buildKernels() {
       cl_uint NumArgs = 0;
       CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_NUM_ARGS,
                        sizeof(cl_uint), &NumArgs, nullptr);
-      DP("Kernel %d: Name = %s, NumArgs = %d\n", I, Name, NumArgs);
-      for (auto J = 0; J < NumArgs; J++) {
-        CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J,
-                         CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &BufSize);
+      DP("Kernel %zu: Name = %s, NumArgs = %" PRIu32 "\n", I, Name, NumArgs);
+      for (cl_uint J = 0; J < NumArgs; J++) {
+        // clGetKernelArgInfo is not supposed to work unless the program is
+        // built with clCreateProgramWithSource according to the specification.
+        // We still allow this if the backend RT is capable of returning the
+        // argument information without using clCreateProgramWithSource.
+        CALL_CL_SILENT(RC, clGetKernelArgInfo, Kernel, J,
+                       CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &BufSize);
+        if (RC != CL_SUCCESS)
+          break; // Kernel argument info won't be available
         Buf.resize(BufSize);
         CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J,
                          CL_KERNEL_ARG_TYPE_NAME, BufSize, Buf.data(), nullptr);
@@ -3490,8 +3575,8 @@ int32_t OpenCLProgramTy::buildKernels() {
         Buf.resize(BufSize);
         CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J, CL_KERNEL_ARG_NAME,
                          BufSize, Buf.data(), nullptr);
-        const char *ArgName = Buf.data() ? Buf.data() : "undefined";
-        DP("  Arg %2d: %s %s\n", J, TypeName.c_str(), ArgName);
+        DP("  Arg %2" PRIu32 ": %s %s\n", J, TypeName.c_str(),
+           Buf.data() ? Buf.data() : "undefined");
       }
     }
   }
@@ -3503,6 +3588,93 @@ int32_t OpenCLProgramTy::buildKernels() {
 }
 
 #if INTEL_CUSTOMIZATION
+void *OpenCLProgramTy::initDynamicMemPool() {
+  size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (MemSize == 0)
+    return nullptr;
+
+  constexpr size_t BlockSizeMin = 64;
+  constexpr uint32_t NumBlocksPerDesc = 32;
+  constexpr uint32_t NumDescsPerCounter = 32;
+
+  DynamicMemPoolTy Pool;
+  Pool.HeapSize = MemSize;
+  Pool.NumHeaps = 1;
+  size_t SupportedSize = BlockSizeMin * NumBlocksPerDesc;
+  while (SupportedSize < Pool.HeapSize) {
+    SupportedSize *= (2 * NumBlocksPerDesc);
+    Pool.NumHeaps++;
+  }
+  cl_int RC;
+  size_t BaseSize = Pool.NumHeaps * Pool.HeapSize;
+  auto BaseProp = DeviceInfo->getAllocMemProperties(DeviceId, BaseSize);
+  CALL_CL_EXT_RVRC(DeviceId, Pool.PoolBase, clDeviceMemAllocINTEL, RC, Context,
+                   Device, BaseProp->data(), BaseSize, 0);
+  if (RC != CL_SUCCESS || !Pool.PoolBase)
+    return nullptr;
+  DeviceInfo->OwnedMemory[DeviceId].push_back(Pool.PoolBase);
+
+  // Initialize each heap
+  for (uint32_t I = 0; I < Pool.NumHeaps; I++) {
+    size_t BlockSize = BlockSizeMin << (6 * I);
+    auto &Heap = Pool.HeapDesc[I];
+    Heap.NumBlocks = Pool.HeapSize / BlockSize;
+    Heap.AllocBase = (uintptr_t)Pool.PoolBase + I * Pool.HeapSize;
+    Heap.BlockSize = BlockSize;
+    Heap.MaxSize = BlockSize * Heap.NumBlocks;
+    size_t SupportedSize = BlockSize * NumBlocksPerDesc;
+    if (Heap.MaxSize > SupportedSize)
+      Heap.MaxSize = SupportedSize;
+    // Prepare device memory for block descriptors
+    Heap.NumBlockDesc =
+        (Heap.NumBlocks + NumBlocksPerDesc - 1) / NumBlocksPerDesc;
+    size_t DescSize = Heap.NumBlockDesc * sizeof(uint64_t);
+    auto DescProp = DeviceInfo->getAllocMemProperties(DeviceId, DescSize);
+    void *BlockDesc = nullptr;
+    CALL_CL_EXT_RVRC(DeviceId, BlockDesc, clDeviceMemAllocINTEL, RC, Context,
+                     Device, DescProp->data(), DescSize, 0);
+    if (RC != CL_SUCCESS || !BlockDesc)
+      return nullptr;
+    DeviceInfo->OwnedMemory[DeviceId].push_back(BlockDesc);
+    Heap.BlockDesc = (uint64_t *)BlockDesc;
+    std::vector<uint64_t> BlockDescInit(Heap.NumBlockDesc, 0);
+    CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                         DeviceInfo->Queues[DeviceId], CL_TRUE, Heap.BlockDesc,
+                         BlockDescInit.data(), DescSize, 0, nullptr, nullptr);
+    // Prepare device memory for block counters
+    Heap.NumBlockCounter =
+        (Heap.NumBlockDesc + NumDescsPerCounter - 1) / NumDescsPerCounter;
+    size_t CounterSize = Heap.NumBlockCounter * sizeof(uint32_t);
+    auto CounterProp = DeviceInfo->getAllocMemProperties(DeviceId, CounterSize);
+    void *BlockCounter = nullptr;
+    CALL_CL_EXT_RVRC(DeviceId, BlockCounter, clDeviceMemAllocINTEL, RC, Context,
+                     Device, CounterProp->data(), CounterSize, 0);
+    if (RC != CL_SUCCESS || !BlockCounter)
+      return nullptr;
+    DeviceInfo->OwnedMemory[DeviceId].push_back(BlockCounter);
+    Heap.BlockCounter = (uint32_t *)BlockCounter;
+    std::vector<uint32_t> BlockCounterInit(Heap.NumBlockCounter, 0);
+    CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                         DeviceInfo->Queues[DeviceId], CL_TRUE,
+                         Heap.BlockCounter, BlockCounterInit.data(),
+                         CounterSize, 0, nullptr, nullptr);
+  }
+
+  // Prepare device copy of the pool
+  void *PoolDevice = nullptr;
+  auto PoolProp = DeviceInfo->getAllocMemProperties(DeviceId, sizeof(Pool));
+  CALL_CL_EXT_RVRC(DeviceId, PoolDevice, clDeviceMemAllocINTEL, RC, Context,
+                   Device, PoolProp->data(), sizeof(Pool), 0);
+  if (RC != CL_SUCCESS || !PoolDevice)
+    return nullptr;
+  DeviceInfo->OwnedMemory[DeviceId].push_back(PoolDevice);
+  CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                       DeviceInfo->Queues[DeviceId], CL_TRUE, PoolDevice, &Pool,
+                       sizeof(Pool), 0, nullptr, nullptr);
+
+  return PoolDevice;
+}
+
 int32_t OpenCLProgramTy::initProgramData() {
   // Look up program data location on device
   PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
@@ -3519,18 +3691,22 @@ int32_t OpenCLProgramTy::initProgramData() {
   // Allocate dynamic memory for in-kernel allocation
   void *MemLB = 0;
   uintptr_t MemUB = 0;
+  void *MemPool = nullptr;
   size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {
+    if (MemSize > 0) {
+      cl_int RC;
+      auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, MemSize);
+      CALL_CL_EXT_RVRC(DeviceId, MemLB, clDeviceMemAllocINTEL, RC, Context,
+                       Device, AllocProp->data(), MemSize, 0);
+    }
 
-  if (MemSize > 0) {
-    cl_int RC;
-    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, MemSize);
-    CALL_CL_EXT_RVRC(DeviceId, MemLB, clDeviceMemAllocINTEL, RC, Context,
-                     Device, AllocProp->data(), MemSize, 0);
-  }
-
-  if (MemLB) {
-    DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
-    MemUB = (uintptr_t)MemLB + MemSize;
+    if (MemLB) {
+      DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
+      MemUB = (uintptr_t)MemLB + MemSize;
+    }
+  } else {
+    MemPool = initDynamicMemPool();
   }
 
   int DeviceType =
@@ -3545,7 +3721,8 @@ int32_t OpenCLProgramTy::initProgramData() {
     P.NumThreadsPerEU,   // HW threads per EU
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
-    DeviceType           // Device type (0 for GPU, 1 for CPU)
+    DeviceType,          // Device type (0 for GPU, 1 for CPU)
+    MemPool              // Dynamic memory pool
   };
 
   CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
@@ -3802,12 +3979,13 @@ void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t *SizePtr) {
   void *TgtAddr = nullptr;
   size_t Size = *SizePtr;
   bool SizeIsKnown = (Size != 0);
-  if (SizeIsKnown)
+  if (SizeIsKnown) {
     DP("Looking up device global variable '%s' of size %zu bytes "
        "on device %d.\n", Name, Size, DeviceId);
-  else
+  } else {
     DP("Looking up device global variable '%s' of unknown size "
        "on device %d.\n", Name, DeviceId);
+  }
 
   if (!DeviceInfo->isExtensionFunctionEnabled(
           DeviceId, clGetDeviceGlobalVariablePointerINTELId))
@@ -3912,8 +4090,8 @@ int32_t __tgt_rtl_number_of_devices() {
     if (RC != CL_SUCCESS || NumDevices == 0)
       continue;
 
-    const char *PlatformName = Buf.data() ? Buf.data() : "undefined";
-    DP("Platform %s has %" PRIu32 " Devices\n", PlatformName, NumDevices);
+    DP("Platform %s has %" PRIu32 " Devices\n",
+       Buf.data() ? Buf.data() : "undefined", NumDevices);
     std::vector<cl_device_id> Devices(NumDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, ID, DeviceInfo->Option.DeviceType,
                      NumDevices, Devices.data(), nullptr);
@@ -4084,6 +4262,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
 
   size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+  (void)NumEntries;
 
   DP("Expecting to have %zu entries defined\n", NumEntries);
 
@@ -4153,8 +4332,10 @@ __tgt_target_table *__tgt_rtl_load_binary(
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
   if (Program.initProgramData() != OFFLOAD_SUCCESS)
     return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   auto *Table = Program.getTablePtr();
 
@@ -4326,91 +4507,6 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,
-                                 bool CreateNew) {
-
-  if (Interop == nullptr) {
-    DP("Invalid interop object in %s\n", __func__);
-    return;
-  }
-
-  __tgt_interop_obj *Obj = static_cast<__tgt_interop_obj *>(Interop);
-  cl_int RC;
-  cl_command_queue Queue = nullptr;
-  auto Device = DeviceInfo->Devices[DeviceId];
-  auto Context = DeviceInfo->getContext(DeviceId);
-
-  // Queue properties for profiling
-  cl_queue_properties QProperties[] = {
-    CL_QUEUE_PROPERTIES,
-    CL_QUEUE_PROFILING_ENABLE,
-    0
-  };
-  auto EnableProfile = DeviceInfo->Option.Flags.EnableProfile;
-
-  // Return a shared in-order queue for synchronous case
-  if (!CreateNew) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    Queue = DeviceInfo->QueuesInOrder[DeviceId];
-    if (!Queue) {
-      CALL_CL_RVRC(Queue, clCreateCommandQueueWithProperties, RC, Context,
-                   Device, EnableProfile ? QProperties : nullptr);
-      if (RC != CL_SUCCESS) {
-        DP("Error: Failed to create interop command queue: %d\n", RC);
-        Obj->queue = nullptr;
-        return;
-      }
-      DeviceInfo->QueuesInOrder[DeviceId] = Queue;
-    }
-    DP("%s returns a shared in-order queue " DPxMOD "\n", __func__,
-       DPxPTR(Queue));
-    Obj->queue = Queue;
-    return;
-  }
-
-  // Return a new in-order queue for asynchronous case
-  CALL_CL_RVRC(Queue, clCreateCommandQueueWithProperties, RC, Context,
-               Device, EnableProfile ? QProperties : nullptr);
-  if (RC != CL_SUCCESS) {
-    DP("Error: Failed to create interop command queue\n");
-    Obj->queue = nullptr;
-    return;
-  }
-  DP("%s creates and returns a new in-order queue " DPxMOD "\n", __func__,
-     DPxPTR(Queue));
-  Obj->queue = Queue;
-  return;
-}
-
-// Release the command queue if it is a new in-order command queue.
-int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Queue) {
-  cl_command_queue CmdQueue = reinterpret_cast<cl_command_queue>(Queue);
-  std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-  if (CmdQueue != DeviceInfo->QueuesInOrder[DeviceId] &&
-      CmdQueue != DeviceInfo->Queues[DeviceId]) {
-    CALL_CL_RET_FAIL(clReleaseCommandQueue, CmdQueue);
-    DP("%s releases an in-order queue " DPxMOD "\n", __func__, DPxPTR(Queue));
-  }
-  return OFFLOAD_SUCCESS;
-}
-
-void *__tgt_rtl_get_platform_handle(int32_t DeviceId) {
-  return (void *)DeviceInfo->getContext(DeviceId);
-}
-
-void __tgt_rtl_set_device_handle(int32_t DeviceId, void *Interop) {
-  if (Interop == nullptr) {
-    DP("Invalid interop object in %s\n", __func__);
-    return;
-  }
-  __tgt_interop_obj *Obj = static_cast<__tgt_interop_obj *>(Interop);
-  Obj->device_handle = DeviceInfo->Devices[DeviceId];
-}
-
-void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
-  return (void *)DeviceInfo->getContext(DeviceId);
-}
-
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   // Force mapping for host memory with positive size
   int32_t Ret;
@@ -4491,6 +4587,10 @@ void *__tgt_rtl_data_realloc(
   return Mem;
 }
 
+void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
+  return (void *)DeviceInfo->getContext(DeviceId);
+}
+
 void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
                                    int32_t Kind) {
   if (Align != 0 && (Align & (Align - 1)) != 0) {
@@ -4519,6 +4619,7 @@ char *__tgt_rtl_get_device_name(int32_t DeviceId, char *Buf, size_t BufMax) {
   return Buf;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_get_data_alloc_info(
     int32_t DeviceId, int32_t NumPtrs, void *TgtPtrs, void *AllocInfo) {
   void **Ptrs = static_cast<void **>(TgtPtrs);
@@ -4536,6 +4637,7 @@ int32_t __tgt_rtl_get_data_alloc_info(
   }
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void __tgt_rtl_add_build_options(
     const char *CompileOptions, const char *LinkOptions) {
@@ -4583,7 +4685,7 @@ void __tgt_rtl_deinit(void) {
 #if INTEL_CUSTOMIZATION
 __tgt_interop *__tgt_rtl_create_interop(
     int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
-    intptr_t *PreferIDs) {
+    int32_t *PreferIDs) {
   // Preference-list is ignored since we cannot have multiple runtimes.
   auto Ret = new __tgt_interop();
   Ret->FrId = OCLInterop::FrId;
@@ -4757,6 +4859,7 @@ int32_t __tgt_rtl_is_private_arg_on_host(
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_set_function_ptr_map(
     int32_t DeviceId, uint64_t Size,
     const __omp_offloading_fptr_map_t *FnPtrs) {
@@ -4853,6 +4956,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
 
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void *__tgt_rtl_alloc_per_hw_thread_scratch(
     int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {

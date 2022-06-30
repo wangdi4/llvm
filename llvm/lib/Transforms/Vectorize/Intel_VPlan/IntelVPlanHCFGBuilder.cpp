@@ -55,8 +55,10 @@ bool VPlanPrintLegality = false;
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
-                                   ScalarEvolution *SE)
-    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
+                                   ScalarEvolution *SE,
+                                   BlockFrequencyInfo *BFI)
+    : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
+      SE(SE) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -201,8 +203,9 @@ class PlainCFGBuilder : public VPlanLoopCFGBuilder {
 public:
   friend PrivatesListCvt;
 
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan)
-      : VPlanLoopCFGBuilder(Plan, Lp, LI) {}
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan,
+                 BlockFrequencyInfo *BFI)
+      : VPlanLoopCFGBuilder(Plan, Lp, LI, BFI) {}
 
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
@@ -298,14 +301,14 @@ public:
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
     auto *RednUpdate = cast<VPInstruction>(
-        Builder.getOrCreateVPOperand(CurValue.second.second));
+        Builder.getOrCreateVPOperand(CurValue.second.UpdateInst));
     assertIsSingleElementAlloca(CurValue.first);
     VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
-    Descriptor.setKind(CurValue.second.first);
+    Descriptor.setKind(CurValue.second.Kind);
     // According to discussion with paropt team, we can have either alloca
     // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
     // non-arrays.
@@ -314,6 +317,7 @@ public:
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
   }
 };
 
@@ -538,6 +542,7 @@ public:
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+      Descriptor.setIsF90NonPod(NonPODCurValue->isF90NonPod());
     }
     SmallVector<VPInstruction *, 4> AliasUpdates;
     for (auto *Alias : CurValue->aliases()) {
@@ -638,7 +643,7 @@ void PlainCFGBuilder::convertEntityDescriptors(
 }
 
 bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
-  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan, BFI);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

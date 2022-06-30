@@ -31,6 +31,9 @@ using namespace llvm;
 
 SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
   : AMDGPUMachineFunction(MF),
+    BufferPSV(static_cast<const AMDGPUTargetMachine &>(MF.getTarget())),
+    ImagePSV(static_cast<const AMDGPUTargetMachine &>(MF.getTarget())),
+    GWSResourcePSV(static_cast<const AMDGPUTargetMachine &>(MF.getTarget())),
     PrivateSegmentBuffer(false),
     DispatchPtr(false),
     QueuePtr(false),
@@ -184,10 +187,19 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
     S.consumeInteger(0, HighBitsOf32BitAddress);
 
   // On GFX908, in order to guarantee copying between AGPRs, we need a scratch
-  // VGPR available at all times.
+  // VGPR available at all times. For now, reserve highest available VGPR. After
+  // RA, shift it to the lowest available unused VGPR if the one exist.
   if (ST.hasMAIInsts() && !ST.hasGFX90AInsts()) {
-    VGPRForAGPRCopy = AMDGPU::VGPR_32RegClass.getRegister(32);
+    VGPRForAGPRCopy =
+        AMDGPU::VGPR_32RegClass.getRegister(ST.getMaxNumVGPRs(F) - 1);
   }
+}
+
+MachineFunctionInfo *SIMachineFunctionInfo::clone(
+    BumpPtrAllocator &Allocator, MachineFunction &DestMF,
+    const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
+    const {
+  return DestMF.cloneInfo<SIMachineFunctionInfo>(*this);
 }
 
 void SIMachineFunctionInfo::limitOccupancy(const MachineFunction &MF) {
@@ -273,7 +285,7 @@ bool SIMachineFunctionInfo::haveFreeLanesForSGPRSpill(const MachineFunction &MF,
 /// Reserve a slice of a VGPR to support spilling for FrameIndex \p FI.
 bool SIMachineFunctionInfo::allocateSGPRSpillToVGPR(MachineFunction &MF,
                                                     int FI) {
-  std::vector<SpilledReg> &SpillLanes = SGPRToVGPRSpills[FI];
+  std::vector<SIRegisterInfo::SpilledReg> &SpillLanes = SGPRToVGPRSpills[FI];
 
   // This has already been allocated.
   if (!SpillLanes.empty())
@@ -336,7 +348,7 @@ bool SIMachineFunctionInfo::allocateSGPRSpillToVGPR(MachineFunction &MF,
       LaneVGPR = SpillVGPRs.back().VGPR;
     }
 
-    SpillLanes.push_back(SpilledReg(LaneVGPR, VGPRIndex));
+    SpillLanes.push_back(SIRegisterInfo::SpilledReg(LaneVGPR, VGPRIndex));
   }
 
   return true;

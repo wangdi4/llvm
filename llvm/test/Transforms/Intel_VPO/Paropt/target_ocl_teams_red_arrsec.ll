@@ -17,7 +17,7 @@
 ;   return 0;
 ; }
 
-; CHECK: @[[RED_LOCAL_PRIV:[^,]+]] = internal addrspace(3) global [4 x i32] zeroinitializer, align 1
+; CHECK: @[[RED_LOCAL_PRIV:[^,]+]] = internal addrspace(3) global [4 x i32] zeroinitializer
 ; CHECK: [[TEAM_NUM:[%a-z]+]] = call spir_func i32 @omp_get_team_num()
 ; CHECK: [[IDX_EXT:[%a-z]+]] = sext i32 [[TEAM_NUM]] to i64
 ; CHECK: {{.*}} = getelementptr inbounds [4 x i32], [4 x i32] addrspace(3)* @[[RED_LOCAL_PRIV]], i64 0, i64 [[IDX_EXT]]

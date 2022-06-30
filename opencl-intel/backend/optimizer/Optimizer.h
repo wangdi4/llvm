@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2021 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,11 +18,14 @@
 #include "debuggingservicetype.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <vector>
+
+enum class DebugLogging { None, Normal, Quiet, Verbose };
 
 namespace intel {
 class OptimizerConfig;
@@ -42,8 +45,7 @@ namespace DeviceBackend {
 
 class Optimizer {
 public:
-  Optimizer(llvm::Module &M,
-            llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+  Optimizer(llvm::Module &M, llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
             const intel::OptimizerConfig &Config);
 
   virtual ~Optimizer() {}
@@ -58,10 +60,6 @@ public:
   enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
 
   virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
-
-  bool hasUndefinedExternals() const;
-
-  const std::vector<std::string> &GetUndefinedExternals() const;
 
   /// @brief recursion was detected after standard LLVM optimizations
   /// @return for SYCL returns true if the recursive function also calls
@@ -95,12 +93,18 @@ public:
   static const StringSet<> &getVPlanMaskedFuncs();
 
 protected:
+  /// Register OCLDiagnosticHandler callback to LLVMContext.
+  void setDiagnosticHandler(llvm::raw_ostream &LogStream);
+
   llvm::Module &m_M;
   /// Builtin rtl modules (not owned by this class).
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
+
+  VectorVariant::ISAClass ISA;
+
   const intel::OptimizerConfig &Config;
+
   StringRef CPUPrefix;
-  std::vector<std::string> m_undefinedExternalFunctions;
 
   /// True if OpenCL version is greater or equal to 2.0.
   bool m_IsOcl20;
@@ -133,13 +137,11 @@ protected:
  *  Responsible for running the IR=>IR optimization passes on given program
     using legacy OCL pass manager.
  */
-class OptimizerOCL : public Optimizer {
+class OptimizerOCLLegacy : public Optimizer {
 public:
-  OptimizerOCL(llvm::Module &pModule,
-               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig &pConfig);
-
-  ~OptimizerOCL();
+  OptimizerOCLLegacy(llvm::Module &pModule,
+                     llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
+                     const intel::OptimizerConfig &pConfig);
 
   void Optimize(llvm::raw_ostream &LogStream) override;
 

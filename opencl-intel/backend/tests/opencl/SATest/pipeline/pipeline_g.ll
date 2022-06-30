@@ -34,7 +34,7 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !opencl.compiler.options = !{!5}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
-!1 = !DIFile(filename: "", directory: "")
+!1 = !DIFile(filename: "test.cpp", directory: "")
 !2 = !{i32 7, !"Dwarf Version", i32 4}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
 !4 = !{i32 2, i32 0}

@@ -99,11 +99,13 @@ public:
             "redir",
             0,  // Generate unique file name.
             temp_file_path);
-        const int captured_fd = creat(temp_file_path, _S_IREAD | _S_IWRITE);
-        filename_ = temp_file_path;
-        fflush(NULL);
-        dup2(captured_fd, fd_);
-        close(captured_fd);
+        if (success > 0) {
+          const int captured_fd = creat(temp_file_path, _S_IREAD | _S_IWRITE);
+          filename_ = temp_file_path;
+          fflush(NULL);
+          dup2(captured_fd, fd_);
+          close(captured_fd);
+        }
 #else
         char filename_template[] = "/tmp/redirXXXXXX";
         const int captured_fd = mkstemp(filename_template);

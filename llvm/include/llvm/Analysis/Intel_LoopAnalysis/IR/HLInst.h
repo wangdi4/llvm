@@ -402,6 +402,14 @@ public:
 
   const DebugLoc getDebugLoc() const override;
   void setDebugLoc(const DebugLoc &Loc);
+
+  /// Returns true if this HLInst executes the same operation as another
+  /// HLInst. This means that the opcodes, type, operand types and other
+  /// factors affecting the operation must be the same but perhaps with
+  /// different operands, which are not checked. \p Relaxed is passed
+  /// to allow more cases where HLInst could have different underlying
+  /// LLVM Instruction types.
+  bool isSameOperationAs(const HLInst *HInst, bool Relaxed = false) const;
 };
 
 /// Wraps around a HIR instruction which is an OpenMP region entry intrinsic and

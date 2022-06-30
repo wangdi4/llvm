@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
-#include "NameMangleAPI.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Dominators.h"
@@ -17,15 +16,16 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <stack>
 
 #define DEBUG_TYPE "dpcpp-kernel-work-item-analysis"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 /// WorkItemAnalysis follows pointer arithmetic and index arithmetic when
 /// calculating dependency properties. If a part of the index is lost due to a
@@ -115,7 +115,7 @@ WorkItemAnalysisLegacy::WorkItemAnalysisLegacy(unsigned VectorizeDim)
 }
 
 bool WorkItemAnalysisLegacy::runOnFunction(Function &F) {
-  auto *RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
                   .getResult()
                   .getRuntimeService();
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -143,7 +143,7 @@ FunctionPass *llvm::createWorkItemAnalysisLegacyPass(unsigned VectorizeDim) {
 AnalysisKey WorkItemAnalysis::Key;
 
 WorkItemInfo WorkItemAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
-  auto *RTS = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
+  auto &RTS = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
                   .getCachedResult<BuiltinLibInfoAnalysis>(*F.getParent())
                   ->getRuntimeService();
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
@@ -454,10 +454,8 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
 
   // Check if call is TID-generator.
   bool IsTidGen;
-  bool Err;
   unsigned Dim;
-  std::tie(IsTidGen, Err, Dim) = RTService->isTIDGenerator(I);
-  assert(!Err && "TIDGen inst receives non-constant input. Cannot vectorize!");
+  std::tie(IsTidGen, Dim) = isTIDGenerator(I);
   // All WorkItem's are consecutive along the dimension.
   if (IsTidGen && Dim == VectorizeDim)
     return CONSECUTIVE;
@@ -563,7 +561,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
   // get_local_id, since on dimension 0 the isTIDGenerator should answer true,
   // and we will say the value is Consecutive. So here we cover dimension 1,2
   // which are uniform.
-  bool UniformByOps = RTService->hasNoSideEffect(ScalarFuncName);
+  bool UniformByOps = RTService.hasNoSideEffect(ScalarFuncName);
   // Look for the function in the builtin functions hash.
   if (!MaskedMemOp && !IsTidGen && !UniformByOps)
     return RANDOM;

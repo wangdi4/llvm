@@ -1,7 +1,9 @@
 // RUN: %libomptarget-compile-generic && env LIBOMPTARGET_DEBUG=1 %libomptarget-run-generic 2>&1 | %fcheck-generic
 // REQUIRES: libomptarget-debug
 
+#include <stdio.h> // INTEL_CUSTOMIZATION
 #include <stdlib.h>
+#include <stdio.h>
 
 int *allocate(size_t n) {
   int *ptr = malloc(sizeof(int) * n);

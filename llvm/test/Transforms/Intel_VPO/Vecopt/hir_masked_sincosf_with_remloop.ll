@@ -37,7 +37,7 @@
 ; vector loop.
 
 ; CHECK-LABEL: Function: unit_strided
-; CHECK:         + DO i1 = 0, {{.*}} + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:         + DO i1 = 0, {{.*}}, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;

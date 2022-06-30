@@ -1,4 +1,3 @@
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
 /// For sycl, should use -f[no-]sycl-device-lib instead of -device-math-lib

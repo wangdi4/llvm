@@ -77,6 +77,8 @@ typedef struct ParSectNode {
   SmallVector<ParSectNode *, 8> Children;
 } ParSectNode;
 
+typedef std::pair<Type *, Value *> ElementTypeAndNumElements;
+
 /// This class contains a set of utility functions used by VPO passes.
 class VPOUtils {
 private:
@@ -296,6 +298,8 @@ public:
                                          IRBuilder<> &Builder,
                                          unsigned Alignment, Value *Mask);
 
+  /// @}
+
   /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
   /// CallInst. \returns the created CallInst, if it created one, \p CI
   /// otherwise (when \p OpBundlesToAdd is empty).
@@ -349,8 +353,13 @@ public:
   /// Return false if no directive was found.
   /// Intended to be used outside of paropt when creating new values inside
   /// a region.
+  ///
+  /// \p ForcedTypedClause is used to always emit TYPED version of the OMP
+  /// clause, otherwise the behavior is controlled by a cl::opt. This mainly to
+  /// enable unittesting of this interface.
   static bool addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
-                                          DominatorTree &DT, bool SimdOnly);
+                                          DominatorTree &DT, bool SimdOnly,
+                                          bool ForceTypedClause = false);
 
   /// Returns the next enclosing OpenMP begin directive, or nullptr if none.
   static IntrinsicInst *enclosingBeginDirective(Instruction *I,
@@ -361,7 +370,9 @@ public:
   /// NewFunction.
   static void replaceBlockAddresses(Function *OldFunction,
                                     Function *NewFunction);
-  /// @}
+
+  /// Return the <ElementType, NumElements> pair for the alloca AI.
+  static ElementTypeAndNumElements getTypedClauseInfoForAlloca(AllocaInst *AI);
 };
 
 } // namespace vpo

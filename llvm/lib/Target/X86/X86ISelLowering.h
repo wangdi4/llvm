@@ -600,10 +600,10 @@ namespace llvm {
     VFCMULCSH_RND,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
     VDPPHPS,
     VDPPHPS_RND,
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
     VPDPBSUD,
     VPDPBSUDS,
@@ -626,6 +626,52 @@ namespace llvm {
     VCVTNE2PS2PH,
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
     MPSADBW,
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+    VCVTNEBF162IBS,
+    VCVTNEBF162IBSZ,
+    VCVTNEBF162IUBS,
+    VCVTNEBF162IUBSZ,
+    VCVTPH2IBS,
+    VCVTPH2IBSZ,
+    VCVTPH2IBS_RND,
+    VCVTPH2IBSZ_RND,
+    VCVTPH2IUBS,
+    VCVTPH2IUBSZ,
+    VCVTPH2IUBS_RND,
+    VCVTPH2IUBSZ_RND,
+    VCVTPS2IBS,
+    VCVTPS2IBSZ,
+    VCVTPS2IBS_RND,
+    VCVTPS2IBSZ_RND,
+    VCVTTNEBF162IBS,
+    VCVTTNEBF162IBSZ,
+    VCVTTNEBF162IUBS,
+    VCVTTNEBF162IUBSZ,
+    VCVTPS2IUBS,
+    VCVTPS2IUBSZ,
+    VCVTPS2IUBS_RND,
+    VCVTPS2IUBSZ_RND,
+    VCVTTPH2IBS,
+    VCVTTPH2IBSZ,
+    VCVTTPH2IBS_SAE,
+    VCVTTPH2IBSMask_SAE,
+    VCVTTPH2IBSMaskZ_SAE,
+    VCVTTPH2IUBS,
+    VCVTTPH2IUBSZ,
+    VCVTTPH2IUBS_SAE,
+    VCVTTPH2IUBSMask_SAE,
+    VCVTTPH2IUBSMaskZ_SAE,
+    VCVTTPS2IBS,
+    VCVTTPS2IBSZ,
+    VCVTTPS2IBS_SAE,
+    VCVTTPS2IBSMask_SAE,
+    VCVTTPS2IBSMaskZ_SAE,
+    VCVTTPS2IUBS,
+    VCVTTPS2IUBSZ,
+    VCVTTPS2IUBS_SAE,
+    VCVTTPS2IUBSMask_SAE,
+    VCVTTPS2IUBSMaskZ_SAE,
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
@@ -1397,6 +1443,9 @@ namespace llvm {
 
     /// Returns true if lowering to a jump table is allowed.
     bool areJTsAllowed(const Function *Fn) const override;
+
+    MVT getPreferredSwitchConditionType(LLVMContext &Context,
+                                        EVT ConditionVT) const override;
 
     /// If true, then instruction selection should
     /// seek to shrink the FP constant of the specified type to a smaller type

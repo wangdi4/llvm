@@ -670,6 +670,13 @@ void OpenMPLateOutliner::getApplicableDirectives(
     if (isOpenMPLoopDirective(D.DKind))
       LoopSeen = true;
 
+    // Implicit clauses are only added when applicable, so no further checks are
+    // needed.
+    if (CK == OMPC_unknown) {
+      Dirs.push_back(&D);
+      continue;
+    }
+
     switch (CK) {
     case OMPC_reduction:
       if (CodeGenFunction::requiresImplicitTaskgroup(Directive)) {
@@ -699,11 +706,8 @@ void OpenMPLateOutliner::getApplicableDirectives(
           Dirs.push_back(&D);
       }
       break;
-    case OMPC_unknown:
-      Dirs.push_back(&D);
-      break;
     default:
-      if (isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
+      if (isAllowedClauseForDirectiveFull(D.DKind, CK))
         Dirs.push_back(&D);
     }
   }
@@ -906,6 +910,34 @@ bool OpenMPLateOutliner::isImplicit(const VarDecl *V) {
   return ImplicitMap.find(V) != ImplicitMap.end();
 }
 
+/// There are special rules to handle clauses on combined/composite constructs
+/// as specified in OpenMP 5.2 17.2. Given a construct that is a piece of the
+/// full directive, return true if the clause should be added explicitly there.
+/// This is a wrapper around the general isAllowedClauseForDirective for cases
+/// that require seeing the full directive to decide.
+bool OpenMPLateOutliner::isAllowedClauseForDirectiveFull(
+    OpenMPDirectiveKind DKind, OpenMPClauseKind CK) {
+
+  if (DKind == Directive.getDirectiveKind()) {
+    // Not a combined directive, regular rules apply.
+    return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
+  }
+
+  // The effect of the firstprivate clause is as if it is applied to one or more
+  // leaf constructs as follows:
+  //   To the distribute construct if it is among the constituent constructs;
+  //   To the teams construct if it is among the constituent constructs and the
+  //   distribute construct is not
+  if (CK == OMPC_firstprivate && DKind == OMPD_teams &&
+      isOpenMPDistributeDirective(Directive.getDirectiveKind()))
+    return false;
+
+  if (CK == OMPC_reduction && DKind == OMPD_target)
+    return false;
+
+  return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
+}
+
 /// Returns true if an explicit clause was added to the Directive for
 /// the variable V that is compatible for the DKind. This is used to
 /// prevent the addition of implicit clauses where an explicit clause
@@ -923,11 +955,7 @@ bool OpenMPLateOutliner::isExplicitForDirective(const VarDecl *V,
   const auto CIt = std::find_if(
       ExplicitKinds.begin(), ExplicitKinds.end(),
       [this, DKind](OpenMPClauseKind CK) {
-        // isAllowedClauseForDirective does work for
-        // target/reduction case.
-        if (DKind == OMPD_target && CK == OMPC_reduction)
-          return false;
-        return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
+        return isAllowedClauseForDirectiveFull(DKind, CK);
       });
   return CIt != ExplicitKinds.end();
 }
@@ -1546,9 +1574,22 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
 
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    if (CurrentDirectiveKind == OMPD_target &&
+        VD->getType()->isAnyPointerType() &&
+        VD->getType()->getPointeeType()->isFunctionType()) {
+      if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+        // Add variable with function ptr type to ImplicitMap, if var is
+        // getting mapped, the firstprivate clause will not be emitted
+        // when emitting Implicit clause at end.
+        ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
+                                          ICK_specified_firstprivate));
+        addFirstPrivateVars(cast<VarDecl>(DRE->getDecl()));
+        continue;
+      }
+    }
     ClauseEmissionHelper CEH(*this, OMPC_firstprivate, "QUAL.OMP.FIRSTPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in firstprivate clause");
     addExplicit(VD, OMPC_firstprivate);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
@@ -1788,6 +1829,8 @@ void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
 
 void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
     const OMPIsDevicePtrClause *Cl) {
+  if (CurrentDirectiveKind == OMPD_target)
+    return;
   ClauseEmissionHelper CEH(*this, OMPC_is_device_ptr);
   ClauseStringBuilder &CSB = CEH.getBuilder();
   CSB.add("QUAL.OMP.IS_DEVICE_PTR");
@@ -2338,6 +2381,10 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     ClauseEmissionHelper CEH(*this, CK);
     ClauseStringBuilder &CSB = CEH.getBuilder();
     buildMapQualifier(CSB, I.MapType, I.Modifiers, I.Var);
+    if (!I.IsChain && I.Var)
+      if (I.Var->getType()->isAnyPointerType() &&
+          I.Var->getType()->getPointeeType()->isFunctionType())
+        CSB.setFptr();
     if (I.IsChain)
       CSB.setChain();
     addArg(CSB.getString());

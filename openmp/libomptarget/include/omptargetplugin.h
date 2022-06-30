@@ -1,4 +1,21 @@
 //===-- omptargetplugin.h - Target dependent OpenMP Plugin API --*- C++ -*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -222,6 +239,14 @@ EXTERN void *__tgt_rtl_data_realloc(
 EXTERN void *__tgt_rtl_data_aligned_alloc(
     int32_t ID, size_t Align, size_t Size, int32_t Kind);
 
+// Entry for supporting registering of host_pointer
+EXTERN bool __tgt_rtl_register_host_pointer(
+    int32_t ID, void *Ptr, size_t Size);
+
+// Entry for supporting unregistering of host pointer
+EXTERN bool __tgt_rtl_unregister_host_pointer(
+    int32_t ID, void *Ptr);
+
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,
@@ -237,19 +262,6 @@ int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
                                             int32_t NumArgs, int32_t NumTeams,
                                             int32_t ThreadLimit,
                                             void *LoopDesc);
-
-// Creates an opaque handle to a device-dependent offload queue if CreateNew is true
-// Return existing queue if false.
-EXTERN void __tgt_rtl_get_offload_queue(int32_t ID, void *InteropObj, bool CreateNew);
-
-// Releases a device-dependent offload queue.
-EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
-
-// Creates an opaque handle to the platform handle.
-EXTERN void *__tgt_rtl_get_platform_handle(int32_t ID);
-
-// Creates an opaque handle to the  device  handle.
-EXTERN void __tgt_rtl_set_device_handle(int32_t ID, void *InteropObj);
 
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
@@ -289,7 +301,7 @@ EXTERN void __tgt_rtl_deinit(void);
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
     int32_t ID, int32_t InteropContext, int32_t NumPrefers,
-    intptr_t *PreferIDs);
+    int32_t *PreferIDs);
 
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);
@@ -347,6 +359,11 @@ EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
 
 // Free per-hw-thread reduction scratch
 EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
+
+// Access device information
+EXTERN int __tgt_rtl_get_device_info(
+    int32_t ID, int32_t InfoID, size_t InfoSize, void *InfoVal,
+    size_t *InfoSizeRet);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

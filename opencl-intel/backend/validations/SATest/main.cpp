@@ -57,12 +57,6 @@ BaseDirectory("basedir",
            llvm::cl::value_desc("basedir"));
 
 llvm::cl::opt<bool>
-NativeSubgroups("native-subgroups",
-                llvm::cl::desc("Enable native subgroups. "
-                               "Default value - true."),
-                llvm::cl::init(true));
-
-llvm::cl::opt<bool>
 EnableSubgroupEmulation("enable-subgroup-emu",
                 llvm::cl::desc("Enable subgroup emulation. "
                                "Default value - true."),
@@ -245,8 +239,7 @@ llvm::cl::opt<std::string> TimePasses(
 // Debugging pass manager.
 llvm::cl::opt<std::string> DebugPassManager(
     "debug-passes",
-    llvm::cl::desc("Enable -debug-pass for legacy pass manager and"
-                   "debugging for new pass manager."));
+    llvm::cl::desc("Enable -debug-pass for legacy pass manager"));
 
 // Seed for random input data generator
 llvm::cl::opt<uint64_t>
@@ -264,12 +257,13 @@ ExpensiveMemOpts("enable-expensive-mem-opts",
 llvm::cl::opt<PassManagerType> OptPassManagerType(
     "pass-manager-type",
     llvm::cl::desc("Specify pass manager type. "
-                   "Default value - ocl."),
+                   "Default value - none."),
     llvm::cl::values(
         clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
-        clEnumValN(PM_OCL, "ocl", "OpenCL pass pipeline"),
+        clEnumValN(PM_OCL_LEGACY, "ocl-legacy", "OpenCL pass pipeline"),
+        clEnumValN(PM_OCL, "ocl", "OpenCL new pass manager pipeline"),
         clEnumValN(PM_LTO_LEGACY, "lto-legacy", "llvm legacy pass pipeline"),
-        clEnumValN(PM_LTO_NEW, "lto-new", "llvm new pass pipeline")),
+        clEnumValN(PM_LTO, "lto", "llvm new pass manager pipeline")),
     llvm::cl::init(PM_NONE));
 
 llvm::cl::opt<bool> SerializeWorkGroups(

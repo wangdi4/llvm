@@ -52,7 +52,7 @@ void specified_alignment()
 // Do not generate temp map
 //CHECK-DISNAME-NOT: alloca ptr, align 64
 //CHECK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-DISNAME-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr [[L1]])
+//CHECK-DISNAME-SAME: "QUAL.OMP.MAP.TO"(ptr [[L1]]
   #pragma omp target is_device_ptr(ptr)
   {
     ptr[0][0] = 41;

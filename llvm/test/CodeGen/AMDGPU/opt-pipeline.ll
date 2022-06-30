@@ -1,3 +1,4 @@
+; INTEL_CUSTOMIZATION
 ; RUN: opt -O0 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O0 %s
 ; RUN: opt -O1 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O1 %s
 ; RUN: opt -O2 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O2 %s
@@ -118,16 +119,6 @@
 ; GCN-O1-NEXT:       Optimization Remark Emitter
 ; GCN-O1-NEXT:       Combine redundant instructions
 ; GCN-O1-NEXT:       Conditionally eliminate dead library calls
-#if INTEL_CUSTOMIZATION
-; GCN-O1-NEXT:       Natural Loop Information
-; GCN-O1-NEXT:       Post-Dominator Tree Construction
-; GCN-O1-NEXT:       Branch Probability Analysis
-; GCN-O1-NEXT:       Block Frequency Analysis
-; GCN-O1-NEXT:       Lazy Branch Probability Analysis
-; GCN-O1-NEXT:       Lazy Block Frequency Analysis
-; GCN-O1-NEXT:       Optimization Remark Emitter
-; GCN-O1-NEXT:       PGOMemOPSize
-#endif // INTEL_CUSTOMIZATION
 ; GCN-O1-NEXT:       Simplify the CFG
 ; GCN-O1-NEXT:       Reassociate expressions
 ; GCN-O1-NEXT:       Dominator Tree Construction
@@ -441,16 +432,6 @@
 ; GCN-O2-NEXT:       Optimization Remark Emitter
 ; GCN-O2-NEXT:       Combine redundant instructions
 ; GCN-O2-NEXT:       Conditionally eliminate dead library calls
-#if INTEL_CUSTOMIZATION
-; GCN-O2-NEXT:       Natural Loop Information
-; GCN-O2-NEXT:       Post-Dominator Tree Construction
-; GCN-O2-NEXT:       Branch Probability Analysis
-; GCN-O2-NEXT:       Block Frequency Analysis
-; GCN-O2-NEXT:       Lazy Branch Probability Analysis
-; GCN-O2-NEXT:       Lazy Block Frequency Analysis
-; GCN-O2-NEXT:       Optimization Remark Emitter
-; GCN-O2-NEXT:       PGOMemOPSize
-#endif // INTEL_CUSTOMIZATION
 ; GCN-O2-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O2-NEXT:       Function Alias Analysis Results
 ; GCN-O2-NEXT:       Natural Loop Information
@@ -808,16 +789,6 @@
 ; GCN-O3-NEXT:       Optimization Remark Emitter
 ; GCN-O3-NEXT:       Combine redundant instructions
 ; GCN-O3-NEXT:       Conditionally eliminate dead library calls
-#if INTEL_CUSTOMIZATION
-; GCN-O3-NEXT:       Natural Loop Information
-; GCN-O3-NEXT:       Post-Dominator Tree Construction
-; GCN-O3-NEXT:       Branch Probability Analysis
-; GCN-O3-NEXT:       Block Frequency Analysis
-; GCN-O3-NEXT:       Lazy Branch Probability Analysis
-; GCN-O3-NEXT:       Lazy Block Frequency Analysis
-; GCN-O3-NEXT:       Optimization Remark Emitter
-; GCN-O3-NEXT:       PGOMemOPSize
-#endif // INTEL_CUSTOMIZATION
 ; GCN-O3-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O3-NEXT:       Function Alias Analysis Results
 ; GCN-O3-NEXT:       Natural Loop Information
@@ -1069,3 +1040,4 @@
 define void @empty() {
   ret void
 }
+; end INTEL_CUSTOMIZATION

@@ -595,6 +595,8 @@ class VPLiveInOutCreator {
   VPlan &Plan;
 
 public:
+  using VPExtUseList = SmallVector<VPExternalUse *, 1>;
+
   VPLiveInOutCreator(VPlan &P) : Plan(P) {}
 
   /// Create VPLiveInValue and VPLiveOutValue lists for VPlan.
@@ -653,15 +655,15 @@ private:
     return LiveOut;
   }
   template <class InitTy, class FinalTy>
-  void addInOutValues(InitTy *Init, FinalTy *Final, VPExternalUse *ExtUse,
+  void addInOutValues(InitTy *Init, FinalTy *Final, VPExtUseList &ExtUse,
                       bool ExtUseAdded, VPValue *StartV);
   // Create and add descriptor of livein/out value in scalar loop.
   void addOriginalLiveInOut(const VPLoopEntityList *VPLEntityList,
                             Loop *OrigLoop, VPLoopEntity *E,
-                            VPExternalUse *ExtUse, ScalarInOutList &SList);
+                            VPExtUseList &ExtUse, ScalarInOutList &SList);
   // Create and add descriptor of livein/out value in scalar HLLoop.
   void addOriginalLiveInOut(const VPLoopEntityList *, loopopt::HLLoop *OrigLoop,
-                            VPLoopEntity *, VPExternalUse *ExtUse,
+                            VPLoopEntity *, VPExtUseList &ExtUse,
                             ScalarInOutListHIR &SList);
 };
 

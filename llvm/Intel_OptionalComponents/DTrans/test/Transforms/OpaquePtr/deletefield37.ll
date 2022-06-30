@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 ; This test verifies that the DTtrans delete pass correctly transforms
 ; structures that have unused fields and handles a structure allocation

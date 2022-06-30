@@ -8074,7 +8074,7 @@ multiclass avx_dotprod_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 }
 
 let Uses = [MXCSR], checkVEXPredicate = 1,
-    Predicates = [HasAVXDOTPRODPHPS, NoVLX_Or_NoAVX512DOTPRODPHPS] in {
+    Predicates = [HasAVXDOTPRODPHPS, NoVLX_Or_NoAVX512VNNIFP16] in {
   // FIXME: Using SchedWriteCvtPD2PS is a workaround.
   defm VDPPHPS  :  avx_dotprod_rm<0x52, "vdpphps", v4f32, VR128, loadv4f32,
                                   f128mem, X86vdpphps, SchedWriteCvtPD2PS.XMM,

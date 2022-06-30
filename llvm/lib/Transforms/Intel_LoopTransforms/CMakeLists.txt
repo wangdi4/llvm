@@ -64,6 +64,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRPropagateCastedIV.cpp
         HIRMultiExitLoopReroll.cpp
         HIRRecognizeParLoop.cpp
+        HIRMinMaxRecognition.cpp
         HIRIdentityMatrixIdiomRecognition.cpp
         HIRPrefetching.cpp
         HIRSinkingForPerfectLoopnest.cpp

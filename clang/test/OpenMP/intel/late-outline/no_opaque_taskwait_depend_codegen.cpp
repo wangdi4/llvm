@@ -86,13 +86,13 @@
 // CHECK-NEW-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 16 [[TMP0]], i8 0, i64 400, i1 false)
 // CHECK-NEW-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.FIRSTPRIVATE"(i32* [[VAR]]), "QUAL.OMP.FIRSTPRIVATE"([100 x i32]* [[ARR]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR1]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR2]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR3]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR4]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR5]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR6]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR7]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR9]]), "QUAL.OMP.PRIVATE"([1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR10]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR11]]), "QUAL.OMP.PRIVATE"([3 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR12]]), "QUAL.OMP.PRIVATE"(i64* [[DEP_COUNTER_ADDR13]]) ]
 // CHECK-NEW-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP3:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO:%.*]], %struct.kmp_depend_info* [[TMP2]], i64 0
-// CHECK-NEW-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP3]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP5:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP5]], i64* [[TMP4]], align 8
-// CHECK-NEW-NEXT:    [[TMP6:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP3]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP3:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO:%.*]], %struct.kmp_depend_info* [[TMP2]], i64 0
+// CHECK-NEW-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP4]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP3]], i64* [[TMP5]], align 8
+// CHECK-NEW-NEXT:    [[TMP6:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP4]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP6]], align 8
-// CHECK-NEW-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP3]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP4]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, i8* [[TMP7]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR]], align 8
 // CHECK-NEW-NEXT:    [[TMP8:%.*]] = bitcast %struct.kmp_depend_info* [[TMP2]] to i8*
@@ -100,13 +100,13 @@
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP9]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP10:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR1]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP11:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP10]], i64 0
-// CHECK-NEW-NEXT:    [[TMP12:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP11]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP13:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP13]], i64* [[TMP12]], align 8
-// CHECK-NEW-NEXT:    [[TMP14:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP11]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP11:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP12:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP10]], i64 0
+// CHECK-NEW-NEXT:    [[TMP13:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP12]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP11]], i64* [[TMP13]], align 8
+// CHECK-NEW-NEXT:    [[TMP14:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP12]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP14]], align 8
-// CHECK-NEW-NEXT:    [[TMP15:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP11]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP15:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP12]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, i8* [[TMP15]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR2]], align 8
 // CHECK-NEW-NEXT:    [[TMP16:%.*]] = bitcast %struct.kmp_depend_info* [[TMP10]] to i8*
@@ -114,13 +114,13 @@
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP17]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP18:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR3]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP19:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP18]], i64 0
-// CHECK-NEW-NEXT:    [[TMP20:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP19]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP21:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP21]], i64* [[TMP20]], align 8
-// CHECK-NEW-NEXT:    [[TMP22:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP19]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP19:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP20:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP18]], i64 0
+// CHECK-NEW-NEXT:    [[TMP21:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP20]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP19]], i64* [[TMP21]], align 8
+// CHECK-NEW-NEXT:    [[TMP22:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP20]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP22]], align 8
-// CHECK-NEW-NEXT:    [[TMP23:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP19]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP23:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP20]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, i8* [[TMP23]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR4]], align 8
 // CHECK-NEW-NEXT:    [[TMP24:%.*]] = bitcast %struct.kmp_depend_info* [[TMP18]] to i8*
@@ -128,13 +128,13 @@
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP25]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP26:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR5]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP27:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP26]], i64 0
-// CHECK-NEW-NEXT:    [[TMP28:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP27]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP29:%.*]] = ptrtoint [100 x i32]* [[ARR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP29]], i64* [[TMP28]], align 8
-// CHECK-NEW-NEXT:    [[TMP30:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP27]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP27:%.*]] = ptrtoint [100 x i32]* [[ARR]] to i64
+// CHECK-NEW-NEXT:    [[TMP28:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP26]], i64 0
+// CHECK-NEW-NEXT:    [[TMP29:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP28]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP27]], i64* [[TMP29]], align 8
+// CHECK-NEW-NEXT:    [[TMP30:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP28]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 400, i64* [[TMP30]], align 8
-// CHECK-NEW-NEXT:    [[TMP31:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP27]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP31:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP28]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, i8* [[TMP31]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR6]], align 8
 // CHECK-NEW-NEXT:    [[TMP32:%.*]] = bitcast %struct.kmp_depend_info* [[TMP26]] to i8*
@@ -148,13 +148,13 @@
 // CHECK-NEW-NEXT:    [[TMP36:%.*]] = ptrtoint i32* [[ARRAYIDX]] to i64
 // CHECK-NEW-NEXT:    [[TMP37:%.*]] = ptrtoint i32* [[TMP35]] to i64
 // CHECK-NEW-NEXT:    [[TMP38:%.*]] = sub nuw i64 [[TMP37]], [[TMP36]]
-// CHECK-NEW-NEXT:    [[TMP39:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP34]], i64 0
-// CHECK-NEW-NEXT:    [[TMP40:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP39]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP41:%.*]] = ptrtoint i32* [[ARRAYIDX]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP41]], i64* [[TMP40]], align 8
-// CHECK-NEW-NEXT:    [[TMP42:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP39]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP39:%.*]] = ptrtoint i32* [[ARRAYIDX]] to i64
+// CHECK-NEW-NEXT:    [[TMP40:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP34]], i64 0
+// CHECK-NEW-NEXT:    [[TMP41:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP40]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP39]], i64* [[TMP41]], align 8
+// CHECK-NEW-NEXT:    [[TMP42:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP40]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 [[TMP38]], i64* [[TMP42]], align 8
-// CHECK-NEW-NEXT:    [[TMP43:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP39]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP43:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP40]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, i8* [[TMP43]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR9]], align 8
 // CHECK-NEW-NEXT:    [[TMP44:%.*]] = bitcast %struct.kmp_depend_info* [[TMP34]] to i8*
@@ -162,13 +162,13 @@
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP45]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP46:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR10]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP47:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP46]], i64 0
-// CHECK-NEW-NEXT:    [[TMP48:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP47]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP49:%.*]] = ptrtoint [100 x i32]* [[ARR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP49]], i64* [[TMP48]], align 8
-// CHECK-NEW-NEXT:    [[TMP50:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP47]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP47:%.*]] = ptrtoint [100 x i32]* [[ARR]] to i64
+// CHECK-NEW-NEXT:    [[TMP48:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP46]], i64 0
+// CHECK-NEW-NEXT:    [[TMP49:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP48]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP47]], i64* [[TMP49]], align 8
+// CHECK-NEW-NEXT:    [[TMP50:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP48]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 400, i64* [[TMP50]], align 8
-// CHECK-NEW-NEXT:    [[TMP51:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP47]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP51:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP48]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, i8* [[TMP51]], align 8
 // CHECK-NEW-NEXT:    store i64 1, i64* [[DEP_COUNTER_ADDR11]], align 8
 // CHECK-NEW-NEXT:    [[TMP52:%.*]] = bitcast %struct.kmp_depend_info* [[TMP46]] to i8*
@@ -176,29 +176,29 @@
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP53]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP54:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], [3 x %struct.kmp_depend_info]* [[DOTDEP_ARR_ADDR12]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP55:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 0
-// CHECK-NEW-NEXT:    [[TMP56:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP55]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP57:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP57]], i64* [[TMP56]], align 8
-// CHECK-NEW-NEXT:    [[TMP58:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP55]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP55:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP56:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 0
+// CHECK-NEW-NEXT:    [[TMP57:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP56]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP55]], i64* [[TMP57]], align 8
+// CHECK-NEW-NEXT:    [[TMP58:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP56]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP58]], align 8
-// CHECK-NEW-NEXT:    [[TMP59:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP55]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP59:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP56]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, i8* [[TMP59]], align 8
-// CHECK-NEW-NEXT:    [[TMP60:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 1
-// CHECK-NEW-NEXT:    [[TMP61:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP60]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP62:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP62]], i64* [[TMP61]], align 8
-// CHECK-NEW-NEXT:    [[TMP63:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP60]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP60:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP61:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 1
+// CHECK-NEW-NEXT:    [[TMP62:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP61]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP60]], i64* [[TMP62]], align 8
+// CHECK-NEW-NEXT:    [[TMP63:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP61]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP63]], align 8
-// CHECK-NEW-NEXT:    [[TMP64:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP60]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP64:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP61]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, i8* [[TMP64]], align 8
-// CHECK-NEW-NEXT:    [[TMP65:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 2
-// CHECK-NEW-NEXT:    [[TMP66:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP65]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP67:%.*]] = ptrtoint i32* [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP67]], i64* [[TMP66]], align 8
-// CHECK-NEW-NEXT:    [[TMP68:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP65]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP65:%.*]] = ptrtoint i32* [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP66:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP54]], i64 2
+// CHECK-NEW-NEXT:    [[TMP67:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP66]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP65]], i64* [[TMP67]], align 8
+// CHECK-NEW-NEXT:    [[TMP68:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP66]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, i64* [[TMP68]], align 8
-// CHECK-NEW-NEXT:    [[TMP69:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP65]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP69:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], %struct.kmp_depend_info* [[TMP66]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, i8* [[TMP69]], align 8
 // CHECK-NEW-NEXT:    store i64 3, i64* [[DEP_COUNTER_ADDR13]], align 8
 // CHECK-NEW-NEXT:    [[TMP70:%.*]] = bitcast %struct.kmp_depend_info* [[TMP54]] to i8*

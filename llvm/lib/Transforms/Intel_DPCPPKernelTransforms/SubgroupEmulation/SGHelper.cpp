@@ -1,6 +1,6 @@
 //=----- SGHelper.cpp - Helper functions for subgroup emulation - C++ -*-----=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,8 +16,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <string>
 
@@ -27,8 +27,6 @@ using namespace llvm;
 
 #define CHECK_IF_INITIALIZED                                                   \
   assert(Initialized && "SGHelper is called before initialized");
-
-namespace llvm {
 
 const char *SGHelper::DummyBarrierName = "dummy_sg_barrier";
 const char *SGHelper::BarrierNameNoScope = "_Z17sub_group_barrierj";
@@ -128,34 +126,35 @@ void SGHelper::findDummyBarriers() {
   }
 }
 
-const InstSet &SGHelper::getBarriersForFunction(Function *F) {
+const CompilationUtils::InstSet &SGHelper::getBarriersForFunction(Function *F) {
   CHECK_IF_INITIALIZED
   return FuncToBarriers[F];
 }
 
-const InstSet &SGHelper::getDummyBarriersForFunction(Function *F) {
+const CompilationUtils::InstSet &
+SGHelper::getDummyBarriersForFunction(Function *F) {
   CHECK_IF_INITIALIZED
   return FuncToDummyBarriers[F];
 }
 
-FuncSet SGHelper::getAllFunctionsNeedEmulation() {
+CompilationUtils::FuncSet SGHelper::getAllFunctionsNeedEmulation() {
   CHECK_IF_INITIALIZED
-  FuncSet FuncsNeedEmuation;
+  CompilationUtils::FuncSet FuncsNeedEmuation;
   // Only functions to be emulated have dummy_sg_barrier calls.
   for (auto &Item : FuncToDummyBarriers)
     FuncsNeedEmuation.insert(Item.first);
   return FuncsNeedEmuation;
 }
 
-InstSet SGHelper::getSyncInstsForFunction(Function *F) {
+CompilationUtils::InstSet SGHelper::getSyncInstsForFunction(Function *F) {
   CHECK_IF_INITIALIZED
-  InstSet SyncInsts = FuncToBarriers[F];
+  CompilationUtils::InstSet SyncInsts = FuncToBarriers[F];
   for (auto *I : FuncToDummyBarriers[F])
     SyncInsts.insert(I);
   return SyncInsts;
 }
 
-const FuncSet &SGHelper::getAllSyncFunctions() const {
+const CompilationUtils::FuncSet &SGHelper::getAllSyncFunctions() const {
   CHECK_IF_INITIALIZED
   return SGSyncFunctions;
 }
@@ -209,7 +208,7 @@ Instruction *SGHelper::insertDummyBarrierAfter(Instruction *IP) {
 
 Value *SGHelper::createGetMaxSubGroupSize(Instruction *IP) {
   static const std::string GetMaxSGSizeName =
-      DPCPPKernelCompilationUtils::mangledGetMaxSubGroupSize();
+      CompilationUtils::mangledGetMaxSubGroupSize();
   if (GetMaxSGSizeF == nullptr) {
     GetMaxSGSizeF = M->getFunction(GetMaxSGSizeName);
     if (GetMaxSGSizeF == nullptr) {
@@ -227,7 +226,7 @@ Value *SGHelper::createGetMaxSubGroupSize(Instruction *IP) {
 
 Value *SGHelper::createGetSubGroupSize(Instruction *IP) {
   static const std::string GetSGSizeName =
-      DPCPPKernelCompilationUtils::mangledGetSubGroupSize();
+      CompilationUtils::mangledGetSubGroupSize();
   if (GetSGSizeF == nullptr) {
     GetSGSizeF = M->getFunction(GetSGSizeName);
     if (GetSGSizeF == nullptr) {
@@ -246,7 +245,7 @@ Value *SGHelper::createGetSubGroupSize(Instruction *IP) {
 
 Value *SGHelper::createGetSubGroupLId(Instruction *IP) {
   static const std::string GetSGLIdName =
-      DPCPPKernelCompilationUtils::mangledGetSubGroupLocalId();
+      CompilationUtils::mangledGetSubGroupLocalId();
   if (GetSGLIdF == nullptr) {
     GetSGLIdF = M->getFunction(GetSGLIdName);
     if (GetSGLIdF == nullptr) {
@@ -333,5 +332,3 @@ Value *SGHelper::createZExtOrTruncProxy(Value *From, Type *ToType, IRBuilder<> &
     return From;
   return Builder.CreateZExtOrTrunc(From, ToType);
 }
-
-} // namespace llvm

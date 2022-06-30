@@ -143,7 +143,7 @@ DenseMap<uint64_t, Value *>
 OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
                          const OVLSInstructionVector &InstVec,
                          ShuffleVectorInst *InterleavingShuffleInst,
-                         Value *Addr, Type *ElemTy, unsigned Alignment) {
+                         Value *Addr, Type *ElemTy, MaybeAlign Alignment) {
   DenseMap<uint64_t, Value *> InstMap;
   unsigned AddrSpace = Addr->getType()->getPointerAddressSpace();
   // Only used when a shuffle instruction needs to be generated for an
@@ -167,7 +167,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
 
       // Generate the load
       Instruction *NewLoad =
-          Builder.CreateAlignedLoad(VecTy, NewBasePtr, MaybeAlign(Alignment));
+          Builder.CreateAlignedLoad(VecTy, NewBasePtr, Alignment);
       InstMap[OInst->getId()] = NewLoad;
     } else if (const OVLSShuffle *const OSI =
                    dyn_cast<const OVLSShuffle>(OInst)) {
@@ -263,7 +263,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       // Generate the store
       Value *SrcReg = InstMap[OStI->getSrc()->getId()];
       Instruction *NewStore =
-          Builder.CreateAlignedStore(SrcReg, NewBasePtr, MaybeAlign(Alignment));
+          Builder.CreateAlignedStore(SrcReg, NewBasePtr, Alignment);
       InstMap[OInst->getId()] = NewStore;
     } else
       assert(false && "Unexpected OVLSInstruction.");

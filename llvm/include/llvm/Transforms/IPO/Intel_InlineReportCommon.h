@@ -159,6 +159,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Has inline budget for small application"},
     // InlrExposesLocalArrays
     {InlPrtCost, "Exposes local arrays"},
+    // InlrUnderTBBParallelFor
+    {InlPrtCost, "Under TBB parallel for"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

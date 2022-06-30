@@ -2156,8 +2156,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Align = Target->getLongFractAlign();
       break;
     case BuiltinType::BFloat16:
-      Width = Target->getBFloat16Width();
-      Align = Target->getBFloat16Align();
+      if (Target->hasBFloat16Type()) {
+        Width = Target->getBFloat16Width();
+        Align = Target->getBFloat16Align();
+      }
       break;
     case BuiltinType::Float16:
     case BuiltinType::Half:
@@ -2750,7 +2752,11 @@ getSubobjectSizeInBits(const FieldDecl *Field, const ASTContext &Context) {
     if (!RD->isUnion())
       return structHasUniqueObjectRepresentations(Context, RD);
   }
-  if (!Field->getType()->isReferenceType() &&
+
+  // A _BitInt type may not be unique if it has padding bits
+  // but if it is a bitfield the padding bits are not used.
+  bool IsBitIntType = Field->getType()->isBitIntType();
+  if (!Field->getType()->isReferenceType() && !IsBitIntType &&
       !Context.hasUniqueObjectRepresentations(Field->getType()))
     return llvm::None;
 
@@ -2758,9 +2764,17 @@ getSubobjectSizeInBits(const FieldDecl *Field, const ASTContext &Context) {
       Context.toBits(Context.getTypeSizeInChars(Field->getType()));
   if (Field->isBitField()) {
     int64_t BitfieldSize = Field->getBitWidthValue(Context);
-    if (BitfieldSize > FieldSizeInBits)
+    if (IsBitIntType) {
+      if ((unsigned)BitfieldSize >
+          cast<BitIntType>(Field->getType())->getNumBits())
+        return llvm::None;
+    } else if (BitfieldSize > FieldSizeInBits) {
       return llvm::None;
+    }
     FieldSizeInBits = BitfieldSize;
+  } else if (IsBitIntType &&
+             !Context.hasUniqueObjectRepresentations(Field->getType())) {
+    return llvm::None;
   }
   return FieldSizeInBits;
 }
@@ -2858,8 +2872,13 @@ bool ASTContext::hasUniqueObjectRepresentations(QualType Ty) const {
     return false;
 
   // All integrals and enums are unique.
-  if (Ty->isIntegralOrEnumerationType())
+  if (Ty->isIntegralOrEnumerationType()) {
+    // Except _BitInt types that have padding bits.
+    if (const auto *BIT = dyn_cast<BitIntType>(Ty))
+      return getTypeSize(BIT) == BIT->getNumBits();
+
     return true;
+  }
 
   // All other pointers are unique.
   if (Ty->isPointerType())
@@ -4310,6 +4329,13 @@ static bool isCanonicalResultType(QualType T) {
 QualType
 ASTContext::getFunctionNoProtoType(QualType ResultTy,
                                    const FunctionType::ExtInfo &Info) const {
+  // FIXME: This assertion cannot be enabled (yet) because the ObjC rewriter
+  // functionality creates a function without a prototype regardless of
+  // language mode (so it makes them even in C++). Once the rewriter has been
+  // fixed, this assertion can be enabled again.
+  //assert(!LangOpts.requiresStrictPrototypes() &&
+  //       "strict prototypes are disabled");
+
   // Unique functions, to guarantee there is only one function of a particular
   // structure.
   llvm::FoldingSetNodeID ID;
@@ -4513,8 +4539,7 @@ QualType ASTContext::getFunctionTypeInternal(
       QualType, SourceLocation, FunctionType::FunctionTypeExtraBitfields,
       FunctionType::ExceptionType, Expr *, FunctionDecl *,
       FunctionProtoType::ExtParameterInfo, Qualifiers>(
-      NumArgs, EPI.Variadic,
-      FunctionProtoType::hasExtraBitfields(EPI.ExceptionSpec.Type),
+      NumArgs, EPI.Variadic, EPI.requiresFunctionProtoTypeExtraBitfields(),
       ESH.NumExceptionType, ESH.NumExprPtr, ESH.NumFunctionDeclPtr,
       EPI.ExtParameterInfos ? NumArgs : 0,
       EPI.TypeQuals.hasNonFastQualifiers() ? 1 : 0);
@@ -4951,11 +4976,10 @@ ASTContext::getTemplateSpecializationType(TemplateName Template,
          "No dependent template names here!");
   // Look through qualified template names.
   if (QualifiedTemplateName *QTN = Template.getAsQualifiedTemplateName())
-    Template = TemplateName(QTN->getTemplateDecl());
+    Template = QTN->getUnderlyingTemplate();
 
   bool IsTypeAlias =
-    Template.getAsTemplateDecl() &&
-    isa<TypeAliasTemplateDecl>(Template.getAsTemplateDecl());
+      isa_and_nonnull<TypeAliasTemplateDecl>(Template.getAsTemplateDecl());
   QualType CanonType;
   if (!Underlying.isNull())
     CanonType = getCanonicalType(Underlying);
@@ -5007,7 +5031,7 @@ QualType ASTContext::getCanonicalTemplateSpecializationType(
 
   // Look through qualified template names.
   if (QualifiedTemplateName *QTN = Template.getAsQualifiedTemplateName())
-    Template = TemplateName(QTN->getTemplateDecl());
+    Template = TemplateName(QTN->getUnderlyingTemplate());
 
   // Build the canonical template specialization type.
   TemplateName CanonTemplate = getCanonicalTemplateName(Template);
@@ -9086,10 +9110,9 @@ TemplateName ASTContext::getAssumedTemplateName(DeclarationName Name) const {
 
 /// Retrieve the template name that represents a qualified
 /// template name such as \c std::vector.
-TemplateName
-ASTContext::getQualifiedTemplateName(NestedNameSpecifier *NNS,
-                                     bool TemplateKeyword,
-                                     TemplateDecl *Template) const {
+TemplateName ASTContext::getQualifiedTemplateName(NestedNameSpecifier *NNS,
+                                                  bool TemplateKeyword,
+                                                  TemplateName Template) const {
   assert(NNS && "Missing nested-name-specifier in qualified template name");
 
   // FIXME: Canonicalization?
@@ -11379,7 +11402,7 @@ QualType ASTContext::GetBuiltinType(unsigned Id,
 
 
   // We really shouldn't be making a no-proto type here.
-  if (ArgTypes.empty() && Variadic && !getLangOpts().CPlusPlus)
+  if (ArgTypes.empty() && Variadic && !getLangOpts().requiresStrictPrototypes())
     return getFunctionNoProtoType(ResType, EI);
 
   FunctionProtoType::ExtProtoInfo EPI;
@@ -11849,9 +11872,11 @@ MangleContext *ASTContext::createDeviceMangleContext(const TargetInfo &T) {
           if (const auto *RD = dyn_cast<CXXRecordDecl>(ND))
             return RD->getDeviceLambdaManglingNumber();
           return llvm::None;
-        });
+        },
+        /*IsAux=*/true);
   case TargetCXXABI::Microsoft:
-    return MicrosoftMangleContext::create(*this, getDiagnostics());
+    return MicrosoftMangleContext::create(*this, getDiagnostics(),
+                                          /*IsAux=*/true);
   }
   llvm_unreachable("Unsupported ABI");
 }
@@ -11917,9 +11942,19 @@ void ASTContext::setManglingNumber(const NamedDecl *ND, unsigned Number) {
     MangleNumbers[ND] = Number;
 }
 
-unsigned ASTContext::getManglingNumber(const NamedDecl *ND) const {
+unsigned ASTContext::getManglingNumber(const NamedDecl *ND,
+                                       bool ForAuxTarget) const {
   auto I = MangleNumbers.find(ND);
-  return I != MangleNumbers.end() ? I->second : 1;
+  unsigned Res = I != MangleNumbers.end() ? I->second : 1;
+  // CUDA/HIP host compilation encodes host and device mangling numbers
+  // as lower and upper half of 32 bit integer.
+  if (LangOpts.CUDA && !LangOpts.CUDAIsDevice) {
+    Res = ForAuxTarget ? Res >> 16 : Res & 0xFFFF;
+  } else {
+    assert(!ForAuxTarget && "Only CUDA/HIP host compilation supports mangling "
+                            "number for aux target");
+  }
+  return Res > 1 ? Res : 1;
 }
 
 void ASTContext::setStaticLocalNumber(const VarDecl *VD, unsigned Number) {
@@ -12475,7 +12510,9 @@ bool ASTContext::mayExternalize(const Decl *D) const {
   // anonymous name space needs to be externalized to avoid duplicate symbols.
   return (IsStaticVar &&
           (D->hasAttr<HIPManagedAttr>() || IsExplicitDeviceVar)) ||
-         (D->hasAttr<CUDAGlobalAttr>() && D->isInAnonymousNamespace());
+         (D->hasAttr<CUDAGlobalAttr>() &&
+          basicGVALinkageForFunction(*this, cast<FunctionDecl>(D)) ==
+              GVA_Internal);
 }
 
 bool ASTContext::shouldExternalize(const Decl *D) const {

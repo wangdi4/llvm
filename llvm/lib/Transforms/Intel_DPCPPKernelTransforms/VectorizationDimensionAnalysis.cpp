@@ -11,19 +11,17 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-vec-dim-analysis"
 
 INITIALIZE_PASS_BEGIN(VectorizationDimensionAnalysisLegacy, DEBUG_TYPE,
                       "Choose vectorization dimension", false, true)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_DEPENDENCY(WorkItemAnalysisLegacy)
 INITIALIZE_PASS_END(VectorizationDimensionAnalysisLegacy, DEBUG_TYPE,
                     "Choose vectorization dimension", false, true)
@@ -38,7 +36,6 @@ VectorizationDimensionAnalysisLegacy::VectorizationDimensionAnalysisLegacy()
 
 void VectorizationDimensionAnalysisLegacy::getAnalysisUsage(
     AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
   AU.addRequired<WorkItemAnalysisLegacy>();
 }
 
@@ -57,16 +54,12 @@ void VectorizationDimensionAnalysisLegacy::print(raw_ostream &OS,
 }
 
 bool VectorizationDimensionAnalysisLegacy::runOnModule(Module &M) {
-  auto *RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                        .getResult()
-                        .getRuntimeService();
-  assert(RTService != nullptr && "Invalid runtime service!");
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
   for (Function *F : Kernels) {
     if (F->hasOptNone())
       continue;
     VectorizeDimInfo VDInfo;
-    if (!VDInfo.preCheckDimZero(*F, RTService)) {
+    if (!VDInfo.preCheckDimZero(*F)) {
       WorkItemInfo &WIInfo =
           getAnalysis<WorkItemAnalysisLegacy>(*F).getResult();
       VDInfo.compute(*F, WIInfo);
@@ -84,9 +77,6 @@ AnalysisKey VectorizationDimensionAnalysis::Key;
 
 VectorizationDimensionAnalysis::Result
 VectorizationDimensionAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
-  auto *RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
-  assert(RTService != nullptr && "Invalid runtime service!");
-
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Result VDInfos;
@@ -94,7 +84,7 @@ VectorizationDimensionAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
     if (F->hasOptNone())
       continue;
     VectorizeDimInfo VDInfo;
-    if (!VDInfo.preCheckDimZero(*F, RTService)) {
+    if (!VDInfo.preCheckDimZero(*F)) {
       WorkItemInfo &WIInfo = FAM.getResult<WorkItemAnalysis>(*F);
       VDInfo.compute(*F, WIInfo);
     }
@@ -143,7 +133,7 @@ static bool canSwitchDimension(Function *F) {
     if (Function *Func = F->getParent()->getFunction(*It))
       ForbiddenFuncs.insert(Func);
   FuncSet UserFuncs;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(ForbiddenFuncs, UserFuncs);
+  LoopUtils::fillFuncUsersSet(ForbiddenFuncs, UserFuncs);
   if (UserFuncs.contains(F))
     return false;
 
@@ -176,11 +166,10 @@ bool VectorizeDimInfo::hasDim(Function *F, unsigned Dim) const {
     }
 
     bool IsTidGen;
-    bool Err;
     unsigned Dimension;
-    std::tie(IsTidGen, Err, Dimension) = RTService->isTIDGenerator(CI);
+    std::tie(IsTidGen, Dimension) = isTIDGenerator(CI);
     // KernelAnalysis should have set NobarrierPath to false if err is true.
-    assert(IsTidGen && !Err &&
+    assert(IsTidGen &&
            "TIDGen inst receives non-constant input. Cannot vectorize!");
     if (Dim == Dimension)
       return true;
@@ -189,9 +178,7 @@ bool VectorizeDimInfo::hasDim(Function *F, unsigned Dim) const {
   return false;
 }
 
-bool VectorizeDimInfo::preCheckDimZero(Function &F, const RuntimeService *RTS) {
-  RTService = RTS;
-
+bool VectorizeDimInfo::preCheckDimZero(Function &F) {
   if (!canSwitchDimension(&F)) {
     LLVM_DEBUG(dbgs() << F.getName() << ": can't switch dimension\n");
     CanUniteWorkGroups = false;

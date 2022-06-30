@@ -6,7 +6,7 @@
 
 define i32 @main() {
 ; CHECK:       BEGIN REGION { modified }
-; CHECK:                + DO i1 = 0, {{.*}} + -1, 4   <DO_LOOP>
+; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>
 ; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = [[PHI_TEMP100:%.*]] > 0.000000e+00
 ; CHECK-NEXT:           |   [[DOTVEC160:%.*]] = ([[PHI_TEMP100]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP120:%.*]];
 ; CHECK-NEXT:           |   [[DOTVEC170:%.*]] = ([[PHI_TEMP100]] > 0.000000e+00) ? i1 + sext.i32.i64([[TMP3:%.*]]) + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP80:%.*]];

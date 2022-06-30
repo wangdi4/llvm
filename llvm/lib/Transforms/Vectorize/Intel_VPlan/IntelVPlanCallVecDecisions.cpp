@@ -281,6 +281,21 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // TODO: Explore options to relax the hard-requirement for future.
   assert(UnderlyingCI && "UnderlyingCI is nullptr.");
 
+  // For OpenCL sincos, we can vectorize with SVML version only if cos pointer
+  // operands is a private pointer in SOA layout. Serialize in other cases to
+  // avoid stability issues, because the vector version accepts pointer to a
+  // vector and not vector of pointers.
+  if (isOpenCLSinCos(CalledFuncName)) {
+    VPValue *CosPtr = VPCall->getOperand(1);
+    auto *PvtCosPtr = getVPValuePrivateMemoryPtr(CosPtr);
+    if (!PvtCosPtr || !cast<VPAllocatePrivate>(PvtCosPtr)->isSOALayout()) {
+      VPCall->setShouldBeSerialized();
+      VPCall->setSerializationReason(
+          VPCallInstruction::SerializationReasonTy::CURRENT_CONTEXT);
+      return;
+    }
+  }
+
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties. NOTE : Vector library calls can be used if call
   // is known to read memory only (non-default behavior).
@@ -321,7 +336,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     // intrinsic calls cannot be vectorized, they should be strictly serialized.
     for (auto *ArgOp : VPCall->arg_operands()) {
       unsigned ArgIdx = VPCall->getOperandIndex(ArgOp);
-      if (hasVectorInstrinsicScalarOpd(ID, ArgIdx) &&
+      if (isVectorIntrinsicWithScalarOpAtArg(ID, ArgIdx) &&
           Plan.getVPlanDA()->isDivergent(*ArgOp)) {
         VPCall->setSerializationReason(VPCallInstruction::
             SerializationReasonTy::SCALAR_OPERANDS);
@@ -364,7 +379,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (VPCall->isLifetimeStartOrEndIntrinsic()) {
     auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
         getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
-    if (PrivPtr && PrivPtr->isSOALayout()) {
+    if (PrivPtr && (PrivPtr->isSOALayout() || PrivPtr->getIsScalar())) {
       VPCall->setShouldNotBeWidened();
       return;
     }

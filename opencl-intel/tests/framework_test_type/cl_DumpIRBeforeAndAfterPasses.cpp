@@ -48,7 +48,6 @@ static void EndProgram(cl_context context) {
   ASSERT_EQ(rc, CL_SUCCESS) << "Unable to release context: " << ClErrTxt(rc);
 }
 
-
 static void BuildProgram(cl_context context, cl_device_id device) {
   static const char *ocl_test_program[] = {
       "__kernel void test_kernel_simple(){}"};
@@ -70,9 +69,8 @@ static void BuildProgram(cl_context context, cl_device_id device) {
 static void CheckOutput(int fd) {
   static const int TEST_NUM = 2;
   static char *refs[TEST_NUM] = {
-      "*** IR Dump Before Simplify the CFG (simplifycfg) ***",
-      "*** IR Dump After WGLoopCreatorLegacy (dpcpp-kernel-wgloop-creator) "
-      "***"};
+      "*** IR Dump Before SimplifyCFGPass",
+      "*** IR Dump After DPCPPKernelWGLoopCreatorPass"};
 
   size_t size = 256;
   char *buf = (char *)malloc(size);

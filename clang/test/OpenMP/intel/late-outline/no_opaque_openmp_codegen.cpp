@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
 // CHECK-SAME: void (%struct.S1*)* @_ZTS2S1.omp.destr
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"([10 x %struct.S2]* [[ARR2_ADDR]],
-// CHECK_SAME: %struct.S2* (%struct.S2*)*
+// CHECK-SAME: %struct.S2* (%struct.S2*)*
 // CHECK-SAME: @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: void (%struct.S2*)* @_ZTS2S2.omp.destr)
 
@@ -523,7 +523,7 @@ int main(int argc, char **argv) {
 
 // CHECK-NOT: define internal void @_ZTSA10_2S1.omp.destr([10 x %struct.S1]* %0)
 
-// CHECK_NOT: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]* %0)
+// CHECK-NOT: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]* %0)
 
 // CHECK-NOT: define internal void @_ZTSA10_2S2.omp.destr([10 x %struct.S2]* %0)
 

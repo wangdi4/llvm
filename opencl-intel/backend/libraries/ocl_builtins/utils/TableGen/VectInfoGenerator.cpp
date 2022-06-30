@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,8 @@
 // License.
 
 #include "VectInfoGenerator.h"
-
 #include "ClangUtils.h"
-#include "NameMangleAPI.h"
 #include "OclBuiltinEmitter.h"
-
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -25,6 +22,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TableGen/Record.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
 namespace llvm {
 

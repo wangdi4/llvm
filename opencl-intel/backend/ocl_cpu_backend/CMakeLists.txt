@@ -1,3 +1,19 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 set(TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF})
 
@@ -191,7 +207,6 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${BACKEND_ROOT_DIR}/utils/objdump
     ${CMAKE_BINARY_DIR}/include/
 )
@@ -208,33 +223,17 @@ endif( LLVM_USE_OPROFILE )
 if( WIN32 AND NOT OPENCL_INTREE_BUILD)
     # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
     link_directories(${LLVM_LIBRARY_DIRS})
-endif( WIN32 )
+endif( WIN32 AND NOT OPENCL_INTREE_BUILD)
 
 set( BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
-    ChannelPipeTransformation
-    ChannelsUsageAnalysis
-    PipeIOTransformation
-    PipeOrdering
-    PipeSupport
-    OclFunctionAttrs
     BuiltinLibInfo
     DebugInfoPass
-    DetectRecursion
-    InfiniteLoopCreator
-    PreventDivCrashes
     PrintIRPass
-    RelaxedPass
-    SetPreferVectorWidth
-    UndefExternalFuncs
-    KernelInfo
     Prefetch
-    SubGroupAdaptation
-    PatchCallbackArgs
     SmartGVN
     StripIntelIP
-    OCLAliasAnalysis
 )
 
 set(UTILS_LIBS

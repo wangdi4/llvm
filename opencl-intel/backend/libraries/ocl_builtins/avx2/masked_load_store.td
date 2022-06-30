@@ -133,10 +133,10 @@ OclBuiltinImpl __ocl_masked_store_int8_AVX2 = OclBuiltinImpl<__ocl_masked_store8
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_long4_AVX2 = OclBuiltinImpl<__ocl_masked_load4, [v4i64],  0, [{
     long4 extMask = convert_long4($Arg1VarName);
-    return as_long4(_mm256_maskload_epi64((const __i64 *)$Arg0VarName, (__m256i) extMask));
+    return as_long4(_mm256_maskload_epi64((const long *)$Arg0VarName, (__m256i) extMask));
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_long4_AVX2 = OclBuiltinImpl<__ocl_masked_store4, [v4i64],  0, [{
     long4 extMask = convert_long4($Arg2VarName);
-    _mm256_maskstore_epi64((__i64 *)$Arg0VarName, (__m256i) extMask, *((__m256i*) &$Arg1VarName));
+    _mm256_maskstore_epi64((long *)$Arg0VarName, (__m256i) extMask, *((__m256i*) &$Arg1VarName));
   }]>;

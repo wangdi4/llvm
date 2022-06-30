@@ -439,18 +439,18 @@ private:
   };
 
   class IntelExprStateMachine {
-    IntelExprState State, PrevState;
-    unsigned BaseReg, IndexReg, TmpReg, Scale;
-    int64_t Imm;
-    const MCExpr *Sym;
+    IntelExprState State = IES_INIT, PrevState = IES_ERROR;
+    unsigned BaseReg = 0, IndexReg = 0, TmpReg = 0, Scale = 0;
+    int64_t Imm = 0;
+    const MCExpr *Sym = nullptr;
     StringRef SymName;
     InfixCalculator IC;
     InlineAsmIdentifierInfo Info;
-    short BracCount;
-    bool MemExpr;
-    bool OffsetOperator;
-    bool AttachToOperandIdx;
-    bool IsPIC;
+    short BracCount = 0;
+    bool MemExpr = false;
+    bool OffsetOperator = false;
+    bool AttachToOperandIdx = false;
+    bool IsPIC = false;
     SMLoc OffsetOperatorLoc;
     AsmTypeInfo CurType;
 
@@ -465,11 +465,7 @@ private:
     }
 
   public:
-    IntelExprStateMachine()
-        : State(IES_INIT), PrevState(IES_ERROR), BaseReg(0), IndexReg(0),
-          TmpReg(0), Scale(0), Imm(0), Sym(nullptr), BracCount(0),
-          MemExpr(false), OffsetOperator(false), AttachToOperandIdx(false),
-          IsPIC(false) {}
+    IntelExprStateMachine() = default;
 
     void addImm(int64_t imm) { Imm += imm; }
     short getBracCount() const { return BracCount; }
@@ -1124,9 +1120,9 @@ private:
                             std::unique_ptr<llvm::MCParsedAsmOperand> &&Dst);
   bool VerifyAndAdjustOperands(OperandVector &OrigOperands,
                                OperandVector &FinalOperands);
-  bool ParseOperand(OperandVector &Operands);
-  bool ParseATTOperand(OperandVector &Operands);
-  bool ParseIntelOperand(OperandVector &Operands);
+  bool parseOperand(OperandVector &Operands, StringRef Name);
+  bool parseATTOperand(OperandVector &Operands);
+  bool parseIntelOperand(OperandVector &Operands, StringRef Name);
   bool ParseIntelOffsetOperator(const MCExpr *&Val, StringRef &ID,
                                 InlineAsmIdentifierInfo &Info, SMLoc &End);
   bool ParseIntelDotOperator(IntelExprStateMachine &SM, SMLoc &End);
@@ -1753,11 +1749,11 @@ bool X86AsmParser::VerifyAndAdjustOperands(OperandVector &OrigOperands,
   return false;
 }
 
-bool X86AsmParser::ParseOperand(OperandVector &Operands) {
+bool X86AsmParser::parseOperand(OperandVector &Operands, StringRef Name) {
   if (isParsingIntelSyntax())
-    return ParseIntelOperand(Operands);
+    return parseIntelOperand(Operands, Name);
 
-  return ParseATTOperand(Operands);
+  return parseATTOperand(Operands);
 }
 
 bool X86AsmParser::CreateMemForMSInlineAsm(
@@ -2530,7 +2526,7 @@ bool X86AsmParser::ParseIntelMemoryOperandSize(unsigned &Size) {
   return false;
 }
 
-bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
+bool X86AsmParser::parseIntelOperand(OperandVector &Operands, StringRef Name) {
   MCAsmParser &Parser = getParser();
   const AsmToken &Tok = Parser.getTok();
   SMLoc Start, End;
@@ -2652,25 +2648,49 @@ bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
 
   // When parsing x64 MS-style assembly, all non-absolute references to a named
   // variable default to RIP-relative.
-  if (Parser.isParsingMasm() && is64BitMode() && SM.getElementSize() > 0) {
-    Operands.push_back(X86Operand::CreateMem(getPointerWidth(), RegNo, Disp,
-                                             BaseReg, IndexReg, Scale, Start,
-                                             End, Size,
-                                             /*DefaultBaseReg=*/X86::RIP));
-    return false;
+  unsigned DefaultBaseReg = X86::NoRegister;
+  bool MaybeDirectBranchDest = true;
+
+  if (Parser.isParsingMasm()) {
+    bool IsUnconditionalBranch =
+        Name.equals_insensitive("jmp") || Name.equals_insensitive("call");
+    if (is64BitMode() && SM.getElementSize() > 0) {
+      DefaultBaseReg = X86::RIP;
+    }
+    if (IsUnconditionalBranch) {
+      if (PtrInOperand) {
+        MaybeDirectBranchDest = false;
+        if (is64BitMode())
+          DefaultBaseReg = X86::RIP;
+      } else if (!BaseReg && !IndexReg && Disp &&
+                 Disp->getKind() == MCExpr::SymbolRef) {
+        if (is64BitMode()) {
+          if (SM.getSize() == 8) {
+            MaybeDirectBranchDest = false;
+            DefaultBaseReg = X86::RIP;
+          }
+        } else {
+          if (SM.getSize() == 4 || SM.getSize() == 2)
+            MaybeDirectBranchDest = false;
+        }
+      }
+    }
   }
 
-  if ((BaseReg || IndexReg || RegNo))
-    Operands.push_back(X86Operand::CreateMem(getPointerWidth(), RegNo, Disp,
-                                             BaseReg, IndexReg, Scale, Start,
-                                             End, Size));
+  if ((BaseReg || IndexReg || RegNo || DefaultBaseReg != X86::NoRegister))
+    Operands.push_back(X86Operand::CreateMem(
+        getPointerWidth(), RegNo, Disp, BaseReg, IndexReg, Scale, Start, End,
+        Size, DefaultBaseReg, /*SymName=*/StringRef(), /*OpDecl=*/nullptr,
+        /*FrontendSize=*/0, /*UseUpRegs=*/false, MaybeDirectBranchDest));
   else
-    Operands.push_back(
-        X86Operand::CreateMem(getPointerWidth(), Disp, Start, End, Size));
+    Operands.push_back(X86Operand::CreateMem(
+        getPointerWidth(), Disp, Start, End, Size, /*SymName=*/StringRef(),
+        /*OpDecl=*/nullptr, /*FrontendSize=*/0, /*UseUpRegs=*/false,
+        MaybeDirectBranchDest));
   return false;
 }
 
-bool X86AsmParser::ParseATTOperand(OperandVector &Operands) {
+bool X86AsmParser::parseATTOperand(OperandVector &Operands) {
   MCAsmParser &Parser = getParser();
   switch (getLexer().getKind()) {
   case AsmToken::Dollar: {
@@ -3426,7 +3446,7 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
 
     // Read the operands.
     while (true) {
-      if (ParseOperand(Operands))
+      if (parseOperand(Operands, Name))
         return true;
       if (HandleAVX512Operand(Operands))
         return true;
@@ -4941,8 +4961,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
     if (getParser().parseAbsoluteExpression(Control))
       return true;
   }
-  if (getParser().parseToken(AsmToken::EndOfStatement,
-                             "unexpected token in '.nops' directive"))
+  if (getParser().parseEOL())
     return true;
 
   if (NumBytes <= 0) {
@@ -4964,7 +4983,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
 /// parseDirectiveEven
 ///  ::= .even
 bool X86AsmParser::parseDirectiveEven(SMLoc L) {
-  if (parseToken(AsmToken::EndOfStatement, "unexpected token in directive"))
+  if (parseEOL())
     return false;
 
   const MCSection *Section = getStreamer().getCurrentSectionOnly();
@@ -5136,7 +5155,7 @@ bool X86AsmParser::parseDirectiveSEHPushReg(SMLoc Loc) {
     return TokError("unexpected token in directive");
 
   getParser().Lex();
-  getStreamer().EmitWinCFIPushReg(Reg, Loc);
+  getStreamer().emitWinCFIPushReg(Reg, Loc);
   return false;
 }
 
@@ -5156,7 +5175,7 @@ bool X86AsmParser::parseDirectiveSEHSetFrame(SMLoc Loc) {
     return TokError("unexpected token in directive");
 
   getParser().Lex();
-  getStreamer().EmitWinCFISetFrame(Reg, Off, Loc);
+  getStreamer().emitWinCFISetFrame(Reg, Off, Loc);
   return false;
 }
 
@@ -5176,7 +5195,7 @@ bool X86AsmParser::parseDirectiveSEHSaveReg(SMLoc Loc) {
     return TokError("unexpected token in directive");
 
   getParser().Lex();
-  getStreamer().EmitWinCFISaveReg(Reg, Off, Loc);
+  getStreamer().emitWinCFISaveReg(Reg, Off, Loc);
   return false;
 }
 
@@ -5196,7 +5215,7 @@ bool X86AsmParser::parseDirectiveSEHSaveXMM(SMLoc Loc) {
     return TokError("unexpected token in directive");
 
   getParser().Lex();
-  getStreamer().EmitWinCFISaveXMM(Reg, Off, Loc);
+  getStreamer().emitWinCFISaveXMM(Reg, Off, Loc);
   return false;
 }
 
@@ -5217,7 +5236,7 @@ bool X86AsmParser::parseDirectiveSEHPushFrame(SMLoc Loc) {
     return TokError("unexpected token in directive");
 
   getParser().Lex();
-  getStreamer().EmitWinCFIPushFrame(Code, Loc);
+  getStreamer().emitWinCFIPushFrame(Code, Loc);
   return false;
 }
 

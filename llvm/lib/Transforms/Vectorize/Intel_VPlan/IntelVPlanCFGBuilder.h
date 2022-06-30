@@ -22,6 +22,8 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+
 namespace llvm {
 namespace vpo {
 template <class CFGBuilder>
@@ -32,6 +34,8 @@ class VPlanCFGBuilderBase {
 
 protected:
   VPlanVector *Plan;
+
+  BlockFrequencyInfo *BFI = nullptr;
 
   // Builder of the VPlan instruction-level representation.
   VPBuilder VPIRBuilder;
@@ -82,7 +86,8 @@ protected:
   // Reset the insertion point.
   void resetInsertPoint() { VPIRBuilder.clearInsertionPoint(); }
 
-  VPlanCFGBuilderBase(VPlanVector *Plan) : Plan(Plan) {}
+  VPlanCFGBuilderBase(VPlanVector *Plan, BlockFrequencyInfo *BFI) :
+      Plan(Plan), BFI(BFI) {}
 
   void processBB(BasicBlock *BB);
 
@@ -99,8 +104,10 @@ public:
     return TheLoop->contains(Inst);
   }
 
-  VPlanLoopCFGBuilder(VPlanVector *Plan, Loop *Lp, LoopInfo *LI)
-      : VPlanCFGBuilderBase<VPlanLoopCFGBuilder>(Plan), TheLoop(Lp), LI(LI) {}
+  VPlanLoopCFGBuilder(VPlanVector *Plan, Loop *Lp, LoopInfo *LI,
+                      BlockFrequencyInfo *BFI)
+      : VPlanCFGBuilderBase<VPlanLoopCFGBuilder>(Plan, BFI), TheLoop(Lp),
+        LI(LI) {}
 
   void buildCFG();
 };
@@ -115,8 +122,9 @@ public:
     return true;
   }
 
-  VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F)
-      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan), F(F) {}
+  VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F,
+      BlockFrequencyInfo *BFI = nullptr)
+      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan, BFI), F(F) {}
 
   void buildCFG();
 };

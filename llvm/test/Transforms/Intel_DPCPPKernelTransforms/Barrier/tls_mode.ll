@@ -28,7 +28,7 @@ source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+@LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
 
 ; Function Attrs: convergent noinline nounwind
 ; CHECK: define internal i64 @foo(i32 %dim)
@@ -162,8 +162,6 @@ attributes #4 = { convergent nounwind readnone }
 
 ;; get_global_id resolve
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function bar -- %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %bar.addr.addr = alloca i8 addrspace(4)**, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8

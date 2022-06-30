@@ -9,6 +9,7 @@ const constant float generic_inv_pi_180f = 57.295779513082320876798154814105f;
 const constant double generic_inv_pi_180 = 57.295779513082320876798154814105;
 
 // common - math
+const constant short  half_const_signMask       = 0x7FFF;
 const constant int    float_const_signMask      = 0x7FFFFFFF;
 const constant long   double_const_signMask     = 0x7FFFFFFFFFFFFFFFL;
 const constant int    float_const_nanStorage    = 0x7FFFFFFF;

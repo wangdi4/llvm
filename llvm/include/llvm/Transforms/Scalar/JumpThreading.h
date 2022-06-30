@@ -38,7 +38,6 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/IR/ValueHandle.h"
-#include <memory>
 #include <utility>
 
 namespace llvm {
@@ -151,7 +150,6 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 
   unsigned BBDupThreshold;
   unsigned DefaultBBDupThreshold;
-  bool InsertFreezeWhenUnfoldingSelect;
 
 #if INTEL_CUSTOMIZATION
   // Jump threading performs several CFG simplifications that are not
@@ -171,15 +169,15 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = false, // INTEL
-                    int T = -1, bool AllowCFGSimps = true);       // INTEL
+  JumpThreadingPass(int T = -1, // INTEL
+                    bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
-               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI_,
-               std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
-               PostDominatorTree *PDT_);                     // INTEL
+               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
+               std::unique_ptr<BranchProbabilityInfo> BPI, // INTEL
+               PostDominatorTree *PDT_);  // INTEL
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 

@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -159,12 +159,6 @@ if (CMAKE_COMPILER_IS_GNUCXX)
   add_flag_if_supported("-Wno-missing-field-initializers" CMPLR_NO_MISSING_FIELD_INITIALIZERS)
 else()
   add_flag_if_supported("-Wmissing-field-initializers" CMPLR_MISSING_FIELD_INITIALIZERS)
-endif()
-
-if (OPENCL_INTREE_BUILD)
-# TODO: Temporarily disable warnings for OpenCL component when built in-tree on Windows, related to CORC-6069.
-  string(REGEX REPLACE "/WX" "/WX-" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  string(REGEX REPLACE "/WX" "/WX-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 if (NOT OPENCL_INTREE_BUILD)
@@ -329,7 +323,6 @@ else ()
 endif ()
 
 set( OCL_GLOBAL_INCLUDE  ${OCL_SOURCE_DIR}/cl_api )
-set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # set OS-dependent source tree elements
 if (WIN32)
@@ -445,6 +438,8 @@ endif()
 # the tests subdirectory has been added.
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
+add_subdirectory(externals)
+
 # Compiler
 add_subdirectory( FrontendDriver )
 
@@ -473,20 +468,20 @@ endif (OPENCL_RT_INCLUDE_TESTS)
 # An umbrella target for all tests under LIT infra.
 # Add a global check rule now that all subdirectories have been traversed
 # and we know the total set of lit testsuites.
-get_property(LLVM_LIT_TESTSUITES GLOBAL PROPERTY LLVM_LIT_TESTSUITES)
-get_property(LLVM_LIT_PARAMS GLOBAL PROPERTY LLVM_LIT_PARAMS)
-get_property(LLVM_LIT_DEPENDS GLOBAL PROPERTY LLVM_LIT_DEPENDS)
-get_property(LLVM_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_LIT_EXTRA_ARGS)
-get_property(LLVM_ADDITIONAL_TEST_TARGETS
-             GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_TARGETS)
-get_property(LLVM_ADDITIONAL_TEST_DEPENDS
-             GLOBAL PROPERTY LLVM_ADDITIONAL_TEST_DEPENDS)
+get_property(LLVM_ALL_LIT_TESTSUITES GLOBAL PROPERTY LLVM_ALL_LIT_TESTSUITES)
+get_property(LLVM_ALL_LIT_PARAMS GLOBAL PROPERTY LLVM_ALL_LIT_PARAMS)
+get_property(LLVM_ALL_LIT_DEPENDS GLOBAL PROPERTY LLVM_ALL_LIT_DEPENDS)
+get_property(LLVM_ALL_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_ALL_LIT_EXTRA_ARGS)
+get_property(LLVM_ALL_ADDITIONAL_TEST_TARGETS
+             GLOBAL PROPERTY LLVM_ALL_ADDITIONAL_TEST_TARGETS)
+get_property(LLVM_ALL_ADDITIONAL_TEST_DEPENDS
+             GLOBAL PROPERTY LLVM_ALL_ADDITIONAL_TEST_DEPENDS)
 add_lit_target(check-ocl-all
   "Running all OpenCL regression tests"
-  ${LLVM_LIT_TESTSUITES}
-  PARAMS ${LLVM_LIT_PARAMS}
-  DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGETS}
-  ARGS ${LLVM_LIT_EXTRA_ARGS}
+  ${LLVM_ALL_LIT_TESTSUITES}
+  PARAMS ${LLVM_ALL_LIT_PARAMS}
+  DEPENDS ${LLVM_ALL_LIT_DEPENDS} ${LLVM_ALL_ADDITIONAL_TEST_TARGETS}
+  ARGS ${LLVM_ALL_LIT_EXTRA_ARGS}
   )
 
 if (NOT OPENCL_INTREE_BUILD)

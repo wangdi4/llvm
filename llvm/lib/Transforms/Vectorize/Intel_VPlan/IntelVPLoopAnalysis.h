@@ -57,7 +57,14 @@ class VPLoopEntity {
 public:
   using LinkedVPValuesTy = SetVector<VPValue *>;
 
-  enum { Reduction, IndexReduction, Induction, Private, PrivateNonPOD };
+  enum {
+    Reduction,
+    IndexReduction,
+    InscanReduction,
+    Induction,
+    Private,
+    PrivateNonPOD
+  };
   unsigned char getID() const { return SubclassID; }
 
   virtual ~VPLoopEntity() = 0;
@@ -131,6 +138,35 @@ public:
   virtual void dump(raw_ostream &OS) const override;
 #endif
   static unsigned getReductionOpcode(RecurKind K);
+};
+
+/// Descriptor for inscan reduction.
+class VPInscanReduction : public VPReduction {
+public:
+  VPInscanReduction(InscanReductionKind InscanRedKind, VPValue *Start,
+                    VPInstruction *Exit, RecurKind RdxKind, FastMathFlags FMF,
+                    Type *RT, bool Signed, bool IsMemOnly = false)
+    : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed, IsMemOnly,
+                  InscanReduction),
+      InscanRedKind(InscanRedKind) {}
+
+  InscanReductionKind getInscanKind() const { return InscanRedKind; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == InscanReduction;
+  }
+
+  virtual StringRef getNameSuffix() const override {
+    return "inscan.red";
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+private:
+  InscanReductionKind InscanRedKind;
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -403,14 +439,16 @@ class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
                   Function *Ctor, Function *Dtor, Type *AllocatedTy,
-                  Function *CopyAssign)
+                  Function *CopyAssign, bool IsF90NonPod)
       : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
                   AllocatedTy, true /*IsMemOnly*/, PrivateNonPOD),
-        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign),
+        IsF90NonPod(IsF90NonPod) {}
 
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
   Function *getCopyAssign() const { return CopyAssign; }
+  bool isF90NonPod() const { return IsF90NonPod; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -425,6 +463,7 @@ private:
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
+  bool IsF90NonPod;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -491,6 +530,7 @@ public:
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
                             VPInstruction *Exit, RecurKind K,
                             FastMathFlags FMF, Type *RT, bool Signed,
+                            Optional<InscanReductionKind> InscanRedKind,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
@@ -534,7 +574,7 @@ public:
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
-                                    Function *CopyAssign,
+                                    Function *CopyAssign, bool IsF90NonPod,
                                     Type *AllocatedTy = nullptr,
                                     VPValue *AI = nullptr);
 
@@ -716,6 +756,8 @@ public:
       linkValue(ReductionMap, Red, Val);
     else if (auto Red = dyn_cast<VPIndexReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPInscanReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -814,7 +856,7 @@ private:
   // the new \p Init.
   void processInitValue(VPLoopEntity &E, VPValue *AI, VPValue *PrivateMem,
                         VPBuilder &Builder, VPValue &Init, Type *Ty,
-                        VPValue &Start);
+                        VPValue &Start, bool IsInscanInit = false);
 
   // Process final value \p Final of entity \p E. The store to original memory
   // \p AI is created and original exit value \p Exit ocurrences are replaced by
@@ -904,7 +946,21 @@ private:
       // the index part of min/max+index last value code generation.
       DenseMap<const VPReduction *,
                std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+      // This map contains a corresponding VPAllocatePrivate for each Reduction
+      // and is used to reset the reduction with identity on each iteration.
+      DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+      // This map contains a corresponding VPReductionInit for each reduction.
+      // Is used to intialize the reduction with correct start value.
+      DenseMap<const VPReduction *, VPValue *> &RedInitMap,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
+  // Insert inscan-related reduction instructions and process
+  // inclusive/exclusive pragmas in the loop body.
+  void insertRunningInscanReductionInstrs(
+    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
+    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+    VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().
@@ -1016,6 +1072,9 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
+  Optional<InscanReductionKind> getInscanReductionKind() const {
+    return InscanRedKind;
+  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1025,6 +1084,9 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
+  void setInscanReductionKind(Optional<InscanReductionKind> V) {
+    InscanRedKind = V;
+  }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
@@ -1039,6 +1101,7 @@ public:
     LinkPhi = nullptr;
     LinkedVPVals.clear();
     IsLinearIndex = false;
+    InscanRedKind = None;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1081,6 +1144,9 @@ private:
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
   bool IsLinearIndex = false;
+  // To avoid having 'None' inscan reduction kind in an enum, use Optional.
+  // If set, this means this is an inscan reduction.
+  Optional<InscanReductionKind> InscanRedKind;
 
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor
@@ -1232,6 +1298,7 @@ public:
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
+    IsF90NonPod = false;
     PTag = VPPrivate::PrivateTag::PTRegisterized;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
@@ -1259,6 +1326,7 @@ public:
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
+  void setIsF90NonPod(bool F90NonPod) { IsF90NonPod = F90NonPod; }
 
 private:
   /// Set fields to define PrivateKind for the imported private.
@@ -1282,6 +1350,7 @@ private:
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;
+  bool IsF90NonPod = false;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;

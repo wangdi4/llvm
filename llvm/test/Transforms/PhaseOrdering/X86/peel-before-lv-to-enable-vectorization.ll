@@ -1,5 +1,5 @@
 ; RUN: opt -O2 -S %s | FileCheck %s
-; RUN: opt -passes='default<O2>' -S %s | FileCheck %s
+; RUN: opt -passes="default<O2>" -S %s | FileCheck %s
 
 ; INTEL: Vplan doesn't vectorize this loop as it is not applying the trick
 ; that is described below.

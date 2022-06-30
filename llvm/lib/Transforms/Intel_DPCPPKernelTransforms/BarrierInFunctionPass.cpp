@@ -1,6 +1,6 @@
 //==--- BarrierInFunction.cpp - BarrierInFunction pass - C++ -*-------------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,8 +12,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -44,14 +44,15 @@ bool BarrierInFunction::runImpl(Module &M) {
   Utils.init(&M);
 
   // Find all the kernel functions.
-  FuncVector KernelFunctions = Utils.getAllKernelsWithBarrier();
+  CompilationUtils::FuncVec KernelFunctions = Utils.getAllKernelsWithBarrier();
 
   // Find all functions that call synchronize instructions.
-  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet FunctionsWithSync =
+      Utils.getAllFunctionsWithSynchronization();
 
   // Set of all functions that allready added to handle container.
   // Will be used to prevent handling functions more than once.
-  FuncSet FunctionsAddedToHandle;
+  CompilationUtils::FuncSet FunctionsAddedToHandle;
   // Add all kernel functions.
   FunctionsAddedToHandle.insert(KernelFunctions.begin(), KernelFunctions.end());
   // Add all functions with barriers (the set will assure no duplication).
@@ -59,12 +60,12 @@ bool BarrierInFunction::runImpl(Module &M) {
                                 FunctionsWithSync.end());
 
   // Vector of all functions to handle.
-  FuncVector FunctionsToHandle;
+  CompilationUtils::FuncVec FunctionsToHandle;
   // It will be initialized with all above function we just added to the set.
   FunctionsToHandle.assign(FunctionsAddedToHandle.begin(),
                            FunctionsAddedToHandle.end());
 
-  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  auto Kernels = CompilationUtils::getKernels(M);
 
   // As long as there are functions to handle...
   while (!FunctionsToHandle.empty()) {
@@ -113,7 +114,7 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
   Utils.createDummyBarrier(FirstInst);
 
   // Find all reachable return instructions in Func.
-  InstVector RetInstructions;
+  CompilationUtils::InstVec RetInstructions;
   for (auto &BB : *Func) {
     Instruction *Term = BB.getTerminator();
     if (isa<ReturnInst>(Term) &&

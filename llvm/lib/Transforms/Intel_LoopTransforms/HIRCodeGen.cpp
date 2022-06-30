@@ -963,21 +963,34 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
 
-        auto *DimTy = Ref->getDimensionType(DimNum);
-        bool IsOpaquePointer =
-            DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque();
-
-        // TODO: Currently, GEP's index folding is avoided
-        // when opaque pointers are used and BasePtrElemTy is a struct.
-        // If folding is done, BasePtrElemTy should be updated correctly
-        // in sync. This is a quick workaround of updating pointer type.
-        // See opaque-pointer-struct-ty-base-ptr.ll as an example.
-        if (IsOpaquePointer && BasePtrElementTy->isStructTy())
+        // Disable GEP index folding for higher dimensions as it requires
+        // BasePtrElemTy to be updated correctly. Ideally, we would be able to
+        // use Ref->getDimensionElementType(DimNum - 1) to update it but the
+        // framework is not able to set dimension type precisely in all cases so
+        // we use this workaround. One example is artificial-higher-dim.ll where
+        // the ref dimension info is like this-
+        // (%ld.ptr)[0:0:40(%struct*:0)].2[0:0:32(double*:0)][0:i1:8([4 x
+        // double]:4)]
+        //
+        // Notice that the 2nd dimension's dim type is double* but 1st
+        // dimension's dim type is [4 x double] which do not match up.
+        //
+        // Even if the information was precise, folding logic can cause issues
+        // by eliminating redundant zero indices, as an example.
+        //
+        // See opaque-pointer-struct-ty-base-ptr.ll for another test case.
+        // In this lit test-
+        // Dim 1: DimType: [441 * i64] DimElemTy: i64
+        // Dim 2: DimType: [4 x %array.6], DimElemTy: %array.6,
+        //    where %array.6 = {[441 x i64]}
+        // Dim 3: DimType: ptr, DimElemType: {[4x %array.6]}
+        if (DimNum != 1) {
           GEPVal = Builder.Insert(
               GetElementPtrInst::CreateInBounds(GEPElemTy, GEPVal, IndexV),
-              "my");
-        else
+              "nofold.gep");
+        } else {
           GEPVal = Builder.CreateInBoundsGEP(GEPElemTy, GEPVal, IndexV);
+        }
       }
 
       // Update BasePtrElementTy for processing of next dimension if we

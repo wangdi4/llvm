@@ -1,4 +1,21 @@
 //===--------- device.cpp - Target independent OpenMP target RTL ----------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -882,29 +899,6 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void DeviceTy::get_offload_queue(void *Interop, bool CreateNew) {
-  if (RTL->get_offload_queue)
-    RTL->get_offload_queue(RTLDeviceID, Interop, CreateNew);
-}
-
-int32_t DeviceTy::release_offload_queue(void *Queue) {
-  if (RTL->release_offload_queue)
-    return RTL->release_offload_queue(RTLDeviceID, Queue);
-  else
-    return OFFLOAD_SUCCESS;
-}
-
-void *DeviceTy::get_platform_handle() {
-  if (!RTL->get_platform_handle)
-    return nullptr;
-  return RTL->get_platform_handle(RTLDeviceID);
-}
-
-void DeviceTy::setDeviceHandle(void *Interop) {
-  if (RTL->set_device_handle)
-    RTL->set_device_handle(RTLDeviceID, Interop);
-}
-
 void *DeviceTy::get_context_handle() {
   if (!RTL->get_context_handle)
     return nullptr;
@@ -941,6 +935,20 @@ void *DeviceTy::dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind) {
     return RTL->data_aligned_alloc(RTLDeviceID, Align, Size, Kind);
   else
     return allocData(Size, nullptr, Kind);
+}
+
+bool DeviceTy::registerHostPointer(void *Ptr, size_t Size) {
+  if (RTL->register_host_pointer)
+    return RTL->register_host_pointer(RTLDeviceID, Ptr,Size);
+  else
+    return false;
+}
+
+bool DeviceTy::unregisterHostPointer(void *Ptr) {
+  if (RTL->unregister_host_pointer)
+    return RTL->unregister_host_pointer(DeviceID, Ptr);
+  else
+    return false;
 }
 
 int32_t DeviceTy::get_data_alloc_info(
@@ -985,7 +993,7 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
 #if INTEL_CUSTOMIZATION
 __tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
                                        int32_t NumPrefers,
-                                       intptr_t *PreferIDs) {
+                                       int32_t *PreferIDs) {
   if (RTL->create_interop)
     return RTL->create_interop(RTLDeviceID, InteropContext, NumPrefers,
                                PreferIDs);
@@ -1150,6 +1158,15 @@ void *DeviceTy::allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind) {
 void DeviceTy::freePerHWThreadScratch(void *Ptr) {
   if (RTL->free_per_hw_thread_scratch)
     RTL->free_per_hw_thread_scratch(RTLDeviceID, Ptr);
+}
+
+int32_t DeviceTy::getDeviceInfo(int32_t InfoID, size_t InfoSize,
+                                void *InfoValue, size_t *InfoSizeRet) {
+  if (RTL->get_device_info)
+    return RTL->get_device_info(RTLDeviceID, InfoID, InfoSize, InfoValue,
+                                InfoSizeRet);
+  else
+    return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_COLLAB
 

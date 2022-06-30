@@ -42,13 +42,10 @@ if(INTEL_CUSTOMIZATION)
   if(SYCL_ENABLE_XPTI_TRACING)
     # Add XPTI proxy library
     list(APPEND LIBOMPTARGET_SRC_FILES ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/src/xpti_proxy.cpp)
-    include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
 set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
-
-include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
 
 if(INTEL_CUSTOMIZATION)
   set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
@@ -65,9 +62,20 @@ if (OPENMP_ENABLE_LIBOMPTARGET_PROFILING)
   target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
   target_link_libraries(omptarget PRIVATE LLVMSupport)
 endif()
+target_include_directories(omptarget PRIVATE
+  ${LIBOMPTARGET_INCLUDE_DIR})
+
+if(INTEL_CUSTOMIZATION)
+  if(SYCL_ENABLE_XPTI_TRACING)
+    target_include_directories(omptarget PRIVATE
+      ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 if(INTEL_COLLAB)
   if(INTEL_CUSTOMIZATION)
-    include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+    target_include_directories(omptarget  PRIVATE
+      "${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
     add_dependencies(omptarget libomptarget-libiomp-file)
     target_link_libraries(omptarget PRIVATE ${LIBOMP_LIB_FILE})
   else(INTEL_CUSTOMIZATION)

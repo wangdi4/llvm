@@ -876,16 +876,6 @@ void WRNCancelNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 //
-// Methods for WRNMasterNode
-//
-
-// constructor
-WRNMasterNode::WRNMasterNode(BasicBlock *BB)
-    : WRegionNode(WRegionNode::WRNMaster, BB) {
-  LLVM_DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
-}
-
-//
 // Methods for WRNMaskedNode
 //
 

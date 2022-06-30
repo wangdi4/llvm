@@ -105,6 +105,15 @@
 // = 0001 1100 0000 workshare construct not supported by cmplr
 #define KMP_IDENT_BARRIER_IMPL_WORKSHARE 0x01C0
 
+// = 0010 0000 0000 workshare loop construct
+#define KMP_IDENT_WORK_LOOP              0x0200
+
+// = 0100 0000 0000
+#define KMP_IDENT_WORK_SECTIONS          0x0400
+
+// = 1000 0000 0000
+#define KMP_IDENT_WORK_DISTRIBUTE        0x0800
+
 namespace llvm {
 
 class Value;
@@ -2059,10 +2068,21 @@ public:
   /// Returns true, if async-offload helper thread code generation is enabled.
   static bool enableAsyncHelperThread();
 
+  /// Returns device memory address space setting value
+  ///   0: private
+  ///   1: global
+  ///   2: constant
+  ///   3: local (default)
+  ///   4: generic
+  static uint32_t getDeviceMemoryKind();
+
   /// Returns true, if it is allowed to execute "omp target parallel for"
   /// with multiple teams/WGs. According to OpenMP specification only
   /// one team/WG is allowed, which corresponds to false return value.
   static bool getSPIRImplicitMultipleTeams();
+
+  /// Control data prefetch API generation for GPUs
+  static uint32_t dataPrefetchKind();
 
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
@@ -2109,6 +2129,28 @@ public:
   static GlobalVariable *storeIntToThreadLocalGlobal(Value *V,
                                                      Instruction *InsertBefore,
                                                      StringRef VarName = "");
+
+  /// This function generates calls to perform data prefetch on ATS and PVC
+  /// based on data element type, data type of number of elements.
+  ///
+  /// \code
+  /// call void __builtin_spirv_OpenCL_prefetch_p1i8_i32((const global uchar*)a, 1);
+  /// call void __builtin_spirv_OpenCL_prefetch_p1i8_i64((const global uchar*)a, 1);
+  /// ... ...
+  /// \endcode
+  static void genSPIRVPrefetchBuiltIn(WRegionNode *w, Instruction *InsertPt);
+
+  /// This function generates calls to perform data prefetch with different API
+  /// which takes base address, prefetch distance/offset, cache Hint on PVC
+  ///
+  /// \code
+  /// void __builtin_IB_lsc_prefetch_global_uint (const __global uint  *base,
+  ///                                 int elemOff, enum LSC_LDCC cacheOpt); //D32V1
+  /// void __builtin_IB_lsc_prefetch_global_ulong (const __global ulong  *base,
+  ///                                 int elemOff, enum LSC_LDCC cacheOpt); //D64V1
+  /// ... ...
+  /// \endcode
+  static void genSPIRVLscPrefetchBuiltIn(WRegionNode *w, Instruction *InsertPt);
 
 private:
   /// \name Private constructor and destructor to disable instantiation.
@@ -2336,11 +2378,12 @@ public:
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
+#if INTEL_CUSTOMIZATION
 
-  /// Return default address space for the current target.
-  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
-  /// \p M is used to identify the current target.
-  static unsigned getDefaultAS(const Module *M);
+  /// For an F90_DV Item \p I, return the DV struct's type and the pointee
+  /// data's element type. \returns a \b tuple of <DVType, PointeeElementType>.
+  static std::tuple<Type *, Type *> getF90DVItemInfo(const Item *I);
+#endif // INTEL_CUSTOMIZATION
 
   /// Load offload metadata from the module and create offload entries that
   /// need to be emitted after lowering all target constructs.

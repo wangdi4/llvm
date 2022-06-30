@@ -15,12 +15,11 @@
 #ifndef DEBUG_COMMUNICATOR_H
 #define DEBUG_COMMUNICATOR_H
 
-#include "cl_thread.h"
 #include "cl_socket.h"
 #include "cl_synch_objects.h"
-#include "debugservermessages.pb.h"
+#include "cl_thread.h"
+#include "debugservermessages_wrapper.h"
 #include <iostream>
-
 
 using namespace Intel::OpenCL::Utils;
 using namespace debugservermessages;
@@ -68,11 +67,11 @@ public:
 protected:
     // These methods are executed inside a separate thread
     //
-    virtual RETURN_TYPE_ENTRY_POINT Run();
-    bool do_receive_message(ClientToServerMessage& recv_msg);
-    bool do_send_message(const ServerToClientMessage& send_msg);
-    void log_and_terminate(std::string msg);
-    void set_state(State s);
+  virtual RETURN_TYPE_ENTRY_POINT Run() override;
+  bool do_receive_message(ClientToServerMessage &recv_msg);
+  bool do_send_message(const ServerToClientMessage &send_msg);
+  void log_and_terminate(std::string msg);
+  void set_state(State s);
 private:
     State m_state;
 

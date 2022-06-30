@@ -111,7 +111,7 @@ omp.pdo.body11:                                   ; preds = %omp.pdo.cond10
   %int_sext9 = sext i32 %"ascast$val5_fetch.18" to i64
 
 ; Check that the privatized uCR array is in addrspace(4)
-; CHECK:  [[PRIVARRAY:%[^ ]+]] = alloca double, i64 %"ascast$val_fetch.7", align 1
+; CHECK:  [[PRIVARRAY:%[^ ]+]] = alloca double, i64 %"ascast$val_fetch.7", align 8
 ; CHECK:  [[CAST:%[^ ]+]] = addrspacecast double* [[PRIVARRAY]] to double addrspace(4)*
 ; CHECK:  %"ascastB$val3[]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 0, i64 1, i64 8, double addrspace(4)* elementtype(double) [[CAST]], i64 %int_sext9)
 

@@ -1,13 +1,11 @@
 project(libraries)
 
-# In this project we use binaries from OpenCL project (e.g. oclopt), LLVM for
-# front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
-# oclopt utility is built with LLVM version for the back-end compiler, so when
-# applies passes to the RTL it converts LLVM IR to newer version. This restrict
-# the tools we use after oclopt to the tools from LLVM for back-end compiler.
+# In this project we use binaries from OpenCL project (e.g. ocl-tblgen), LLVM
+# for front-end compiler (e.g. clang) and LLVM for optimizer (opt), and LLVM for
+# back-end compiler (e.g. llc).
 # So we have to set path to tools directory for BE version of LLVM.
 # We know that LLVM for the back-end compiler is already configured, so just
-# save LLVM_BINARY_DIR for later use by LLVM tools running after oclopt.
+# save LLVM_BINARY_DIR for later use by LLVM tools.
 # TODO: to make this file more self contained we should not rely on the
 # assumption above and configure LLVM for the back-end right here.
 set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
@@ -25,15 +23,22 @@ endif()
 set(CL_LIBRARY_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}")
 
-# global headers
-if(DEFINED OCL_CLANG_HEADERS)
-  set (CLANG_HEADERS ${OCL_CLANG_HEADERS})
-else()
-  set (CLANG_HEADERS ${CL_LIBRARY_SOURCE_DIR}/../clang_headers)
-endif()
-if(NOT EXISTS ${CLANG_HEADERS})
-  message (FATAL_ERROR "Cannot find Clang headers (${CLANG_HEADERS})!")
-endif()
+# Process clang headers so that they're compatible for OpenCL C compilation
+set(OCL_CLANG_HEADER_DIR ${OCL_BINARY_DIR}/include/clang_headers)
+set(SEARCH_REPLACE_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+add_custom_target(process-intrin-headers
+  # ${CLANG_OPENCL_HEADERS_DIR} points to ${LLVM_EXTERNAL_CLANG_SOURCE_DIR}/lib/Headers
+  COMMENT "Copying and processing ${CLANG_OPENCL_HEADERS_DIR} to ${OCL_CLANG_HEADER_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CLANG_OPENCL_HEADERS_DIR} ${OCL_CLANG_HEADER_DIR}
+  COMMAND
+    python ${SEARCH_REPLACE_SCRIPT_DIR}/search_replace.py ${CLANG_OPENCL_HEADERS_DIR}/*intrin.h
+    --batch-file=${SEARCH_REPLACE_SCRIPT_DIR}/intrin.pattern --output-dir=${OCL_CLANG_HEADER_DIR}
+  DEPENDS
+    ${SEARCH_REPLACE_SCRIPT_DIR}/search_replace.py
+    ${SEARCH_REPLACE_SCRIPT_DIR}/intrin.pattern
+    ${CLANG_OPENCL_HEADERS_DIR}
+)
+set(INCLUDE_OCL_CLANG_HEADERS -I${OCL_CLANG_HEADER_DIR} -I${OCL_CLANG_HEADER_DIR}/Intel_Headers)
 
 if(NOT DEFINED OCL_GLOBAL_INCLUDE)
   message (FATAL_ERROR "CL API directory path is not set!")
@@ -47,15 +52,16 @@ if(NOT OPENCL_INTREE_BUILD)
   else()
     set (CLANG ${OCL_HOST_CLANG})
   endif()
+  if(NOT DEFINED OCL_HOST_OPT)
+    set(OPT "${LLVM_BINARY_DIR}/opt")
+  else()
+    set(OPT OCL_HOST_OPT)
+  endif()
 else()
   set(CLANG clang)
+  set(OPT opt)
 endif()
 
-if(NOT DEFINED OCL_HOST_OPT)
-  set(OPT ${OCL_OPT})
-else()
-  set(OPT OCL_HOST_OPT)
-endif()
 set(OCL_TBLGEN ocl-tblgen)
 set(LLVM_TBLGEN llvm-tblgen)
 
@@ -137,7 +143,7 @@ endif()
 set(CLANG_CL_COMMON_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3
   -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CLANG_OPENCL_HEADERS_DIR}
+  -x cl -I ${IMPORT_DIR} ${INCLUDE_OCL_CLANG_HEADERS}
   ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -ffake-address-space-map
 )

@@ -1,14 +1,23 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
 
 ; CHECK: define void @_ZTS1K
-; CHECK: %[[ALLOCA:.*]] = alloca i32 (i32, i32)*,
-; CHECK: %[[BITCAST1:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
-; CHECK: store i32 (i32, i32)* %[[BITCAST1]], i32 (i32, i32)** %[[ALLOCA]]
-; CHECK: %[[LOAD:.*]] = load i32 (i32, i32)*, i32 (i32, i32)** %[[ALLOCA]]
-; CHECK: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[LOAD]] to i32 (i32, i32,
+; CHECK-NONOPAQUE: %[[ALLOCA:.*]] = alloca i32 (i32, i32)*,
+; CHECK-OPAQUE: %[[ALLOCA:.*]] = alloca ptr
+; CHECK-NONOPAQUE: %[[BITCAST1:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
+; CHECK-OPAQUE: %[[BITCAST1:.*]] = bitcast ptr @_Z3addii to ptr
+; CHECK-NONOPAQUE: store i32 (i32, i32)* %[[BITCAST1]], i32 (i32, i32)** %[[ALLOCA]]
+; CHECK-OPAQUE: store ptr %[[BITCAST1]], ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[LOAD:.*]] = load i32 (i32, i32)*, i32 (i32, i32)** %[[ALLOCA]]
+; CHECK-OPAQUE: %[[LOAD:.*]] = load ptr, ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[LOAD]] to i32 (i32, i32,
+; CHECK-OPAQUE: %[[BITCAST2:.*]] = bitcast ptr %[[LOAD]] to ptr
 ; CHECK: call spir_func i32 %[[BITCAST2]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

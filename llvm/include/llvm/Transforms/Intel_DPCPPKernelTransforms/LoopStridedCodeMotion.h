@@ -26,7 +26,6 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_LOOPSTRIDEDCODEMOTION_H
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_LOOPSTRIDEDCODEMOTION_H
 
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 

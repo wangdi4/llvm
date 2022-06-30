@@ -243,9 +243,8 @@ protected:
     bool                     m_disableOptimization;
     bool                     m_useNativeDebugger;
     bool                     m_streamingAlways;
-    unsigned                 m_expensiveMemOpts;
+    unsigned m_expensiveMemOpts;
     PassManagerType m_passManagerType;
-    std::string m_debugPassManager;
 
     static bool s_globalStateInitialized;
 

@@ -47,11 +47,11 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_18:%.*]] = add nuw nsw i32 [[TMP1]], 4
 ; CHECK-NEXT:    store i32 [[NEXTIVLOOP_18]], i32* [[I1_I32]], align 4
-; CHECK-NEXT:    [[CONDLOOP_18:%.*]] = icmp sle i32 [[NEXTIVLOOP_18]], 7
+; CHECK-NEXT:    [[CONDLOOP_18:%.*]] = icmp sle i32 [[NEXTIVLOOP_18]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_18]], label [[LOOP_18]], label [[AFTERLOOP_18:%.*]], !llvm.loop [[LOOP6:![0-9]+]]
 ; CHECK:       afterloop.18:
-; CHECK-NEXT:    store i32 8, i32* [[T11]], align 4
-; CHECK-NEXT:    store i32 8, i32* [[I1_I32]], align 4
+; CHECK-NEXT:    store i32 100, i32* [[T11]], align 4
+; CHECK-NEXT:    store i32 100, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP_37:%.*]]
 ; CHECK:       loop.37:
 ; CHECK-NEXT:    store float 5.000000e-01, float* [[T15]], align 4
@@ -79,7 +79,7 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_37:%.*]] = add nuw nsw i32 [[TMP3]], 1
 ; CHECK-NEXT:    store i32 [[NEXTIVLOOP_37]], i32* [[I1_I32]], align 4
-; CHECK-NEXT:    [[CONDLOOP_37:%.*]] = icmp ne i32 [[TMP3]], 8
+; CHECK-NEXT:    [[CONDLOOP_37:%.*]] = icmp ne i32 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[CONDLOOP_37]], label [[LOOP_37]], label [[AFTERLOOP_37:%.*]], !llvm.loop [[LOOP11:![0-9]+]]
 ; CHECK:       afterloop.37:
 ; CHECK-NEXT:    br label [[FOR_END_SPLIT:%.*]]
@@ -95,7 +95,7 @@ for.body:                                         ; preds = %entry, %for.body
   %d.03 = phi i32 [ 0, %entry ], [ %inc, %for.body ], !in.de.ssa !3
   tail call void @sincosf(float noundef 5.000000e-01, float* noundef nonnull @a, float* noundef nonnull @b) #3
   %inc = add nuw nsw i32 %d.03, 1
-  %exitcond.not = icmp eq i32 %inc, 9
+  %exitcond.not = icmp eq i32 %inc, 101
   %d.03.in = call i32 @llvm.ssa.copy.i32(i32 %inc), !in.de.ssa !3
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !4
 

@@ -26,13 +26,20 @@ template <typename T, unsigned N> class SmallVector;
 FunctionPass *createAddFastMathLegacyPass();
 FunctionPass *createAddNTAttrLegacyPass();
 FunctionPass *createBuiltinCallToInstLegacyPass();
+FunctionPass *createOptimizeIDivAndIRemLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
+FunctionPass *createPreventDivCrashesLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 FunctionPass *createSinCosFoldLegacyPass();
 FunctionPass *createSoaAllocaAnalysisLegacyPass();
+FunctionPass *createWeightedInstCountAnalysisLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM, bool PreVec = true);
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 ImmutablePass *
 createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ImmutablePass *createDPCPPAliasAnalysisLegacyPass();
+ImmutablePass *createDPCPPExternalAliasAnalysisLegacyPass();
+LoopPass *createBuiltinLICMLegacyPass();
 LoopPass *createLoopStridedCodeMotionLegacyPass();
 LoopPass *createLoopWIAnalysisLegacyPass();
 ModulePass *createAddFunctionAttrsLegacyPass();
@@ -40,9 +47,8 @@ ModulePass *createAddImplicitArgsLegacyPass();
 ModulePass *createAddTLSGlobalsLegacyPass();
 ModulePass *createAutorunReplicatorLegacyPass();
 ModulePass *createBarrierInFunctionLegacyPass();
-ModulePass *createBuiltinImportLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
-    StringRef CPUPrefix = "");
+ModulePass *createBuiltinImportLegacyPass(StringRef CPUPrefix = "");
+ModulePass *createChannelPipeTransformationLegacyPass();
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();
@@ -50,26 +56,28 @@ ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createDataPerBarrierWrapperPass();
 ModulePass *createDataPerValueWrapperPass();
 ModulePass *createDeduceMaxWGDimLegacyPass();
-ModulePass *
-createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ModulePass *createDetectRecursionLegacyPass();
+ModulePass *createDPCPPEqualizerLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelVecClonePass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {},
     VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
-ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
+ModulePass *
+createDPCPPKernelWGLoopCreatorLegacyPass(bool UseTLSGlobals = false);
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDPCPPRewritePipesLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 ModulePass *createExternalizeGlobalVariablesLegacyPass();
-ModulePass *
-createGroupBuiltinLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ModulePass *createGroupBuiltinLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
+ModulePass *createInferArgumentAliasLegacyPass();
+ModulePass *createInfiniteLoopCreatorLegacyPass();
 ModulePass *createInstToFuncCallLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createInternalizeGlobalVariablesLegacyPass();
@@ -79,19 +87,27 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+ModulePass *createPatchCallbackArgsLegacyPass(bool UseTLSGlobals);
+ModulePass *createPipeIOTransformationLegacyPass();
+ModulePass *createPipeOrderingLegacyPass();
+ModulePass *createPipeSupportLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
+ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
+ModulePass *createRemoveDuplicatedBarrierLegacyPass(bool IsNativeDebug);
+ModulePass *createReplaceScalarWithMaskLegacyPass();
+ModulePass *createReqdSubGroupSizeLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
-ModulePass *createResolveSubGroupWICallLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
-    bool ResolveSGBarrier = true);
+ModulePass *createResolveSubGroupWICallLegacyPass(bool ResolveSGBarrier = true);
 ModulePass *createResolveVarTIDCallLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
+ModulePass *createSetPreferVectorWidthLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createSGBarrierPropagateLegacyPass();
@@ -108,6 +124,7 @@ ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createTaskSeqAsyncHandlingLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorizationDimensionAnalysisLegacyPass();
+ModulePass *createVectorKernelEliminationLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
 ModulePass *createVFAnalysisLegacyPass();

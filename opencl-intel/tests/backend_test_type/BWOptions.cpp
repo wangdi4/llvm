@@ -78,12 +78,12 @@ void* JITAllocator::AllocateExecutable(size_t size, size_t alignment)
 
 void JITAllocator::FreeExecutable(void* ptr)
 {
-    void* pMem  = ((void**)ptr)[-1];
-    void* pSize = (void*)(((char*)ptr) - sizeof(void*));
-    size_t size = ((size_t*)pSize)[-1];
+  void *pMem = ((void **)ptr)[-1];
 
 #if defined(__LP64__)
-    mprotect( (void*)ptr, size, PROT_READ | PROT_WRITE );
+  void *pSize = (void *)(((char *)ptr) - sizeof(void *));
+  size_t size = ((size_t *)pSize)[-1];
+  mprotect((void *)ptr, size, PROT_READ | PROT_WRITE);
 #else
     assert(false && "Not implemented");
 #endif

@@ -25,12 +25,13 @@ list<OclType> math_shared_types = [v1f32, v2f32, v3f32, v4f32, v8f32,
 list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
 list<OclType> math_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
+list<OclType> math_half_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f16], [1, 2, 3, 4, 8, 16]>.Tout;
 
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, math_shared_types_v1_to_v16, 0, copysign_code>;
 
 // fabs
-OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16, 0, fabs_code>;
+OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16 # math_half_types_v1_to_v16, 0, fabs_code>;
 
 // OpenCL 2.0 -cl-fast-relaxed-math functions
 // float16 is excluded from shared lib since ssse3 and sse42
@@ -81,13 +82,10 @@ OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, math_shared_f32_types, 0, [{
   }]>;
 
 // sincos_rm
-defvar sincos_svml_rm = [{
-    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gen_svml_rm = OclBuiltinImpl<sincos_gen_rm, math_shared_f32_types, 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_gen_svml_rm = OclBuiltinImpl<sincos_gen_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
 
 // divide_rm
 OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, math_shared_f32_types, 0, [{

@@ -146,6 +146,8 @@ bool getEnableAddrsig();
 
 bool getEnableIntelAdvancedOpts();
 
+bool getIntelLibIRCAllowed();
+
 bool getEnableFtzDaz();
 
 int getX87Precision();

@@ -20,6 +20,7 @@
 
 #include "base_fixture.h"
 #include "common_utils.h"
+#include "gtest/gtest.h"
 #include <CL/cl_ext_intel.h>
 
 class UsmTest : public OCLFPGABaseFixture,
@@ -363,6 +364,7 @@ TEST_P(UsmTest, sameDevice) {
 
 /// FPGA supports restricted USM, so cross device access is not allowed.
 TEST_P(UsmTest, crossDevice) {
+  GTEST_SKIP();
   const std::vector<cl_device_id> &devices = parent_t::devices();
   size_t numDevices = devices.size();
   // Early return if there is only a single device.

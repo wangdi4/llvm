@@ -158,6 +158,30 @@ int dut() {
   return do_stuff<5>(10);
 }
 
+// CHECK: define {{.*}}void @_Z{{[0-9]+}}ivdep_safelen_onev()
+void ivdep_safelen_one() {
+  // CHECK: %[[ARRAY_A:[0-9a-z]+]] = alloca [10 x i32], align 16
+  int a[10];
+  #pragma ivdep safelen(1)
+   for (int i = 0; i != 10; ++i) {
+    // CHECK:  %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], ptr %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}
+    a[i] = 0;
+    // CHECK: br label %for.cond, !llvm.loop ![[MD_NO_LOOP_SAFELEN1:[0-9]+]]
+  }
+}
+
+// CHECK: define {{.*}}void @_Z{{[0-9]+}}ivdep_safelen_zerov()
+void ivdep_safelen_zero() {
+  // CHECK: %[[ARRAY_A:[0-9a-z]+]] = alloca [10 x i32], align 16
+  int a[10];
+  #pragma ivdep safelen(0)
+  for (int i = 0; i != 10; ++i) {
+    // CHECK:  %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], ptr %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}
+    a[i] = 0;
+    // CHECK: br label %for.cond, !llvm.loop ![[MD_NO_LOOP_SAFELEN2:[0-9]+]]
+  }
+}
+
 //CHECK: [[MD2]] = distinct !{[[MD2]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[MD3:![0-9]+]]}
 //CHECK: [[MD3]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[MD4]] = distinct !{[[MD4]], ![[LOOP_MUSTPROGRESS]], [[MD5:![0-9]+]]}
@@ -196,3 +220,11 @@ int dut() {
 //CHECK: [[MD37]]  = distinct !{}
 //CHECK: [[MD38]] = distinct !{[[MD38]], ![[LOOP_MUSTPROGRESS]], [[MD39:![0-9]+]]}
 //CHECK: [[MD39]] = !{!"llvm.loop.ivdep.safelen", i32 5}
+
+/// Ivdep w/ safelen value of 1 has no effect. Attribute is ignored and no IR is generated with safelen value of 1.
+// CHECK-DAG: ![[MD_NO_LOOP_SAFELEN1]] = distinct !{![[MD_NO_LOOP_SAFELEN1]], ![[LOOP_MUSTPROGRESS]]}
+// CHECK-NOT: !{!"llvm.loop.ivdep.safelen", i32 1}
+
+/// Ivdep w/ safelen value of 0 has no effect. Attribute is ignored and no IR is generated with safelen value of 0.
+// CHECK-DAG: ![[MD_NO_LOOP_SAFELEN2]] = distinct !{![[MD_NO_LOOP_SAFELEN2]], ![[LOOP_MUSTPROGRESS]]}
+// CHECK-NOT: !{!"llvm.loop.ivdep.enable"}

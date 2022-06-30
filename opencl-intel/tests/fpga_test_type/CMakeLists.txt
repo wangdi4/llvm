@@ -10,9 +10,8 @@ add_ocl_unittest(fpga_test_type
     ${TARGET_SOURCES}
     ${OCL_SOURCE_DIR}/tests/framework_test_type/TestsHelpClasses.cpp
   LINK_LIBRARIES
-    OpenCL-ICD
     test_utils
-    intelocl${BUILD_PLATFORM}
+    intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
 )
 
 if (WIN32)
@@ -27,4 +26,11 @@ add_ocl_unittest_artifacts(
     data/internal-ctor-kernel.ioc.obj
     data/internal-ctor-lib.cpp.ioc.obj
     data/atomics64.spv
+)
+
+add_dependencies(fpga_test_type
+  clang_compiler${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  OclCpuBackEnd${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  cpu_device${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  ${OCL_RT_TEST_DEPS}
 )

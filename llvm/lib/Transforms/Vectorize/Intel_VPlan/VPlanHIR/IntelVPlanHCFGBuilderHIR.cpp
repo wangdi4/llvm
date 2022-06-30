@@ -1666,6 +1666,7 @@ public:
     Descriptor.setCopyAssign(CurValue.getCopyAssign());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
+    Descriptor.setIsF90NonPod(CurValue.isF90NonPod());
   }
 };
 

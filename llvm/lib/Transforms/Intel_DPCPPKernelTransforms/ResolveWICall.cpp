@@ -1,6 +1,6 @@
 //===- ResolveWICall.cpp - Resolve DPC++ kernel work-item call ------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,15 +9,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -111,7 +111,7 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
   // extended execution flags
   ExtExecDecls.clear();
 
-  OclVersion = DPCPPKernelCompilationUtils::fetchCLVersionFromMetadata(M);
+  OclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
   // Run on all defined function in the module
   for (Function &F : M) {
     if (F.isDeclaration()) {
@@ -119,7 +119,7 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
       continue;
     }
 
-    if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
       continue;
 
     clearPerFunctionCache();
@@ -131,7 +131,7 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
 
 static LoadInst *createLoadForTLSGlobal(IRBuilder<> &Builder, Module *M,
                                         ImplicitArgsUtils::IMPLICIT_ARGS Arg) {
-  auto TLSG = DPCPPKernelCompilationUtils::getTLSGlobal(M, Arg);
+  auto TLSG = CompilationUtils::getTLSGlobal(M, Arg);
   assert(TLSG && "TLS Global cannot be nullptr");
   return Builder.CreateLoad(TLSG->getValueType(), TLSG);
 }
@@ -153,8 +153,8 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
     RuntimeHandle = createLoadForTLSGlobal(
         Builder, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
   } else {
-    DPCPPKernelCompilationUtils::getImplicitArgs(
-        F, nullptr, &WorkInfo, &WGId, &BaseGlbId, &SpecialBuf, &RuntimeHandle);
+    CompilationUtils::getImplicitArgs(F, nullptr, &WorkInfo, &WGId, &BaseGlbId,
+                                      &SpecialBuf, &RuntimeHandle);
   }
 
   std::vector<Instruction *> ToRemoveInsts;
@@ -193,9 +193,9 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
       break;
     case ICT_PRINTF:
       if (!ExtExecDecls.count(ICT_PRINTF))
-        addExternFunctionDeclaration(
-            CalledFuncType, getOrCreatePrintfFuncType(),
-            DPCPPKernelCompilationUtils::nameOpenCLPrintf());
+        addExternFunctionDeclaration(CalledFuncType,
+                                     getOrCreatePrintfFuncType(),
+                                     CompilationUtils::nameOpenCLPrintf());
       NewRes = updatePrintf(Builder, CI);
       assert(NewRes && "Expected updatePrintf to succeed");
       break;
@@ -532,7 +532,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   }
 
   // Finally create the call to __opencl_printf.
-  Function *F = M->getFunction(DPCPPKernelCompilationUtils::nameOpenCLPrintf());
+  Function *F = M->getFunction(CompilationUtils::nameOpenCLPrintf());
   assert(F && "Expect builtin printf to be declared before use");
 
   SmallVector<Value *, 4> Params;
@@ -611,39 +611,39 @@ void ResolveWICallPass::addPrefetchDeclaration() {
 }
 
 TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
-  if (FuncName == DPCPPKernelCompilationUtils::nameGetBaseGID())
+  if (FuncName == CompilationUtils::nameGetBaseGID())
     return ICT_GET_BASE_GLOBAL_ID;
-  if (DPCPPKernelCompilationUtils::isGetSpecialBuffer(FuncName))
+  if (CompilationUtils::isGetSpecialBuffer(FuncName))
     return ICT_GET_SPECIAL_BUFFER;
-  if (DPCPPKernelCompilationUtils::isGetWorkDim(FuncName))
+  if (CompilationUtils::isGetWorkDim(FuncName))
     return ICT_GET_WORK_DIM;
-  if (DPCPPKernelCompilationUtils::isGetGlobalSize(FuncName))
+  if (CompilationUtils::isGetGlobalSize(FuncName))
     return ICT_GET_GLOBAL_SIZE;
-  if (DPCPPKernelCompilationUtils::isGetNumGroups(FuncName))
+  if (CompilationUtils::isGetNumGroups(FuncName))
     return ICT_GET_NUM_GROUPS;
-  if (DPCPPKernelCompilationUtils::isGetGroupId(FuncName))
+  if (CompilationUtils::isGetGroupId(FuncName))
     return ICT_GET_GROUP_ID;
-  if (DPCPPKernelCompilationUtils::isGlobalOffset(FuncName))
+  if (CompilationUtils::isGlobalOffset(FuncName))
     return ICT_GET_GLOBAL_OFFSET;
   // special built-ins that need to update.
-  if (DPCPPKernelCompilationUtils::isPrintf(FuncName))
+  if (CompilationUtils::isPrintf(FuncName))
     return ICT_PRINTF;
-  if (DPCPPKernelCompilationUtils::isPrefetch(FuncName))
+  if (CompilationUtils::isPrefetch(FuncName))
     return ICT_PREFETCH;
 
   // OpenCL 2.0/3.0 built-ins to resolve.
-  if (OclVersion >= DPCPPKernelCompilationUtils::OclVersion::CL_VER_2_0) {
-    if (DPCPPKernelCompilationUtils::isEnqueueKernelLocalMem(FuncName))
+  if (OclVersion >= CompilationUtils::OclVersion::CL_VER_2_0) {
+    if (CompilationUtils::isEnqueueKernelLocalMem(FuncName))
       return ICT_ENQUEUE_KERNEL_LOCALMEM;
-    if (DPCPPKernelCompilationUtils::isEnqueueKernelEventsLocalMem(FuncName))
+    if (CompilationUtils::isEnqueueKernelEventsLocalMem(FuncName))
       return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
-    if (DPCPPKernelCompilationUtils::isGetLocalSize(FuncName))
+    if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_LOCAL_SIZE;
-    if (DPCPPKernelCompilationUtils::isGetEnqueuedLocalSize(FuncName))
+    if (CompilationUtils::isGetEnqueuedLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
   } else {
     // built-ins which behavior is different in OpenCL versions older than 2.0.
-    if (DPCPPKernelCompilationUtils::isGetLocalSize(FuncName))
+    if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
   }
   return ICT_NONE;
@@ -651,7 +651,7 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
 
 // address space generated by clang for queue_t, clk_event_t, ndrange_t types.
 const int EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE =
-    DPCPPKernelCompilationUtils::ADDRESS_SPACE_GLOBAL;
+    CompilationUtils::ADDRESS_SPACE_GLOBAL;
 Type *ResolveWICallPass::getQueueType() const {
   return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
@@ -672,7 +672,7 @@ Type *ResolveWICallPass::getBlockLocalMemType() const {
   // void (^block)(local void *, ...), - OpenCL
   // i8 addrspace(4)*  - LLVM representation
   return PointerType::get(Type::getInt8Ty(*Ctx),
-                          DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC);
+                          CompilationUtils::ADDRESS_SPACE_GENERIC);
 }
 
 Type *ResolveWICallPass::getEnqueueKernelRetType() const {

@@ -1,4 +1,21 @@
 //===------------ rtl.h - Target independent OpenMP target RTL ------------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -61,14 +78,12 @@ struct RTLInfoTy {
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
-  typedef void (get_offload_queue_ty)(int32_t, void *, bool);
-  typedef void *(get_platform_handle_ty)(int32_t);
-  typedef void (set_device_handle_ty)(int32_t, void *);
   typedef void *(get_context_handle_ty)(int32_t);
-  typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
   typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
+  typedef bool (register_host_pointer_ty)(int32_t, void *, size_t);
+  typedef bool (unregister_host_pointer_ty)(int32_t, void *);
   typedef int32_t(requires_mapping_ty)(int32_t, void *, int64_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
@@ -79,7 +94,7 @@ struct RTLInfoTy {
   typedef void (deinit_ty)(void);
 #if INTEL_CUSTOMIZATION
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
-                                             intptr_t *);
+                                             int32_t *);
   typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
   typedef int32_t(use_interop_ty)(int32_t, __tgt_interop *);
   typedef int32_t(get_num_interop_properties_ty)(int32_t);
@@ -101,6 +116,8 @@ struct RTLInfoTy {
                                            const __omp_offloading_fptr_map_t *);
   typedef void *(alloc_per_hw_thread_scratch_ty)(int32_t, size_t, int32_t);
   typedef void(free_per_hw_thread_scratch_ty)(int32_t, void *);
+  typedef int32_t(get_device_info_ty)(int32_t, int32_t, size_t, void *,
+                                      size_t *);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -158,14 +175,12 @@ struct RTLInfoTy {
   data_alloc_base_ty *data_alloc_base = nullptr;
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
-  get_offload_queue_ty *get_offload_queue = nullptr;
-  get_platform_handle_ty *get_platform_handle = nullptr;
-  set_device_handle_ty *set_device_handle = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;
-  release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_realloc_ty *data_realloc = nullptr;
   data_aligned_alloc_ty *data_aligned_alloc = nullptr;
+  register_host_pointer_ty *register_host_pointer = nullptr;
+  unregister_host_pointer_ty *unregister_host_pointer = nullptr;
   requires_mapping_ty *requires_mapping = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
@@ -194,6 +209,7 @@ struct RTLInfoTy {
   set_function_ptr_map_ty *set_function_ptr_map = nullptr;
   alloc_per_hw_thread_scratch_ty *alloc_per_hw_thread_scratch = nullptr;
   free_per_hw_thread_scratch_ty *free_per_hw_thread_scratch = nullptr;
+  get_device_info_ty *get_device_info = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;

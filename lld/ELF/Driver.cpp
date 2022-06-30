@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1248,8 +1248,10 @@ static void readConfigs(opt::InputArgList &args) {
   config->nostdlib = args.hasArg(OPT_nostdlib);
   config->oFormatBinary = isOutputFormatBinary(args);
   config->omagic = args.hasFlag(OPT_omagic, OPT_no_omagic, false);
+  config->opaquePointers = args.hasFlag(
+      OPT_plugin_opt_opaque_pointers, OPT_plugin_opt_no_opaque_pointers, false);
   config->optRemarksFilename = args.getLastArgValue(OPT_opt_remarks_filename);
-  config->optStatsFilename = args.getLastArgValue(OPT_opt_stats_filename);
+  config->optStatsFilename = args.getLastArgValue(OPT_plugin_opt_stats_file);
 
   // Parse remarks hotness threshold. Valid value is either integer or 'auto'.
   if (auto *arg = args.getLastArg(OPT_opt_remarks_hotness_threshold)) {
@@ -1356,6 +1358,10 @@ static void readConfigs(opt::InputArgList &args) {
   // Handle -plugin-opt=fintel-advanced-optim
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
+
+  // Handle -plugin-opt=fintel-libirc-allowed
+  if (args.hasArg(OPT_plugin_opt_intel_libirc_allowed))
+    config->intelLibIRCAllowed = true;
 #endif // INTEL_CUSTOMIZATION
 
   if (opt::Arg *arg = args.getLastArg(OPT_eb, OPT_el)) {
@@ -1772,12 +1778,12 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
   if (!gnuLTOFiles.empty())
-    invokeELFT(doGnuLTOLinking, gnuLTOFiles, /* isLazyFile */ false);
+    finalizeGNULTO(gnuLTOFiles, /* isLazyFile */ false);
 
   // If there are GNU LTO files in archives then we need to do a partial
   // linking in order to preserve the the lazy symbols.
   if (!lazyGNULTOFiles.empty())
-    invokeELFT(doGnuLTOLinking, lazyGNULTOFiles, /* isLazyFile */ true);
+    finalizeGNULTO(lazyGNULTOFiles, /* isLazyFile */ true);
 #endif // INTEL_CUSTOMIZATION
 
   if (files.empty() && !hasInput && errorCount() == 0)
@@ -1802,13 +1808,63 @@ void LinkerDriver::inferMachineType() {
 }
 
 #if INTEL_CUSTOMIZATION
+// Helper function for finding the ELF target used for GNU LTO files and
+// invoke doGNULTOLinking.
+void LinkerDriver::finalizeGNULTO(
+    llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles, bool isLazyFile) {
+
+  if (InputGNULTOFiles.empty())
+    return;
+
+  // If -m was set then use the configuration passed through the config
+  if (config->ekind != ELFNoneKind) {
+    invokeELFT(doGNULTOLinking, InputGNULTOFiles, isLazyFile);
+    return;
+  }
+
+  // Else, we are going to try to find the ELF target
+  auto FileKind = ELFNoneKind;
+  for (InputFile *f : InputGNULTOFiles) {
+    if (!f)
+      return;
+    if (f->ekind == ELFNoneKind)
+      continue;
+    // Collect the ELF target set by the file. It has to be the same for all
+    // input files.
+    if (FileKind == ELFNoneKind) {
+      FileKind = f->ekind;
+    } else if (FileKind != f->ekind) {
+      FileKind = ELFNoneKind;
+      break;
+    }
+  }
+
+  // Now invoke doGNULTOLinking with the proper ELF target
+  switch (FileKind) {
+  case ELF32LEKind:
+    doGNULTOLinking<ELF32LE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF32BEKind:
+    doGNULTOLinking<ELF32BE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF64LEKind:
+    doGNULTOLinking<ELF64LE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF64BEKind:
+    doGNULTOLinking<ELF64BE>(InputGNULTOFiles, isLazyFile);
+    break;
+  default:
+    break;
+  }
+}
+
 // Pass to g++ the input vector of GNU LTO files in order to do LTO and
 // build a temporary object. Then collect the ELF object generated and
 // add it to the linking process either as a regular object file or
 // lazy object (archive members).
 template <class ELFT>
-void LinkerDriver::doGnuLTOLinking(
-    llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles, bool isLazyFile) {
+void LinkerDriver::doGNULTOLinking(
+    llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles, bool isLazyFile) {
 
   // Given an ObjFile and a SmallString, write the file in the temporary
   // directory
@@ -1903,7 +1959,7 @@ void LinkerDriver::doGnuLTOLinking(
   std::vector<StringRef> tempsVector;
 
   // Traverse through the GNU LTO objects and write them
-  for (auto file : gnuLTOFiles) {
+  for (auto file : InputGNULTOFiles) {
     SmallString<128> s;
     writeTempObjFile(cast<ObjFile<ELFT>>(file), s);
     std::string tempFile = s.str().str();
@@ -2512,11 +2568,7 @@ static std::vector<WrappedSymbol> addWrappedSymbols(opt::InputArgList &args) {
       continue;
 
     Symbol *sym = symtab->find(name);
-    // Avoid wrapping symbols that are lazy and unreferenced at this point, to
-    // not create undefined references. The isUsedInRegularObj check handles the
-    // case of a weak reference, which we still want to wrap even though it
-    // doesn't cause lazy symbols to be extracted.
-    if (!sym || (sym->isLazy() && !sym->isUsedInRegularObj))
+    if (!sym)
       continue;
 
     Symbol *real = addUnusedUndefined(saver().save("__real_" + name));
@@ -2529,16 +2581,19 @@ static std::vector<WrappedSymbol> addWrappedSymbols(opt::InputArgList &args) {
     real->scriptDefined = true;
     sym->scriptDefined = true;
 
-    // Tell LTO not to eliminate these symbols.
-    sym->isUsedInRegularObj = true;
-    // If sym is referenced in any object file, bitcode file or shared object,
-    // retain wrap which is the redirection target of sym. If the object file
-    // defining sym has sym references, we cannot easily distinguish the case
-    // from cases where sym is not referenced. Retain wrap because we choose to
-    // wrap sym references regardless of whether sym is defined
+    // If a symbol is referenced in any object file, bitcode file or shared
+    // object, mark its redirection target (foo for __real_foo and __wrap_foo
+    // for foo) as referenced after redirection, which will be used to tell LTO
+    // to not eliminate the redirection target. If the object file defining the
+    // symbol also references it, we cannot easily distinguish the case from
+    // cases where the symbol is not referenced. Retain the redirection target
+    // in this case because we choose to wrap symbol references regardless of
+    // whether the symbol is defined
     // (https://sourceware.org/bugzilla/show_bug.cgi?id=26358).
+    if (real->referenced || real->isDefined())
+      sym->referencedAfterWrap = true;
     if (sym->referenced || sym->isDefined())
-      wrap->isUsedInRegularObj = true;
+      wrap->referencedAfterWrap = true;
   }
   return v;
 }
@@ -2797,8 +2852,11 @@ void LinkerDriver::link(opt::InputArgList &args) {
 
   // Some symbols (such as __ehdr_start) are defined lazily only when there
   // are undefined symbols for them, so we add these to trigger that logic.
-  for (StringRef name : script->referencedSymbols)
-    addUnusedUndefined(name)->isUsedInRegularObj = true;
+  for (StringRef name : script->referencedSymbols) {
+    Symbol *sym = addUnusedUndefined(name);
+    sym->isUsedInRegularObj = true;
+    sym->referenced = true;
+  }
 
   // Prevent LTO from removing any definition referenced by -u.
   for (StringRef name : config->undefined)

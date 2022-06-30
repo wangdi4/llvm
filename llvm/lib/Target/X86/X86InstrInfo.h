@@ -516,9 +516,16 @@ public:
                                       ArrayRef<MachineOperand> MOs,
                                       MachineBasicBlock::iterator InsertPt,
                                       unsigned Size, Align Alignment,
-                                      bool AllowCommute) const;
+                                      bool AllowCommute,      // INTEL
+                                      bool SpillStage) const; // INTEL
 
 #if INTEL_CUSTOMIZATION
+  bool findDefInDistance(MachineFunction &MF, MachineBasicBlock &MBB,
+                         MachineBasicBlock::reverse_iterator It, Register Use,
+                         unsigned InspectionLimit) const;
+  bool findUseInDistance(MachineFunction &MF, MachineBasicBlock &MBB,
+                         MachineBasicBlock::iterator It, Register Def,
+                         unsigned InspectionLimit) const;
   MachineInstr *foldMemoryBroadcast(MachineFunction &MF, MachineInstr &MI,
                                     unsigned OpNum,
                                     ArrayRef<MachineOperand> MOs,
@@ -597,6 +604,8 @@ public:
                      outliner::Candidate &C) const override;
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
+  bool verifyInstruction(const MachineInstr &MI,
+                         StringRef &ErrInfo) const override;
 #define GET_INSTRINFO_HELPER_DECLS
 #include "X86GenInstrInfo.inc"
 

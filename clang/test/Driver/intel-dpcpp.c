@@ -1,6 +1,5 @@
 /// tests for --dpcpp behaviors
 //
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
 // --dpcpp -fsycl implies -fsycl-unnamed-lambda

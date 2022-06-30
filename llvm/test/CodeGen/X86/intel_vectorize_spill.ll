@@ -22,14 +22,14 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    cmpl $9, %edi
 ; CHECK-NEXT:    jg .LBB0_2
 ; CHECK-NEXT:  # %bb.1: # %if.then
+; CHECK-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm1
+; CHECK-NEXT:    vmovss %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm1
-; CHECK-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm2
-; CHECK-NEXT:    vmovss %xmm2, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    subl %edi, %eax
-; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    vmulsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vmovsd %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    subl %edi, %eax
+; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    movslq %edi, %rax
 ; CHECK-NEXT:    leaq (%rax,%rax), %rcx
 ; CHECK-NEXT:    leaq (%rcx,%rcx,4), %rcx
@@ -60,14 +60,14 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    cmpl $21, %edi
 ; CHECK-NEXT:    jl .LBB0_3
 ; CHECK-NEXT:  # %bb.4: # %if.then13
-; CHECK-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm1
-; CHECK-NEXT:    vmovss %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm1
+; CHECK-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm2
+; CHECK-NEXT:    vmovss %xmm2, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    movl $2, %eax
-; CHECK-NEXT:    vmulsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vmovsd %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    subl %edi, %eax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; CHECK-NEXT:    vmulsd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %xmm1
+; CHECK-NEXT:    vmovsd %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
 ; CHECK-NEXT:    movl %edi, %eax
 ; CHECK-NEXT:    leaq (,%rax,4), %rcx
 ; CHECK-NEXT:    leaq (%rcx,%rcx,4), %rcx
@@ -106,9 +106,9 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    movb %al, g7(%rip)
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rax # 8-byte Reload
 ; CHECK-NEXT:    movw %ax, g8(%rip)
-; CHECK-NEXT:    vcvtsi2ssl {{[-0-9]+}}(%r{{[sb]}}p), %xmm3, %xmm0 # 4-byte Folded Reload
 ; CHECK-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %eax # 4-byte Reload
 ; CHECK-NEXT:    movb %al, g9(%rip)
+; CHECK-NEXT:    vcvtsi2ssl {{[-0-9]+}}(%r{{[sb]}}p), %xmm3, %xmm0 # 4-byte Folded Reload
 ; CHECK-NEXT:    vmulss {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm0 # 4-byte Folded Reload
 ; CHECK-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vmulsd {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm0 # 8-byte Folded Reload

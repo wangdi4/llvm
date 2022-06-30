@@ -33,6 +33,10 @@ add_llvm_tool(llvm-omp-device-info llvm-omp-device-info.cpp)
 
 llvm_update_compile_flags(llvm-omp-device-info)
 
+target_include_directories(llvm-omp-device-info PRIVATE
+  ${LIBOMPTARGET_INCLUDE_DIR}
+)
+
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.

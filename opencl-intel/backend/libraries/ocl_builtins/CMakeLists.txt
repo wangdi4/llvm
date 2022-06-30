@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 #--------------------------- Settings ----------------------------------------------------------
 #-- All Win32/Win64/Linux32/Linux64-dependent definitions should be placed here
 
@@ -74,7 +86,7 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
 
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CLANG_OPENCL_HEADERS_DIR} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  -I ${IMPORT_DIR} ${INCLUDE_OCL_CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
   -flto
@@ -92,9 +104,6 @@ endif (WIN32)
 
 # llvm-opt
 set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
-
-# images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -verify -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
 
 #------------------- Utility functions ---------------------------
 
@@ -120,7 +129,7 @@ function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} ${OCL_CLANG_HEADERS}
+    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} process-intrin-headers
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -205,8 +214,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
     add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3 -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       DEPENDS ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
@@ -293,7 +302,7 @@ function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
   add_custom_command(
     OUTPUT ${LL_FILE}
     COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py ${JSON_FILE} -o ${LL_FILE}
-    DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
+    DEPENDS ${LLVM_TBLGEN} ${JSON_FILE} ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
     COMMENT "Generating ${LL_FILE}"
   )
   set_source_files_properties(${LL_FILE} PROPERTIES GENERATED 1)
@@ -338,19 +347,10 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   add_ocl_library(IGNORE OUTPUT_OCL_LIBRARY_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
-  # FIXME: ocl_svml for z1/x1 (AMX) arch is not available yet
-  # use AVX512's lib as a workaround
-  set(SVML_ARCH ${ARCH})
-  if(${ARCH} STREQUAL "z1") # 64bit AMX
-    set(SVML_ARCH "z0") # 64bit AVX512
-  endif()
-  if(${ARCH} STREQUAL "x1") # 32bit AMX
-    set(SVML_ARCH "x0") # 32bit AVX512
-  endif()
-  install_svml( ${SVML_ARCH} )
+  install_svml( ${ARCH} )
 
   # Unconditional dependent targets
-  set (TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${SVML_ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
+  set (TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
 
   # If prebuilt library is built, depend on it so it gets built.
   if( PREBUILD_IMAGE_LIBRARY )
@@ -359,7 +359,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADERS}
+    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADER_DIR}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -474,7 +474,7 @@ add_custom_target(clbltpipe_target
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
-  DEPENDS ${CLANG}
+  DEPENDS ${CLANG} process-intrin-headers
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
@@ -486,8 +486,9 @@ add_custom_command(OUTPUT clbltpipe.obj
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
 
   COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
-  -dpcpp-kernel-builtin-import -O3 -disable-intel-proprietary-opts pipes.bc
-  -o pipes-opt.bc
+  -dpcpp-kernel-builtin-import pipes.bc -o pipes-builtin.bc
+
+  COMMAND ${OPT} -O3 -disable-intel-proprietary-opts pipes-builtin.bc -o pipes-opt.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc
   -o clbltpipe.obj)
@@ -497,36 +498,3 @@ add_dependencies(clbltpipe clbltpipe_target)
 set_target_properties(clbltpipe
   PROPERTIES
   IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)
-
-# We have another object for several functions that return pipe size:
-# that is because this object file will be linked into oclopt
-# (ChannelPipeTransformation pass), but the main pipe object file
-# depends on oclopt, resulting in circular dependency:
-#
-# oclopt -> ChannelPipeTransformation -> clbltpipe.obj
-#        -> clbltshared.rtl -> oclopt
-#
-# Functions that required for ChannelPipeTransformation are not using
-# any built-ins, so they are split into separate object file. This
-# breaks the circular dependency.
-#
-add_custom_target(clbltpipeinfo_target
-  DEPENDS clbltpipeinfo.obj)
-
-add_custom_command(OUTPUT clbltpipeinfo.obj
-  DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
-  DEPENDS ${CLANG}
-
-  # Use host triple to let llc produce object file in a native format.
-  COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
-  ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes-info.bc
-
-  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc -o clbltpipeinfo.obj
-  COMMENT "Compiling clbltpipeinfo.obj"
-)
-
-add_library(clbltpipeinfo STATIC IMPORTED GLOBAL)
-add_dependencies(clbltpipeinfo clbltpipeinfo_target)
-set_target_properties(clbltpipeinfo
-  PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipeinfo.obj)

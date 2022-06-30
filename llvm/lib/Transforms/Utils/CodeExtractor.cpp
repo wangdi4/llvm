@@ -1303,6 +1303,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::StackAlignment:
       case Attribute::WillReturn:
       case Attribute::WriteOnly:
+      case Attribute::AllocKind:
+      case Attribute::PresplitCoroutine:
         continue;
       // Those attributes should be safe to propagate to the extracted function.
       case Attribute::AlwaysInline:
@@ -1350,6 +1352,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
         break;
       // These attributes cannot be applied to functions.
       case Attribute::Alignment:
+      case Attribute::AllocatedPointer:
       case Attribute::AllocAlign:
       case Attribute::ByVal:
       case Attribute::Dereferenceable:
@@ -1966,6 +1969,10 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
   DISubprogram *NSP = NewF->getSubprogram();
   assert(NSP && "Expected the new function to have debug info");
 
+  LLVM_DEBUG(dbgs() << "\nupdateDebugPostExtraction:\n");
+  LLVM_DEBUG(dbgs() << "  OldF = " << OldF->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "  NewF = " << NewF->getName() << "\n");
+
   DICompileUnit *Unit = OSP->getUnit();
   Module *M = NewF->getParent();
   DIBuilder DIB (*M, true, Unit);
@@ -2107,14 +2114,16 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
       LLVM_DEBUG(dbgs() << "      Skipping derived type.\n");
       continue;
     }
+    // Reset global types or types nested within global types.
     DIScope *S = T->getScope();
-    if (!S) {
-      LLVM_DEBUG(dbgs() << "      No scope, reset.\n");
-      MDMap[T].reset(T);
-      continue;
+    while (S) {
+      if (isa<DILocalScope>(S))
+        break;
+      S = S->getScope();
     }
-    if (DIType *P = dyn_cast<DIType>(S)) {
-      LLVM_DEBUG(dbgs() << "      Skipping nested type.\n");
+    if (!S) {
+      LLVM_DEBUG(dbgs() << "      Not a local type, reset.\n");
+      MDMap[T].reset(T);
       continue;
     }
     DILocalScope *LS = dyn_cast<DILocalScope>(S);
@@ -2589,6 +2598,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
 #if INTEL_COLLAB
   if (hoistAlloca) {
     // Hoist and privatize allocas in the new function.
+    assert(DT && "Dominator tree required to hoist allocas in CodeExtractor.");
     DominatorTree ChildDT(*newFunction);
     doHoistAlloca(*newFunction, ChildDT);
 

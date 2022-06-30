@@ -27,7 +27,7 @@
 ; When -vpo-paropt-emit-target-fp-ctor-dtor is "true":
 ; Check that the outlined function for the target region has a copy of %c1.ascast
 ; created within the function, and copy-constructor and destructor are called for it.
-; CTORDTOR-DAG: %[[C1_NEW:c1.ascast[^ ]*]] = alloca %class.C, align 1
+; CTORDTOR-DAG: %[[C1_NEW:c1.ascast[^ ]*]] = alloca %class.C, align 8
 
 ; CTORDTOR-DAG: call spir_func void @_ZTS1C.omp.copy_constr(%class.C addrspace(4)* %[[DST:[^ ,]+]], %class.C addrspace(4)* %[[SRC:[^ ,)]+]]) [[ATTR1:#[0-9]+]]
 ; CTORDTOR-DAG: %[[SRC]] = addrspacecast %class.C addrspace(1)* %c1.ascast to %class.C addrspace(4)*
@@ -42,7 +42,7 @@
 ; Check that the outlined function does not have a copy for %c1.ascast, and no
 ; copy-constructor/destructor call is emitted.
 
-; NOCTORDTOR-NOT: %{{.*}} = alloca %class.C, align 1
+; NOCTORDTOR-NOT: %{{.*}} = alloca %class.C, align 8
 ; NOCTORDTOR-NOT: call spir_func void @_ZTS1C.omp.copy_constr({{.*}})
 ; NOCTORDTOR-NOT: call spir_func void @_ZTS1C.omp.destr({{.*}})
 

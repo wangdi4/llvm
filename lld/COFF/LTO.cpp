@@ -85,6 +85,7 @@ static lto::Config createConfig() {
   // Disabling it here
   // TODO: Enable after fixing CMPLRLLVM-28261
   // c.Options.EmitAddrsig = true;
+  c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
   // Always emit a section per function/datum with LTO. LLVM LTO should get most
   // of the benefit of linker GC, but there are still opportunities for ICF.
@@ -110,6 +111,10 @@ static lto::Config createConfig() {
   c.CSIRProfile = std::string(config->ltoCSProfileFile);
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
   c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
+#if INTEL_CUSTOMIZATION
+  c.PTO.LoopVectorization = c.OptLevel > 1;
+  c.PTO.SLPVectorization = c.OptLevel > 1;
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Linking for an executable

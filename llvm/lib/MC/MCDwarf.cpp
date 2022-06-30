@@ -295,7 +295,7 @@ void MCDwarfLineTable::emit(MCStreamer *MCOS, MCDwarfLineTableParams Params) {
     LineStr = MCDwarfLineStr(context);
 
   // Switch to the section where the table will be emitted into.
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfLineSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfLineSection());
 
   // Handle the rest of the Compile Units.
   for (const auto &CUIDTablePair : LineTables) {
@@ -311,7 +311,7 @@ void MCDwarfDwoLineTable::Emit(MCStreamer &MCOS, MCDwarfLineTableParams Params,
   if (!HasSplitLineTable)
     return;
   Optional<MCDwarfLineStr> NoLineStr(None);
-  MCOS.SwitchSection(Section);
+  MCOS.switchSection(Section);
   MCOS.emitLabel(Header.Emit(&MCOS, Params, None, NoLineStr).second);
 }
 
@@ -358,14 +358,20 @@ static void emitAbsValue(MCStreamer &OS, const MCExpr *Value, unsigned Size) {
 
 void MCDwarfLineStr::emitSection(MCStreamer *MCOS) {
   // Switch to the .debug_line_str section.
-  MCOS->SwitchSection(
+  MCOS->switchSection(
       MCOS->getContext().getObjectFileInfo()->getDwarfLineStrSection());
+  SmallString<0> Data = getFinalizedData();
+  MCOS->emitBinaryData(Data.str());
+}
+
+SmallString<0> MCDwarfLineStr::getFinalizedData() {
   // Emit the strings without perturbing the offsets we used.
-  LineStrings.finalizeInOrder();
+  if (!LineStrings.isFinalized())
+    LineStrings.finalizeInOrder();
   SmallString<0> Data;
   Data.resize(LineStrings.getSize());
   LineStrings.write((uint8_t *)Data.data());
-  MCOS->emitBinaryData(Data.str());
+  return Data;
 }
 
 void MCDwarfLineStr::emitRef(MCStreamer *MCOS, StringRef Path) {
@@ -519,7 +525,10 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
   // defaults to version 2 which using the icx driver.
   // Older versions of dsymutil will not support line table versions greater
   // than 2 so the line table version may need to be adjusted there too.
-  if (DebugLineTableVersion != 0)
+  // We can only "pretend" one line table version is another if the line tables
+  // in both versions are sufficiently similar.
+  if (LineTableVersion <= 4 &&
+      DebugLineTableVersion >= 2 && DebugLineTableVersion <= 4)
     LineTableVersion = DebugLineTableVersion;
 #endif // INTEL_CUSTOMIZATION
   MCOS->emitInt16(LineTableVersion);
@@ -798,7 +807,7 @@ static void EmitAbbrev(MCStreamer *MCOS, uint64_t Name, uint64_t Form) {
 // the data for .debug_abbrev section which contains three DIEs.
 static void EmitGenDwarfAbbrev(MCStreamer *MCOS) {
   MCContext &context = MCOS->getContext();
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfAbbrevSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfAbbrevSection());
 
   // DW_TAG_compile_unit DIE abbrev (1).
   MCOS->emitULEB128IntValue(1);
@@ -851,7 +860,7 @@ static void EmitGenDwarfAranges(MCStreamer *MCOS,
 
   auto &Sections = context.getGenDwarfSectionSyms();
 
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfARangesSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfARangesSection());
 
   unsigned UnitLengthBytes =
       dwarf::getUnitLengthFieldByteSize(context.getDwarfFormat());
@@ -930,7 +939,7 @@ static void EmitGenDwarfInfo(MCStreamer *MCOS,
                              const MCSymbol *RangesSymbol) {
   MCContext &context = MCOS->getContext();
 
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfInfoSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfInfoSection());
 
   // Create a symbol at the start and end of this section used in here for the
   // expression to calculate the length in the header.
@@ -1107,7 +1116,7 @@ static MCSymbol *emitGenDwarfRanges(MCStreamer *MCOS) {
   MCSymbol *RangesSymbol;
 
   if (MCOS->getContext().getDwarfVersion() >= 5) {
-    MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfRnglistsSection());
+    MCOS->switchSection(context.getObjectFileInfo()->getDwarfRnglistsSection());
     MCSymbol *EndSymbol = mcdwarf::emitListsTableHeaderStart(*MCOS);
     MCOS->AddComment("Offset entry count");
     MCOS->emitInt32(0);
@@ -1127,7 +1136,7 @@ static MCSymbol *emitGenDwarfRanges(MCStreamer *MCOS) {
     MCOS->emitInt8(dwarf::DW_RLE_end_of_list);
     MCOS->emitLabel(EndSymbol);
   } else {
-    MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfRangesSection());
+    MCOS->switchSection(context.getObjectFileInfo()->getDwarfRangesSection());
     RangesSymbol = context.createTempSymbol("debug_ranges_start");
     MCOS->emitLabel(RangesSymbol);
     for (MCSection *Sec : Sections) {
@@ -1188,18 +1197,18 @@ void MCGenDwarfInfo::Emit(MCStreamer *MCOS) {
       MCOS->getContext().getDwarfVersion() >= 3;
   CreateDwarfSectionSymbols |= UseRangesSection;
 
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfInfoSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfInfoSection());
   if (CreateDwarfSectionSymbols) {
     InfoSectionSymbol = context.createTempSymbol();
     MCOS->emitLabel(InfoSectionSymbol);
   }
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfAbbrevSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfAbbrevSection());
   if (CreateDwarfSectionSymbols) {
     AbbrevSectionSymbol = context.createTempSymbol();
     MCOS->emitLabel(AbbrevSectionSymbol);
   }
 
-  MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfARangesSection());
+  MCOS->switchSection(context.getObjectFileInfo()->getDwarfARangesSection());
 
   // Output the data for .debug_aranges section.
   EmitGenDwarfAranges(MCOS, InfoSectionSymbol);
@@ -1633,6 +1642,8 @@ const MCSymbol &FrameEmitterImpl::EmitCIE(const MCDwarfFrameInfo &Frame) {
       Augmentation += "S";
     if (Frame.IsBKeyFrame)
       Augmentation += "B";
+    if (Frame.IsMTETaggedFrame)
+      Augmentation += "G";
     Streamer.emitBytes(Augmentation);
   }
   Streamer.emitInt8(0);
@@ -1869,8 +1880,6 @@ template <> struct DenseMapInfo<CIEKey> {
 
 void MCDwarfFrameEmitter::Emit(MCObjectStreamer &Streamer, MCAsmBackend *MAB,
                                bool IsEH) {
-  Streamer.generateCompactUnwindEncodings(MAB);
-
   MCContext &Context = Streamer.getContext();
   const MCObjectFileInfo *MOFI = Context.getObjectFileInfo();
   const MCAsmInfo *AsmInfo = Context.getAsmInfo();
@@ -1880,11 +1889,12 @@ void MCDwarfFrameEmitter::Emit(MCObjectStreamer &Streamer, MCAsmBackend *MAB,
   // Emit the compact unwind info if available.
   bool NeedsEHFrameSection = !MOFI->getSupportsCompactUnwindWithoutEHFrame();
   if (IsEH && MOFI->getCompactUnwindSection()) {
+    Streamer.generateCompactUnwindEncodings(MAB);
     bool SectionEmitted = false;
     for (const MCDwarfFrameInfo &Frame : FrameArray) {
       if (Frame.CompactUnwindEncoding == 0) continue;
       if (!SectionEmitted) {
-        Streamer.SwitchSection(MOFI->getCompactUnwindSection());
+        Streamer.switchSection(MOFI->getCompactUnwindSection());
         Streamer.emitValueToAlignment(AsmInfo->getCodePointerSize());
         SectionEmitted = true;
       }
@@ -1901,7 +1911,7 @@ void MCDwarfFrameEmitter::Emit(MCObjectStreamer &Streamer, MCAsmBackend *MAB,
       IsEH ? *const_cast<MCObjectFileInfo *>(MOFI)->getEHFrameSection()
            : *MOFI->getDwarfFrameSection();
 
-  Streamer.SwitchSection(&Section);
+  Streamer.switchSection(&Section);
   MCSymbol *SectionStart = Context.createTempSymbol();
   Streamer.emitLabel(SectionStart);
 

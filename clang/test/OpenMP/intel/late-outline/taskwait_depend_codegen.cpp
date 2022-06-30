@@ -53,52 +53,52 @@
 // CHECK-NEW-NEXT:    [[ARRAY_BEGIN:%.*]] = getelementptr inbounds [100 x i32], ptr [[ARR]], i32 0, i32 0
 // CHECK-NEW-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[VAR]], i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[ARR]], i32 0, i64 100), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR1]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR2]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR3]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR4]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR5]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR6]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR7]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR9]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR10]], [1 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR11]], i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTDEP_ARR_ADDR12]], [3 x %struct.kmp_depend_info] zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DEP_COUNTER_ADDR13]], i64 0, i32 1) ]
 // CHECK-NEW-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO:%.*]], ptr [[TMP1]], i64 0
-// CHECK-NEW-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP2]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP4:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP4]], ptr [[TMP3]], align 8
-// CHECK-NEW-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP2]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP2:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP3:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO:%.*]], ptr [[TMP1]], i64 0
+// CHECK-NEW-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP3]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP2]], ptr [[TMP4]], align 8
+// CHECK-NEW-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP3]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP5]], align 8
-// CHECK-NEW-NEXT:    [[TMP6:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP2]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP6:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP3]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, ptr [[TMP6]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR]], align 8
 // CHECK-NEW-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP1]]) ]
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR1]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP9:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP8]], i64 0
-// CHECK-NEW-NEXT:    [[TMP10:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP9]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP11:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP11]], ptr [[TMP10]], align 8
-// CHECK-NEW-NEXT:    [[TMP12:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP9]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP9:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP10:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP8]], i64 0
+// CHECK-NEW-NEXT:    [[TMP11:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP10]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP9]], ptr [[TMP11]], align 8
+// CHECK-NEW-NEXT:    [[TMP12:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP10]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP12]], align 8
-// CHECK-NEW-NEXT:    [[TMP13:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP9]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP13:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP10]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, ptr [[TMP13]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR2]], align 8
 // CHECK-NEW-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP8]]) ]
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP14]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP15:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR3]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP16:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP15]], i64 0
-// CHECK-NEW-NEXT:    [[TMP17:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP16]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP18:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP18]], ptr [[TMP17]], align 8
-// CHECK-NEW-NEXT:    [[TMP19:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP16]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP16:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP17:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP15]], i64 0
+// CHECK-NEW-NEXT:    [[TMP18:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP17]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP16]], ptr [[TMP18]], align 8
+// CHECK-NEW-NEXT:    [[TMP19:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP17]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP19]], align 8
-// CHECK-NEW-NEXT:    [[TMP20:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP16]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP20:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP17]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, ptr [[TMP20]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR4]], align 8
 // CHECK-NEW-NEXT:    [[TMP21:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP15]]) ]
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP21]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP22:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR5]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP23:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP22]], i64 0
-// CHECK-NEW-NEXT:    [[TMP24:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP23]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP25:%.*]] = ptrtoint ptr [[ARR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP25]], ptr [[TMP24]], align 8
-// CHECK-NEW-NEXT:    [[TMP26:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP23]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP23:%.*]] = ptrtoint ptr [[ARR]] to i64
+// CHECK-NEW-NEXT:    [[TMP24:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP22]], i64 0
+// CHECK-NEW-NEXT:    [[TMP25:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP24]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP23]], ptr [[TMP25]], align 8
+// CHECK-NEW-NEXT:    [[TMP26:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP24]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 400, ptr [[TMP26]], align 8
-// CHECK-NEW-NEXT:    [[TMP27:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP23]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP27:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP24]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, ptr [[TMP27]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR6]], align 8
 // CHECK-NEW-NEXT:    [[TMP28:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.NOWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP22]]) ]
@@ -111,55 +111,55 @@
 // CHECK-NEW-NEXT:    [[TMP31:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
 // CHECK-NEW-NEXT:    [[TMP32:%.*]] = ptrtoint ptr [[TMP30]] to i64
 // CHECK-NEW-NEXT:    [[TMP33:%.*]] = sub nuw i64 [[TMP32]], [[TMP31]]
-// CHECK-NEW-NEXT:    [[TMP34:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP29]], i64 0
-// CHECK-NEW-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP34]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP36:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP36]], ptr [[TMP35]], align 8
-// CHECK-NEW-NEXT:    [[TMP37:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP34]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP34:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
+// CHECK-NEW-NEXT:    [[TMP35:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP29]], i64 0
+// CHECK-NEW-NEXT:    [[TMP36:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP35]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP34]], ptr [[TMP36]], align 8
+// CHECK-NEW-NEXT:    [[TMP37:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP35]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 [[TMP33]], ptr [[TMP37]], align 8
-// CHECK-NEW-NEXT:    [[TMP38:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP34]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP38:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP35]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, ptr [[TMP38]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR9]], align 8
 // CHECK-NEW-NEXT:    [[TMP39:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP29]]) ]
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP39]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP40:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR10]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP41:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP40]], i64 0
-// CHECK-NEW-NEXT:    [[TMP42:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP41]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP43:%.*]] = ptrtoint ptr [[ARR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP43]], ptr [[TMP42]], align 8
-// CHECK-NEW-NEXT:    [[TMP44:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP41]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP41:%.*]] = ptrtoint ptr [[ARR]] to i64
+// CHECK-NEW-NEXT:    [[TMP42:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP40]], i64 0
+// CHECK-NEW-NEXT:    [[TMP43:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP42]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP41]], ptr [[TMP43]], align 8
+// CHECK-NEW-NEXT:    [[TMP44:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP42]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 400, ptr [[TMP44]], align 8
-// CHECK-NEW-NEXT:    [[TMP45:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP41]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP45:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP42]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, ptr [[TMP45]], align 8
 // CHECK-NEW-NEXT:    store i64 1, ptr [[DEP_COUNTER_ADDR11]], align 8
 // CHECK-NEW-NEXT:    [[TMP46:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.NOWAIT"(), "QUAL.OMP.DEPARRAY"(i32 1, ptr [[TMP40]]) ]
 // CHECK-NEW-NEXT:    fence acq_rel
 // CHECK-NEW-NEXT:    call void @llvm.directive.region.exit(token [[TMP46]]) [ "DIR.OMP.END.TASKWAIT"() ]
 // CHECK-NEW-NEXT:    [[TMP47:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], ptr [[DOTDEP_ARR_ADDR12]], i64 0, i64 0
-// CHECK-NEW-NEXT:    [[TMP48:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 0
-// CHECK-NEW-NEXT:    [[TMP49:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP48]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP50:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP50]], ptr [[TMP49]], align 8
-// CHECK-NEW-NEXT:    [[TMP51:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP48]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP48:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP49:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 0
+// CHECK-NEW-NEXT:    [[TMP50:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP49]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP48]], ptr [[TMP50]], align 8
+// CHECK-NEW-NEXT:    [[TMP51:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP49]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP51]], align 8
-// CHECK-NEW-NEXT:    [[TMP52:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP48]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP52:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP49]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, ptr [[TMP52]], align 8
-// CHECK-NEW-NEXT:    [[TMP53:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 1
-// CHECK-NEW-NEXT:    [[TMP54:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP53]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP55:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP55]], ptr [[TMP54]], align 8
-// CHECK-NEW-NEXT:    [[TMP56:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP53]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP53:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP54:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 1
+// CHECK-NEW-NEXT:    [[TMP55:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP54]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP53]], ptr [[TMP55]], align 8
+// CHECK-NEW-NEXT:    [[TMP56:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP54]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP56]], align 8
-// CHECK-NEW-NEXT:    [[TMP57:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP53]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP57:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP54]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 3, ptr [[TMP57]], align 8
-// CHECK-NEW-NEXT:    [[TMP58:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 2
-// CHECK-NEW-NEXT:    [[TMP59:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP58]], i32 0, i32 0
-// CHECK-NEW-NEXT:    [[TMP60:%.*]] = ptrtoint ptr [[VAR]] to i64
-// CHECK-NEW-NEXT:    store i64 [[TMP60]], ptr [[TMP59]], align 8
-// CHECK-NEW-NEXT:    [[TMP61:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP58]], i32 0, i32 1
+// CHECK-NEW-NEXT:    [[TMP58:%.*]] = ptrtoint ptr [[VAR]] to i64
+// CHECK-NEW-NEXT:    [[TMP59:%.*]] = getelementptr [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP47]], i64 2
+// CHECK-NEW-NEXT:    [[TMP60:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP59]], i32 0, i32 0
+// CHECK-NEW-NEXT:    store i64 [[TMP58]], ptr [[TMP60]], align 8
+// CHECK-NEW-NEXT:    [[TMP61:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP59]], i32 0, i32 1
 // CHECK-NEW-NEXT:    store i64 4, ptr [[TMP61]], align 8
-// CHECK-NEW-NEXT:    [[TMP62:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP58]], i32 0, i32 2
+// CHECK-NEW-NEXT:    [[TMP62:%.*]] = getelementptr inbounds [[STRUCT_KMP_DEPEND_INFO]], ptr [[TMP59]], i32 0, i32 2
 // CHECK-NEW-NEXT:    store i8 1, ptr [[TMP62]], align 8
 // CHECK-NEW-NEXT:    store i64 3, ptr [[DEP_COUNTER_ADDR13]], align 8
 // CHECK-NEW-NEXT:    [[TMP63:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKWAIT"(), "QUAL.OMP.NOWAIT"(), "QUAL.OMP.DEPARRAY"(i32 3, ptr [[TMP47]]) ]

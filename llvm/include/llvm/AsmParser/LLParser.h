@@ -278,6 +278,7 @@ namespace llvm {
                                 bool AllowParens = false);
     bool parseOptionalDerefAttrBytes(lltok::Kind AttrKind, uint64_t &Bytes);
     bool parseOptionalUWTableKind(UWTableKind &Kind);
+    bool parseAllocKind(AllocFnKind &Kind);
     bool parseScopeAndOrdering(bool IsAtomic, SyncScope::ID &SSID,
                                AtomicOrdering &Ordering);
     bool parseScope(SyncScope::ID &SSID);
@@ -530,6 +531,7 @@ namespace llvm {
     bool parseGlobalValueVector(SmallVectorImpl<Constant *> &Elts,
                                 Optional<unsigned> *InRangeOp = nullptr);
     bool parseOptionalComdat(StringRef GlobalName, Comdat *&C);
+    bool parseSanitizer(GlobalVariable *GV);
     bool parseMetadataAsValue(Value *&V, PerFunctionState &PFS);
     bool parseValueAsMetadata(Metadata *&MD, const Twine &TypeMsg,
                               PerFunctionState *PFS);

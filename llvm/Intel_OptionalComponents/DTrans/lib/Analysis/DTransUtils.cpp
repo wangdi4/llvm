@@ -35,6 +35,13 @@ using namespace dtrans;
 // Debug type for verbose field single alloc function analysis output.
 #define SAFETY_FSAF "dtrans-safetyanalyzer-fsaf"
 
+// When set, force the opaque pointer passes instead of the legacy DTrans passes
+// to run if the IR is using typed pointers.
+static cl::opt<bool> DTransForceOpaquePointerPasses(
+    "dtransop-allow-typed-pointers", cl::init(false), cl::Hidden,
+    cl::desc("Use the DTrans opaque pointers passes even when the IR is using "
+             "typed pointers"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
@@ -979,6 +986,23 @@ bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
   return false;
 }
 
+// Helper function that generates the information related to arrays with
+// constant entries for the DTrans immutable analysis.
+//
+// NOTE: This function is expected to be used only by the DTrans analysis
+// for typed pointers. The opaque pointers version stores the information
+// automatically in ArrayWithConstEntriesMap. This code can be removed once
+// we move to opaque pointers by default and the code for typed pointers
+// is removed.
+void dtrans::FieldInfo::generateArraysWithConstInmmutableData() {
+  assert(ArrayWithConstEntriesMap.empty() &&
+         "Incorrect arrays with constant entries data collection");
+
+  for (auto Pair : ArrayConstEntries)
+    if (Pair.second)
+      ArrayWithConstEntriesMap.insert({Pair.first, Pair.second});
+}
+
 // This is a helper function used to break the relationship between
 // a base and a padded structure.
 void StructInfo::unsetRelatedType() {
@@ -1275,6 +1299,12 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "fsv";
   case dtrans::DT_FieldSingleAllocFunction:
     return "fsaf";
+  case dtrans::DT_ReuseField:
+    return "reusefield";
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return "reusefieldptrofptr";
+  case dtrans::DT_ReuseFieldPtr:
+    return "reusefieldptr";
   case dtrans::DT_DeleteField:
     return "deletefield";
   case dtrans::DT_ReorderFields:
@@ -1318,6 +1348,12 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return DTransOutOfBoundsOK
                ? dtrans::SDSingleAllocFunction
                : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
+  case dtrans::DT_ReuseField:
+    return dtrans::SDReuseField;
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return dtrans::SDReuseFieldPtrOfPtr;
+  case dtrans::DT_ReuseFieldPtr:
+    return dtrans::SDReuseFieldPtr;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:
@@ -2368,4 +2404,10 @@ bool dtrans::compareStructName(const llvm::StructType *Ty1,
   OS2 << *Ty2;
   OS2.flush();
   return Lit1 < Lit2;
+}
+
+bool dtrans::shouldRunOpaquePointerPasses(Module &M) {
+  if (!M.getContext().supportsTypedPointers())
+    return true;
+  return DTransForceOpaquePointerPasses;
 }

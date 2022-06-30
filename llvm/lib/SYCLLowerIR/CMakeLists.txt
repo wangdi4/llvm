@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: Victor Mustya <victor.mustya@intel.com>
-    # Date:   Tue, 3 May 2022 17:56:40 +0000
-    # Remove default switch labels for LSC-related functions
-    set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
+    # Author: Haohai Wen <haohai.wen@intel.com>
+    # Date:   Fri Jun 10 03:46:22 2022 +0000
+    # Format InstructionSimplify names
+    set(LLVMGenXIntrinsics_GIT_TAG abce9184b7a3a7fe1b02289b9285610d9dc45465)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # Author: Victor Mustya <victor.mustya@intel.com>
-      # Date:   Tue, 3 May 2022 17:56:40 +0000
-      # Remove default switch labels for LSC-related functions
-      set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
+      # Author: Haohai Wen <haohai.wen@intel.com>
+      # Date:   Fri Jun 10 03:46:22 2022 +0000
+      # Format InstructionSimplify names
+      set(LLVMGenXIntrinsics_GIT_TAG abce9184b7a3a7fe1b02289b9285610d9dc45465)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Victor Mustya <victor.mustya@intel.com>
-        # Date:   Tue, 3 May 2022 12:36:29 -0700
-        # [ESIMD BugFix]: Remove default switch labels for LSC-related functions
-        set(LLVMGenXIntrinsics_GIT_TAG 25f6effcba269d4b9df02a527cfcaf33992391ee)
+        # Author: HaohaiWen <haohai.wen@intel.com>
+        # Date:   Fri Jun 10 23:43:35 2022 +0800
+        # [VC BugFix]: Format InstructionSimplify names (#202)
+        set(LLVMGenXIntrinsics_GIT_TAG 6bef8e76ec6a39c324c8fa350580f9a55e661656)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
@@ -126,6 +126,8 @@ add_llvm_component_library(LLVMSYCLLowerIR
   MutatePrintfAddrspace.cpp
 
   LocalAccessorToSharedMemory.cpp
+  GlobalOffset.cpp
+  TargetHelpers.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/SYCLLowerIR

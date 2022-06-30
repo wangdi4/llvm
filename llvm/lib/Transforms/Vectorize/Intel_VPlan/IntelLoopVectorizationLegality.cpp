@@ -41,6 +41,11 @@ static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
     cl::location(ForceComplexTyReductionVec), cl::Hidden,
     cl::desc("Force vectorization of reduction involving complex type."));
 
+static cl::opt<bool, true> ForceInscanReductionVecOpt(
+    "vplan-force-inscan-reduction-vectorization",
+    cl::location(ForceInscanReductionVec), cl::Hidden,
+    cl::desc("Force vectorization of inscan reduction."));
+
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
@@ -48,6 +53,7 @@ static cl::opt<bool>
 namespace llvm {
 namespace vpo {
 bool ForceComplexTyReductionVec = false;
+bool ForceInscanReductionVec = false;
 } // namespace vpo
 } // namespace llvm
 
@@ -543,15 +549,19 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
 
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
-                            StartV->getType(), true, false, CastInsts, -1U);
+    RecurrenceDescriptor RD(StartV, MinMaxResultInst,
+                            nullptr /*IntermediateStore*/, Kind, FMF, nullptr,
+                            StartV->getType(), true /*Signed*/,
+                            false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
   } else if (isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse))
-    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionUse);
+    InMemoryReductions[RedVarPtr] =
+      {Kind, None /*InscanReductionKind*/, ReductionUse};
 }
 
-void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
-                                                   RecurKind Kind) {
+void VPOVectorizationLegality::parseBinOpReduction(
+    Value *RedVarPtr, RecurKind Kind,
+    Optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -596,25 +606,30 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
-                            ReductionPhi->getType(), true, false, CastInsts, -1U);
+    // TODO: make this assert to be a proper bailout in prod.
+    assert(!InscanRedKind && "Registerized inscan reduction is not supported!");
+    RecurrenceDescriptor RD(StartV, Combiner, nullptr /*IntermediateStore*/,
+                            Kind, FMF, nullptr, ReductionPhi->getType(),
+                            true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory =
                   isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse)))
-    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionUse);
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::addReduction(Value *RedVarPtr, RecurKind Kind) {
+void VPOVectorizationLegality::addReduction(
+    Value *RedVarPtr, RecurKind Kind,
+    Optional<InscanReductionKind> InscanRedKind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
 
-  return parseBinOpReduction(RedVarPtr, Kind);
+  return parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {

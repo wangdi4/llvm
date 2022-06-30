@@ -40,7 +40,7 @@ L3:
 }
 
 define void @foo(i32 %x) nounwind {
-; CHECK: define void @foo(i32 %x, [3 x i32]* noalias %pLocalIdValues)
+; CHECK: define void @foo(i32 %x, [3 x i32]* noalias %local.ids)
 L1:
   call i32 @_Z12get_local_idj(i32 0)
   br label %L2
@@ -51,7 +51,7 @@ L2:
 ; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
-; CHECK: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %pLocalIdValues, i32 0, i32 0
+; CHECK: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %local.ids, i64 0, i32 0
 ; CHECK: %LocalId_0 = load i32, i32* %pLocalId_0
 ; CHECK: br label %L2
 ; CHECK: L2:                                               ; preds = %L1

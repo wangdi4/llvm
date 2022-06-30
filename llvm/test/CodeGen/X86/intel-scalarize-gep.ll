@@ -43,7 +43,220 @@ header:
   ret void
 }
 
+define double @test_gather_load(double* %src, <4 x i64>* %p) {
+; CHECK-LABEL: test_gather_load:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %gepload
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define double @test_gather_sext(double* %src, <4 x i32>* %p) {
+; CHECK-LABEL: test_gather_sext:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movslq 8(%rsi), %rax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i32>, <4 x i32>* %p, align 4
+  %idx = sext <4 x i32> %gepload to <4 x i64>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %idx
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define double @test_gather_zext(double* %src, <4 x i32>* %p) {
+; CHECK-LABEL: test_gather_zext:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl 8(%rsi), %eax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i32>, <4 x i32>* %p, align 4
+  %idx = zext <4 x i32> %gepload to <4 x i64>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %idx
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define double @test_gather_shuffle(double* %src, <4 x i64>* %p) {
+; CHECK-LABEL: test_gather_shuffle:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %shuf = shufflevector <4 x i64> %gepload, <4 x i64> poison, <4 x i32> <i32 2, i32 0, i32 0, i32 1>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %shuf
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define double @test_gather_undef_shuffle(double* %src, <4 x i64>* %p) {
+; CHECK-LABEL: test_gather_undef_shuffle:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %shuf = shufflevector <4 x i64> %gepload, <4 x i64> poison, <4 x i32> <i32 2, i32 undef, i32 0, i32 1>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %shuf
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define double @test_gather_bc(float* %src, <4 x i64>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_gather_bc:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %flt_ptr = getelementptr inbounds float, float* %src, <4 x i64> %gepload
+  %ptr = bitcast <4 x float*> %flt_ptr to <4 x double*>
+  %t10 = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> undef)
+  %t38 = extractelement <4 x double> %t10, i64 2
+  ret double %t38
+}
+
+define void @test_scatter_load(double* %src, <4 x i64>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_load:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movq 8(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movq 24(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %gepload
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define void @test_scatter_sext(double* %src, <4 x i32>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_sext:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movslq (%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movslq 4(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movslq 8(%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movslq 12(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i32>, <4 x i32>* %p, align 4
+  %idx = sext <4 x i32> %gepload to <4 x i64>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %idx
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define void @test_scatter_zext(double* %src, <4 x i32>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_zext:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl (%rsi), %eax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movl 4(%rsi), %eax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movl 8(%rsi), %eax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movl 12(%rsi), %eax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i32>, <4 x i32>* %p, align 4
+  %idx = zext <4 x i32> %gepload to <4 x i64>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %idx
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define void @test_scatter_shuffle(double* %src, <4 x i64>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_shuffle:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movq 8(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %shuf = shufflevector <4 x i64> %gepload, <4 x i64> poison, <4 x i32> <i32 2, i32 0, i32 0, i32 1>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %shuf
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define void @test_scatter_undef_shuffle(double* %src, <4 x i64>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_undef_shuffle:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi)
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    movq 8(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,8)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %shuf = shufflevector <4 x i64> %gepload, <4 x i64> poison, <4 x i32> <i32 undef, i32 0, i32 0, i32 1>
+  %ptr = getelementptr inbounds double, double* %src, <4 x i64> %shuf
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+define void @test_scatter_bc(float* %src, <4 x i64>* %p, <4 x double> %data) {
+; CHECK-LABEL: test_scatter_bc:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq (%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    movq 8(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
+; CHECK-NEXT:    movq 16(%rsi), %rax
+; CHECK-NEXT:    vmovlps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    movq 24(%rsi), %rax
+; CHECK-NEXT:    vmovhps %xmm0, (%rdi,%rax,4)
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+  %gepload = load <4 x i64>, <4 x i64>* %p, align 4
+  %flt_ptr = getelementptr inbounds float, float* %src, <4 x i64> %gepload
+  %ptr = bitcast <4 x float*> %flt_ptr to <4 x double*>
+  call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %data, <4 x double*> %ptr, i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
+; Function Attrs: nofree nosync nounwind readonly willreturn
+declare <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*>, i32, <4 x i1>, <4 x double>)
+
+declare void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double>, <4 x double*>, i32, <4 x i1>)
+
 ; Function Attrs: nofree nosync nounwind readonly willreturn
 declare <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*>, i32, <2 x i1>, <2 x i32>)
 
 declare void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32>, <2 x i32*>, i32, <2 x i1>)
+

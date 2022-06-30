@@ -64,16 +64,17 @@ public:
 
     // These methods are called by the corresponding debug builtins
     //
-    void Stoppoint(const llvm::MDNode* line_metadata);
-    void EnterFunction(const llvm::MDNode* subprogram_mdn);
-    void ExitFunction(const llvm::MDNode* subprogram_mdn);
-    void DeclareLocal(void* addr, const llvm::MDNode* description, const llvm::MDNode* expression);
-    void DeclareGlobal(void* addr, const llvm::MDNode* description);
+    void Stoppoint(const llvm::MDNode *line_metadata) override;
+    void EnterFunction(const llvm::MDNode *subprogram_mdn) override;
+    void ExitFunction(const llvm::MDNode *subprogram_mdn) override;
+    void DeclareLocal(void *addr, const llvm::MDNode *description,
+                      const llvm::MDNode *expression) override;
+    void DeclareGlobal(void *addr, const llvm::MDNode *description) override;
 
     // Check if the global id passed in as a triple of numbers matches the
     // debugged global id
     //
-    bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z);
+    bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) override;
 
     // Wait until the client asks to start debugging, initializing the 
     // debugging session according to the client's request.

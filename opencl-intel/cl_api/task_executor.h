@@ -405,8 +405,6 @@ public:
     // Returns an ITaskGroup for NDRange commands to use to wait for their children
     virtual Intel::OpenCL::Utils::SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() = 0;
 
-    // Returns an optional in-order ITaskList that can be used to enqueue child kernels in debug mode
-    virtual ITaskList* GetDebugInOrderDeviceQueue() { return nullptr; }
 };
 
 class ITaskExecutorObserver;
@@ -611,17 +609,6 @@ public:
      * @return a new IThreadLibTaskGroup in device
      */
     virtual Intel::OpenCL::Utils::SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
-
-    /**
-     * Create an in-order debug device queue
-     * @param rootDevice the root device on which the queue will reside
-     */
-    virtual void CreateDebugDeviceQueue(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& rootDevice) = 0;
-
-    /**
-     * Destroy the in-order debug device queue
-     */
-    virtual void DestroyDebugDeviceQueue() = 0;
 
     /// Retrieve error code, e.g. LoadLibraryEx error code.
     virtual int GetErrorCode() = 0;

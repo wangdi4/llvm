@@ -17,8 +17,8 @@
 ; _ZN1FC2Ev: Verifies that reverse argument promotion is done for
 ;  AppendElem (_ZN7BaseArrIPsE3addEPS0_).
 
-; RUN: opt < %s -dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck  --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck  --check-prefix=CHECK-OP %s
 

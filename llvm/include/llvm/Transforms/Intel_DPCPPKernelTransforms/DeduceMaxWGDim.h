@@ -12,7 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_DEDUCEMAXWGDIM_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 
@@ -25,12 +25,12 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, RuntimeService *RTService);
+  bool runImpl(Module &M, RuntimeService &RTS);
 
 private:
   bool runOnFunction(Function &F);
 
-  DPCPPKernelCompilationUtils::FuncSet ForbiddenFuncUsers;
+  CompilationUtils::FuncSet ForbiddenFuncUsers;
 };
 
 } // namespace llvm

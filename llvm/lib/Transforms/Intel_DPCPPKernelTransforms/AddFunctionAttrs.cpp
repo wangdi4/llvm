@@ -1,6 +1,6 @@
 //===- AddFunctionAttrs.cpp - Add function attributes -----------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,12 +11,12 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFunctionAttrs.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-function-attrs"
 
@@ -104,7 +104,7 @@ static bool handleSyncBuiltinAttributes(Module &M) {
 
   // Get all function that calls synchronize built-ins in/direct.
   FuncSet SyncFunctions;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncBuiltins, SyncFunctions);
+  LoopUtils::fillFuncUsersSet(SyncBuiltins, SyncFunctions);
 
   SyncFunctions.insert(SyncBuiltins.begin(), SyncBuiltins.end());
 

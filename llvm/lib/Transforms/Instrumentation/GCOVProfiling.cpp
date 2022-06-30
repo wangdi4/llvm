@@ -30,8 +30,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Pass.h" // INTEL
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -83,7 +83,7 @@ GCOVOptions GCOVOptions::getDefault() {
 
   if (DefaultGCOVVersion.size() != 4) {
     llvm::report_fatal_error(Twine("Invalid -default-gcov-version: ") +
-                             DefaultGCOVVersion);
+                             DefaultGCOVVersion, /*GenCrashDiag=*/false);
   }
   memcpy(Options.Version, DefaultGCOVVersion.c_str(), 4);
   return Options;
@@ -165,6 +165,7 @@ private:
   StringMap<bool> InstrumentedFiles;
 };
 
+#if INTEL_CUSTOMIZATION
 class GCOVProfilerLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -197,6 +198,7 @@ public:
 private:
   GCOVProfiler Profiler;
 };
+#endif // INTEL_CUSTOMIZATION
 
 struct BBInfo {
   BBInfo *Group;
@@ -233,6 +235,7 @@ struct Edge {
 };
 }
 
+#if INTEL_CUSTOMIZATION
 char GCOVProfilerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(
     GCOVProfilerLegacyPass, "insert-gcov-profiling",
@@ -247,6 +250,7 @@ INITIALIZE_PASS_END(
 ModulePass *llvm::createGCOVProfilerPass(const GCOVOptions &Options) {
   return new GCOVProfilerLegacyPass(Options);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static StringRef getFunctionName(const DISubprogram *SP) {
   if (!SP->getLinkageName().empty())

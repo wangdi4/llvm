@@ -22,6 +22,10 @@ namespace llvm {
 class RuntimeService {
 public:
   RuntimeService(ArrayRef<Module *> BuiltinModules) {
+    setBuiltinModules(BuiltinModules);
+  }
+
+  void setBuiltinModules(ArrayRef<Module *> BuiltinModules) {
     this->BuiltinModules.assign(BuiltinModules.begin(), BuiltinModules.end());
   }
 
@@ -38,13 +42,6 @@ public:
 
   /// Returns true if the function is atomic built-in.
   bool isAtomicBuiltin(StringRef FuncName) const;
-
-  /// Check if \p CI is an TID generator with constant operator.
-  /// \returns a tuple of
-  ///   * true if \p CI is TID generator.
-  ///   * true if there is an error that its argument is not constant.
-  ///   * dimension of the TID generator.
-  std::tuple<bool, bool, unsigned> isTIDGenerator(const CallInst *CI) const;
 
   /// Return true if the function is a descriptor of image built-in.
   /// \param FuncName Function name to check.

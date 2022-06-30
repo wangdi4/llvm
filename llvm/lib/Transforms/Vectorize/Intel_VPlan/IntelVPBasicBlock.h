@@ -33,6 +33,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
+#include "llvm/Support/BlockFrequency.h"
 
 namespace llvm {
 
@@ -138,6 +139,12 @@ private:
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
 
+  BlockFrequency BlockFreq;
+
+  using AsVPPHINodeFunc = std::function<VPPHINode &(VPInstruction &)>;
+  using AsVPPHINodeFuncConst =
+      std::function<const VPPHINode &(const VPInstruction &)>;
+
 public:
   /// Instruction iterators...
   using iterator = VPInstructionListTy::iterator;
@@ -145,6 +152,10 @@ public:
   using reverse_iterator = VPInstructionListTy::reverse_iterator;
   using const_reverse_iterator = VPInstructionListTy::const_reverse_iterator;
 
+  using phi_iterator_range =
+      iterator_range<mapped_iterator<iterator, AsVPPHINodeFunc, VPPHINode &>>;
+  using phi_const_iterator_range = iterator_range<
+      mapped_iterator<const_iterator, AsVPPHINodeFuncConst, const VPPHINode &>>;
   //===--------------------------------------------------------------------===//
   /// Instruction iterator methods
   ///
@@ -230,40 +241,8 @@ public:
   void insertBefore(VPBasicBlock *MovePos);
   void insertAfter(VPBasicBlock *MovePos);
 
-  auto getVPPhis() {
-    auto AsVPPHINode = [](VPInstruction &Instruction) -> VPPHINode & {
-      return cast<VPPHINode>(Instruction);
-    };
-
-    // If the block is empty or if it has no PHIs, return null range
-    if (empty() || !isa<VPPHINode>(begin()))
-      return map_range(make_range(end(), end()), AsVPPHINode);
-
-    // Increment iterator till a non PHI VPInstruction is found
-    iterator It = begin();
-    while (It != end() && isa<VPPHINode>(It))
-      ++It;
-
-    return map_range(make_range(begin(), It), AsVPPHINode);
-  }
-
-  auto getVPPhis() const {
-    auto AsVPPHINode =
-        [](const VPInstruction &Instruction) -> const VPPHINode & {
-      return cast<VPPHINode>(Instruction);
-    };
-
-    // If the block is empty or if it has no PHIs, return null range
-    if (empty() || !isa<VPPHINode>(begin()))
-      return map_range(make_range(end(), end()), AsVPPHINode);
-
-    // Increment iterator till a non PHI VPInstruction is found
-    const_iterator It = begin();
-    while (It != end() && isa<VPPHINode>(It))
-      ++It;
-
-    return map_range(make_range(begin(), It), AsVPPHINode);
-  }
+  phi_iterator_range getVPPhis();
+  phi_const_iterator_range getVPPhis() const;
 
   VPBasicBlock(const Twine &Name, VPlan *Plan);
 
@@ -393,6 +372,9 @@ public:
 
   VPBranchInst *getTerminator();
   const VPBranchInst *getTerminator() const;
+
+  BlockFrequency getFrequency() const { return BlockFreq; }
+  void setFrequency(BlockFrequency Freq) { BlockFreq = Freq; }
 
 private:
   /// Create an IR BasicBlock to hold the instructions vectorized from this

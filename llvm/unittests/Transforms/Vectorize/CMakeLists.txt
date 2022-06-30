@@ -27,10 +27,9 @@ add_llvm_unittest(VectorizeTests
   IntelVPlanCheckHeuristics.cpp
 # end INTEL_FEATURE_SW_ADVANCED
 # end INTEL_CUSTOMIZATION
-  VPlanDominatorTreeTest.cpp
-  VPlanLoopInfoTest.cpp
-  VPlanPredicatorTest.cpp
   VPlanTest.cpp
   VPlanHCFGTest.cpp
   VPlanSlpTest.cpp
   )
+
+set_property(TARGET VectorizeTests PROPERTY FOLDER "Tests/UnitTests/TransformsTests")

@@ -87,7 +87,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningDSB,
       X86::Tuning2KDSB,
       X86::Tuning4KDSB,
-      X86::TuningCMULFalseDeps,
+      X86::TuningMULCFalseDeps,
       X86::TuningPERMFalseDeps,
       X86::TuningRANGEFalseDeps,
       X86::TuningGETMANTFalseDeps,
@@ -96,6 +96,11 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
 #endif // INTEL_CUSTOMIZATION
       X86::TuningPadShortFunctions,
       X86::TuningPOPCNTFalseDeps,
+      X86::TuningMULCFalseDeps,
+      X86::TuningPERMFalseDeps,
+      X86::TuningRANGEFalseDeps,
+      X86::TuningGETMANTFalseDeps,
+      X86::TuningMULLQFalseDeps,
       X86::TuningSlow3OpsLEA,
       X86::TuningSlowDivide32,
       X86::TuningSlowDivide64,
@@ -161,7 +166,7 @@ public:
   InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
                                  ArrayRef<int> Mask, int Index,
                                  VectorType *SubTp,
-                                 ArrayRef<Value *> Args = None);
+                                 ArrayRef<const Value *> Args = None);
   InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                    TTI::CastContextHint CCH,
                                    TTI::TargetCostKind CostKind,
@@ -258,14 +263,14 @@ public:
   InstructionCost getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
                                       const APInt &Imm, Type *Ty,
                                       TTI::TargetCostKind CostKind);
-  bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
-                     TargetTransformInfo::LSRCost &C2);
+  bool isLSRCostLess(const TargetTransformInfo::LSRCost &C1,
+                     const TargetTransformInfo::LSRCost &C2);
   bool canMacroFuseCmp();
   bool isLegalMaskedLoad(Type *DataType, Align Alignment);
   bool isLegalMaskedStore(Type *DataType, Align Alignment);
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
-  bool isLegalBroadcastLoad(Type *ElementTy, unsigned NumElements) const;
+  bool isLegalBroadcastLoad(Type *ElementTy, ElementCount NumElements) const;
   bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
   bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment) {
     return forceScalarizeMaskedGather(VTy, Alignment);
@@ -303,6 +308,7 @@ public:
       const Module *M) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
+  bool hasVLX() const;
   bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);

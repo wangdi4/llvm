@@ -23,7 +23,7 @@
 
 
 ; Check HIR
-; CHECK: DO i2 = 0, {{.*}} + -1, 4 <DO_LOOP>
+; CHECK: DO i2 = 0, {{.*}}, 4 <DO_LOOP>
 ; CHECK: [[E0:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;
 ; CHECK-NEXT: ([[ArrB:%.*]])[0] = [[E0]];
 ; CHECK-NEXT: [[E1:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;

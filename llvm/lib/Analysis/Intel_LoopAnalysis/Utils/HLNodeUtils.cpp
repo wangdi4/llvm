@@ -1197,7 +1197,7 @@ HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
   StringRef PutsName = TLI.getName(LibFunc_puts);
   FunctionCallee PutsCallee = getModule().getOrInsertFunction(
       PutsName, Type::getInt32Ty(Ctx), Type::getInt8PtrTy(Ctx, 0));
-  inferLibFuncAttributes(&getModule(), PutsName, TLI);
+  inferNonMandatoryLibFuncAttrs(&getModule(), PutsName, TLI);
 
   GlobalVariable *ConstStr =
       DummyIRBuilder->CreateGlobalString(Message, "hir.str");
@@ -1271,7 +1271,7 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
 
   MemCpyInst *MemCpyCall = cast<MemCpyInst>(Call);
   MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
-  MemCpyCall->setDestAlignment(StoreRef->getAlignment());
+  MemCpyCall->setDestAlignment(MaybeAlign(StoreRef->getAlignment()));
 
   Call->setDebugLoc(StoreRef->getDebugLoc());
 
@@ -1294,7 +1294,7 @@ HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
   std::tie(HInst, Call) = createCallImpl(MemsetFunc, Ops);
 
   MemSetInst *MemSetCall = cast<MemSetInst>(Call);
-  MemSetCall->setDestAlignment(StoreRef->getAlignment());
+  MemSetCall->setDestAlignment(MaybeAlign(StoreRef->getAlignment()));
 
   Call->setDebugLoc(StoreRef->getDebugLoc());
 

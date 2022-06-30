@@ -1,6 +1,14 @@
-OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v8f64, v16f32],           0, [{
-    return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
-  }]>;
+// Copyright (C) 2016-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 //======v16f32 and v8f64 implementation===============================
 
@@ -66,7 +74,3 @@ OclBuiltinImpl all_v8i64 = OclBuiltinImpl<all, [v8i64], 0, [{
     return as_$ReturnType(((mask & 0xAA) == 0xAA));
   }]>;
 */
-
-// v32v64
-list<OclType> math_v32v64_expand = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
-OclBuiltinImpl isnan_expand_v32v64 = OclBuiltinImpl<isnan, math_v32v64_expand, 0, Expand1>;

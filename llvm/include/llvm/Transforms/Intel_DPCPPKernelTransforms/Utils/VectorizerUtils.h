@@ -1,6 +1,6 @@
 //===-- VectorizerUtils.h - Vectorizer utilities --------------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,7 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_VECTORIZER_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_VECTORIZER_UTILS_H
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 
@@ -24,20 +24,16 @@ public:
   /// Checks whether we can (as opposed to should) vectorize this function
   /// for VPO. \param F Function to check. \param UnsupportedFuncs
   /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
-  /// \param RTService Runtime service.
+  /// \param RTS Runtime service.
   /// \param EnableDirectCallVectorization Whether to enable direct function
   /// call vectorization.
   /// \param EnableSGDirectCallVectorization Whether to enable direct
   /// subgroup function call vectorization. \returns true if the function
   /// can be vectorized.
-  static bool
-  canVectorizeForVPO(Function &F, RuntimeService *RTService,
-                     DPCPPKernelCompilationUtils::FuncSet &UnsupportedFuncs,
-                     bool EnableDirectCallVectorization = false,
-                     bool EnableSGDirectCallVectorization = false);
-
-  // Check if the function has variable access to get_global/loval_id(X)
-  static bool hasVariableGetTIDAccess(Function &F, RuntimeService *RTService);
+  static bool canVectorizeForVPO(Function &F,
+                                 CompilationUtils::FuncSet &UnsupportedFuncs,
+                                 bool EnableDirectCallVectorization = false,
+                                 bool EnableSGDirectCallVectorization = false);
 
   // Get unsupported function in a module.
   // An unsupported function is function that contains
@@ -48,8 +44,7 @@ public:
   // that is respone for calculating the barrier/get_local_id/get_global_id
   // cannot passed as is to the scalar function, what make it too difficult
   // to support these cases.
-  static DPCPPKernelCompilationUtils::FuncSet
-  getNonInlineUnsupportedFunctions(Module &M);
+  static CompilationUtils::FuncSet getNonInlineUnsupportedFunctions(Module &M);
 };
 
 /// Create a broadcast sequence (insertelement + shufflevector).

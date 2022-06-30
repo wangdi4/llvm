@@ -26,10 +26,8 @@
 #define STR(s) #s
 
 #ifdef _WIN32
-	#define DUP _dup
-	#define DUP2 _dup2
-	#define FILENO _fileno
-	#define FLUSHALL() _flushall()
+#define FILENO _fileno
+#define FLUSHALL() _flushall()
 #else
 	#define FILENO fileno
 	#define FLUSHALL() fflush(NULL)

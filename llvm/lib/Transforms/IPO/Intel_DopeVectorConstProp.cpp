@@ -34,10 +34,23 @@ using namespace dvanalysis;
 STATISTIC(NumFormalsDVConstProp, "Number of DV formals const propagated");
 STATISTIC(NumGlobalDVConstProp, "Number of Global DV const propagated");
 STATISTIC(NumNestedDVConstProp, "Number of Nested DV const propagated");
+STATISTIC(NumLocalDVConstProp, "Number of local DV const propagated");
 
 // Enable the global dope vector constant propagation
 static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
                                  cl::init(true), cl::ReallyHidden);
+
+// Enable the local dope vector constant propagation
+static cl::opt<bool> DVLocalConstProp("dope-vector-local-const-prop",
+                                      cl::init(true), cl::ReallyHidden);
+
+#if INTEL_FEATURE_SW_ADVANCED
+// Lowest number of call instructions with the attribute
+// "prefer-inline-tile-choice" in a function.
+static cl::opt<unsigned> MinNumInlineTileMVCalls("dvcp-tile-mv-min-calls",
+                                                 cl::init(7),
+                                                 cl::ReallyHidden);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
@@ -86,7 +99,7 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
   // corresponding to 'Arg'.
   for (const User *U : F.users()) {
     uint32_t ArRank;
-    Type *ElemType;
+    Type *ElemType = nullptr;
     auto CB = cast<CallBase>(U);
     Value *V = CB->getArgOperand(Arg.getArgNo());
     // Each actual must be a pointer to a dope vector of the same expected
@@ -94,9 +107,17 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     Type *VTy = V->getType();
     if (!VTy->isPointerTy())
       return false;
-    VTy = VTy->getPointerElementType();
-    if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType) ||
-        ArRank != ArrayRank || ElemType != ElementType)
+    VTy = VTy->getNonOpaquePointerElementType();
+    if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType))
+      return false;
+
+    // NOTE: This needs to be updated when opaque pointers support is
+    // enabled.
+    if (VTy->getContext().supportsTypedPointers())
+      assert(ElemType &&
+             "Pointer address not collected when checking for constants");
+
+    if (ArRank != ArrayRank || ElemType != ElementType)
       return false;
     // Use the dope analyzer to get the value of the dope vector constants.
     DopeVectorAnalyzer DVAActual(V);
@@ -245,7 +266,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     // to a structure, each field of which points to an uplevel variable.
     assert(CF->arg_size() != 0 && "Expecting at least one arg");
     assert(CF->getArg(0)->getType()->isPointerTy() &&
-        isUplevelVarType(CF->getArg(0)->getType()->getPointerElementType()) &&
+        isUplevelVarType(
+        CF->getArg(0)->getType()->getNonOpaquePointerElementType()) &&
         "Expecting pointer to uplevel type");
     // Identify GEPs that refer to the dope vector uplevel variable.
     Argument *Arg = CF->getArg(0);
@@ -281,47 +303,75 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
+#if INTEL_FEATURE_SW_ADVANCED
+// Return true if there is any condition in function F that should disable
+// DVCP for the lowerbound field in the case of global dope vectors. The
+// reason is that DVCP simplifies the instructions and makes difficult the
+// analysis process in loopopt.
+static bool disableDVCPForLowerBound(Function *F) {
+  if (!F)
+    return false;
+
+  // Conditions to disable DVCP for lowerbounds:
+  //   1) The number of calls set as "prefer-inline-tile-choice" is equal
+  //      or higher than MinNumInlineTileMVCalls
+  //
+  // TODO: List will be expanded as other conditions are identified.
+
+  unsigned NumCallsForInlineTile = 0;
+  for (Instruction &I : instructions(F)) {
+    auto *Call = dyn_cast<CallBase>(&I);
+    if (!Call)
+      continue;
+
+    if (Call->hasFnAttr("prefer-inline-tile-choice"))
+      NumCallsForInlineTile++;
+  }
+
+  return MinNumInlineTileMVCalls <= NumCallsForInlineTile;
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
+
+// Actual function that propagates the constants for the input dope
+// vector field
+static bool propagateFieldConstant(DopeVectorFieldUse *DVField) {
+  if (DVField->getIsBottom())
+    return false;
+  ConstantInt *CI = DVField->getConstantValue();
+  if (!CI)
+    return false;
+
+  bool Change = false;
+  unsigned LoadCount = 0;
+  for(auto *LI : DVField->loads()) {
+    if (DVField->isNotForDVCPLoad(LI)) {
+      LLVM_DEBUG({
+        dbgs() << "NOT REPLACING LOAD IN FXN "
+               << LI->getFunction()->getName() << " ";
+        LI->dump();
+      });
+      continue;
+    }
+    LoadCount++;
+    LI->replaceAllUsesWith(CI);
+    Change = true;
+  }
+
+  LLVM_DEBUG({
+    if (Change)
+      dbgs() << "REPLACING " << LoadCount << " LOAD"
+             << (LoadCount > 1 ? "S " : " ") << "WITH "
+             << CI->getZExtValue() << "\n";
+  });
+
+  return Change;
+}
+
 // Return true if the constants collected for the input GlobDV were propagated
 static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
-
-  // Actual function that propagates the constants for the input dope
-  // vector field
-  auto PropagateFieldConstant = [](DopeVectorFieldUse *DVField) -> bool {
-    if (DVField->getIsBottom())
-      return false;
-
-    ConstantInt *CI = DVField->getConstantValue();
-    if (!CI)
-      return false;
-
-    bool Change = false;
-    unsigned LoadCount = 0;
-    for(auto *LI : DVField->loads()) {
-      if (DVField->isNotForDVCPLoad(LI)) {
-        LLVM_DEBUG({
-          dbgs() << "NOT REPLACING LOAD IN FXN "
-                 << LI->getFunction()->getName() << " ";
-          LI->dump();
-        });
-        continue;
-      }
-      LoadCount++;
-      LI->replaceAllUsesWith(CI);
-      Change = true;
-    }
-    LLVM_DEBUG({
-      if (Change)
-        dbgs() << "REPLACING " << LoadCount << " LOAD"
-               << (LoadCount > 1 ? "S " : " ") << "WITH "
-               << CI->getZExtValue() << "\n";
-    });
-    return Change;
-  };
-
   // Propagate the constants in the extent, stride and lower bound for the
   // input dope vector info
-  auto PropagateDVConstant =
-      [&PropagateFieldConstant](DopeVectorInfo *DVInfo) -> bool {
+  auto PropagateDVConstant =[](DopeVectorInfo *DVInfo) -> bool {
 
     // Analysis must pass
     if (DVInfo->getAnalysisResult() != DopeVectorInfo::AnalysisResult::AR_Pass)
@@ -346,9 +396,9 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
              "Trying to propagate dope vector constant information without "
              "collecting the proper information");
 
-      Change |= PropagateFieldConstant(ExtentField);
-      Change |= PropagateFieldConstant(StrideField);
-      Change |= PropagateFieldConstant(LBField);
+      Change |= propagateFieldConstant(ExtentField);
+      Change |= propagateFieldConstant(StrideField);
+      Change |= propagateFieldConstant(LBField);
     }
 
     if (Change)
@@ -387,6 +437,23 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
     return false;
 
   bool Change = false;
+#if INTEL_FEATURE_SW_ADVANCED
+  // Check if we need to disable DVCP for the lower bounds
+  //
+  // TODO: This is conservative. We can relax this in the future by just
+  // turning off the propagation in the functions we care about.
+  bool DisableLBDVCP = false;
+  for (auto &F : M.functions()) {
+    if (disableDVCPForLowerBound(&F)) {
+      DisableLBDVCP = true;
+      break;
+    }
+  }
+  DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
+    if (DisableLBDVCP)
+      dbgs() << "DVCP FOR LOWER BOUND FIELD IS DISABLED\n";
+  });
+#endif // INTEL_FEATURE_SW_ADVANCED
   for (auto &Glob : M.globals()) {
     Type *GlobType = Glob.getValueType();
 
@@ -395,6 +462,11 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
 
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
     GlobDV.collectAndValidate(DL, /*ForDVCP=*/true);
+
+#if INTEL_FEATURE_SW_ADVANCED
+    if (DisableLBDVCP)
+      GlobDV.disableLowerBound();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
     // Propagate the constants
     Change |= propagateGlobalDopeVectorConstants(GlobDV);
@@ -443,18 +515,22 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
     LLVM_DEBUG(dbgs() << "NO FORTRAN FUNCTION\n");
     LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
     return false;
-  } 
+  }
+
+  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
+  // will be turned back on once the FE supplies a mechanism to collect the
+  // type of the pointers.
+  if (!M.getContext().supportsTypedPointers()) {
+    LLVM_DEBUG(dbgs() << "OPAQUE POINTERS ENABLED\n");
+    LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
+    return false;
+  }
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
 
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
-    if (!F.hasLocalLinkage()) {
-      LLVM_DEBUG(dbgs() << "FUNCTION " << F.getName()
-                        << " DOES NOT HAVE LOCAL LINKAGE\n");
-      continue;
-    }
     if (F.hasAddressTaken()) {
       LLVM_DEBUG(dbgs() << "FUNCTION " << F.getName()
                         << " IS ADDRESS TAKEN\n");
@@ -465,56 +541,130 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
                         << " HAS NON-CALLBASE USER\n");
       continue;
     }
-    // Look for formal args which are pointers to dope vectors
-    for (Argument &Arg : F.args()) {
-      // Find if Arg is a pointer to a dope vector.
+
+    if (F.hasLocalLinkage()) {
+      // Look for formal args which are pointers to dope vectors
+      for (Argument &Arg : F.args()) {
+        // Find if Arg is a pointer to a dope vector.
+        uint32_t ArRank;
+        Type *ElemType;
+        Type *Ty = Arg.getType();
+        if (!Ty->isPointerTy())
+          continue;
+        Ty = Ty->getNonOpaquePointerElementType();
+        if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
+          continue;
+        LLVM_DEBUG({
+          // NOTE: This needs to be updated when opaque pointers support is
+          // enabled.
+          if (Ty->getContext().supportsTypedPointers())
+            assert(ElemType &&
+                   "Pointer address not collected for debugging");
+
+          dbgs() << "DV FOUND: ARG #" << Arg.getArgNo() << " "
+                 << F.getName() << " " << ArRank << " x ";
+          ElemType->dump();
+        });
+        DopeVectorAnalyzer DVAFormal(&Arg);
+        DVAFormal.analyze(false);
+        bool IsValid = DVAFormal.getIsValid();
+        LLVM_DEBUG(dbgs() << (IsValid ? "VALID" : "NOT VALID") << "\n");
+        if (!IsValid)
+          continue;
+        if (!DVAFormal.analyzeDopeVectorUseInFunction(F)) {
+          LLVM_DEBUG(dbgs() << "UNSAFE USE OF DOPE VECTOR\n");
+          continue;
+        }
+        // Collect the constant dope vector lower bounds, strides, and extents
+        // into the small vectors.
+        SmallVector<Optional<uint64_t>, 3> LowerBound;
+        SmallVector<Optional<uint64_t>, 3> Stride;
+        SmallVector<Optional<uint64_t>, 3> Extent;
+        if (!hasDopeVectorConstants(F, Arg, ArRank, ElemType,
+            LowerBound, Stride, Extent)) {
+          LLVM_DEBUG(dbgs() << "NO CONSTANT DOPE VECTOR FIELDS\n");
+          continue;
+        }
+        // Alter the IR to reflect the determined dope vector constants.
+        NumFormalsDVConstProp++;
+        LLVM_DEBUG({
+          for (unsigned I = 0; I < ArRank; I++) {
+            if (LowerBound[I].hasValue())
+              dbgs() << "LB[" << I << "] = " << LowerBound[I].getValue() << "\n";
+            if (Stride[I].hasValue())
+              dbgs() << "ST[" << I << "] = " << Stride[I].getValue() << "\n";
+            if (Extent[I].hasValue())
+              dbgs() << "EX[" << I << "] = " << Extent[I].getValue() << "\n";
+          }
+        });
+        Change |= replaceDopeVectorConstants(Arg, DVAFormal, ArRank,
+            LowerBound, Stride, Extent);
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "FUNCTION " << F.getName()
+                        << " DOES NOT HAVE LOCAL LINKAGE\n");
+      if (!DVLocalConstProp)
+        continue;
+    }
+
+    if (F.isDeclaration())
+      continue;
+
+    // Try to find the dope vectors that are local to the function and won't be
+    // passed to other functions. This case is simpler than arguments that are
+    // dope vectors. It checks for allocation sites (AllocaInst), then runs
+    // the DopeVectorAnalyzer and propagates the data. The DopeVectorAnalyzer
+    // will check that the information doesn't escape out of the function.
+    for (Instruction &I : instructions(F)) {
+      auto *AllocI = dyn_cast<AllocaInst>(&I);
+      if (!AllocI)
+        continue;
+
       uint32_t ArRank;
       Type *ElemType;
-      Type *Ty = Arg.getType();
-      if (!Ty->isPointerTy())
-        continue;
-      Ty = Ty->getPointerElementType();
+      Type *Ty = AllocI->getAllocatedType();
       if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
         continue;
       LLVM_DEBUG({
-        dbgs() << "DV FOUND: ARG #" << Arg.getArgNo() << " "
-               << F.getName() << " " << ArRank << " x ";
+        // NOTE: This needs to be updated when opaque pointers support is
+        // enabled.
+        if (Ty->getContext().supportsTypedPointers())
+          assert(ElemType &&
+                 "Pointer address not collected for debugging AllocaInst");
+
+        dbgs() << "  LOCAL DV FOUND: " << *AllocI
+               << "\n    RANK: " << ArRank << "\n    TYPE: ";
         ElemType->dump();
       });
-      DopeVectorAnalyzer DVAFormal(&Arg);
-      DVAFormal.analyze(false);
-      bool IsValid = DVAFormal.getIsValid();
-      LLVM_DEBUG(dbgs() << (IsValid ? "VALID" : "NOT VALID") << "\n");
+
+      DopeVectorAnalyzer DVALocal(AllocI, &GetTLI);
+      DVALocal.analyze(/*ForCreation*/ true, /*IsLocal*/ true);
+      bool IsValid = DVALocal.getIsValid();
+      LLVM_DEBUG(dbgs() << "    ANALYSIS RESULT: "
+                        << (IsValid ? "VALID" : "NOT VALID") << "\n");
       if (!IsValid)
         continue;
-      if (!DVAFormal.analyzeDopeVectorUseInFunction(F)) {
-        LLVM_DEBUG(dbgs() << "UNSAFE USE OF DOPE VECTOR\n");
-        continue;
+
+      bool DVCPLocalRun = false;
+      for (unsigned I = 0; I < ArRank; I++) {
+        DopeVectorFieldUse *ExtentField =
+            const_cast<DopeVectorFieldUse *>(&DVALocal.getExtentField(I));
+        DopeVectorFieldUse *StrideField =
+            const_cast<DopeVectorFieldUse *>(&DVALocal.getStrideField(I));
+        DopeVectorFieldUse *LowerBoundField =
+            const_cast<DopeVectorFieldUse*>(&DVALocal.getLowerBoundField(I));
+
+        DVCPLocalRun = propagateFieldConstant(ExtentField);
+        DVCPLocalRun |= propagateFieldConstant(StrideField);
+        DVCPLocalRun |= propagateFieldConstant(LowerBoundField);
       }
-      // Collect the constant dope vector lower bounds, strides, and extents
-      // into the small vectors.
-      SmallVector<Optional<uint64_t>, 3> LowerBound;
-      SmallVector<Optional<uint64_t>, 3> Stride;
-      SmallVector<Optional<uint64_t>, 3> Extent;
-      if (!hasDopeVectorConstants(F, Arg, ArRank, ElemType,
-          LowerBound, Stride, Extent)) {
-        LLVM_DEBUG(dbgs() << "NO CONSTANT DOPE VECTOR FIELDS\n");
-        continue;
+
+      if (DVCPLocalRun) {
+        NumLocalDVConstProp++;
+        Change |= DVCPLocalRun;
       }
-      // Alter the IR to reflect the determined dope vector constants.
-      NumFormalsDVConstProp++;
-      LLVM_DEBUG({
-        for (unsigned I = 0; I < ArRank; I++) {
-          if (LowerBound[I].hasValue())
-            dbgs() << "LB[" << I << "] = " << LowerBound[I].getValue() << "\n";
-          if (Stride[I].hasValue())
-            dbgs() << "ST[" << I << "] = " << Stride[I].getValue() << "\n";
-          if (Extent[I].hasValue())
-            dbgs() << "EX[" << I << "] = " << Extent[I].getValue() << "\n";
-        }
-      });
-      Change = replaceDopeVectorConstants(Arg, DVAFormal, ArRank,
-          LowerBound, Stride, Extent);
+
+      LLVM_DEBUG(dbgs() << "\n");
     }
   }
 

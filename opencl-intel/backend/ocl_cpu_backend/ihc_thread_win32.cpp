@@ -109,10 +109,8 @@ int _ihc_pthread_detach(void *_thread) {
   /* Closing handle is not supposed to kill thread according to Microsoft docs,
   just drop the handle */
   BOOL res = CloseHandle(handle);
-  if (res == 0) {
-    delete handle;
+  if (res == 0)
     return 0;
-  }
   return GetLastError();
 }
 

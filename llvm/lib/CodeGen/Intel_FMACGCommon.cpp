@@ -472,7 +472,7 @@ void FMAExpr::insertImmediateUsersOfTo(
     for (auto *Opnd : Expr->Operands) {
       if (Opnd == Node) {
         ExprSet.insert(Expr);
-        break;
+        continue;
       }
       if (isa<FMAExpr>(Opnd))
         WorkList.push_back(Opnd);

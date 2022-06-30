@@ -23,15 +23,23 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <tuple>
 
 #define DEBUG_TYPE "dpcpp-kernel-channel-pipe-utils"
 
+using namespace llvm::CompilationUtils;
+
 constexpr static int ChannelSizeLimit = 256 * 1024;
 constexpr static int ChannelArraySizeLimit = 256 * 1024 * 1024;
+
+unsigned DPCPPChannelDepthEmulationMode = llvm::DPCPPChannelPipeUtils::Strict;
+static llvm::cl::opt<unsigned, true> DPCPPChannelDepthEmulationModeOpt(
+    "dpcpp-channel-depth-emulation-mode", llvm::cl::Hidden,
+    llvm::cl::desc("Channel depth emulation mode"),
+    llvm::cl::location(DPCPPChannelDepthEmulationMode));
 
 namespace llvm {
 namespace DPCPPChannelPipeUtils {
@@ -134,12 +142,6 @@ int __pipe_get_total_size_fpga(int packet_size, int depth, int mode) {
 
 } // namespace OpenCLInterface
 
-unsigned DPCPPChannelDepthEmulationMode = OpenCLInterface::ChannelDepth::Strict;
-static cl::opt<unsigned, true> DPCPPChannelDepthEmulationModeOpt(
-    "dpcpp-channel-depth-emulation-mode", cl::Hidden,
-    cl::desc("Channel depth emulation mode"),
-    cl::location(DPCPPChannelDepthEmulationMode));
-
 DiagnosticKind LargeChannelPipeWarningDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
@@ -201,8 +203,20 @@ Function *createPipeGlobalCtor(Module &M) {
   return Ctor;
 }
 
-static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
-                                              const ChannelPipeMD &MD) {
+Function *createPipeGlobalDtor(Module &M) {
+  auto *DtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
+                                   ArrayRef<Type *>(), false);
+  Function *Dtor = cast<Function>(
+      M.getOrInsertFunction("__pipe_global_dtor", DtorTy).getCallee());
+  Dtor->setLinkage(GlobalValue::ExternalLinkage);
+  auto *EntryBB = BasicBlock::Create(M.getContext(), "entry", Dtor);
+  ReturnInst::Create(M.getContext(), EntryBB);
+  appendToGlobalDtors(M, Dtor, /*Priority=*/65535);
+  return Dtor;
+}
+
+GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
+                                       const ChannelPipeMD &MD) {
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
@@ -211,8 +225,7 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   size_t ChanArrayNum = 0;
   size_t SingleChanSize = BSSize;
   if (auto *PipePtrArrayTy = dyn_cast<ArrayType>(GV->getValueType())) {
-    ChanArrayNum = DPCPPKernelCompilationUtils::getNumElementsOfNestedArray(
-        PipePtrArrayTy);
+    ChanArrayNum = getNumElementsOfNestedArray(PipePtrArrayTy);
     BSSize *= ChanArrayNum;
   }
   // If channel size exceeds the threshold, it may leads to potential
@@ -231,12 +244,47 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
       new GlobalVariable(*M, ArrayTy, /*isConstant=*/false, GV->getLinkage(),
                          /*initializer=*/nullptr, GV->getName() + ".bs",
                          /*InsertBefore=*/nullptr, GlobalValue::NotThreadLocal,
-                         DPCPPKernelCompilationUtils::ADDRESS_SPACE_GLOBAL);
+                         ADDRESS_SPACE_GLOBAL);
 
   BS->setInitializer(ConstantAggregateZero::get(ArrayTy));
   BS->setAlignment(MaybeAlign(MD.PacketAlign));
 
   return BS;
+}
+
+ChannelKind getChannelKind(const StringRef Name) {
+  ChannelKind Kind;
+
+  std::tie(Kind.Access, Kind.Blocking) =
+      StringSwitch<std::pair<ChannelKind::AccessKind, bool>>(Name)
+          .StartsWith("_Z18read_channel_intel", {ChannelKind::READ, true})
+          .StartsWith("_Z21read_channel_nb_intel", {ChannelKind::READ, false})
+          .StartsWith("_Z19write_channel_intel", {ChannelKind::WRITE, true})
+          .StartsWith("_Z22write_channel_nb_intel", {ChannelKind::WRITE, false})
+          .Default({ChannelKind::NONE, false});
+
+  return Kind;
+}
+
+ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
+                                     int ChannelDepthEmulationMode) {
+  auto GVMetadata = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(Channel);
+
+  assert(GVMetadata.PipePacketSize.hasValue() &&
+         GVMetadata.PipePacketAlign.hasValue() &&
+         "Channel metadata must contain packet_size and packet_align");
+
+  ChannelPipeMD CMD;
+  CMD.PacketSize = GVMetadata.PipePacketSize.get();
+  CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
+  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
+  CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
+
+  if (!GVMetadata.PipeDepth.hasValue() &&
+      ChannelDepthEmulationMode == ChannelDepthMode::Default)
+    GVMetadata.DepthIsIgnored.set(true);
+
+  return CMD;
 }
 
 void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
@@ -254,8 +302,75 @@ void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
       PacketSize, Depth, Mode};
 
   Builder.CreateCall(PipeInit, CallArgs);
-  Builder.CreateStore(
-      Builder.CreateBitCast(BS, PipeGV->getType()->getElementType()), PipeGV);
+  Builder.CreateStore(Builder.CreateBitCast(BS, PipeGV->getValueType()),
+                      PipeGV);
+}
+
+void initializeGlobalPipeReleaseCall(Function *GlobalDtor,
+                                     Function *PipeReleaseFunc,
+                                     GlobalVariable *PipeGV) {
+  IRBuilder<> Builder(GlobalDtor->getEntryBlock().getTerminator());
+  Value *CallArgs[] = {Builder.CreateBitCast(
+      PipeGV, PipeReleaseFunc->getFunctionType()->getParamType(0))};
+  Builder.CreateCall(PipeReleaseFunc, CallArgs);
+}
+
+PipeTypesHelper::PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
+                                 Type *PipeWOStorageTy)
+    : PipeRWTy(PipeRWStorageTy
+                   ? PipeRWStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
+                   : nullptr),
+      PipeROTy(PipeROStorageTy
+                   ? PipeROStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
+                   : nullptr),
+      PipeWOTy(PipeWOStorageTy
+                   ? PipeWOStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
+                   : nullptr) {}
+
+PipeTypesHelper::PipeTypesHelper(const Module &M)
+    : PipeTypesHelper(
+          StructType::getTypeByName(M.getContext(), "opencl.pipe_rw_t"),
+          StructType::getTypeByName(M.getContext(), "opencl.pipe_ro_t"),
+          StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {}
+
+bool PipeTypesHelper::isLocalPipeType(Type *Ty) const {
+  return (PipeROTy &&
+          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeROTy)) ||
+         (PipeWOTy && isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeWOTy));
+}
+
+bool PipeTypesHelper::isGlobalPipeType(Type *Ty) const {
+  return PipeRWTy && isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeRWTy);
+}
+
+bool PipeTypesHelper::isPipeType(Type *Ty) const {
+  return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
+}
+
+bool PipeTypesHelper::isPipeArrayType(Type *Ty) const {
+  return isa<ArrayType>(Ty) && getArrayElementType(cast<ArrayType>(Ty));
+}
+
+Function *getPipeBuiltin(Module &M, RuntimeService &RTS, const PipeKind &Kind) {
+  if (Kind.Blocking) {
+    // There are no declarations and definitions of blocking pipe built-ins in
+    // RTL's.
+    // Calls to blocking pipe built-ins will be resolved in PipeSupport,
+    // so we just need to insert declarations here.
+    PipeKind NonBlockingKind = Kind;
+    NonBlockingKind.Blocking = false;
+
+    Function *NonBlockingBuiltin = importFunctionDecl(
+        &M, RTS.findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
+    Function *BlockingBuiltin = cast<Function>(
+        M.getOrInsertFunction(getPipeName(Kind),
+                              NonBlockingBuiltin->getFunctionType())
+            .getCallee());
+    return BlockingBuiltin;
+  }
+
+  return importFunctionDecl(
+      &M, RTS.findFunctionInBuiltinModules(getPipeName(Kind)));
 }
 
 } // namespace DPCPPChannelPipeUtils

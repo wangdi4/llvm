@@ -32,6 +32,41 @@ def sincos_gas_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gent
 def sincos_gen_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>;
 }
 
+// masked relaxed math
+let Types = ExpandTypesByVFAndFlatten<[v1f32], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def cos_rm_mask    : OclBuiltin<"cos_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def divide_rm_mask : OclBuiltin<"divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def exp_rm_mask    : OclBuiltin<"exp_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def exp2_rm_mask   : OclBuiltin<"exp2_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def exp10_rm_mask  : OclBuiltin<"exp10_rm",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def log_rm_mask    : OclBuiltin<"log_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def log2_rm_mask   : OclBuiltin<"log2_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def pow_rm_mask    : OclBuiltin<"pow_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
+def sin_rm_mask    : OclBuiltin<"sin_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def tan_rm_mask    : OclBuiltin<"tan_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
+def sincos_pas_rm_mask : OclBuiltin<"sincos_rm", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def sincos_las_rm_mask : OclBuiltin<"sincos_rm", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def sincos_gas_rm_mask : OclBuiltin<"sincos_rm", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def sincos_gen_rm_mask : OclBuiltin<"sincos_rm", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>;
+}
+
+// Linear strided vector variant of relaxed sincos
+let Types = ExpandTypesByVFAndFlatten<[v1f32], [4, 8, 16, 32, 64]>.Tout,
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = true in {
+foreach is_masked = [true, false] in {
+  defvar suffix = "_rm" # !if(is_masked, "_mask", "");
+  defvar mask_arg = !if(is_masked, (ins gentype:$mask), (ins));
+
+  def sincos_pas_strided # suffix : OclBuiltin<"sincos_rm", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, PRIVATE;
+  def sincos_las_strided # suffix : OclBuiltin<"sincos_rm", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, LOCAL;
+  def sincos_gas_strided # suffix : OclBuiltin<"sincos_rm", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>, GLOBAL;
+  def sincos_gen_strided # suffix : OclBuiltin<"sincos_rm", (outs gentype:$ret), !con((ins gentype:$x, psgentype:$cosval), mask_arg), []>;
+} // foreach is_masked
+}
+
 // Implementation of atomic builtins relies on "generic address space" optimization passes
 // There are two of them: Static and Dynamic
 // 1. Static pass is to replace calls to __generic builtin with the source pointer's address space

@@ -96,6 +96,20 @@ void VPIndexReduction::dump(raw_ostream &OS) const {
   ParentRed->getLoopExitInstr()->printAsOperand(OS);
 }
 
+void VPInscanReduction::dump(raw_ostream &OS) const {
+  VPReduction::dump(OS);
+  OS << "  inscan ReductionKind: ";
+  switch (InscanRedKind) {
+  case InscanReductionKind::Inclusive:
+    OS << "inclusive";
+    break;
+  case InscanReductionKind::Exclusive:
+    OS << "exclusive";
+    break;
+  }
+  OS << '\n';
+}
+
 void VPInduction::dump(raw_ostream &OS) const {
   switch (getKind()) {
   default:
@@ -322,13 +336,14 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
-                                            VPValue *Incoming,
-                                            VPInstruction *Exit, RecurKind Kind,
-                                            FastMathFlags FMF, Type *RedTy,
-                                            bool Signed, VPValue *AI,
-                                            bool ValidMemOnly) {
-  VPReduction *Red =
+VPReduction *VPLoopEntityList::addReduction(
+    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
+    RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
+    Optional<InscanReductionKind> InscanRedKind,
+    VPValue *AI, bool ValidMemOnly) {
+  VPReduction *Red = InscanRedKind.hasValue() ?
+      new VPInscanReduction(InscanRedKind.getValue(), Incoming, Exit, Kind,
+                            FMF, RedTy, Signed, ValidMemOnly) :
       new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
@@ -402,10 +417,11 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
 
 VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
     VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
-    Function *Ctor, Function *Dtor, Function *CopyAssign, Type *AllocatedTy,
-    VPValue *AI) {
-  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(
-    std::move(Aliases), K, Explicit, Ctor, Dtor, AllocatedTy, CopyAssign);
+    Function *Ctor, Function *Dtor, Function *CopyAssign, bool IsF90NonPod,
+    Type *AllocatedTy, VPValue *AI) {
+  VPPrivateNonPOD *Priv =
+      new VPPrivateNonPOD(std::move(Aliases), K, Explicit, Ctor, Dtor,
+                          AllocatedTy, CopyAssign, IsF90NonPod);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -680,10 +696,13 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
 void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue *PrivateMem, VPBuilder &Builder,
                                         VPValue &Init, Type *Ty,
-                                        VPValue &Start) {
+                                        VPValue &Start, bool IsInscanInit) {
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
-    Builder.createStore(&Init, PrivateMem);
+    // If we deal with inscan initialization, no need to issue a store,
+    // as the reduction is initialized in the loop header.
+    if (!IsInscanInit)
+      Builder.createStore(&Init, PrivateMem);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -702,12 +721,10 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
 // Replace out-of-the-loop uses of the \p From by the calculated last value (\p
 // To). Code generation should transform those uses to the final IR.
 static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
-  for (auto *User : From->users())
-    // Don't replace use in \To itself. It can use original value as, e.g.,
-    // accumulator of reduction.
-    if (User != To &&
-        (isa<VPExternalUse>(User) || !Loop.contains(cast<VPInstruction>(User))))
-      User->replaceUsesOfWith(From, To);
+  From->replaceUsesWithIf(To, [&Loop, To](VPUser *User) {
+    return User != To && (isa<VPExternalUse>(User) ||
+                          !Loop.contains(cast<VPInstruction>(User)));
+  });
 }
 
 #if INTEL_CUSTOMIZATION
@@ -734,11 +751,144 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
   linkValue(&E, &Final);
 }
 
+void VPLoopEntityList::insertRunningInscanReductionInstrs(
+    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
+    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+    VPBuilder &Builder) {
+  // Nothing to do if no inscan reductions present.
+  if (InscanReductions.empty())
+    return;
+
+  // Remove the pragmas and fence instruction.
+  // Note the insertion point for RunningReduction instructions.
+
+  // Locate the separating pragma directives.
+  VPInstruction *PragmaBegin = nullptr;
+  VPInstruction *PragmaEnd = nullptr;
+  for (auto &I : vpinstructions(&Plan)) {
+    if (VPCallInstruction *Call = dyn_cast<VPCallInstruction>(&I))
+     if (Call->isIntrinsicFromList({Intrinsic::directive_region_entry}))
+       PragmaBegin = Call;
+     else if (Call->isIntrinsicFromList({Intrinsic::directive_region_exit})) {
+       PragmaEnd = Call;
+       break;
+     }
+  }
+  assert(PragmaBegin && PragmaEnd &&
+         "Separating pragma directives were not found!");
+  VPBasicBlock *BeginBlock = PragmaBegin->getParent();
+  VPBasicBlock *EndBlock = PragmaEnd->getParent();
+  assert(BeginBlock && EndBlock && "Separating scan pragma was not found!");
+  assert(BeginBlock->getSingleSuccessor() && EndBlock->getSinglePredecessor() &&
+         "Separating pragma directives must have one successor/predecessor!");
+  assert(BeginBlock->getSingleSuccessor() == EndBlock->getSinglePredecessor() &&
+         "Separating pragma directives must be one basic block away!");
+  VPBasicBlock *FenceBlock = BeginBlock->getSingleSuccessor();
+
+  // Remove the compiler generated fence instruction.
+  VPInstruction *Fence = nullptr;
+  for (auto &I : *FenceBlock) {
+    if (I.getOpcode() == Instruction::Fence) {
+      Fence = &I;
+      break;
+    }
+  }
+  assert(Fence && "Compiler generated fence is expected in scan region!");
+  FenceBlock->eraseInstruction(Fence);
+
+  // Remove the directives.
+  EndBlock->eraseInstruction(PragmaEnd);
+  BeginBlock->eraseInstruction(PragmaBegin);
+
+  // Assert that all inscan reductions are of the same inscan kind,
+  // like all inclusive, or all exclusive.
+  assert((all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
+           return InscanRed->getInscanKind() == InscanReductionKind::Inclusive;
+         }) ||
+         all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
+           return InscanRed->getInscanKind() == InscanReductionKind::Exclusive;
+         })) && "Expect inscan reductions of the same kind!");
+
+  // Process each inscan reduction one by one.
+  // The following needs to happen for in-memory reduction:
+  // 1. Reset the reduction at the loop header with identity value.
+  // 2. Create carry-over phi. One edge is initialized with start value.
+  // 3. Insert running reduction for loaded reduction value and carry-over.
+  // 4. Extract last lane from the running reduction. This will be the second
+  //    edge for carry-over phi.
+  //
+  // pre.header:
+  //   float* %red = allocate-priv float*
+  //   float %red_load = load float* %red
+  //   float %red_init = reduction-init-scalar float 0.0 float %red_load
+  //   store float %red_init float* %red
+  // header:
+  //   float %carry-over = phi [ %red_init, %extract_last_lane ]
+  //   store float -0.000000e+00 float* %red
+  // separating pragma block:
+  //   float %running_red = running-inclusive-reduction float* %red %carry-over
+  //   store float %running_red float* %red
+  //   %extract_last_lane = extract-last-vector-lane float %running_red
+  // post.exit:
+  //   float %red_pre_final = load float* %red
+  //   float %final_red = reduction-final-inscan float %red_pre_final
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+  for (const VPInscanReduction *InscanRed : InscanReductions) {
+    auto *Private = RedPrivateMap.lookup(InscanRed);
+
+    // Initalize the reduction with Identity value in the loop header.
+    VPValue *Identity = getReductionIdentity(InscanRed);
+    VPBasicBlock *Header = Loop.getHeader();
+    Builder.setInsertPointFirstNonPhi(Header);
+    Builder.setCurrentDebugLocation(
+      Header->getTerminator()->getDebugLocation());
+    Builder.createStore(Identity, Private);
+
+    VPValue *StartValue = RedInitMap.lookup(InscanRed);
+    // Create a phi for the carry-over value.
+    Builder.setInsertPointFirstNonPhi(Header);
+    auto *InscanAccumPhi =
+      Builder.createPhiInstruction(Identity->getType(), "inscan.accum");
+    // This phi must be initialized with the reduction start value,
+    // for correct results for each iteration of running reduction.
+    InscanAccumPhi->addIncoming(StartValue, Loop.getLoopPreheader());
+
+    // Set insertion to fence block, it could as well be either
+    // pragma begin or end block.
+    Builder.setInsertPoint(FenceBlock);
+    Builder.setCurrentDebugLocation(
+      FenceBlock->getTerminator()->getDebugLocation());
+
+    // Issue the running reduction instruction based on the inscan kind.
+    // Generate load for running reduction instruction.
+    Type *Ty = InscanRed->getRecurrenceType();
+    auto *InscanInput = Builder.createLoad(Ty, Private);
+    auto Opcode = InscanRed->getInscanKind() == InscanReductionKind::Inclusive ?
+      VPInstruction::RunningInclusiveReduction :
+      VPInstruction::RunningExclusiveReduction;
+    auto *RunningReduction = Builder.createNaryOp(
+      Opcode, Identity->getType(), {InscanInput, InscanAccumPhi, Identity});
+    Builder.createStore(RunningReduction, Private);
+    // Extract last lane for the next iteration.
+    auto *CarryOver = Builder.createNaryOp(
+      VPInstruction::ExtractLastVectorLane, RunningReduction->getType(),
+      {RunningReduction});
+
+    // Initialize the accumulator with the last lane of running
+    // reduction for the next iteration.
+    InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
+  }
+}
+
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     DenseMap<const VPReduction *,
              std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+    DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    DenseMap<const VPReduction *, VPValue *> &RedInitMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
 
   // Note: the insert location guard also guards builder debug location.
@@ -752,12 +902,16 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
+  RedPrivateMap[Reduction] = PrivateMem;
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
     updateHIROperand(AI, V); // INTEL
     Identity = V;
   }
+
+  bool IsInscan = isa<VPInscanReduction>(Reduction);
+
   // We can initialize reduction either with broadcasted identity only or
   // inserting additionally the initial value into 0th element. In the
   // second case we don't need an additional instruction when reducing.
@@ -771,7 +925,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
     Name = PhiN ? PhiN->getName() : "";
   }
-  bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+  bool StartIncluded = (!Ty->isFloatingPointTy() && !Reduction->isMinMax()) ||
+                        IsInscan;
   VPValue *StartValue =
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
@@ -787,12 +942,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     StartValue = V;
   }
 
-  VPInstruction *Init =
-      Builder.createReductionInit(Identity, StartValue, UseStart,
-                                  Name + Reduction->getNameSuffix() + ".init");
+  VPInstruction *Init = nullptr;
+  if (!IsInscan) {
+    Init = Builder.createReductionInit(
+      Identity, StartValue, UseStart,
+      Name + Reduction->getNameSuffix() + ".init");
+  } else {
+    Init = Builder.create<VPReductionInitScalar>(
+      Name + Reduction->getNameSuffix() + "inscan.init",
+      // Always use start value for inscan reduction initialization.
+      Identity, StartValue);
+  }
+  RedInitMap[Reduction] = Init;
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
-                   *Reduction->getRecurrenceStartValue());
+                   *Reduction->getRecurrenceStartValue(), IsInscan);
 
   // Create instruction for last value. If a register reduction does not have
   // a liveout loop exit instruction (store to reduction variable after
@@ -827,6 +991,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         Reduction->isSigned());
     if (IndexRed->isLinearIndex())
       Final->setIsLinearIndex();
+  } else if (IsInscan) {
+      Final = Builder.create<VPReductionFinalInscan>(
+        FinName, Reduction->getReductionOpcode(), Exit);
   } else {
     if (StartIncluded || Reduction->isMinMax()) {
       Final = Builder.create<VPReductionFinal>(
@@ -853,6 +1020,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
+
+
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
     auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
@@ -874,7 +1043,10 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
+  DenseMap<const VPReduction *, VPValue *> RedPrivateMap;
+  DenseMap<const VPReduction *, VPValue *> RedInitMap;
   SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
+  SmallVector<const VPInscanReduction *, 2> InscanReductions;
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -895,10 +1067,19 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       Reduction = const_cast<VPReduction *>(IndexRed->getParentReduction());
     }
 
+    // Inscan reductions require additional procesing of
+    // inclusive/exclusive pragmas in the loop body.
+    if (auto InscanReduction = dyn_cast<VPInscanReduction>(Reduction))
+      InscanReductions.push_back(InscanReduction);
+
     for (auto *Reduction : reverse(WorkList))
-      insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
-                                       RedFinalMap, ProcessedReductions);
+      insertOneReductionVPInstructions(
+        Reduction, Builder, PostExit, Preheader, RedFinalMap, RedPrivateMap,
+        RedInitMap, ProcessedReductions);
   }
+
+  insertRunningInscanReductionInstrs(
+    InscanReductions, RedPrivateMap, RedInitMap, Builder);
 }
 
 void VPLoopEntityList::preprocess() {
@@ -1131,17 +1312,21 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
 }
 
 // Helper method to create ctor/dtor VPCalls for given non-POD private memory.
-static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
+static void createNonPODPrivateCtorDtorCalls(Function *F,
+                                             ArrayRef<VPValue *> Args,
                                              VPBuilder &Builder,
                                              VPlanVector &Plan) {
-  assert(F->arg_size() == 1 &&
-         "Expected ctor/dtor functions to accept single argument.");
-  assert(NonPODMemory &&
-         "Expected private memory allocated for non-POD private.");
+  assert(
+      F->arg_size() == Args.size() && Args.size() >= 1 &&
+      "Number of input arguments should match number of Function arguments.");
+
+  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
+         "All of input args are expected to be non-null.");
+
   auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
 
-  auto *VPCall =
-      new VPCallInstruction(VPFunc, F->getFunctionType(), {NonPODMemory});
+  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
+
   Builder.insert(VPCall);
 }
 
@@ -1387,22 +1572,19 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // destructor functions using the new memory created for the private as
     // operand.
     if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
-      if (auto *CtorFn = PrivateNonPOD->getCtor())
-        createNonPODPrivateCtorDtorCalls(CtorFn, PrivateMem, Builder, Plan);
-
-      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
-        // Destructor calls should be emitted in PostExit BB, set insert point
-        // of Builder accordingly.
-        VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(PostExit, PostExit->begin());
-        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
+      if (auto *CtorFn = PrivateNonPOD->getCtor()) {
+        if (PrivateNonPOD->isF90NonPod())
+          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem, AI}, Builder,
+                                           Plan);
+        else
+          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem}, Builder, Plan);
       }
 
       if (PrivateNonPOD->isLast()) {
         assert(PrivateNonPOD->getCopyAssign() &&
                "CopyAssign cannot be nullptr");
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(PostExit, PostExit->begin());
+        Builder.setInsertPoint(PostExit);
         // Below instruction creates call for CopyAssign function. It requires pointer
         // to CopyAssign function to be passed, hence new Instruction type had
         // to be used. Example IR generrated with -vplan-print-after-vpentity-instrs:
@@ -1419,6 +1601,14 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
             ".priv.lastval.nonpod", Type::getVoidTy(*Plan.getLLVMContext()),
             ArrayRef<VPValue *>{PrivateMem, AI},
             PrivateNonPOD->getCopyAssign());
+      }
+
+      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
+        // Destructor calls should be emitted in PostExit BB, set insert point
+        // of Builder accordingly.
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit);
+        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
       }
 
     } else if (Private->isLast()) {
@@ -1567,7 +1757,7 @@ static bool checkUncondLastPrivOperands(const VPInstruction *ExitI,
       continue;
     for (auto *Op : Cur->operands())
       if (auto *VInst = dyn_cast<VPInstruction>(Op)) {
-        if (VInst->getOpcode() == Instruction::Load) {
+        if (VPLoadStoreInst::isLoadOpcode(VInst->getOpcode())) {
           // Skip a load, it produces a new value that does not use operands
           // directly.
           continue;
@@ -1692,6 +1882,11 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
       VPPrivate::PrivateKind Kind;
       VPValue *HeaderPhi;
       std::tie(HeaderPhi, Kind) = *PrivPair;
+
+      if (Kind == VPPrivate::PrivateKind::Conditional &&
+          Inst.getType()->isVectorTy())
+        // Until CG to extract vector by non-const index is implemented.
+        continue;
 
       // Add new private with empty alias list
       VPEntityAliasesTy EmptyAliases;
@@ -2107,7 +2302,7 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   if (LinkPhi == nullptr)
     VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                             AllocaInst, ValidMemOnly);
+                             InscanRedKind, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
@@ -2282,6 +2477,9 @@ bool PrivateDescr::updateKind(VPLoopEntityList *LE) {
     std::tie(std::ignore, Kind) = *PrivPair;
     IsLast = Kind >= VPPrivate::PrivateKind::Last;
     IsConditional = Kind == VPPrivate::PrivateKind::Conditional;
+    if (IsConditional && ExitInst->getType()->isVectorTy())
+      // Until CG to extract vector by non-const index is implemented.
+      return false;
   }
   return true;
 }
@@ -2301,7 +2499,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   Type *AllocatedTy = getAllocatedType();
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
-                         AllocatedTy, AllocaInst);
+                         IsF90NonPod, AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     if (LE->getReduction(ExitInst)) {

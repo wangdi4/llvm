@@ -51,12 +51,12 @@ static cl::opt<float>
                          cl::desc("Load cost adjustment on top of TTI value"));
 
 /// A helper function that returns the alignment of load or store instruction.
-static unsigned getMemInstAlignment(const Value *I) {
+static Align getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expected Load or Store instruction");
   if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getAlignment();
-  return cast<StoreInst>(I)->getAlignment();
+    return LI->getAlign();
+  return cast<StoreInst>(I)->getAlign();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -111,8 +111,8 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-unsigned
-VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
+Align VPlanTTICostModel::getMemInstAlignment(
+    const VPLoadStoreInst *LoadStore) const {
   // getMemInstAlignment is invoked from getLoadStoreCost() when no Alignment
   // is passed to getLoadStoreCost(), which means getLoadStoreCost() is invoked
   // during getCost() pass though every Instruction. In such scenario
@@ -124,8 +124,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant)
-        .value();
+    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant);
   }
 
   // TODO:
@@ -134,23 +133,21 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // once VPAA.getAlignment is ready.
 
   if (const Instruction *Inst = LoadStore->getInstruction())
-    if (unsigned Align = ::getMemInstAlignment(Inst))
-      return Align;
+    return ::getMemInstAlignment(Inst);
 
 #if INTEL_CUSTOMIZATION
   if (LoadStore->HIR().isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(LoadStore->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
       if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
-        if (unsigned Align = ::getMemInstAlignment(Inst))
-          return Align;
+        return ::getMemInstAlignment(Inst);
       } else {
         // Handle cases such as a[i] = b + c, the store to a[i] will be the
         // master VPInst. However, Inst will be an add instruction.
         const RegDDRef *LvalRef = DDNode->getLvalDDRef();
         if (LvalRef && LvalRef->isMemRef())
-          if (unsigned Align = LvalRef->getAlignment())
-            return Align;
+          if (unsigned Alignment = LvalRef->getAlignment())
+            return Align(Alignment);
       }
     }
   }
@@ -159,7 +156,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(LoadStore->getValueType());
+  return DL->getABITypeAlign(LoadStore->getValueType());
 }
 
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
@@ -246,12 +243,10 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
   const unsigned Opcode,
   const VPValue *Op1,
   const VPValue *Op2,
-  const Type *ScalarTy,
+  const Type *Ty,
   const unsigned VF) {
   assert(Op1 != nullptr && "First operand is expected.");
-  if (!ScalarTy)
-    return VPInstructionCost::getUnknown();
-  Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
+  Type *VecTy = getWidenedType(Ty, VF);
 
   auto SetOperandValueFeatures = [](
     const VPValue *Val,
@@ -289,8 +284,8 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
 
 VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
   const VPLoadStoreInst *LoadStore, unsigned VF) const {
-  unsigned Alignment = getMemInstAlignment(LoadStore);
-  return getLoadStoreCost(LoadStore, Align(Alignment), VF);
+  Align Alignment = getMemInstAlignment(LoadStore);
+  return getLoadStoreCost(LoadStore, Alignment, VF);
 }
 
 VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
@@ -445,7 +440,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
       VPInstructionCost Cost =
           // The sum of costs of 'devectorizing' all args of the call.
           std::accumulate(
-            CB.arg_begin(), CB.arg_end(), VPInstructionCost(),
+            CB.arg_begin(), CB.arg_end(), VPInstructionCost(0),
             [=](VPInstructionCost Cost, const Use &Arg) {
               Type *ArgTy = Arg.get()->getType();
               // If Arg is not expected to be vectorized
@@ -518,6 +513,17 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
 
 VPInstructionCost VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
   return getTTICostForVF(VPInst, VF);
+}
+
+VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
+                                                              Type *DestTy) {
+  VPInstructionCost CastCost =
+    TTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
+                         TTI::CastContextHint::None);
+  VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
+    Instruction::ICmp, DestTy, nullptr /* CondTy */,
+    CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+  return CastCost + CmpCost;
 }
 
 VPInstructionCost VPlanTTICostModel::getTTICostForVF(
@@ -600,13 +606,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *OpTy = VPInst->getOperand(0)->getType();
     Type *VecSrcTy = getWidenedType(OpTy, VF);
     Type *DestTy = IntegerType::get(VPInst->getType()->getContext(), VF);
-    VPInstructionCost CastCost =
-      TTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
-                           TTI::CastContextHint::None);
-    VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
-      Instruction::ICmp, DestTy, nullptr /* CondTy */,
-      CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
-    return CastCost + CmpCost;
+    return getAllZeroCheckInstrCost(VecSrcTy, DestTy);
   }
 
   // This is a no-op - used to mark block predicate.
@@ -658,24 +658,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
   }
   case Instruction::Select: {
-    // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
-    // can have 4 operands. This is obviously wrong and is not related to the
-    // cost modeling. Skip such cases.
-    if (VPInst->getNumOperands() != 3)
-      return VPInstructionCost::getUnknown();
-
-    Type *CondTy = VPInst->getOperand(0)->getCMType();
-    Type *OpTy = VPInst->getOperand(1)->getCMType();
-
-    // FIXME: Remove once VPValue is known to always have type.
-    if (!CondTy)
-      return VPInstructionCost::getUnknown();
-
-    if (!OpTy)
-      OpTy = VPInst->getOperand(2)->getCMType();
-    if (!OpTy)
-      return VPInstructionCost::getUnknown();
-
+    Type *CondTy = VPInst->getOperand(0)->getType();
+    Type *OpTy = VPInst->getOperand(1)->getType();
     Type *VecCondTy = getWidenedType(CondTy, VF);
 
     if(!isVectorizableTy(OpTy)) {
@@ -808,58 +792,26 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     if (VF == 1)
       return 0;
 
-    // Check for unsupported by CG cases and return high cost if the case is
-    // unsupported to impede the vectorization.
-    // CM doesn't have machinery to disable the vectorization and VF can be
-    // enforced with a knob. 'High cost' approach is tolerated as a temporal
-    // solution.
-    if (cast<VPConflictInsn>(VPInst)->getConflictIntrinsic(VF) ==
-        Intrinsic::not_intrinsic)
-      return 1000;
-
     const Type *Ty = VPInst->getOperand(0)->getType();
     assert(dyn_cast<VectorType>(Ty) == nullptr &&
            "revectorization of ConflictInst is not supported.");
 
-    unsigned NumberOfElements = VF;
     unsigned ElementSizeBits = Ty->getPrimitiveSizeInBits();
 
     assert((ElementSizeBits == 32 || ElementSizeBits == 64) &&
            "Unsupported element size for VPCONFLICT.");
 
-    if (ElementSizeBits == 32)
-      switch (NumberOfElements) {
-      // VF = 2 for 32-bit element type can be implemented with
-      // 4 elements VPCONFLICTD.
-      case 2:
-      case 4:
-        return 15;
-      case 8:
-        return 22;
-      case 16:
-        return 37;
-      case 32:
-        return 37 * 2;
-      default:
-        llvm_unreachable("Unsupported number of elements for VPCONFLICTD.");
-      }
-    else
-      switch (NumberOfElements) {
-      case 2:
-        return 3;
-      case 4:
-        return 15;
-      case 8:
-        return 22;
-      case 16:
-        return 22 * 2;
-      case 32:
-        return 22 * 4;
-      default:
-        llvm_unreachable("Unsupported number of elements for VPCONFLICTQ.");
-      }
+    // Check for unsupported by CG cases and return high cost if the case is
+    // unsupported to impede the vectorization.
+    // CM doesn't have machinery to disable the vectorization and VF can be
+    // enforced with a knob. 'High cost' approach is tolerated as a temporal
+    // solution.
+    auto *VPConflictInst = cast<VPConflictInsn>(VPInst);
+    if (VPConflictInst->getConflictIntrinsic(VF, ElementSizeBits) ==
+        Intrinsic::not_intrinsic)
+      return 1000;
 
-    llvm_unreachable("Unreachable code during VPCONFLICT handling.");
+    return getConflictInsnCost(VF, ElementSizeBits);
   }
   case VPInstruction::GeneralMemOptConflict: {
     // General memory conflict is not handled in VPlan CG thus it is not
@@ -887,6 +839,54 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       }
 
     return Cost;
+  }
+  case VPInstruction::TreeConflict: {
+    auto *TreeConflict = cast<VPTreeConflict>(VPInst);
+    auto *ConflictIndexTy = TreeConflict->getConflictIndex()->getType();
+    auto *ConflictIndexWidenedTy = getWidenedType(ConflictIndexTy, VF);
+    auto *RednUpdateWidenedTy =
+        getWidenedType(TreeConflict->getRednUpdateOp()->getType(), VF);
+
+    // Cost for pre-conflict loop instructions
+    VPInstructionCost PreLoopCost =
+        getConflictInsnCost(VF, ConflictIndexTy->getPrimitiveSizeInBits());
+    SmallVector<Type *> ParamTys =
+        { ConflictIndexWidenedTy, ConflictIndexTy /* flag */ };
+    PreLoopCost +=
+        TTI.getIntrinsicInstrCost(
+            IntrinsicCostAttributes(Intrinsic::ctlz, ConflictIndexWidenedTy,
+                                    ParamTys),
+            TTI::TCK_RecipThroughput);
+    PreLoopCost +=
+        TTI.getArithmeticInstrCost(Instruction::Sub, ConflictIndexWidenedTy,
+                                   TargetTransformInfo::TCK_RecipThroughput);
+
+    // all-zero check before conflict loop
+    Type *DestTy = IntegerType::get(ConflictIndexTy->getContext(), VF);
+    PreLoopCost += getAllZeroCheckInstrCost(ConflictIndexWidenedTy, DestTy);
+
+    // Cost model branch misprediction of all-zero check. Similar to value
+    // used in icc
+    PreLoopCost += 3;
+
+    // Conflict loop cost - conflict loop mainly consists of 2 permute calls,
+    // the add used for the running sum, and the all-zero check exit out of the
+    // loop. The permute intrinsics are modeled here as shuffles, because
+    // shuffles are lowered to equivalent vperm calls in CG. See AVX512ShuffleTbl
+    // in X86TargetTransformInfo.cpp
+    VPInstructionCost LoopCost =
+        TTI.getShuffleCost(TTI::SK_PermuteSingleSrc,
+        cast<VectorType>(RednUpdateWidenedTy));
+    LoopCost +=
+        TTI.getArithmeticInstrCost(Instruction::Add, RednUpdateWidenedTy,
+                                   TargetTransformInfo::TCK_RecipThroughput);
+    LoopCost += TTI.getShuffleCost(TTI::SK_PermuteSingleSrc,
+                                   cast<VectorType>(ConflictIndexWidenedTy));
+    LoopCost += getAllZeroCheckInstrCost(ConflictIndexWidenedTy, DestTy);
+    // Assume half of the lanes are in conflict - e.g., approximate number of
+    // iterations of the conflict loop.
+    LoopCost *= VF / 2; // assume half of lanes are in conflict
+    return PreLoopCost + LoopCost;
   }
   case VPInstruction::UMinSeq:
   case VPInstruction::SMin:
@@ -1102,6 +1102,44 @@ VPInstructionCost VPlanTTICostModel::getMemoryOpCost(
 
   return AdjustedCost;
 }
+
+VPInstructionCost VPlanTTICostModel::getConflictInsnCost(
+    unsigned VF, unsigned ElementSizeBits) {
+    if (ElementSizeBits == 32)
+      switch (VF) {
+      // VF = 2 for 32-bit element type can be implemented with
+      // 4 elements VPCONFLICTD.
+      case 2:
+      case 4:
+        return 15;
+      case 8:
+        return 22;
+      case 16:
+        return 37;
+      case 32:
+        return 37 * 2;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTD.");
+      }
+    else
+      switch (VF) {
+      case 2:
+        return 3;
+      case 4:
+        return 15;
+      case 8:
+        return 22;
+      case 16:
+        return 22 * 2;
+      case 32:
+        return 22 * 4;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTQ.");
+      }
+
+    llvm_unreachable("Unreachable code during VPCONFLICT handling.");
+}
+
 
 } // namespace vpo
 

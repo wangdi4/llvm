@@ -610,7 +610,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
              "CloneFuncToOrigFuncMap is invalid");
 
       CloneFunctionInto(CloneFunc, &F, VMap,
-                        CloneFunctionChangeType::LocalChangesOnly, Returns,"",
+                        CloneFunctionChangeType::GlobalChanges, Returns,"",
                         &CodeInfo, TypeRemapper, Materializer);
       // CMPLRLLVM-37268: Defined cloned functions will always have internal
       // linkage. Above all, they may not be left as AvailableExternally,

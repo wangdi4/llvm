@@ -45,6 +45,9 @@
 // Debug type for verbose call graph computations.
 #define DTRANS_CG "dtrans-cg"
 
+// Debug type for verbose C-rule compatibility testing
+#define DTRANS_CRC "dtrans-crc"
+
 // Print the result for structures with fields that are arrays with constant
 // entries
 #define ARRAYS_WITH_CONST_ENTRIES "dtrans-arrays-with-const-entries"
@@ -1176,6 +1179,11 @@ public:
         return;
       }
 
+      // If there is no user for the GEP then continue the loop, it shouldn't
+      // prevent collecting the data.
+      if (CurrGEP->user_empty())
+        continue;
+
       // Collect which entry in the array we are accessing
       //
       // NOTE: Perhaps we may need to extend this analysis to check for byte
@@ -1194,22 +1202,56 @@ public:
 
       Constant *Index = dyn_cast<Constant>(CurrGEP->getOperand(2));
       Constant *EntryVal = nullptr;
+      bool EntryValSet = false;
+      bool OnlyLoad = true;
+      for (auto *GEPU : CurrGEP->users()) {
+        if (auto *SI = dyn_cast<StoreInst>(GEPU)) {
+          // All indices must be constant if we are storing
+          if (!CurrGEP->hasAllConstantIndices()) {
+            FI.disableArraysWithConstantEntries();
+            return;
+          }
 
-      if (auto *SI = dyn_cast<StoreInst>(CurrGEP->user_back())) {
-        // All indices must be constant if we are storing
-        if (!CurrGEP->hasAllConstantIndices()) {
+          // Collect what is being stored. If EntryVal is set already then
+          // it means that the value is not constant.
+          //
+          // NOTE: This is conservative. A variable can be set to a constant,
+          // then its value can be set to another constant, and if there is
+          // no use in between then we can use the second value set.
+          Constant *SIValueOP = dyn_cast<Constant>(SI->getValueOperand());
+          if (!EntryValSet) {
+            EntryVal = SIValueOP;
+            EntryValSet = true;
+          } else if (EntryVal && EntryVal != SIValueOP) {
+            EntryVal = nullptr;
+          }
+          OnlyLoad = false;
+        } else if (isa<LoadInst>(GEPU)) {
+          // Load instructions are safe
+          continue;
+        } else {
           FI.disableArraysWithConstantEntries();
           return;
         }
-        // Collect what is being stored
-        EntryVal = dyn_cast<Constant>(SI->getValueOperand());
-      } else if (isa<LoadInst>(CurrGEP->user_back())) {
-        // Load instructions are safe
-        continue;
-      } else {
-        FI.disableArraysWithConstantEntries();
-        return;
       }
+
+      if (!Index) {
+        if (EntryValSet) {
+          // If there is no Index, but an EntryVal was set then it means that
+          // a value is stored in any possible index. Disable the whole array.
+          FI.disableArraysWithConstantEntries();
+          return;
+        } else {
+          // Else we can skip the loop. This means that GEP is not used for
+          // storing data, just loading (e.g. loop traversal).
+          continue;
+        }
+      }
+
+      // If the GEP was only used for loading data then continue. It shouldn't
+      // affect collecting the information.
+      if (OnlyLoad)
+        continue;
 
       FI.addNewArrayConstantEntry(Index, EntryVal);
     }
@@ -1575,9 +1617,8 @@ public:
   }
 
   void visitStoreInst(StoreInst &I) {
-    Value *Ptr = I.getPointerOperand();
     Value *Val = I.getValueOperand();
-    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
+    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(&I, 1);
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(&I, 0);
 
     assert(PtrInfo &&
@@ -1861,7 +1902,8 @@ public:
     // a field element that is a pointer to a scalar type can be traced back to
     // newly allocated memory.
     auto IsSafeAllocatedMemoryStore = [this](Instruction &I,
-                                             DTransType *ExpectTy) {
+                                             DTransType *ExpectTy,
+                                             Value **Allocation) {
       // Look for a pattern such as:
       //   %a = call ptr @malloc(i64 %size)
       //   %int = ptrtoint ptr %a to i64
@@ -1892,6 +1934,7 @@ public:
         return nullptr;
       };
 
+      *Allocation = nullptr;
       auto *SI = dyn_cast<StoreInst>(&I);
       if (!SI)
         return false;
@@ -1913,18 +1956,21 @@ public:
       if (AKind == dtrans::AK_NotAlloc)
         return false;
 
-      // Check that the usage type is only i8* or the expected pointer type.
+      // Check that the usage type is only i8*, i8** or the expected pointer type.
       ValueTypeInfo *Info = PTA.getValueTypeInfo(ValOp);
       if (!Info)
         return false;
       auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
       for (auto *AliasTy : UseAliases) {
-        if (AliasTy == DTransI8PtrType)
+        if (AliasTy == DTransI8PtrType ||
+            (AliasTy->isPointerTy() &&
+             AliasTy->getPointerElementType() == DTransI8PtrType))
           continue;
         if (AliasTy != ExpectTy)
           return false;
       }
 
+      *Allocation = SrcOp;
       return true;
     };
 
@@ -1936,7 +1982,8 @@ public:
     // should be allowed even if the structure field being stored to is a
     // double*:
     //   call void @llvm.memset.ptr.i64(ptr %290, i8 0, i64 %384, i1  false)
-    auto AreAllMemoryUsersSafe = [](Instruction &I, DTransType *ExpectTy) {
+    auto AreAllMemoryUsersSafe = [](Instruction &I, DTransType *ExpectTy,
+                                    Value *Allocation) {
       // Lambda to collect the set of Values that use 'V', either directly or
       // indirectly from 'V' being moved to another Value object.
       std::function<void(Value *, SmallPtrSetImpl<Value *> &)> CollectUsers =
@@ -1955,6 +2002,8 @@ public:
              ExpectTy->getPointerElementType()->isAtomicTy() &&
              "Field type needs to be pointer to atomic type");
 
+      llvm::Type *ExpectElemLLVMTy =
+          ExpectTy->getPointerElementType()->getLLVMType();
       auto *SI = cast<StoreInst>(&I);
       Value *ValOp = SI->getValueOperand();
       SmallPtrSet<Value *, 16> ValueUsers;
@@ -1988,16 +2037,50 @@ public:
         if (isa<ICmpInst>(V))
           continue;
 
+        // Storing a value of the expected array type at the pointer location is
+        // ok.
+        if (auto *UserSI = dyn_cast<StoreInst>(V))
+          if (UserSI->getPointerOperand() == ValOp &&
+              UserSI->getValueOperand()->getType() == ExpectElemLLVMTy)
+            continue;
+
+        // Loading a value of the expected array type from the pointer location
+        // is ok.
+        if (auto *UserLI = dyn_cast<LoadInst>(V))
+          if (UserLI->getPointerOperand() == ValOp &&
+              UserLI->getType() == ExpectElemLLVMTy)
+            continue;
+
         // Allow call to memset
         if (auto *II = dyn_cast<IntrinsicInst>(V))
           if (II->getIntrinsicID() == Intrinsic::memset)
             continue;
 
-        // Only allow a GEP that indexes the value using the field type.
+        // Only allow a GEP that indexes as one of the following:
+        // 1. A location in the dynamic array using the field's array type.
+        //      %x = getelementptr double, ptr %alloc, i64 %idx
+        // 2. The pattern for adjusting the pointer returned by the allocation
+        //     memory used to store the original allocated pointer may use a GEP
+        //    after the pointer alignment computation.
+        //    Instead of:
+        //      %manip2 = add i64 %manip1, -64
+        //
+        //    The offset is computed via a GEP:
+        //      %adjusted_alloc = inttoptr i64 %manip1 to ptr
+        //      %x = getelementptr ptr, ptr %adjusted_alloc, i64 -1
+        //      store ptr %alloc, ptr %x
         if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
           llvm::Type *Ty = GEP->getSourceElementType();
-          if (ExpectTy->getPointerElementType()->getLLVMType() == Ty)
+          if (ExpectElemLLVMTy == Ty)
             continue;
+
+          if (GEP->getPointerOperand() == ValOp && GEP->getNumIndices() == 1 &&
+              GEP->hasOneUse()) {
+            auto *GEPUser = *GEP->user_begin();
+            if (auto *GEPUserSI = dyn_cast<StoreInst>(GEPUser))
+              if (GEPUserSI->getValueOperand() == Allocation)
+                continue;
+          }
         }
 
         return false;
@@ -2121,8 +2204,9 @@ public:
         // stored because the value had an i8* alias due to be a dynamically
         // allocated pointer. Check for that pattern before treating it as an
         // incompatible type.
-        if (!IsSafeAllocatedMemoryStore(I, IndexedType) ||
-            !AreAllMemoryUsersSafe(I, IndexedType)) {
+        Value* Allocation = nullptr;
+        if (!IsSafeAllocatedMemoryStore(I, IndexedType, &Allocation) ||
+            !AreAllMemoryUsersSafe(I, IndexedType, Allocation)) {
           TypesCompatible = false;
 
           // Check if the type of the values stored or loaded are used with
@@ -3693,7 +3777,15 @@ public:
   static bool typesMayBeCRuleCompatible(DTransType *T1, DTransType *T2,
                                         bool IgnorePointees = false) {
     SmallPtrSet<DTransType *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    bool RV = typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    DEBUG_WITH_TYPE(DTRANS_CRC, {
+          dbgs() << "dtrans-crc: " << (RV ? "YES " : "NO  ");
+          T1->print(dbgs(), true);
+          dbgs() << " ";
+          T2->print(dbgs(), true);
+          dbgs()  << "\n";
+    });
+    return RV;
   }
 
   // Return true if the Type T may have a distinct compatible Type by
@@ -6292,6 +6384,12 @@ public:
     return;
   }
 
+  void visitFreezeInst(FreezeInst &I) {
+    // This instruction may result in a type containing a pointer, but there are
+    // no safety flags affected.
+    return;
+  }
+
   void visitResume(ResumeInst &I) {
     // This instruction has an operand containing a pointer type, but there are
     // no safety flags affected.
@@ -7582,7 +7680,11 @@ void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     DTransImmutableInfo *DTImmutInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-
+  if (!dtrans::shouldRunOpaquePointerPasses(M)) {
+    LLVM_DEBUG(
+        dbgs() << "DTransSafetyInfo: Not using opaque pointer passes");
+    return;
+  }
   // Initialize the DTransTypeManager & TypeMetadataReader classes first, so
   // that the DTrans base class can be run without the complete pointer type
   // analysis being run because there are some transformations that can be done
@@ -7640,7 +7742,7 @@ void DTransSafetyInfo::analyzeModule(
               cast<StructType>(StructInfo->getLLVMType()), I,
               StructInfo->getField(I).values(),
               StructInfo->getField(I).iavalues(),
-              StructInfo->getField(I).getArrayWithConstantEntries());
+              StructInfo->getField(I).getArrayConstantEntries());
         }
     }
   }

@@ -17,6 +17,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <CL/cl.h>
+#include <string>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
     struct IOCLFEBinaryResult;
@@ -89,6 +91,8 @@ struct FELinkProgramsDescriptor
     const size_t*   puiBinariesSizes;
     // A string for link options
     const char*     pszOptions;
+    // array of kernels name which program is built with source
+    std::vector<std::vector<std::string>>* pKernelNames;
 };
 
 struct FESPIRVProgramDescriptor

@@ -1,6 +1,6 @@
 //=-- SGBuiltin.cpp -Insert sub_group_barrier & vector-variants attribute ---=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,9 +15,9 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <tuple>
@@ -101,8 +101,7 @@ bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
   // Load all vector info into ExtendedVectInfo, at most once.
   static llvm::once_flag InitializeVectInfoFlag;
   llvm::call_once(InitializeVectInfoFlag, [&]() {
-    DPCPPKernelCompilationUtils::initializeVectInfoOnce(VectInfos,
-                                                        ExtendedVectInfos);
+    CompilationUtils::initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
   });
 
   Helper.initialize(M);

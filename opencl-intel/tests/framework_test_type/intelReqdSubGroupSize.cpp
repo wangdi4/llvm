@@ -50,12 +50,12 @@ struct SupportForKernelVector
 
 void intelReqdSubGroupSizeTest()
 {
-    if (!SETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS", "True") ||
-        !SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "vpo")) {
-      printf ("ERROR: ReqdSubGroupSize: Can't set environment variables. Test FAILED\n");
-      FAIL();
-      return;
-    }
+  if (!SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "vpo")) {
+    printf("ERROR: ReqdSubGroupSize: Can't set environment variables. Test "
+           "FAILED\n");
+    FAIL();
+    return;
+  }
 
     std::string vectorizedString = "was successfully vectorized";
     std::string notVectorizedString =
@@ -165,12 +165,9 @@ void intelReqdSubGroupSizeTest()
     // Release objects
     kernelVec.clear();
     clReleaseContext(context);
-    if (!UNSETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS") ||
-        !UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE")) {
+    if (!UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE")) {
       printf ("ERROR: ReqdSubGroupSize: Can't unset environment variables. Test FAILED\n");
       FAIL();
       return;
     }
-
-
 }

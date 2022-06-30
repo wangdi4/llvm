@@ -16,7 +16,7 @@ define void @ptriv(i8* %base, i32 %n) nounwind {
 ; CHECK-LABEL: @ptriv(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDX_EXT:%.*]] = sext i32 [[N:%.*]] to i64
-; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr i8, i8* [[BASE:%.*]], i64 [[IDX_EXT]]
+; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr inbounds i8, i8* [[BASE:%.*]], i64 [[IDX_EXT]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ult i8* [[BASE]], [[ADD_PTR]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body.preheader:

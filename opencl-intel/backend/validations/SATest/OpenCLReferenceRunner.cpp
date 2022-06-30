@@ -51,14 +51,15 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "OpenCLReferenceRunner"
@@ -76,9 +77,6 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #endif
-
-// #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
-llvm::FunctionPass* createFMASplitterPass();
 
 extern "C" void LLVMLinkInInterpreterPluggable();
 
@@ -1048,7 +1046,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                     {
                         const GlobalVariable * GV = localList[i];
                         const Type *GlobalType =
-                            GV->getType()->getElementType();
+                            GV->getValueType();
 
                         // skip unsupported variables
                         if(NEATDataLayout ::IsNEATSupported(GlobalType) == false)

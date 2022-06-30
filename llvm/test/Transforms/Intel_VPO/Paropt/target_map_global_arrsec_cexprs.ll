@@ -51,7 +51,7 @@
 
 ; Check that globals @a, @b, @N are not used in the outlined function.
 ; CHECK: define internal void @__omp_offloading_{{.*}}foov{{.*}}([10 x i32]* %a, [10 x i32]* %b, i64 %N.val)
-; CHECK: %N.fpriv = alloca i64, align 1
+; CHECK: %N.fpriv = alloca i64, align 8
 ; CHECK: store i64 %N.val, i64* %N.fpriv, align 8
 ; CHECK: %[[A1:[^ ]+]] = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 1
 ; CHECK: %[[A1_LOAD:[^ ]+]] = load i32, i32* %[[A1]], align 4

@@ -14,10 +14,10 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Pass.h" //INTEL
 
 using namespace llvm;
 
@@ -370,6 +370,7 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
 // See if there are any coro.subfn.addr instructions referring to coro.devirt
 // trigger, if so, replace them with a direct call to devirt trigger function.
 static bool replaceDevirtTrigger(Function &F) {
@@ -389,6 +390,7 @@ static bool replaceDevirtTrigger(Function &F) {
 
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
 static bool declaresCoroElideIntrinsics(Module &M) {
   return coro::declaresIntrinsics(M, {"llvm.coro.id", "llvm.coro.id.async"});
@@ -415,6 +417,8 @@ PreservedAnalyses CoroElidePass::run(Function &F, FunctionAnalysisManager &AM) {
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
+
+#if INTEL_CUSTOMIZATION
 
 namespace {
 struct CoroElideLegacy : FunctionPass {
@@ -474,3 +478,4 @@ INITIALIZE_PASS_END(
     false)
 
 Pass *llvm::createCoroElideLegacyPass() { return new CoroElideLegacy(); }
+#endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 //===- BuiltinCallToInst.cpp - Resolve supported builtin calls --*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinCallToInst.h"
-#include "NameMangleAPI.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -17,6 +16,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
 using namespace llvm;
@@ -115,6 +115,7 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
       break;
     case BI_REL_IS_LESS:
     case BI_REL_IS_LESS_EQUAL:
+    case BI_REL_IS_LESS_GREATER:
     case BI_REL_IS_GREATER:
     case BI_REL_IS_GREATER_EQUAL:
     case BI_REL_IS_EQUAL:
@@ -156,7 +157,7 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
     if (!isa<PointerType>(RetPtr->getType()))
       return;
 
-    Type *DesiredTy = (cast<PointerType>(RetPtr->getType()))->getElementType();
+    Type *DesiredTy = ShuffleCall->getFunctionType();
 
     RetVal = VectorizerUtils::rootReturnValue(RetPtr, DesiredTy, ShuffleCall);
     if (!RetVal)
@@ -281,6 +282,9 @@ void BuiltinCallToInstPass::handleRelationalCalls(CallInst *RelationalCall,
   case BI_REL_IS_LESS_EQUAL:
     CmpOpcode = CmpInst::FCMP_OLE;
     break;
+  case BI_REL_IS_LESS_GREATER:
+    CmpOpcode = CmpInst::FCMP_ONE;
+    break;
   case BI_REL_IS_GREATER:
     CmpOpcode = CmpInst::FCMP_OGT;
     break;
@@ -336,6 +340,7 @@ BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
       .Case("__ocl_helper_shuffle2", BI_SHUFFLE2)
       .Case("isless", BI_REL_IS_LESS)
       .Case("islessequal", BI_REL_IS_LESS_EQUAL)
+      .Case("islessgreater", BI_REL_IS_LESS_GREATER)
       .Case("isgreater", BI_REL_IS_GREATER)
       .Case("isgreaterequal", BI_REL_IS_GREATER_EQUAL)
       .Case("isequal", BI_REL_IS_EQUAL)

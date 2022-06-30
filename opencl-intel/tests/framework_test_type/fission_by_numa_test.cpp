@@ -31,11 +31,10 @@ extern cl_device_type gDeviceType;
 class SubDevicesByNumaTest : public ::testing::Test {
 public:
   SubDevicesByNumaTest() : platform(nullptr), device(nullptr) {
-#ifdef _WIN32
     //clCreateSubDevice is not supported on windows,
     //skip this test temporarily.
+    // TODO: Re-enable this test after the issue CMPLRLLVM-37007 has been fixed
     skipTests = 1;
-#endif
   }
 
 protected:
@@ -79,7 +78,6 @@ protected:
   bool skipTests = 0;
 };
 
-#ifdef _WIN32
 TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
   const char *source = R"(
     extern int sched_getcpu (void);
@@ -297,4 +295,56 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
     ASSERT_OCL_SUCCESS(err, "clReleaseDevice");
   }
 }
-#endif
+
+TEST_F(SubDevicesByNumaTest, createSubDevicesAndCommandQueues) {
+  std::vector<std::vector<cl_device_id>> createdSubDevices;
+  std::vector<cl_context> createdContext;
+  std::vector<cl_command_queue> createdQueues;
+
+  cl_int err;
+
+  for (int i = 0; i < 2; i++) {
+    const cl_device_partition_property props[3] = {
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, CL_DEVICE_AFFINITY_DOMAIN_NUMA,
+        0};
+
+    // try to get number of subdevices can be partitioned
+    err = clCreateSubDevices(device, props, 8, nullptr, &numDevices);
+    ASSERT_OCL_SUCCESS(err, "clCreateSubDevices");
+    ASSERT_EQ(numDevices, numNodes)
+        << "The value of number of devices is incorrect.";
+
+    // create subdevice
+    std::vector<cl_device_id> subDevices(numDevices, nullptr);
+    err = clCreateSubDevices(device, props, 8, subDevices.data(), nullptr);
+    ASSERT_OCL_SUCCESS(err, "clCreateSubDevices");
+
+    for (auto &dev : subDevices) {
+      cl_context context =
+          clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &err);
+      ASSERT_OCL_SUCCESS(err, "clCreateContext");
+      createdContext.push_back(context);
+
+      cl_command_queue queue =
+          clCreateCommandQueueWithProperties(context, dev, nullptr, &err);
+      ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+      createdQueues.push_back(queue);
+    }
+  }
+
+  for (auto &q : createdQueues) {
+    err = clReleaseCommandQueue(q);
+    ASSERT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+  }
+
+  for (auto &ctx : createdContext) {
+    err = clReleaseContext(ctx);
+    ASSERT_OCL_SUCCESS(err, "clReleaseContext");
+  }
+
+  for (auto &devices : createdSubDevices)
+    for (auto &dev : devices) {
+      err = clReleaseDevice(dev);
+      ASSERT_OCL_SUCCESS(err, "clReleaseDevice");
+    }
+}

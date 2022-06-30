@@ -43,6 +43,7 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/CodeGen/BasicBlockSectionsProfileReader.h"
 #include "llvm/CodeGen/CSEConfigBase.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachinePassRegistry.h"
@@ -78,11 +79,6 @@ using namespace llvm;
 static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
-
-cl::opt<bool>
-IntelLibIRCAllowed("intel-libirc-allowed",
-                    cl::desc("Allow the generation of calls to libirc."),
-                    cl::init(false));
 
 static cl::opt<bool> EnableRAReport("enable-ra-report",
   cl::init(false), cl::Hidden,
@@ -157,20 +153,18 @@ static cl::opt<bool> PrintGCInfo("print-gc", cl::Hidden,
     cl::desc("Dump garbage collector data"));
 static cl::opt<cl::boolOrDefault>
     VerifyMachineCode("verify-machineinstrs", cl::Hidden,
-                      cl::desc("Verify generated machine code"),
-                      cl::ZeroOrMore);
-static cl::opt<cl::boolOrDefault> DebugifyAndStripAll(
-    "debugify-and-strip-all-safe", cl::Hidden,
-    cl::desc(
-        "Debugify MIR before and Strip debug after "
-        "each pass except those known to be unsafe when debug info is present"),
-    cl::ZeroOrMore);
+                      cl::desc("Verify generated machine code"));
+static cl::opt<cl::boolOrDefault>
+    DebugifyAndStripAll("debugify-and-strip-all-safe", cl::Hidden,
+                        cl::desc("Debugify MIR before and Strip debug after "
+                                 "each pass except those known to be unsafe "
+                                 "when debug info is present"));
 static cl::opt<cl::boolOrDefault> DebugifyCheckAndStripAll(
     "debugify-check-and-strip-all-safe", cl::Hidden,
     cl::desc(
         "Debugify MIR before, by checking and stripping the debug info after, "
-        "each pass except those known to be unsafe when debug info is present"),
-    cl::ZeroOrMore);
+        "each pass except those known to be unsafe when debug info is "
+        "present"));
 // Enable or disable the MachineOutliner.
 static cl::opt<RunOutliner> EnableMachineOutliner(
     "enable-machine-outliner", cl::desc("Enable the machine outliner"),
@@ -302,6 +296,11 @@ static cl::opt<bool> EnableMachineFunctionSplitter(
 static cl::opt<bool> DisableExpandReductions(
     "disable-expand-reductions", cl::init(false), cl::Hidden,
     cl::desc("Disable the expand reduction intrinsics pass from running"));
+
+/// Disable the select optimization pass.
+static cl::opt<bool> DisableSelectOptimize(
+    "disable-select-optimize", cl::init(true), cl::Hidden,
+    cl::desc("Disable the select-optimization pass from running"));
 
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
@@ -537,6 +536,7 @@ CGPassBuilderOption llvm::getCGPassBuilderOption() {
   SET_BOOLEAN_OPTION(DisableConstantHoisting)
   SET_BOOLEAN_OPTION(DisableCGP)
   SET_BOOLEAN_OPTION(DisablePartialLibcallInlining)
+  SET_BOOLEAN_OPTION(DisableSelectOptimize)
   SET_BOOLEAN_OPTION(PrintLSR)
   SET_BOOLEAN_OPTION(PrintISelInput)
   SET_BOOLEAN_OPTION(PrintGCInfo)
@@ -664,7 +664,6 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
 
 #if INTEL_CUSTOMIZATION
-  TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
   TM.Options.IntelABICompatible = IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
 
@@ -1004,6 +1003,10 @@ void TargetPassConfig::addIRPasses() {
 
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createTLSVariableHoistPass());
+
+  // Convert conditional moves to conditional jumps when profitable.
+  if (getOptLevel() != CodeGenOpt::None && !DisableSelectOptimize)
+    addPass(createSelectOptimizePass());
 }
 
 /// Turn exception handling constructs into something the code generators can
@@ -1356,7 +1359,11 @@ void TargetPassConfig::addMachinePasses() {
   // FIXME: In principle, BasicBlockSection::Labels and splitting can used
   // together. Update this check once we have addressed any issues.
   if (TM->getBBSectionsType() != llvm::BasicBlockSection::None) {
-    addPass(llvm::createBasicBlockSectionsPass(TM->getBBSectionsFuncListBuf()));
+    if (TM->getBBSectionsType() == llvm::BasicBlockSection::List) {
+      addPass(llvm::createBasicBlockSectionsProfileReaderPass(
+          TM->getBBSectionsFuncListBuf()));
+    }
+    addPass(llvm::createBasicBlockSectionsPass());
   } else if (TM->Options.EnableMachineFunctionSplitter ||
              EnableMachineFunctionSplitter) {
     addPass(createMachineFunctionSplitterPass());

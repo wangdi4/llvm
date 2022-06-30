@@ -35,43 +35,20 @@ void initializeX86ResolverPass(llvm::PassRegistry&);
 void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
-void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
-void initializeCLStreamSamplerPass(llvm::PassRegistry&);
-void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
+void initializeCLStreamSamplerPass(llvm::PassRegistry &);
 
-void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
-void initializePreventDivCrashesPass(llvm::PassRegistry&);
-void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
-void initializeRelaxedPassPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
-void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
-void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
-void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
+void initializeLocalBuffAnalysisPass(llvm::PassRegistry &);
 void initializeRemovePrefetchPass(llvm::PassRegistry&);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
-void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
-void initializeSmartGVNPass(llvm::PassRegistry&);
-void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
-void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
-void initializePipeIOTransformationPass(llvm::PassRegistry&);
-void initializePipeSupportPass(llvm::PassRegistry&);
-void initializePipeOrderingPass(llvm::PassRegistry&);
-void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);
-void initializeStripIntelIPPass(llvm::PassRegistry&);
-void initializeOCLReqdSubGroupSizePass(llvm::PassRegistry&);
-void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);
-void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
-void initializePatchCallbackArgsPass(llvm::PassRegistry &);
-void initializeWeightedInstCounterPass(llvm::PassRegistry &);
+void initializeSmartGVNPass(llvm::PassRegistry &);
+void initializeStripIntelIPPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
-void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
-void initializeSetPreferVectorWidthPass(llvm::PassRegistry &);
-void initializeUndefExternalFuncsPass(llvm::PassRegistry &);
 }
 
 #endif

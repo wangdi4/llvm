@@ -1,20 +1,20 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
 
 ; Test for DTrans base class identification of type dependency mappings that map
 ; the set of types that need to be changed when DTrans is changing a type.
 
 ; CHECK-LABEL: Type dependency direct mapping table:
-; CHECK_NOT: %struct.test01a
+; CHECK-NOT: %struct.test01a
 ; CHECK-DAG: %struct.test02b: %struct.test02a
 ; CHECK-DAG: %struct.test03a: %struct.test03b
 ; CHECK-DAG: %struct.test06a: %struct.test06d, %struct.test06e
 ; CHECK-DAG: %struct.test07c: %struct.test07a
 
 ; CHECK-LABEL: Type dependency pointer mapping table:
-; CHECK_NOT: %struct.test01a
+; CHECK-NOT: %struct.test01a
 ; CHECK-DAG: %struct.test04b: %struct.test04a
 ; CHECK-DAG: %struct.test05a: %struct.test05b
 ; CHECK-DAG: %struct.test06a: %struct.test06b, %struct.test06c

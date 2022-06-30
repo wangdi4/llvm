@@ -100,8 +100,15 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 			break;
 		}
 		profile_complete = timer;
-		printf("Elapsed time is %lu nano second\n", profile_complete - profile_run);
-	}
+
+#if defined(_WIN32)
+                printf("Elapsed time is %llu nano second\n",
+                       profile_complete - profile_run);
+#else
+                printf("Elapsed time is %lu nano second\n",
+                       profile_complete - profile_run);
+#endif
+        }
 	if(CL_RUNNING == cmd_status)
 	{
 		profile_run = timer;
@@ -148,8 +155,16 @@ bool clGetDeviceInfo_TypeTest()
 		if (device_type != CL_DEVICE_TYPE_ACCELERATOR &&
 				device_type != CL_DEVICE_TYPE_CPU)
 		{
-			printf("clDevGetDeviceInfo failed wrong device type %lu instead of %d\n", device_type,CL_DEVICE_TYPE_CPU);
-			return false;
+#if defined(_WIN32)
+                  printf("clDevGetDeviceInfo failed wrong device type %llu "
+                         "instead of %d\n",
+                         device_type, CL_DEVICE_TYPE_CPU);
+#else
+                  printf("clDevGetDeviceInfo failed wrong device type %lu "
+                         "instead of %d\n",
+                         device_type, CL_DEVICE_TYPE_CPU);
+#endif
+                  return false;
 		}
 		printf("clDevGetDeviceInfo succeeded\n");
 		return true;
@@ -263,8 +278,12 @@ bool clGetDeviceInfo_Test()
 			printf("clDevGetDeviceInfo failed param value size is in wrong size: %zu instead of %zu\n",param_value_size,sizeof(cl_ulong));
 			ret =  false;
 		}
-		printf("globalMemCacheSize %lu\n", globalMemCacheSize);
-	}
+#if defined(_WIN32)
+                printf("globalMemCacheSize %llu\n", globalMemCacheSize);
+#else
+                printf("globalMemCacheSize %lu\n", globalMemCacheSize);
+#endif
+        }
 	//CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE test
 	iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(globalMemCacheLineSize), &globalMemCacheLineSize, &param_value_size);
 	if (CL_DEV_FAILED(iRes))

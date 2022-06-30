@@ -35,7 +35,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M14:!.*]], [[M3:!.*]]}
+; CHECK: [[M14]] = !{!"intel.optreport.title", !"FUNCTION REPORT"}
 ; CHECK: [[M3]] = !{!"intel.optreport.first_child", [[M4:!.*]]}
 ; CHECK: [[M4]] = distinct !{!"intel.optreport.rootnode", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.optreport", [[M6:!.*]], [[M8:!.*]]}

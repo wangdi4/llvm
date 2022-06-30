@@ -86,10 +86,11 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
 #ifdef _WIN32
       // This path is for loading clang from GPU driver.
-      const char *path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
-      if (m_dlModule.Load(GetFullModuleNameForLoad(path)) != 0) {
+      const std::string pathString =
+          GetDriverStorePathToLibrary() + std::string(psModuleName);
+      if (m_dlModule.Load(GetFullModuleNameForLoad(pathString.c_str())) != 0) {
         LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
-                  psModuleName, path);
+                  psModuleName, pathString.c_str());
         return CL_COMPILER_NOT_AVAILABLE;
       }
 #else
@@ -163,7 +164,7 @@ cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
       *Binary = new char[*BinarySize];
       MEMCPY_S(*Binary, *BinarySize, Result->GetIR(), *BinarySize);
     }
-  } catch (std::bad_alloc& e) {
+  } catch (std::bad_alloc &) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }
@@ -295,7 +296,8 @@ cl_err_code FrontEndCompiler::LinkProgram(
     const void **ppBinaries, unsigned int uiNumInputBinaries,
     const size_t *puiBinariesSizes, const char *szOptions, OUT char **ppBinary,
     OUT size_t *puiBinarySize, OUT std::vector<char> &linkLog,
-    OUT bool *pbIsLibrary) const {
+    OUT bool *pbIsLibrary,
+    vector<vector<string>>* pWithSourceKernelsName) const {
   LOG_DEBUG(
       TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, "
            "puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
@@ -309,6 +311,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
   linkDesc.uiNumBinaries = uiNumInputBinaries;
   linkDesc.puiBinariesSizes = puiBinariesSizes;
   linkDesc.pszOptions = szOptions;
+  linkDesc.pKernelNames = pWithSourceKernelsName;
 
   int Error = m_pFECompiler->LinkPrograms(&linkDesc, &Result);
 
@@ -333,7 +336,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
       *ppBinary = new char[*puiBinarySize];
       MEMCPY_S(*ppBinary, *puiBinarySize, Result->GetIR(), *puiBinarySize);
     }
-  } catch (std::bad_alloc& e) {
+  } catch (std::bad_alloc &) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }

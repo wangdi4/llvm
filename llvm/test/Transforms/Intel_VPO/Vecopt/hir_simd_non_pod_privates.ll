@@ -36,7 +36,7 @@ define dso_local void @ctor_dtor(i32* nocapture %dst, i32* nocapture readonly %s
 ; CHECK:            %_ZTS6ClassA.omp.def_constr2 = @_ZTS6ClassA.omp.def_constr(%[[extract1]]);
 ; CHECK:            %serial.temp = insertelement %serial.temp,  %_ZTS6ClassA.omp.def_constr2,  1;
 
-; CHECK:            + DO i64 i1 = 0, {{.*}} + -1, 2   <DO_LOOP>
+; CHECK:            + DO i64 i1 = 0, {{.*}}, 2   <DO_LOOP>
 ; CHECK:            + END LOOP
 
 ; CHECK:            @_ZTS6ClassA.omp.destr(&((%struct.ClassA*)(%priv.mem)[0]));

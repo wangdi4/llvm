@@ -376,7 +376,8 @@ bool TargetTransformInfo::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                         Scale, AddrSpace, I);
 }
 
-bool TargetTransformInfo::isLSRCostLess(LSRCost &C1, LSRCost &C2) const {
+bool TargetTransformInfo::isLSRCostLess(const LSRCost &C1,
+                                        const LSRCost &C2) const {
   return TTIImpl->isLSRCostLess(C1, C2);
 }
 
@@ -425,7 +426,7 @@ bool TargetTransformInfo::isLegalNTLoad(Type *DataType, Align Alignment) const {
 }
 
 bool TargetTransformInfo::isLegalBroadcastLoad(Type *ElementTy,
-                                               unsigned NumElements) const {
+                                               ElementCount NumElements) const {
   return TTIImpl->isLegalBroadcastLoad(ElementTy, NumElements);
 }
 
@@ -525,7 +526,7 @@ bool TargetTransformInfo::isTypeLegal(Type *Ty) const {
   return TTIImpl->isTypeLegal(Ty);
 }
 
-InstructionCost TargetTransformInfo::getRegUsageForType(Type *Ty) const {
+unsigned TargetTransformInfo::getRegUsageForType(Type *Ty) const {
   return TTIImpl->getRegUsageForType(Ty);
 }
 
@@ -678,8 +679,9 @@ Optional<unsigned> TargetTransformInfo::getVScaleForTuning() const {
   return TTIImpl->getVScaleForTuning();
 }
 
-bool TargetTransformInfo::shouldMaximizeVectorBandwidth() const {
-  return TTIImpl->shouldMaximizeVectorBandwidth();
+bool TargetTransformInfo::shouldMaximizeVectorBandwidth(
+    TargetTransformInfo::RegisterKind K) const {
+  return TTIImpl->shouldMaximizeVectorBandwidth(K);
 }
 
 ElementCount TargetTransformInfo::getMinimumVF(unsigned ElemWidth,
@@ -690,6 +692,11 @@ ElementCount TargetTransformInfo::getMinimumVF(unsigned ElemWidth,
 unsigned TargetTransformInfo::getMaximumVF(unsigned ElemWidth,
                                            unsigned Opcode) const {
   return TTIImpl->getMaximumVF(ElemWidth, Opcode);
+}
+
+unsigned TargetTransformInfo::getStoreMinimumVF(unsigned VF, Type *ScalarMemTy,
+                                                Type *ScalarValTy) const {
+  return TTIImpl->getStoreMinimumVF(VF, ScalarMemTy, ScalarValTy);
 }
 
 bool TargetTransformInfo::shouldConsiderAddressTypePromotion(
@@ -805,7 +812,7 @@ InstructionCost TargetTransformInfo::getArithmeticInstrCost(
 
 InstructionCost TargetTransformInfo::getShuffleCost(
     ShuffleKind Kind, VectorType *Ty, ArrayRef<int> Mask, int Index,
-    VectorType *SubTp, ArrayRef<Value *> Args) const {
+    VectorType *SubTp, ArrayRef<const Value *> Args) const {
   InstructionCost Cost =
       TTIImpl->getShuffleCost(Kind, Ty, Mask, Index, SubTp, Args);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
@@ -976,6 +983,35 @@ TargetTransformInfo::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   return Cost;
 }
 
+#ifdef INTEL_COLLAB
+InstructionCost
+TargetTransformInfo::getFMACostSavings(Type *Ty, FastMathFlags FMF) const {
+
+  if (!FMF.allowContract())
+    return 0;
+
+  // Savings = Cost(FMul) + Cost(FAdd) - Cost(FMA).
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  InstructionCost MulCost =
+    getArithmeticInstrCost(Instruction::FMul, Ty, CostKind);
+  InstructionCost AddCost =
+    getArithmeticInstrCost(Instruction::FAdd, Ty, CostKind);
+
+  Intrinsic::ID ID = Intrinsic::fmuladd;
+  SmallVector<Type *, 2> Tys;
+  Tys.push_back(Ty);
+  Tys.push_back(Ty);
+  ArrayRef<Type *> ArgTys(Tys);
+  IntrinsicCostAttributes CostAttrs(ID, Ty, ArgTys);
+  InstructionCost FMACost = getIntrinsicInstrCost(CostAttrs, CostKind);
+
+  InstructionCost Savings = MulCost + AddCost - FMACost;
+  if (Savings < 0)
+    Savings = 0;
+  return Savings;
+}
+#endif // INTEL_COLLAB
+
 InstructionCost
 TargetTransformInfo::getCallInstrCost(Function *F, Type *RetTy,
                                       ArrayRef<Type *> Tys,
@@ -1091,6 +1127,8 @@ const char *TargetTransformInfo::getISASetForIMLFunctions() const {
 bool TargetTransformInfo::hasCDI() const {
     return TTIImpl->hasCDI();
 }
+
+bool TargetTransformInfo::hasVLX() const { return TTIImpl->hasVLX(); }
 
 bool TargetTransformInfo::displacementFoldable() const {
   return TTIImpl->displacementFoldable();

@@ -94,7 +94,16 @@
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS-GEN %s
 // RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64_gen -Zi -Od -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS-GEN %s
-// CHK-TOOLS-IMPLIED-OPTS-GEN: ocloc{{.*}} "-options" "-g -cl-take-global-address -cl-opt-disable" "-DFOO1" "-DFOO2"
+// CHK-TOOLS-IMPLIED-OPTS-GEN: ocloc{{.*}} "-options" "-g -cl-take-global-address -cl-match-sincospi -cl-opt-disable" "-DFOO1" "-DFOO2"
+
+// passing -cl-no-match-sincospi should not set the default, and should also
+// be stripped from the ocloc call, as it isn't really a valid option.
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-backend -cl-no-match-sincospi %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TOOLS-GEN-NO-SINCOSPI %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64_gen -Zi -Od -Xs -cl-no-match-sincospi %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TOOLS-GEN-NO-SINCOSPI %s
+// CHK-TOOLS-GEN-NO-SINCOSPI-NOT: "-cl-match-sincospi"
+// CHK-TOOLS-GEN-NO-SINCOSPI-NOT: "-cl-no-match-sincospi"
 
 /// Check -Xopenmp-target-linker option passing
 // RUN:   %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \

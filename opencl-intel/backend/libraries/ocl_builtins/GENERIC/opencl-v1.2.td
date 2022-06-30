@@ -1,7 +1,19 @@
+// Copyright (C) 2013-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // vim:ts=2:sw=2:et:
 
 // OpenCL 1.2 rev 15, Table 6.8
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def acos          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -33,10 +45,10 @@ def floor         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x
 def fma           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 1>;
 def fmax          : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmax_common   : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
+def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
 def fmin          : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmin_common   : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
+def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
 def fmod          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fract_pas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def fract_las     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -50,7 +62,7 @@ def frexp_gen     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x
 def hypot         : OclBuiltin<"hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def ilogb         : OclBuiltin<"ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def ldexp         : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$k), [], [], 0, 1>;
-def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f32, v1f64]>;
+def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
 def lgamma        : OclBuiltin<"lgamma",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def lgamma_r_pas  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def lgamma_r_las  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -100,7 +112,7 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 }
 
 // OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
 def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
@@ -481,6 +493,20 @@ let Types = [v1f32, v1f64] in {
   }
 }
 
+// VectInfo for fp16 math builtins
+let Types = [v1f16] in {
+  foreach name = ["fabs"] in {
+    defvar builtin = !cast<OclBuiltin>(name);
+    defvar masked_builtin = !cast<OclBuiltin>(name#"_mask");
+
+    def : VectInfo<[], builtin, builtin, builtin, builtin, builtin, builtin>;
+    // masked version
+    let HandleAlias = 0 in {
+      def : VectInfo<[], builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin>;
+    }
+  }
+}
+
 let Types = [v1f32] in {
   foreach bi = ["half_cos", "half_divide", "half_exp", "half_exp2", "half_exp10",
                 "half_log", "half_log2", "half_log10", "half_powr", "half_recip",
@@ -720,17 +746,12 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 }
 
 // OpenCL 1.2 rev 15, Table 6.14
+// Note that isequal, isnotequal, isgreater, isgreaterequal, isless, islessequal
+// and islessgreater are handled in BuiltinCallToInst pass, so they are not
+// defined here.
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-//def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreater       : OclBuiltin<"isgreater",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def islessgreater   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-let NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -739,11 +760,23 @@ def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (in
 def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
+// Scalar version of these builtins return 1 if the relation is true, and their
+// widended version should return vector of 1. However, vector version of these
+// builtins (defined in the above table) return vector of -1. So we can't use
+// vector version builtins for VectInfo. The following table defines a set of
+// widened builtins that return vector of 1 if relation is true.
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isinf_v1widen           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isnan_v1widen           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isnormal_v1widen        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isordered_v1widen       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+def isunordered_v1widen     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+def signbit_v1widen         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
-let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,   v32i8,  v64i8,
-             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16, v32i16, v64i16,
-             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32, v32i32, v64i32,
-             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64, v32i64, v64i64],
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def any : OclBuiltin<"any", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def all : OclBuiltin<"all", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -757,17 +790,9 @@ def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, 
 }
 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32, v32f32, v64f32,
-             v2f64, v3f64, v4f64, v8f64, v16f64, v32f64, v64f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
-//def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreater       : OclBuiltin<"isgreater",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def islessgreater_mask   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 1>;
-let NeedForwardDecl = 1 in {
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+     Attrs = [CONSTFUNC, OVERLOADABLE],
+     NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_mask           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnan_mask           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
@@ -776,14 +801,44 @@ def isordered_mask       : OclBuiltin<"isordered",       (outs rf2igentype:$ret)
 def isunordered_mask     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
 def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
+// Following table defines vectorized masked builtins that are for scalar
+// builtin. Therefore, the return value is vector of 1 if relation is true.
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnan_v1widen_mask           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+}
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1  in {
+def bitselect_mask   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, i32gentype:$mask), [], [], 0, 1>;
+def iselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c, i32gentype:$mask), [], [], 0, 1>;
+def uselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c, i32gentype:$mask), [], [], 0, 1>;
 }
 
 // VectInfo for OclVecClone
-let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
-              v1i64, v1u64, v1f32, v1f64] in {
-  def intel_bitselect : VectInfo<[], bitselect, bitselect, bitselect, bitselect, bitselect, bitselect>;
-  def intel_iselect : VectInfo<[], iselect, iselect, iselect, iselect, iselect, iselect>;
-  def intel_uselect : VectInfo<[], uselect, uselect, uselect, uselect, uselect, uselect>;
+let Types = [v1f32, v1f64],
+    HandleAlias = 0 in {
+  foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
+    defvar bi = name # "_v1widen";
+    def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi),
+                       !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
+                     !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+  }
+}
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
+  foreach bi = ["bitselect", "iselect", "uselect"] in {
+    def bi # _vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+    def bi # _mask_vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
+                                            !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+  }
 }
 
 // OpenCL 1.2 rev 15, Table 6.15
@@ -1134,20 +1189,35 @@ def _convert_f64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs f64ge
 
 // VectInfo for OclVecClone
 // conversion to integer has satured mode.
-let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32,
-              v1u32, v1i64, v1u64, v1f32, v1f64] in {
+let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
   foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
-    def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
-    def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
+    def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type),
+                                           !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+    def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"),
+                                                !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
   }
 }
 
 // conversions from floating to integer also honor rounding mode as well as saturated mode.
-let Types = [v1f32, v1f64] in {
+let Types = [v1f16, v1f32, v1f64] in {
   foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
     foreach op = ["rte", "rtz", "rtp", "rtn"] in {
-      def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
-      def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
+      def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op),
+                                                  !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
+      def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op),
+                                                      !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
+    }
+  }
+}
+
+// conversions to floating point
+let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
+  foreach type = ["f16", "f32", "f64"] in {
+    def : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type),
+                       !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+    foreach op = ["rte", "rtz", "rtp", "rtn"] in {
+      def : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op),
+                         !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
     }
   }
 }
@@ -1344,90 +1414,6 @@ def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0
 
 def downConvert : OclBuiltin<"downConvert", (outs downgentype:$ret), (ins gentype:$p),
   [v4i64, v8i64, v16i64], [OVERLOADABLE], 0, 0>;
-
-//
-//vectorized versions declaraions for ralational functions
-//
-foreach relationf = [/*"isless", "isgreater", "isequal", "isnotequal", "isgreaterequal", "islessequal",*/
-  "islessgreater"/*, "isfinite"*/] in {
-  //scalar
-  def scalar_#relationf : OclBuiltin<"scalar_"#relationf, (outs igentype:$res),
-    (ins gentype:$l, gentype:$r), [v1f32, v1f64], [OVERLOADABLE], 0, 0>;
-  //
-  //generating an vecroization map entries, for the auto-code gen for the reflection module
-  //
-  //
-  //entries for scalarizing packed versions
-  //
-  //floats:
-  def map_cell_scalar_#relationf#1 : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f32>;
-  def map_cell#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f32>;
-  def map_cell#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f32>;
-  def map_cell#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f32>;
-  def map_cell#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f32>;
-  def map_cell#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f32>;
-  def relationf#"_scalar": MapRow<[
-    !cast<MapCell>("map_cell_scalar_"#relationf#1), //scalar version
-    !cast<MapCell>("map_cell"#relationf#2), //v2
-    !cast<MapCell>("map_cell"#relationf#4), //v4
-    !cast<MapCell>("map_cell"#relationf#8), //v8
-    !cast<MapCell>("map_cell"#relationf#16),//v16
-    !cast<MapCell>("map_cell"#relationf#3)],//v3
-    1, 1>; //scalarizable, packetizable
-  //
-  //doubles:
-  //
-  def map_cell64_scalar_#relationf : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f64>;
-  def map_cell64#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f64>;
-  def map_cell64#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f64>;
-  def map_cell64#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f64>;
-  def map_cell64#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f64>;
-  def map_cell64#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f64>;
-  def relationf#"64_scalar": MapRow<[
-    !cast<MapCell>("map_cell64_scalar_"#relationf), //scalar version
-    !cast<MapCell>("map_cell64"#relationf#2), //v2
-    !cast<MapCell>("map_cell64"#relationf#4), //v4
-    !cast<MapCell>("map_cell64"#relationf#8), //v8
-    !cast<MapCell>("map_cell64"#relationf#16),//v16
-    !cast<MapCell>("map_cell64"#relationf#3)],//v3
-    1, 1>; //scalarizable, packetizable
-  //
-  //entries for packetizing scalar versions
-  //
-  def map_cell_#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f32>;
-  def v_#relationf : OclBuiltin<"v_"#relationf, (outs i32gentype:$res),
-    (ins gentype:$l, gentype:$r), [v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], [OVERLOADABLE], 0, 0>;
-  //
-  //floats
-  //
-  def map_cell_v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f32>;
-  def map_cell_v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f32>;
-  def map_cell_v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f32>;
-  def relationf#_nullentry: MapRow<[
-    !cast<MapCell>("map_cell_"#relationf#1),
-    nullCell, //v2
-    !cast<MapCell>("map_cell_v"#relationf#4), //v4
-    !cast<MapCell>("map_cell_v"#relationf#8), //v8
-    !cast<MapCell>("map_cell_v"#relationf#16),//v16
-    nullCell],//v3
-    0,1>; //not scalarizable, packetizable
-  //
-  //doubles
-  //
-  def map_cell_64#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f64>;
-  def map_cell_64v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f64>;
-  def map_cell_64v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f64>;
-  def map_cell_64v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f64>;
-  def relationf#64_nullentry: MapRow<[
-    !cast<MapCell>("map_cell_64"#relationf#1),
-    nullCell, //v2
-    !cast<MapCell>("map_cell_64v"#relationf#4), //v4
-    !cast<MapCell>("map_cell_64v"#relationf#8), //v8
-    !cast<MapCell>("map_cell_64v"#relationf#16),//v16
-    nullCell],//v3
-    0,1>; //not scalarizable, packetizable
-}
-
 
 let Types = [v1i64],
     Attrs = [OVERLOADABLE] in {

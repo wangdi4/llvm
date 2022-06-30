@@ -56,6 +56,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -105,6 +106,7 @@ static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
 extern cl::opt<bool> InlineForXmain;
 extern cl::opt<bool> DTransInlineHeuristics;
 extern cl::opt<bool> EnablePreLTOInlineCost;
+extern cl::opt<bool> EnableLTOInlineCost;
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
@@ -116,7 +118,6 @@ static cl::opt<int> OptSizeThreshold(
 
 static cl::opt<int>
     DefaultThreshold("inlinedefault-threshold", cl::Hidden, cl::init(225),
-                     cl::ZeroOrMore,
                      cl::desc("Default amount of inlining to perform"));
 
 // We introduce this option since there is a minor compile-time win by avoiding
@@ -134,11 +135,11 @@ static cl::opt<bool> PrintInstructionComments(
     cl::desc("Prints comments for instruction based on inline cost analysis"));
 
 static cl::opt<int> InlineThreshold(
-    "inline-threshold", cl::Hidden, cl::init(225), cl::ZeroOrMore,
+    "inline-threshold", cl::Hidden, cl::init(225),
     cl::desc("Control the amount of inlining to perform (default = 225)"));
 
 static cl::opt<int> HintThreshold(
-    "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore,
+    "inlinehint-threshold", cl::Hidden, cl::init(325),
     cl::desc("Threshold for inlining functions with inline hint"));
 
 #if INTEL_CUSTOMIZATION
@@ -150,7 +151,7 @@ static cl::opt<int> DoubleCallSiteHintThreshold(
 
 static cl::opt<int>
     ColdCallSiteThreshold("inline-cold-callsite-threshold", cl::Hidden,
-                          cl::init(45), cl::ZeroOrMore,
+                          cl::init(45),
                           cl::desc("Threshold for inlining cold callsites"));
 
 static cl::opt<bool> InlineEnableCostBenefitAnalysis(
@@ -158,12 +159,11 @@ static cl::opt<bool> InlineEnableCostBenefitAnalysis(
     cl::desc("Enable the cost-benefit analysis for the inliner"));
 
 static cl::opt<int> InlineSavingsMultiplier(
-    "inline-savings-multiplier", cl::Hidden, cl::init(8), cl::ZeroOrMore,
+    "inline-savings-multiplier", cl::Hidden, cl::init(8),
     cl::desc("Multiplier to multiply cycle savings by during inlining"));
 
 static cl::opt<int>
     InlineSizeAllowance("inline-size-allowance", cl::Hidden, cl::init(100),
-                        cl::ZeroOrMore,
                         cl::desc("The maximum size of a callee that get's "
                                  "inlined without sufficient cycle savings"));
 
@@ -171,26 +171,25 @@ static cl::opt<int>
 // PGO before we actually hook up inliner with analysis passes such as BPI and
 // BFI.
 static cl::opt<int> ColdThreshold(
-    "inlinecold-threshold", cl::Hidden, cl::init(45), cl::ZeroOrMore,
+    "inlinecold-threshold", cl::Hidden, cl::init(45),
     cl::desc("Threshold for inlining functions with cold attribute"));
 
 static cl::opt<int>
     HotCallSiteThreshold("hot-callsite-threshold", cl::Hidden, cl::init(3000),
-                         cl::ZeroOrMore,
                          cl::desc("Threshold for hot callsites "));
 
 static cl::opt<int> LocallyHotCallSiteThreshold(
-    "locally-hot-callsite-threshold", cl::Hidden, cl::init(525), cl::ZeroOrMore,
+    "locally-hot-callsite-threshold", cl::Hidden, cl::init(525),
     cl::desc("Threshold for locally hot callsites "));
 
 static cl::opt<int> ColdCallSiteRelFreq(
-    "cold-callsite-rel-freq", cl::Hidden, cl::init(2), cl::ZeroOrMore,
+    "cold-callsite-rel-freq", cl::Hidden, cl::init(2),
     cl::desc("Maximum block frequency, expressed as a percentage of caller's "
              "entry frequency, for a callsite to be cold in the absence of "
              "profile information."));
 
 static cl::opt<int> HotCallSiteRelFreq(
-    "hot-callsite-rel-freq", cl::Hidden, cl::init(60), cl::ZeroOrMore,
+    "hot-callsite-rel-freq", cl::Hidden, cl::init(60),
     cl::desc("Minimum block frequency, expressed as a multiple of caller's "
              "entry frequency, for a callsite to be hot in the absence of "
              "profile information."));
@@ -200,13 +199,12 @@ static cl::opt<int> CallPenalty(
     cl::desc("Call penalty that is applied per callsite when inlining"));
 
 static cl::opt<bool> OptComputeFullInlineCost(
-    "inline-cost-full", cl::Hidden, cl::init(false), cl::ZeroOrMore,
+    "inline-cost-full", cl::Hidden,
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
 
 static cl::opt<bool> InlineCallerSupersetNoBuiltin(
     "inline-caller-superset-nobuiltin", cl::Hidden, cl::init(true),
-    cl::ZeroOrMore,
     cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
              "attributes."));
 
@@ -1436,6 +1434,10 @@ private:
     set(InlineCostFeatureIndex::ColdCcPenalty,
         (F.getCallingConv() == CallingConv::Cold));
 
+    set(InlineCostFeatureIndex::LastCallToStaticBonus,
+        (F.hasLocalLinkage() && F.hasOneLiveUse() &&
+         &F == CandidateCall.getCalledFunction()));
+
     // FIXME: we shouldn't repeat this logic in both the Features and Cost
     // analyzer - instead, we should abstract it to a common method in the
     // CallAnalyzer
@@ -1962,6 +1964,12 @@ bool CallAnalyzer::allowSizeGrowth(CallBase &Call) {
       return false;
   } else if (isa<UnreachableInst>(Call.getParent()->getTerminator()))
     return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  else if (intelCallTerminatesUnreachable(Call))
+    return false;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
   return true;
 }
@@ -1992,7 +2000,6 @@ bool InlineCostCallAnalyzer::isColdCallSite(CallBase &Call,
 Optional<int>
 InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
                                                 BlockFrequencyInfo *CallerBFI) {
-
   // If global profile summary is available, then callsite's hotness is
   // determined based on that.
   if (PSI && PSI->hasProfileSummary() && PSI->isHotCallSite(Call, CallerBFI))
@@ -2114,6 +2121,13 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     // BlockFrequencyInfo is available.
     BlockFrequencyInfo *CallerBFI = GetBFI ? &(GetBFI(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(Call, CallerBFI);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+    if (HotCallSiteThreshold != None &&
+        intelNotHotCallee(Callee, Params.PrepareForLTO.getValueOr(false)))
+      HotCallSiteThreshold = None;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     if (!Caller->hasOptSize() && HotCallSiteThreshold) {
       LLVM_DEBUG(dbgs() << "Hot callsite.\n");
       // FIXME: This should update the threshold only if it exceeds the
@@ -2276,11 +2290,11 @@ bool CallAnalyzer::visitBinaryOperator(BinaryOperator &I) {
 
   Value *SimpleV = nullptr;
   if (auto FI = dyn_cast<FPMathOperator>(&I))
-    SimpleV = SimplifyBinOp(I.getOpcode(), CLHS ? CLHS : LHS, CRHS ? CRHS : RHS,
+    SimpleV = simplifyBinOp(I.getOpcode(), CLHS ? CLHS : LHS, CRHS ? CRHS : RHS,
                             FI->getFastMathFlags(), DL);
   else
     SimpleV =
-        SimplifyBinOp(I.getOpcode(), CLHS ? CLHS : LHS, CRHS ? CRHS : RHS, DL);
+        simplifyBinOp(I.getOpcode(), CLHS ? CLHS : LHS, CRHS ? CRHS : RHS, DL);
 
   if (Constant *C = dyn_cast_or_null<Constant>(SimpleV))
     SimplifiedValues[&I] = C;
@@ -2310,7 +2324,7 @@ bool CallAnalyzer::visitFNeg(UnaryOperator &I) {
   if (!COp)
     COp = SimplifiedValues.lookup(Op);
 
-  Value *SimpleV = SimplifyFNegInst(
+  Value *SimpleV = simplifyFNegInst(
       COp ? COp : Op, cast<FPMathOperator>(I).getFastMathFlags(), DL);
 
   if (Constant *C = dyn_cast_or_null<Constant>(SimpleV))
@@ -3459,6 +3473,7 @@ InlineResult llvm::isInlineViable(Function &F) {
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
   Params.PrepareForLTO = EnablePreLTOInlineCost; // INTEL
+  Params.LinkForLTO = EnableLTOInlineCost; // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:
@@ -3527,8 +3542,15 @@ InlineParams llvm::getInlineParams() {
 // size opt level.
 static int computeThresholdFromOptLevels(unsigned OptLevel,
                                          unsigned SizeOptLevel) {
-  if (OptLevel > 2)
-    return InlineConstants::OptAggressiveThreshold;
+#if INTEL_CUSTOMIZATION
+  if (OptLevel > 2) {
+    // CMPLRLLVM-37426: Ensure that inline threshold can be increased
+    // beyond InlineConstants::OptAggressiveThreshold using the internal
+    // option -inlinedefault-threshold=X.
+    return std::max(DefaultThreshold.getValue(),             
+      InlineConstants::OptAggressiveThreshold);
+  }
+#endif // INTEL_CUSTOMIZATION
   if (SizeOptLevel == 1) // -Os
     return InlineForXmain                                     // INTEL
       ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
@@ -3566,7 +3588,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
   else
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO || EnablePreLTOInlineCost;
-  InlParams.LinkForLTO = LinkForLTO;
+  InlParams.LinkForLTO = LinkForLTO || EnableLTOInlineCost;
   //
   // Note that the InlineOptLevel is not being set to the OptLevel in all
   // cases right now in the inliner, only when this version of getInlineParams

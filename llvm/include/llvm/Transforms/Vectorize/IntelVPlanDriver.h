@@ -127,8 +127,14 @@ protected:
   // loop.
   void addOptReportRemarksForVecRemainder(const CfgMergerPlanDescr &PlanDescr);
 
+  // Utility to add remarks related to VPlan containing scalar remainder loop.
+  void addOptReportRemarksForScalRemainder(const CfgMergerPlanDescr &PlanDescr);
+
   // Utility to add remarks related to VPlan containing vectorized peel loop.
   void addOptReportRemarksForVecPeel(const CfgMergerPlanDescr &PlanDescr);
+
+  // Utility to add remarks related to VPlan containing scalar peel loop.
+  void addOptReportRemarksForScalPeel(const CfgMergerPlanDescr &PlanDescr);
 
   // Helper utility to populate all needed analyses in VPlans using the provided
   // factory object.

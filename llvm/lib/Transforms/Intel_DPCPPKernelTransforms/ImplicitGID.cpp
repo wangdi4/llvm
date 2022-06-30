@@ -19,23 +19,31 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-implicit-gid"
 
+/// For test purpose only.
+static cl::opt<bool> HandleBarrierOpt("implicit-gid-handle-barrier",
+                                      cl::init(true), cl::Hidden,
+                                      cl::desc("Only handle barrier path"));
+
 namespace {
 class ImplicitGIDImpl {
 public:
   ImplicitGIDImpl(Module &M, bool HandleBarrier, DataPerBarrier *DPB)
-      : M(M), HandleBarrier(HandleBarrier), DPB(DPB), DIB(new DIBuilder(M)) {}
+      : M(M), HandleBarrier(HandleBarrier), DPB(DPB), DIB(new DIBuilder(M)) {
+    if (HandleBarrierOpt.getNumOccurrences())
+      this->HandleBarrier = HandleBarrierOpt;
+  }
 
   bool run();
 
@@ -92,7 +100,7 @@ private:
   SGHelper SGH;
 
   /// This holds the set of functions containing subgroup barrier.
-  FuncSet SGSyncFuncSet;
+  CompilationUtils::FuncSet SGSyncFuncSet;
 
   /// This holds the insert point at entry block for the running function.
   Instruction *InsertPoint;
@@ -108,6 +116,20 @@ private:
 };
 } // namespace
 
+/// Return true if the function is not reachable from a kernel whose
+/// NoBarrierPath is false.
+static bool noBarrierPath(SmallPtrSetImpl<Function *> &Kernels,
+                          DenseMap<Function *, bool> &KernelsNoBarrierPath,
+                          Function &F) {
+  CompilationUtils::FuncSet FS;
+  FS.insert(&F);
+  CompilationUtils::FuncSet FuncUsers;
+  LoopUtils::fillFuncUsersSet(FS, FuncUsers);
+  return all_of(FuncUsers, [&](Function *FuncUser) {
+    return Kernels.count(FuncUser) ? KernelsNoBarrierPath[FuncUser] : true;
+  });
+}
+
 bool ImplicitGIDImpl::run() {
   BUtils.init(&M);
   SGH.initialize(M);
@@ -121,26 +143,34 @@ bool ImplicitGIDImpl::run() {
   IndDIType = getOrCreateIndDIType();
 
   // Collect kernels.
-  SmallSet<Function *, 8> Kernels;
-  for (Function *F : DPCPPKernelMetadataAPI::KernelList(&M))
-    Kernels.insert(F);
+  auto KL = DPCPPKernelMetadataAPI::KernelList(&M);
+  SmallPtrSet<Function *, 8> Kernels(KL.begin(), KL.end());
+  DenseMap<Function *, bool> KernelsNoBarrierPath;
 
   bool Changed = false;
 
-  for (auto &F : M) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+  // Use worklist since this pass may insert TID function declarations.
+  CompilationUtils::FuncSet AllKernels = CompilationUtils::getAllKernels(M);
+  SmallVector<Function *, 16> NonKernelFuncs;
+  for (auto &F : M)
+    if (!F.isDeclaration() && !AllKernels.contains(&F))
+      NonKernelFuncs.push_back(&F);
+
+  // Process kernel functions.
+  for (auto *F : KL) {
+    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (HandleBarrier) {
       if (!(KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()))
-        Changed |= runOnFunction(F);
+        Changed |= runOnFunction(*F);
       continue;
     }
 
-    if (!(Kernels.count(&F) && KIMD.NoBarrierPath.hasValue() &&
-          KIMD.NoBarrierPath.get()))
+    KernelsNoBarrierPath[F] = KIMD.NoBarrierPath.get();
+    if (!KIMD.NoBarrierPath.get())
       continue;
 
     SkipInsertDbgDeclare = false;
-    Changed |= runOnFunction(F);
+    Changed |= runOnFunction(*F);
 
     SkipInsertDbgDeclare = true;
     if (KIMD.VectorizedKernel.hasValue()) {
@@ -155,7 +185,32 @@ bool ImplicitGIDImpl::run() {
     }
   }
 
+  // Process non-kernel functions.
+  for (auto *F : NonKernelFuncs) {
+    if (HandleBarrier) {
+      Changed |= runOnFunction(*F);
+      continue;
+    }
+
+    if (!noBarrierPath(Kernels, KernelsNoBarrierPath, *F))
+      continue;
+
+    SkipInsertDbgDeclare = false;
+    Changed |= runOnFunction(*F);
+  }
+
   return Changed;
+}
+
+/// Return true if the function already has implicit GID, i.e. inserted by the
+/// first run of this pass before WGLoopCreator.
+bool hasImplicitGID(Function &F) {
+  for (auto &I : instructions(&F)) {
+    if (auto *AI = dyn_cast<AllocaInst>(&I))
+      if (CompilationUtils::isImplicitGID(AI))
+        return true;
+  }
+  return false;
 }
 
 bool ImplicitGIDImpl::runOnFunction(Function &F) {
@@ -164,8 +219,17 @@ bool ImplicitGIDImpl::runOnFunction(Function &F) {
   if (!F.getSubprogram())
     return false;
 
-  if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
+  if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
     return false;
+
+  if (F.empty())
+    return false;
+
+  // Skip the function if implicit GIDs are already added.
+  if (HandleBarrier && hasImplicitGID(F))
+    return false;
+
+  LLVM_DEBUG(dbgs() << "ImplicitGID: process function " << F.getName() << "\n");
 
   const bool HasSyncInst = DPB->hasSyncInstruction(&F);
   const bool HasSGSyncInst = SGSyncFuncSet.count(&F);
@@ -204,8 +268,10 @@ void ImplicitGIDImpl::insertGIDAlloca(Function &F, bool HasSyncInst,
   DebugLoc DIL = DILocation::get(F.getContext(), SP->getLine(), 0, SP);
 
   for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
-    AllocaInst *GIDAlloca = new AllocaInst(DPCPPKernelLoopUtils::getIndTy(&M),
-                                           0, "__ocl_dbg_gid" + Twine(I), IP);
+    AllocaInst *GIDAlloca = new AllocaInst(
+        LoopUtils::getIndTy(&M), 0, Twine("__ocl_dbg_gid") + Twine(I), IP);
+    LLVM_DEBUG(dbgs().indent(2) << "Insert " << *GIDAlloca << " to function "
+                                << F.getName() << "\n");
 
     if (!SkipInsertDbgDeclare) {
       // Create debug info
@@ -227,14 +293,11 @@ void ImplicitGIDImpl::insertGIDStore(Function &F, bool HasSyncInst,
   IRBuilder<> B(InsertPoint);
 
   if (!HandleBarrier) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
-    if (!(KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()))
-      return;
     insertGIDStore(B, InsertPoint);
     return;
   }
 
-  InstSet GenericSyncInsts;
+  CompilationUtils::InstSet GenericSyncInsts;
   if (HasSGSyncInst) {
     // We don't have to consider HasSyncInst in this situation,
     // since subgroup emulation loops are inside barrier loop,
@@ -277,7 +340,10 @@ void ImplicitGIDImpl::insertGIDStore(IRBuilder<> &B, Instruction *InsertPoint) {
 
   for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
     Value *GID = BUtils.createGetGlobalId(I, B);
-    B.CreateStore(GID, GIDAllocas[I], /*isVolatile*/ true);
+    auto *SI = B.CreateStore(GID, GIDAllocas[I], /*isVolatile*/ true);
+    (void)SI;
+    LLVM_DEBUG(dbgs().indent(2) << "Insert " << *SI << " to function "
+                                << SI->getFunction()->getName() << "\n");
   }
 }
 
@@ -287,7 +353,7 @@ DIType *ImplicitGIDImpl::getOrCreateIndDIType() const {
       return T;
 
   // If the type wasn't found, create it now.
-  Type *IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+  Type *IndTy = LoopUtils::getIndTy(&M);
   uint64_t IndTySize =
       M.getDataLayout().getTypeSizeInBits(IndTy).getFixedSize();
   return DIB->createBasicType("ind type", IndTySize, dwarf::DW_ATE_unsigned);

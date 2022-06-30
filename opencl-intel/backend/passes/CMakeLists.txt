@@ -1,3 +1,19 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+
 # Create the passes seperate projects
 use_rtti( FALSE )
 
@@ -5,23 +21,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
                     ${CL_API_HEADERS}
                     ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(ChannelPipeTransformation)
-add_subdirectory(ChannelsUsageAnalysis)
-add_subdirectory(PipeIOTransformation)
-add_subdirectory(PipeOrdering)
-add_subdirectory(PipeSupport)
-add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltinLibInfo)
-add_subdirectory(InfiniteLoopCreator)
-add_subdirectory(PreventDivCrashes)
-add_subdirectory(RelaxedPass)
-add_subdirectory(SetPreferVectorWidth)
-add_subdirectory(UndefExternalFuncs)
-add_subdirectory(KernelInfo)
-add_subdirectory(SubGroupAdaptation)
-add_subdirectory(DetectRecursion)
-add_subdirectory(PatchCallbackArgs)
-add_subdirectory(OCLAliasAnalysis)
 add_subdirectory(DebugInfoPass)
 add_subdirectory(Prefetch)
 add_subdirectory(PrintIRPass)

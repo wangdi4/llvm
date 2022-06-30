@@ -26,37 +26,15 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
-    intel::initializeCLBuiltinLICMPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
-    intel::initializeRemoveDuplicationBarrierPass(Registry);
 
-    intel::initializeReplaceScalarWithMaskPass(Registry);
-    intel::initializePreventDivCrashesPass(Registry);
-    intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
-    intel::initializeRelaxedPassPass(Registry);
     intel::initializePrefetchPass(Registry);
-    intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
-    intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
-    intel::initializeOCLAliasAnalysisPass(Registry);
-    intel::initializeChannelPipeTransformationPass(Registry);
-    intel::initializePipeIOTransformationPass(Registry);
-    intel::initializePipeSupportPass(Registry);
-    intel::initializePipeOrderingPass(Registry);
-    intel::initializeInfiniteLoopCreatorPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
-    intel::initializeOCLReqdSubGroupSizePass(Registry);
-    intel::initializeChannelsUsageAnalysisPass(Registry);
-    intel::initializeKernelSubGroupInfoPass(Registry);
-    intel::initializePatchCallbackArgsPass(Registry);
-    intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
-    intel::initializeVectorKernelDiscardPass(Registry);
-    intel::initializeSetPreferVectorWidthPass(Registry);
-    intel::initializeUndefExternalFuncsPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

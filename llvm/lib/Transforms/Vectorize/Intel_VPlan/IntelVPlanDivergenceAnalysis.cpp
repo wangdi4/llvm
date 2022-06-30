@@ -1096,7 +1096,8 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
     // Conservatively mark the pointer as Random shape when -
     // 1. stride is non-constant
     // 2. lower is loop variant
-    if (!ZeroDimStride || !ZeroDimLowerShape.isUniform())
+    if (!ZeroDimStride || isa<UndefValue>(ZeroDimStride->getConstant()) ||
+        !ZeroDimLowerShape.isUniform())
       return getRandomVectorShape();
     if (IdxShape.isAnyStrided() && IdxShape.hasKnownStride()) {
       // Recompute correct stride for last index of subscript. Consider the
@@ -1405,6 +1406,9 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
 // Computes vector shape for AllocatePrivate instruction.
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
     const VPAllocatePrivate *AI) {
+  if (AI->getIsScalar())
+    return getUniformVectorShape();
+
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = AI->getAllocatedType();
@@ -1544,7 +1548,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionInit)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::ReductionInitScalar)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalInscan)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();
@@ -1561,6 +1569,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::PrivateFinalArray)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPOD)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateLastValueNonPODMasked)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
@@ -1603,6 +1613,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::Blend)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningInclusiveReduction)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningExclusiveReduction)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::ExtractLastVectorLane)
+    NewShape = getUniformVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();

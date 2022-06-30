@@ -1918,26 +1918,27 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
+  if (!getLangOpts().OptRecordFile.empty()) {
+    SyclOptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
+    if (Fn && SyclOptReport.HasOptReportInfo(FD)) {
+      llvm::OptimizationRemarkEmitter ORE(Fn);
+      for (auto ORI : llvm::enumerate(SyclOptReport.GetInfo(FD))) {
+        llvm::DiagnosticLocation DL =
+            SourceLocToDebugLoc(ORI.value().KernelArgLoc);
+        StringRef NameInDesc = ORI.value().KernelArgDescName;
+        StringRef ArgType = ORI.value().KernelArgType;
+        StringRef ArgDesc = ORI.value().KernelArgDesc;
+        unsigned ArgSize = ORI.value().KernelArgSize;
+        StringRef ArgDecomposedField = ORI.value().KernelArgDecomposedField;
 
-  SyclOptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
-  if (Fn && SyclOptReport.HasOptReportInfo(FD)) {
-    llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(SyclOptReport.GetInfo(FD))) {
-      llvm::DiagnosticLocation DL =
-          SourceLocToDebugLoc(ORI.value().KernelArgLoc);
-      StringRef NameInDesc = ORI.value().KernelArgDescName;
-      StringRef ArgType = ORI.value().KernelArgType;
-      StringRef ArgDesc = ORI.value().KernelArgDesc;
-      unsigned ArgSize = ORI.value().KernelArgSize;
-      StringRef ArgDecomposedField = ORI.value().KernelArgDecomposedField;
-
-      llvm::OptimizationRemark Remark("sycl", "Region", DL,
-                                      &Fn->getEntryBlock());
-      Remark << "Arg " << llvm::ore::NV("Argument", ORI.index()) << ":"
-             << ArgDesc << NameInDesc << "  (" << ArgDecomposedField
-             << "Type:" << ArgType << ", "
-             << "Size: " << llvm::ore::NV("Argument", ArgSize) << ")";
-      ORE.emit(Remark);
+        llvm::OptimizationRemark Remark("sycl", "Region", DL,
+                                        &Fn->getEntryBlock());
+        Remark << "Arg " << llvm::ore::NV("Argument", ORI.index()) << ":"
+               << ArgDesc << NameInDesc << "  (" << ArgDecomposedField
+               << "Type:" << ArgType << ", "
+               << "Size: " << llvm::ore::NV("Argument", ArgSize) << ")";
+        ORE.emit(Remark);
+      }
     }
   }
 
@@ -3075,7 +3076,7 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
 
   // llvm.ptr.annotation intrinsic accepts a pointer to integer of any width -
   // don't perform bitcasts if value is integer
-  if (VTy->getPointerElementType()->isIntegerTy()) {
+  if (Addr.getElementType()->isIntegerTy()) {
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
 
     for (const auto *I : D->specific_attrs<AnnotateAttr>())
@@ -3131,7 +3132,7 @@ Address CodeGenFunction::EmitFieldSYCLAnnotations(const FieldDecl *D,
   auto *PTy = dyn_cast<llvm::PointerType>(VTy);
   unsigned AS = PTy ? PTy->getAddressSpace() : 0;
   llvm::Type *IntrType = VTy;
-  if (!VTy->getPointerElementType()->isIntegerTy())
+  if (!Addr.getElementType()->isIntegerTy())
     IntrType = llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
   llvm::Function *F =
       CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, IntrType);
@@ -3157,7 +3158,7 @@ Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(SourceLocation Location,
   llvm::Type *VTy = V->getType();
   // llvm.ptr.annotation intrinsic accepts a pointer to integer of any width -
   // don't perform bitcasts if value is integer
-  if (VTy->getPointerElementType()->isIntegerTy()) {
+  if (Addr.getElementType()->isIntegerTy()) {
     llvm::Function *F =
         CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
     V = EmitAnnotationCall(F, V, AnnotStr, Location);
@@ -3250,16 +3251,13 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
   llvm::StringMap<bool> CallerFeatureMap;
   CGM.getContext().getFunctionFeatureMap(CallerFeatureMap, FD);
   if (BuiltinID) {
-    StringRef FeatureList(
-        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID));
-    // Return if the builtin doesn't have any required features.
-    if (FeatureList.empty())
-      return;
-    assert(!FeatureList.contains(' ') && "Space in feature list");
-    TargetFeatures TF(CallerFeatureMap);
-    if (!TF.hasRequiredFeatures(FeatureList))
+    StringRef FeatureList(CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID));
+    if (!Builtin::evaluateRequiredTargetFeatures(
+        FeatureList, CallerFeatureMap)) {
       CGM.getDiags().Report(Loc, diag::err_builtin_needs_feature)
-          << TargetDecl->getDeclName() << FeatureList;
+          << TargetDecl->getDeclName()
+          << FeatureList;
+    }
   } else if (!TargetDecl->isMultiVersion() &&
              TargetDecl->hasAttr<TargetAttr>()) {
     // Get the required features for the callee.

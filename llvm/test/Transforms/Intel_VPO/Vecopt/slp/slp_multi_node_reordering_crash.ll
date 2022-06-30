@@ -29,17 +29,12 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX677]] to <4 x i32>*
 ; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> poison, i32 [[I131]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i32> [[TMP5]], i32 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> [[TMP6]], i32 [[TMP7]], i32 1
-; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x i32> [[TMP5]], i32 1
-; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[TMP9]], i32 2
-; CHECK-NEXT:    [[TMP11:%.*]] = extractelement <4 x i32> [[TMP5]], i32 2
-; CHECK-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP11]], i32 3
-; CHECK-NEXT:    [[TMP13:%.*]] = sub <4 x i32> [[TMP5]], [[TMP12]]
-; CHECK-NEXT:    [[TMP14:%.*]] = sub <4 x i32> [[TMP3]], [[TMP1]]
-; CHECK-NEXT:    [[TMP15:%.*]] = add <4 x i32> [[TMP13]], [[TMP14]]
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[ARRAYIDX667]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> [[TMP5]], <4 x i32> <i32 0, i32 4, i32 5, i32 6>
+; CHECK-NEXT:    [[TMP8:%.*]] = sub <4 x i32> [[TMP5]], [[TMP7]]
+; CHECK-NEXT:    [[TMP9:%.*]] = sub <4 x i32> [[TMP3]], [[TMP1]]
+; CHECK-NEXT:    [[TMP10:%.*]] = add <4 x i32> [[TMP8]], [[TMP9]]
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[ARRAYIDX667]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP10]], <4 x i32>* [[TMP11]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX880:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[Y]], i64 0, i64 2
 ; CHECK-NEXT:    [[GEPLOAD881:%.*]] = load i32, i32* [[ARRAYIDX880]], align 8
 ; CHECK-NEXT:    [[ARRAYIDX883:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[CL7]], i64 0, i64 2

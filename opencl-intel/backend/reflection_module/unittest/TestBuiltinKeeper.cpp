@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,8 +13,6 @@
 // License.
 
 #include "BuiltinKeeper.h"
-#include "FunctionDescriptor.h"
-#include "NameMangleAPI.h"
 #include "VolcanoOpenclRuntime.h"
 #include "gtest_wrapper.h"
 #include "utils.h"
@@ -25,6 +23,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <utility>
 
 using namespace llvm::reflection;

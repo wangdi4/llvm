@@ -103,5 +103,39 @@ attributes #5 = { convergent nounwind }
 !6 = !{i32 128}
 !7 = !{i32 1}
 
-; DEBUGIFY-COUNT-38: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}} alloca
 ; DEBUGIFY-NOT: WARNING

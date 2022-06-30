@@ -103,52 +103,55 @@ void VPExternalValues::verifyVPMetadataAsValues() const {
 }
 
 template <class InitTy, class FinalTy, class EntityTy>
-static std::tuple<InitTy *, FinalTy *, VPExternalUse *>
-getInitFinal(EntityTy *E) {
+static std::tuple<InitTy *, FinalTy *>
+getInitFinal(EntityTy *E, VPLiveInOutCreator::VPExtUseList &UseList) {
   InitTy *Init = nullptr;
   FinalTy *Final = nullptr;
-  VPExternalUse *FinalExternalUse = nullptr;
-
-  auto findExtUser = [](VPInstruction *I) -> VPExternalUse * {
-    auto Iter = llvm::find_if(I->users(),
-                              [](VPUser *U) { return isa<VPExternalUse>(U); });
-    if (Iter == I->user_end())
-      return nullptr;
-    else
-      return cast<VPExternalUse>(*Iter);
-  };
 
   for (VPValue *Val : E->getLinkedVPValues()) {
     if (!Init)
       Init = dyn_cast<InitTy>(Val);
     if (!Final)
-      if ((Final = dyn_cast<FinalTy>(Val)))
-        FinalExternalUse = findExtUser(Final);
+      if ((Final = dyn_cast<FinalTy>(Val))) {
+        for (auto *U : Final->users())
+          if (auto *EU = dyn_cast<VPExternalUse>(U))
+            UseList.push_back(EU);
+      }
   }
-  return std::make_tuple(Init, Final, FinalExternalUse);
+  return std::make_tuple(Init, Final);
 }
 
 template <class InitTy, class FinalTy>
 void VPLiveInOutCreator::addInOutValues(InitTy *Init, FinalTy *Final,
-                                        VPExternalUse *ExtUse, bool ExtUseAdded,
-                                        VPValue *StartV) {
+                                        VPExtUseList &ExtUseList,
+                                        bool ExtUseAdded, VPValue *StartV) {
   VPExternalValues &ExtVals = Plan.getExternals();
 
-  // Create live-in/out descriptors
-  int MergeId = ExtUse->getMergeId();
-  VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
-  VPLiveOutValue *LOV = createLiveOutValue(MergeId, Final);
-  // Unlink External use
-  ExtUse->removeOperand(ExtUse->getOperandIndex(Final));
-  // Put live-in/out to their lists
-  if (ExtUseAdded) {
-    Plan.addLiveInValue(LIV);
-    Plan.addLiveOutValue(LOV);
-    ExtVals.addOriginalIncomingValue(StartV);
-  } else {
-    Plan.setLiveInValue(LIV, MergeId);
-    Plan.setLiveOutValue(LOV, MergeId);
-    ExtVals.setOriginalIncomingValue(StartV, MergeId);
+  int Index = 0;
+  VPLiveInValue *LIV = nullptr;
+  assert(!ExtUseAdded ||
+         ExtUseList.size() == 1 && "Expected one added external use");
+  for (VPExternalUse *ExtUse : ExtUseList) {
+    // Create live-in/out descriptors
+    int MergeId = ExtUse->getMergeId();
+    if (Index == 0)
+      LIV = createLiveInValue(MergeId, StartV->getType());
+    VPLiveOutValue *LOV = createLiveOutValue(MergeId, Final);
+    // Unlink External use
+    ExtUse->removeOperand(ExtUse->getOperandIndex(Final));
+    // Put live-in/out to their lists
+    if (ExtUseAdded) {
+      if (Index == 0)
+        Plan.addLiveInValue(LIV);
+      Plan.addLiveOutValue(LOV);
+      ExtVals.addOriginalIncomingValue(StartV);
+    } else {
+      if (Index == 0)
+        Plan.setLiveInValue(LIV, MergeId);
+      Plan.setLiveOutValue(LOV, MergeId);
+      ExtVals.setOriginalIncomingValue(StartV, MergeId);
+    }
+    Index++;
   }
   // Replace start value with live-in
   if (Init->usesStartValue())
@@ -159,7 +162,7 @@ void VPLiveInOutCreator::addInOutValues(InitTy *Init, FinalTy *Final,
 
 void VPLiveInOutCreator::addOriginalLiveInOut(
     const VPLoopEntityList *VPLEntityList, Loop *OrigLoop, VPLoopEntity *E,
-    VPExternalUse *ExtUse, ScalarInOutList &ScalarInOuts) {
+    VPExtUseList &ExtUseList, ScalarInOutList &ScalarInOuts) {
   VPPHINode *VPPhi = VPLEntityList->getRecurrentVPHINode(*E);
   PHINode *Phi = nullptr;
   if (VPPhi) {
@@ -169,39 +172,49 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
   }
   int StartValOpNum =
       Phi ? Phi->getBasicBlockIndex(OrigLoop->getLoopPreheader()) : -1;
-  const Value *LiveOut = nullptr;
-  if (ExtUse->hasUnderlying())
-    // If the external use exists and it has underlying value, we use it to
-    // set scalar live out. External use or its underlying value may not
-    // exist, e.g. for non-liveout inductions.
-    LiveOut = ExtUse->getUnderlyingOperand(0);
-  else {
-    // Otherwise use phi node incoming operand that comes from latch.
-    assert((Phi && Phi->getNumOperands() == 2) && "Unexpected recurrent Phi");
-    LiveOut = Phi->getOperand(StartValOpNum ^ 1);
+  int Index = 0;
+  for (auto *ExtUse : ExtUseList) {
+    const Value *LiveOut = nullptr;
+    if (ExtUse->hasUnderlying())
+      // If the external use exists and it has underlying value, we use it to
+      // set scalar live out. External use or its underlying value may not
+      // exist, e.g. for non-liveout inductions.
+      LiveOut = ExtUse->getUnderlyingOperand(0);
+    else {
+      // Otherwise use phi node incoming operand that comes from latch.
+      assert((Phi && Phi->getNumOperands() == 2) && "Unexpected recurrent Phi");
+      assert(Index == 0 && "Expected only for one liveout");
+      LiveOut = Phi->getOperand(StartValOpNum ^ 1);
+    }
+    if (Index == 0)
+      ScalarInOuts.add(Phi, StartValOpNum, LiveOut, ExtUse->getMergeId());
+    else
+      ScalarInOuts.add(nullptr, -1, LiveOut, ExtUse->getMergeId());
+    Index++;
   }
-  ScalarInOuts.add(Phi, StartValOpNum, LiveOut, ExtUse->getMergeId());
 }
 
 void VPLiveInOutCreator::addOriginalLiveInOut(
     const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *,
-    VPExternalUse *ExtUse, ScalarInOutListHIR &ScalarInOuts) {
+    VPExtUseList &ExtUseList, ScalarInOutListHIR &ScalarInOuts) {
   // External use w/o underlying operand is created only for main loop IV.
   // TODO: Is this valid?
-  bool IsMainLoopIV = !ExtUse->hasUnderlying();
-  // For a given VPEntity a single temp is expected to be live-in, live-out or
-  // both. We rely purely on VPExternalUse here to capture the temp associated
-  // with current loop entity. For main loop IV we track only the final value of
-  // IV as liveout which should be loop's UB.
-  auto *HIROperand = ExtUse->getOperandHIR();
-  const loopopt::DDRef *HIRTemp = !IsMainLoopIV
-                                      ? cast<VPBlob>(HIROperand)->getBlob()
-                                      : OrigLoop->getUpperDDRef();
-  LLVM_DEBUG(dbgs() << "HIR addOriginalLiveInOut: "
-                    << "HIRTemp: ";
-             HIRTemp->dump();
-             dbgs() << ", MainLoopIV: " << IsMainLoopIV << "\n");
-  ScalarInOuts.add(HIRTemp, IsMainLoopIV, ExtUse->getMergeId());
+  for (auto ExtUse : ExtUseList) {
+    bool IsMainLoopIV = !ExtUse->hasUnderlying();
+    // For a given VPEntity a single temp is expected to be live-in, live-out or
+    // both. We rely purely on VPExternalUse here to capture the temp associated
+    // with current loop entity. For main loop IV we track only the final value
+    // of IV as liveout which should be loop's UB.
+    auto *HIROperand = ExtUse->getOperandHIR();
+    const loopopt::DDRef *HIRTemp = !IsMainLoopIV
+                                        ? cast<VPBlob>(HIROperand)->getBlob()
+                                        : OrigLoop->getUpperDDRef();
+    LLVM_DEBUG(dbgs() << "HIR addOriginalLiveInOut: "
+                      << "HIRTemp: ";
+               HIRTemp->dump();
+               dbgs() << ", MainLoopIV: " << IsMainLoopIV << "\n");
+    ScalarInOuts.add(HIRTemp, IsMainLoopIV, ExtUse->getMergeId());
+  }
 }
 
 template <class LoopTy>
@@ -216,15 +229,17 @@ void VPLiveInOutCreator::createInOutsInductions(
       continue;
     VPInductionInit *IndInit = nullptr;
     VPInductionFinal *IndFinal = nullptr;
-    VPExternalUse *IndFinalExternalUse = nullptr;
-    std::tie(IndInit, IndFinal, IndFinalExternalUse) =
-        getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(Ind);
+    VPExtUseList IndFinalExternalUse;
+    std::tie(IndInit, IndFinal) =
+        getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(
+            Ind, IndFinalExternalUse);
     assert((IndInit && IndFinal) && "Expected non-null init, final");
-    bool NeedAddExtUse = IndFinalExternalUse == nullptr;
+    bool NeedAddExtUse = IndFinalExternalUse.empty();
     // Inductions should always have outgoing value
     if (NeedAddExtUse) {
-      IndFinalExternalUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
-      IndFinalExternalUse->addOperand(IndFinal);
+      auto ExtUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
+      ExtUse->addOperand(IndFinal);
+      IndFinalExternalUse.push_back(ExtUse);
     }
     addInOutValues(IndInit, IndFinal, IndFinalExternalUse, NeedAddExtUse,
                    IndInit->getStartValueOperand());
@@ -252,9 +267,10 @@ void VPLiveInOutCreator::createInOutsReductions(
       continue;
     VPReductionInit *RedInit = nullptr;
     VPReductionFinal *RedFinal = nullptr;
-    VPExternalUse *RedFinalExternalUse = nullptr;
-    std::tie(RedInit, RedFinal, RedFinalExternalUse) =
-        getInitFinal<VPReductionInit, VPReductionFinal, VPReduction>(Red);
+    VPExtUseList RedFinalExternalUse;
+    std::tie(RedInit, RedFinal) =
+        getInitFinal<VPReductionInit, VPReductionFinal, VPReduction>(
+            Red, RedFinalExternalUse);
     assert((RedInit && RedFinal) && "Expected non-null init and final");
     VPValue *StartV = nullptr;
     if (RedInit->usesStartValue())
@@ -263,7 +279,7 @@ void VPLiveInOutCreator::createInOutsReductions(
       StartV = RedFinal->getStartValueOperand();
     assert(StartV && "StartV is expected to be non-null here.");
     bool ExtUseAdded = false;
-    if (!RedFinalExternalUse) {
+    if (RedFinalExternalUse.empty()) {
       // No external use can be possible for some auto-generated reductions,
       // e.g. fake linear index for min/max+index idiom or for reductions that
       // are not used outside of the loop or in-memory reductions. Then we
@@ -276,15 +292,16 @@ void VPLiveInOutCreator::createInOutsReductions(
         continue;
       if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
         if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
-          RedFinalExternalUse =
+          auto ExtUse =
               ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
-          RedFinalExternalUse->addOperand(RedFinal);
+          ExtUse->addOperand(RedFinal);
+          RedFinalExternalUse.push_back(ExtUse);
         }
-      if (!RedFinalExternalUse) {
+      if (RedFinalExternalUse.empty()) {
         // That means we have a constant start value.
-        RedFinalExternalUse =
-            ExtVals.createVPExternalUseNoIR(RedInit->getType());
-        RedFinalExternalUse->addOperand(RedFinal);
+        auto ExtUse = ExtVals.createVPExternalUseNoIR(RedInit->getType());
+        ExtUse->addOperand(RedFinal);
+        RedFinalExternalUse.push_back(ExtUse);
       }
       ExtUseAdded = true;
     }
@@ -304,15 +321,6 @@ template <class LoopTy>
 void VPLiveInOutCreator::createInOutsPrivates(
     const VPLoopEntityList *VPLEntityList, LoopTy *OrigLoop) {
 
-  auto findExtUser = [](VPInstruction *I) -> VPExternalUse * {
-    auto Iter = llvm::find_if(
-        I->users(), [](VPUser *U) { return isa<VPExternalUse>(U); });
-    if (Iter == I->user_end())
-      return nullptr;
-    else
-      return cast<VPExternalUse>(*Iter);
-  };
-
   VPExternalValues &ExtVals = Plan.getExternals();
   auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
   for (auto *Priv : VPLEntityList->vpprivates()) {
@@ -325,31 +333,34 @@ void VPLiveInOutCreator::createInOutsPrivates(
       auto PrivFinal = dyn_cast<VPInstruction>(Val);
       if (!PrivFinal)
         continue;
-      VPExternalUse *PrivFinalExternalUse = nullptr;
+      VPExtUseList PrivFinalExternalUse;
       if (PrivFinal->getOpcode() == VPInstruction::PrivateFinalUncond ||
-          PrivFinal->getOpcode() == VPInstruction::PrivateFinalCond)
-        PrivFinalExternalUse = findExtUser(PrivFinal);
-      else
+          PrivFinal->getOpcode() == VPInstruction::PrivateFinalCond) {
+        for (auto *U : PrivFinal->users())
+          if (auto *EU = dyn_cast<VPExternalUse>(U))
+            PrivFinalExternalUse.push_back(EU);
+      } else {
         continue;
+      }
 
-      assert(PrivFinalExternalUse && "Expected non-null external use");
+      assert(!PrivFinalExternalUse.empty() && "Expected non-null external use");
       // Create live-in/out descriptors
-      int MergeId = PrivFinalExternalUse->getMergeId();
-      // TODO.Conditional last private have start value.
-      VPLiveOutValue *LOV = createLiveOutValue(MergeId, PrivFinal);
-      // Unlink External use
-      PrivFinalExternalUse->removeOperand(
-          PrivFinalExternalUse->getOperandIndex(PrivFinal));
-      // Put live-in/out to their lists
-      Plan.setLiveOutValue(LOV, MergeId);
-
+      for (auto *ExtUse : PrivFinalExternalUse) {
+        int MergeId = ExtUse->getMergeId();
+        VPLiveOutValue *LOV = createLiveOutValue(MergeId, PrivFinal);
+        // Unlink External use
+        ExtUse->removeOperand(ExtUse->getOperandIndex(PrivFinal));
+        // Put live-in/out to their lists
+        Plan.setLiveOutValue(LOV, MergeId);
+      }
       VPValue *StartV;
       if (auto *PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal))
         StartV = PrivInst->getOrig();
       else {
         // For unconditional privates add "undef" incoming value.
-        StartV = Plan.getVPConstant(UndefValue::get(LOV->getType()));
+        StartV = Plan.getVPConstant(UndefValue::get(PrivFinal->getType()));
       }
+      int MergeId = PrivFinalExternalUse[0]->getMergeId();
       VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
       Plan.setLiveInValue(LIV, MergeId);
       ExtVals.setOriginalIncomingValue(StartV, MergeId);

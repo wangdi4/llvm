@@ -1,3 +1,15 @@
+// Copyright (C) 2020-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // Masked implementation codes
 // Naming convention:
 // 1. Always prefixed with 'masked_impl_code_'
@@ -20,6 +32,7 @@ list<OclType> math_all_types = [
   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64
 ];
 
+list<OclType> math_half_types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16];
 list<OclType> math_float_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32];
 list<OclType> math_double_types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
 
@@ -83,7 +96,7 @@ OclBuiltinImpl exp_mask_svml = OclBuiltinImpl<exp_mask, math_all_types, 0, maske
 OclBuiltinImpl exp2_mask_svml = OclBuiltinImpl<exp2_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl exp10_mask_svml = OclBuiltinImpl<exp10_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl expm1_mask_svml = OclBuiltinImpl<expm1_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl fabs_mask_svml = OclBuiltinImpl<fabs_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
+OclBuiltinImpl fabs_mask_svml = OclBuiltinImpl<fabs_mask, math_all_types # math_half_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl floor_mask_svml = OclBuiltinImpl<floor_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl lgamma_mask_svml = OclBuiltinImpl<lgamma_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;
 OclBuiltinImpl log_mask_svml = OclBuiltinImpl<log_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;
@@ -410,24 +423,3 @@ OclBuiltinImpl radians_mask_svml = OclBuiltinImpl<radians_mask, math_all_types, 
 OclBuiltinImpl step_mask_svml = OclBuiltinImpl<step_mask, math_all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "1"], ["$DEF1", "0"]]>;
 OclBuiltinImpl smoothstep_mask_svml = OclBuiltinImpl<smoothstep_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "1"], ["$DEF1", "2"], ["$DEF2", "0"]]>;
 OclBuiltinImpl sign_mask_svml = OclBuiltinImpl<sign_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-
-// Relational builtins
-defvar masked_impl_code_RF2I_G_M = [{
-    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
-    return $Func(m$Arg0VarName);
-  }];
-
-defvar masked_impl_code_RF2I_G2_M = [{
-    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
-    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, $Arg2VarName);
-    return $Func(m$Arg0VarName, m$Arg1VarName);
-  }];
-
-OclBuiltinImpl islessgreater_mask_svml = OclBuiltinImpl<islessgreater_mask, math_all_types, 0, masked_impl_code_RF2I_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl isfinite_mask_svml = OclBuiltinImpl<isfinite_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl isinf_mask_svml = OclBuiltinImpl<isinf_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl isnan_mask_svml = OclBuiltinImpl<isnan_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl isnormal_mask_svml = OclBuiltinImpl<isnormal_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl isordered_mask_svml = OclBuiltinImpl<isordered_mask, math_all_types, 0, masked_impl_code_RF2I_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl isunordered_mask_svml = OclBuiltinImpl<isunordered_mask, math_all_types, 0, masked_impl_code_RF2I_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl signbit_mask_svml = OclBuiltinImpl<signbit_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;

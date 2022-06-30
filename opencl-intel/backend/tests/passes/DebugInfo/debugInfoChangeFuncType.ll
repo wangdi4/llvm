@@ -24,7 +24,7 @@
 ; CHECK-PKA: @__invoke_func_separated_args{{.*}} #[[ATTR:[0-9]+]]
 ; CHECK: @invoke_func{{.*}} !dbg ![[DMETA2:[0-9]+]]
 ; CHECK: ret void, !dbg !{{[0-9]+}}
-; CHECK-PKA: attributes #[[ATTR]] = { alwaysinline
+; CHECK-PKA: attributes #[[ATTR]] = { convergent noinline nounwind
 ; CHECK-DAG: ![[DMETA1]] = {{.*}}!DISubprogram{{.*}}name: "func"
 ; CHECK-DAG: ![[DMETA2]] = {{.*}}!DISubprogram{{.*}}name: "invoke_func"
 

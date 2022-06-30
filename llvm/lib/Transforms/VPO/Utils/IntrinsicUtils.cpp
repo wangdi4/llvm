@@ -56,6 +56,42 @@ static cl::opt<unsigned>
     RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
                     cl::desc("The number of references threshold"));
 
+// Can't make it default until all the passes in the MiddleEnd can support it
+// and the VLA allocas (2-operand) are supported in this file.
+static cl::opt<bool> AddTypedPrivates(
+    "vpo-utils-add-typed-privates", cl::Hidden, cl::init(false),
+    cl::desc("Use TYPED OMP clause when adding privates in CodeExtractor."));
+
+// Return the <ElementType, NumElements> pair for the alloca AI.
+ElementTypeAndNumElements
+VPOUtils::getTypedClauseInfoForAlloca(AllocaInst *AI) {
+  Value *NumElements = AI->getArraySize();
+  Type *AllocatedTy = AI->getAllocatedType();
+  Type *I64Ty = Type::getInt64Ty(AllocatedTy->getContext());
+
+  if (!isa<ArrayType>(AllocatedTy))
+    return {AllocatedTy,
+            NumElements ? NumElements : ConstantInt::get(I64Ty, 1)};
+
+  if (NumElements && !isa<ConstantInt>(NumElements)) {
+    // For %1 = alloca [10 x i16], i32 %n, we will not decay AllocatedTy.
+    // If we do, we may need to insert instructions to calculate the size.
+    // i.e. AllocatedTy: [10 x i16] -> i16 and Size: 10 * %n(in IR)
+    return {AllocatedTy, NumElements};
+  }
+
+  uint64_t DecayedNE =
+      NumElements ? cast<ConstantInt>(NumElements)->getZExtValue() : 1;
+  Type *DecayedTy = AllocatedTy;
+
+  while (ArrayType *ArrTy = dyn_cast<ArrayType>(DecayedTy)) {
+    DecayedTy = ArrTy->getElementType();
+    DecayedNE *= ArrTy->getNumElements();
+  }
+
+  return {DecayedTy, ConstantInt::get(I64Ty, DecayedNE)};
+}
+
 bool VPOUtils::unsetMayHaveOpenmpDirectiveAttribute(Function &F) {
   StringRef AttributeName = "may-have-openmp-directive";
   if (!F.hasFnAttribute(AttributeName))
@@ -315,7 +351,8 @@ CallInst *VPOUtils::removeOpenMPClausesFromCall(CallInst *CI,
 // non-SIMD directives cannot be modified during VPO.
 // Return false if no directive was found.
 bool VPOUtils::addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
-                                           DominatorTree &DT, bool SimdOnly) {
+                                           DominatorTree &DT, bool SimdOnly,
+                                           bool ForceTypedClause) {
   // Check if I is already used in a directive, don't introduce a possible
   // conflict.
   for (User *UseI : I->users())
@@ -338,8 +375,19 @@ bool VPOUtils::addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
       if (!SimdOnly || VPOAnalysisUtils::getDirectiveID(Begin) == DIR_OMP_SIMD)
 
       {
-        auto *Repl = VPOUtils::addOperandBundlesInCall(
-            cast<CallInst>(Begin), {{"QUAL.OMP.PRIVATE", {I}}});
+        CallInst *Repl;
+        if (ForceTypedClause || AddTypedPrivates) {
+          ElementTypeAndNumElements EltTyAndNumElem =
+              VPOUtils::getTypedClauseInfoForAlloca(I);
+          Repl = VPOUtils::addOperandBundlesInCall(
+              cast<CallInst>(Begin),
+              {{"QUAL.OMP.PRIVATE:TYPED",
+                {I, Constant::getNullValue(EltTyAndNumElem.first),
+                 EltTyAndNumElem.second}}});
+        } else {
+          Repl = VPOUtils::addOperandBundlesInCall(cast<CallInst>(Begin),
+                                                   {{"QUAL.OMP.PRIVATE", {I}}});
+        }
         if (Repl) {
           LLVM_DEBUG(dbgs() << "Added private clause for: " << *I << "\nto "
                             << *Repl << "\n");

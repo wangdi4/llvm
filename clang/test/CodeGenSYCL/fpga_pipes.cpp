@@ -1,13 +1,11 @@
 // UNSUPPORTED: intel_opencl
-// RUN: %clang_cc1 -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device %s -opaque-pointers -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_CSA
 // INTEL - Disable test for CSA compiler as it is flaky.
 // UNSUPPORTED: csa-registered-target
 // end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATION
-// CHECK: %opencl.pipe_wo_t
-// CHECK: %opencl.pipe_ro_t
 
 using WPipeTy = __attribute__((pipe("write_only"))) const int;
 SYCL_EXTERNAL WPipeTy WPipeCreator();
@@ -58,9 +56,9 @@ __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
-    // CHECK: alloca %opencl.pipe_wo_t
+    // CHECK: alloca ptr
     WPipeTy wpipe = WPipeCreator();
-    // CHECK: alloca %opencl.pipe_ro_t
+    // CHECK: alloca ptr
     RPipeTy rpipe = RPipeCreator();
     foo<WPipeTy>(wpipe);
     foo<RPipeTy>(rpipe);

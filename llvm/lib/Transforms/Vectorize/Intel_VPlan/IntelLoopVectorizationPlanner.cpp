@@ -58,13 +58,14 @@ static cl::opt<unsigned> VPlanTargetVF(
     "vplan-target-vf", cl::init(0),
     cl::desc("When simdlen is not set force VPlan to use given VF"));
 
+static cl::opt<unsigned> VPlanSearchLpPtrEqForceVF(
+    "vplan-search-lp-ptr-eq-force-vf", cl::init(4),
+    cl::desc("Force VPlan to use given VF to vectorize all search loops that "
+             "match the SearchLoopPtrEq idiom."));
+
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
-static cl::opt<bool>
-    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(true), cl::Hidden,
-                   cl::desc("Enable CFG merge before VPlan code gen."));
-
 static cl::opt<bool, true>
     EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
                          cl::location(EnableNewCFGMerge),
@@ -107,6 +108,11 @@ static cl::opt<unsigned> FavorAlignedMultiplierDefaultTCEst(
   "vplan-favor-aligned-multiplier-default-tc", cl::init(2), cl::Hidden,
   cl::desc("Favour aligned tolerance multiplier for default TC estimation"));
 
+static cl::opt<bool, true> EnableIntDivRemBlendWithSafeValueOpt(
+    "vplan-enable-int-divrem-blend-with-safe-value", cl::Hidden,
+    cl::location(EnableIntDivRemBlendWithSafeValue),
+        cl::desc("Enable blend with safe value for integer div/rem."));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -124,6 +130,10 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     InitialTransformsDumpControl("initial-transforms",
                                  "initial VPlan transforms");
+static LoopVPlanDumpControl
+    BlendWithSafeValueDumpControl("blend-with-safe-value",
+                                 "blend integer div/rem with safe value");
+
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
@@ -230,6 +240,7 @@ bool EnableNewCFGMerge = true;
 bool EnableNewCFGMergeHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
+bool EnableIntDivRemBlendWithSafeValue = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -253,6 +264,14 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
+  if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "LVP: The forced VF is not power of two, skipping the loop\n");
+    VFs.push_back(0);
+    return 0;
+  }
+
 
 #if INTEL_CUSTOMIZATION
   unsigned Safelen = getSafelen(WRLp);
@@ -392,12 +411,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  ScalarIterationCost = createCostModel(Plan.get(), 1)->getCost(
-   nullptr /* PeelingVariant */, OS);
-
-  // FIXME: Should we really prefer VF=1 Plan with unknown cost?
-  if (ScalarIterationCost.isUnknown())
-    ScalarIterationCost = 0;
+  std::tie(ScalarIterationCost, std::ignore) =
+      createCostModel(Plan.get(), 1)->getCost(nullptr /* PeelingVariant */, OS);
 
   // Reset the results of SVA that are set as a side effect of CM invocation.
   // The results are dummy (specific to VF = 1) and may not be automatically
@@ -467,11 +482,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
       unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
 
+      auto VFNotValidForConflict = [MaxVF, VConflictIndexSizeInBits,
+                                    this](unsigned VF) {
+        // VF is greater than max supported VF.
+        if (VF > MaxVF)
+          return true;
+
+        // No intrinsics to perform conflict for 64-bit vector register.
+        if (VF == 2 && VConflictIndexSizeInBits == 32)
+          return true;
+
+        // Target does not have AVX512VL feature in which case only 512-bit
+        // vector register conflict is supported.
+        if (!TTI->hasVLX() && VF * VConflictIndexSizeInBits != 512)
+          return true;
+
+        return false;
+      };
+
       VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
-                               [MaxVF, VConflictIndexSizeInBits](unsigned VF) {
-                                 return VF > MaxVF ||
-                                        (VF == 2 &&
-                                         VConflictIndexSizeInBits == 32);
+                               [VFNotValidForConflict](unsigned VF) {
+                                 return VFNotValidForConflict(VF);
                                }),
                 VFs.end());
 
@@ -490,7 +521,21 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           VFs.clear();
           break;
         }
-        //
+
+        // Case where the generated loop for tree conflict lowering would cause
+        // allowed maximum loop nesting level to be exceeded. In order to
+        // prevent this, the conflict instruction's VPLoop depth when added to
+        // the nesting level of the original loop being vectorized should be
+        // atmost equal to maximum loop nesting level.
+        auto *VPLI = Plan->getVPLoopInfo();
+        VPLoop *VPLp = VPLI->getLoopFor(VPConflict->getParent());
+        assert(VPLp && "Conflict instruction outside VPLoop");
+
+        if (Plan->exceedsMaxLoopNestingLevel(VPLp->getLoopDepth())) {
+          VFs.clear();
+          break;
+        }
+
         // Case (VF < 4): No direct intrinsic mapping and pumping is required.
         VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
                                  [MaxVF](unsigned VF) {
@@ -538,6 +583,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // Always capture scalar VPlan to handle cases where vectorization
   // is not possible with VF > 1 (such as when forced VF greater than TC).
   VPlans[1] = VPlans[VFs[0] /*MinVF*/];
+  assert(VPlans[1].MainPlan != nullptr && "expected non-null VPlan");
 
   return 1;
 }
@@ -818,7 +864,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         SearchLoopPreferredVF = 32;
         break;
       case VPlanIdioms::SearchLoopPtrEq:
-        SearchLoopPreferredVF = 4;
+        SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
       default:
         break;
@@ -858,11 +904,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   }
 
   raw_ostream *OS = nullptr;
-
   VPInstructionCost ScalarCost = ScalarIterationCost * TripCount;
-  // Cap ScalarCost and max value if * TripCount overflows.
-  if (!ScalarCost.isValid())
-    ScalarCost = VPInstructionCost::getMax();
 
   if (ForcedVF > 0 || SearchLoopPreferredVF > 0) {
     assert((VFs.size() == 1 &&
@@ -885,7 +927,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   bool IsVectorAlways = ShouldIgnoreProfitability || VecThreshold == 0;
 
   if (IsVectorAlways) {
-    BestCost = VPInstructionCost::getMax();
+    BestCost = VPInstructionCost::getInvalid();
     LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
                          "for the given loop\n");
   }
@@ -902,11 +944,27 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         }),
       VFs.end());
 
+  DenseMap<unsigned, VPCostSummary> VFCosts;
+
   //
   // The main loop where we choose VF.
   // Please note that best peeling variant is expected to be selected up to
   // this moment.  Now we check whether the best peeling is profitable VS no
   // peeling.
+  //
+  // The rules for picking best VF follows:
+  // 1. ForcedVF / SearchLoopPreferredVF wins always even the corresponding Plan
+  //    is of Unknown/Invalid cost.
+  // 2. IsVectorAlways = true gives preference to VF > 1 Plans.
+  // 3. The least valid cost wins.
+  // 4. Unknown cost wins over Invalid cost.
+  // 5. The cases of tie:
+  //      *) all costs are valid and equal.
+  //      *) all costs are Unknown.
+  //      *) all costs are Invalid.
+  //    In case of tie VF = 1 wins unless IsVectorAlways is true.
+  //    In case of tie and IsVectorAlways is true the first avaiable VF
+  //    is selected.
   for (unsigned VF : getVectorFactors()) {
     assert(hasVPlanForVF(VF) && "expected non-null VPlan");
     if (TripCount < VF * BestUF)
@@ -929,16 +987,21 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    VPInstructionCost MainLoopIterationCost = MainLoopCM->getCost(
-      PeelingVariant, OS);
+    VPInstructionCost MainLoopIterationCost, MainLoopOverhead;
 
-    if (MainLoopIterationCost.isUnknown()) {
+    std::tie(MainLoopIterationCost, MainLoopOverhead) =
+        MainLoopCM->getCost(PeelingVariant, OS);
+
+    if (!MainLoopIterationCost.isValid() || !MainLoopOverhead.isValid()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF || VF == SearchLoopPreferredVF) {
-        // If the VF is forced and loop cost for it is unknown select the
-        // simplest configuration: non-masked main loop + scalar remainder.
+        // If the VF is forced and loop cost for it is unknown/invalid select
+        // the simplest configuration: non-masked main loop + scalar remainder.
         selectSimplestVecScenario(VF, BestUF);
       }
+      else
+        LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is " <<
+                   MainLoopIterationCost << ". Skip it.\n");
       continue;
     }
     LLVM_DEBUG(dbgs() << "Selected peeling: ";
@@ -973,7 +1036,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // main and remainder loops.
     VPInstructionCost VectorCost =
       PeelEvaluator.getLoopCost() +
-      MainLoopIterationCost * MainLoopTripCount +
+      MainLoopIterationCost * MainLoopTripCount + MainLoopOverhead +
       RemainderEvaluator.getLoopCost();
 
     // Calculate cost of one iteration of the main loop without preferred
@@ -981,8 +1044,12 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // This getCost() call leaves no traces in CM dumps enabled by
     // VPlanCostModelPrintAnalysisForVF for now. May want to reconsider in
     // future.
-    VPInstructionCost MainLoopIterationCostWithoutPeel = MainLoopCM->getCost();
-    if (MainLoopIterationCostWithoutPeel.isUnknown()) {
+    VPInstructionCost MainLoopIterationCostWithoutPeel,
+        MainLoopOverheadWithoutPeel;
+    std::tie(MainLoopIterationCostWithoutPeel, MainLoopOverheadWithoutPeel) =
+        MainLoopCM->getCost();
+    if (MainLoopIterationCostWithoutPeel.isUnknown() ||
+        MainLoopOverheadWithoutPeel.isUnknown()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF <<
                  " without peel is unknown. Skip it.\n");
       continue;
@@ -996,8 +1063,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
     VPInstructionCost VectorCostWithoutPeel =
-      MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
-      RemainderEvaluatorWithoutPeel.getLoopCost();
+        MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
+        MainLoopOverheadWithoutPeel +
+        RemainderEvaluatorWithoutPeel.getLoopCost();
 
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
@@ -1017,36 +1085,49 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           GainWithPeel, GainWithoutPeel, ScalarCost, TripCount, PeelIsDynamic,
           IsTripCountEstimated);
 
-    const char CmpChar =
-        ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
+    VPInstructionCost VectorGain = GoUnaligned ? GainWithoutPeel : GainWithPeel;
+    // Calculate speedup relatively to single scalar iteration.
+    VPInstructionCost Speedup =
+        ScalarIterationCost / (ScalarIterationCost - VectorGain / TripCount);
+    VPInstructionCost VectorIterationCost =
+        GoUnaligned ? MainLoopIterationCostWithoutPeel : MainLoopIterationCost;
+    VectorIterationCost = VectorIterationCost / (VF * BestUF);
+    VFCosts.insert(
+        {VF, VPCostSummary(ScalarIterationCost, VectorIterationCost, Speedup)});
+
+    const char CmpChar = ScalarCost < VectorCost    ? '<'
+                         : ScalarCost == VectorCost ? '='
+                                                    : '>';
     (void)CmpChar;
     LLVM_DEBUG(
         dbgs() << "Scalar Cost = " << TripCount << " x " << ScalarIterationCost
                << " = " << ScalarCost << ' ' << CmpChar
                << " VectorCost = " << PeelEvaluator.getLoopCost() << " + "
                << MainLoopTripCount << " x " << MainLoopIterationCost << " + "
-               << RemainderEvaluator.getLoopCost() << " = " << VectorCost
-               << '\n'
+               << MainLoopOverhead << " + " << RemainderEvaluator.getLoopCost()
+               << " = " << VectorCost << '\n'
                << "Peel loop cost = " << PeelEvaluator.getLoopCost() << " ("
                << PeelEvaluator.getPeelLoopKindStr() << ")"
                << "\n"
                << "Main loop vector cost = "
-               << MainLoopTripCount * MainLoopIterationCost << "\n"
+               << MainLoopTripCount * MainLoopIterationCost << " + "
+               << MainLoopOverhead << "\n"
                << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
                << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
                << "\n"
                // Print out costs without peel.
-               << " VectorCostWithoutPeel = "
-               << MainLoopTripCountWithoutPeel << " x "
-               << MainLoopIterationCostWithoutPeel
-               << " = " << VectorCostWithoutPeel
+               << " VectorCostWithoutPeel = " << MainLoopTripCountWithoutPeel
+               << " x " << MainLoopIterationCostWithoutPeel << " + "
+               << MainLoopOverheadWithoutPeel << " = " << VectorCostWithoutPeel
                << "\n"
                << "Main loop vector cost without peel = "
-               << MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel
+               << MainLoopIterationCostWithoutPeel *
+                          MainLoopTripCountWithoutPeel +
+                      MainLoopOverheadWithoutPeel
                << "\n"
                << "Remainder loop cost without peel = "
-               << RemainderEvaluatorWithoutPeel.getLoopCost()
-               << " (" << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
+               << RemainderEvaluatorWithoutPeel.getLoopCost() << " ("
+               << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
                << "\n";);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1055,8 +1136,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       PeelEvaluator.dump();
       dbgs() << "The main loop is vectorized with vector factor " << VF
              << ". The vector cost is "
-             << MainLoopTripCount * MainLoopIterationCost << "("
-             << MainLoopTripCount << " x " << MainLoopIterationCost << "). \n";
+             << MainLoopTripCount * MainLoopIterationCost + MainLoopOverhead
+             << "(" << MainLoopTripCount << " x " << MainLoopIterationCost
+             << " + " << MainLoopOverhead << "). \n";
       RemainderEvaluator.dump();
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -1070,7 +1152,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
     }
 
-    if (VectorCost < BestCost ||
+    // Current VF is invalid to vectorize with so skip it.
+    if (VectorCost.isInvalid())
+      continue;
+
+    // The checks below implement the rules for selecting the best VF.
+    if ((VectorCost.isUnknown() && BestCost.isInvalid()) ||
+        (VectorCost.isValid() && !BestCost.isValid())    ||
+        (VectorCost.isValid() && BestCost.isValid() &&
+         VectorCost < BestCost)                          ||
         VF == ForcedVF || VF == SearchLoopPreferredVF) {
       BestCost = VectorCost;
       updateVecScenario(PeelEvaluator,
@@ -1086,12 +1176,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     }
   }
 #if INTEL_CUSTOMIZATION
-  // Corner case: all available VPlans have UMAX cost.
+  // Corner case: all available VPlans have Invalid cost.
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF.
-  if (VecScenario.getMainVF() == 1 && IsVectorAlways) {
+  if (VecScenario.getMainVF() == 1 && IsVectorAlways)
     selectSimplestVecScenario(VFs[0], 1);
-  }
 
   // Workaround for using DefaultTripCount: in some cases we can have situation
   // when static peeling and current value of DefaultTripCount can lead to
@@ -1143,6 +1232,30 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPlans.erase(It.first);
   }
   LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << getBestVF() << '\n');
+
+  OptReportStatsTracker &OptRptStats =
+      getVPlanForVF(getBestVF())->getOptRptStatsForLoop(OuterMostVPLoop);
+  auto Record = VFCosts.find(getBestVF());
+  if (Record != VFCosts.end()) {
+    VPCostSummary &CostSummary = Record->second;
+    if (CostSummary.ScalarIterationCost.isValid()) {
+      // Add remark: scalar cost
+      OptRptStats.CostModelRemarks.emplace_back(
+          15476,
+          std::to_string(CostSummary.ScalarIterationCost.getFloatValue()));
+    }
+    if (CostSummary.VectorIterationCost.isValid()) {
+      // Add remark: vector cost
+      OptRptStats.CostModelRemarks.emplace_back(
+          15477,
+          std::to_string(CostSummary.VectorIterationCost.getFloatValue()));
+    }
+    if (CostSummary.Speedup.isValid()) {
+      // Add remark: estimated potential speedup
+      OptRptStats.CostModelRemarks.emplace_back(
+          15478, std::to_string(CostSummary.Speedup.getFloatValue()));
+    }
+  }
 
   return std::make_pair(getBestVF(), getBestVPlan());
 }
@@ -1396,12 +1509,15 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
   VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
+  const Function* F = TheLoop->getHeader()->getParent();
+  Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
+
   if (EnableSOAAnalysis)
     // Enable SOA-analysis.
     Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE, BFI);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 
@@ -1692,7 +1808,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if ((EnableCFGMerge && EmitPushPopVF) || EnableNewCFGMerge) {
+  if (EnableNewCFGMerge) {
     CallVecDecisions.runForMergedCFG(TLI, TTI);
     Label = "CallVecDecisions analysis for merged CFG";
   } else {
@@ -1721,7 +1837,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
-  if (!EnableCFGMerge && !EnableNewCFGMerge)
+  if (!EnableNewCFGMerge)
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -1949,4 +2065,73 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop,
     return supportedCmpBranch(Header, Latch, Cond, AddI, ExactUB);
   }
   return false;
+}
+
+// Transforms the integer masked div/rem instructions blending the divisor with
+// a safe value (1). The transformation looks like below:
+//   %p = block-predicate i1 ...
+//   ...
+//   %r = idiv i32 %a, %b
+// ==>
+//   %p = block-predicate i1 ...
+//   ...
+//   %safe_divisor = select i1 %p, i32 %b, 1
+//   %r = idiv i32 %a, %safe_divisor
+//
+void LoopVectorizationPlanner::blendWithSafeValue() {
+
+  if (!EnableIntDivRemBlendWithSafeValue)
+    return;
+
+  SmallPtrSet<VPlan *, 2> Visited;
+
+  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
+    if (!Visited.insert(&P).second)
+      return;
+
+    auto NeedProcessInst = [&P](const VPInstruction &Inst) {
+      auto Opcode = Inst.getOpcode();
+      if (Opcode != Instruction::SDiv && Opcode != Instruction::UDiv &&
+          Opcode != Instruction::SRem && Opcode != Instruction::URem)
+        return false;
+
+      // Skipping non masked div/rem.
+      if (!Inst.getParent()->getPredicate())
+        return false;
+
+      // And uniform too, they are processed in a special way in CG.
+      if (P.getVPlanDA()->isUniform(Inst))
+        return false;
+
+      // When the divisor is unsafe we blend with safe value.
+      return !isDivisorSpeculationSafeForDivRem(Inst.getOpcode(),
+                                                Inst.getOperand(1));
+    };
+
+    SmallVector<VPInstruction *, 4> InstrToProcess(
+        map_range(make_filter_range(vpinstructions(&P), NeedProcessInst),
+                  [](VPInstruction &I) { return &I; }));
+    VPBuilder Builder;
+    for (auto *Inst : InstrToProcess) {
+      Builder.setInsertPoint(Inst);
+      // Get divisor and insert 1 in masked off lanes, to ensure we don't have
+      // unwanted exception raised.
+      auto *Op = Inst->getOperand(1);
+      auto *VPOne = P.getVPConstant(ConstantInt::get(Op->getType(), 1));
+      VPValue *SafeOp =
+          Builder.createSelect(Inst->getParent()->getPredicate(), Op, VPOne);
+      P.getVPlanDA()->updateDivergence(*SafeOp);
+      Inst->replaceUsesOfWith(Op, SafeOp);
+    }
+    VPLAN_DUMP(BlendWithSafeValueDumpControl, P);
+  };
+
+  for (auto &Pair : VPlans) {
+    if (Pair.first == 1) // VF
+      continue;
+
+    ProcessVPlan(*Pair.second.MainPlan);
+    if (Pair.second.MaskedModeLoop)
+      ProcessVPlan(*Pair.second.MaskedModeLoop);
+  }
 }

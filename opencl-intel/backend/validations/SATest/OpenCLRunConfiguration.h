@@ -30,50 +30,49 @@ namespace Validation
     using PassManagerType = Intel::OpenCL::DeviceBackend::PassManagerType;
 
     enum RunConfigurationOption {
-        // Common options
-        RC_COMMON_DEFAULT_LOCAL_WG_SIZE,
-        RC_COMMON_RUN_SINGLE_WG,
-        RC_COMMON_RANDOM_DG_SEED,
+      // Common options
+      RC_COMMON_DEFAULT_LOCAL_WG_SIZE,
+      RC_COMMON_RUN_SINGLE_WG,
+      RC_COMMON_RANDOM_DG_SEED,
 
-        // Back-end runner specific options
-        RC_BR_BUILD_ITERATIONS_COUNT,
-        RC_BR_CPU_FEATURES,
-        RC_BR_CPU_ARCHITECTURE,
-        RC_BR_DEVICE_MODE,
-        RC_BR_DUMP_OPTIMIZED_LLVM_IR,
-        RC_BR_EXECUTE_ITERATIONS_COUNT,
-        RC_BR_MEASURE_PERFORMANCE,
-        RC_BR_VECTORIZER_TYPE,
-        RC_BR_NATIVE_SUBGROUPS,
-        RC_BR_ENABLE_SUBGROUP_EMULATION,
-        RC_BR_TRANSPOSE_SIZE,
-        RC_BR_VERBOSE,
-        RC_BR_USE_SDE,
-        RC_BR_USE_PIN_TRACE_MARKS,
-        RC_BR_USE_VTUNE,
-        RC_BR_PRINT_BUILD_LOG,
-        RC_BR_BUILD_ONLY,
-        RC_BR_STOP_BEFORE_JIT,
-        RC_BR_DUMP_JIT,
-        RC_BR_DUMP_KERNEL_PROPERTY,
-        RC_BR_TIME_PASSES,
-        RC_BR_DEBUG_PASS_MANAGER,
-        RC_BR_LLVM_OPTION,
-        RC_BR_DUMP_HEURISTIC_IR,
-        RC_BR_PERF_LOG,
-        RC_BR_OBJECT_FILE,
-        RC_BR_EXPENSIVE_MEM_OPT,
-        RC_BR_PASS_MANAGER_TYPE,
-        RC_BR_SERIALIZE_WORK_GROUPS,
-        // Reference runner specific options
-        RC_REF_USE_NEAT,
-        RC_REF_USE_FMA_NEAT,
+      // Back-end runner specific options
+      RC_BR_BUILD_ITERATIONS_COUNT,
+      RC_BR_CPU_FEATURES,
+      RC_BR_CPU_ARCHITECTURE,
+      RC_BR_DEVICE_MODE,
+      RC_BR_DUMP_OPTIMIZED_LLVM_IR,
+      RC_BR_EXECUTE_ITERATIONS_COUNT,
+      RC_BR_MEASURE_PERFORMANCE,
+      RC_BR_VECTORIZER_TYPE,
+      RC_BR_ENABLE_SUBGROUP_EMULATION,
+      RC_BR_TRANSPOSE_SIZE,
+      RC_BR_VERBOSE,
+      RC_BR_USE_SDE,
+      RC_BR_USE_PIN_TRACE_MARKS,
+      RC_BR_USE_VTUNE,
+      RC_BR_PRINT_BUILD_LOG,
+      RC_BR_BUILD_ONLY,
+      RC_BR_STOP_BEFORE_JIT,
+      RC_BR_DUMP_JIT,
+      RC_BR_DUMP_KERNEL_PROPERTY,
+      RC_BR_TIME_PASSES,
+      RC_BR_DEBUG_PASS_MANAGER,
+      RC_BR_LLVM_OPTION,
+      RC_BR_DUMP_HEURISTIC_IR,
+      RC_BR_PERF_LOG,
+      RC_BR_OBJECT_FILE,
+      RC_BR_EXPENSIVE_MEM_OPT,
+      RC_BR_PASS_MANAGER_TYPE,
+      RC_BR_SERIALIZE_WORK_GROUPS,
+      // Reference runner specific options
+      RC_REF_USE_NEAT,
+      RC_REF_USE_FMA_NEAT,
 
-        // These are comparator related configurations
-        RC_COMP_DETAILED_STAT,
-        RC_COMP_ULP_TOLERANCE,
+      // These are comparator related configurations
+      RC_COMP_DETAILED_STAT,
+      RC_COMP_ULP_TOLERANCE,
 
-        RC_END
+      RC_END
     };
 
     class BERunOptions : public IRunComponentConfiguration
@@ -118,7 +117,6 @@ namespace Validation
         bool m_dumpHeuristcIR;
         bool m_dumpKernelProperty;
         VectorizerType m_vectorizerType;
-        bool m_nativeSubgroups;
         bool m_enableSubgroupEmulation;
         PassManagerType m_passManagerType;
         bool m_serializeWorkGroups;

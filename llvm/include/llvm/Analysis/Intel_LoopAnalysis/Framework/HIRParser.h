@@ -417,14 +417,6 @@ class HIRParser {
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
                                     Type **ElemTy);
 
-  /// Compare the sizes of current dimension element type
-  /// at the highest dimension of \p Ref and the dimension element type
-  /// of the new index CE.
-  /// Return true if the sizes are not the same.
-  /// Otherwise, currently, new index CE is added to indexCE of the existing
-  /// highest CE.
-  bool hasIncompatibleTypes(RegDDRef *Ref, Type *DimTy, Type *ElemTy) const;
-
   /// Wrapper for merging IndexCE2 into IndexCE1.
   static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
 

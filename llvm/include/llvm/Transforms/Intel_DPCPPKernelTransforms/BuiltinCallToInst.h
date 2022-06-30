@@ -21,12 +21,12 @@ class BuiltinCallToInstPass : public PassInfoMixin<BuiltinCallToInstPass> {
 public:
   explicit BuiltinCallToInstPass() {}
 
-  static StringRef name() { return "BuiltinCallToInstPass"; }
-
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
   // Glue for old PM.
   bool runImpl(Function &F);
+
+  static bool isRequired() { return true; }
 
 private:
   /// Built-in function type.
@@ -35,6 +35,7 @@ private:
     BI_SHUFFLE2,
     BI_REL_IS_LESS,
     BI_REL_IS_LESS_EQUAL,
+    BI_REL_IS_LESS_GREATER,
     BI_REL_IS_GREATER,
     BI_REL_IS_GREATER_EQUAL,
     BI_REL_IS_EQUAL,

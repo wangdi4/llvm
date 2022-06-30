@@ -155,25 +155,35 @@ static Instruction *CreateFP128LifetimeEnd(IRBuilder<> &Builder,
   return Builder.CreateLifetimeEnd(AllocaPtr, SizeVal64);
 }
 
-static bool isUsedByFP128Libcall(Value *Val) {
-  for (auto UI : Val->users()) {
-    Instruction *I = cast<Instruction>(UI);
-    switch (I->getOpcode()) {
-    default:
-      break;
-    case Instruction::FAdd:
-    case Instruction::FSub:
-    case Instruction::FMul:
-    case Instruction::FDiv:
-    case Instruction::FNeg:
-    case Instruction::FPTrunc:
-    case Instruction::FPExt:
-    case Instruction::FPToSI:
-    case Instruction::FPToUI:
-    case Instruction::FCmp:
-      return true;
-    }
+static bool canLowerToFP128Libcall(Instruction *I, bool CheckType = false) {
+  switch (I->getOpcode()) {
+  default:
+    return false;
+  case Instruction::FAdd:
+  case Instruction::FSub:
+  case Instruction::FMul:
+  case Instruction::FDiv:
+  case Instruction::FNeg:
+  case Instruction::FPExt:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+    if (CheckType)
+      return I->getType()->getScalarType()->isFP128Ty();
+    return true;
+  case Instruction::FCmp:
+  case Instruction::FPTrunc:
+  case Instruction::FPToSI:
+  case Instruction::FPToUI:
+    if (CheckType)
+      return I->getOperand(0)->getType()->getScalarType()->isFP128Ty();
+    return true;
   }
+}
+
+static bool isUsedByFP128Libcall(Value *Val) {
+  for (auto UI : Val->users())
+    if (canLowerToFP128Libcall(cast<Instruction>(UI)))
+      return true;
   return false;
 }
 
@@ -247,7 +257,7 @@ void Float128Expand::PostTransformFP128PHI() {
         AllocaInst *AllocaForPhi =
             CreateFP128AllocaInst(Builder, NewPhi->getParent());
         Builder.CreateAlignedStore(OldPhi, AllocaForPhi,
-                                   MaybeAlign(AllocaForPhi->getAlignment()));
+                                   MaybeAlign(AllocaForPhi->getAlign()));
         NewPhi->replaceAllUsesWith(AllocaForPhi);
         // Update the Value2Ptr by Replacing NewPhi in Value2Ptr with
         // AllocaForPhi
@@ -384,7 +394,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
       AllocaInst *AllocaOp0 = CreateFP128AllocaInst(Builder, I->getParent());
       CreateFP128LifetimeStart(Builder, AllocaOp0, *I->getFunction());
       Builder.CreateAlignedStore(Ops[0], AllocaOp0,
-                                 MaybeAlign(AllocaOp0->getAlignment()));
+                                 MaybeAlign(AllocaOp0->getAlign()));
       Args.push_back(AllocaOp0);
       VNT.insert(Ops[0], AllocaOp0);
       Value2Ptr.insert({Ops[0], AllocaOp0});
@@ -410,7 +420,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
       AllocaInst *AllocaOp1 = CreateFP128AllocaInst(Builder, I->getParent());
       CreateFP128LifetimeStart(Builder, AllocaOp1, *I->getFunction());
       Builder.CreateAlignedStore(Ops[1], AllocaOp1,
-                                 MaybeAlign(AllocaOp1->getAlignment()));
+                                 MaybeAlign(AllocaOp1->getAlign()));
       Args.push_back(AllocaOp1);
       VNT.insert(Ops[1], AllocaOp1);
       Value2Ptr.insert({Ops[1], AllocaOp1});
@@ -442,7 +452,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
 
   if (AllocaDst) {
     Result = Builder.CreateAlignedLoad(FP128Ty, AllocaDst,
-                                       MaybeAlign(AllocaDst->getAlignment()));
+                                       MaybeAlign(AllocaDst->getAlign()));
     // Record the Result maping to AllocaDst so that we can resue it later.
     VNT.insert(Result, AllocaDst);
     LastUse[{I->getParent(), AllocaDst}] = Result;
@@ -701,7 +711,7 @@ bool Float128Expand::ProcessBlock(BasicBlock *BB) {
       AllocaInst *AllocaArg = CreateFP128AllocaInst(Builder, BB);
       CreateFP128LifetimeStart(Builder, AllocaArg, *BB->getParent());
       Builder.CreateAlignedStore(&Arg, AllocaArg,
-                                 MaybeAlign(AllocaArg->getAlignment()));
+                                 MaybeAlign(AllocaArg->getAlign()));
       VNT.insert(&Arg, AllocaArg);
       Value2Ptr.insert({&Arg, AllocaArg});
       if (!isUsedbyPHI(&Arg))
@@ -745,6 +755,46 @@ bool Float128Expand::PerformFp128Transform(DomTreeNode *Node) {
   return Changed;
 }
 
+static bool scalarizeFP128Op(Function &F) {
+  bool MadeChange = false;
+  SmallVector<Instruction *, 8> ScalarWorkList;
+  for (Instruction &I : instructions(F))
+    if (isa<FixedVectorType>(I.getType()) &&
+        canLowerToFP128Libcall(&I, true))
+      ScalarWorkList.push_back(&I);
+
+  for (auto *V : ScalarWorkList) {
+    IRBuilder<> Builder(V);
+    auto *DstVT = cast<FixedVectorType>(V->getType());
+    Value *Res = UndefValue::get(DstVT);
+    for (unsigned I = 0, E = DstVT->getNumElements(); I != E; ++I) {
+      Value *S0, *S1, *Tmp;
+      if (auto *U = dyn_cast<UnaryOperator>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        Tmp = Builder.CreateUnOp(U->getOpcode(), S0);
+      } else if (auto *C = dyn_cast<CastInst>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        Tmp = Builder.CreateCast(C->getOpcode(), S0, DstVT->getScalarType());
+      } else if (auto *B = dyn_cast<BinaryOperator>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        S1 = Builder.CreateExtractElement(V->getOperand(1), I);
+        Tmp = Builder.CreateBinOp(B->getOpcode(), S0, S1);
+      } else if (auto *C = dyn_cast<FCmpInst>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        S1 = Builder.CreateExtractElement(V->getOperand(1), I);
+        Tmp = Builder.CreateFCmp(C->getPredicate(), S0, S1);
+      } else {
+        llvm_unreachable("Unexpected instruction");
+      }
+      Res = Builder.CreateInsertElement(Res, Tmp, I);
+    }
+    V->replaceAllUsesWith(Res);
+    MadeChange = true;
+  }
+
+  return MadeChange;
+}
+
 bool Float128Expand::runOnFunction(Function &F) {
   using namespace llvm::PatternMatch;
 
@@ -765,7 +815,7 @@ bool Float128Expand::runOnFunction(Function &F) {
   for (Instruction &I : instructions(F)) {
     IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
     if (II && II->getIntrinsicID() == Intrinsic::fmuladd &&
-        II->getType()->isFP128Ty())
+        II->getType()->getScalarType()->isFP128Ty())
       ExpandFMAWorkList.push_back(II);
   }
   for (Instruction *I : ExpandFMAWorkList) {
@@ -776,7 +826,9 @@ bool Float128Expand::runOnFunction(Function &F) {
     MadeChange = true;
   }
 
-  // Calculate each SCC’s predecessors and successors in reverse topological
+  MadeChange |= scalarizeFP128Op(F);
+
+  // Calculate each SCC's predecessors and successors in reverse topological
   // order and check if each SCC has a USE of fp128 PX
   for (scc_iterator<Function *> SCCI = scc_begin(&F); !SCCI.isAtEnd(); ++SCCI) {
     const std::vector<BasicBlock *> &CurSCC = *SCCI;
@@ -788,7 +840,7 @@ bool Float128Expand::runOnFunction(Function &F) {
     for (auto *BI : CurSCC) {
       for (auto *CurBB : successors(BI)) {
         assert(BB2SCC[CurBB] != nullptr &&
-               "Since we calculate each SCC’s predecessors and successors in "
+               "Since we calculate each SCC's predecessors and successors in "
                "reverse topological order, BB2SCC[CurBB] should never be "
                "nullptr");
         SCCNode *SCCOut = BB2SCC[CurBB];

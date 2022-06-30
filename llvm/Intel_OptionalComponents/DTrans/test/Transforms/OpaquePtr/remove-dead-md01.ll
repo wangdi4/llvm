@@ -1,4 +1,4 @@
-; RUN: opt -S -remove-dead-dtranstypemetadata %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
 ; RUN: opt -opaque-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
 
 ; Test that unreferenced DTrans type metadata is removed from the DTrans structure type list.

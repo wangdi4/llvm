@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2021 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -62,8 +62,8 @@ class LLDJIT : public llvm::ExecutionEngine {
     std::string Name;
 
     // Non-copyable, but movable with std::move
-    TmpFile::TmpFile(const TmpFile &) = delete;
-    TmpFile &TmpFile::operator=(const TmpFile &) = delete;
+    TmpFile(const TmpFile &) = delete;
+    TmpFile &operator=(const TmpFile &) = delete;
 
   public:
     TmpFile &operator=(TmpFile &&other) = default;
@@ -206,6 +206,9 @@ private:
   // perform lookup of pre-compiled code to avoid re-compilation.
   llvm::ObjectCache *ObjCache;
 
+  mutable llvm::raw_string_ostream LogStream;
+  mutable std::string BuildLog;
+
   llvm::Function *FindFunctionNamedInModulePtrSet(llvm::StringRef FnName,
                                                   ModulePtrSet::iterator I,
                                                   ModulePtrSet::iterator E);
@@ -249,7 +252,7 @@ public:
   void setObjectCache(llvm::ObjectCache *Manager) override;
 
   void setProcessAllSections(bool ProcessAllSections) override {
-    assert(!"Not supported");
+    assert(false && "Not supported");
   }
 
   void generateCodeForModule(llvm::Module *M) override;
@@ -296,7 +299,7 @@ public:
   /// This is the address which will be used for relocation resolution.
   void mapSectionAddress(const void *LocalAddress,
                          uint64_t TargetAddress) override {
-    assert(!"Not supported");
+    assert(false && "Not supported");
   }
   void RegisterJITEventListener(llvm::JITEventListener *L) override;
   void UnregisterJITEventListener(llvm::JITEventListener *L) override;
@@ -325,6 +328,11 @@ public:
   // getSymbolAddress takes an unmangled name and returns the corresponding
   // JITSymbol if a definition of the name has been added to the JIT.
   uint64_t getSymbolAddress(const std::string &Name, bool CheckFunctionsOnly);
+
+  const std::string &getBuildLog() const {
+    LogStream.flush();
+    return BuildLog;
+  }
 
 protected:
   /// emitObject -- Generate a JITed object in memory from the specified module

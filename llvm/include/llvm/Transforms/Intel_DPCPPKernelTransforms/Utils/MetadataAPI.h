@@ -139,7 +139,6 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy>
       KernelExecutionLengthTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> MaxWGDimensionsTy;
-  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasBarrierTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasGlobalSyncTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasSubgroupsTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> NoBarrierPathTy;
@@ -164,7 +163,6 @@ struct KernelInternalMetadataAPI {
         BarrierBufferSize(Func, "barrier_buffer_size"),
         KernelExecutionLength(Func, "kernel_execution_length"),
         MaxWGDimensions(Func, "max_wg_dimensions"),
-        KernelHasBarrier(Func, "kernel_has_barrier"),
         KernelHasGlobalSync(Func, "kernel_has_global_sync"),
         KernelHasSubgroups(Func, "kernel_has_sub_groups"),
         NoBarrierPath(Func, "no_barrier_path"),
@@ -186,7 +184,6 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<BarrierBufferSizeTy> BarrierBufferSize;
   NamedMDValueAccessor<KernelExecutionLengthTy> KernelExecutionLength;
   NamedMDValueAccessor<MaxWGDimensionsTy> MaxWGDimensions;
-  NamedMDValueAccessor<KernelHasBarrierTy> KernelHasBarrier;
   NamedMDValueAccessor<KernelHasGlobalSyncTy> KernelHasGlobalSync;
   NamedMDValueAccessor<KernelHasSubgroupsTy> KernelHasSubgroups;
   NamedMDValueAccessor<NoBarrierPathTy> NoBarrierPath;
@@ -210,14 +207,13 @@ public:
       MDNames = {
           LocalBufferSize.getID(),        BarrierBufferSize.getID(),
           KernelExecutionLength.getID(),  MaxWGDimensions.getID(),
-          KernelHasBarrier.getID(),       KernelHasGlobalSync.getID(),
-          KernelHasSubgroups.getID(),     NoBarrierPath.getID(),
-          VectorizedWidth.getID(),        RecommendedVL.getID(),
-          BlockLiteralSize.getID(),       PrivateMemorySize.getID(),
-          VectorizationDimension.getID(), CanUniteWorkgroups.getID(),
-          VectorizedKernel.getID(),       VectorizedMaskedKernel.getID(),
-          KernelWrapper.getID(),          ScalarKernel.getID(),
-          UseFPGAPipes.getID(),
+          KernelHasGlobalSync.getID(),    KernelHasSubgroups.getID(),
+          NoBarrierPath.getID(),          VectorizedWidth.getID(),
+          RecommendedVL.getID(),          BlockLiteralSize.getID(),
+          PrivateMemorySize.getID(),      VectorizationDimension.getID(),
+          CanUniteWorkgroups.getID(),     VectorizedKernel.getID(),
+          VectorizedMaskedKernel.getID(), KernelWrapper.getID(),
+          ScalarKernel.getID(),           UseFPGAPipes.getID(),
       };
     }
     return MDNames;

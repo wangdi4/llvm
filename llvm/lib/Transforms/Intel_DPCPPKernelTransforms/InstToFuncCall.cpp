@@ -346,6 +346,12 @@ void InstToFuncCallImpl::replaceInstWithCall(Function &F, Instruction &I,
   CI->setCallingConv(CC);
   CI->setDebugLoc(I.getDebugLoc());
 
+  // So far the newly created function calls in this pass can have following
+  // attributes in order to facilitate optimizations like LICM hoisting.
+  CI->addFnAttr(Attribute::NoUnwind);
+  CI->addFnAttr(Attribute::ReadNone);
+  CI->addFnAttr(Attribute::WillReturn);
+
   I.replaceAllUsesWith(CI);
 }
 

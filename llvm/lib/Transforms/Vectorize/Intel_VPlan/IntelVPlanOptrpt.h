@@ -31,14 +31,14 @@ struct OptReportStatsTracker {
   struct RemarkRecord {
     unsigned RemarkID;
     OptReportVerbosity::Level MessageVerbosity;
-    std::string Msg;
+    std::string Arg;
 
     // High verbosity is assumed
-    RemarkRecord(unsigned ID, std::string Msg = "")
-        : RemarkID(ID), MessageVerbosity(OptReportVerbosity::High), Msg(Msg){};
+    RemarkRecord(unsigned ID, std::string Arg = "")
+        : RemarkID(ID), MessageVerbosity(OptReportVerbosity::High), Arg(Arg){};
     RemarkRecord(unsigned ID, OptReportVerbosity::Level Verbosity,
-                 std::string Msg = "")
-        : RemarkID(ID), MessageVerbosity(Verbosity), Msg(Msg){};
+                 std::string Arg = "")
+        : RemarkID(ID), MessageVerbosity(Verbosity), Arg(Arg){};
   };
 
   // Fields.

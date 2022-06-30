@@ -161,10 +161,6 @@ attributes #6 = { convergent }
 !12 = !{i32 12}
 !13 = !{i1 false}
 
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %dst.addr.addr = alloca i32 addrspace(1)**, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %x.addr.addr = alloca i32 addrspace(3)**, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %lid.addr.addr = alloca i32**, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pCurrSBIndex = alloca i64, align 8
@@ -177,10 +173,6 @@ attributes #6 = { convergent }
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue = load i32 addrspace(1)*, i32 addrspace(1)** %pSB_LocalId, align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue4 = load i32 addrspace(3)*, i32 addrspace(3)** %pSB_LocalId3, align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue8 = load i32*, i32** %pSB_LocalId7, align 8
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %dst.addr.addr = alloca i32 addrspace(1)**, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %x.addr.addr = alloca i32 addrspace(3)**, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %lid.addr = alloca i32*, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8

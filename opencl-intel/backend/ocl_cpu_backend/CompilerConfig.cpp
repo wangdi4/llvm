@@ -19,10 +19,14 @@
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string.h>
+
+extern cl::opt<std::string> OptReqdSubGroupSizes;
+extern cl::opt<bool> OptEyeQDivCrashBehavior;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -93,9 +97,9 @@ void GlobalCompilerConfig::LoadConfig()
     }
 
     if (Intel::OpenCL::Utils::getEnvVar(Env,
-                                        "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE")) {
-      m_LLVMOptions.emplace_back("-reqd-sub-group-size=" + Env);
-    }
+                                        "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
+      m_LLVMOptions.emplace_back("-" + OptReqdSubGroupSizes.ArgStr.str() + "="
+                                 + Env);
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -112,7 +116,9 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     PassManagerType passManagerType =
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
-    if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
+    if ((PM_LTO_LEGACY == passManagerType ||
+         PM_OCL_LEGACY == passManagerType) &&
+        !debugPassManager.empty())
       m_LLVMOptions.emplace_back("-debug-pass=" + debugPassManager);
 
     std::string LLVMOption = pBackendOptions->GetStringValue(
@@ -142,14 +148,14 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         int channelDepthEmulationMode = pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
             (int)CHANNEL_DEPTH_MODE_STRICT);
-        m_LLVMOptions.emplace_back("--channel-depth-emulation-mode="
+        m_LLVMOptions.emplace_back("--dpcpp-channel-depth-emulation-mode="
             + std::to_string(channelDepthEmulationMode));
         m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
         m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");
     }
     else if (EYEQ_EMU_DEVICE == m_targetDevice)
     {
-        m_LLVMOptions.emplace_back("-eyeq-div-crash-behavior");
+      m_LLVMOptions.emplace_back("-" + OptEyeQDivCrashBehavior.ArgStr.str());
     }
 
     if (llvm::find_if(m_LLVMOptions, [](std::string S) {
@@ -165,13 +171,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
       if (VType == VOLCANO_VECTORIZER)
         m_LLVMOptions.emplace_back("-enable-vplan-kernel-vectorizer=0");
-    }
-
-    bool EnableNativeSubgroups =
-      pBackendOptions->GetBooleanValue(
-        (int)CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS, false);
-    if (EnableNativeSubgroups) {
-        m_LLVMOptions.emplace_back("-enable-native-opencl-subgroups");
     }
 
     bool EnableSubgroupEmulation =
@@ -255,8 +254,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_passManagerType =
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
-    m_debugPassManager = pBackendOptions->GetStringValue(
-        (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
 
     // Adjust m_forcedPrivateMemorySize if it is not set.
     if (m_forcedPrivateMemorySize == 0)

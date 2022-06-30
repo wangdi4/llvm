@@ -1,6 +1,6 @@
 //==---- ResolveMatrixFill.cpp - Resolve matrix fill intrinsics -- C++ -*---==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,8 +20,8 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
@@ -59,12 +59,13 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,
                                  MetadataAsValue *Layout,
                                  MetadataAsValue *Scope,
+                                 MetadataAsValue *Use,
                                  Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   assert(MatrixType->getNumElements() == (Rows * Cols));
   Type *DataType = MatrixType->getElementType();
   Value *Zero = nullptr;
-  assert(DPCPPKernelCompilationUtils::isValidMatrixType(MatrixType) &&
+  assert(CompilationUtils::isValidMatrixType(MatrixType) &&
          "Unsupported matrix type");
   if (DataType->isIntegerTy())
     Zero = ConstantInt::get(DataType, 0);
@@ -72,7 +73,7 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
     Zero = ConstantFP::get(DataType, 0);
   Value *ZeroMat = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_fill, {MatrixType, DataType},
-      {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope}, nullptr,
+      {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope, Use}, nullptr,
       "mat.init");
   return ZeroMat;
 }
@@ -81,6 +82,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
                                   unsigned Cols, Value *Data,
                                   MetadataAsValue *Layout,
                                   MetadataAsValue *Scope,
+                                  MetadataAsValue *Use,
                                   Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   BasicBlock *OriginalBB = InsertPoint->getParent();
@@ -89,7 +91,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   auto *ColVal = B.getInt32(Cols);
   Value *SliceLength = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_length, {MatrixType},
-      {InitMatrix, RowVal, ColVal, Layout, Scope}, nullptr, "slice.length");
+      {InitMatrix, RowVal, ColVal, Layout, Scope, Use}, nullptr, "slice.length");
   BasicBlock *LoopHeader =
       OriginalBB->splitBasicBlock(InsertPoint, "matrix.fill.slice.loop.header");
   BasicBlock *LoopBody =
@@ -112,7 +114,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   auto *UpdatedMatrix = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_insertelement,
       {MatrixType, I->getType()},
-      {Matrix, RowVal, ColVal, Data, I, Layout, Scope}, nullptr, "mat.update");
+      {Matrix, RowVal, ColVal, Data, I, Layout, Scope, Use}, nullptr, "mat.update");
   auto *Inc = B.CreateAdd(I, ConstantInt::get(I->getType(), 1),
                           "element.index.inc", true);
   I->addIncoming(Inc, LoopBody);
@@ -133,8 +135,10 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
 
   // Handle the first arg, if it's a pointer.
   if (Data->getType()->isPointerTy()) {
-    auto *LI = new LoadInst(Data->getType()->getPointerElementType(), Data,
-                            "loaded.fill.data", CI);
+    // Get load type info from intrinsics return type
+    auto *LI =
+        new LoadInst(cast<FixedVectorType>(CI->getType())->getElementType(),
+                     Data, "loaded.fill.data", CI);
     LI->setDebugLoc(CI->getDebugLoc());
     Data = LI;
   }
@@ -150,13 +154,14 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
              ->getString()
              .equals("scope.subgroup") &&
          "Only supports subgroup scope for now");
+  auto *Use = cast<MetadataAsValue>(CI->getArgOperand(5));
 
   Changed = true;
   // Initialize the matrix with zeros.
   auto *Matrix = createFillZeroCall(
-      Rows, Cols, cast<FixedVectorType>(CI->getType()), Layout, Scope, CI);
+      Rows, Cols, cast<FixedVectorType>(CI->getType()), Layout, Scope, Use, CI);
   // Fill the matrix with a loop of @llvm.experimental.wi.slice.insertelement
-  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Layout, Scope, CI);
+  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Layout, Scope, Use, CI);
   return std::make_pair(Changed, Matrix);
 }
 

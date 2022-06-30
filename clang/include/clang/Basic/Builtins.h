@@ -33,6 +33,8 @@
 #define LLVM_CLANG_BASIC_BUILTINS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
 #include <cstring>
 
 // VC++ defines 'alloca' as an object-like macro, which interferes with our
@@ -57,9 +59,10 @@ enum LanguageID {
   OCL_PIPE = 0x200,          // builtin requires OpenCL pipe.
   OCL_DSE = 0x400,           // builtin requires OpenCL device side enqueue.
   ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
+  HLSL_LANG = 0x1000,        // builtin requires HLSL.
 #if INTEL_CUSTOMIZATION
-  ICC_LANG = 0x1000,             // INTEL: builtin requires ICC mode.
-  INTEL_FPGA_PIPE1X = 0x2000,    // INTEL: pipe builtin for OpenCL C 1.x only.
+  ICC_LANG = 0x2000,             // INTEL: builtin requires ICC mode.
+  INTEL_FPGA_PIPE1X = 0x4000,    // INTEL: pipe builtin for OpenCL C 1.x only.
   ALL_OCL_PIPE = INTEL_FPGA_PIPE1X | OCL_PIPE,
 #endif // INTEL_CUSTOMIZATION
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
@@ -285,7 +288,15 @@ private:
               const char *Fmt) const;
 };
 
-}
+/// Returns true if the required target features of a builtin function are
+/// enabled.
+/// \p TargetFeatureMap maps a target feature to true if it is enabled and
+///    false if it is disabled.
+bool evaluateRequiredTargetFeatures(
+    llvm::StringRef RequiredFatures,
+    const llvm::StringMap<bool> &TargetFetureMap);
+
+} // namespace Builtin
 
 /// Kinds of BuiltinTemplateDecl.
 enum BuiltinTemplateKind : int {

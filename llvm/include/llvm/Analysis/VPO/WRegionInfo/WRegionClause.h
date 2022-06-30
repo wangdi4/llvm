@@ -175,6 +175,9 @@ class Item
     bool IsTyped = false; // true if type is transfered thru arguments
     Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
     Value *NumElements = nullptr; // Number of elements of this item
+    Type *PointeeElementTypeFromIR =
+        nullptr; // Pointee element type of a pointer item
+                 // (e.g. i16 for "TYPED.PTR_TO_PTR(i16** %a, i16 0, ...)".
 
   public:
     Item(VAR Orig, ItemKind K)
@@ -276,6 +279,18 @@ class Item
       if (getIsTyped()) {
         OS << ", TYPED (TYPE: ";
         getOrigItemElementTypeFromIR()->print(OS);
+#if INTEL_CUSTOMIZATION
+        assert((!getIsF90DopeVector() || !getIsPointerToPointer()) &&
+               "F90_DV and PTR_TO_PTR can't be on the same case.");
+        if (getIsF90DopeVector()) {
+          OS << ", POINTEE_TYPE: ";
+          getPointeeElementTypeFromIR()->print(OS);
+        }
+#endif // INTEL_CUSTOMIZATION
+        if (getIsPointerToPointer()) {
+          OS << ", POINTEE_TYPE: ";
+          getPointeeElementTypeFromIR()->print(OS);
+        }
         OS << ", NUM_ELEMENTS: ";
         getNumElements()->printAsOperand(OS, PrintType);
         OS << ")";
@@ -394,6 +409,12 @@ class Item
       assert(canHaveTypeFromIR() && "Unexepected Element Type getter call for "
                                     "a clause that doesn't support it");
       return NumElements;
+    }
+    void setPointeeElementTypeFromIR(Type *Ty) {
+      PointeeElementTypeFromIR = Ty;
+    }
+    Type *getPointeeElementTypeFromIR() const {
+      return PointeeElementTypeFromIR;
     }
 };
 
@@ -1160,6 +1181,13 @@ class MapItem : public Item
 {
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
+  // True for map-chains with function pointers as their base. e.g.:
+  //   void (*fptr)(void);
+  //   #pragma omp target firstprivate(fptr)
+  //
+  // %0 = load void ()*, void ()** %fptr, align 8
+  // "QUAL.OMP.MAP.TOFROM:FPTR"(void ()* %0, void ()* %0, i64 0, i64 32, ...)
+  bool IsFunctionPointer = false;
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
   MapChainTy MapChain;
@@ -1262,6 +1290,7 @@ public:
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
   void setIsMapClose()   { MapKind |= WRNMapClose; }
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
+  void setIsFunctionPointer(bool Flag) { IsFunctionPointer = Flag; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
@@ -1280,6 +1309,7 @@ public:
   bool getIsMapPresent()    const { return MapKind & WRNMapPresent; }
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
+  bool getIsFunctionPointer() const { return IsFunctionPointer; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
@@ -1292,7 +1322,7 @@ public:
 
   void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
-      OS << "CHAIN(" ;
+      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "") << "(";
       for (unsigned I=0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         Value *BasePtr = Aggr->getBasePtr();
@@ -1329,6 +1359,8 @@ public:
       ArrSecInfo.print(OS, PrintType);
       OS << " ";
     } else {
+      if (getIsFunctionPointer())
+        OS << "FPTR";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1725,29 +1757,60 @@ class AllocateItem
 };
 
 // DATA clause for PREFETCH construct is of the form
-//   DATA(Ptr:Hint:NumElem)
+// "QUAL.OMP.DATA"(ptr %ptr, TYPE null, i64 <NumElements>, i32 <hint>)
 class DataItem {
 private:
   VAR Ptr;
-  unsigned Hint;    // Valid values are 1 to 4
-  uint64_t NumElem;
+  Type *PointeeElementTypeFromIR =
+      nullptr;                  // Pointee element type of a pointer item
+  Value *NumElements = nullptr; // Number of elements of this item
+  unsigned Hint; // Valid values are 0 to 6
+  bool IsTyped = false; // true if type is transfered thru arguments
 
 public:
-  DataItem(VAR V, unsigned H, uint64_t N) : Ptr(V), Hint(H), NumElem(N) {}
+  DataItem(VAR V, Type *Ty, Value *N, unsigned H)
+      : Ptr(V), PointeeElementTypeFromIR(Ty), NumElements(N), Hint(H) {}
+
   void setOrig(VAR V) { Ptr = V; }
+  void setPointeeElementTypeFromIR(Type *Ty) { PointeeElementTypeFromIR = Ty; }
+  void setNumElements(Value *N) { NumElements = N; }
   void setHint(unsigned H) { Hint = H; }
-  void setNumElem(uint64_t N) { NumElem = N; }
+  void setIsTyped(bool Flag) { IsTyped = Flag; }
+
   VAR getOrig() const { return Ptr; }
+  Type *getPointeeElementTypeFromIR() const { return PointeeElementTypeFromIR; }
+  Value *getNumElements() const { return NumElements; }
   unsigned getHint() const { return Hint; }
-  uint64_t getNumElem() const { return NumElem; }
+  bool getIsTyped() const { return IsTyped; }
+
+  Type *getPointeeElementType() const {
+    if (!getIsTyped()) {
+      // This branch is for the old IR of DATA clause, which is obsolete.
+      // It won't be reachable with opaque pointers.
+      assert(!Ptr->getType()->isOpaquePointerTy() &&
+             "Need typed DATA clause for opaque pointers.");
+      auto PtrTy =
+          Ptr->getType()->getScalarType()->getNonOpaquePointerElementType();
+      return PtrTy->getNonOpaquePointerElementType();
+    }
+    return getPointeeElementTypeFromIR();
+  }
+
+  void printIfTyped(formatted_raw_ostream &OS) const {
+    if (!getIsTyped())
+      return;
+    OS << ", TYPE: ";
+    getPointeeElementTypeFromIR()->print(OS);
+  }
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const {
     OS << "(";
     getOrig()->printAsOperand(OS, PrintType);
-    OS << " : ";
+    printIfTyped(OS);
+    OS << ", NUM_ELEMENTS: ";
+    getNumElements()->printAsOperand(OS, PrintType);
+    OS << ", HINT: ";
     OS << getHint();
-    OS << " : ";
-    OS << getNumElem();
     OS << ") ";
   }
 };

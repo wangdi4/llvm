@@ -445,7 +445,11 @@ void VPlanVerifier::verifySpecificInstruction(
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   case Instruction::Load:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::ExpandLoadNonu:
   case Instruction::Store:
+  case VPInstruction::CompressStore:
+  case VPInstruction::CompressStoreNonu:
     assert(1 && "The type of the operands of Load/Store are not correct");
     break;
   case Instruction::GetElementPtr:

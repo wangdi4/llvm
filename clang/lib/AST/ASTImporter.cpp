@@ -285,6 +285,7 @@ namespace clang {
       ToD = CreateFun(std::forward<Args>(args)...);
       // Keep track of imported Decls.
       Importer.RegisterImportedDecl(FromD, ToD);
+      Importer.SharedState->markAsNewDecl(ToD);
       InitializeImportedDecl(FromD, ToD);
       return false; // A new Decl is created.
     }
@@ -547,6 +548,7 @@ namespace clang {
     ExpectedDecl VisitUsingDecl(UsingDecl *D);
     ExpectedDecl VisitUsingShadowDecl(UsingShadowDecl *D);
     ExpectedDecl VisitUsingDirectiveDecl(UsingDirectiveDecl *D);
+    ExpectedDecl VisitUsingPackDecl(UsingPackDecl *D);
     ExpectedDecl ImportUsingShadowDecls(BaseUsingDecl *D, BaseUsingDecl *ToSI);
     ExpectedDecl VisitUsingEnumDecl(UsingEnumDecl *D);
     ExpectedDecl VisitUnresolvedUsingValueDecl(UnresolvedUsingValueDecl *D);
@@ -3231,23 +3233,32 @@ static bool isAncestorDeclContextOf(const DeclContext *DC, const Decl *D) {
   return false;
 }
 
+static bool hasTypeDeclaredInsideFunction(QualType T, const FunctionDecl *FD) {
+  if (T.isNull())
+    return false;
+  if (const auto *RecordT = T->getAs<RecordType>()) {
+    const RecordDecl *RD = RecordT->getDecl();
+    assert(RD);
+    if (isAncestorDeclContextOf(FD, RD)) {
+      assert(RD->getLexicalDeclContext() == RD->getDeclContext());
+      return true;
+    }
+    if (const auto *RDTempl = dyn_cast<ClassTemplateSpecializationDecl>(RD))
+      return llvm::count_if(RDTempl->getTemplateArgs().asArray(),
+                            [FD](const TemplateArgument &Arg) {
+                              return hasTypeDeclaredInsideFunction(
+                                  Arg.getAsType(), FD);
+                            });
+  }
+  return false;
+}
+
 bool ASTNodeImporter::hasAutoReturnTypeDeclaredInside(FunctionDecl *D) {
   QualType FromTy = D->getType();
   const auto *FromFPT = FromTy->getAs<FunctionProtoType>();
   assert(FromFPT && "Must be called on FunctionProtoType");
-  if (const AutoType *AutoT =
-          FromFPT->getReturnType()->getContainedAutoType()) {
-    QualType DeducedT = AutoT->getDeducedType();
-    if (const auto *RecordT =
-            !DeducedT.isNull() ? DeducedT->getAs<RecordType>() : nullptr) {
-      const RecordDecl *RD = RecordT->getDecl();
-      assert(RD);
-      if (isAncestorDeclContextOf(D, RD)) {
-        assert(RD->getLexicalDeclContext() == RD->getDeclContext());
-        return true;
-      }
-    }
-  }
+  if (const AutoType *AutoT = FromFPT->getReturnType()->getContainedAutoType())
+    return hasTypeDeclaredInsideFunction(AutoT->getDeducedType(), D);
   if (const auto *TypedefT = FromFPT->getReturnType()->getAs<TypedefType>()) {
     const TypedefNameDecl *TD = TypedefT->getDecl();
     assert(TD);
@@ -4837,6 +4848,35 @@ ExpectedDecl ASTNodeImporter::VisitUsingDirectiveDecl(UsingDirectiveDecl *D) {
   return ToUsingDir;
 }
 
+ExpectedDecl ASTNodeImporter::VisitUsingPackDecl(UsingPackDecl *D) {
+  DeclContext *DC, *LexicalDC;
+  DeclarationName Name;
+  SourceLocation Loc;
+  NamedDecl *ToD = nullptr;
+  if (Error Err = ImportDeclParts(D, DC, LexicalDC, Name, ToD, Loc))
+    return std::move(Err);
+  if (ToD)
+    return ToD;
+
+  auto ToInstantiatedFromUsingOrErr =
+      Importer.Import(D->getInstantiatedFromUsingDecl());
+  if (!ToInstantiatedFromUsingOrErr)
+    return ToInstantiatedFromUsingOrErr.takeError();
+  SmallVector<NamedDecl *, 4> Expansions(D->expansions().size());
+  if (Error Err = ImportArrayChecked(D->expansions(), Expansions.begin()))
+    return std::move(Err);
+
+  UsingPackDecl *ToUsingPack;
+  if (GetImportedOrCreateDecl(ToUsingPack, D, Importer.getToContext(), DC,
+                              cast<NamedDecl>(*ToInstantiatedFromUsingOrErr),
+                              Expansions))
+    return ToUsingPack;
+
+  addDeclToContexts(D, ToUsingPack);
+
+  return ToUsingPack;
+}
+
 ExpectedDecl ASTNodeImporter::VisitUnresolvedUsingValueDecl(
     UnresolvedUsingValueDecl *D) {
   DeclContext *DC, *LexicalDC;
@@ -5993,9 +6033,10 @@ ExpectedDecl ASTNodeImporter::VisitVarTemplateSpecializationDecl(
       return TInfoOrErr.takeError();
 
     TemplateArgumentListInfo ToTAInfo;
-    if (Error Err = ImportTemplateArgumentListInfo(
-        D->getTemplateArgsInfo(), ToTAInfo))
-      return std::move(Err);
+    if (const ASTTemplateArgumentListInfo *Args = D->getTemplateArgsInfo()) {
+      if (Error Err = ImportTemplateArgumentListInfo(*Args, ToTAInfo))
+        return std::move(Err);
+    }
 
     using PartVarSpecDecl = VarTemplatePartialSpecializationDecl;
     // Create a new specialization.
@@ -9191,13 +9232,11 @@ Expected<TemplateName> ASTImporter::Import(TemplateName From) {
     auto QualifierOrErr = Import(QTN->getQualifier());
     if (!QualifierOrErr)
       return QualifierOrErr.takeError();
-
-    if (ExpectedDecl ToTemplateOrErr = Import(From.getAsTemplateDecl()))
-      return ToContext.getQualifiedTemplateName(
-          *QualifierOrErr, QTN->hasTemplateKeyword(),
-          cast<TemplateDecl>(*ToTemplateOrErr));
-    else
-      return ToTemplateOrErr.takeError();
+    auto TNOrErr = Import(QTN->getUnderlyingTemplate());
+    if (!TNOrErr)
+      return TNOrErr.takeError();
+    return ToContext.getQualifiedTemplateName(
+        *QualifierOrErr, QTN->hasTemplateKeyword(), *TNOrErr);
   }
 
   case TemplateName::DependentTemplate: {
@@ -9301,13 +9340,13 @@ Expected<FileID> ASTImporter::Import(FileID FromID, bool IsBuiltin) {
     ExpectedSLoc ToExLocS = Import(FromEx.getExpansionLocStart());
     if (!ToExLocS)
       return ToExLocS.takeError();
-    unsigned TokenLen = FromSM.getFileIDSize(FromID);
+    unsigned ExLength = FromSM.getFileIDSize(FromID);
     SourceLocation MLoc;
     if (FromEx.isMacroArgExpansion()) {
-      MLoc = ToSM.createMacroArgExpansionLoc(*ToSpLoc, *ToExLocS, TokenLen);
+      MLoc = ToSM.createMacroArgExpansionLoc(*ToSpLoc, *ToExLocS, ExLength);
     } else {
       if (ExpectedSLoc ToExLocE = Import(FromEx.getExpansionLocEnd()))
-        MLoc = ToSM.createExpansionLoc(*ToSpLoc, *ToExLocS, *ToExLocE, TokenLen,
+        MLoc = ToSM.createExpansionLoc(*ToSpLoc, *ToExLocS, *ToExLocE, ExLength,
                                        FromEx.isExpansionTokenRange());
       else
         return ToExLocE.takeError();

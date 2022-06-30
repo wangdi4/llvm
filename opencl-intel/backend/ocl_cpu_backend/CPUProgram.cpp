@@ -52,11 +52,11 @@ void* CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
     if (m_LLJIT) {
         auto Sym = m_LLJIT->lookup(Name);
         if (llvm::Error Err = Sym.takeError()) {
-            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
-            throw Exceptions::CompilerException("Failed to lookup symbol " +
-                                                Name.str());
+            llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
+            throw Exceptions::CompilerException(
+                "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
         }
-        Addr = static_cast<uintptr_t>(Sym->getAddress());
+        Addr = static_cast<uintptr_t>(Sym->getValue());
     } else
         Addr = static_cast<uintptr_t>(
             m_pExecutionEngine->getGlobalValueAddress(Name.str()));
@@ -69,11 +69,11 @@ void* CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
     if (m_LLJIT) {
         auto Sym = m_LLJIT->lookup(Name);
         if (llvm::Error Err = Sym.takeError()) {
-            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
-            throw Exceptions::CompilerException("Failed to lookup symbol " +
-                                                Name.str());
+            llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
+            throw Exceptions::CompilerException(
+                "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
         }
-        Addr = static_cast<uintptr_t>(Sym->getAddress());
+        Addr = static_cast<uintptr_t>(Sym->getValue());
     } else
         Addr = static_cast<uintptr_t>(
             m_pExecutionEngine->getFunctionAddress(Name.str()));

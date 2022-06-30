@@ -2,7 +2,7 @@
 ; REQUIRES: intel_feature_sw_dtrans
 
 ; This test case checks that the partial inliner was executed for functions that are virtual
-; function targets. The test cases translates into the following example:
+; function targets. The test cases translates the following example:
 ;
 ; #include <iostream>
 ;
@@ -182,8 +182,6 @@
 ; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
-; ModuleID = 'test.cpp'
-source_filename = "test.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -611,7 +609,7 @@ attributes #12 = { builtin nounwind }
 ; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A)
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
-; CHECK_LABEL: _ZN8Derived23fooEPvi.1.exit:
+; CHECK-LABEL: _ZN8Derived23fooEPvi.1.exit:
 ; CHECK:    %retval.0.i = phi i1 [ false, %BBDevirt__ZN8Derived23fooEPvi ], [ true, %for.cond.preheader.i ], [ true, %codeRepl.i ]
 ; CHECK-NEXT:    br label %MergeBB
 ;

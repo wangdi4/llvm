@@ -1,6 +1,6 @@
 //===- PrepareKernelArgs.cpp - Prepare DPC++ kernel arguments -------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,17 +9,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -45,6 +47,7 @@ public:
   bool runOnModule(Module &M) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ImplicitArgsAnalysisLegacy>();
   }
 
@@ -58,6 +61,7 @@ private:
 INITIALIZE_PASS_BEGIN(PrepareKernelArgsLegacy, DEBUG_TYPE,
                       "Change the way arguments are passed to kernels", false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
 INITIALIZE_PASS_END(PrepareKernelArgsLegacy, DEBUG_TYPE,
                     "Change the way arguments are passed to kernels", false,
@@ -71,9 +75,12 @@ PrepareKernelArgsLegacy::PrepareKernelArgsLegacy(bool UseTLSGlobals)
 }
 
 bool PrepareKernelArgsLegacy::runOnModule(Module &M) {
+  auto GetAC = [&](Function &F) {
+    return &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  };
   ImplicitArgsInfo *IAInfo =
       &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, UseTLSGlobals, IAInfo);
+  return Impl.runImpl(M, UseTLSGlobals, GetAC, IAInfo);
 }
 
 ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
@@ -82,14 +89,21 @@ ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
 
 PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetAC = [&](Function &F) {
+    return &FAM.getResult<AssumptionAnalysis>(F);
+  };
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, UseTLSGlobals, IAInfo))
+  if (!runImpl(M, UseTLSGlobals, GetAC, IAInfo))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
 
-bool PrepareKernelArgsPass::runImpl(Module &M, bool UseTLSGlobals,
-                                    ImplicitArgsInfo *IAInfo) {
+bool PrepareKernelArgsPass::runImpl(
+    Module &M, bool UseTLSGlobals,
+    function_ref<AssumptionCache *(Function &F)> GetAC,
+    ImplicitArgsInfo *IAInfo) {
   this->M = &M;
   this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
   this->IAInfo = IAInfo;
@@ -99,14 +113,13 @@ bool PrepareKernelArgsPass::runImpl(Module &M, bool UseTLSGlobals,
   I8Ty = Type::getInt8Ty(C);
 
   // Get all kernels (original scalar kernels and vectorized kernels).
-  auto kernelsFuncSet = DPCPPKernelCompilationUtils::getAllKernels(*this->M);
+  auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
 
   // Handle all kernels.
-  for (auto *F : kernelsFuncSet) {
-    runOnFunction(F);
-  }
+  for (auto *F : kernelsFuncSet)
+    runOnFunction(F, GetAC(*F));
 
-  return true;
+  return !kernelsFuncSet.empty();
 }
 
 Function *PrepareKernelArgsPass::createWrapper(Function *F) {
@@ -128,19 +141,16 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName(), M);
   NewF->setCallingConv(F->getCallingConv());
   NewF->copyMetadata(F, 0);
+  NewF->setDSOLocal(F->isDSOLocal());
 
-  // Copy attributes from the old kernel to the new one, and make the former
-  // 'alwaysinline'.
+  // Add comdat to newF and drop from F.
+  NewF->setComdat(F->getComdat());
+  F->setComdat(nullptr);
+
+  // Copy attributes from the old kernel to the new one.
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(F->getContext(), std::move(FnAttrs));
   NewF->addFnAttrs(B);
-  F->removeFnAttr(Attribute::OptimizeNone);
-  F->removeFnAttr(Attribute::NoInline);
-  F->addFnAttr(Attribute::AlwaysInline);
-
-  // F is expected to be inlined anyway,
-  // so no need to duplicate DISubprogram.
-  F->setSubprogram(nullptr);
 
   return NewF;
 }
@@ -151,8 +161,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
   std::vector<unsigned int> memoryArguments;
-  DPCPPKernelCompilationUtils::parseKernelArguments(
-      M, WrappedKernel, UseTLSGlobals, Arguments, memoryArguments);
+  CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
+                                         Arguments, memoryArguments);
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
@@ -395,6 +405,10 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                          Align(TypeAlignment::MAX_ALIGNMENT));
       Builder.Insert(BarrierBuffer);
       Arg = BarrierBuffer;
+      LLVM_DEBUG(CompilationUtils::insertPrintf("SPECIAL BUFFER: ", Builder,
+                                                BarrierBuffer));
+      LLVM_DEBUG(CompilationUtils::insertPrintf(
+          "SPECIAL BUFFER SIZE: ", Builder, BarrierBufferSize));
     } break;
     case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
       // These values are pointers that just need to be loaded from the
@@ -415,7 +429,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
     if (UseTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
-      GlobalVariable *GV = DPCPPKernelCompilationUtils::getTLSGlobal(M, I);
+      GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
       Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
     } else {
       assert(Arg && "No value was created for this implicit argument!");
@@ -451,22 +465,7 @@ CallInst *PrepareKernelArgsPass::createWrapperBody(Function *Wrapper,
       Builder, WrappedKernel, ArgsBuffer, WGId, RuntimeContext);
 
   CallInst *CI = Builder.CreateCall(WrappedKernel, ArrayRef<Value *>(Params));
-  // inlinable function call in a function with debug info
-  // must have a !dbg location
-  if (DISubprogram *SP = WrappedKernel->getSubprogram())
-    CI->setDebugLoc(DILocation::get(C, SP->getScopeLine(), 0, SP));
   CI->setCallingConv(WrappedKernel->getCallingConv());
-
-  // Preserve debug info for a kernel return instruction
-  auto WrapperRet = Builder.CreateRetVoid();
-  for (auto &BB : *WrappedKernel) {
-    auto *Term = BB.getTerminator();
-    assert(Term && "Ill-formed BasicBlock");
-    if (!isa<ReturnInst>(Term))
-      continue;
-    WrapperRet->setDebugLoc(Term->getDebugLoc());
-    break;
-  }
 
   return CI;
 }
@@ -497,9 +496,9 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
             EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
         if (BlockInvoke != WrappedKernel)
           continue;
-        auto *Int8PtrTy = PointerType::get(
-            IntegerType::getInt8Ty(M->getContext()),
-            DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC);
+        auto *Int8PtrTy =
+            PointerType::get(IntegerType::getInt8Ty(M->getContext()),
+                             CompilationUtils::ADDRESS_SPACE_GENERIC);
         Builder.SetInsertPoint(EECall);
         auto *NewCast = Builder.CreatePointerCast(Wrapper, Int8PtrTy);
         EECall->setArgOperand(BlockInvokeIdx, NewCast);
@@ -516,21 +515,161 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
   }
 }
 
-void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
+void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,
+                                                        Function *F) {
   DebugLoc Loc;
-  for (auto &BB : *F) {
+  for (auto &BB : *Wrapper)
     if (auto *RI = dyn_cast<ReturnInst>(BB.getTerminator()))
       Loc = RI->getDebugLoc();
-    BB.dropAllReferences();
-  }
-  while (!F->empty())
-    F->begin()->eraseFromParent();
+
   auto *BB = BasicBlock::Create(F->getContext(), "", F);
   auto *RI = ReturnInst::Create(F->getContext(), BB);
+  // FIXME this debug info doesn't make sense. We can remove this after removing
+  // kernel wrapper [CMPLRLLVM-15348].
   RI->setDebugLoc(Loc);
 }
 
-bool PrepareKernelArgsPass::runOnFunction(Function *F) {
+/// This is modified from lib/Transforms/Utils/InlineFunction.cpp.
+/// For byval argument, make the implicit memcpy explicit by adding it.
+static Value *HandleByValArgument(Type *ByValType, Value *Arg,
+                                  Instruction *TheCall,
+                                  const Function *CalledFunc,
+                                  unsigned ByValAlignment) {
+  assert(cast<PointerType>(Arg->getType())
+             ->isOpaqueOrPointeeTypeMatches(ByValType));
+  Function *Caller = TheCall->getFunction();
+  const DataLayout &DL = Caller->getParent()->getDataLayout();
+
+  // Create the alloca.  If we have DataLayout, use nice alignment.
+  Align Alignment(DL.getPrefTypeAlignment(ByValType));
+
+  // If the byval had an alignment specified, we *must* use at least that
+  // alignment, as it is required by the byval argument (and uses of the
+  // pointer inside the callee).
+  Alignment = max(Alignment, MaybeAlign(ByValAlignment));
+
+  Value *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr,
+                                    Alignment, Arg->getName() + Twine(".ptr"),
+                                    &*Caller->begin()->begin());
+
+  // If the byval was in a different address space, add a cast.
+  PointerType *ArgTy = cast<PointerType>(Arg->getType());
+  if (DL.getAllocaAddrSpace() != ArgTy->getAddressSpace()) {
+    NewAlloca = new AddrSpaceCastInst(
+        NewAlloca, ArgTy, "",
+        cast<Instruction>(NewAlloca)->getNextNonDebugInstruction());
+  }
+
+  // Uses of the argument in the function should use our new alloca
+  // instead.
+  return NewAlloca;
+}
+
+// This is modified from lib/Transforms/Utils/InlineFunction.cpp.
+static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
+                                    Module *M, BasicBlock *InsertBlock) {
+  IRBuilder<> Builder(InsertBlock, InsertBlock->begin());
+
+  Value *Size =
+      Builder.getInt64(M->getDataLayout().getTypeStoreSize(ByValType));
+
+  // Always generate a memcpy of alignment 1 here because we don't know
+  // the alignment of the src pointer.  Other optimizations can infer
+  // better alignment.
+  Builder.CreateMemCpy(Dst, /*DstAlign*/ Align(1), Src,
+                       /*SrcAlign*/ Align(1), Size);
+}
+
+// We can't use InlineFunction because InlineFunction does optimizations, which
+// are not desired for O0 mode.
+static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
+  Function *Caller = CI->getFunction();
+  Function *CalledFunc = CI->getCalledFunction();
+
+  BasicBlock *FirstNewBlock = &CalledFunc->getEntryBlock();
+  Caller->getBasicBlockList().splice(Caller->end(),
+                                     CalledFunc->getBasicBlockList());
+
+  ValueToValueMapTy VMap;
+  struct ByValInit {
+    Value *Dst;
+    Value *Src;
+    Type *Ty;
+  };
+  // Keep a list of pair (dst, src) to emit byval initializations.
+  SmallVector<ByValInit, 4> ByValInits;
+  unsigned ArgNo = 0;
+  auto CIArgIt = CI->arg_begin();
+  for (auto It = CalledFunc->arg_begin(), E = CalledFunc->arg_end(); It != E;
+       ++It, ++CIArgIt, ++ArgNo) {
+    // make a copy of byval argument.
+    Value *ActualArg = *CIArgIt;
+    if (CI->isByValArgument(ArgNo)) {
+      ActualArg =
+          HandleByValArgument(CI->getParamByValType(ArgNo), ActualArg, CI,
+                              CalledFunc, CalledFunc->getParamAlignment(ArgNo));
+      if (ActualArg != *CIArgIt)
+        ByValInits.push_back(
+            {ActualArg, (Value *)*CIArgIt, CI->getParamByValType(ArgNo)});
+    }
+
+    It->replaceAllUsesWith(ActualArg);
+  }
+
+  // Unregister assumptions.
+  for (BasicBlock &NewBlock :
+       make_range(FirstNewBlock->getIterator(), Caller->end())) {
+    for (Instruction &I : NewBlock)
+      if (auto *Assume = dyn_cast<AssumeInst>(&I))
+        AC->unregisterAssumption(Assume);
+  }
+
+  // Reduce the strength of inlined tail calls.
+  // TODO this shall not be necessary. Currently there is test fail if we don't
+  // do this, but it is likely a tailcallelim or dse bug.
+  auto CallSiteTailKind = CI->getTailCallKind();
+  for (auto It = FirstNewBlock->getIterator(), E = Caller->end(); It != E;
+       ++It) {
+    for (auto &I : *It) {
+      if (auto *ClonedCI = dyn_cast<CallInst>(&I)) {
+        auto TCK = ClonedCI->getTailCallKind();
+        if (TCK != CallInst::TCK_NoTail)
+          TCK = std::min(TCK, CallSiteTailKind);
+        ClonedCI->setTailCallKind(TCK);
+      }
+    }
+  }
+
+  BasicBlock *Entry = &Caller->getEntryBlock();
+  BranchInst::Create(FirstNewBlock, Entry);
+
+  // Move alloca to beginning of caller's entry block.
+  auto InsertPoint = Entry->begin();
+  for (auto I = FirstNewBlock->begin(), E = FirstNewBlock->end(); I != E;) {
+    auto *AI = dyn_cast<AllocaInst>(I++);
+    if (!AI)
+      continue;
+    Entry->getInstList().splice(InsertPoint, FirstNewBlock->getInstList(),
+                                AI->getIterator(), I);
+  }
+
+  // Inject byval arguments initialization.
+  for (ByValInit &Init : ByValInits)
+    HandleByValArgumentInit(Init.Ty, Init.Dst, Init.Src, Caller->getParent(),
+                            &*FirstNewBlock);
+
+  MergeBlockIntoPredecessor(FirstNewBlock);
+
+  CI->eraseFromParent();
+
+  // CalledFunc's basic blocks are moved to Caller.
+  // This ends up with DISubprogram being attached to both functions, so we
+  // need to reset CalledFunc's DISubprogram.
+  Caller->setSubprogram(CalledFunc->getSubprogram());
+  CalledFunc->setSubprogram(nullptr);
+}
+
+bool PrepareKernelArgsPass::runOnFunction(Function *F, AssumptionCache *AC) {
   const std::string FName = F->getName().str();
 
   // Create wrapper function
@@ -551,21 +690,12 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F) {
   KIMD.KernelWrapper.set(Wrapper);
   // TODO move stats from original kernel to the wrapper
 
-  // Inline wrapped kernel.
-  InlineFunctionInfo IFI;
-  CallBase *CB = cast<CallBase>(CI);
-  InlineResult Res = InlineFunction(*CB, IFI);
-  assert(Res.isSuccess() && "failed to inline wrapped kernel");
-  (void)Res;
+  inlineWrappedKernel(CI, AC);
 
-  // Make wrapped kernel only contain a ret instruction. Don't delete body of
-  // wrapped kernel for now, to avoid its declaration being removed by
-  // StripDeadPrototypes or GlobalDCE.
-  emptifyWrappedKernel(F);
-
-  // Add comdat to wrapper function and drop from F.
-  Wrapper->setComdat(F->getComdat());
-  F->setComdat(nullptr);
+  // Make wrapped kernel only contain a ret instruction.
+  // We can't delete wrapped kernel for now, in order to avoid its declaration
+  // being removed by StripDeadPrototypes or GlobalDCE.
+  createDummyRetWrappedKernel(Wrapper, F);
 
   return true;
 }

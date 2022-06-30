@@ -38,6 +38,7 @@
 
 ; Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -pass-remarks=. \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -75,6 +76,7 @@
 
 ; Index based WPD, distributed backends
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -102,6 +104,7 @@
 
 ; New PM
 ; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -pass-remarks=. \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -189,7 +192,7 @@ entry:
   ; Check that the call was devirtualized. Ignore extra character before
   ; symbol name which would happen if it was promoted during module
   ; splitting for hybrid WPD.
-  ; CHECK-IR1: %call = tail call i32 bitcast (void ()* @{{.*}}_ZN1A1nEi
+  ; CHECK-IR1: %call = tail call i32 @_ZN1A1nEi
   %call = tail call i32 %fptr1(%struct.A* nonnull %obj, i32 %a)
 
   %3 = bitcast i8** %vtable to i32 (%struct.A*, i32)**

@@ -1362,51 +1362,6 @@ llvm::Function *CGOpenMPRuntime::emitTaskOutlinedFunction(
   return Res;
 }
 
-static void buildStructValue(ConstantStructBuilder &Fields, CodeGenModule &CGM,
-                             const RecordDecl *RD, const CGRecordLayout &RL,
-                             ArrayRef<llvm::Constant *> Data) {
-  llvm::StructType *StructTy = RL.getLLVMType();
-  unsigned PrevIdx = 0;
-  ConstantInitBuilder CIBuilder(CGM);
-  const auto *DI = Data.begin();
-  for (const FieldDecl *FD : RD->fields()) {
-    unsigned Idx = RL.getLLVMFieldNo(FD);
-    // Fill the alignment.
-    for (unsigned I = PrevIdx; I < Idx; ++I)
-      Fields.add(llvm::Constant::getNullValue(StructTy->getElementType(I)));
-    PrevIdx = Idx + 1;
-    Fields.add(*DI);
-    ++DI;
-  }
-}
-
-template <class... As>
-static llvm::GlobalVariable *
-createGlobalStruct(CodeGenModule &CGM, QualType Ty, bool IsConstant,
-                   ArrayRef<llvm::Constant *> Data, const Twine &Name,
-                   As &&... Args) {
-  const auto *RD = cast<RecordDecl>(Ty->getAsTagDecl());
-  const CGRecordLayout &RL = CGM.getTypes().getCGRecordLayout(RD);
-  ConstantInitBuilder CIBuilder(CGM);
-  ConstantStructBuilder Fields = CIBuilder.beginStruct(RL.getLLVMType());
-  buildStructValue(Fields, CGM, RD, RL, Data);
-  return Fields.finishAndCreateGlobal(
-      Name, CGM.getContext().getAlignOfGlobalVarInChars(Ty), IsConstant,
-      std::forward<As>(Args)...);
-}
-
-template <typename T>
-static void
-createConstantGlobalStructAndAddToParent(CodeGenModule &CGM, QualType Ty,
-                                         ArrayRef<llvm::Constant *> Data,
-                                         T &Parent) {
-  const auto *RD = cast<RecordDecl>(Ty->getAsTagDecl());
-  const CGRecordLayout &RL = CGM.getTypes().getCGRecordLayout(RD);
-  ConstantStructBuilder Fields = Parent.beginStruct(RL.getLLVMType());
-  buildStructValue(Fields, CGM, RD, RL, Data);
-  Fields.finishAndAddTo(Parent);
-}
-
 void CGOpenMPRuntime::setLocThreadIdInsertPt(CodeGenFunction &CGF,
                                              bool AtCurrentPoint) {
   auto &Elem = OpenMPLocThreadIDMap.FindAndConstruct(CGF.CurFn);
@@ -3355,32 +3310,7 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
 void CGOpenMPRuntime::createOffloadEntry(
     llvm::Constant *ID, llvm::Constant *Addr, uint64_t Size, int32_t Flags,
     llvm::GlobalValue::LinkageTypes Linkage) {
-  StringRef Name = Addr->getName();
-  llvm::Module &M = CGM.getModule();
-  llvm::LLVMContext &C = M.getContext();
-
-  // Create constant string with the name.
-  llvm::Constant *StrPtrInit = llvm::ConstantDataArray::getString(C, Name);
-
-  std::string StringName = getName({"omp_offloading", "entry_name"});
-  auto *Str = new llvm::GlobalVariable(
-      M, StrPtrInit->getType(), /*isConstant=*/true,
-      llvm::GlobalValue::InternalLinkage, StrPtrInit, StringName);
-  Str->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-
-  llvm::Constant *Data[] = {
-      llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(ID, CGM.VoidPtrTy),
-      llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(Str, CGM.Int8PtrTy),
-      llvm::ConstantInt::get(CGM.SizeTy, Size),
-      llvm::ConstantInt::get(CGM.Int32Ty, Flags),
-      llvm::ConstantInt::get(CGM.Int32Ty, 0)};
-  std::string EntryName = getName({"omp_offloading", "entry", ""});
-  llvm::GlobalVariable *Entry = createGlobalStruct(
-      CGM, getTgtOffloadEntryQTy(), /*IsConstant=*/true, Data,
-      Twine(EntryName).concat(Name), llvm::GlobalValue::WeakAnyLinkage);
-
-  // The entry has to be created in the section the linker expects it to be.
-  Entry->setSection("omp_offloading_entries");
+  OMPBuilder.emitOffloadingEntry(ID, Addr->getName(), Size, Flags);
 }
 
 void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
@@ -3711,35 +3641,6 @@ void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
         C.getFunctionType(KmpInt32Ty, KmpRoutineEntryTyArgs, EPI));
     KmpRoutineEntryPtrTy = CGM.getTypes().ConvertType(KmpRoutineEntryPtrQTy);
   }
-}
-
-QualType CGOpenMPRuntime::getTgtOffloadEntryQTy() {
-  // Make sure the type of the entry is already created. This is the type we
-  // have to create:
-  // struct __tgt_offload_entry{
-  //   void      *addr;       // Pointer to the offload entry info.
-  //                          // (function or global)
-  //   char      *name;       // Name of the function or global.
-  //   size_t     size;       // Size of the entry info (0 if it a function).
-  //   int32_t    flags;      // Flags associated with the entry, e.g. 'link'.
-  //   int32_t    reserved;   // Reserved, to use by the runtime library.
-  // };
-  if (TgtOffloadEntryQTy.isNull()) {
-    ASTContext &C = CGM.getContext();
-    RecordDecl *RD = C.buildImplicitRecord("__tgt_offload_entry");
-    RD->startDefinition();
-    addFieldToRecordDecl(C, RD, C.VoidPtrTy);
-    addFieldToRecordDecl(C, RD, C.getPointerType(C.CharTy));
-    addFieldToRecordDecl(C, RD, C.getSizeType());
-    addFieldToRecordDecl(
-        C, RD, C.getIntTypeForBitwidth(/*DestWidth=*/32, /*Signed=*/true));
-    addFieldToRecordDecl(
-        C, RD, C.getIntTypeForBitwidth(/*DestWidth=*/32, /*Signed=*/true));
-    RD->completeDefinition();
-    RD->addAttr(PackedAttr::CreateImplicit(C));
-    TgtOffloadEntryQTy = C.getRecordType(RD);
-  }
-  return TgtOffloadEntryQTy;
 }
 
 namespace {
@@ -4893,7 +4794,8 @@ enum RTLDependenceKindTy {
   DepIn = 0x01,
   DepInOut = 0x3,
   DepMutexInOutSet = 0x4,
-  DepInOutSet = 0x8
+  DepInOutSet = 0x8,
+  DepOmpAllMem = 0x80,
 };
 /// Fields ids in kmp_depend_info record.
 enum RTLDependInfoFieldsTy { BaseAddr, Len, Flags };
@@ -4917,9 +4819,13 @@ static RTLDependenceKindTy translateDependencyKind(OpenMPDependClauseKind K) {
   case OMPC_DEPEND_inoutset:
     DepKind = DepInOutSet;
     break;
+  case OMPC_DEPEND_outallmemory:
+    DepKind = DepOmpAllMem;
+    break;
   case OMPC_DEPEND_source:
   case OMPC_DEPEND_sink:
   case OMPC_DEPEND_depobj:
+  case OMPC_DEPEND_inoutallmemory:
   case OMPC_DEPEND_unknown:
     llvm_unreachable("Unknown task dependence type");
   }
@@ -4986,12 +4892,21 @@ static void emitDependData(CodeGenFunction &CGF, QualType &KmpDependInfoTy,
   for (const Expr *E : Data.DepExprs) {
     llvm::Value *Addr;
     llvm::Value *Size;
-    std::tie(Addr, Size) = getPointerAndSize(CGF, E);
+
+    // The expression will be a nullptr in the 'omp_all_memory' case.
+    if (E) {
+      std::tie(Addr, Size) = getPointerAndSize(CGF, E);
+      Addr = CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy);
+    } else {
+      Addr = llvm::ConstantInt::get(CGF.IntPtrTy, 0);
+      Size = llvm::ConstantInt::get(CGF.SizeTy, 0);
+    }
     LValue Base;
     if (unsigned *P = Pos.dyn_cast<unsigned *>()) {
       Base = CGF.MakeAddrLValue(
           CGF.Builder.CreateConstGEP(DependenciesArray, *P), KmpDependInfoTy);
     } else {
+      assert(E && "Expected a non-null expression");
       LValue &PosLVal = *Pos.get<LValue *>();
       llvm::Value *Idx = CGF.EmitLoadOfScalar(PosLVal, E->getExprLoc());
       Base = CGF.MakeAddrLValue(
@@ -5000,8 +4915,7 @@ static void emitDependData(CodeGenFunction &CGF, QualType &KmpDependInfoTy,
     // deps[i].base_addr = &<Dependencies[i].second>;
     LValue BaseAddrLVal = CGF.EmitLValueForField(
         Base, *std::next(KmpDependInfoRD->field_begin(), BaseAddr));
-    CGF.EmitStoreOfScalar(CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy),
-                          BaseAddrLVal);
+    CGF.EmitStoreOfScalar(Addr, BaseAddrLVal);
     // deps[i].len = sizeof(<Dependencies[i].second>);
     LValue LenLVal = CGF.EmitLValueForField(
         Base, *std::next(KmpDependInfoRD->field_begin(), Len));
@@ -8036,9 +7950,6 @@ private:
 
 #if INTEL_COLLAB
 public:
-  bool isDevPointersMap(const ValueDecl *VD) const{
-    return DevPointersMap.count(VD);
-  }
   bool isHasDevAddrsMap(const ValueDecl *VD) const{
     return HasDevAddrsMap.count(VD);
   }
@@ -9291,8 +9202,7 @@ private:
       const Decl *D = Data.first;
       const ValueDecl *VD = cast_or_null<ValueDecl>(D);
 #if INTEL_COLLAB
-      if (CGF.CGM.getLangOpts().OpenMPLateOutline && (isDevPointersMap(VD) ||
-          isHasDevAddrsMap(VD)))
+      if (CGF.CGM.getLangOpts().OpenMPLateOutline && isHasDevAddrsMap(VD))
         continue;
 #endif  // INTEL_COLLAB
       for (const auto &M : Data.second) {
@@ -10410,11 +10320,6 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         //Fix me: adding this cause BE assert.
         continue;
       }
-
-      if ((CI->capturesThis() && MEHandler.isDevPointersMap(nullptr)) ||
-          (!CI->capturesThis() &&
-           MEHandler.isDevPointersMap(CI->getCapturedVar())))
-        continue;
 
       if ((CI->capturesThis() && MEHandler.isHasDevAddrsMap(nullptr)) ||
           (!CI->capturesThis() &&
@@ -11744,6 +11649,15 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
 
 void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
                                                    llvm::Constant *Addr) {
+#if INTEL_COLLAB
+  // For OpenMP backend outlining, the globals in a declare target region must
+  // be marked with the target_declare attribute so they're not optimized away
+  // by backend optimizations.
+  if (CGM.getLangOpts().OpenMPLateOutline &&
+      VD->hasAttr<OMPDeclareTargetDeclAttr>())
+    cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+#endif // INTEL_COLLAB
+
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
@@ -12472,13 +12386,21 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
 
 namespace {
   /// Kind of parameter in a function with 'declare simd' directive.
-  enum ParamKindTy { LinearWithVarStride, Linear, Uniform, Vector };
-  /// Attribute set of the parameter.
-  struct ParamAttrTy {
-    ParamKindTy Kind = Vector;
-    llvm::APSInt StrideOrArg;
-    llvm::APSInt Alignment;
-  };
+enum ParamKindTy {
+  Linear,
+  LinearRef,
+  LinearUVal,
+  LinearVal,
+  Uniform,
+  Vector,
+};
+/// Attribute set of the parameter.
+struct ParamAttrTy {
+  ParamKindTy Kind = Vector;
+  llvm::APSInt StrideOrArg;
+  llvm::APSInt Alignment;
+  bool HasVarStride = false;
+};
 } // namespace
 
 static unsigned evaluateCDTSize(const FunctionDecl *FD,
@@ -12533,9 +12455,56 @@ static unsigned evaluateCDTSize(const FunctionDecl *FD,
   return C.getTypeSize(CDT);
 }
 
-static void emitX86DeclareSimdFunction(
-    const FunctionDecl *FD, llvm::Function *Fn, const llvm::APSInt &VLENVal,
-    ArrayRef<ParamAttrTy> ParamAttrs,
+/// Mangle the parameter part of the vector function name according to
+/// their OpenMP classification. The mangling function is defined in
+/// section 4.5 of the AAVFABI(2021Q1).
+static std::string mangleVectorParameters(ArrayRef<ParamAttrTy> ParamAttrs) {
+  SmallString<256> Buffer;
+  llvm::raw_svector_ostream Out(Buffer);
+  for (const auto &ParamAttr : ParamAttrs) {
+    switch (ParamAttr.Kind) {
+    case Linear:
+      Out << 'l';
+      break;
+    case LinearRef:
+      Out << 'R';
+      break;
+    case LinearUVal:
+      Out << 'U';
+      break;
+    case LinearVal:
+      Out << 'L';
+      break;
+    case Uniform:
+      Out << 'u';
+      break;
+    case Vector:
+      Out << 'v';
+      break;
+    }
+    if (ParamAttr.HasVarStride)
+      Out << "s" << ParamAttr.StrideOrArg;
+    else if (ParamAttr.Kind == Linear || ParamAttr.Kind == LinearRef ||
+             ParamAttr.Kind == LinearUVal || ParamAttr.Kind == LinearVal) {
+      // Don't print the step value if it is not present or if it is
+      // equal to 1.
+      if (ParamAttr.StrideOrArg < 0)
+        Out << 'n' << -ParamAttr.StrideOrArg;
+      else if (ParamAttr.StrideOrArg != 1)
+        Out << ParamAttr.StrideOrArg;
+    }
+
+    if (!!ParamAttr.Alignment)
+      Out << 'a' << ParamAttr.Alignment;
+  }
+
+  return std::string(Out.str());
+}
+
+static void
+emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
+                           const llvm::APSInt &VLENVal,
+                           ArrayRef<ParamAttrTy> ParamAttrs,
 #if INTEL_CUSTOMIZATION
     OMPDeclareSimdDeclAttr::BranchStateTy State,
     bool UseSPIRMangling) {
@@ -12543,6 +12512,7 @@ static void emitX86DeclareSimdFunction(
   if (RetTy->isComplexType() || RetTy->isStructureType())
     return;
 #endif // INTEL_CUSTOMIZATION
+
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;
@@ -12599,26 +12569,7 @@ static void emitX86DeclareSimdFunction(
       } else {
         Out << VLENVal;
       }
-      for (const ParamAttrTy &ParamAttr : ParamAttrs) {
-        switch (ParamAttr.Kind){
-        case LinearWithVarStride:
-          Out << 's' << ParamAttr.StrideOrArg;
-          break;
-        case Linear:
-          Out << 'l';
-          if (ParamAttr.StrideOrArg != 1)
-            Out << ParamAttr.StrideOrArg;
-          break;
-        case Uniform:
-          Out << 'u';
-          break;
-        case Vector:
-          Out << 'v';
-          break;
-        }
-        if (!!ParamAttr.Alignment)
-          Out << 'a' << ParamAttr.Alignment;
-      }
+      Out << mangleVectorParameters(ParamAttrs);
       Out << '_' << Fn->getName();
       Out.flush(); // INTEL
     }
@@ -12651,11 +12602,7 @@ static void emitX86DeclareSimdFunction(
 // available at
 // https://developer.arm.com/products/software-development-tools/hpc/arm-compiler-for-hpc/vector-function-abi.
 
-/// Maps To Vector (MTV), as defined in 3.1.1 of the AAVFABI.
-///
-/// TODO: Need to implement the behavior for reference marked with a
-/// var or no linear modifiers (1.b in the section). For this, we
-/// need to extend ParamKindTy to support the linear modifiers.
+/// Maps To Vector (MTV), as defined in 4.1.1 of the AAVFABI (2021Q1).
 static bool getAArch64MTV(QualType QT, ParamKindTy Kind) {
   QT = QT.getCanonicalType();
 
@@ -12665,12 +12612,11 @@ static bool getAArch64MTV(QualType QT, ParamKindTy Kind) {
   if (Kind == ParamKindTy::Uniform)
     return false;
 
-  if (Kind == ParamKindTy::Linear)
+  if (Kind == ParamKindTy::LinearUVal || ParamKindTy::LinearRef)
     return false;
 
-  // TODO: Handle linear references with modifiers
-
-  if (Kind == ParamKindTy::LinearWithVarStride)
+  if ((Kind == ParamKindTy::Linear || Kind == ParamKindTy::LinearVal) &&
+      !QT->isReferenceType())
     return false;
 
   return true;
@@ -12749,39 +12695,6 @@ getNDSWDS(const FunctionDecl *FD, ArrayRef<ParamAttrTy> ParamAttrs) {
   return std::make_tuple(*std::min_element(std::begin(Sizes), std::end(Sizes)),
                          *std::max_element(std::begin(Sizes), std::end(Sizes)),
                          OutputBecomesInput);
-}
-
-/// Mangle the parameter part of the vector function name according to
-/// their OpenMP classification. The mangling function is defined in
-/// section 3.5 of the AAVFABI.
-static std::string mangleVectorParameters(ArrayRef<ParamAttrTy> ParamAttrs) {
-  SmallString<256> Buffer;
-  llvm::raw_svector_ostream Out(Buffer);
-  for (const auto &ParamAttr : ParamAttrs) {
-    switch (ParamAttr.Kind) {
-    case LinearWithVarStride:
-      Out << "ls" << ParamAttr.StrideOrArg;
-      break;
-    case Linear:
-      Out << 'l';
-      // Don't print the step value if it is not present or if it is
-      // equal to 1.
-      if (ParamAttr.StrideOrArg != 1)
-        Out << ParamAttr.StrideOrArg;
-      break;
-    case Uniform:
-      Out << 'u';
-      break;
-    case Vector:
-      Out << 'v';
-      break;
-    }
-
-    if (!!ParamAttr.Alignment)
-      Out << 'a' << ParamAttr.Alignment;
-  }
-
-  return std::string(Out.str());
 }
 
 // Function used to add the attribute. The parameter `VLEN` is
@@ -13004,14 +12917,20 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       }
       // Mark linear parameters.
       auto *SI = Attr->steps_begin();
+      auto *MI = Attr->modifiers_begin();
       for (const Expr *E : Attr->linears()) {
         E = E->IgnoreParenImpCasts();
         unsigned Pos;
+        bool IsReferenceType = false;
         // Rescaling factor needed to compute the linear parameter
         // value in the mangled name.
         unsigned PtrRescalingFactor = 1;
         if (isa<CXXThisExpr>(E)) {
           Pos = ParamPositions[FD];
+          auto *P = cast<PointerType>(E->getType());
+          PtrRescalingFactor = CGM.getContext()
+                                   .getTypeSizeInChars(P->getPointeeType())
+                                   .getQuantity();
         } else {
           const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(E)->getDecl())
                                 ->getCanonicalDecl();
@@ -13022,9 +12941,23 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
             PtrRescalingFactor = CGM.getContext()
                                      .getTypeSizeInChars(P->getPointeeType())
                                      .getQuantity();
+          else if (PVD->getType()->isReferenceType()) {
+            IsReferenceType = true;
+            PtrRescalingFactor =
+                CGM.getContext()
+                    .getTypeSizeInChars(PVD->getType().getNonReferenceType())
+                    .getQuantity();
+          }
         }
         ParamAttrTy &ParamAttr = ParamAttrs[Pos];
-        ParamAttr.Kind = Linear;
+        if (*MI == OMPC_LINEAR_ref)
+          ParamAttr.Kind = LinearRef;
+        else if (*MI == OMPC_LINEAR_uval)
+          ParamAttr.Kind = LinearUVal;
+        else if (IsReferenceType)
+          ParamAttr.Kind = LinearVal;
+        else
+          ParamAttr.Kind = Linear;
         // Assuming a stride of 1, for `linear` without modifiers.
         ParamAttr.StrideOrArg = llvm::APSInt::getUnsigned(1);
         if (*SI) {
@@ -13034,7 +12967,7 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
                     cast<DeclRefExpr>((*SI)->IgnoreParenImpCasts())) {
               if (const auto *StridePVD =
                       dyn_cast<ParmVarDecl>(DRE->getDecl())) {
-                ParamAttr.Kind = LinearWithVarStride;
+                ParamAttr.HasVarStride = true;
                 auto It = ParamPositions.find(StridePVD->getCanonicalDecl());
                 assert(It != ParamPositions.end() &&
                        "Function parameter not found");
@@ -13048,9 +12981,11 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         // If we are using a linear clause on a pointer, we need to
         // rescale the value of linear_step with the byte size of the
         // pointee type.
-        if (Linear == ParamAttr.Kind)
+        if (!ParamAttr.HasVarStride &&
+            (ParamAttr.Kind == Linear || ParamAttr.Kind == LinearRef))
           ParamAttr.StrideOrArg = ParamAttr.StrideOrArg * PtrRescalingFactor;
         ++SI;
+        ++MI;
       }
       llvm::APSInt VLENVal;
       SourceLocation ExprLoc;
@@ -13264,6 +13199,17 @@ static llvm::Value *getAllocatorVal(CodeGenFunction &CGF,
   return AllocVal;
 }
 
+/// Return the alignment from an allocate directive if present.
+static llvm::Value *getAlignmentValue(CodeGenModule &CGM, const VarDecl *VD) {
+  llvm::Optional<CharUnits> AllocateAlignment = CGM.getOMPAllocateAlignment(VD);
+
+  if (!AllocateAlignment)
+    return nullptr;
+
+  return llvm::ConstantInt::get(CGM.SizeTy,
+                                AllocateAlignment.getValue().getQuantity());
+}
+
 Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
                                                    const VarDecl *VD) {
   if (!VD)
@@ -13302,11 +13248,7 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
     const auto *AA = CVD->getAttr<OMPAllocateDeclAttr>();
     const Expr *Allocator = AA->getAllocator();
     llvm::Value *AllocVal = getAllocatorVal(CGF, Allocator);
-    llvm::Value *Alignment =
-        AA->getAlignment()
-            ? CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(AA->getAlignment()),
-                                        CGM.SizeTy, /*isSigned=*/false)
-            : nullptr;
+    llvm::Value *Alignment = getAlignmentValue(CGM, CVD);
     SmallVector<llvm::Value *, 4> Args;
     Args.push_back(ThreadID);
     if (Alignment)

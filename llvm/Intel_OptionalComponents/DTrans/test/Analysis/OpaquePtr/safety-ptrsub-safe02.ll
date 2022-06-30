@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-safetyanalyzer -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtrans-safetyanalyzer-verbose -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the collection of type information for pointer subtraction cases that are
 ; safe for transformations which may require updating an operand that represents

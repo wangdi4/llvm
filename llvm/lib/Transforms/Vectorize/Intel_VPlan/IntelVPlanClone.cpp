@@ -88,6 +88,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
   VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix, Parent);
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
   ClonedBlock->setName(Name);
+  ClonedBlock->setFrequency(Block->getFrequency());
   Parent->insertBefore(ClonedBlock, InsertBefore);
 
   for (auto &Inst : *Block) {

@@ -9,7 +9,7 @@ entry:
 ; CHECK-NEXT: call void @sub_group_rowslice_insertelement.i32(i64 [[ROWSLICE_ID]], i32 %val)
 ; CHECK-NEXT: [[MAT_UPDATE:%mat.update.*]] = call <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64 [[ROWSLICE_ID]])
 ; CHECK-NOT: call <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement
-  %the.element = call <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i32 %val, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %the.element = call <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i32 %val, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
@@ -18,7 +18,7 @@ entry:
 ; CHECK-DAG: declare <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64) #[[#ATTR0:]]
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32>, i32, i32, i32, i64, metadata, metadata) #0
+declare <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32>, i32, i32, i32, i64, metadata, metadata, metadata) #0
 
 ; CHECK-DAG: attributes #[[#ATTR0]] = { "kernel-uniform-call" "opencl-vec-uniform-return" }
 ; CHECK-DAG: attributes #[[#ATTR1]] = { "kernel-call-once" }
