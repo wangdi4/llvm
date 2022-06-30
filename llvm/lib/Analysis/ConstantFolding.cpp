@@ -1238,13 +1238,6 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
     Ops.push_back(Op);
   }
 
-<<<<<<< HEAD
-  if (const auto *LI = dyn_cast<LoadInst>(I)) {
-    if (LI->isVolatile())
-      return nullptr;
-    return ConstantFoldLoadFromConstPtr(Ops[0], LI->getType(), DL);
-  }
-
 #if INTEL_CUSTOMIZATION
   // If a +CData is used in other non-fneg instructions, we don't fold the
   // -CData, because this usually generate unnecessary load -CData from Data
@@ -1254,8 +1247,6 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
       ConstantHasNonFNegUse(I->getOperand(0)))
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0445c340ff48b9ba53e69933cef0af703bb5ea0f
   return ConstantFoldInstOperands(I, Ops, DL, TLI);
 }
 
