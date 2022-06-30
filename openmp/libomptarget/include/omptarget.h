@@ -367,13 +367,13 @@ extern "C" {
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_get_num_devices(void);
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-=======
 int omp_get_device_num(void);
->>>>>>> 616dd9ae143172472bde793683d6e4df79554ac8
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_get_initial_device(void);
 #if INTEL_COLLAB
 EXTERN
