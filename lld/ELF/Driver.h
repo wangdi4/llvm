@@ -50,9 +50,6 @@ private:
   void inferMachineType();
   void link(llvm::opt::InputArgList &args);
   template <class ELFT> void compileBitcodeFiles(bool skipLinkedOutput);
-  void writeArchiveStats() const;
-  void writeWhyExtract() const;
-  void reportBackrefs() const;
 
   // True if we are in --whole-archive and --no-whole-archive.
   bool inWholeArchive = false;
@@ -64,6 +61,7 @@ private:
   std::unique_ptr<BitcodeCompiler> lto;
 
   std::vector<InputFile *> files;
+
 #if INTEL_CUSTOMIZATION
   // Helper function for finding the ELF target used for GNU LTO files and
   // invoke doGNULTOLinking.
@@ -78,17 +76,9 @@ private:
       doGNULTOLinking(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
                       bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
-  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
 
 public:
-  // A tuple of (reference, extractedFile, sym). Used by --why-extract=.
-  SmallVector<std::tuple<std::string, const InputFile *, const Symbol &>, 0>
-      whyExtract;
-  // A mapping from a symbol to an InputFile referencing it backward. Used by
-  // --warn-backrefs.
-  llvm::DenseMap<const Symbol *,
-                 std::pair<const InputFile *, const InputFile *>>
-      backwardReferences;
+  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
 };
 
 // Parses command line options.
