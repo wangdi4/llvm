@@ -61,7 +61,7 @@ private:
   std::unique_ptr<BitcodeCompiler> lto;
 
   std::vector<InputFile *> files;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   // Helper function for finding the ELF target used for GNU LTO files and
   // invoke doGNULTOLinking.
@@ -76,9 +76,6 @@ private:
       doGNULTOLinking(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
                       bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
-  SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
-=======
->>>>>>> e980f16d52196fb2bc672ecb87e0f622253addec
 
 public:
   SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;
