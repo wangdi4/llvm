@@ -1128,6 +1128,12 @@ Constant *ConstantFoldInstOperandsImpl(const Value *InstOrCE, unsigned Opcode,
   case Instruction::ShuffleVector:
     return ConstantExpr::getShuffleVector(
         Ops[0], Ops[1], cast<ShuffleVectorInst>(InstOrCE)->getShuffleMask());
+  case Instruction::Load: {
+    const auto *LI = dyn_cast<LoadInst>(InstOrCE);
+    if (LI->isVolatile())
+      return nullptr;
+    return ConstantFoldLoadFromConstPtr(Ops[0], LI->getType(), DL);
+  }
   }
 }
 
@@ -1232,6 +1238,7 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
     Ops.push_back(Op);
   }
 
+<<<<<<< HEAD
   if (const auto *LI = dyn_cast<LoadInst>(I)) {
     if (LI->isVolatile())
       return nullptr;
@@ -1247,6 +1254,8 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
       ConstantHasNonFNegUse(I->getOperand(0)))
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0445c340ff48b9ba53e69933cef0af703bb5ea0f
   return ConstantFoldInstOperands(I, Ops, DL, TLI);
 }
 
