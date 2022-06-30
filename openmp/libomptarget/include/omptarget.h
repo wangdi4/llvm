@@ -370,6 +370,10 @@ int omp_get_num_devices(void);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+int omp_get_device_num(void);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_get_initial_device(void);
 #if INTEL_COLLAB
 EXTERN
