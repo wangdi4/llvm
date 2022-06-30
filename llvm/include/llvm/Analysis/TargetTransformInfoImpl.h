@@ -392,6 +392,8 @@ public:
 
   bool supportsEfficientVectorElementLoadStore() const { return false; }
 
+  bool supportsTailCalls() const { return true; }
+
   bool enableAggressiveInterleaving(bool LoopHasReductions) const {
     return false;
   }

@@ -2,12 +2,6 @@
 
 ; RUN: opt < %s -passes='default<O2>' -opaque-pointers=1 -S | FileCheck %s
 
-; INTEL_CUSTOMIZATION
-; RUN: opt < %s -enable-coroutines -passes='default<O2>' -opaque-pointers=1 -S | FileCheck %s
-; xmain doesn't remove GEP...0 under opaque pointers, as it may have useful
-; type information.
-; end INTEL_CUSTOMIZATION
-
 target datalayout = "p:64:64:64"
 
 declare {i8*, i8*, i32} @prototype_f(i8*, i1)

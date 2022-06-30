@@ -966,7 +966,6 @@ void OptimizerOCLLegacy::initializePasses() {
   // Initialize passes so that -print-after/-print-before work.
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeCoroutines(Registry);
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
