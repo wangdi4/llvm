@@ -1833,7 +1833,7 @@ define void @uniform_br_under_outer_mask_4(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]]
-; CHECK-NEXT:     [DA: Uni] br i1 %uniform, if.then, exit
+; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
@@ -2400,7 +2400,7 @@ define void @uniform_br_under_outer_mask_11(i1 %u0, i1 %u1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF0_BR_VP_U0_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_U0_NOT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[U00]], exit, bb
+; CHECK-NEXT:     [DA: Uni] br bb
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_IF1_BR_VP_U1]] i1 [[VP_IF0_BR_VP_U0_NOT]]
@@ -2575,25 +2575,25 @@ define void @uniform_br_under_outer_mask_14(i1 %u0, i1 %u1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: else
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_ELSE_BR_VP_U1:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[U10]], bb1, if
+; CHECK-NEXT:     [DA: Uni] br bb1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb1: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_ELSE_BR_VP_U1]]
 ; CHECK-NEXT:     [DA: Uni] br if
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if: # preds: bb1, [[BB0]]
+; CHECK-NEXT:    if: # preds: bb1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_U0:%.*]] = and i1 [[VP_VARYING]] i1 [[U00:%.*]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[U00]], bb0, merge
+; CHECK-NEXT:     [DA: Uni] br bb0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb0: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_U0]]
 ; CHECK-NEXT:     [DA: Uni] br merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:    merge: # preds: bb0, [[BB1]]
+; CHECK-NEXT:    merge: # preds: bb0
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -2620,71 +2620,6 @@ else:
 
 bb1:
   br label %merge
-
-merge:
-  ret void
-}
-
-define void @uniform_br_under_outer_mask_15(i1 %u0, i1 %u1) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_15
-; CHECK-NEXT:  entry: # preds: 
-; CHECK-NEXT:   [DA: Uni] br bb7
-; CHECK-EMPTY:
-; CHECK-NEXT:  bb7: # preds: entry, latch
-; CHECK-NEXT:   [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:   [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
-; CHECK-NEXT:   [DA: Uni] br bb8
-; CHECK-EMPTY:
-; CHECK-NEXT:  bb8: # preds: bb7
-; CHECK-NEXT:   [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING]]
-; CHECK-NEXT:   [DA: Uni] br bb9
-; CHECK-EMPTY:
-; CHECK-NEXT:  bb9: # preds: bb8
-; CHECK-NEXT:   [DA: Uni] br i1 [[U00:%.*]], bb19, latch
-; CHECK-EMPTY:
-; CHECK-NEXT:    bb19: # preds: bb9
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING1:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
-; CHECK-NEXT:     [DA: Uni] br bb23
-; CHECK-EMPTY:
-; CHECK-NEXT:    bb23: # preds: bb19
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING1]]
-; CHECK-NEXT:     [DA: Uni] br bb24
-; CHECK-EMPTY:
-; CHECK-NEXT:    bb24: # preds: bb23
-; CHECK-NEXT:     [DA: Uni] br latch
-; CHECK-EMPTY:
-; CHECK-NEXT:  latch: # preds: bb9, bb24
-; CHECK-NEXT:   [DA: Uni] br i1 [[U10:%.*]], bb7, merge
-; CHECK-EMPTY:
-; CHECK-NEXT:  merge: # preds: latch
-; CHECK-NEXT:   [DA: Div] ret
-; CHECK-NEXT:   [DA: Uni] br <External Block>
-entry:
-  br label %bb7
-
-bb7:
-  %lane = call i32 @llvm.vplan.laneid()
-  %varying = call i1 @varying(i32 %lane)
-  br i1 %varying, label %bb8, label %bb9
-
-bb8:
-  br label %bb9
-
-bb9:
-  br i1 %u0, label %bb19, label %latch
-
-bb19:
-  %varying1 = call i1 @varying(i32 %lane)
-  br i1 %varying1, label %bb23, label %bb24
-
-bb23:
-  br label %bb24
-
-bb24:
-  br label %latch
-
-latch:
-  br i1 %u1, label %bb7, label %merge
 
 merge:
   ret void

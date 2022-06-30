@@ -499,17 +499,9 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
   VPBasicBlock *PostDom = Plan.getPDT()->getNode(Block)->getIDom()->getBlock();
   for (auto It = std::next(df_begin(Block)), End = df_end(Block);
        It != End;) {
-
     // No outer edge going into the region.
-    // Preserve edges to successor for algorithm to maintain deferral relation.
-    if (!Plan.getDT()->dominates(Block, *It)) {
-      if (llvm::none_of(Block->getSuccessors(),
-                        [&It](const VPBasicBlock *Succ) {
-                          return Succ == *It;
-                        })) {
-        return false;
-      }
-    }
+    if (!Plan.getDT()->dominates(Block, *It))
+      return false;
 
     if (*It == PostDom) {
       It.skipChildren();
@@ -660,8 +652,6 @@ void VPlanPredicator::linearizeRegion() {
             RemovedDivergentEdgesMap[Succ].push_back(Src);
           }
           Src->setTerminator(TargetToKeep);
-          LLVM_DEBUG(dbgs() << "\nAdding: " << Src->getName() << " -> "
-                            << TargetToKeep->getName() << "\n");
         };
 
     LLVM_DEBUG(dbgs() << "Remaining divergent edges:");
@@ -674,52 +664,17 @@ void VPlanPredicator::linearizeRegion() {
 
     LLVM_DEBUG(dbgs() << "\nAlready dropped divergent edges:");
     for (auto *Pred : RemovedDivergentEdges) {
+      LLVM_DEBUG(dbgs() << " " << Pred->getName());
       // Ensure that all preds where edges were dropped can reach this block on
       // all pathes from them. Add new edges if necessary.
       auto It = df_begin(Pred);
       auto End = df_end(Pred);
       while (It != End) {
-        if ((*It) == CurrBlock) { ++It; continue; }
-
-        // Partial Linearization algorithm (Figure 5)
-        // https://compilers.cs.uni-saarland.de/papers/moll_parlin_pldi18.pdf,
-        //
-        // At this point, the divergent branch has been if-converted, and we are
-        // going through the blocks previously connected to removed edge to
-        // ensure the path exists. To ensure path completion, the algorithm
-        // maintains a deferral relation (Lemma 3.1).
-        //
-        // The algorithm chooses dominace-compact index as the next target and
-        // the current block (with index > selected next) is deferred.
-        //
-        //        D                      D
-        //      /   \                     \
-        //     U     U               U-----U
-        //     |\   /|      --->     |\ \  |
-        //     o + o +               o + +-o
-        //      \| |/                 \|
-        //        o                    o
-        SmallVector<VPBasicBlock *, 4> DeferredTargets;
-        bool pathFound = false;
-        for (auto *SuccBB : It->getSuccessors()) {
-          if (BlockOrdering.getIndex(SuccBB) > CurrBlockIndex) {
-            if (!VPBlockUtils::blockIsLoopLatch((*It), VPLI) &&
-                // ensure deferral relation between blocks in same dominance
-                // region
-                Plan.getDT()->dominates(Pred, SuccBB))
-              DeferredTargets.push_back(SuccBB);
-          } else {
-            pathFound = true;
-          }
-        }
-        if (pathFound) {
-          for (auto *DeferredBB : DeferredTargets) {
-            if (llvm::is_contained(It->getSuccessors(), CurrBlock)) {
-              It->setTerminator(CurrBlock);
-            } else {
-              It->replaceSuccessor(DeferredBB, CurrBlock);
-            }
-          }
+        if (any_of(It->getSuccessors(),
+                   [&BlockOrdering, CurrBlockIndex](const VPBasicBlock *Succ) {
+                     return BlockOrdering.getIndex(Succ) < CurrBlockIndex;
+                   })) {
+          // Not a leaf in the subgraph processed so far.
           ++It;
           continue;
         }
@@ -732,7 +687,6 @@ void VPlanPredicator::linearizeRegion() {
 
         DropDivergentEdgesFromAndLinkWith(*It, CurrBlock);
         It.skipChildren();
-
       }
     }
 
