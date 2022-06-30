@@ -3080,17 +3080,6 @@ BasicBlock *InnerLoopVectorizer::emitMemRuntimeChecks(BasicBlock *Bypass) {
 
   AddedSafetyChecks = true;
 
-  // Only use noalias metadata when using memory checks guaranteeing no overlap
-  // across all iterations.
-  if (!Legal->getLAI()->getRuntimePointerChecking()->getDiffChecks()) {
-    //  We currently don't use LoopVersioning for the actual loop cloning but we
-    //  still use it to add the noalias metadata.
-    LVer = std::make_unique<LoopVersioning>(
-        *Legal->getLAI(),
-        Legal->getLAI()->getRuntimePointerChecking()->getChecks(), OrigLoop, LI,
-        DT, PSE.getSE());
-    LVer->prepareNoAliasMetadata();
-  }
   return MemCheckBlock;
 }
 
@@ -7680,6 +7669,22 @@ void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
   Value *CanonicalIVStartValue;
   std::tie(State.CFG.PrevBB, CanonicalIVStartValue) =
       ILV.createVectorizedLoopSkeleton();
+
+  // Only use noalias metadata when using memory checks guaranteeing no overlap
+  // across all iterations.
+  const LoopAccessInfo *LAI = ILV.Legal->getLAI();
+  if (LAI && !LAI->getRuntimePointerChecking()->getChecks().empty() &&
+      !LAI->getRuntimePointerChecking()->getDiffChecks()) {
+    //  We currently don't use LoopVersioning for the actual loop cloning but we
+    //  still use it to add the noalias metadata.
+    //  TODO: Find a better way to re-use LoopVersioning functionality to add
+    //        metadata.
+    ILV.LVer = std::make_unique<LoopVersioning>(
+        *LAI, LAI->getRuntimePointerChecking()->getChecks(), OrigLoop, LI, DT,
+        PSE.getSE());
+    ILV.LVer->prepareNoAliasMetadata();
+  }
+
   ILV.collectPoisonGeneratingRecipes(State);
 
   ILV.printDebugTracesAtStart();
@@ -7696,6 +7701,7 @@ void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
   BestVPlan.prepareToExecute(ILV.getOrCreateTripCount(nullptr),
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
+
   BestVPlan.execute(&State);
 
   // Keep all loop hints from the original loop on the vector loop (we'll
