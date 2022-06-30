@@ -38,8 +38,8 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
         self.test_sequence.add_log_lines([
             "read packet: $c#00",
             {"direction": "send",
-             "regex": r"[$]T05thread:p{}[.]{}.*vforkdone.*".format(parent_pid,
-                                                                   parent_tid),
+             "regex": r"[$]T[0-9a-fA-F]{{2}}thread:p{}[.]{}.*vforkdone.*"
+                      .format(parent_pid, parent_tid),
              },
             "read packet: $c#00",
             "send packet: $W00;process:{}#00".format(parent_pid),
@@ -153,74 +153,44 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
     def test_vkill_both(self):
         self.vkill_test(kill_parent=True, kill_child=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_parent(self):
         self.resume_one_test(run_order=["parent", "parent"])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_child(self):
         self.resume_one_test(run_order=["child", "child"])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_parent_then_child(self):
         self.resume_one_test(run_order=["parent", "parent", "child", "child"])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_child_then_parent(self):
         self.resume_one_test(run_order=["child", "child", "parent", "parent"])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_interspersed(self):
         self.resume_one_test(run_order=["parent", "child", "parent", "child"])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_parent(self):
         self.resume_one_test(run_order=["parent", "parent"], use_vCont=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_child(self):
         self.resume_one_test(run_order=["child", "child"], use_vCont=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_parent_then_child(self):
         self.resume_one_test(run_order=["parent", "parent", "child", "child"],
                              use_vCont=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_child_then_parent(self):
         self.resume_one_test(run_order=["child", "child", "parent", "parent"],
                              use_vCont=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_interspersed(self):
         self.resume_one_test(run_order=["parent", "child", "parent", "child"],
@@ -229,7 +199,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
     @add_test_categories(["fork"])
     def test_vCont_two_processes(self):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "trap"]))
+            self.start_fork_test(["fork", "stop"]))
 
         self.test_sequence.add_log_lines([
             # try to resume both processes
@@ -241,7 +211,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
 
     @add_test_categories(["fork"])
     def test_vCont_all_processes_explicit(self):
-        self.start_fork_test(["fork", "trap"])
+        self.start_fork_test(["fork", "stop"])
 
         self.test_sequence.add_log_lines([
             # try to resume all processes implicitly
@@ -252,7 +222,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
 
     @add_test_categories(["fork"])
     def test_vCont_all_processes_implicit(self):
-        self.start_fork_test(["fork", "trap"])
+        self.start_fork_test(["fork", "stop"])
 
         self.test_sequence.add_log_lines([
             # try to resume all processes implicitly
@@ -261,11 +231,10 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
         ], True)
         self.expect_gdbremote_sequence()
 
-    @expectedFailureAll(archs=["arm"])  # TODO
     @add_test_categories(["fork"])
     def test_threadinfo(self):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "thread:new", "trap"]))
+            self.start_fork_test(["fork", "thread:new", "stop"]))
         pidtids = [
             (parent_pid, parent_tid),
             (child_pid, child_tid),
@@ -285,7 +254,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  "send packet: $OK#00",
                  "read packet: $c#00",
                  {"direction": "send",
-                  "regex": "^[$]T05thread:p{}.{}.*".format(*pidtid),
+                  "regex": self.stop_regex.format(*pidtid),
                   },
                  ], True)
             self.add_threadinfo_collection_packets()
@@ -307,7 +276,6 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  ], True)
         self.expect_gdbremote_sequence()
 
-    @expectedFailureAll(archs=["arm"])  # TODO
     @add_test_categories(["fork"])
     def test_memory_read_write(self):
         self.build()
@@ -317,7 +285,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                            "get-data-address-hex:g_message",
                            "fork",
                            "print-message:",
-                           "trap",
+                           "stop",
                            ])
         self.add_qSupported_packets(["multiprocess+",
                                      "fork-events+"])
@@ -366,7 +334,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                   "regex": self.maybe_strict_output_regex(r"message: (.*)\r\n"),
                   "capture": {1: "printed_message"}},
                  {"direction": "send",
-                  "regex": "^[$]T05thread:p{}.{}.*".format(*pidtid),
+                  "regex": self.stop_regex.format(*pidtid),
                   },
                  ], True)
             ret = self.expect_gdbremote_sequence()
@@ -395,11 +363,10 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
             self.assertEqual(data, name + "\0")
             self.reset_test_sequence()
 
-    @expectedFailureAll(archs=["arm"])  # TODO
     @add_test_categories(["fork"])
     def test_register_read_write(self):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "thread:new", "trap"]))
+            self.start_fork_test(["fork", "thread:new", "stop"]))
         pidtids = [
             (parent_pid, parent_tid),
             (child_pid, child_tid),
@@ -411,7 +378,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  "send packet: $OK#00",
                  "read packet: $c#00",
                  {"direction": "send",
-                  "regex": "^[$]T05thread:p{}.{}.*".format(*pidtid),
+                  "regex": self.stop_regex.format(*pidtid),
                   },
                  ], True)
 
@@ -492,11 +459,10 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
             self.assertIsNotNone(data)
             self.assertEqual(data, old_val[1])
 
-    @expectedFailureAll(archs=["arm"])  # TODO
     @add_test_categories(["fork"])
     def test_qC(self):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "thread:new", "trap"]))
+            self.start_fork_test(["fork", "thread:new", "stop"]))
         pidtids = [
             (parent_pid, parent_tid),
             (child_pid, child_tid),
@@ -508,7 +474,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  "send packet: $OK#00",
                  "read packet: $c#00",
                  {"direction": "send",
-                  "regex": "^[$]T05thread:p{}.{}.*".format(*pidtid),
+                  "regex": self.stop_regex.format(*pidtid),
                   },
                  ], True)
 
@@ -527,11 +493,10 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  ], True)
         self.expect_gdbremote_sequence()
 
-    @expectedFailureAll(archs=["arm"])  # TODO
     @add_test_categories(["fork"])
     def test_T(self):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "thread:new", "trap"]))
+            self.start_fork_test(["fork", "thread:new", "stop"]))
         pidtids = [
             (parent_pid, parent_tid),
             (child_pid, child_tid),
@@ -543,7 +508,7 @@ class TestGdbRemoteFork(GdbRemoteForkTestBase):
                  "send packet: $OK#00",
                  "read packet: $c#00",
                  {"direction": "send",
-                  "regex": "^[$]T05thread:p{}.{}.*".format(*pidtid),
+                  "regex": self.stop_regex.format(*pidtid),
                   },
                  ], True)
 

@@ -15,8 +15,8 @@ class TestGdbRemoteForkNonStop(GdbRemoteForkTestBase):
             "read packet: $c#00",
             "send packet: $OK#00",
             {"direction": "send",
-             "regex": r"%Stop:T05thread:p{}[.]{}.*vforkdone.*".format(
-                 parent_pid, parent_tid),
+             "regex": r"%Stop:T[0-9a-fA-F]{{2}}thread:p{}[.]{}.*vforkdone.*"
+                      .format(parent_pid, parent_tid),
              },
             "read packet: $vStopped#00",
             "send packet: $OK#00",
@@ -92,24 +92,17 @@ class TestGdbRemoteForkNonStop(GdbRemoteForkTestBase):
             "send packet: $OK#00",
         ], True)
         self.expect_gdbremote_sequence()
-        self.assertEqual(set([ret["pid1"], ret["pid2"]]),
-                         set([parent_pid, child_pid]))
+        self.assertEqual(set([pid1, pid2]), set([parent_pid, child_pid]))
 
     @add_test_categories(["fork"])
     def test_vkill_both_nonstop(self):
         self.vkill_test(kill_parent=True, kill_child=True, nonstop=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_c_interspersed_nonstop(self):
         self.resume_one_test(run_order=["parent", "child", "parent", "child"],
                              nonstop=True)
 
-    @expectedFailureAll(archs=["arm"])  # TODO
-    @expectedFailureAll(archs=["aarch64"],
-                        bugnumber="https://github.com/llvm/llvm-project/issues/56268")
     @add_test_categories(["fork"])
     def test_vCont_interspersed_nonstop(self):
         self.resume_one_test(run_order=["parent", "child", "parent", "child"],

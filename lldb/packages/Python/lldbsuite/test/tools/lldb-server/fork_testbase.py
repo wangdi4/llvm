@@ -2,12 +2,15 @@ import gdbremote_testcase
 
 
 class GdbRemoteForkTestBase(gdbremote_testcase.GdbRemoteTestCaseBase):
-    fork_regex = ("[$]T05thread:p([0-9a-f]+)[.]([0-9a-f]+);.*"
+    fork_regex = ("[$]T[0-9a-fA-F]{{2}}thread:p([0-9a-f]+)[.]([0-9a-f]+);.*"
                   "{}:p([0-9a-f]+)[.]([0-9a-f]+).*")
-    fork_regex_nonstop = ("%Stop:T05thread:p([0-9a-f]+)[.]([0-9a-f]+);.*"
+    fork_regex_nonstop = ("%Stop:T[0-9a-fA-F]{{2}}"
+                          "thread:p([0-9a-f]+)[.]([0-9a-f]+);.*"
                           "{}:p([0-9a-f]+)[.]([0-9a-f]+).*")
     fork_capture = {1: "parent_pid", 2: "parent_tid",
                     3: "child_pid", 4: "child_tid"}
+    stop_regex_base = "T[0-9a-fA-F]{{2}}thread:p{}.{};.*reason:signal.*"
+    stop_regex = "^[$]" + stop_regex_base
 
     def start_fork_test(self, args, variant="fork", nonstop=False):
         self.build()
@@ -149,14 +152,14 @@ class GdbRemoteForkTestBase(gdbremote_testcase.GdbRemoteTestCaseBase):
 
     def resume_one_test(self, run_order, use_vCont=False, nonstop=False):
         parent_pid, parent_tid, child_pid, child_tid = (
-            self.start_fork_test(["fork", "trap"], nonstop=nonstop))
+            self.start_fork_test(["fork", "stop"], nonstop=nonstop))
 
         parent_expect = [
-            "T05thread:p{}.{};.*".format(parent_pid, parent_tid),
+            self.stop_regex_base.format(parent_pid, parent_tid),
             "W00;process:{}#.*".format(parent_pid),
         ]
         child_expect = [
-            "T05thread:p{}.{};.*".format(child_pid, child_tid),
+            self.stop_regex_base.format(child_pid, child_tid),
             "W00;process:{}#.*".format(child_pid),
         ]
 
