@@ -8132,6 +8132,11 @@ const SCEV *ScalarEvolution::createSCEVIter(Value *V) {
   using PointerTy = PointerIntPair<Value *, 1, bool>;
   SmallVector<PointerTy> Stack;
 
+#if INTEL_CUSTOMIZATION
+  // See comment at end of function.
+  const SCEV *SCEVForV = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   Stack.emplace_back(V, true);
   Stack.emplace_back(V, false);
   while (!Stack.empty()) {
@@ -8154,6 +8159,10 @@ const SCEV *ScalarEvolution::createSCEVIter(Value *V) {
     }
 
     if (CreatedSCEV) {
+#if INTEL_CUSTOMIZATION
+      if (CurV == V)
+        SCEVForV = CreatedSCEV;
+#endif // INTEL_CUSTOMIZATION
       insertValueToMap(CurV, CreatedSCEV);
     } else {
       // Queue CurV for SCEV creation, followed by its's operands which need to
@@ -8163,6 +8172,15 @@ const SCEV *ScalarEvolution::createSCEVIter(Value *V) {
         Stack.emplace_back(Op, false);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // CreateSCEV has a weird behavior for PHI nodes. It stores the PHI
+  // symbolically in the cache as a SCEVUnknown, but it returns the "real"
+  // IV SCEV. We have to emulate this behavior here, otherwise the caller of
+  // CreateSCEVIter will get a useless SCEVUnknown value.
+  if (isa<PHINode>(V) && SCEVForV)
+    return SCEVForV;
+#endif // INTEL_CUSTOMIZATION
 
   return getExistingSCEV(V);
 }
@@ -8179,6 +8197,12 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
     // analysis depends on.
     if (!DT.isReachableFromEntry(I->getParent()))
       return getUnknown(PoisonValue::get(V->getType()));
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for instructions indicating possible live
+    // range violation.
+    if (getHIRMetadata(I, HIRLiveKind::LiveRange))
+      return getUnknown(V);
+#endif // INTEL_CUSTOMIZATION
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
     return getConstant(CI);
   else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V)) {
@@ -8200,6 +8224,16 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
       // get{Add,Mul}Expr calls.
       do {
         if (BO->Op) {
+#if INTEL_CUSTOMIZATION // HIR parsing
+          // When HIR MD is present, force the operands of add/mul to be
+          // parsed.
+          auto Inst = dyn_cast<Instruction>(BO->Op);
+          if (BO->Op != V && Inst &&
+              getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
+            Ops.push_back(BO->Op);
+            break;
+          }
+#endif // INTEL_CUSTOMIZATION
           if (BO->Op != V && getExistingSCEV(BO->Op)) {
             Ops.push_back(BO->Op);
             break;
@@ -8220,6 +8254,14 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
     case Instruction::Mul: {
       do {
         if (BO->Op) {
+#if INTEL_CUSTOMIZATION // HIR parsing
+          auto Inst = dyn_cast<Instruction>(BO->Op);
+          if (BO->Op != V && Inst &&
+              getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
+            Ops.push_back(BO->Op);
+            break;
+          }
+#endif // INTEL_CUSTOMIZATION
           if (BO->Op != V && getExistingSCEV(BO->Op)) {
             Ops.push_back(BO->Op);
             break;
