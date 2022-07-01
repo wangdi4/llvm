@@ -152,6 +152,10 @@ New check aliases
   <clang-tidy/checks/cppcoreguidelines/macro-to-enum>` to :doc:`modernize-macro-to-enum
   <clang-tidy/checks/modernize/macro-to-enum>` was added.
 
+- New :doc:`misc-homoglyph <clang-tidy/checks/misc-homoglyph>` check.
+
+  Detects confusable unicode identifiers.
+
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
