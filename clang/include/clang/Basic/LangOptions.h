@@ -729,6 +729,8 @@ public:
 private:
   storage_type Value;
 
+  FPOptionsOverride getChangesSlow(const FPOptions &Base) const;
+
 public:
   FPOptions() : Value(0) {
     setFPContractMode(LangOptions::FPM_Off);
@@ -819,6 +821,7 @@ public:
     return Opts;
   }
 
+<<<<<<< HEAD
   storage_type getDiffWith(FPOptions FPO) const {
     storage_type Diff = 0;
 #define OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                    \
@@ -827,6 +830,10 @@ public:
 #include "clang/Basic/FPOptions.def"
     return Diff;
   }
+=======
+  /// Return difference with the given option set.
+  FPOptionsOverride getChangesFrom(const FPOptions &Base) const;
+>>>>>>> b822efc7404bf09ccfdc1ab7657475026966c3b2
 
   // We can define most of the accessors automatically:
 #define OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                    \
@@ -876,8 +883,13 @@ public:
       : Options(LO), OverrideMask(OverrideMaskBits) {}
   FPOptionsOverride(FPOptions FPO)
       : Options(FPO), OverrideMask(OverrideMaskBits) {}
+<<<<<<< HEAD
   FPOptionsOverride(FPOptions New, FPOptions Old)
       : Options(New), OverrideMask(New.getDiffWith(Old)) {}
+=======
+  FPOptionsOverride(FPOptions FPO, FPOptions::storage_type Mask)
+      : Options(FPO), OverrideMask(Mask) {}
+>>>>>>> b822efc7404bf09ccfdc1ab7657475026966c3b2
 
   bool requiresTrailingStorage() const { return OverrideMask != 0; }
 
@@ -957,6 +969,12 @@ public:
 #include "clang/Basic/FPOptions.def"
   LLVM_DUMP_METHOD void dump();
 };
+
+inline FPOptionsOverride FPOptions::getChangesFrom(const FPOptions &Base) const {
+  if (Value == Base.Value)
+    return FPOptionsOverride();
+  return getChangesSlow(Base);
+}
 
 /// Describes the kind of translation unit being processed.
 enum TranslationUnitKind {
