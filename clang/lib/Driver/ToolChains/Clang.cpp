@@ -10269,7 +10269,11 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     if (Inputs[I].getType() == types::TY_Tempfiletable ||
         Inputs[I].getType() == types::TY_Tempfilelist)
       // wrapper actual input files are passed via the batch job file table:
-      CmdArgs.push_back(C.getArgs().MakeArgString("-split-batch"));
+      // TODO: Use -batch for now until -split-batch is properly supported
+      // in the clang-offload-wrapper tool.  This means that batching is
+      // applied to all targets and currently cannot be applied at an
+      // individual level.
+      CmdArgs.push_back(C.getArgs().MakeArgString("-batch"));
 #endif // INTEL_CUSTOMIZATION
 
     // And add it to the offload targets.
