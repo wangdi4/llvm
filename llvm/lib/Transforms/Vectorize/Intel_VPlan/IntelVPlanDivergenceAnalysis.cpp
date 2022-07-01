@@ -1543,11 +1543,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InductionFinal)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::ReductionInit)
-    NewShape = getRandomVectorShape();
-  else if (Opcode == VPInstruction::ReductionInitScalar)
-    NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::ReductionFinal)
+  else if (Opcode == VPInstruction::ReductionInit) {
+    const VPReductionInit *Init = cast<VPReductionInit>(I);
+    NewShape =
+      Init->isScalar() ? getUniformVectorShape() : getRandomVectorShape();
+  } else if (Opcode == VPInstruction::ReductionFinal)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalInscan)
     NewShape = getUniformVectorShape();

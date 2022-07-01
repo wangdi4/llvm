@@ -942,17 +942,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     StartValue = V;
   }
 
-  VPInstruction *Init = nullptr;
-  if (!IsInscan) {
-    Init = Builder.createReductionInit(
-      Identity, StartValue, UseStart,
+  VPInstruction *Init = Builder.createReductionInit(
+      Identity, StartValue, UseStart, IsInscan /*IsScalar*/,
       Name + Reduction->getNameSuffix() + ".init");
-  } else {
-    Init = Builder.create<VPReductionInitScalar>(
-      Name + Reduction->getNameSuffix() + "inscan.init",
-      // Always use start value for inscan reduction initialization.
-      Identity, StartValue);
-  }
   RedInitMap[Reduction] = Init;
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
