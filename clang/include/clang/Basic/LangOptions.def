@@ -305,6 +305,8 @@ LANGOPT(OpenMPTargetMalloc, 1, 0,
     "Enable dynamic memory allocation in parallel regions")
 LANGOPT(OpenMPNewDependIR, 1, 0,
     "Enable generation of new IR for OpenMP depend clause")
+LANGOPT(OpenMPExperimentalVLAs, 1, 1,
+    "Enable VLAs in OpenMP device code which may not be fully functional")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")

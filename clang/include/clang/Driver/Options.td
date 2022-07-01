@@ -2913,6 +2913,10 @@ defm openmp_new_depend_ir : BoolFOption<"openmp-new-depend-ir",
   LangOpts<"OpenMPNewDependIR">, DefaultTrue,
   PosFlag<SetTrue>, NegFlag<SetFalse>,
   BothFlags<[CC1Option, NoArgumentUnused, HelpHidden]>>;
+defm openmp_experimental_vlas : BoolFOption<"openmp-experimental-vlas",
+  LangOpts<"OpenMPExperimentalVLAs">, DefaultTrue,
+  PosFlag<SetTrue>, NegFlag<SetFalse>,
+  BothFlags<[CC1Option, NoArgumentUnused, HelpHidden]>>;
 // end INTEL_COLLAB
 def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[NoXarchOption, CC1Option]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;
