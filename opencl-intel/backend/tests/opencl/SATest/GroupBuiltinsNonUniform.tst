@@ -1,3 +1,3 @@
-; RUN: SATest --VAL --config=%s.cfg --native-subgroups | FileCheck %s
+; RUN: SATest --VAL --config=%s.cfg | FileCheck %s
 
 ; CHECK: Test Passed.

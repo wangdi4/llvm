@@ -49,10 +49,117 @@
 #define __DEFAULT_FN_ATTRS_FP19                                                \
   __attribute__((__always_inline__, __nodebug__, __target__("amx-tf32")))
 
-#define _tile_tmmultf32ps(tdst, tsrc1, tsrc2)                                  \
-  __builtin_ia32_tmmultf32ps(tdst, tsrc1, tsrc2)
-#define _tile_ttmmultf32ps(tdst, tsrc1, tsrc2)                                 \
-  __builtin_ia32_ttmmultf32ps(tdst, tsrc1, tsrc2)
+/// Do Matrix Multiplication of \a a and \a b, and then do Matrix Plus
+/// with \a srcdst.
+/// All the calculation is base on float32 but with the lower 13-bit set to 0.
+///
+/// \headerfile <immintrin.h>
+///
+/// \code
+/// void __tile_tmmultf32ps(__tile srcdst, __tile a, __tile b);
+/// \endcode
+///
+/// This intrinsic corresponds to the <c> TMMULTF32PS </c> instruction.
+///
+/// \param srcdst
+/// 	The destination tile. Max size is 1024 Bytes.
+/// \param a
+/// 	The 1st source tile. Max size is 1024 Bytes.
+/// \param b
+/// 	The 2nd source tile. Max size is 1024 Bytes.
+///
+/// \code{.operation}
+/// DEFINE zero_lower_mantissa_bits_fp32(x[31:0]) {
+///	dword[12:0] := 0
+///	dword[31:13] := x[31:13]
+///	return dword
+/// }
+///
+/// DEFINE silence_snan_fp32(x[31:0]) {
+/// 	IF (x.exponent == 255 and x.fraction != 0 and x.fraction[22] == 0)
+/// 		x.fraction[22] := 1
+/// 	return x
+/// }
+///
+/// elements_a := a.colsb / 4
+/// elements_dest := srcdst.colsb / 4
+///
+/// FOR m = 0 TO (srcdst.rows-1)
+/// 	tmp[511:0] := 0
+/// 	FOR k = 0 TO (elements_a-1)
+/// 		FOR n = 0 TO (elements_dest-1)
+/// 			af := silence_snan_fp32(a.row[m].fp32[k])
+/// 			bf := silence_snan_fp32(b.row[k].fp32[n])
+/// 			tmp.fp32[n] += zero_lower_mantissa_bits_fp32(af)
+/// 					* zero_lower_mantissa_bits_fp32(bf)
+/// 		ENDFOR
+/// 	ENDFOR
+///
+/// 	FOR n = 0 TO (elements_dest-1)
+/// 		tmp.fp32[n] += srcdst.row[m].fp32[n]
+/// 	ENDFOR
+///	write_row_and_zero(srcdst, m, tmp, srcdst.colsb)
+///
+/// ENDFOR
+///
+/// zero_upper_rows(srcdst, srcdst.rows)
+/// zero_tileconfig_start()
+/// \endcode
+#define _tile_tmmultf32ps(srcdst, a, b)                                  \
+  __builtin_ia32_tmmultf32ps(srcdst, a, b)
+
+/// \code
+/// void __tile_ttmmultf32ps(__tile srcdst, __tile a, __tile b);
+/// \endcode
+///
+/// This intrinsic corresponds to the <c> TTMMULTF32PS </c> instruction.
+///
+/// \param srcdst
+/// 	The destination tile. Max size is 1024 Bytes.
+/// \param a
+/// 	The 1st source tile. Max size is 1024 Bytes.
+/// \param b
+/// 	The 2nd source tile. Max size is 1024 Bytes.
+///
+/// \code{.operation}
+/// DEFINE zero_lower_mantissa_bits_fp32(x[31:0]) {
+/// 	dword[12:0] := 0
+/// 	dword[31:13] := x[31:13]
+/// 	return dword
+/// }
+///
+/// DEFINE silence_snan_fp32(x[31:0]) {
+/// 	IF (x.exponent == 255 and x.fraction != 0 and x.fraction[22] == 0)
+/// 		x.fraction[22] := 1
+/// 	return x
+/// }
+///
+/// elements_dest:= srcdst.colsb/4
+///
+/// FOR m := 0 TO (srcdst.rows-1)
+/// 	tmp[511:0] := 0
+/// 	FOR k := 0 TO (a.rows-1)
+/// 		FOR n := 0 TO (elements_dest-1)
+/// 			a1e := silence_snan_fp32(a.row[k].fp32[m])
+/// 			a2e := silence_snan_fp32(b.row[k].fp32[n])
+/// 			s1e := zero_lower_mantissa_bits_fp32(a1e)
+/// 			s2e := zero_lower_mantissa_bits_fp32(a2e)
+/// 			tmp.fp32[n] += s1e * s2e
+/// 		ENDFOR
+/// 	ENDFOR
+///
+/// 	FOR n := 0 TO (elements_dest-1)
+/// 		tmp.fp32[n] += srcdst.row[m].fp32[n]
+/// 	ENDFOR
+///	write_row_and_zero(srcdst, m, tmp, srcdst.colsb)
+///
+/// ENDFOR
+///
+/// zero_upper_rows(srcdst, srcdst.rows)
+/// zero_tileconfig_start()
+/// \endcode
+#define _tile_ttmmultf32ps(dst, a, b)                                 \
+  __builtin_ia32_ttmmultf32ps(dst, a, b)
 
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_FP19
 _tile_tmmultf32ps_internal(unsigned short m, unsigned short n, unsigned short k,

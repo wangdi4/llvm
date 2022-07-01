@@ -57,12 +57,6 @@ BaseDirectory("basedir",
            llvm::cl::value_desc("basedir"));
 
 llvm::cl::opt<bool>
-NativeSubgroups("native-subgroups",
-                llvm::cl::desc("Enable native subgroups. "
-                               "Default value - true."),
-                llvm::cl::init(true));
-
-llvm::cl::opt<bool>
 EnableSubgroupEmulation("enable-subgroup-emu",
                 llvm::cl::desc("Enable subgroup emulation. "
                                "Default value - true."),

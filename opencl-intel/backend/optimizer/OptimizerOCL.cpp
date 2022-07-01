@@ -73,7 +73,6 @@ extern cl::opt<bool> VerifyEachPass;
 extern bool DPCPPForceOptnone;
 extern cl::opt<bool> DisableVPlanCM;
 extern cl::opt<bool> EmitKernelVectorizerSignOn;
-extern cl::opt<bool> EnableNativeOpenCLSubgroups;
 extern cl::opt<bool> EnableO0Vectorization;
 
 namespace Intel {
@@ -533,19 +532,16 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   } else {
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
-    if (EnableNativeOpenCLSubgroups) {
-      MPM.addPass(ReqdSubGroupSizePass());
-      MPM.addPass(SetVectorizationFactorPass(ISA));
-    }
+    MPM.addPass(ReqdSubGroupSizePass());
+    MPM.addPass(SetVectorizationFactorPass(ISA));
   }
 
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
 #endif
 
-  if (EnableNativeOpenCLSubgroups)
-    MPM.addPass(ResolveSubGroupWICallPass(
-        /*ResolveSGBarrier*/ false));
+  MPM.addPass(ResolveSubGroupWICallPass(
+      /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;

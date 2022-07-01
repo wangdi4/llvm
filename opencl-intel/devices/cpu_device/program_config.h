@@ -37,42 +37,31 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     class ProgramConfig: public ICLDevBackendOptions
     {
     public:
-
-        ProgramConfig() :
-            m_useVectorizer(false),
-            m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
-            m_vectorizerType(DEFAULT_VECTORIZER),
-            m_enableNativeSubgroups(false),
-            m_rtLoopUnrollFactor(0),
-            m_useVTune(false),
-            m_serializeWorkGroups(false),
-            m_forcedPrivateMemorySize(0),
-            m_useAutoMemory(false),
+      ProgramConfig()
+          : m_useVectorizer(false), m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
+            m_vectorizerType(DEFAULT_VECTORIZER), m_rtLoopUnrollFactor(0),
+            m_useVTune(false), m_serializeWorkGroups(false),
+            m_forcedPrivateMemorySize(0), m_useAutoMemory(false),
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
-            m_targetDevice(CPU_DEVICE),
-            m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
-            m_streamingAlways(false),
-            m_expensiveMemOpts(0),
-            m_passManagerType(PM_NONE)
-        {}
+            m_targetDevice(CPU_DEVICE), m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
+            m_streamingAlways(false), m_expensiveMemOpts(0),
+            m_passManagerType(PM_NONE) {}
 
-        void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
+      void InitFromCpuConfig(const CPUDeviceConfig &cpuConfig);
 
-        bool GetBooleanValue(int optionId, bool defaultValue) const override {
-          switch (optionId) {
-          case CL_DEV_BACKEND_OPTION_USE_VTUNE:
-            return m_useVTune;
-          case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
-            return m_serializeWorkGroups;
-          case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
-            return m_streamingAlways;
-          case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-            return m_enableNativeSubgroups;
-          case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
-            return m_useAutoMemory;
-          default:
-            return defaultValue;
-          }
+      bool GetBooleanValue(int optionId, bool defaultValue) const override {
+        switch (optionId) {
+        case CL_DEV_BACKEND_OPTION_USE_VTUNE:
+          return m_useVTune;
+        case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+          return m_serializeWorkGroups;
+        case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
+          return m_streamingAlways;
+        case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
+          return m_useAutoMemory;
+        default:
+          return defaultValue;
+        }
         }
 
         virtual int GetIntValue(int optionId, int defaultValue) const override {
@@ -117,7 +106,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_useVectorizer;
         int  m_vectorizerMode;
         VectorizerType m_vectorizerType;
-        bool m_enableNativeSubgroups;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
         bool m_serializeWorkGroups;

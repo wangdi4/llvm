@@ -83,12 +83,6 @@ cl::opt<bool>
                                cl::desc("Emit which vectorizer is used "
                                         "(Volcano or Vplan)"));
 
-// TODO: The switch is required until subgroup implementation passes
-// the conformance test fully (meaning that masked kernel is integrated).
-cl::opt<bool> EnableNativeOpenCLSubgroups(
-    "enable-native-opencl-subgroups", cl::init(false), cl::Hidden,
-    cl::desc("Enable native subgroup functionality"));
-
 // Enable vectorization at O0 optimization level.
 cl::opt<bool> EnableO0Vectorization(
     "enable-o0-vectorization", cl::init(false), cl::Hidden,
@@ -105,7 +99,6 @@ extern "C"{
 llvm::Pass *createVectorizerPass(SmallVectorImpl<Module *> &builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createCLStreamSamplerPass();
-llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
 llvm::ModulePass *createRemovePrefetchPass();
@@ -297,10 +290,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(llvm::createInstSimplifyLegacyPass());
   }
-
-  // No adaptation layer is required for native subgroups
-  if (!EnableNativeOpenCLSubgroups)
-    PM.add(createSubGroupAdaptationPass());
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
@@ -562,7 +551,7 @@ static void populatePassesPostFailCheck(
   } else {
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
-    if (UseVplan && EnableNativeOpenCLSubgroups) {
+    if (UseVplan) {
       PM.add(createReqdSubGroupSizeLegacyPass());
       PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
     }
@@ -571,9 +560,8 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createVerifierPass());
 #endif
 
-  if (EnableNativeOpenCLSubgroups)
-    PM.add(createResolveSubGroupWICallLegacyPass(
-        /*ResolveSGBarrier*/ false));
+  PM.add(createResolveSubGroupWICallLegacyPass(
+      /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   if (OptLevel > 0) {
