@@ -522,6 +522,7 @@ extern cl::opt<bool> SPIRVOptimizationMode;
 extern cl::opt<bool> EnableVPlanDriver;
 extern cl::opt<bool> RunVecClone;
 extern cl::opt<bool> EnableDeviceSimd;
+extern cl::opt<bool> EnableVPlanDriverHIR;
 extern cl::opt<bool> RunVPOVecopt;
 extern cl::opt<bool> RunPreLoopOptVPOPasses;
 extern cl::opt<bool> RunPostLoopOptVPOPasses;
@@ -2101,12 +2102,14 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     MPM.addPass(PrintModulePass(dbgs(), ";Module Before HIR"));
   }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  //
-  // if (EnableVPlanDriverHIR) {
-  //  MPM.addPass(createVPOCFGRestructuringPass());
-  //  MPM.addPass(createVPlanPragmaOmpOrderedSimdExtractPass());
-  // }
-  //
+
+  if (EnableVPlanDriverHIR) {
+    FPM.addPass(VPOCFGRestructuringPass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    MPM.addPass(VPlanPragmaOmpOrderedSimdExtractPass());
+    FPM.addPass(VPlanPragmaOmpSimdIfPass());
+  }
+
   if (ConvertToSubs)
     FPM.addPass(ConvertGEPToSubscriptIntrinsicPass());
 
@@ -2218,13 +2221,13 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       FPM.addPass(HIROptVarPredicatePass());
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
-      // if (RunVPOOpt) {
-      FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
-      // if (EnableVPlanDriverHIR) {
-      FPM.addPass(vpo::VPlanDriverHIRPass(
-        RunLoopOpts == LoopOptMode::LightWeight));
-      // } END EnableVPlanDriverHIR
-      // } END RunVPOOpt
+      if (RunVPOOpt) {
+        FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
+        if (EnableVPlanDriverHIR) {
+          FPM.addPass(vpo::VPlanDriverHIRPass(
+            RunLoopOpts == LoopOptMode::LightWeight));
+        }
+      }
       FPM.addPass(HIRPostVecCompleteUnrollPass(Level.getSpeedupLevel(),
                                                !PTO.LoopUnrolling));
       FPM.addPass(HIRGeneralUnrollPass(!PTO.LoopUnrolling));

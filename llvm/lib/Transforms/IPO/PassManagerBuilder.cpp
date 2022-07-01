@@ -247,9 +247,9 @@ cl::opt<bool>
     EnableDeviceSimd("enable-device-simd", cl::init(false), cl::Hidden,
                      cl::desc("Enable VPlan vectorzer for SIMD on device"));
 
-static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
-                                       cl::Hidden,
-                                       cl::desc("Enable VPlan Driver"));
+cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+                                   cl::Hidden, cl::desc("Enable VPlan Driver"));
+
 // INTEL - HIR passes
 enum class LoopOptMode { None, LightWeight, Full };
 cl::opt<LoopOptMode> RunLoopOpts(
