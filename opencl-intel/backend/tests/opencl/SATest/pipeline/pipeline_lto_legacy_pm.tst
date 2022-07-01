@@ -149,10 +149,9 @@
 ; CHECK:            Promote Memory to Register
 ; CHECK:            Canonicalize natural loops
 ; CHECK:            Loop Pass Manager
-; CHECK:              hoist known uniform dpcpp builtins out of loops
-; CHECK:            Loop Pass Manager
 ; CHECK-NEXT:         Loop Invariant Code Motion
 ; CHECK-NEXT:       Loop Pass Manager
+; CHECK-NEXT:         hoist known uniform dpcpp builtins out of loops
 ; CHECK-NEXT:         LoopWIAnalysisLegacy
 ; CHECK-NEXT:         Hoist strided values out of loops
 ; CHECK:          CallGraph Construction

@@ -470,9 +470,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       FPM.addPass(PromotePass());
       FPM.addPass(LoopSimplifyPass());
       LoopPassManager LPM;
-      LPM.addPass(BuiltinLICMPass());
       LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation*/ true));
+      LPM.addPass(BuiltinLICMPass());
       LPM.addPass(LoopStridedCodeMotionPass());
       FPM.addPass(
           createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
