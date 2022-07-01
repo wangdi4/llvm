@@ -1399,39 +1399,6 @@ Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
                                 bool IsOutput) {
   if (!I || !I->getParent() || !I->getFunction())
     return Operand;
-<<<<<<< HEAD
-  if (auto *CFP = dyn_cast<ConstantFP>(Operand)) {
-    const APFloat &APF = CFP->getValueAPF();
-    Type *Ty = CFP->getType();
-    DenormalMode DenormMode = F->getDenormalMode(Ty->getFltSemantics());
-    DenormalMode::DenormalModeKind Mode =
-        IsOutput ? DenormMode.Output : DenormMode.Input;
-#if INTEL_CUSTOMIZATION
-    // If the IR creator used an invalid string, ignore it and use our xmain
-    // default (preserve-sign)
-    if (Mode == DenormalMode::Invalid)
-      Mode = DenormalMode::PreserveSign;
-#endif // INTEL_CUSTOMIZATION
-    switch (Mode) {
-    default:
-      llvm_unreachable("unknown denormal mode");
-      return Operand;
-    case DenormalMode::IEEE:
-      return Operand;
-    case DenormalMode::PreserveSign:
-      if (APF.isDenormal()) {
-        return ConstantFP::get(
-            Ty->getContext(),
-            APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
-      }
-      return Operand;
-    case DenormalMode::PositiveZero:
-      if (APF.isDenormal()) {
-        return ConstantFP::get(Ty->getContext(),
-                               APFloat::getZero(Ty->getFltSemantics(), false));
-      }
-      return Operand;
-=======
 
   ConstantFP *CFP = dyn_cast<ConstantFP>(Operand);
   if (!CFP)
@@ -1443,6 +1410,14 @@ Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
       I->getFunction()->getDenormalMode(Ty->getFltSemantics());
   DenormalMode::DenormalModeKind Mode =
       IsOutput ? DenormMode.Output : DenormMode.Input;
+
+#if INTEL_CUSTOMIZATION
+  // If the IR creator used an invalid string, ignore it and use our xmain
+  // default (preserve-sign)
+  if (Mode == DenormalMode::Invalid)
+    Mode = DenormalMode::PreserveSign;
+#endif // INTEL_CUSTOMIZATION
+
   switch (Mode) {
   default:
     llvm_unreachable("unknown denormal mode");
@@ -1454,7 +1429,6 @@ Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
       return ConstantFP::get(
           Ty->getContext(),
           APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
->>>>>>> 758de0e931f47f5953738c6c8c102df1ce72778b
     }
     return Operand;
   case DenormalMode::PositiveZero:
