@@ -16,7 +16,6 @@
 #define DEBUG_TYPE "Vectorizer"
 
 #include "ChooseVectorizationDimension.h"
-#include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLAddressSpace.h"

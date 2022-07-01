@@ -12,10 +12,10 @@
 
 #include "CPUProgramBuilder.h"
 #include "CPUJITContainer.h"
-#include "CompilationUtils.h"
 #include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
+#include "OCLAddressSpace.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
 #include "debuggingservicetype.h"

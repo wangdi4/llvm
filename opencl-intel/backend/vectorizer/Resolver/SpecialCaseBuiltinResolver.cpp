@@ -13,16 +13,16 @@
 // License.
 
 #include "SpecialCaseBuiltinResolver.h"
-#include "CompilationUtils.h"
-#include "VectorizerUtils.h"
+#include "InitializePasses.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
-#include "InitializePasses.h"
-#include "llvm/IR/Module.h"
+#include "VectorizerUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <vector>
 
@@ -191,9 +191,8 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   Function *resolvedFunc = m_curModule->getFunction(resolvedName);
   if (!resolvedFunc)  {
     Function *LibFunc = m_runtimeServices->findInRuntimeModule(resolvedName);
-    using namespace Intel::OpenCL::DeviceBackend;
-    Constant *resolvedFunctionConst = CompilationUtils::importFunctionDecl(
-      F->getParent(), LibFunc);
+    Constant *resolvedFunctionConst =
+        CompilationUtils::importFunctionDecl(F->getParent(), LibFunc);
     resolvedFunc = dyn_cast<Function>(resolvedFunctionConst);
   }
   V_ASSERT(resolvedFunc && "resolvedFunc is nullptr");

@@ -11,10 +11,9 @@
 // License.
 
 #include "CLStreamSampler.h"
+#include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
-#include "InitializePasses.h"
-#include "CompilationUtils.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/Analysis/Utils/Local.h"
@@ -24,6 +23,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 #define MAX_LOOP_SIZE 1024
@@ -447,8 +447,7 @@ Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   if (funcConst) {
     F = dyn_cast<Function>(funcConst);
   } else {
-    using namespace Intel::OpenCL::DeviceBackend;
-    F = CompilationUtils::importFunctionDecl(m_M, LibFunc);
+    F = llvm::CompilationUtils::importFunctionDecl(m_M, LibFunc);
   }
 
   assert(F && "failed to insert declaration");

@@ -15,7 +15,6 @@
 #include "Compiler.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "CompilationUtils.h"
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
@@ -392,7 +391,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
   // could improve the precision (Only apply this for OpenCL program).
-  if (!llvm::CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+  if (!CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
