@@ -288,6 +288,16 @@ CallInst *VPOUtils::addOperandBundlesInCall(
 
   for (auto &StrValVec : OpBundlesToAdd) {
     OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__ << ": Adding bundle '" << StrValVec.first
+               << "' with operands:";
+        if (StrValVec.second.empty()) { dbgs() << " N/A"; } else {
+          for (auto *V : StrValVec.second) {
+            dbgs() << " ";
+            V->printAsOperand(dbgs());
+          }
+        };
+        dbgs() << ".\n");
     OpBundles.push_back(B);
   }
 

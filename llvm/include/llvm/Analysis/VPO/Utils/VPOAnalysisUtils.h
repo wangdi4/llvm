@@ -372,6 +372,9 @@ public:
     /// Returns the string corresponding to a clause.
     static StringRef getClauseString(int Id);
 
+    /// Returns the string corresponding to a clause, with the "TYPED" modifier.
+    static std::string getTypedClauseString(int Id);
+
     /// Given an enum \p Id for an OpenMP directive, return its
     /// corresponding directive name without the "DIR_OMP_" prefix.
     static StringRef getOmpDirectiveName(int Id);

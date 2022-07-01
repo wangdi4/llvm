@@ -6555,7 +6555,8 @@ VPOParoptTransform::getClauseItemReplacementValue(const Item *ClauseI,
     PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
     if (!OrigPtrTy->isOpaque()) {
       if (ClauseI->getIsByRef())
-        OrigPtrTy = cast<PointerType>(OrigPtrTy->getPointerElementType());
+        OrigPtrTy =
+            cast<PointerType>(OrigPtrTy->getNonOpaquePointerElementType());
 
       PointerType *NewPtrTy = cast<PointerType>(ReplacementVal->getType());
       PointerType *ReplacementType = PointerType::getWithSamePointeeType(
@@ -13564,39 +13565,68 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
 #endif  // NDEBUG
 
   // Update OpenMP clauses in IR.
-  SmallVector<Value *, 3> OldIVPtrDefs;
-  SmallVector<Value *, 3> OldUBPtrDefs;
+  Value* CombinedUBTypeV = Constant::getNullValue(CombinedUBType);
+  Value *NumElemsOne = ConstantInt::get(Type::getInt32Ty(F->getContext()), 1);
+
+  using ClauseValuesPair = std::pair<StringRef, SmallVector<Value *, 4>>;
+  using ValueTypePair = std::pair<Value*, Type*>;
+  SmallVector<ValueTypePair, 3> OldIVPtrAndElemTys;
+  SmallVector<ValueTypePair, 3> OldUBPtrAndElemTys;
+  SmallVector<ClauseValuesPair, 2> NewClauses;
+
+  // For each {ptr, elemty} in the input array, add a
+  // {clausestr, {ptr, elemty null}} entry to NewClauses, to be later used to
+  // add clauses to the entry directive.
+  auto AddToNewClauses = [&](StringRef ClauseStr,
+                             ArrayRef<ValueTypePair> PtrAndElemTys) {
+    llvm::transform(
+        PtrAndElemTys, std::back_inserter(NewClauses),
+        [&](const ValueTypePair &In) -> ClauseValuesPair {
+          return {ClauseStr,
+                  {In.first, Constant::getNullValue(In.second), NumElemsOne}};
+        });
+  };
+
+  const auto &WLI = W->getWRNLoopInfo();
   for (unsigned I = 0, IE = W->getWRNLoopInfo().getNormIVSize(); I != IE; ++I) {
-    OldIVPtrDefs.push_back(W->getWRNLoopInfo().getNormIV(I));
-    OldUBPtrDefs.push_back(W->getWRNLoopInfo().getNormUB(I));
+    OldIVPtrAndElemTys.emplace_back(WLI.getNormIV(I), WLI.getNormIVElemTy(I));
+    OldUBPtrAndElemTys.emplace_back(WLI.getNormUB(I), WLI.getNormUBElemTy(I));
   }
-  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
   StringRef IVString =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_NORMALIZED_IV);
   StringRef UBString =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_NORMALIZED_UB);
-  EntryCI =
-      VPOUtils::removeOperandBundlesFromCall(EntryCI, {IVString, UBString});
-  StringRef FirstPrivateString =
-    VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
-  StringRef PrivateString =
-    VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+  std::string IVTypedString =
+      VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_NORMALIZED_IV);
+  std::string UBTypedString =
+      VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_NORMALIZED_UB);
+
+  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+  EntryCI = VPOUtils::removeOperandBundlesFromCall(
+      EntryCI, {IVString, IVTypedString, UBString, UBTypedString});
+
+  std::string FirstPrivateString =
+      VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_FIRSTPRIVATE);
+  std::string PrivateString =
+      VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_PRIVATE);
+
+  NewClauses.push_back({IVTypedString, {NewIVPtrDef, CombinedUBTypeV}});
+  NewClauses.push_back({UBTypedString, {NewUBPtrDef, CombinedUBTypeV}});
   assert(W->canHavePrivate() && "OpenMP loop region cannot have PRIVATE?");
-  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI,
-                                              {{IVString, {NewIVPtrDef}},
-                                               {UBString, {NewUBPtrDef}},
-                                               {PrivateString, OldIVPtrDefs}});
+  AddToNewClauses(PrivateString, OldIVPtrAndElemTys);
+
   if (W->canHaveFirstprivate()) {
     // SIMD cannot have firstprivate() clause.
-    EntryCI = VPOUtils::addOperandBundlesInCall(
-        EntryCI, {// We should probably make LB PRIVATE, since we assume that
-                  // it is always 0. For the time being make it FIRSTPRIVATE,
-                  // just as FE does.
-                  {FirstPrivateString, {NewLBPtrDef}},
-                  // The old UBs' values are used inside the region
-                  // to compute the dimensions.
-                  {FirstPrivateString, OldUBPtrDefs}});
+    // TODO: Might need to add LIVEIN for regions that cannot have firstprivate.
+    // We should probably make LB PRIVATE, since we assume that it is always 0.
+    // For the time being make it FIRSTPRIVATE, just as FE does.
+    NewClauses.push_back(
+        {FirstPrivateString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}});
+    // The old UBs' values are used inside the region to compute the dimensions.
+    AddToNewClauses(FirstPrivateString, OldUBPtrAndElemTys);
   }
+  EntryCI =
+      VPOUtils::addOperandBundlesInCall(EntryCI, makeArrayRef(NewClauses));
   W->setEntryDirective(EntryCI);
 
   WRegionNode *P = W;
@@ -13619,45 +13649,48 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     bool MarkLBUBWILocal = isTargetSPIRV() &&
         (isa<WRNTeamsNode>(P) || isa<WRNTargetNode>(P));
 #endif  // INTEL_CUSTOMIZATION
-    StringRef FPString;
+    std::string FPString;
     if (P->canHaveFirstprivate())
-      FPString = VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
+      FPString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_FIRSTPRIVATE);
     else if (P->canHaveShared())
-      FPString = VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
+      FPString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_SHARED);
 
-    StringRef PrivateString;
+    std::string PrivateString;
     if (P->canHavePrivate())
-      PrivateString = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+      PrivateString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_PRIVATE);
     else if (P->canHaveShared())
-      PrivateString = VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
+      PrivateString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_SHARED);
 
     CallInst *EntryCI = cast<CallInst>(P->getEntryDirective());
     if (PassedTarget) {
       if (!PrivateString.empty()) {
-        std::string ClauseString = PrivateString.str();
+        std::string ClauseString = PrivateString;
 #if INTEL_CUSTOMIZATION
         // WILOCAL modifier only makes sense for [FIRST]PRIVATE clauses.
         // Target and teams do support [FIRST]PRIVATE.
         if (MarkLBUBWILocal)
-          ClauseString += ":WILOCAL";
+          ClauseString += ".WILOCAL";
 #endif  // INTEL_CUSTOMIZATION
         EntryCI = VPOUtils::addOperandBundlesInCall(
-            EntryCI, {{ClauseString, {NewLBPtrDef, NewUBPtrDef}}});
+            EntryCI,
+            {{ClauseString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
+             {ClauseString, {NewUBPtrDef, CombinedUBTypeV, NumElemsOne}}});
       }
     } else if (!FPString.empty()) {
-      std::string ClauseString = FPString.str();
 #if INTEL_CUSTOMIZATION
       if (MarkLBUBWILocal)
-        ClauseString += ":WILOCAL";
+        FPString += ".WILOCAL";
 #endif  // INTEL_CUSTOMIZATION
       EntryCI = VPOUtils::addOperandBundlesInCall(
-          EntryCI, {{ClauseString, {NewLBPtrDef, NewUBPtrDef}}});
+          EntryCI, {{FPString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
+                    {FPString, {NewUBPtrDef, CombinedUBTypeV, NumElemsOne}}});
     }
 
     if (!PrivateString.empty())
       // IV is always private for the parent regions.
       EntryCI = VPOUtils::addOperandBundlesInCall(
-          EntryCI, {{PrivateString, {NewIVPtrDef}}});
+          EntryCI,
+          {{PrivateString, {NewIVPtrDef, CombinedUBTypeV, NumElemsOne}}});
 
     P->setEntryDirective(EntryCI);
 

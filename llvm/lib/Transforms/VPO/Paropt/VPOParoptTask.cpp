@@ -1582,7 +1582,8 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
         if (!cast<PointerType>(Orig->getType())->isOpaque())
           Size = Builder.getIntN(
               DL.getPointerSizeInBits(),
-              DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+              DL.getTypeAllocSize(
+                  Orig->getType()->getNonOpaquePointerElementType()));
         else
           llvm_unreachable("use DEPEND:TYPED with opaque pointers.");
       }

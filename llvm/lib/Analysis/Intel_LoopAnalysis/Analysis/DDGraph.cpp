@@ -86,8 +86,8 @@ static std::string getNameAndDbgLoc(DDRef *Ref) {
                              " ");
       }
     } else if (Val->isUsedByMetadata()) {
-      if (auto *L = LocalAsMetadata::getIfExists(Val)) {
-        if (auto *MDV = MetadataAsValue::getIfExists(Val->getContext(), L)) {
+      if (auto *V = ValueAsMetadata::getIfExists(Val)) {
+        if (auto *MDV = MetadataAsValue::getIfExists(Val->getContext(), V)) {
           for (User *U : MDV->users()) {
             if (auto *DI = dyn_cast<DbgVariableIntrinsic>(U)) {
               auto *DbgVar = DI->getVariable();

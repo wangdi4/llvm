@@ -2263,12 +2263,12 @@ static void decideLoopKernelGroupArguments(
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
   DP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  DP("Preferred team size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
        maxGroupSize);
   }
 
@@ -2279,7 +2279,7 @@ static void decideLoopKernelGroupArguments(
 
     if ((uint32_t)ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n", maxGroupSize);
+      DP("Max team size is set to %zu (thread_limit clause)\n", maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
          ThreadLimit, maxGroupSize);
@@ -2291,7 +2291,7 @@ static void decideLoopKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
          DeviceInfo->Option.ThreadLimit, maxGroupSize);
@@ -2390,7 +2390,7 @@ static void decideLoopKernelGroupArguments(
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
         assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-               "Unexpected group sizes for dimensions 1 or/and 2.");
+               "Unexpected team sizes for dimensions 1 or/and 2.");
         uint32_t simdWidth = KernelProperty.SIMDWidth;
         auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
         uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
@@ -2500,12 +2500,12 @@ static void decideKernelGroupArguments(
   size_t simdWidth = KernelProperty.SIMDWidth;
   DP("Assumed kernel SIMD width is %zu\n", simdWidth);
 #endif // INTEL_CUSTOMIZATION
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  DP("Preferred team size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
        maxGroupSize);
   }
 
@@ -2514,7 +2514,7 @@ static void decideKernelGroupArguments(
 
     if ((uint32_t)ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n",
+      DP("Max team size is set to %zu (thread_limit clause)\n",
          maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
@@ -2527,7 +2527,7 @@ static void decideKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
          DeviceInfo->Option.ThreadLimit, maxGroupSize);
@@ -2539,13 +2539,13 @@ static void decideKernelGroupArguments(
   if (NumTeams > 0) {
     maxGroupCount = NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %zu "
+    DP("Max number of teams is set to %zu "
        "(num_teams clause or no teams construct)\n", maxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
     maxGroupCount = DeviceInfo->Option.NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %zu (OMP_NUM_TEAMS)\n", maxGroupCount);
+    DP("Max number of teams is set to %zu (OMP_NUM_TEAMS)\n", maxGroupCount);
   }
 
   if (maxGroupCountForced) {
@@ -2617,7 +2617,7 @@ static void decideKernelGroupArguments(
   if (KInfo && KInfo->getWINum()) {
     GroupSizes[0] =
         (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GroupSizes[0]));
-    DP("Capping maximum thread group size to %" PRIu64
+    DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
 
@@ -3544,7 +3544,7 @@ int32_t OpenCLProgramTy::buildKernels() {
       KernelProperty.SIMDWidth = KernelProperty.Width / 2;
     }
     assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
-           "Invalid preferred group size multiple.");
+           "Invalid preferred team size multiple.");
     CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel, Device,
                      CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
                      &KernelProperty.MaxThreadGroupSize, nullptr);
