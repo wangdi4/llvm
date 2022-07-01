@@ -6345,10 +6345,9 @@ ExpectedStmt ASTNodeImporter::VisitCompoundStmt(CompoundStmt *S) {
   if (!ToRBracLocOrErr)
     return ToRBracLocOrErr.takeError();
 
-  FPOptionsOverride FPO =
-      S->hasStoredFPFeatures() ? S->getStoredFPFeatures() : FPOptionsOverride();
-  return CompoundStmt::Create(Importer.getToContext(), ToStmts, FPO,
-                              *ToLBracLocOrErr, *ToRBracLocOrErr);
+  return CompoundStmt::Create(
+      Importer.getToContext(), ToStmts,
+      *ToLBracLocOrErr, *ToRBracLocOrErr);
 }
 
 ExpectedStmt ASTNodeImporter::VisitCaseStmt(CaseStmt *S) {
