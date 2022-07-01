@@ -14,7 +14,6 @@
 
 #include "ImageCallbackLibrary.h"
 #include "BitCodeContainer.h"
-#include "CompilationUtils.h"
 #include "Compiler.h"
 #include "LibraryProgramManager.h"
 #include "Program.h"

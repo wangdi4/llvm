@@ -13,16 +13,16 @@
 // License.
 
 #include "OCLBuiltinPreVectorizationPass.h"
-#include "CompilationUtils.h"
-#include "VectorizerUtils.h"
+#include "InitializePasses.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
-#include "InitializePasses.h"
+#include "VectorizerUtils.h"
 
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace intel{
 
@@ -215,7 +215,6 @@ Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(con
   V_ASSERT(FuncRT && "function was not found in RT module!!!");
   if (!FuncRT) return NULL;
 
-  using namespace Intel::OpenCL::DeviceBackend;
   auto *funcConst = CompilationUtils::importFunctionDecl(m_curModule, FuncRT);
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);

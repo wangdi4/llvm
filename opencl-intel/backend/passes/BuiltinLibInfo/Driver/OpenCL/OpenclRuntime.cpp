@@ -14,7 +14,6 @@
 
 #include "OpenclRuntime.h"
 #include "BuiltinKeeper.h"
-#include "CompilationUtils.h"
 #include "DriverVectorizerFunction.h"
 #include "Logger.h"
 #include "Mangler.h"
@@ -26,11 +25,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 using namespace llvm::reflection;
 using namespace llvm::NameMangleAPI;
+using namespace llvm::CompilationUtils;
 
 namespace intel {
 //
@@ -115,8 +116,8 @@ OpenclRuntime::findBuiltinFunction(StringRef mangledName) const {
 
 bool OpenclRuntime::orderedWI() const { return true; }
 
-bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigned *dim) const {
-  using namespace Intel::OpenCL::DeviceBackend;
+bool OpenclRuntime::isTIDGenerator(const Instruction *inst, bool *err,
+                                   unsigned *dim) const {
   *err = false; // By default, no error expected..
   const CallInst * CI = dyn_cast<CallInst>(inst);
   if (!CI) return false; // ID generator is a function call.
@@ -127,12 +128,12 @@ bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigne
     funcName = Mangler::demangle(funcName); // Remove mangling (masking) prefix
     ++dimensionIndex; // There is a mask/predicate argument before the dimension
   }
-  if (!CompilationUtils::isGetGlobalId(funcName) && !CompilationUtils::isGetLocalId(funcName) &&
-      !CompilationUtils::isGetSubGroupLocalId(funcName))
+  if (!isGetGlobalId(funcName) && !isGetLocalId(funcName) &&
+      !isGetSubGroupLocalId(funcName))
     return false; // not a get_***_id function
 
   // Early exit for subgroup TIDs that do not take any operands.
-  if (CompilationUtils::isGetSubGroupLocalId(funcName)) {
+  if (isGetSubGroupLocalId(funcName)) {
     *dim = 0; // dummy dim as sub group does not have a clear dimension.
     return true;
   }
@@ -235,31 +236,21 @@ bool OpenclRuntime::isExpensiveCall(const std::string &func_name) const {
 }
 
 bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
-  using namespace Intel::OpenCL::DeviceBackend;
-  return CompilationUtils::isGetGlobalId(name) ||
-    CompilationUtils::isGetLocalId(name)   ||
-    CompilationUtils::isGetLocalSize(name) ||
-    CompilationUtils::isGetGlobalSize(name)||
-    CompilationUtils::isGetGroupId(name)   ||
-    CompilationUtils::isGetWorkDim(name)   ||
-    CompilationUtils::isGlobalOffset(name) ||
-    CompilationUtils::isGetNumGroups(name) ||
-    (0 == name.compare("get_base_global_id.")) ||
-    // subgroup built-ins
-    CompilationUtils::isGetSubGroupId(name) ||
-    CompilationUtils::isGetSubGroupLocalId(name) ||
-    CompilationUtils::isGetSubGroupSize(name) ||
-    CompilationUtils::isGetMaxSubGroupSize(name) ||
-    CompilationUtils::isGetNumSubGroups(name) ||
-    // The following is applicabble for OpenCL 2.0 or more recent versions.
-    CompilationUtils::isGetEnqueuedLocalSize(name) ||
-    CompilationUtils::isGetEnqueuedNumSubGroups(name);
+  return isGetGlobalId(name) || isGetLocalId(name) || isGetLocalSize(name) ||
+         isGetGlobalSize(name) || isGetGroupId(name) || isGetWorkDim(name) ||
+         isGlobalOffset(name) || isGetNumGroups(name) ||
+         (0 == name.compare("get_base_global_id.")) ||
+         // subgroup built-ins
+         isGetSubGroupId(name) || isGetSubGroupLocalId(name) ||
+         isGetSubGroupSize(name) || isGetMaxSubGroupSize(name) ||
+         isGetNumSubGroups(name) ||
+         // The following is applicabble for OpenCL 2.0 or more recent versions.
+         isGetEnqueuedLocalSize(name) || isGetEnqueuedNumSubGroups(name);
 }
 
 bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
   return name.contains("intel_sub_group_ballot") ||
-         name.contains("sub_group_all") ||
-         name.contains("sub_group_any") ||
+         name.contains("sub_group_all") || name.contains("sub_group_any") ||
          name.contains("sub_group_broadcast") ||
          name.contains("sub_group_reduce_add") ||
          name.contains("sub_group_reduce_min") ||
@@ -291,28 +282,20 @@ bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
-  using namespace Intel::OpenCL::DeviceBackend;
-  if (CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
-      CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) ||
-      CompilationUtils::isWorkGroupReserveReadPipe(func_name) ||
-      CompilationUtils::isWorkGroupCommitReadPipe(func_name) ||
-      CompilationUtils::isWorkGroupReserveWritePipe(func_name) ||
-      CompilationUtils::isWorkGroupCommitWritePipe(func_name))
+  if (isAsyncWorkGroupCopy(func_name) ||
+      isAsyncWorkGroupStridedCopy(func_name) ||
+      isWorkGroupReserveReadPipe(func_name) ||
+      isWorkGroupCommitReadPipe(func_name) ||
+      isWorkGroupReserveWritePipe(func_name) ||
+      isWorkGroupCommitWritePipe(func_name))
     return true;
 
   return false;
 }
 
 bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
-  using namespace Intel::OpenCL::DeviceBackend;
-  if (func_name == CompilationUtils::mangledBarrier() ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE)||
-      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
-      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) )
-    return true;
-
-  if (CompilationUtils::isWaitGroupEvents(func_name))
+  if (isWorkGroupBarrier(func_name) || isSubGroupBarrier(func_name) ||
+      isWaitGroupEvents(func_name))
     return true;
 
   const char* Fname = func_name.c_str();

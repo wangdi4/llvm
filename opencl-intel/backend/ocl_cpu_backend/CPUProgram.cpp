@@ -15,7 +15,6 @@
 #include "CPUProgram.h"
 #include "BitCodeContainer.h"
 #include "CPUBlockToKernelMapper.h"
-#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
 

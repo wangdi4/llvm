@@ -19,10 +19,10 @@
 #include "BitCodeContainer.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "CompilationUtils.h"
 #include "Compiler.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
+#include "OCLAddressSpace.h"
 #include "ObjectCodeCache.h"
 #include "ObjectCodeContainer.h"
 #include "Optimizer.h"
@@ -34,6 +34,7 @@
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "exceptions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
@@ -248,9 +249,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
                                                         nullptr);
 
         std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
-        if((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
-           (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
-             MergeOptions.append(" -cl-opt-disable");
+        if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
+            (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
+          MergeOptions.append(" -cl-opt-disable");
         if((MergeOptions.find("-g") == std::string::npos) &&
            (CompilationUtils::getDebugFlagFromMetadata(pModule)))
              MergeOptions.append(" -g");
@@ -549,8 +550,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetCpuMaxWGSize(m_config->GetCpuMaxWGSize());
 
   // OpenCL 2.0 related properties
-  if (OclVersion::CL_VER_2_0 <=
-                  CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
+  if (CompilationUtils::OclVersion::CL_VER_2_0 <=
+      CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
     bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
     pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
   }

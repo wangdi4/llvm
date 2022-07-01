@@ -13,7 +13,6 @@
 // License.
 
 #include "Predicator.h"
-#include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "Linearizer.h"
 #include "Logger.h"
@@ -24,24 +23,25 @@
 #include "VectorizerUtils.h"
 #include "cl_env.h"
 
-#include "llvm/Pass.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <iostream>
@@ -872,9 +872,8 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
       Module* pCurrentModule = call->getParent()->getParent()->getParent();
 
-      using namespace Intel::OpenCL::DeviceBackend;
-      func = cast<Function>(CompilationUtils::importFunctionDecl(pCurrentModule,
-                                                                pMaskedfunc));
+      func = cast<Function>(
+          CompilationUtils::importFunctionDecl(pCurrentModule, pMaskedfunc));
     }
     const FunctionType* pFuncTy = func->getFunctionType();
     std::vector<Value*> params;

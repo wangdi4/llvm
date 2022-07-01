@@ -12,17 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "BitCodeContainer.h"
-#include "CompilationUtils.h"
 #include "CPUCompileService.h"
+#include "BitCodeContainer.h"
 #include "CPUDeviceBackendFactory.h"
 #include "LibraryProgramManager.h"
 #include "ObjectCodeContainer.h"
 #include "ObjectDump.h"
 #include "SystemInfo.h"
-#include "exceptions.h"
-#include "elf_binary.h"
 #include "cache_binary_handler.h"
+#include "elf_binary.h"
+#include "exceptions.h"
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Module.h"

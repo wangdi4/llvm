@@ -83,6 +83,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/intel-add-code-markup.sh @KanRobert @phoebewang
@@ -91,6 +92,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/TableGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/Target/TargetSelectionDAG.td @phoebewang
+/llvm/include/llvm/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/test/Analysis/CostModel/X86/ @HaohaiWen
 /llvm/test/MC/X86/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/test/CodeGen/Generic/ @LuoYuanke @phoebewang @williamweixiao
@@ -103,6 +105,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_Float128Expand/X86/ @yubingex007-a11y
 /llvm/test/Transforms/Intel_FoldLoadsToGather/ @gpei-dev
 /llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
+/llvm/test/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/test/tools/llvm-mca/X86/ @HaohaiWen
 /llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
 /llvm/test/tools/llvm-tli-checker/ps4-tli-check.yaml @robertcox-github @pvbattin
@@ -728,7 +731,6 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 # Temporarily removed @sndmitriev
 /llvm/test/Transforms/InstSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_ForcedCMOVGeneration/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/test/Transforms/Intel_MapIntrinToIml/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/test/Transforms/Intel_TbaaMDPropagation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_TransformSinAndCosCalls/ @nawalcopty @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/JumpThreading/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer

@@ -13,7 +13,6 @@
 // License.
 
 #include "Packetizer.h"
-#include "CompilationUtils.h"
 #include "FakeExtractInsert.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
@@ -27,6 +26,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TypeSize.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 
 #define DEBUG_TYPE "Vectorizer"
@@ -2066,9 +2066,9 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       // is a struct, we use bitcast.
       Value *multiScalarVals[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiScalarVals, curScalarArg, CI);
-      using namespace Intel::OpenCL::DeviceBackend;
       if (CompilationUtils::isSameStructPtrType(
-            neededType, multiScalarVals[0]->getType())) {
+              dyn_cast<PointerType>(neededType),
+              dyn_cast<PointerType>(multiScalarVals[0]->getType()))) {
 
         // use the 'target' type, we will change function type later
         operand = multiScalarVals[0];
@@ -3016,7 +3016,6 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, FixedVectorType * ori
   V_ASSERT(loadTransposeFuncRT && "Transpose function should exist!");
 
   // Find (or create) declaration for newly called function
-  using namespace Intel::OpenCL::DeviceBackend;
   FunctionCallee loadTransposeFunc = CompilationUtils::importFunctionDecl(
     m_currFunc->getParent(), loadTransposeFuncRT);
   V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
