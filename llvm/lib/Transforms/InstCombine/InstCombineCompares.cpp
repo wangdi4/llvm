@@ -1603,6 +1603,9 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
   unsigned DstBits = Trunc->getType()->getScalarSizeInBits(),
            SrcBits = X->getType()->getScalarSizeInBits();
   if (Cmp.isEquality() && Trunc->hasOneUse()) {
+#ifndef INTEL_CUSTOMIZATION
+    // Revert "cc88445a9106 [InstCombine] canonicalize"
+    // This commit from community will break InstCombine pass in some cases.
     if (!X->getType()->isVectorTy() && shouldChangeType(DstBits, SrcBits)) {
       Constant *Mask = ConstantInt::get(X->getType(),
                                         APInt::getLowBitsSet(SrcBits, DstBits));
@@ -1610,6 +1613,7 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
       Constant *WideC = ConstantInt::get(X->getType(), C.zext(SrcBits));
       return new ICmpInst(Pred, And, WideC);
     }
+#endif
 
     // Simplify icmp eq (trunc x to i8), 42 -> icmp eq x, 42|highbits if all
     // of the high bits truncated out of x are known.

@@ -172,17 +172,11 @@ define i1 @test13(i32 %C) {
 
 define i1 @test14(i32 %C) {
 ; CHECK-LABEL: @test14(
-<<<<<<< HEAD
 ; begin INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[C:%.*]] to i8
 ; CHECK-NEXT:    [[MEMCHR_BITS:%.*]] = icmp eq i8 [[TMP1]], 31
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[MEMCHR_BITS]]
-=======
-; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[C:%.*]], 255
-; CHECK-NEXT:    [[MEMCHR_CHAR0CMP:%.*]] = icmp eq i32 [[TMP1]], 31
-; CHECK-NEXT:    ret i1 [[MEMCHR_CHAR0CMP]]
->>>>>>> cc88445a9106333bad7679f72031b5602b3a2953
 ;
   %dst = call i8* @memchr(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @single, i64 0, i64 0), i32 %C, i32 1)
   %cmp = icmp ne i8* %dst, null
