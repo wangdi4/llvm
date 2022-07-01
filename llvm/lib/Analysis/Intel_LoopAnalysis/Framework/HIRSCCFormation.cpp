@@ -106,7 +106,7 @@ bool HIRSCCFormation::hasUnconventionalAccess(
   auto &DL = Phi->getModule()->getDataLayout();
   auto *ElementTy = RI.findPhiElementType(Phi);
 
-  if (!ElementTy) {
+  if (!ElementTy || !ElementTy->isSized()) {
     return true;
   }
 
