@@ -229,6 +229,10 @@ StringRef VPOAnalysisUtils::getClauseString(int Id) {
   return Directives::ClauseStrings[Id];
 }
 
+std::string VPOAnalysisUtils::getTypedClauseString(int Id) {
+  return VPOAnalysisUtils::getClauseString(Id).str() + ":TYPED";
+}
+
 StringRef VPOAnalysisUtils::getOmpDirectiveName(int Id) {
   // skip "DIR_OMP_"
   return VPOAnalysisUtils::getDirectiveString(Id).substr(8);
