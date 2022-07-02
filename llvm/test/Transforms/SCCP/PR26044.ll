@@ -11,6 +11,7 @@ define void @fn2(i32* %P) {
 ; CHECK:       for.cond1:
 ; INTEL_CUSTOMIZATION
 ; workaround CMPLRLLVM-38653
+; CHECK-NEXT:    br i1 false, label [[IF_END]], label [[IF_END]]
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
@@ -31,13 +32,13 @@ define internal i32 @fn1(i32 %p1) {
 ; CHECK-LABEL: define {{[^@]+}}@fn1
 ; CHECK-SAME: (i32 [[P1:%.*]]) {
 ; CHECK-NEXT:  entry:
-; INTEL_CUSTOMIZATION
-; workaround CMPLRLLVM-38653
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 undef, 0
 ; CHECK-NEXT:    [[COND:%.*]] = select i1 [[TOBOOL]], i32 undef, i32 undef
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[COND]]
 ;
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 entry:
   %tobool = icmp ne i32 %p1, 0
   %cond = select i1 %tobool, i32 %p1, i32 %p1
@@ -50,16 +51,16 @@ define void @fn_no_null_opt(i32* %P) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       for.cond1:
-; INTEL_CUSTOMIZATION
-; workaround CMPLRLLVM-38653
 ; CHECK-NEXT:    br i1 false, label [[IF_END]], label [[IF_END]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* null, align 4
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[CALL:%.*]] = call i32 @fn0(i32 [[TMP0]])
 ; CHECK-NEXT:    store i32 [[CALL]], i32* [[P]], align 4
 ; CHECK-NEXT:    br label [[FOR_COND1:%.*]]
 ;
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 entry:
   br label %if.end
 
