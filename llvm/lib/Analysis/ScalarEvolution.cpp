@@ -4669,7 +4669,7 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
 #if INTEL_CUSTOMIZATION
   // createSCEVIter fails HIRCodeGen/large-coef.ll.
   // It looks like HIR SCCF is not formed, and liverange metadata is not
-  // attached to the IR. Needs more investigation.
+  // attached to the IR. Needs more investigation. This code should be #if 0.
   if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
     const SCEV *S = createSCEV(V);
     // During PHI resolution, it is possible to create two SCEVs for the same
@@ -8202,6 +8202,13 @@ const SCEV *ScalarEvolution::createSCEVIter(Value *V) {
   return getExistingSCEV(V);
 }
 
+#if INTEL_CUSTOMIZATION
+// The createSCEV function still contains all the SCEV parsing logic. This
+// function only contains the parts of the code that would recurse, and any
+// conditional logic that would lead to recursion. The recursion is replaced
+// with a push_back to Ops. Later, when createSCEV is actually called, the
+// parsed subexpressions will be in the cache already, avoiding the recursion.
+#endif // INTEL_CUSTOMIZATION
 const SCEV *
 ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
   if (!isSCEVable(V->getType()))
@@ -8358,6 +8365,15 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
 
   case Instruction::Call:
   case Instruction::Invoke:
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for liveout copy instructions inserted by HIR.
+    if (auto Inst = dyn_cast<Instruction>(U)) {
+      if (getHIRMetadata(Inst, HIRLiveKind::LiveOut)) {
+        Ops.push_back(Inst->getOperand(0));
+        return nullptr;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     if (Value *RV = cast<CallBase>(U)->getReturnedArgOperand()) {
       Ops.push_back(RV);
       return nullptr;

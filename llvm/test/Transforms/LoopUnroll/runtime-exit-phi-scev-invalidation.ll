@@ -16,7 +16,7 @@ define void @pr56282() {
 ; CHECK:       outer.header:
 ; CHECK-NEXT:    [[OUTER_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[OUTER_IV_NEXT:%.*]], [[INNER_2:%.*]] ]
 ; INTEL_CUSTOMIZATION
-; "nuw" is deduced by xmain.
+; nuw flag deduced in xmain
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw i64 [[OUTER_IV]], 1
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = freeze i64 [[TMP0]]
