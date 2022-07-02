@@ -345,8 +345,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
-  case VPInstruction::ReductionInitScalar:
-    return "reduction-init-scalar";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
   case VPInstruction::ReductionFinalInscan:
@@ -580,6 +578,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
+  case VPInstruction::ReductionInit: {
+    O << getOpcodeName(getOpcode());
+    if (cast<const VPReductionInit>(this)->isScalar())
+      O << "-scalar";
+    break;
+  }
   case VPInstruction::InductionInit: {
     O << getOpcodeName(getOpcode()) << "{"
       << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode());

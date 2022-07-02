@@ -595,8 +595,6 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
-    ReductionInitScalar, // Initializes scalar inscan reduction accumulator
-                         // with an Identity value.
     ReductionFinal,
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
@@ -2568,14 +2566,16 @@ private:
 // perfectly fit this way.
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity, bool UseStart)
+  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity}), UsesStartValue(UseStart) {}
+                      {Identity}),
+        UsesStartValue(UseStart), IsScalar(IsScalar) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue,
-                  unsigned Opcode = VPInstruction::ReductionInit)
-      : VPInstruction(Opcode, Identity->getType(),
-                      {Identity, StartValue}), UsesStartValue(true) {}
+                  bool IsScalar = false)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
+                      {Identity, StartValue}),
+        UsesStartValue(true), IsScalar(IsScalar) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2590,6 +2590,8 @@ public:
   /// Return true if start value is used in reduction initialization. E.g.
   /// min/max reductions use the start value as identity.
   bool usesStartValue() const { return UsesStartValue; }
+
+  bool isScalar() const { return IsScalar; }
 
   /// Replaces start value with the \p newV
   void replaceStartValue(VPValue *NewVal) {
@@ -2617,28 +2619,14 @@ protected:
     if (getNumOperands() == 1)
       return new VPReductionInit(getIdentityOperand(), UsesStartValue);
     else if (getNumOperands() == 2)
-      return new VPReductionInit(getIdentityOperand(), getStartValueOperand(),
-                                 getOpcode());
+      return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
     else
       llvm_unreachable("Too many operands.");
   }
 
 private:
   bool UsesStartValue;
-};
-
-// Initialize a scalar reduction, like inscan reduction.
-// The start value is always used.
-// Identity is not needed, use it for consistency.
-class VPReductionInitScalar : public VPReductionInit {
-public:
-  VPReductionInitScalar(VPValue *Identity, VPValue *StartValue) :
-    VPReductionInit(Identity, StartValue, VPInstruction::ReductionInitScalar) {}
-
-  // Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ReductionInitScalar;
-  }
+  bool IsScalar;
 };
 
 // VPInstruction for reduction last value calculation.

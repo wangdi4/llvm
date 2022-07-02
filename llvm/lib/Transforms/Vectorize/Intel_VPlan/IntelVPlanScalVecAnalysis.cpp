@@ -352,21 +352,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ReductionInit: {
+    const auto *Init = cast<VPReductionInit>(Inst);
+
     // All operands of reduction-init should be scalar strictly.
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+
     // FIXME: Enable assert below when legality is fixed to bail out of
     // vectorization for loops where reduction PHI is stored to non-private
     // address. Check vplan_scalvec_analysis_header_phi_specialization.ll.
     // assert(!instNeedsFirstScalarCode(Inst) && !instNeedsLastScalarCode(Inst)
     // && "Reduction can never be done with scalar instructions.");
-    setSVAKindForInst(Inst, SVAKind::Vector);
-    return true;
-  }
 
-  case VPInstruction::ReductionInitScalar: {
-    // All operands of reduction-init-scalar should be scalar strictly.
-    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
-    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    if (Init->isScalar())
+      setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    else
+      setSVAKindForInst(Inst, SVAKind::Vector);
+
     return true;
   }
 
@@ -942,7 +943,6 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
-  case VPInstruction::ReductionInitScalar:
   case VPInstruction::ReductionFinal:
   case VPInstruction::ReductionFinalInscan:
   case VPInstruction::Pred:

@@ -60,7 +60,7 @@
 // CHK-COMMANDS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--"
 // CHK-COMMANDS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
-// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-split-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
@@ -111,6 +111,6 @@
 // CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--"
 // CHK-UBJOBS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
-// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-split-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
 // CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
