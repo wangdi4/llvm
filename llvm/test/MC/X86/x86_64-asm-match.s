@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_BF16_BASE
+// UNSUPPORTED: intel_feature_isa_bf16_base
+// end INTEL_FEATURE_ISA_BF16_BASE
+// end INTEL_CUSTOMIZATION
 // REQUIRES: asserts
 // RUN: llvm-mc -triple x86_64-unknown-unknown  -debug-only=asm-matcher  %s 2>&1 | FileCheck %s
 

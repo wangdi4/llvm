@@ -1178,6 +1178,11 @@ def X86vcvttps2iubsMaskzSAE
 //===----------------------------------------------------------------------===//
 
 // 128-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv8bf16   : PatFrag<(ops node:$ptr), (v8bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv8f16    : PatFrag<(ops node:$ptr), (v8f16 (load node:$ptr))>;
 def loadv4f32    : PatFrag<(ops node:$ptr), (v4f32 (load node:$ptr))>;
 def loadv2f64    : PatFrag<(ops node:$ptr), (v2f64 (load node:$ptr))>;
@@ -1187,6 +1192,11 @@ def loadv8i16    : PatFrag<(ops node:$ptr), (v8i16 (load node:$ptr))>;
 def loadv16i8    : PatFrag<(ops node:$ptr), (v16i8 (load node:$ptr))>;
 
 // 256-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv16bf16  : PatFrag<(ops node:$ptr), (v16bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv16f16   : PatFrag<(ops node:$ptr), (v16f16 (load node:$ptr))>;
 def loadv8f32    : PatFrag<(ops node:$ptr), (v8f32  (load node:$ptr))>;
 def loadv4f64    : PatFrag<(ops node:$ptr), (v4f64  (load node:$ptr))>;
@@ -1196,6 +1206,11 @@ def loadv16i16   : PatFrag<(ops node:$ptr), (v16i16 (load node:$ptr))>;
 def loadv32i8    : PatFrag<(ops node:$ptr), (v32i8  (load node:$ptr))>;
 
 // 512-bit load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadv32bf16  : PatFrag<(ops node:$ptr), (v32bf16(load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadv32f16   : PatFrag<(ops node:$ptr), (v32f16 (load node:$ptr))>;
 def loadv16f32   : PatFrag<(ops node:$ptr), (v16f32 (load node:$ptr))>;
 def loadv8f64    : PatFrag<(ops node:$ptr), (v8f64  (load node:$ptr))>;
@@ -1230,6 +1245,12 @@ def alignedload : PatFrag<(ops node:$ptr), (load node:$ptr), [{
 // NOTE: all 128-bit integer vector loads are promoted to v2i64
 def alignedloadv8f16 : PatFrag<(ops node:$ptr),
                                (v8f16 (alignedload node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv8bf16: PatFrag<(ops node:$ptr),
+                               (v8bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv4f32 : PatFrag<(ops node:$ptr),
                                (v4f32 (alignedload node:$ptr))>;
 def alignedloadv2f64 : PatFrag<(ops node:$ptr),
@@ -1245,6 +1266,12 @@ def alignedloadv16i8 : PatFrag<(ops node:$ptr),
 
 // 256-bit aligned load pattern fragments
 // NOTE: all 256-bit integer vector loads are promoted to v4i64
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv16bf16: PatFrag<(ops node:$ptr),
+                                (v16bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv16f16 : PatFrag<(ops node:$ptr),
                                 (v16f16 (alignedload node:$ptr))>;
 def alignedloadv8f32  : PatFrag<(ops node:$ptr),
@@ -1260,6 +1287,12 @@ def alignedloadv16i16 : PatFrag<(ops node:$ptr),
 def alignedloadv32i8  : PatFrag<(ops node:$ptr),
                                 (v32i8  (alignedload node:$ptr))>;
 // 512-bit aligned load pattern fragments
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def alignedloadv32bf16: PatFrag<(ops node:$ptr),
+                                (v32bf16(alignedload node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def alignedloadv32f16 : PatFrag<(ops node:$ptr),
                                 (v32f16 (alignedload node:$ptr))>;
 def alignedloadv16f32 : PatFrag<(ops node:$ptr),
@@ -1397,6 +1430,14 @@ def X86SubVBroadcastld256 : PatFrag<(ops node:$src),
 // only load a single element.
 // FIXME: We should add more canolicalizing in DAGCombine. Particulary removing
 // the simple_load case.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def sse_load_bf16 : PatFrags<(ops node:$ptr),
+                            [(v8bf16 (simple_load node:$ptr)),
+                             (v8bf16 (X86vzload16 node:$ptr)),
+                             (v8bf16 (scalar_to_vector (loadbf16 node:$ptr)))]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def sse_load_f16 : PatFrags<(ops node:$ptr),
                             [(v8f16 (simple_load node:$ptr)),
                              (v8f16 (X86vzload16 node:$ptr)),
@@ -1410,9 +1451,22 @@ def sse_load_f64 : PatFrags<(ops node:$ptr),
                              (v2f64 (X86vzload64 node:$ptr)),
                              (v2f64 (scalar_to_vector (loadf64 node:$ptr)))]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def sbf16mem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
 def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
 def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def bf16imm0 : PatLeaf<(bf16 fpimm), [{
+  return N->isExactlyValue(+0.0);
+}]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 def fp16imm0 : PatLeaf<(f16 fpimm), [{
   return N->isExactlyValue(+0.0);
