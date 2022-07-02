@@ -79,8 +79,10 @@ define i1 @PR54692_c(i8 noundef signext %c) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i8 [[C:%.*]], 32
 ; CHECK-NEXT:    [[CMP6:%.*]] = icmp eq i8 [[C]], 127
-; CHECK-NEXT:    [[T0:%.*]] = or i1 [[TMP0]], [[CMP6]]
-; CHECK-NEXT:    ret i1 [[T0]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = or i1 [[TMP0]], [[CMP6]]
+; CHECK-NEXT:    ret i1 [[TMP1]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %conv = sext i8 %c to i32
@@ -124,15 +126,20 @@ define i32 @PR56119(i32 %e.coerce) {
 ; OZ-LABEL: @PR56119(
 ; OZ-NEXT:  entry:
 ; OZ-NEXT:    [[E_COERCE_FR:%.*]] = freeze i32 [[E_COERCE:%.*]]
-; OZ-NEXT:    [[TMP0:%.*]] = and i32 [[E_COERCE_FR]], 255
-; OZ-NEXT:    [[CMP2:%.*]] = icmp eq i32 [[TMP0]], 7
+; INTEL_CUSTOMIZATION
+; trunc vs. add
+; OZ-NEXT:    [[REM_LHS_TRUNC:%.*]] = trunc i32 [[E_COERCE_FR]] to i8
+; OZ-NEXT:    [[CMP2:%.*]] = icmp eq i8 [[REM_LHS_TRUNC]], 7
+; end INTEL_CUSTOMIZATION
 ; OZ-NEXT:    br i1 [[CMP2]], label [[IF_THEN:%.*]], label [[IF_END:%.*]]
 ; OZ:       if.then:
 ; OZ-NEXT:    tail call void (...) @foo()
 ; OZ-NEXT:    br label [[IF_END]]
 ; OZ:       if.end:
-; OZ-NEXT:    [[TMP1:%.*]] = load i32, ptr @c, align 4
-; OZ-NEXT:    ret i32 [[TMP1]]
+; INTEL_CUSTOMIZATION
+; OZ-NEXT:    [[TMP0:%.*]] = load i32, ptr @c, align 4
+; OZ-NEXT:    ret i32 [[TMP0]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %e = alloca %struct.a, align 4
