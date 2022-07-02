@@ -4665,6 +4665,23 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
 
   if (const SCEV *S = getExistingSCEV(V))
     return S;
+
+#if INTEL_CUSTOMIZATION
+  // createSCEVIter fails HIRCodeGen/large-coef.ll.
+  // It looks like HIR SCCF is not formed, and liverange metadata is not
+  // attached to the IR. Needs more investigation.
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    const SCEV *S = createSCEV(V);
+    // During PHI resolution, it is possible to create two SCEVs for the same
+    // V, so it is needed to double check whether V->S is inserted into
+    // ValueExprMap before insert S->{V, 0} into ExprValueMap.
+    std::pair<ValueExprMapType::iterator, bool> Pair =
+        ValueExprMap.insert({SCEVCallbackVH(V, ScopedSE), S});
+    if (Pair.second)
+      ExprValueMap[S].insert(V);
+    return S;
+  }
+#endif // INTEL_CUSTOMIZATION
   return createSCEVIter(V);
 }
 
