@@ -2659,10 +2659,14 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelMaskedTaskLoopDirective = 303,
 
+  /** OpenMP parallel masked taskloop simd directive.
+   */
+  CXCursor_OMPParallelMaskedTaskLoopSimdDirective = 304,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 304,
-  CXCursor_OMPPrefetchDirective = 305,
-  CXCursor_OMPScopeDirective = 306,
+  CXCursor_OMPTargetVariantDispatchDirective = 305,
+  CXCursor_OMPPrefetchDirective = 306,
+  CXCursor_OMPScopeDirective = 307,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPParallelMaskedTaskLoopDirective,
