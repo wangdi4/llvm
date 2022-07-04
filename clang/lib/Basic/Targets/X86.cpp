@@ -664,6 +664,11 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
                            .Case("+sse", SSE1)
                            .Default(NoSSE);
     SSELevel = std::max(SSELevel, Level);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    HasBFloat16 = SSELevel >= SSE2;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
     HasFloat16 = SSELevel >= SSE2;
 

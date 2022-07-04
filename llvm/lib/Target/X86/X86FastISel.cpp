@@ -167,6 +167,13 @@ private:
   bool isScalarFPTypeInSSEReg(EVT VT) const {
     return (VT == MVT::f64 && Subtarget->hasSSE2()) ||
            (VT == MVT::f32 && Subtarget->hasSSE1()) || VT == MVT::f16;
+           (VT == MVT::f32 && Subtarget->hasSSE1()) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+           VT == MVT::bf16 ||
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+           (VT == MVT::f16 && Subtarget->hasFP16());
   }
 
   bool isTypeLegal(Type *Ty, MVT &VT, bool AllowI1 = false);
@@ -2298,6 +2305,13 @@ bool X86FastISel::X86FastEmitPseudoSelect(MVT RetVT, const Instruction *I) {
   default: return false;
   case MVT::i8:  Opc = X86::CMOV_GR8;   break;
   case MVT::i16: Opc = X86::CMOV_GR16;  break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case MVT::bf16:
+    Opc = Subtarget->hasAVX512() ? X86::CMOV_BFR16X : X86::CMOV_BFR16;
+    break;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case MVT::i32: Opc = X86::CMOV_GR32;  break;
   case MVT::f16:
     Opc = Subtarget->hasAVX512() ? X86::CMOV_FR16X : X86::CMOV_FR16; break;
@@ -3966,6 +3980,13 @@ unsigned X86FastISel::fastMaterializeFloatZero(const ConstantFP *CF) {
   case MVT::f16:
     Opc = HasAVX512 ? X86::AVX512_FsFLD0SH : X86::FsFLD0SH;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case MVT::bf16:
+    Opc = HasAVX512 ? X86::AVX512_FsFLD0SBF16 : X86::FsFLD0SBF16;
+    break;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case MVT::f32:
     Opc = HasAVX512 ? X86::AVX512_FsFLD0SS
           : HasSSE1 ? X86::FsFLD0SS

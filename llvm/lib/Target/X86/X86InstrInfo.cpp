@@ -782,6 +782,11 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
   case X86::AVX512_FsFLD0SD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case X86::AVX512_FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0F128:
@@ -789,6 +794,11 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::FsFLD0SD:
   case X86::FsFLD0SS:
   case X86::FsFLD0SH:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case X86::FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0F128:
   case X86::KSET0D:
   case X86::KSET0Q:
@@ -3733,6 +3743,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
          X86::FR16XRegClass.hasSubClassEq(RC)) &&
         STI.hasFP16())
       return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    if ((X86::BFR16RegClass.hasSubClassEq(RC) ||
+         X86::BFR16XRegClass.hasSubClassEq(RC)) &&
+        STI.hasFP16())
+      return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("Unknown 4-byte regclass");
   case 8:
     if (X86::GR64RegClass.hasSubClassEq(RC))
@@ -3987,8 +4005,14 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     MO.setReg(VirtReg);
     MO.setIsKill(true);
   } else if ((RC->getID() == X86::FR16RegClassID ||
-              RC->getID() == X86::FR16XRegClassID) &&
-             !Subtarget.hasFP16()) {
+              RC->getID() == X86::FR16XRegClassID)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+              || RC->getID() == X86::BFR16RegClassID
+              || RC->getID() == X86::BFR16XRegClassID
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+             && !Subtarget.hasFP16()) {
     unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZmr
                    : Subtarget.hasAVX()  ? X86::VMOVSSmr
                                          : X86::MOVSSmr;
@@ -4023,8 +4047,14 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     MO.setReg(VirtReg);
     MO.setIsKill(true);
   } else if ((RC->getID() == X86::FR16RegClassID ||
-              RC->getID() == X86::FR16XRegClassID) &&
-             !Subtarget.hasFP16()) {
+              RC->getID() == X86::FR16XRegClassID)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+              || RC->getID() == X86::BFR16RegClassID
+              || RC->getID() == X86::BFR16XRegClassID)
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+              && !Subtarget.hasFP16()) {
     unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZrm
                    : Subtarget.hasAVX()  ? X86::VMOVSSrm
                                          : X86::MOVSSrm;
@@ -5031,6 +5061,11 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::FsFLD0SS:
   case X86::FsFLD0SD:
   case X86::FsFLD0SH:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case X86::FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0F128:
     return Expand2AddrUndef(MIB, get(HasAVX ? X86::VXORPSrr : X86::XORPSrr));
   case X86::AVX_SET0: {
@@ -5044,6 +5079,11 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   case X86::AVX512_128_SET0:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case X86::AVX512_FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD:
@@ -7120,6 +7160,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Alignment = Align(4);
       break;
     case X86::FsFLD0SH:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    case X86::FsFLD0SBF16:
+    case X86::AVX512_FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     case X86::AVX512_FsFLD0SH:
       Alignment = Align(2);
       break;
@@ -7159,6 +7205,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
   case X86::FsFLD0SH:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  case X86::AVX512_FsFLD0SBF16:
+  case X86::FsFLD0SBF16:
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
   case X86::FsFLD0SD:
   case X86::AVX512_FsFLD0SD:
@@ -7200,6 +7252,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Ty = Type::getFP128Ty(MF.getFunction().getContext());
     else if (Opc == X86::FsFLD0SH || Opc == X86::AVX512_FsFLD0SH)
       Ty = Type::getHalfTy(MF.getFunction().getContext());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    else if (Opc == X86::FsFLD0SBF16 || Opc == X86::AVX512_FsFLD0SBF16)
+      Ty = Type::getBFloatTy(MF.getFunction().getContext());
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_512_SET0 || Opc == X86::AVX512_512_SETALLONES)
       Ty = FixedVectorType::get(Type::getInt32Ty(MF.getFunction().getContext()),
                                 16);

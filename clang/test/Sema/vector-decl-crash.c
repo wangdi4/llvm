@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_BF16_BASE
+// UNSUPPORTED: intel_feature_isa_bf16_base
+// end INTEL_FEATURE_ISA_BF16_BASE
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -fsyntax-only -verify -triple x86_64-unknown-unknown
 
 // GH50171
