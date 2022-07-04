@@ -2331,7 +2331,7 @@ void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
     // (although this is unlikely). In that case, explicitly build a pair and
     // RAUW it.
     if (!CI->use_empty()) {
-      Value *Pair = UndefValue::get(CI->getType());
+      Value *Pair = PoisonValue::get(CI->getType());
       IRBuilder<> B(CI);
       Pair = B.CreateInsertValue(Pair, LoadedValue, {0});
       Pair = B.CreateInsertValue(Pair, TypeTestCall, {1});

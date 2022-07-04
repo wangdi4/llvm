@@ -46,6 +46,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ValueTracking.h"
@@ -1102,7 +1103,7 @@ static BinaryOperator *ConvertShiftToMul(Instruction *Shl) {
 
   BinaryOperator *Mul =
     BinaryOperator::CreateMul(Shl->getOperand(0), MulCst, "", Shl);
-  Shl->setOperand(0, UndefValue::get(Shl->getType())); // Drop use of op.
+  Shl->setOperand(0, PoisonValue::get(Shl->getType())); // Drop use of op.
   Mul->takeName(Shl);
 
   // Everyone now refers to the mul instruction.
@@ -1958,11 +1959,23 @@ Value *ReassociatePass::OptimizeExpression(BinaryOperator *I,
                                            SmallVectorImpl<ValueEntry> &Ops) {
   // Now that we have the linearized expression tree, try to optimize it.
   // Start by folding any constants that we found.
+  const DataLayout &DL = I->getModule()->getDataLayout();
   Constant *Cst = nullptr;
   unsigned Opcode = I->getOpcode();
-  while (!Ops.empty() && isa<Constant>(Ops.back().Op)) {
-    Constant *C = cast<Constant>(Ops.pop_back_val().Op);
-    Cst = Cst ? ConstantExpr::get(Opcode, C, Cst) : C;
+  while (!Ops.empty()) {
+    if (auto *C = dyn_cast<Constant>(Ops.back().Op)) {
+      if (!Cst) {
+        Ops.pop_back();
+        Cst = C;
+        continue;
+      }
+      if (Constant *Res = ConstantFoldBinaryOpOperands(Opcode, C, Cst, DL)) {
+        Ops.pop_back();
+        Cst = Res;
+        continue;
+      }
+    }
+    break;
   }
   // If there was nothing but constants then we are done.
   if (Ops.empty())
