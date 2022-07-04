@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-; this file intentionally has crlf line endings
-end
-=======
 ; this file intentionally has crlf line endings
 create crlf.a
 addmod foo.txt
 end
->>>>>>> 2ab260eecfab56aabc9cff979c1618859d3b883d
