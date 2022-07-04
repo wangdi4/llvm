@@ -315,6 +315,26 @@ typedef struct kmp_local_state {
   ushort spmd_num_threads;
 } kmp_local_state_t;
 
+/// Dynamic memory heap type
+typedef struct kmp_mem_heap {
+  uintptr_t alloc_base;
+  size_t block_size;
+  size_t max_size;
+  uint num_blocks;
+  uint num_block_desc;
+  uint num_block_counter;
+  ulong *block_desc;
+  uint *block_counter;
+} kmp_mem_heap_t;
+
+/// Dynamic memory pool type
+typedef struct kmp_mem_pool {
+  void *pool_base;
+  size_t heap_size;
+  uint num_heaps;
+  kmp_mem_heap_t heap_desc[8];
+} kmp_mem_pool_t;
+
 /// Host data -- misc. data that are copied from host
 typedef struct kmp_program_data {
   int initialized;
@@ -325,6 +345,7 @@ typedef struct kmp_program_data {
   uintptr_t dyna_mem_cur;
   uintptr_t dyna_mem_ub;
   int device_type; // 0 for GPU, 1 for CPU
+  global void *dyna_mem_pool;
 } kmp_program_data_t;
 
 /// Global state

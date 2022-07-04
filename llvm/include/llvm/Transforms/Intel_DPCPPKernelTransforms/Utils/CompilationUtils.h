@@ -168,8 +168,12 @@ enum {
   CL_VER_1_1 = 110,
   CL_VER_1_2 = 120,
   CL_VER_2_0 = 200,
+  CL_VER_3_0 = 300,
+  // The default revision defined by OpenCL spec
   CL_VER_DEFAULT = CL_VER_1_2
 };
+unsigned CLStrToVal(const char *S);
+unsigned CLVersionToVal(uint64_t major, uint64_t minor);
 } // namespace OclVersion
 
 /// Helpful shortcuts for structures.
@@ -280,6 +284,8 @@ PipeKind getPipeKind(StringRef Name);
 
 /// Returns pipe builtin name of a kind.
 std::string getPipeName(PipeKind);
+
+bool isPipeBuiltin(StringRef Name);
 
 /// @brief Returns the undelying type of the ArrayType
 ///
@@ -791,6 +797,20 @@ void patchNotInlinedTIDUserFunc(
     DenseMap<Function *, Value *> &PatchedFToLocalIds,
     PointerType *LocalIdAllocTy,
     function_ref<Value *(CallInst *CI)> CreateLIDArg);
+
+/// Check opencl.compiler.options for -g flag
+bool getDebugFlagFromMetadata(Module *M);
+
+/// Check opencl.compiler.options for -cl-opt-disable flag
+bool getOptDisableFlagFromMetadata(Module *M);
+
+bool hasFDivWithFastFlag(Module *M);
+
+/// Check if at least one of the image types is defined in the module
+bool isImagesUsed(const Module &M);
+
+/// @brief Returns true if the function is block invoke kernel
+bool isBlockInvocationKernel(Function *F);
 
 } // namespace CompilationUtils
 } // namespace llvm

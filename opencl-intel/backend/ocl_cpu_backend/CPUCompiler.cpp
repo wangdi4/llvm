@@ -14,17 +14,16 @@
 
 #define NOMINMAX
 
-#include "cl_cpu_detect.h"
-#include "BuiltinModules.h"
-#include "BuiltinModuleManager.h"
 #include "CPUCompiler.h"
+#include "BuiltinModuleManager.h"
+#include "BuiltinModules.h"
+#include "LLDJITBuilder.h"
 #include "ObjectCodeCache.h"
-#include "CompilationUtils.h"
+#include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "debuggingservicetype.h"
 #include "exceptions.h"
-#include "LLDJITBuilder.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ADT/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"

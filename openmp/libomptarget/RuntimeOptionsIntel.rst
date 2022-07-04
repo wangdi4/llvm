@@ -179,10 +179,12 @@ is present in the program, and ``omp_target_alloc`` routine is invoked.
 **Note**: It appears to be better not to claim this partial support of
 ``unified_shared_memory`` and remove this feature to avoid confusion.
 
-``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>[,<Method>]``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets the size (in megabyte) of dynamic memory allocatable within a kernel.
-Current experimental implementation does not support "free" operation.
+``<Method>=0``: Use allocator not supporting free
+``<Method>=1``: Use allocator supporting free. This is the default option when
+``<Num>`` is greater than zero.
 
 **Default**: 0 (disabled)
 

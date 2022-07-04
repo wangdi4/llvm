@@ -3473,11 +3473,10 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment,
-                    bool IsScalar = false)
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
       : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
         AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment), IsScalar(IsScalar) {}
+        OrigAlignment(OrigAlignment) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3514,14 +3513,11 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
-  /// Return if this is a scalar allocation.
-  bool getIsScalar() const { return IsScalar; }
-
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
     auto Ret = new VPAllocatePrivate(
-      getType(), getAllocatedType(), getOrigAlignment(), getIsScalar());
+      getType(), getAllocatedType(), getOrigAlignment());
     if (isSOASafe())
       Ret->setSOASafe();
     if (isSOAProfitable())
@@ -3534,7 +3530,6 @@ private:
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
-  bool IsScalar;
 };
 
 /// Return index of some active lane. Currently we use the first one but users

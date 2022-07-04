@@ -13,8 +13,8 @@
 // License.
 
 #include "GetKernelArgInfo.h"
-#include "CompilationUtils.h"
 #include "cache_binary_handler.h"
+#include "cl_sys_defines.h"
 #include "elf_binary.h"
 #include "frontend_api.h"
 
@@ -26,10 +26,147 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <memory>
 
 using namespace Intel::OpenCL::ELFUtils;
+
+static std::vector<cl_kernel_argument_info>
+parseKernelArgumentInfos(Function *F) {
+  assert(F && "Invalid function");
+
+  std::vector<cl_kernel_argument_info> ArgInfos;
+
+  MDNode *AddressQualifiers = F->getMetadata("kernel_arg_addr_space");
+  MDNode *AccessQualifiers = F->getMetadata("kernel_arg_access_qual");
+  MDNode *TypeNames = F->getMetadata("kernel_arg_type");
+  MDNode *TypeQualifiers = F->getMetadata("kernel_arg_type_qual");
+  MDNode *ArgNames = F->getMetadata("kernel_arg_name");
+  MDNode *HostAccessible = F->getMetadata("kernel_arg_host_accessible");
+  MDNode *LocalMemSize = F->getMetadata("local_mem_size");
+
+  unsigned KernelArgCount = F->arg_size();
+  for (unsigned int I = 0; I < KernelArgCount; ++I) {
+    Argument *Arg = F->getArg(I);
+    cl_kernel_argument_info ArgInfo;
+    memset(&ArgInfo, 0, sizeof(ArgInfo));
+
+    // Address qualifier
+    unsigned AddrQ = 0;
+    if (AddressQualifiers) {
+      assert(AddressQualifiers->getNumOperands() == KernelArgCount &&
+             "If kernel has 'kernel_arg_addr_space' metadata, its operand "
+             "count must match with kernel arg count!");
+      ConstantInt *AddressQualifier =
+          mdconst::dyn_extract<ConstantInt>(AddressQualifiers->getOperand(I));
+      assert(AddressQualifier &&
+             "AddressQualifier is not a valid ConstantInt*");
+      AddrQ = AddressQualifier->getZExtValue();
+    } else {
+      // kernel_arg_addr_space might not exist for a SYCL kernel.
+      // Decode from the kernel argument itself.
+      if (auto *PTy = dyn_cast<PointerType>(Arg->getType()))
+        AddrQ = PTy->getAddressSpace();
+    }
+    switch (AddrQ) {
+    case 0:
+      ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+      break;
+    case 1:
+      ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+      break;
+    case 2:
+      ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+      break;
+    case 3:
+      ArgInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+      break;
+    default:
+      throw std::string("Invalid address qualifier: ") + std::to_string(AddrQ);
+      break;
+    }
+
+    // Access qualifier
+    // kernel_arg_access_qual might not exist for a SYCL kernel, leave it as
+    // "none" by default.
+    StringRef AccessQ = "none";
+    if (AccessQualifiers) {
+      assert(AccessQualifiers->getNumOperands() == KernelArgCount &&
+             "If kernel has 'kernel_arg_access_qual' metadata, its operand "
+             "count must match with kernel arg count!");
+      AccessQ = cast<MDString>(AccessQualifiers->getOperand(I))->getString();
+    }
+    ArgInfo.accessQualifier =
+        StringSwitch<cl_kernel_arg_access_qualifier>(AccessQ)
+            .Case("read_only", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+            .Case("write_only", CL_KERNEL_ARG_ACCESS_WRITE_ONLY)
+            .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_WRITE)
+            .Default(CL_KERNEL_ARG_ACCESS_NONE);
+
+    // Type qualifier
+    // kernel_arg_type_qual might not exist for a SYCL kernel, leave it as ""
+    // by default.
+    StringRef TypeQ = "";
+    if (TypeQualifiers) {
+      assert(TypeQualifiers->getNumOperands() == KernelArgCount &&
+             "If kernel has 'kernel_arg_type_qual' metadata, its operand "
+             "count must match with kernel arg count!");
+      TypeQ = cast<MDString>(TypeQualifiers->getOperand(I))->getString();
+    }
+    ArgInfo.typeQualifier = 0;
+    if (TypeQ.contains("const"))
+      ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+    if (TypeQ.contains("restrict"))
+      ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+    if (TypeQ.contains("volatile"))
+      ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+    if (TypeQ.contains("pipe"))
+      ArgInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
+
+    // Type name
+    std::string TypeName = "";
+    if (TypeNames) {
+      assert(TypeNames->getNumOperands() == KernelArgCount &&
+             "If kernel has 'kernel_arg_type' metadata, its operand count "
+             "must match with kernel arg count!");
+      TypeName = cast<MDString>(TypeNames->getOperand(I))->getString().str();
+    } else {
+      // kernel_arg_type might not exist for a SYCL kernel.
+      // Decode from the kernel argument itself.
+      raw_string_ostream OS(TypeName);
+      Arg->getType()->print(OS, /*IsForDebug*/ false, /*NoDetails*/ true);
+      OS.flush();
+    }
+    ArgInfo.typeName = STRDUP(TypeName.c_str());
+
+    if (ArgNames) {
+      // Parameter name
+      MDString *ArgName = cast<MDString>(ArgNames->getOperand(I));
+      ArgInfo.name = STRDUP(ArgName->getString().str().c_str());
+    }
+
+    if (HostAccessible) {
+      auto *HostAccessibleFlag =
+          cast<ConstantAsMetadata>(HostAccessible->getOperand(I));
+
+      ArgInfo.hostAccessible =
+          HostAccessibleFlag &&
+          cast<ConstantInt>(HostAccessibleFlag->getValue())->isOne();
+    }
+
+    if (LocalMemSize) {
+      auto *LocalMemSizeFlag =
+          cast<ConstantAsMetadata>(LocalMemSize->getOperand(I));
+
+      ArgInfo.localMemSize =
+          cast<ConstantInt>(LocalMemSizeFlag->getValue())->getZExtValue();
+    }
+
+    ArgInfos.push_back(ArgInfo);
+  }
+  return ArgInfos;
+}
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     const void *pBin, size_t uiBinarySize, const char *szKernelName,
@@ -73,9 +210,8 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
           "\" is not an OpenCL kernel.";
 
     std::unique_ptr<OCLFEKernelArgInfo> pResult(new OCLFEKernelArgInfo);
-    using namespace Intel::OpenCL::DeviceBackend;
     std::vector<cl_kernel_argument_info> argInfos =
-        CompilationUtils::parseKernelArgumentInfos(Func);
+        parseKernelArgumentInfos(Func);
     for (auto &argInfo : argInfos)
       pResult->addInfo(argInfo);
 

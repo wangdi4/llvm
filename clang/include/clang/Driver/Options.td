@@ -8519,11 +8519,12 @@ def _SLASH_Qprotect_parens : CLFlag<"Qprotect-parens">,
   "parentheses when floating-point expressions are evaluated">;
 def _SLASH_Qprotect_parens_ : CLFlag<"Qprotect-parens-">,
   Alias<fno_protect_parens>;
-def : CLFlag<"Qno-intel-lib">, Alias<no_intel_lib>, HelpText<"Restrict "
-  "linking of Intel specific libraries. Valid arguments are libirc, libsvml">;
+def : CLFlag<"Qno-intel-lib">, Alias<no_intel_lib>,
+  HelpText<"Restrict linking of all Intel specific libraries.">;
 def : CLCommaJoined<"Qno-intel-lib=">, Alias<no_intel_lib_EQ>;
 def : CLCommaJoined<"Qno-intel-lib:">, Alias<no_intel_lib_EQ>,
-  HelpText<"Restrict linking of all Intel specific libraries.">;
+  HelpText<"Restrict linking of Intel specific libraries. Valid arguments are "
+           "libirc, libsvml, libm">;
 def _SLASH_Qsox : CLFlag<"Qsox">, Alias<sox>,
   HelpText<"Enable saving of compiler options in the executable">;
 def _SLASH_Qsox_ : CLFlag<"Qsox-">, Alias<no_sox>,

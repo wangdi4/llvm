@@ -130,10 +130,6 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setVisibility(Fn.getVisibility());
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
-  if (Fn.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage &&
-      Fn.getLinkage() != GlobalValue::LinkageTypes::PrivateLinkage)
-    appendToCompilerUsed(*(Fn.getParent()), {Dispatcher});
-
   emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
                            true /*UseLibIRC*/);
 

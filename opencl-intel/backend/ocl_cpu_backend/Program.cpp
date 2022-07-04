@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Program.h"
+#include "BackendUtils.h"
 #include "BitCodeContainer.h"
-#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "ObjectCodeContainer.h"
-#include "Program.h"
 #include "Serializer.h"
 #include "cache_binary_handler.h"
 #include "cl_device_api.h"
@@ -128,7 +128,7 @@ void Program::SetGlobalVariables(std::vector<cl_prog_gv> gvs)
 }
 
 void Program::RecordCtorDtors(llvm::Module &M) {
-    CompilationUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
+  BackendUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)

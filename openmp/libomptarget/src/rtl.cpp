@@ -369,6 +369,8 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
     SET_OPTIONAL_INTERFACE_FN(data_realloc);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
+    SET_OPTIONAL_INTERFACE_FN(register_host_pointer);
+    SET_OPTIONAL_INTERFACE_FN(unregister_host_pointer);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
     SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);

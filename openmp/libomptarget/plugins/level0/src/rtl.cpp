@@ -956,6 +956,36 @@ public:
   }
 };
 
+struct DynamicMemHeapTy {
+  /// Base address memory is allocated from
+  uintptr_t AllocBase = 0;
+  /// Minimal size served by the current heap
+  size_t BlockSize = 0;
+  /// Max size served by the current heap
+  size_t MaxSize = 0;
+  /// Available memory blocks
+  uint32_t NumBlocks = 0;
+  /// Number of block descriptors
+  uint32_t NumBlockDesc = 0;
+  /// Number of block counters
+  uint32_t NumBlockCounter = 0;
+  /// List of memory block descriptors
+  uint64_t *BlockDesc = nullptr;
+  /// List of memory block counters
+  uint32_t *BlockCounter = nullptr;
+};
+
+struct DynamicMemPoolTy {
+  /// Location of device memory blocks
+  void *PoolBase = nullptr;
+  /// Heap size common to all heaps
+  size_t HeapSize = 0;
+  /// Number of heaps available
+  uint32_t NumHeaps = 0;
+  /// Heap descriptors (using fixed-size array to simplify memory allocation)
+  DynamicMemHeapTy HeapDesc[8];
+};
+
 /// Program data to be initialized by plugin
 struct ProgramDataTy {
   int Initialized = 0;
@@ -966,6 +996,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
+  void *DynamicMemPool = nullptr;
 };
 
 /// Level Zero program that can contain multiple modules.
@@ -1078,6 +1109,9 @@ public:
 
   /// Reset program data on device.
   int32_t resetProgramData();
+
+  /// Initialize dynamic memory pool for device.
+  void *initDynamicMemPool();
 
   /// Return the pointer to the offload table.
   __tgt_target_table *getTablePtr() { return &Table; }
@@ -1406,6 +1440,11 @@ struct RTLOptionTy {
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0;
 
+  /// Dynamic kernel memory allocator
+  /// 0: atomic_add with no free()
+  /// 1: pool-based allocator with free() support
+  uint32_t KernelDynamicMemoryMethod = 1;
+
   /// Staging buffer size
   size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
 
@@ -1602,6 +1641,7 @@ struct RTLOptionTy {
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL"))) {
       if (Env[0] == '0' && Env[1] == '\0') {
         Flags.UseMemoryPool = 0;
+        MemPoolInfo.clear();
       } else {
         std::istringstream Str(Env);
         int32_t MemType = -1;
@@ -1757,16 +1797,42 @@ struct RTLOptionTy {
     }
 
     // Dynamic memory size
-    // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>[,<Method>]
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
-      size_t Value = std::stoi(Env);
-      const size_t MaxValue = 2048;
-      if (Value > MaxValue) {
-        WARNING("Requested dynamic memory size %zu MB exceeds allowed limit -- "
-                "setting it to %zu MB\n", Value, MaxValue);
-        Value = MaxValue;
+      std::string Value(Env);
+      size_t Size = 0;
+      auto Pos = Value.find(",");
+      if (Pos == std::string::npos) {
+        Size = std::stoi(Value);
+      } else if (Value.substr(Pos + 1) == "0") {
+        KernelDynamicMemoryMethod = 0;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else if (Value.substr(Pos + 1) == "1") {
+        KernelDynamicMemoryMethod = 1;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else {
+        DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
+        Size = 0;
       }
-      KernelDynamicMemorySize = Value << 20;
+      if (Size > 0) {
+        size_t MaxSize;
+        if (KernelDynamicMemoryMethod == 0) {
+          MaxSize = 2048;
+        } else {
+          // Round up to power of 2
+          uint32_t P = 1;
+          while (P < Size)
+            P *= 2;
+          Size = P;
+          MaxSize = 512;
+        }
+        if (Size > MaxSize) {
+          WARNING("Requested dynamic memory size %zu MB exceeds allowed limit "
+                  " -- setting it to %zu MB\n", Size, MaxSize);
+          Size = MaxSize;
+        }
+        KernelDynamicMemorySize = Size << 20;
+      }
     }
 
 #if INTEL_INTERNAL_BUILD
@@ -2693,6 +2759,10 @@ struct RTLDeviceInfoTy {
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
 
+  /// function addresses for registering and unregistering host pointer
+  void *RegisterHostPointer = nullptr;
+  void *UnRegisterHostPointer = nullptr;
+
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
   /// RTL option
@@ -2882,6 +2952,25 @@ struct RTLDeviceInfoTy {
 
   void setSubDeviceCode(int64_t Code) {
     getTLS()->setSubDeviceCode(Code);
+  }
+
+  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+     if (RegisterHostPointer) {
+       using FnTy = int (*)(ze_driver_handle_t, void *, size_t);
+       auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+       return  Fn(Driver, Ptr, Size);
+     }
+     return false;
+  }
+
+  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+     if (UnRegisterHostPointer) {
+       using FnTy = void(*)(ze_driver_handle_t, void *);
+       auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+       Fn(Driver, Ptr);
+       return true;
+     }
+     return false;
   }
 
   /// Reset program data
@@ -3547,12 +3636,12 @@ static int32_t decideLoopKernelGroupArguments(
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   uint32_t kernelWidth = KernelProperty.Width;
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
-  DP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", kernelWidth);
 
   uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %" PRIu32
+    DP("Capping maximum team size to %" PRIu32
        " due to kernel constraints.\n", maxGroupSize);
   }
 
@@ -3563,7 +3652,7 @@ static int32_t decideLoopKernelGroupArguments(
 
     if (ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
+      DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
          maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
@@ -3576,7 +3665,7 @@ static int32_t decideLoopKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+      DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
          maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
@@ -3627,7 +3716,7 @@ static int32_t decideLoopKernelGroupArguments(
       // The code is here just for completeness.
       size_t distributeTripCount = tripCounts[distributeDim];
       if (distributeTripCount > UINT32_MAX) {
-        DP("Invalid group count %zu due to large loop trip count\n",
+        DP("Invalid number of teams %zu due to large loop trip count\n",
            distributeTripCount);
         return OFFLOAD_FAIL;
       }
@@ -3683,7 +3772,7 @@ static int32_t decideLoopKernelGroupArguments(
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
         assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-               "Unexpected group sizes for dimensions 1 or/and 2.");
+               "Unexpected team sizes for dimensions 1 or/and 2.");
         uint32_t simdWidth = KernelProperty.SIMDWidth;
         auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
         uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
@@ -3725,7 +3814,7 @@ static int32_t decideLoopKernelGroupArguments(
       groupSizes[i] = trip;
     size_t Count = (trip + groupSizes[i] - 1) / groupSizes[i];
     if (Count > UINT32_MAX) {
-      DP("Invalid group count %zu due to large loop trip count\n", Count);
+      DP("Invalid number of teams %zu due to large loop trip count\n", Count);
       return OFFLOAD_FAIL;
     }
     groupCounts[i] = (uint32_t)Count;
@@ -3768,13 +3857,13 @@ static void decideKernelGroupArguments(
   uint32_t kernelWidth = KernelProperty.Width;
   uint32_t simdWidth = KernelProperty.SIMDWidth;
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", simdWidth);
-  DP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", kernelWidth);
   assert(simdWidth <= kernelWidth && "Invalid SIMD width.");
 
   uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %" PRIu32
+    DP("Capping maximum team size to %" PRIu32
        " due to kernel constraints.\n", maxGroupSize);
   }
 
@@ -3783,7 +3872,7 @@ static void decideKernelGroupArguments(
 
     if (ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
+      DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
          maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
@@ -3796,7 +3885,7 @@ static void decideKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+      DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
          maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
@@ -3809,13 +3898,13 @@ static void decideKernelGroupArguments(
   if (NumTeams > 0) {
     maxGroupCount = NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %" PRIu32
+    DP("Max number of teams is set to %" PRIu32
        " (num_teams clause or no teams construct)\n", maxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
     maxGroupCount = DeviceInfo->Option.NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
+    DP("Max number of teams is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
        maxGroupCount);
   }
 
@@ -3872,7 +3961,7 @@ static void decideKernelGroupArguments(
   if (KInfo && KInfo->getWINum()) {
     groupSizes[0] =
         (std::min)(KInfo->getWINum(), static_cast<uint64_t>(groupSizes[0]));
-    DP("Capping maximum thread group size to %" PRIu64
+    DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
   if (!maxGroupCountForced) {
@@ -4723,6 +4812,17 @@ int32_t RTLDeviceInfoTy::findDevices() {
           "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
   if (Rc != ZE_RESULT_SUCCESS)
     GitsIndirectAllocationOffsets = nullptr;
+
+  // Look up Driver Import and Release  External Pointer
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverImportExternalPointer", &RegisterHostPointer);
+  if (Rc != ZE_RESULT_SUCCESS)
+     RegisterHostPointer = nullptr;
+
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverReleaseImportExternalPointer", &UnRegisterHostPointer);
+  if (Rc != ZE_RESULT_SUCCESS)
+     UnRegisterHostPointer = nullptr;
 
   return NumRootDevices;
 }
@@ -5586,6 +5686,100 @@ int32_t LevelZeroProgramTy::buildKernels() {
   return OFFLOAD_SUCCESS;
 }
 
+/// High-level description of new dynamic memory allocator.
+/// We use a list of heaps each of which can serve 6 different allocation sizes
+/// and list of block descriptors that store the state of each blocks in the
+/// heap. A 64-bit single descriptor stores 32 2-bit block states so that it can
+/// maintain block usages of 6 different allocation sizes. For example, assume
+/// the total heap size (e.g., requested dynamic memory size) is 2048 bytes.
+/// Then, we only require a single heap which can serve 64, 128, 256, 512, 1024,
+/// and 2048 bytes given that the smallest allocation size 64. In this case, the
+/// block size of this heap is 64 and a single descriptor is enough to store
+/// block usage of this heap which contains 32 64-byte blocks.
+///
+/// The following 2-bit descriptor value defines the state of each block.
+/// -- 0x0: block is free
+/// -- 0x1: block is part of multi-block allocation
+/// -- 0x2: block is upper/lower bound of multi-block allocation
+/// -- 0x3: block is a single-block allocation
+///
+/// Using the same example above, the first allocation of each size changes the
+/// descriptor value from zero to the following value.
+/// -- 64 : 0b11 (block)
+/// -- 128: 0b1010 (2 blocks)
+/// -- 256: 0b10 0101 10 (4 blocks)
+/// -- 512: 0b10 010101010101 10 (8 blocks)
+/// -- ...
+///
+/// High-level steps to allocate memory
+/// -- Prepare block masks to claim the requested size (blocks)
+/// -- Perform cmpxchg to claim free blocks (partially update 64-bit descriptor)
+/// -- Convert the block descriptor and offset to memory location in the heap
+/// High-level steps to deallocate memory
+/// -- Identify block descriptor and offset from the retruned memory location
+/// -- Identify number of blocks to free using the above encoding scheme
+/// -- Perform cmpxchg to change the block states to "free" in the descriptor
+void *LevelZeroProgramTy::initDynamicMemPool() {
+  size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (MemSize == 0)
+    return nullptr;
+
+  constexpr size_t BlockSizeMin = 64;
+  constexpr uint32_t NumBlocksPerDesc = 32;
+  constexpr uint32_t NumDescsPerCounter = 32;
+
+  DynamicMemPoolTy Pool;
+  Pool.HeapSize = MemSize;
+  Pool.NumHeaps = 1;
+  size_t SupportedSize = BlockSizeMin * NumBlocksPerDesc;
+  while (SupportedSize < Pool.HeapSize) {
+    SupportedSize *= (2 * NumBlocksPerDesc);
+    Pool.NumHeaps++;
+  }
+  Pool.PoolBase = DeviceInfo->dataAlloc(
+      DeviceId, Pool.NumHeaps * Pool.HeapSize, 0, TARGET_ALLOC_DEVICE, 0,
+      false, true);
+
+  // Initialize each heap
+  for (uint32_t I = 0; I < Pool.NumHeaps; I++) {
+    size_t BlockSize = BlockSizeMin << (6 * I);
+    auto &Heap = Pool.HeapDesc[I];
+    Heap.NumBlocks = Pool.HeapSize / BlockSize;
+    Heap.AllocBase = (uintptr_t)Pool.PoolBase + I * Pool.HeapSize;
+    Heap.BlockSize = BlockSize;
+    Heap.MaxSize = BlockSize * Heap.NumBlocks;
+    size_t SupportedSize = BlockSize * NumBlocksPerDesc;
+    if (Heap.MaxSize > SupportedSize)
+      Heap.MaxSize = SupportedSize;
+    // Prepare device memory for block descriptors
+    Heap.NumBlockDesc =
+        (Heap.NumBlocks + NumBlocksPerDesc - 1) / NumBlocksPerDesc;
+    Heap.BlockDesc = (uint64_t *)DeviceInfo->dataAlloc(
+      DeviceId, Heap.NumBlockDesc * sizeof(uint64_t), 0, TARGET_ALLOC_DEVICE,
+      0, false, true);
+    std::vector<uint64_t> BlockDescInit(Heap.NumBlockDesc, 0);
+    DeviceInfo->enqueueMemCopy(DeviceId, Heap.BlockDesc, BlockDescInit.data(),
+                               Heap.NumBlockDesc * sizeof(uint64_t));
+    // Prepare device memory for block counters
+    Heap.NumBlockCounter =
+        (Heap.NumBlockDesc + NumDescsPerCounter - 1) / NumDescsPerCounter;
+    Heap.BlockCounter = (uint32_t *)DeviceInfo->dataAlloc(
+      DeviceId, Heap.NumBlockCounter * sizeof(uint32_t), 0, TARGET_ALLOC_DEVICE,
+      0, false, true);
+    std::vector<uint32_t> BlockCounterInit(Heap.NumBlockCounter, 0);
+    DeviceInfo->enqueueMemCopy(DeviceId, Heap.BlockCounter,
+                               BlockCounterInit.data(),
+                               Heap.NumBlockCounter * sizeof(uint32_t));
+  }
+
+  // Prepare device copy of the pool
+  void *PoolDevice = DeviceInfo->dataAlloc(
+      DeviceId, sizeof(Pool), 0, TARGET_ALLOC_DEVICE, 0, false, true);
+  DeviceInfo->enqueueMemCopy(DeviceId, PoolDevice, &Pool, sizeof(Pool));
+
+  return PoolDevice;
+}
+
 int32_t LevelZeroProgramTy::initProgramData() {
   // Look up program data location on device
   PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
@@ -5608,12 +5802,17 @@ int32_t LevelZeroProgramTy::initProgramData() {
   // Allocate dynamic memory for in-kernel allocation
   void *MemLB = 0;
   uintptr_t MemUB = 0;
+  void *MemPool = nullptr;
   size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
-  if (MemSize > 0)
-    MemLB = DeviceInfo->dataAlloc(DeviceId, MemSize, 0, TARGET_ALLOC_DEVICE, 0,
-                                  false, true /* Owned */);
-  if (MemLB)
-    MemUB = (uintptr_t)MemLB + MemSize;
+  if (DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {
+    if (MemSize > 0)
+      MemLB = DeviceInfo->dataAlloc(DeviceId, MemSize, 0, TARGET_ALLOC_DEVICE,
+                                    0, false, true /* Owned */);
+    if (MemLB)
+      MemUB = (uintptr_t)MemLB + MemSize;
+  } else {
+    MemPool = initDynamicMemPool();
+  }
 
   PGMData = {
     1,                   // Initialized
@@ -5624,7 +5823,8 @@ int32_t LevelZeroProgramTy::initProgramData() {
     P.numThreadsPerEU,   // HW threads per EU
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
-    0                    // Device type (0 for GPU, 1 for CPU)
+    0,                   // Device type (0 for GPU, 1 for CPU)
+    MemPool              // Dynamic memory pool
   };
 
   return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
@@ -5962,6 +6162,15 @@ void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
     return nullptr;
   }
   return DeviceInfo->dataAlloc(DeviceId, Size, Align, Kind, 0, true);
+}
+
+bool __tgt_rtl_register_host_pointer(int32_t DeviceId, void *Ptr, size_t Size) {
+
+  return DeviceInfo->registerHostPointer(DeviceId, Ptr, Size);
+}
+
+bool __tgt_rtl_unregister_host_pointer(int32_t DeviceId, void *Ptr) {
+    return DeviceInfo->unRegisterHostPointer(DeviceId, Ptr);
 }
 
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {

@@ -13,12 +13,10 @@
 // License.
 
 #include "debuggingservicetype.h"
-#include "CompilationUtils.h"
 #include "cl_config.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-
-using Intel::OpenCL::DeviceBackend::CompilationUtils;
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace intel {
 

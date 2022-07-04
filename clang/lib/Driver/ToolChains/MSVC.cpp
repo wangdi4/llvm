@@ -144,10 +144,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       !C.getDriver().IsCLMode() && !C.getDriver().IsFlangMode()) {
     if (Args.hasArg(options::OPT_fsycl) && !Args.hasArg(options::OPT_nolibsycl))
       CmdArgs.push_back("-defaultlib:msvcrt");
-    else { // INTEL
+#if INTEL_CUSTOMIZATION
+    else {
       CmdArgs.push_back("-defaultlib:libcmt");
-      CmdArgs.push_back("-defaultlib:libmmt"); // INTEL
-    }  // INTEL
+      if (getToolChain().CheckAddIntelLib("libm", Args) &&
+          getToolChain().CheckAddIntelLib("libimf", Args))
+        CmdArgs.push_back("-defaultlib:libmmt");
+    }
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-defaultlib:oldnames");
   }
 

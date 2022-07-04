@@ -13,12 +13,12 @@
 // License.
 
 #include "InstCounter.h"
-#include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "Logger.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
 #include "OpenclRuntime.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -269,6 +269,47 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
   return false;
 }
 
+static void getAllSyncBuiltinsDcls(SmallVector<Function *, 4> &functionSet,
+                                   Module *pModule, bool IsWG = true) {
+  // Clear old collected data!
+  functionSet.clear();
+
+  for (Module::iterator fi = pModule->begin(), fe = pModule->end(); fi != fe;
+       ++fi) {
+    if (!fi->isDeclaration())
+      continue;
+    llvm::StringRef func_name = fi->getName();
+    if (IsWG) {
+      if (/* WG barrier built-ins */
+          func_name == CompilationUtils::mangledBarrier() ||
+          func_name == CompilationUtils::mangledWGBarrier(
+                           CompilationUtils::BarrierType::NoScope) ||
+          func_name == CompilationUtils::mangledWGBarrier(
+                           CompilationUtils::BarrierType::WithScope) ||
+          /* work group built-ins */
+          CompilationUtils::isWorkGroupBuiltin(std::string(func_name)) ||
+          /* built-ins synced as if were called by a single work item */
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(
+              std::string(func_name), *pModule)) {
+        // Found synchronized built-in declared in the module add it to the
+        // container set.
+        functionSet.push_back(&*fi);
+      }
+    } else {
+      if (/* SG barrier built-ins */
+          func_name == CompilationUtils::mangledSGBarrier(
+                           CompilationUtils::BarrierType::NoScope) ||
+          func_name == CompilationUtils::mangledSGBarrier(
+                           CompilationUtils::BarrierType::WithScope) ||
+          CompilationUtils::isSubGroupBuiltin(std::string(func_name))) {
+        // Found synchronized built-in declared in the module add it to the
+        // container set.
+        functionSet.push_back(&*fi);
+      }
+    }
+  }
+}
+
 bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   using namespace DPCPPKernelMetadataAPI;
 
@@ -282,22 +323,21 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   roots.insert(kernels.begin(), kernels.end());
 
   // Add all functions that contains synchronize/get_local_id/get_global_id to root functions
-  CompilationUtils::FunctionSet oclFunction;
+  SmallVector<Function *, 4> oclFunction;
 
   //Get all synchronize built-ins declared in module
-  CompilationUtils::getAllSyncBuiltinsDcls(oclFunction, pM);
+  getAllSyncBuiltinsDcls(oclFunction, pM);
 
   //Get get_local_id built-in if declared in module
   if ( Function *pF = pM->getFunction(CompilationUtils::mangledGetLID()) ) {
-    oclFunction.insert(pF);
+    oclFunction.push_back(pF);
   }
   //Get get_global_id built-in if declared in module
   if ( Function *pF = pM->getFunction(CompilationUtils::mangledGetGID()) ) {
-    oclFunction.insert(pF);
+    oclFunction.push_back(pF);
   }
 
-  for ( CompilationUtils::FunctionSet::iterator fi = oclFunction.begin(), fe = oclFunction.end(); fi != fe; ++fi ) {
-    Function *F = *fi;
+  for (auto *F : oclFunction) {
     for (Function::user_iterator ui = F->user_begin(), ue = F->user_end(); ui != ue; ++ui ) {
       CallInst *CI = dyn_cast<CallInst> (*ui);
       if (!CI) continue;

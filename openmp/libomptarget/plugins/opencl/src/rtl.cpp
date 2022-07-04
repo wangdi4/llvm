@@ -519,6 +519,36 @@ enum DataTransferMethodTy {
 };
 
 #if INTEL_CUSTOMIZATION
+struct DynamicMemHeapTy {
+  /// Base address memory is allocated from
+  uintptr_t AllocBase = 0;
+  /// Minimal size served by the current heap
+  size_t BlockSize = 0;
+  /// Max size served by the current heap
+  size_t MaxSize = 0;
+  /// Available memory blocks
+  uint32_t NumBlocks = 0;
+  /// Number of block descriptors
+  uint32_t NumBlockDesc = 0;
+  /// Number of block counters
+  uint32_t NumBlockCounter = 0;
+  /// List of memory block descriptors
+  uint64_t *BlockDesc = nullptr;
+  /// List of memory block counters
+  uint32_t *BlockCounter = nullptr;
+};
+
+struct DynamicMemPoolTy {
+  /// Location of device memory blocks
+  void *PoolBase = nullptr;
+  /// Heap size common to all heaps
+  size_t HeapSize = 0;
+  /// Number of heaps available
+  uint32_t NumHeaps = 0;
+  /// Heap descriptors (using fixed-size array to simplify memory allocation)
+  DynamicMemHeapTy HeapDesc[8];
+};
+
 /// Program data to be initialized.
 /// TODO: include other runtime parameters if necessary.
 struct ProgramDataTy {
@@ -530,6 +560,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
+  void *DynamicMemPool = nullptr;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -650,6 +681,9 @@ public:
 
   /// Reset program data on device.
   int32_t resetProgramData();
+
+  /// Initialize dynamic memory pool for device.
+  void *initDynamicMemPool();
 
   /// Return the cached program data
   const ProgramDataTy &getPGMData() { return PGMData; }
@@ -922,6 +956,10 @@ struct RTLOptionTy {
 #if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
+  /// Dynamic kernel memory allocation method
+  /// 0: atomic_add with no free()
+  /// 1: pool-based allocator with free() support
+  uint32_t KernelDynamicMemoryMethod = 1;
 #endif // INTEL_CUSTOMIZATION
 
   // This is a factor applied to the number of WGs computed
@@ -1145,16 +1183,42 @@ struct RTLOptionTy {
     }
 
 #if INTEL_CUSTOMIZATION
-    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>[,<Method>]
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
-      size_t Value = std::stoi(Env);
-      const size_t MaxValue = 2048;
-      if (Value > MaxValue) {
-        WARNING("Requested dynamic memory size %zu MB exceeds allowed limit -- "
-                "setting it to %zu MB\n", Value, MaxValue);
-        Value = MaxValue;
+      std::string Value(Env);
+      size_t Size = 0;
+      auto Pos = Value.find(",");
+      if (Pos == std::string::npos) {
+        Size = std::stoi(Value);
+      } else if (Value.substr(Pos + 1) == "0") {
+        KernelDynamicMemoryMethod = 0;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else if (Value.substr(Pos + 1) == "1") {
+        KernelDynamicMemoryMethod = 1;
+        Size = std::stoi(Value.substr(0, Pos));
+      } else {
+        DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
+        Size = 0;
       }
-      KernelDynamicMemorySize = Value << 20;
+      if (Size > 0) {
+        size_t MaxSize;
+        if (KernelDynamicMemoryMethod == 0) {
+          MaxSize = 2048;
+        } else {
+          // Round up to power of 2
+          uint32_t P = 1;
+          while (P < Size)
+            P *= 2;
+          Size = P;
+          MaxSize = 512;
+        }
+        if (Size > MaxSize) {
+          WARNING("Requested dynamic memory size %zu MB exceeds allowed limit "
+                  " -- setting it to %zu MB\n", Size, MaxSize);
+          Size = MaxSize;
+        }
+        KernelDynamicMemorySize = Size << 20;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2199,12 +2263,12 @@ static void decideLoopKernelGroupArguments(
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
   DP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  DP("Preferred team size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
        maxGroupSize);
   }
 
@@ -2215,7 +2279,7 @@ static void decideLoopKernelGroupArguments(
 
     if ((uint32_t)ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n", maxGroupSize);
+      DP("Max team size is set to %zu (thread_limit clause)\n", maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
          ThreadLimit, maxGroupSize);
@@ -2227,7 +2291,7 @@ static void decideLoopKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
          DeviceInfo->Option.ThreadLimit, maxGroupSize);
@@ -2326,7 +2390,7 @@ static void decideLoopKernelGroupArguments(
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
         assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-               "Unexpected group sizes for dimensions 1 or/and 2.");
+               "Unexpected team sizes for dimensions 1 or/and 2.");
         uint32_t simdWidth = KernelProperty.SIMDWidth;
         auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
         uint32_t numEUsPerSubslice = deviceProperties.NumEUsPerSubslice;
@@ -2436,12 +2500,12 @@ static void decideKernelGroupArguments(
   size_t simdWidth = KernelProperty.SIMDWidth;
   DP("Assumed kernel SIMD width is %zu\n", simdWidth);
 #endif // INTEL_CUSTOMIZATION
-  DP("Preferred group size is multiple of %zu\n", kernelWidth);
+  DP("Preferred team size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+    DP("Capping maximum team size to %zu due to kernel constraints.\n",
        maxGroupSize);
   }
 
@@ -2450,7 +2514,7 @@ static void decideKernelGroupArguments(
 
     if ((uint32_t)ThreadLimit <= maxGroupSize) {
       maxGroupSize = ThreadLimit;
-      DP("Max group size is set to %zu (thread_limit clause)\n",
+      DP("Max team size is set to %zu (thread_limit clause)\n",
          maxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
@@ -2463,7 +2527,7 @@ static void decideKernelGroupArguments(
 
     if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
       maxGroupSize = DeviceInfo->Option.ThreadLimit;
-      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
+      DP("Max team size is set to %zu (OMP_THREAD_LIMIT)\n", maxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
          DeviceInfo->Option.ThreadLimit, maxGroupSize);
@@ -2475,13 +2539,13 @@ static void decideKernelGroupArguments(
   if (NumTeams > 0) {
     maxGroupCount = NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %zu "
+    DP("Max number of teams is set to %zu "
        "(num_teams clause or no teams construct)\n", maxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
     maxGroupCount = DeviceInfo->Option.NumTeams;
     maxGroupCountForced = true;
-    DP("Max group count is set to %zu (OMP_NUM_TEAMS)\n", maxGroupCount);
+    DP("Max number of teams is set to %zu (OMP_NUM_TEAMS)\n", maxGroupCount);
   }
 
   if (maxGroupCountForced) {
@@ -2553,7 +2617,7 @@ static void decideKernelGroupArguments(
   if (KInfo && KInfo->getWINum()) {
     GroupSizes[0] =
         (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GroupSizes[0]));
-    DP("Capping maximum thread group size to %" PRIu64
+    DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
 
@@ -2715,6 +2779,12 @@ static inline int32_t runTargetTeamNDRegion(
       DeviceInfo->Programs[DeviceId].back().getPGMData().DynamicMemoryLB;
   if (KernelDynamicMem) {
     ImplicitUSMArgs.push_back((void *)KernelDynamicMem);
+    HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
+  }
+  auto DynamicMemPool =
+      DeviceInfo->Programs[DeviceId].back().getPGMData().DynamicMemPool;
+  if (DynamicMemPool) {
+    ImplicitUSMArgs.push_back((void *)DynamicMemPool);
     HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3474,7 +3544,7 @@ int32_t OpenCLProgramTy::buildKernels() {
       KernelProperty.SIMDWidth = KernelProperty.Width / 2;
     }
     assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
-           "Invalid preferred group size multiple.");
+           "Invalid preferred team size multiple.");
     CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel, Device,
                      CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
                      &KernelProperty.MaxThreadGroupSize, nullptr);
@@ -3518,6 +3588,93 @@ int32_t OpenCLProgramTy::buildKernels() {
 }
 
 #if INTEL_CUSTOMIZATION
+void *OpenCLProgramTy::initDynamicMemPool() {
+  size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (MemSize == 0)
+    return nullptr;
+
+  constexpr size_t BlockSizeMin = 64;
+  constexpr uint32_t NumBlocksPerDesc = 32;
+  constexpr uint32_t NumDescsPerCounter = 32;
+
+  DynamicMemPoolTy Pool;
+  Pool.HeapSize = MemSize;
+  Pool.NumHeaps = 1;
+  size_t SupportedSize = BlockSizeMin * NumBlocksPerDesc;
+  while (SupportedSize < Pool.HeapSize) {
+    SupportedSize *= (2 * NumBlocksPerDesc);
+    Pool.NumHeaps++;
+  }
+  cl_int RC;
+  size_t BaseSize = Pool.NumHeaps * Pool.HeapSize;
+  auto BaseProp = DeviceInfo->getAllocMemProperties(DeviceId, BaseSize);
+  CALL_CL_EXT_RVRC(DeviceId, Pool.PoolBase, clDeviceMemAllocINTEL, RC, Context,
+                   Device, BaseProp->data(), BaseSize, 0);
+  if (RC != CL_SUCCESS || !Pool.PoolBase)
+    return nullptr;
+  DeviceInfo->OwnedMemory[DeviceId].push_back(Pool.PoolBase);
+
+  // Initialize each heap
+  for (uint32_t I = 0; I < Pool.NumHeaps; I++) {
+    size_t BlockSize = BlockSizeMin << (6 * I);
+    auto &Heap = Pool.HeapDesc[I];
+    Heap.NumBlocks = Pool.HeapSize / BlockSize;
+    Heap.AllocBase = (uintptr_t)Pool.PoolBase + I * Pool.HeapSize;
+    Heap.BlockSize = BlockSize;
+    Heap.MaxSize = BlockSize * Heap.NumBlocks;
+    size_t SupportedSize = BlockSize * NumBlocksPerDesc;
+    if (Heap.MaxSize > SupportedSize)
+      Heap.MaxSize = SupportedSize;
+    // Prepare device memory for block descriptors
+    Heap.NumBlockDesc =
+        (Heap.NumBlocks + NumBlocksPerDesc - 1) / NumBlocksPerDesc;
+    size_t DescSize = Heap.NumBlockDesc * sizeof(uint64_t);
+    auto DescProp = DeviceInfo->getAllocMemProperties(DeviceId, DescSize);
+    void *BlockDesc = nullptr;
+    CALL_CL_EXT_RVRC(DeviceId, BlockDesc, clDeviceMemAllocINTEL, RC, Context,
+                     Device, DescProp->data(), DescSize, 0);
+    if (RC != CL_SUCCESS || !BlockDesc)
+      return nullptr;
+    DeviceInfo->OwnedMemory[DeviceId].push_back(BlockDesc);
+    Heap.BlockDesc = (uint64_t *)BlockDesc;
+    std::vector<uint64_t> BlockDescInit(Heap.NumBlockDesc, 0);
+    CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                         DeviceInfo->Queues[DeviceId], CL_TRUE, Heap.BlockDesc,
+                         BlockDescInit.data(), DescSize, 0, nullptr, nullptr);
+    // Prepare device memory for block counters
+    Heap.NumBlockCounter =
+        (Heap.NumBlockDesc + NumDescsPerCounter - 1) / NumDescsPerCounter;
+    size_t CounterSize = Heap.NumBlockCounter * sizeof(uint32_t);
+    auto CounterProp = DeviceInfo->getAllocMemProperties(DeviceId, CounterSize);
+    void *BlockCounter = nullptr;
+    CALL_CL_EXT_RVRC(DeviceId, BlockCounter, clDeviceMemAllocINTEL, RC, Context,
+                     Device, CounterProp->data(), CounterSize, 0);
+    if (RC != CL_SUCCESS || !BlockCounter)
+      return nullptr;
+    DeviceInfo->OwnedMemory[DeviceId].push_back(BlockCounter);
+    Heap.BlockCounter = (uint32_t *)BlockCounter;
+    std::vector<uint32_t> BlockCounterInit(Heap.NumBlockCounter, 0);
+    CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                         DeviceInfo->Queues[DeviceId], CL_TRUE,
+                         Heap.BlockCounter, BlockCounterInit.data(),
+                         CounterSize, 0, nullptr, nullptr);
+  }
+
+  // Prepare device copy of the pool
+  void *PoolDevice = nullptr;
+  auto PoolProp = DeviceInfo->getAllocMemProperties(DeviceId, sizeof(Pool));
+  CALL_CL_EXT_RVRC(DeviceId, PoolDevice, clDeviceMemAllocINTEL, RC, Context,
+                   Device, PoolProp->data(), sizeof(Pool), 0);
+  if (RC != CL_SUCCESS || !PoolDevice)
+    return nullptr;
+  DeviceInfo->OwnedMemory[DeviceId].push_back(PoolDevice);
+  CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL,
+                       DeviceInfo->Queues[DeviceId], CL_TRUE, PoolDevice, &Pool,
+                       sizeof(Pool), 0, nullptr, nullptr);
+
+  return PoolDevice;
+}
+
 int32_t OpenCLProgramTy::initProgramData() {
   // Look up program data location on device
   PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
@@ -3534,18 +3691,22 @@ int32_t OpenCLProgramTy::initProgramData() {
   // Allocate dynamic memory for in-kernel allocation
   void *MemLB = 0;
   uintptr_t MemUB = 0;
+  void *MemPool = nullptr;
   size_t MemSize = DeviceInfo->Option.KernelDynamicMemorySize;
+  if (DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {
+    if (MemSize > 0) {
+      cl_int RC;
+      auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, MemSize);
+      CALL_CL_EXT_RVRC(DeviceId, MemLB, clDeviceMemAllocINTEL, RC, Context,
+                       Device, AllocProp->data(), MemSize, 0);
+    }
 
-  if (MemSize > 0) {
-    cl_int RC;
-    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, MemSize);
-    CALL_CL_EXT_RVRC(DeviceId, MemLB, clDeviceMemAllocINTEL, RC, Context,
-                     Device, AllocProp->data(), MemSize, 0);
-  }
-
-  if (MemLB) {
-    DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
-    MemUB = (uintptr_t)MemLB + MemSize;
+    if (MemLB) {
+      DeviceInfo->OwnedMemory[DeviceId].push_back(MemLB);
+      MemUB = (uintptr_t)MemLB + MemSize;
+    }
+  } else {
+    MemPool = initDynamicMemPool();
   }
 
   int DeviceType =
@@ -3560,7 +3721,8 @@ int32_t OpenCLProgramTy::initProgramData() {
     P.NumThreadsPerEU,   // HW threads per EU
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
-    DeviceType           // Device type (0 for GPU, 1 for CPU)
+    DeviceType,          // Device type (0 for GPU, 1 for CPU)
+    MemPool              // Dynamic memory pool
   };
 
   CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,

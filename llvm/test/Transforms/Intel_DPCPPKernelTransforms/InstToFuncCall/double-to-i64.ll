@@ -10,6 +10,8 @@ define void @sample_test(double %x, i64* %y) nounwind {
   ret void
 }
 
-; CHECK: call i64 @_Z12convert_longd(double %x)
+; CHECK: call i64 @_Z12convert_longd(double %x) [[ATTR:#[0-9]+]]
+
+; CHECK: [[ATTR]] = { nounwind readnone willreturn }
 
 ; DEBUGIFY-NOT: WARNING

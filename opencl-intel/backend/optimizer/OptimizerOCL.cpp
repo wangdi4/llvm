@@ -246,7 +246,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   // loop.
   // Inline (not only small) functions.
   auto InlineParams = getInlineParams();
-  InlineParams.DefaultThreshold = 4096;
+  InlineParams.DefaultThreshold = 16384;
   MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
 
   FunctionPassManager FPM3;

@@ -178,6 +178,13 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         (int)CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION, true);
     if (!EnableSubgroupEmulation)
       m_LLVMOptions.emplace_back("-dpcpp-enable-subgroup-emulation=false");
+
+    // Set machinesink's machine-sink-load-instrs-threshold and
+    // machine-sink-load-blocks-threshold to 0 otherwise it may possibly
+    // increase ocl's jit compile time dramatically, especially for large
+    // kernels.
+    m_LLVMOptions.emplace_back("-machine-sink-load-instrs-threshold=0");
+    m_LLVMOptions.emplace_back("-machine-sink-load-blocks-threshold=0");
 }
 
 void CompilerConfig::LoadDefaults()

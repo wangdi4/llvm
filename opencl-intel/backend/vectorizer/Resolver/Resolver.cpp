@@ -14,19 +14,19 @@
 
 #define DEBUG_TYPE "resolver"
 #include "Resolver.h"
-#include "Mangler.h"
-#include "Logger.h"
-#include "CompilationUtils.h"
-#include "VectorizerUtils.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "FakeExtractInsert.h"
+#include "InitializePasses.h"
+#include "Logger.h"
+#include "Mangler.h"
+#include "OCLPassSupport.h"
+#include "VectorizerUtils.h"
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Constants.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <vector>
 
@@ -669,9 +669,8 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   // Find (or create) declaration for newly called function
   Function *newFunction = currFunc->getParent()->getFunction(LibFunc->getName());
   if (!newFunction) {
-    using namespace Intel::OpenCL::DeviceBackend;
     Constant *newFunctionConst =
-      CompilationUtils::importFunctionDecl(currFunc->getParent(), LibFunc);
+        CompilationUtils::importFunctionDecl(currFunc->getParent(), LibFunc);
     V_ASSERT(newFunctionConst && "failed generating function in current module");
     newFunction = dyn_cast<Function>(newFunctionConst);
     V_ASSERT(newFunction && "Function type mismatch, caused a constant expression cast!");

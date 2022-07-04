@@ -1713,7 +1713,11 @@ OclBuiltinEmitter::run(raw_ostream& OS)
           for (const std::string& aliasName : aliasNames) {
             const std::string& rewritedAlias =
               m_DB.rewritePattern(P, *J, aliasName, nullMacro);
-            OS << cProto.replace(pos, length, rewritedAlias) << '\n';
+            // Copy cProto explicitly to avoid keep manipulating the original
+            // cProto in-place.
+            std::string OriginalProto = cProto;
+            auto &Replaced = OriginalProto.replace(pos, length, rewritedAlias);
+            OS << Replaced << '\n';
           }
         }
       }
@@ -1760,7 +1764,11 @@ OclBuiltinEmitter::run(raw_ostream& OS)
             m_DB.rewritePattern(P, *J, aliasName, nullMacro);
           // Since Impl is filtered by the type J, so there is only one
           // function in impl.
-          OS << impl.replace(pos, length, rewritedAlias) << '\n';
+          // Copy impl explicitly to avoid keep manipulating the original impl
+          // in-place.
+          std::string OriginalImpl = impl;
+          auto &Replaced = OriginalImpl.replace(pos, length, rewritedAlias);
+          OS << Replaced << '\n';
         }
       }
     }

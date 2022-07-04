@@ -24,7 +24,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
-using namespace llvm::NameMangleAPI;
+using namespace llvm;
+using namespace NameMangleAPI;
 
 namespace llvm {
 
@@ -345,7 +346,6 @@ bool isGlobalOffset(StringRef S) {
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
-
 bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
@@ -601,6 +601,8 @@ std::string getPipeName(PipeKind Kind) {
   return Name;
 }
 
+bool isPipeBuiltin(StringRef Name) { return getPipeKind(Name); }
+
 Type *getArrayElementType(const ArrayType *ArrTy) {
   Type *ElemTy = ArrTy->getElementType();
   while (auto *InnerArrayTy = dyn_cast<ArrayType>(ElemTy))
@@ -719,7 +721,7 @@ std::string appendWorkGroupFinalizePrefix(StringRef S) {
 }
 
 std::string removeWorkGroupFinalizePrefix(StringRef S) {
-  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finalize prefix");
   reflection::FunctionDescriptor FD = demangle(S);
   FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
   std::string FuncName = mangle(FD);
@@ -2694,6 +2696,107 @@ void patchNotInlinedTIDUserFunc(
   // Erase the functions since they're replaced with the ones patched.
   for (Function *OldF : FuncsToPatch)
     OldF->eraseFromParent();
+}
+
+bool getDebugFlagFromMetadata(Module *M) {
+  if (llvm::NamedMDNode *CompileOptsNamed =
+          M->getNamedMetadata("opencl.compiler.options")) {
+
+    llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
+        cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+    for (llvm::MDString *Opt : CompileOpts) {
+      if (Opt->getString() == "-g") {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool hasFDivWithFastFlag(Module *M) {
+  for (Function &F : *M)
+    for (BasicBlock &B : F)
+      for (Instruction &I : B)
+        if (I.getOpcode() == Instruction::FDiv && I.isFast())
+          return true;
+
+  return false;
+}
+
+const char *ImageTypeNames[] = {"opencl.image1d_ro_t",
+                                "opencl.image1d_array_ro_t",
+                                "opencl.image1d_wo_t",
+                                "opencl.image1d_array_wo_t",
+                                "opencl.image1d_rw_t",
+                                "opencl.image1d_array_rw_t",
+                                "opencl.image2d_ro_t",
+                                "opencl.image1d_buffer_ro_t",
+                                "opencl.image2d_wo_t",
+                                "opencl.image1d_buffer_wo_t",
+                                "opencl.image2d_rw_t",
+                                "opencl.image1d_buffer_rw_t",
+                                "opencl.image2d_array_ro_t",
+                                "opencl.image2d_depth_ro_t",
+                                "opencl.image2d_array_wo_t",
+                                "opencl.image2d_depth_wo_t",
+                                "opencl.image2d_array_rw_t",
+                                "opencl.image2d_depth_rw_t",
+                                "opencl.image2d_array_depth_ro_t",
+                                "opencl.image2d_msaa_ro_t",
+                                "opencl.image2d_array_depth_wo_t",
+                                "opencl.image2d_msaa_wo_t",
+                                "opencl.image2d_array_depth_rw_t",
+                                "opencl.image2d_msaa_rw_t",
+                                "opencl.image2d_array_msaa_ro_t",
+                                "opencl.image2d_msaa_depth_ro_t",
+                                "opencl.image2d_array_msaa_wo_t",
+                                "opencl.image2d_msaa_depth_wo_t",
+                                "opencl.image2d_array_msaa_rw_t",
+                                "opencl.image2d_msaa_depth_rw_t",
+                                "opencl.image2d_array_msaa_depth_ro_t",
+                                "opencl.image3d_ro_t",
+                                "opencl.image2d_array_msaa_depth_wo_t",
+                                "opencl.image3d_wo_t",
+                                "opencl.image2d_array_msaa_depth_rw_t",
+                                "opencl.image3d_rw_t"};
+
+bool isImagesUsed(const Module &M) {
+  for (unsigned i = 0, e = sizeof(ImageTypeNames) / sizeof(ImageTypeNames[0]);
+       i < e; ++i) {
+    if (StructType::getTypeByName(M.getContext(), ImageTypeNames[i]))
+      return true;
+  }
+
+  return false;
+}
+
+bool getOptDisableFlagFromMetadata(Module *M) {
+  if (NamedMDNode *CompileOptsNamed =
+          M->getNamedMetadata("opencl.compiler.options")) {
+
+    MDTupleTypedArrayWrapper<MDString> CompileOpts(
+        cast<MDTuple>(CompileOptsNamed->getOperand(0)));
+
+    for (MDString *Opt : CompileOpts) {
+      if (Opt->getString() == "-cl-opt-disable") {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool isBlockInvocationKernel(Function *F) {
+  // TODO: Is there a better way to detect block invoke kernel?
+  // And can this be replaced with the same function in BlockUtils.cpp?
+  if (F->getName().contains("_block_invoke_") &&
+      F->getName().endswith("_kernel_separated_args"))
+    return true;
+
+  return false;
 }
 
 } // end namespace CompilationUtils

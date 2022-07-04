@@ -1,4 +1,21 @@
 //===------------ rtl.h - Target independent OpenMP target RTL ------------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -65,6 +82,8 @@ struct RTLInfoTy {
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
   typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
+  typedef bool (register_host_pointer_ty)(int32_t, void *, size_t);
+  typedef bool (unregister_host_pointer_ty)(int32_t, void *);
   typedef int32_t(requires_mapping_ty)(int32_t, void *, int64_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
@@ -160,6 +179,8 @@ struct RTLInfoTy {
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_realloc_ty *data_realloc = nullptr;
   data_aligned_alloc_ty *data_aligned_alloc = nullptr;
+  register_host_pointer_ty *register_host_pointer = nullptr;
+  unregister_host_pointer_ty *unregister_host_pointer = nullptr;
   requires_mapping_ty *requires_mapping = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
