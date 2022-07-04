@@ -1603,10 +1603,15 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
   unsigned DstBits = Trunc->getType()->getScalarSizeInBits(),
            SrcBits = X->getType()->getScalarSizeInBits();
   if (Cmp.isEquality() && Trunc->hasOneUse()) {
+<<<<<<< HEAD
 #ifndef INTEL_CUSTOMIZATION
     // Revert cc88445.
     // It is the opposite transform from commit ecda1c2,
     // (OptimizeICmpInstSize) in this source file.
+=======
+    // Canonicalize to a mask and wider compare if the wide type is suitable:
+    // (trunc X to i8) == C --> (X & 0xff) == (zext C)
+>>>>>>> ab372cdd6ff4e6ccb1fdd83a421914cddfb30e58
     if (!X->getType()->isVectorTy() && shouldChangeType(DstBits, SrcBits)) {
       Constant *Mask = ConstantInt::get(X->getType(),
                                         APInt::getLowBitsSet(SrcBits, DstBits));
