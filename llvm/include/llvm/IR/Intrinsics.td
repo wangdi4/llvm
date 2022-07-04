@@ -2277,3 +2277,4 @@ include "llvm/IR/IntrinsicsRISCV.td"
 include "llvm/IR/IntrinsicsSPIRV.td"
 include "llvm/IR/IntrinsicsVE.td"
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL
+include "llvm/IR/IntrinsicsDirectX.td"
