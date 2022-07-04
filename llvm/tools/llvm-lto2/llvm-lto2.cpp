@@ -68,18 +68,18 @@ static cl::opt<std::string> AAPipeline("aa-pipeline",
 static cl::opt<bool> SaveTemps("save-temps", cl::desc("Save temporary files"));
 
 static cl::opt<bool>
-    ThinLTODistributedIndexes("thinlto-distributed-indexes", cl::init(false),
+    ThinLTODistributedIndexes("thinlto-distributed-indexes",
                               cl::desc("Write out individual index and "
                                        "import files for the "
                                        "distributed backend case"));
 
 static cl::opt<bool>
-    ThinLTOEmitIndexes("thinlto-emit-indexes", cl::init(false),
+    ThinLTOEmitIndexes("thinlto-emit-indexes",
                        cl::desc("Write out individual index files via "
                                 "InProcessThinLTO"));
 
 static cl::opt<bool>
-    ThinLTOEmitImports("thinlto-emit-imports", cl::init(false),
+    ThinLTOEmitImports("thinlto-emit-imports",
                        cl::desc("Write out individual imports files via "
                                 "InProcessThinLTO. Has no effect unless "
                                 "specified with -thinlto-emit-indexes or "
@@ -153,7 +153,7 @@ static cl::opt<std::string>
 static cl::opt<bool>
     RunCSIRInstr("lto-cspgo-gen",
                  cl::desc("Run PGO context sensitive IR instrumentation"),
-                 cl::init(false), cl::Hidden);
+                 cl::Hidden);
 
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
@@ -167,7 +167,7 @@ static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
                                        cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
-    DebugPassManager("debug-pass-manager", cl::init(false), cl::Hidden,
+    DebugPassManager("debug-pass-manager", cl::Hidden,
                      cl::desc("Print pass management debugging information"));
 
 static cl::opt<std::string>
@@ -180,7 +180,7 @@ static cl::list<std::string>
 static cl::opt<bool> EnableFreestanding(
     "lto-freestanding",
     cl::desc("Enable Freestanding (disable builtins / TLI) during LTO"),
-    cl::init(false), cl::Hidden);
+    cl::Hidden);
 
 static void check(Error E, std::string Msg) {
   if (!E)
