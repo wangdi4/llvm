@@ -292,6 +292,7 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
 
   if (Subtarget->hasSVE() || Subtarget->hasSME()) {
     // Add legal sve predicate types
+    addRegisterClass(MVT::nxv1i1, &AArch64::PPRRegClass);
     addRegisterClass(MVT::nxv2i1, &AArch64::PPRRegClass);
     addRegisterClass(MVT::nxv4i1, &AArch64::PPRRegClass);
     addRegisterClass(MVT::nxv8i1, &AArch64::PPRRegClass);
@@ -1156,7 +1157,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
            MVT::nxv4i16, MVT::nxv4i32, MVT::nxv8i8, MVT::nxv8i16 })
       setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Legal);
 
-    for (auto VT : {MVT::nxv16i1, MVT::nxv8i1, MVT::nxv4i1, MVT::nxv2i1}) {
+    for (auto VT :
+         {MVT::nxv16i1, MVT::nxv8i1, MVT::nxv4i1, MVT::nxv2i1, MVT::nxv1i1}) {
       setOperationAction(ISD::CONCAT_VECTORS, VT, Custom);
       setOperationAction(ISD::SELECT, VT, Custom);
       setOperationAction(ISD::SETCC, VT, Custom);
@@ -4676,7 +4678,6 @@ SDValue AArch64TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
         Op.getOperand(2), Op.getOperand(3),
         DAG.getValueType(Op.getValueType().changeVectorElementType(MVT::i32)),
         Op.getOperand(1));
-
   case Intrinsic::localaddress: {
     const auto &MF = DAG.getMachineFunction();
     const auto *RegInfo = Subtarget->getRegisterInfo();
@@ -5675,8 +5676,16 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
     SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
   MachineFunction &MF = DAG.getMachineFunction();
+  const Function &F = MF.getFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
-  bool IsWin64 = Subtarget->isCallingConvWin64(MF.getFunction().getCallingConv());
+  bool IsWin64 = Subtarget->isCallingConvWin64(F.getCallingConv());
+  AArch64FunctionInfo *FuncInfo = MF.getInfo<AArch64FunctionInfo>();
+
+  SmallVector<ISD::OutputArg, 4> Outs;
+  GetReturnInfo(CallConv, F.getReturnType(), F.getAttributes(), Outs,
+                DAG.getTargetLoweringInfo(), MF.getDataLayout());
+  if (any_of(Outs, [](ISD::OutputArg &Out){ return Out.VT.isScalableVector(); }))
+    FuncInfo->setIsSVECC(true);
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
@@ -5690,7 +5699,7 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
   // we use a special version of AnalyzeFormalArguments to pass in ValVT and
   // LocVT.
   unsigned NumArgs = Ins.size();
-  Function::const_arg_iterator CurOrigArg = MF.getFunction().arg_begin();
+  Function::const_arg_iterator CurOrigArg = F.arg_begin();
   unsigned CurArgIdx = 0;
   for (unsigned i = 0; i != NumArgs; ++i) {
     MVT ValVT = Ins[i].VT;
@@ -5761,11 +5770,13 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
       else if (RegVT == MVT::f128 || RegVT.is128BitVector())
         RC = &AArch64::FPR128RegClass;
       else if (RegVT.isScalableVector() &&
-               RegVT.getVectorElementType() == MVT::i1)
+               RegVT.getVectorElementType() == MVT::i1) {
+        FuncInfo->setIsSVECC(true);
         RC = &AArch64::PPRRegClass;
-      else if (RegVT.isScalableVector())
+      } else if (RegVT.isScalableVector()) {
+        FuncInfo->setIsSVECC(true);
         RC = &AArch64::ZPRRegClass;
-      else
+      } else
         llvm_unreachable("RegVT not supported by FORMAL_ARGUMENTS Lowering");
 
       // Transform the arguments in physical registers into virtual ones.
@@ -5887,7 +5898,7 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
       // i1 arguments are zero-extended to i8 by the caller. Emit a
       // hint to reflect this.
       if (Ins[i].isOrigArg()) {
-        Argument *OrigArg = MF.getFunction().getArg(Ins[i].getOrigArgIndex());
+        Argument *OrigArg = F.getArg(Ins[i].getOrigArgIndex());
         if (OrigArg->getType()->isIntegerTy(1)) {
           if (!Ins[i].Flags.isZExt()) {
             ArgValue = DAG.getNode(AArch64ISD::ASSERT_ZEXT_BOOL, DL,
@@ -5902,7 +5913,6 @@ SDValue AArch64TargetLowering::LowerFormalArguments(
   assert((ArgLocs.size() + ExtraArgLocs) == Ins.size());
 
   // varargs
-  AArch64FunctionInfo *FuncInfo = MF.getInfo<AArch64FunctionInfo>();
   if (isVarArg) {
     if (!Subtarget->isTargetDarwin() || IsWin64) {
       // The AAPCS variadic function ABI is identical to the non-variadic
@@ -6215,7 +6225,7 @@ bool AArch64TargetLowering::isEligibleForTailCallOptimization(
   // The check for matching callee-saved regs will determine whether it is
   // eligible for TCO.
   if ((CallerCC == CallingConv::C || CallerCC == CallingConv::Fast) &&
-      AArch64RegisterInfo::hasSVEArgsOrReturn(&MF))
+      MF.getInfo<AArch64FunctionInfo>()->isSVECC())
     CallerCC = CallingConv::AArch64_SVE_VectorCall;
 
   bool CCMatch = CallerCC == CalleeCC;
@@ -10542,8 +10552,13 @@ SDValue AArch64TargetLowering::LowerSPLAT_VECTOR(SDValue Op,
                          DAG.getValueType(MVT::i1));
   SDValue ID =
       DAG.getTargetConstant(Intrinsic::aarch64_sve_whilelo, DL, MVT::i64);
-  return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, VT, ID,
-                     DAG.getConstant(0, DL, MVT::i64), SplatVal);
+  SDValue Zero = DAG.getConstant(0, DL, MVT::i64);
+  if (VT == MVT::nxv1i1)
+    return DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, MVT::nxv1i1,
+                       DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, MVT::nxv2i1, ID,
+                                   Zero, SplatVal),
+                       Zero);
+  return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, VT, ID, Zero, SplatVal);
 }
 
 SDValue AArch64TargetLowering::LowerDUPQLane(SDValue Op,
