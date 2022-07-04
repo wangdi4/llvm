@@ -631,17 +631,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   if (!Subtarget.useSoftFloat() && Subtarget.hasSSE2()) {
     // f16, f32 and f64 use SSE.
     // Set up the FP register classes.
-<<<<<<< HEAD
     addRegisterClass(MVT::f16, Subtarget.hasAVX512() ? &X86::FR16XRegClass
                                                      : &X86::FR16RegClass);
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
     addRegisterClass(MVT::bf16, Subtarget.hasAVX512() ? &X86::BFR16XRegClass
                                                       : &X86::BFR16RegClass);
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
     addRegisterClass(MVT::f32, Subtarget.hasAVX512() ? &X86::FR32XRegClass
                                                      : &X86::FR32RegClass);
     addRegisterClass(MVT::f64, Subtarget.hasAVX512() ? &X86::FR64XRegClass
@@ -673,7 +670,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::FSINCOS, VT, Expand);
     }
 
-<<<<<<< HEAD
     // Half type will be promoted by default.
     setOperationAction(ISD::FABS, MVT::f16, Promote);
     setOperationAction(ISD::FNEG, MVT::f16, Promote);
@@ -716,7 +712,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
     setLibcallName(RTLIB::FPROUND_F32_F16, "__truncsfhf2");
     setLibcallName(RTLIB::FPEXT_F16_F32, "__extendhfsf2");
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
     // Bfloat type will be promoted by default.
@@ -724,7 +719,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SELECT_CC, MVT::bf16, Promote);
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 
     // Lower this to MOVMSK plus an AND.
     setOperationAction(ISD::FGETSIGN, MVT::i64, Custom);
@@ -800,11 +794,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     } else // SSE immediates.
       addLegalFPImmediate(APFloat(+0.0)); // xorpd
   }
-<<<<<<< HEAD
   // Support fp16 0 immediate.
   if (isTypeLegal(MVT::f16))
     addLegalFPImmediate(APFloat::getZero(APFloat::IEEEhalf()));
-=======
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -813,7 +805,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     addLegalFPImmediate(APFloat::getZero(APFloat::BFloat()));
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 
   // Handle constrained floating-point operations of scalar.
   setOperationAction(ISD::STRICT_FADD,      MVT::f32, Legal);
@@ -6297,9 +6288,7 @@ bool X86TargetLowering::ShouldShrinkFPConstant(EVT VT) const {
 
 bool X86TargetLowering::isScalarFPTypeInSSEReg(EVT VT) const {
   return (VT == MVT::f64 && Subtarget.hasSSE2()) ||
-<<<<<<< HEAD
          (VT == MVT::f32 && Subtarget.hasSSE1()) || VT == MVT::f16;
-=======
          (VT == MVT::f32 && Subtarget.hasSSE1()) ||
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -6307,7 +6296,6 @@ bool X86TargetLowering::isScalarFPTypeInSSEReg(EVT VT) const {
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
          (VT == MVT::f16 && Subtarget.hasFP16());
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 }
 
 bool X86TargetLowering::isLoadBitCastBeneficial(EVT LoadVT, EVT BitcastVT,
@@ -25755,12 +25743,10 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   MVT VT = Op1.getSimpleValueType();
   SDValue CC;
 
-<<<<<<< HEAD
   if (isSoftFP16(VT))
     return DAG.getBitcast(MVT::f16, DAG.getNode(ISD::SELECT, DL, MVT::i16, Cond,
                                                 DAG.getBitcast(MVT::i16, Op1),
                                                 DAG.getBitcast(MVT::i16, Op2)));
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (VT == MVT::bf16 && !Subtarget.hasFP16())
@@ -25770,7 +25756,6 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
            DAG.getBitcast(MVT::i16, Op2)));
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 
   // Lower FP selects into a CMP/AND/ANDN/OR sequence when the necessary SSE ops
   // are available or VBLENDV if AVX is available.
@@ -35992,16 +35977,13 @@ static bool checkAndUpdateEFLAGSKill(MachineBasicBlock::iterator SelectItr,
 // conditional jump around it.
 static bool isCMOVPseudo(MachineInstr &MI) {
   switch (MI.getOpcode()) {
-<<<<<<< HEAD
   case X86::CMOV_FR16:
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   case X86::CMOV_BFR16:
   case X86::CMOV_BFR16X:
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
   case X86::CMOV_FR16X:
   case X86::CMOV_FR32:
   case X86::CMOV_FR32X:

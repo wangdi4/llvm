@@ -34,17 +34,14 @@
 
 let Predicates = [NoAVX512] in {
   // A vector extract of the first f32/f64 position is a subregister copy
-<<<<<<< HEAD
   def : Pat<(f16 (extractelt (v8f16 VR128:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v8f16 VR128:$src), FR16)>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(bf16 (extractelt (v8bf16 VR128:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v8bf16 VR128:$src), BFR16)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
   def : Pat<(f32 (extractelt (v4f32 VR128:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v4f32 VR128:$src), FR32)>;
   def : Pat<(f64 (extractelt (v2f64 VR128:$src), (iPTR 0))),
@@ -68,10 +65,8 @@ let Predicates = [HasAVX512] in {
 }
 
 let Predicates = [NoVLX] in {
-<<<<<<< HEAD
   def : Pat<(v8f16 (scalar_to_vector FR16:$src)),
             (COPY_TO_REGCLASS FR16:$src, VR128)>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(v8bf16 (scalar_to_vector BFR16:$src)),
@@ -80,7 +75,6 @@ let Predicates = [NoVLX] in {
 #endif // INTEL_CUSTOMIZATION
   def : Pat<(v8f16 (scalar_to_vector FR16X:$src)),
             (COPY_TO_REGCLASS FR16X:$src, VR128)>;
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
   // Implicitly promote a 32-bit scalar to a vector.
   def : Pat<(v4f32 (scalar_to_vector FR32:$src)),
             (COPY_TO_REGCLASS FR32:$src, VR128)>;
