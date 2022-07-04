@@ -4005,14 +4005,16 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     MO.setReg(VirtReg);
     MO.setIsKill(true);
   } else if ((RC->getID() == X86::FR16RegClassID ||
-              RC->getID() == X86::FR16XRegClassID)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-              || RC->getID() == X86::BFR16RegClassID
-              || RC->getID() == X86::BFR16XRegClassID
+              RC->getID() == X86::FR16XRegClassID ||
+              RC->getID() == X86::BFR16RegClassID ||
+              RC->getID() == X86::BFR16XRegClassID) &&
+#else // INTEL_FEATURE_ISA_BF16_BASE
+              RC->getID() == X86::FR16XRegClassID) &&
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-             && !Subtarget.hasFP16()) {
+             !Subtarget.hasFP16()) {
     unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZmr
                    : Subtarget.hasAVX()  ? X86::VMOVSSmr
                                          : X86::MOVSSmr;
@@ -4047,14 +4049,16 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     MO.setReg(VirtReg);
     MO.setIsKill(true);
   } else if ((RC->getID() == X86::FR16RegClassID ||
-              RC->getID() == X86::FR16XRegClassID)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-              || RC->getID() == X86::BFR16RegClassID
-              || RC->getID() == X86::BFR16XRegClassID)
+              RC->getID() == X86::FR16XRegClassID ||
+              RC->getID() == X86::BFR16RegClassID ||
+              RC->getID() == X86::BFR16XRegClassID) &&
+#else // INTEL_FEATURE_ISA_BF16_BASE
+              RC->getID() == X86::FR16XRegClassID) &&
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-              && !Subtarget.hasFP16()) {
+             !Subtarget.hasFP16()) {
     unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZrm
                    : Subtarget.hasAVX()  ? X86::VMOVSSrm
                                          : X86::MOVSSrm;

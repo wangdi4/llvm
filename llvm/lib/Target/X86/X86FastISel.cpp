@@ -166,14 +166,14 @@ private:
   /// computed in an SSE register, not on the X87 floating point stack.
   bool isScalarFPTypeInSSEReg(EVT VT) const {
     return (VT == MVT::f64 && Subtarget->hasSSE2()) ||
-           (VT == MVT::f32 && Subtarget->hasSSE1()) || VT == MVT::f16;
-           (VT == MVT::f32 && Subtarget->hasSSE1()) ||
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-           VT == MVT::bf16 ||
+           (VT == MVT::f32 && Subtarget->hasSSE1()) || VT == MVT::f16 ||
+           VT == MVT::bf16;
+#else // INTEL_FEATURE_ISA_BF16_BASE
+           (VT == MVT::f32 && Subtarget->hasSSE1()) || VT == MVT::f16;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-           (VT == MVT::f16 && Subtarget->hasFP16());
   }
 
   bool isTypeLegal(Type *Ty, MVT &VT, bool AllowI1 = false);
