@@ -20,7 +20,6 @@
 define void @test_fshl(<8 x i64> %lo, <8 x i64> %hi, <8 x i64>* %arr) {
 ; CHECK-LABEL: test_fshl:
 ; CHECK:       # %bb.0: # %entry
-<<<<<<< HEAD
 ; CHECK-NEXT:    movl $63, %eax
 ; CHECK-NEXT:    vmovd %eax, %xmm2
 ; CHECK-NEXT:    movl $12, %eax
@@ -29,10 +28,6 @@ define void @test_fshl(<8 x i64> %lo, <8 x i64> %hi, <8 x i64>* %arr) {
 ; CHECK-NEXT:    vpsllq %xmm2, %zmm1, %zmm1
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; CHECK-NEXT:    vpsrlq $52, %zmm0, %zmm0
-=======
-; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; CHECK-NEXT:    vpsrlq $1, %zmm0, %zmm0
->>>>>>> 72c6d910afb9bde1b88cb8681c1d3e12d8c47acb
 ; CHECK-NEXT:    vpternlogq $168, {{\.?LCPI[0-9]+_[0-9]+}}, %zmm1, %zmm0
 ; CHECK-NEXT:    vmovdqa64 %zmm0, (%eax)
 ; CHECK-NEXT:    vzeroupper
