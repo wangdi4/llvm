@@ -729,6 +729,8 @@ public:
 private:
   storage_type Value;
 
+  FPOptionsOverride getChangesSlow(const FPOptions &Base) const;
+
 public:
   FPOptions() : Value(0) {
     setFPContractMode(LangOptions::FPM_Off);
@@ -835,6 +837,9 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
+  /// Return difference with the given option set.
+  FPOptionsOverride getChangesFrom(const FPOptions &Base) const;
+
   // We can define most of the accessors automatically:
 #define OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                    \
   TYPE get##NAME() const {                                                     \
@@ -885,6 +890,8 @@ public:
       : Options(FPO), OverrideMask(OverrideMaskBits) {}
   FPOptionsOverride(FPOptions New, FPOptions Old)
       : Options(New), OverrideMask(New.getDiffWith(Old)) {}
+  FPOptionsOverride(FPOptions FPO, FPOptions::storage_type Mask)
+      : Options(FPO), OverrideMask(Mask) {}
 
   bool requiresTrailingStorage() const { return OverrideMask != 0; }
 
@@ -964,6 +971,12 @@ public:
 #include "clang/Basic/FPOptions.def"
   LLVM_DUMP_METHOD void dump();
 };
+
+inline FPOptionsOverride FPOptions::getChangesFrom(const FPOptions &Base) const {
+  if (Value == Base.Value)
+    return FPOptionsOverride();
+  return getChangesSlow(Base);
+}
 
 /// Describes the kind of translation unit being processed.
 enum TranslationUnitKind {
