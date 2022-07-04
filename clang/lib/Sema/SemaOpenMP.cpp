@@ -2303,7 +2303,6 @@ bool Sema::isInOpenMPTargetExecutionDirective() const {
              false);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   if (!getLangOpts().OpenMPLateOutline ||
@@ -2363,7 +2362,6 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   return false;
 }
 #endif // INTEL_COLLAB
-=======
 bool Sema::isOpenMPRebuildMemberExpr(ValueDecl *D) {
   DSAStackTy::DSAVarData DVarPrivate = DSAStack->hasDSA(
       D,
@@ -2383,7 +2381,6 @@ static OMPCapturedExprDecl *buildCaptureDecl(Sema &S, IdentifierInfo *Id,
                                              Expr *CaptureExpr, bool WithInit,
                                              DeclContext *CurContext,
                                              bool AsExpression);
->>>>>>> 927156a67445a6edb1b09e3d6246b0e5a9cf8a16
 
 VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
                                     unsigned StopAt) {
@@ -4755,12 +4752,8 @@ static ExprResult buildCapture(Sema &S, Expr *CaptureExpr, DeclRefExpr *&Ref) {
         S, &S.getASTContext().Idents.get(CaptureStr), CaptureExpr,
 #else // INTEL_COLLAB
         S, &S.getASTContext().Idents.get(".capture_expr."), CaptureExpr,
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-        /*WithInit=*/true, /*AsExpression=*/true);
-=======
         /*WithInit=*/true, S.CurContext, /*AsExpression=*/true);
->>>>>>> 927156a67445a6edb1b09e3d6246b0e5a9cf8a16
     Ref = buildDeclRefExpr(S, CD, CD->getType().getNonReferenceType(),
                            CaptureExpr->getExprLoc());
   }
