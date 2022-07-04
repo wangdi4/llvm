@@ -53,15 +53,12 @@
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/IntrinsicsBPF.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 #include "llvm/IR/IntrinsicsCSA.h"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "llvm/IR/IntrinsicsDirectX.h"
->>>>>>> 43dc319049516c586f5ece974e618baf40d737a5
 #include "llvm/IR/IntrinsicsHexagon.h"
 #include "llvm/IR/IntrinsicsMips.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
