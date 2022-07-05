@@ -157,7 +157,6 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
 #endif
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if _WIN32
 extern "C" BOOL WINAPI
@@ -191,7 +190,8 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
-void RTLsTy::LoadRTLs() {
+void RTLsTy::loadRTLs() {
+
 #if INTEL_CUSTOMIZATION
 #if !_WIN32
   // Turn on helper task
@@ -199,9 +199,7 @@ void RTLsTy::LoadRTLs() {
     kmp_set_defaults("LIBOMP_USE_HIDDEN_HELPER_TASK=1");
 #endif // !_WIN32
 #endif // INTEL_CUSTOMIZATION
-=======
-void RTLsTy::loadRTLs() {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
   PM->TargetOffloadPolicy =
       (kmp_target_offload_kind_t)__kmpc_get_target_offload();
@@ -360,13 +358,12 @@ void RTLsTy::loadRTLs() {
     *((void **)&R.data_exchange_async) =
         dlsym(DynlibHandle, "__tgt_rtl_data_exchange_async");
     *((void **)&R.is_data_exchangable) =
-<<<<<<< HEAD
-        dlsym(dynlib_handle, "__tgt_rtl_is_data_exchangable");
+        dlsym(DynlibHandle, "__tgt_rtl_is_data_exchangable");
 
 #if INTEL_COLLAB
     #define SET_OPTIONAL_INTERFACE(entry, name)                                \
       do {                                                                     \
-        if ((*((void **)&R.entry) = dlsym(dynlib_handle, "__tgt_rtl_" #name))) \
+        if ((*((void **)&R.entry) = dlsym(DynlibHandle, "__tgt_rtl_" #name))) \
           DP("Optional interface: __tgt_rtl_" #name "\n");                     \
       } while (0)
     #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
@@ -423,12 +420,7 @@ void RTLsTy::loadRTLs() {
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-    *((void **)&R.register_lib) =
-        dlsym(dynlib_handle, "__tgt_rtl_register_lib");
-=======
-        dlsym(DynlibHandle, "__tgt_rtl_is_data_exchangable");
     *((void **)&R.register_lib) = dlsym(DynlibHandle, "__tgt_rtl_register_lib");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
     *((void **)&R.unregister_lib) =
         dlsym(DynlibHandle, "__tgt_rtl_unregister_lib");
     *((void **)&R.supports_empty_images) =
@@ -497,8 +489,7 @@ static void registerGlobalCtorsDtorsForImage(__tgt_bin_desc *Desc,
     DeviceTy &Device = *PM->Devices[RTL->Idx + I];
     Device.PendingGlobalsMtx.lock();
     Device.HasPendingGlobals = true;
-<<<<<<< HEAD
-    for (__tgt_offload_entry *entry = img->EntriesBegin;
+    for (__tgt_offload_entry *Entry = Img->EntriesBegin;
 #if INTEL_COLLAB
          // Due to paddings potentially inserted by a linker
          // (e.g. due to MSVC incremental linking),
@@ -509,16 +500,11 @@ static void registerGlobalCtorsDtorsForImage(__tgt_bin_desc *Desc,
          // symbols and the entries themselves.
          // Another potential issue is that we rely on the gaps
          // inserted by the linker being zeroes.
-         entry < img->EntriesEnd; ++entry) {
+         Entry < Img->EntriesEnd; ++Entry) {
 #else  // INTEL_COLLAB
-         entry != img->EntriesEnd; ++entry) {
-#endif  // INTEL_COLLAB
-      if (entry->flags & OMP_DECLARE_TARGET_CTOR) {
-=======
-    for (__tgt_offload_entry *Entry = Img->EntriesBegin;
          Entry != Img->EntriesEnd; ++Entry) {
+#endif  // INTEL_COLLAB
       if (Entry->flags & OMP_DECLARE_TARGET_CTOR) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
         DP("Adding ctor " DPxMOD " to the pending list.\n",
            DPxPTR(Entry->addr));
         Device.PendingCtorsDtors[Desc].PendingCtors.push_back(Entry->addr);

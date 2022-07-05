@@ -122,14 +122,10 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 extern "C" {
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
-=======
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 // If we don't have a valid ELF ID we can just fail.
 #if TARGET_ELF_ID < 1
   return 0;
@@ -143,23 +139,16 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-__tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
-                                          __tgt_device_image *image) {
-=======
 int32_t __tgt_rtl_init_device(int32_t DeviceId) { return OFFLOAD_SUCCESS; }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                                           __tgt_device_image *Image) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   DP("Dev %d: load binary from " DPxMOD " image\n", DeviceId,
      DPxPTR(Image->ImageStart));
@@ -307,79 +296,55 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
     REPORT("Invalid target data allocation kind");
   }
 #if INTEL_COLLAB
-  if (ptr) {
+  if (Ptr) {
     std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
-    DeviceInfo.DevicePtrs.insert(ptr);
+    DeviceInfo.DevicePtrs.insert(Ptr);
   }
 #endif // INTEL_COLLAB
 
   return Ptr;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size) {
-  memcpy(tgt_ptr, hst_ptr, size);
-  return OFFLOAD_SUCCESS;
-}
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size) {
-  memcpy(hst_ptr, tgt_ptr, size);
-  return OFFLOAD_SUCCESS;
-}
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  free(tgt_ptr);
-#if INTEL_COLLAB
-  std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
-  DeviceInfo.DevicePtrs.erase(tgt_ptr);
-#endif // INTEL_COLLAB
-  return OFFLOAD_SUCCESS;
-}
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
-                                         void **tgt_args,
-                                         ptrdiff_t *tgt_offsets,
-                                         int32_t arg_num, int32_t team_num,
-                                         int32_t thread_limit,
-                                         uint64_t loop_tripcount /*not used*/) {
-=======
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                               int64_t Size) {
   memcpy(TgtPtr, HstPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
   memcpy(HstPtr, TgtPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   free(TgtPtr);
+
+#if INTEL_COLLAB
+  std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
+  DeviceInfo.DevicePtrs.erase(TgtPtr);
+#endif // INTEL_COLLAB
+
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
                                          void **TgtArgs, ptrdiff_t *TgtOffsets,
                                          int32_t ArgNum, int32_t TeamNum,
                                          int32_t ThreadLimit,
                                          uint64_t LoopTripcount /*not used*/) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // ignore team num and thread limit.
 
   // Use libffi to launch execution.
@@ -390,38 +355,30 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
   std::vector<void *> Args(ArgNum);
   std::vector<void *> Ptrs(ArgNum);
 
-<<<<<<< HEAD
-  for (int32_t i = 0; i < arg_num; ++i) {
+  for (int32_t I = 0; I < ArgNum; ++I) {
+
 #if INTEL_COLLAB
-    ptrdiff_t offset = tgt_offsets[i];
+    ptrdiff_t offset = TgtOffsets[I];
     // Offset equal to MAX(ptrdiff_t) means that the argument
     // must be passed as literal, and the offset should be ignored.
     if (offset == (std::numeric_limits<ptrdiff_t>::max)())
-      ptrs[i] = tgt_args[i];
+      Ptrs[I] = TgtArgs[I];
     else
-      ptrs[i] = (void *)((intptr_t)tgt_args[i] + offset);
+      Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
 #else // INTEL_COLLAB
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-#endif // INTEL_COLLAB
-    args[i] = &ptrs[i];
-  }
-
-#if INTEL_COLLAB
-  ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arg_num,
-                                   &ffi_type_void, args_types.data());
-#else // INTEL_COLLAB
-  ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arg_num,
-                                   &ffi_type_void, &args_types[0]);
-#endif // INTEL_COLLAB
-=======
-  for (int32_t I = 0; I < ArgNum; ++I) {
     Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + TgtOffsets[I]);
+#endif // INTEL_COLLAB
+
     Args[I] = &Ptrs[I];
   }
 
+#if INTEL_COLLAB
+  ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, ArgNum,
+                                   &ffi_type_void, ArgsTypes.data());
+#else // INTEL_COLLAB
   ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, ArgNum,
                                    &ffi_type_void, &ArgsTypes[0]);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_COLLAB
 
   assert(Status == FFI_OK && "Unable to prepare target launch!");
 
@@ -430,34 +387,24 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
 
   DP("Running entry point at " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
-<<<<<<< HEAD
-  void (*entry)(void);
-  *((void **)&entry) = tgt_entry_ptr;
+  void (*Entry)(void);
+  *((void **)&Entry) = TgtEntryPtr;
+
 #if INTEL_COLLAB
-  ffi_call(&cif, entry, NULL, args.data());
+  ffi_call(&Cif, Entry, NULL, Args.data());
 #else // INTEL_COLLAB
-  ffi_call(&cif, entry, NULL, &args[0]);
+  ffi_call(&Cif, Entry, NULL, &Args[0]);
 #endif // INTEL_COLLAB
+
   return OFFLOAD_SUCCESS;
 }
 
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t arg_num) {
-=======
-  void (*Entry)(void);
-  *((void **)&Entry) = TgtEntryPtr;
-  ffi_call(&Cif, Entry, NULL, &Args[0]);
-  return OFFLOAD_SUCCESS;
-}
-
 int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
                                     void **TgtArgs, ptrdiff_t *TgtOffsets,
                                     int32_t ArgNum) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // use one team and one thread.
   return __tgt_rtl_run_target_team_region(DeviceId, TgtEntryPtr, TgtArgs,
                                           TgtOffsets, ArgNum, 1, 1, 0);

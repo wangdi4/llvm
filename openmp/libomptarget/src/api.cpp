@@ -143,7 +143,7 @@ EXTERN int omp_target_is_present(const void *Ptr, int DeviceNum) {
     return false;
   }
 #if INTEL_COLLAB
-  CHECK_DEVICE_AND_CTORS_RET(device_num, false);
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, false);
 #endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
@@ -330,7 +330,7 @@ EXTERN int omp_target_associate_ptr(const void *HostPtr, const void *DevicePtr,
     return OFFLOAD_FAIL;
   }
 #if INTEL_COLLAB
-  CHECK_DEVICE_AND_CTORS_RET(device_num, OFFLOAD_FAIL);
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
 #endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
@@ -363,7 +363,7 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
     return OFFLOAD_FAIL;
   }
 #if INTEL_COLLAB
-  CHECK_DEVICE_AND_CTORS_RET(device_num, OFFLOAD_FAIL);
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
 #endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
@@ -386,7 +386,7 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
     return host_ptr;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     DP("omp_get_mapped_ptr :  returns NULL\n");
     return NULL;
   }
@@ -422,7 +422,7 @@ EXTERN int omp_target_is_accessible(const void *ptr, size_t size,
     return 1;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("omp_target_is_accessible returns 0 due to device failure\n");
     return 0;
   }
@@ -443,7 +443,7 @@ static int32_t checkInteropCall(const omp_interop_t interop,
 
   int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("Device %" PRId64 " is not ready in %s\n", DeviceNum, FnName);
     return omp_irc_other;
   }
@@ -649,7 +649,7 @@ static void *targetRealloc(void *Ptr, size_t Size, int DeviceNum, int Kind,
     return Ret;
   }
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("%s returns NULL ptr\n", Name);
     return NULL;
   }
@@ -680,7 +680,7 @@ static void *targetAlignedAlloc(size_t Align, size_t Size, int DeviceNum,
     return Ret;
   }
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("%s returns NULL ptr\n", Name);
     return NULL;
   }
@@ -747,7 +747,7 @@ EXTERN int ompx_target_register_host_pointer(void * HostPtr, size_t Size,
     return false;
   }
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("Cannot register host pointer as Device not ready\n");
     return false;
   }
@@ -776,7 +776,7 @@ EXTERN void *omp_target_get_context(int device_num) {
     return nullptr;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s returns null for device %d\n", __func__, device_num);
   }
 
@@ -792,7 +792,7 @@ EXTERN int omp_set_sub_device(int device_num, int level) {
     return 0;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s returns 0 for device %d\n", __func__, device_num);
     return 0;
   }
@@ -806,7 +806,7 @@ EXTERN void omp_unset_sub_device(int device_num) {
     return;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s does nothing for device %d\n", __func__, device_num);
     return;
   }
@@ -825,7 +825,7 @@ EXTERN int ompx_get_num_subdevices(int device_num, int level) {
     return 0;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s returns 0 for device %d\n", __func__, device_num);
     return 0;
   }
@@ -844,7 +844,7 @@ EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels) {
     return;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s does nothing for device %d\n", __func__, device_num);
     return;
   }
@@ -858,7 +858,7 @@ EXTERN void ompx_kernel_batch_end(int device_num) {
     return;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s does nothing for device %d\n", __func__, device_num);
     return;
   }
@@ -873,7 +873,7 @@ EXTERN int ompx_get_device_info(int device_num, int info_id, size_t info_size,
     return OFFLOAD_FAIL;
   }
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("%s does nothing for device %d\n", __func__, device_num);
     return OFFLOAD_FAIL;
   }

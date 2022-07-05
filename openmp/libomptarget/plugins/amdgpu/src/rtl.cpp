@@ -1215,20 +1215,14 @@ LaunchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
   int ThreadsPerGroup = RTLDeviceInfoTy::DefaultWgSize;
   int NumGroups = 0;
 
-<<<<<<< HEAD
-  int Max_Teams =
+  int MaxTeams =
       Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
 #if INTEL_COLLAB
-  if ((unsigned)Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
+  if ((unsigned)MaxTeams > RTLDeviceInfoTy::HardTeamLimit)
 #else // INTEL_COLLAB
   if (Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
 #endif // INTEL_COLLAB
-    Max_Teams = RTLDeviceInfoTy::HardTeamLimit;
-=======
-  int MaxTeams = Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
-  if (MaxTeams > RTLDeviceInfoTy::HardTeamLimit)
     MaxTeams = RTLDeviceInfoTy::HardTeamLimit;
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (print_kernel_trace & STARTUP_DETAILS) {
     DP("RTLDeviceInfoTy::Max_Teams: %d\n", RTLDeviceInfoTy::MaxTeams);

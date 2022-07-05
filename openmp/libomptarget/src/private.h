@@ -46,14 +46,9 @@ extern int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
 
 extern void handleTargetOutcome(bool Success, ident_t *Loc);
 extern bool checkDeviceAndCtors(int64_t &DeviceID, ident_t *Loc);
-<<<<<<< HEAD
 extern bool isOffloadDisabled(); // INTEL_COLLAB
-extern void *targetAllocExplicit(size_t size, int device_num, int kind,
-                                 const char *name);
-=======
 extern void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
                                  const char *Name);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
 // This structure stores information of a mapped memory region.
 struct MapComponentInfoTy {

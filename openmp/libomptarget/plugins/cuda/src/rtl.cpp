@@ -1539,16 +1539,11 @@ DeviceRTLTy DeviceRTL;
 extern "C" {
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
-  return elf_check_machine(image, /* EM_CUDA */ 190);
-=======
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   return elf_check_machine(Image, /* EM_CUDA */ 190);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 }
 
 #if INTEL_COLLAB
@@ -1573,48 +1568,32 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t SrcDevId, int DstDevId) {
   return 0;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_init_device(int32_t device_id) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set when init the device.
 
   return DeviceRTL.initDevice(DeviceId);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif // INTEL_COLLAB
-int32_t __tgt_rtl_deinit_device(int32_t device_id) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_deinit_device(int32_t DeviceId) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set when deinit the device.
 
   return DeviceRTL.deinitDevice(DeviceId);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif // INTEL_COLLAB
-__tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
-                                          __tgt_device_image *image) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                                           __tgt_device_image *Image) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
@@ -1622,18 +1601,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   return DeviceRTL.loadBinary(DeviceId, Image);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif // INTEL_COLLAB
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *,
-                           int32_t kind) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *,
                            int32_t Kind) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
@@ -1641,18 +1614,12 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *,
   return DeviceRTL.dataAlloc(DeviceId, Size, (TargetAllocTy)Kind);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                               int64_t Size) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_data_submit_async.
 
   __tgt_async_info AsyncInfo;
@@ -1664,22 +1631,14 @@ int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   return __tgt_rtl_synchronize(DeviceId, &AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr,
-                                    void *hst_ptr, int64_t size,
-                                    __tgt_async_info *async_info_ptr) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-  assert(async_info_ptr && "async_info_ptr is nullptr");
-=======
 int32_t __tgt_rtl_data_submit_async(int32_t DeviceId, void *TgtPtr,
                                     void *HstPtr, int64_t Size,
                                     __tgt_async_info *AsyncInfoPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
   assert(AsyncInfoPtr && "async_info_ptr is nullptr");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
     return OFFLOAD_FAIL;
@@ -1687,18 +1646,12 @@ int32_t __tgt_rtl_data_submit_async(int32_t DeviceId, void *TgtPtr,
   return DeviceRTL.dataSubmit(DeviceId, TgtPtr, HstPtr, Size, AsyncInfoPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_data_retrieve_async.
 
   __tgt_async_info AsyncInfo;
@@ -1710,22 +1663,14 @@ int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   return __tgt_rtl_synchronize(DeviceId, &AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
-                                      void *tgt_ptr, int64_t size,
-                                      __tgt_async_info *async_info_ptr) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-  assert(async_info_ptr && "async_info_ptr is nullptr");
-=======
 int32_t __tgt_rtl_data_retrieve_async(int32_t DeviceId, void *HstPtr,
                                       void *TgtPtr, int64_t Size,
                                       __tgt_async_info *AsyncInfoPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
   assert(AsyncInfoPtr && "async_info_ptr is nullptr");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
     return OFFLOAD_FAIL;
@@ -1733,17 +1678,11 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t DeviceId, void *HstPtr,
   return DeviceRTL.dataRetrieve(DeviceId, HstPtr, TgtPtr, Size, AsyncInfoPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
-                                      int dst_dev_id, void *dst_ptr,
-                                      int64_t size,
-=======
 int32_t __tgt_rtl_data_exchange_async(int32_t SrcDevId, void *SrcPtr,
                                       int DstDevId, void *DstPtr, int64_t Size,
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
                                       __tgt_async_info *AsyncInfo) {
   assert(DeviceRTL.isValidDeviceId(SrcDevId) && "src_dev_id is invalid");
   assert(DeviceRTL.isValidDeviceId(DstDevId) && "dst_dev_id is invalid");
@@ -1756,21 +1695,13 @@ int32_t __tgt_rtl_data_exchange_async(int32_t SrcDevId, void *SrcPtr,
                                 AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_exchange(int32_t src_dev_id, void *src_ptr,
-                                int32_t dst_dev_id, void *dst_ptr,
-                                int64_t size) {
-  assert(DeviceRTL.isValidDeviceId(src_dev_id) && "src_dev_id is invalid");
-  assert(DeviceRTL.isValidDeviceId(dst_dev_id) && "dst_dev_id is invalid");
-=======
 int32_t __tgt_rtl_data_exchange(int32_t SrcDevId, void *SrcPtr,
                                 int32_t DstDevId, void *DstPtr, int64_t Size) {
   assert(DeviceRTL.isValidDeviceId(SrcDevId) && "src_dev_id is invalid");
   assert(DeviceRTL.isValidDeviceId(DstDevId) && "dst_dev_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_data_exchange_async.
 
   __tgt_async_info AsyncInfo;
@@ -1782,16 +1713,11 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcDevId, void *SrcPtr,
   return __tgt_rtl_synchronize(SrcDevId, &AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
     return OFFLOAD_FAIL;
@@ -1799,25 +1725,15 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   return DeviceRTL.dataDelete(DeviceId, TgtPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
-                                         void **tgt_args,
-                                         ptrdiff_t *tgt_offsets,
-                                         int32_t arg_num, int32_t team_num,
-                                         int32_t thread_limit,
-                                         uint64_t loop_tripcount) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
                                          void **TgtArgs, ptrdiff_t *TgtOffsets,
                                          int32_t ArgNum, int32_t TeamNum,
                                          int32_t ThreadLimit,
                                          uint64_t LoopTripcount) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_run_target_team_region_async.
 
   __tgt_async_info AsyncInfo;
@@ -1847,20 +1763,13 @@ int32_t __tgt_rtl_run_target_team_region_async(
                                        LoopTripcount, AsyncInfoPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t arg_num) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
                                     void **TgtArgs, ptrdiff_t *TgtOffsets,
                                     int32_t ArgNum) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_run_target_region_async.
 
   __tgt_async_info AsyncInfo;
@@ -1872,23 +1781,14 @@ int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
   return __tgt_rtl_synchronize(DeviceId, &AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_region_async(int32_t device_id,
-                                          void *tgt_entry_ptr, void **tgt_args,
-                                          ptrdiff_t *tgt_offsets,
-                                          int32_t arg_num,
-                                          __tgt_async_info *async_info_ptr) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-=======
 int32_t __tgt_rtl_run_target_region_async(int32_t DeviceId, void *TgtEntryPtr,
                                           void **TgtArgs, ptrdiff_t *TgtOffsets,
                                           int32_t ArgNum,
                                           __tgt_async_info *AsyncInfoPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // Context is set in __tgt_rtl_run_target_team_region_async.
   return __tgt_rtl_run_target_team_region_async(
       DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets, ArgNum,
@@ -1896,22 +1796,14 @@ int32_t __tgt_rtl_run_target_region_async(int32_t DeviceId, void *TgtEntryPtr,
       AsyncInfoPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_synchronize(int32_t device_id,
-                              __tgt_async_info *async_info_ptr) {
-  assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
-  assert(async_info_ptr && "async_info_ptr is nullptr");
-  assert(async_info_ptr->Queue && "async_info_ptr->Queue is nullptr");
-=======
 int32_t __tgt_rtl_synchronize(int32_t DeviceId,
                               __tgt_async_info *AsyncInfoPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
   assert(AsyncInfoPtr && "async_info_ptr is nullptr");
   assert(AsyncInfoPtr->Queue && "async_info_ptr->Queue is nullptr");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   // NOTE: We don't need to set context for stream sync.
   return DeviceRTL.synchronize(DeviceId, AsyncInfoPtr);
 }

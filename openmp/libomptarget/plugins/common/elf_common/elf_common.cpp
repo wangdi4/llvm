@@ -128,7 +128,6 @@ int32_t elf_check_machine(__tgt_device_image *Image, uint16_t TargetId) {
   auto CheckMachine = [TargetId](const ELFObjectFileBase *Object) {
     return TargetId == Object->getEMachine();
   };
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (getDebugLevel() > 0) {
     auto PrintELFNotes = [](const ELFObjectFileBase *Object) {
@@ -143,17 +142,13 @@ int32_t elf_check_machine(__tgt_device_image *Image, uint16_t TargetId) {
       return 0;
     };
 
-    (void)withBytesAsElf(reinterpret_cast<char *>(image->ImageStart),
-                         reinterpret_cast<char *>(image->ImageEnd),
+    (void)withBytesAsElf(reinterpret_cast<char *>(Image->ImageStart),
+                         reinterpret_cast<char *>(Image->ImageEnd),
                          PrintELFNotes);
   }
 #endif // INTEL_COLLAB
-  return withBytesAsElf(reinterpret_cast<char *>(image->ImageStart),
-                        reinterpret_cast<char *>(image->ImageEnd),
-=======
   return withBytesAsElf(reinterpret_cast<char *>(Image->ImageStart),
                         reinterpret_cast<char *>(Image->ImageEnd),
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
                         CheckMachine);
 }
 

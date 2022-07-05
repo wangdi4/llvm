@@ -187,7 +187,7 @@ static int initLibrary(DeviceTy &Device) {
           if (CurrDeviceEntry->size != 0) {
             REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
                    DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
-            rc = OFFLOAD_FAIL;
+            Rc = OFFLOAD_FAIL;
             break;
           }
           ++FnPtrsCount;
@@ -195,7 +195,7 @@ static int initLibrary(DeviceTy &Device) {
 #endif // INTEL_COLLAB
       }
 #if INTEL_COLLAB
-      if (rc != OFFLOAD_SUCCESS)
+      if (Rc != OFFLOAD_SUCCESS)
         break;
 #endif // INTEL_COLLAB
     }
@@ -222,17 +222,17 @@ static int initLibrary(DeviceTy &Device) {
     if (Device.FnPtrs.size() != FnPtrsCount) {
       REPORT("Expected %zu function pointers, found %zu.\n",
              FnPtrsCount, Device.FnPtrs.size());
-      rc = OFFLOAD_FAIL;
+      Rc = OFFLOAD_FAIL;
     }
     HDTTMap.destroy();
     Device.FnPtrMapMtx.unlock();
 
-    if (rc == OFFLOAD_SUCCESS)
-      rc = Device.set_function_ptr_map();
+    if (Rc == OFFLOAD_SUCCESS)
+      Rc = Device.set_function_ptr_map();
 
-    if (rc != OFFLOAD_SUCCESS) {
+    if (Rc != OFFLOAD_SUCCESS) {
       Device.PendingGlobalsMtx.unlock();
-      return rc;
+      return Rc;
     }
   }
 #endif // INTEL_COLLAB
@@ -428,25 +428,20 @@ void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
     return NULL;
   }
 
-<<<<<<< HEAD
-  DeviceTy &Device = *PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+
 #if INTEL_COLLAB
-  if (kind == TARGET_ALLOC_DEFAULT &&
+  if (Kind == TARGET_ALLOC_DEFAULT &&
       PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-    rc = Device.data_alloc_managed(size);
-    DP("%s returns managed ptr " DPxMOD "\n", name, DPxPTR(rc));
-    return rc;
+    Rc = Device.data_alloc_managed(Size);
+    DP("%s returns managed ptr " DPxMOD "\n", Name, DPxPTR(Rc));
+    return Rc;
   }
 #endif // INTEL_COLLAB
-  rc = Device.allocData(size, nullptr, kind);
-  DP("%s returns device ptr " DPxMOD "\n", name, DPxPTR(rc));
-  return rc;
-=======
-  DeviceTy &Device = *PM->Devices[DeviceNum];
+
   Rc = Device.allocData(Size, nullptr, Kind);
   DP("%s returns device ptr " DPxMOD "\n", Name, DPxPTR(Rc));
   return Rc;
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 }
 
 /// Call the user-defined mapper function followed by the appropriate
@@ -506,7 +501,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
   Device.UsedPtrsMtx.unlock();
   usedPtrs.emplace_back(std::set<void *>());
   // Begin data batching
-  if (!arg_mappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
+  if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
@@ -514,17 +509,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
     // Ignore private variables and arrays - there is no mapping for them.
-<<<<<<< HEAD
-    if ((arg_types[i] & OMP_TGT_MAPTYPE_LITERAL) ||
+    if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
 #if INTEL_COLLAB
         // No mapping for ND-range descriptor.
-        (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC) ||
+        (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) ||
 #endif // INTEL_COLLAB
-        (arg_types[i] & OMP_TGT_MAPTYPE_PRIVATE))
-=======
-    if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
         (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE))
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
       continue;
 
     if (ArgMappers && ArgMappers[I]) {
@@ -651,14 +641,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       uintptr_t Delta = (uintptr_t)HstPtrBegin - (uintptr_t)HstPtrBase;
       void *TgtPtrBase = (void *)((uintptr_t)TgtPtrBegin - Delta);
       DP("Returning device pointer " DPxMOD "\n", DPxPTR(TgtPtrBase));
-<<<<<<< HEAD
-      args_base[i] = TgtPtrBase;
+      ArgsBase[I] = TgtPtrBase;
+
 #if INTEL_COLLAB
       usedPtrs.back().insert(TgtPtrBase);
 #endif // INTEL_COLLAB
-=======
-      ArgsBase[I] = TgtPtrBase;
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
     }
 
     if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ && !IsHostPtr) {
@@ -706,24 +694,22 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
-<<<<<<< HEAD
+
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
 	DeviceTy::HDTTMapAccessorTy HDTTMap =
             Device.HostDataToTargetMap.getExclusiveAccessor();
 	auto PtrLookup =
-	    Device.lookupMapping(HDTTMap, Pointer_HstPtrBegin, sizeof(void *));
+	    Device.lookupMapping(HDTTMap, PointerHstPtrBegin, sizeof(void *));
         HDTTMap.destroy();
         if (PtrLookup.Entry) {
-          size_t PtrOffset = (size_t)((uint64_t)Pointer_HstPtrBegin -
+          size_t PtrOffset = (size_t)((uint64_t)PointerHstPtrBegin -
               (uint64_t)PtrLookup.Entry->HstPtrBase);
           Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
         }
 #endif // INTEL_COLLAB
-        if (Pointer_TPR.Entry->addEventIfNecessary(Device, AsyncInfo) !=
-=======
+
         if (PointerTpr.Entry->addEventIfNecessary(Device, AsyncInfo) !=
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
             OFFLOAD_SUCCESS)
           return OFFLOAD_FAIL;
       } else
@@ -731,7 +717,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     }
   }
 #if INTEL_COLLAB
-  if (!arg_mappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
+  if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching\n");
     return OFFLOAD_FAIL;
   }
@@ -1560,15 +1546,11 @@ public:
 /// Process data before launching the kernel, including calling targetDataBegin
 /// to map and transfer data to target device, transferring (first-)private
 /// variables.
-<<<<<<< HEAD
 #if INTEL_COLLAB
-static int processDataBefore(ident_t *loc, int64_t DeviceId, void *TgtEntryPtr,
+static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *TgtEntryPtr,
 #else // INTEL_COLLAB
-static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
-#endif // INTEL_COLLAB
-=======
 static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_COLLAB
                              int32_t ArgNum, void **ArgBases, void **Args,
                              int64_t *ArgSizes, int64_t *ArgTypes,
                              map_var_info_t *ArgNames, void **ArgMappers,
@@ -1579,11 +1561,11 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                              AsyncInfoTy &AsyncInfo, void **TgtNDLoopDesc) {
 #else  // INTEL_COLLAB
                              AsyncInfoTy &AsyncInfo) {
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
 
-  TIMESCOPE_WITH_NAME_AND_IDENT("mappingBeforeTargetRegion", loc);
+  TIMESCOPE_WITH_NAME_AND_IDENT("mappingBeforeTargetRegion", Loc);
   DeviceTy &Device = *PM->Devices[DeviceId];
+
 #if INTEL_COLLAB
   // Enable command batching for firstprivate data transfers
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
@@ -1591,12 +1573,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     return OFFLOAD_FAIL;
   }
 #endif // INTEL_COLLAB
-  int Ret = targetDataBegin(loc, Device, ArgNum, ArgBases, Args, ArgSizes,
-=======
-  TIMESCOPE_WITH_NAME_AND_IDENT("mappingBeforeTargetRegion", Loc);
-  DeviceTy &Device = *PM->Devices[DeviceId];
+
   int Ret = targetDataBegin(Loc, Device, ArgNum, ArgBases, Args, ArgSizes,
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
                             ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Ret != OFFLOAD_SUCCESS) {
     REPORT("Call to targetDataBegin failed, abort target.\n");
@@ -1878,15 +1856,11 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
   int Ret;
   if (ArgNum) {
     // Process data, such as data mapping, before launching the kernel
-<<<<<<< HEAD
 #if INTEL_COLLAB
-    Ret = processDataBefore(loc, DeviceId, TgtEntryPtr, ArgNum, ArgBases, Args,
+    Ret = processDataBefore(Loc, DeviceId, TgtEntryPtr, ArgNum, ArgBases, Args,
 #else // INTEL_COLLAB
-    Ret = processDataBefore(loc, DeviceId, HostPtr, ArgNum, ArgBases, Args,
-#endif // INTEL_COLLAB
-=======
     Ret = processDataBefore(Loc, DeviceId, HostPtr, ArgNum, ArgBases, Args,
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_COLLAB
                             ArgSizes, ArgTypes, ArgNames, ArgMappers, TgtArgs,
 #if INTEL_COLLAB
                             TgtOffsets, PrivateArgumentManager, AsyncInfo,

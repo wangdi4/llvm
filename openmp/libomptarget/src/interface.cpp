@@ -116,21 +116,6 @@ EXTERN void __tgt_target_data_begin_nowait(int64_t DeviceId, int32_t ArgNum,
                                  ArgSizes, ArgTypes, nullptr, nullptr);
 }
 
-<<<<<<< HEAD
-EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
-                                           int32_t arg_num, void **args_base,
-                                           void **args, int64_t *arg_sizes,
-                                           int64_t *arg_types,
-                                           map_var_info_t *arg_names,
-                                           void **arg_mappers) {
-  TIMESCOPE_WITH_IDENT(loc);
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(device_id);
-#endif // INTEL_COLLAB
-=======
 EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
                                            int32_t ArgNum, void **ArgsBase,
                                            void **Args, int64_t *ArgSizes,
@@ -138,7 +123,15 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
                                            map_var_info_t *ArgNames,
                                            void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
      DeviceId, ArgNum);
   if (checkDeviceAndCtors(DeviceId, Loc)) {
@@ -161,33 +154,28 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
 #endif
 
 #if INTEL_COLLAB
-  Device.pushSubDevice(encodedId, device_id);
+  Device.pushSubDevice(encodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataEnterBegin(device_id));
+  OMPT_TRACE(targetDataEnterBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
   AsyncInfoTy AsyncInfo(Device);
-<<<<<<< HEAD
-  int rc = targetDataBegin(loc, Device, arg_num, args_base, args, arg_sizes,
-                           arg_types, arg_names, arg_mappers, AsyncInfo);
-  if (rc == OFFLOAD_SUCCESS)
-    rc = AsyncInfo.synchronize();
-  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataEnterEnd(device_id));
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id]->popSubDevice();
-#endif // INTEL_COLLAB
-=======
   int Rc = targetDataBegin(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
                            ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataEnterEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  if (encodedId != DeviceId)
+    PM->Devices[DeviceId]->popSubDevice();
+#endif // INTEL_COLLAB
+
 }
 
 EXTERN void __tgt_target_data_begin_nowait_mapper(
@@ -224,24 +212,6 @@ EXTERN void __tgt_target_data_end_nowait(int64_t DeviceId, int32_t ArgNum,
                                ArgSizes, ArgTypes, nullptr, nullptr);
 }
 
-<<<<<<< HEAD
-EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
-                                         int32_t arg_num, void **args_base,
-                                         void **args, int64_t *arg_sizes,
-                                         int64_t *arg_types,
-                                         map_var_info_t *arg_names,
-                                         void **arg_mappers) {
-  TIMESCOPE_WITH_IDENT(loc);
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(device_id);
-#endif // INTEL_COLLAB
-  DP("Entering data end region with %d mappings\n", arg_num);
-  if (checkDeviceAndCtors(device_id, loc)) {
-    DP("Not offloading to device %" PRId64 "\n", device_id);
-=======
 EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          int32_t ArgNum, void **ArgsBase,
                                          void **Args, int64_t *ArgSizes,
@@ -249,10 +219,18 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   DP("Entering data end region with %d mappings\n", ArgNum);
   if (checkDeviceAndCtors(DeviceId, Loc)) {
     DP("Not offloading to device %" PRId64 "\n", DeviceId);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
     return;
   }
 
@@ -271,33 +249,28 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
 #endif
 
 #if INTEL_COLLAB
-  Device.pushSubDevice(encodedId, device_id);
+  Device.pushSubDevice(encodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataExitBegin(device_id));
+  OMPT_TRACE(targetDataExitBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
   AsyncInfoTy AsyncInfo(Device);
-<<<<<<< HEAD
-  int rc = targetDataEnd(loc, Device, arg_num, args_base, args, arg_sizes,
-                         arg_types, arg_names, arg_mappers, AsyncInfo);
-  if (rc == OFFLOAD_SUCCESS)
-    rc = AsyncInfo.synchronize();
-  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataExitEnd(device_id));
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id]->popSubDevice();
-#endif // INTEL_COLLAB
-=======
   int Rc = targetDataEnd(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
                          ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataExitEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  if (encodedId != DeviceId)
+    PM->Devices[DeviceId]->popSubDevice();
+#endif // INTEL_COLLAB
+
 }
 
 EXTERN void __tgt_target_data_end_nowait_mapper(
@@ -329,24 +302,6 @@ EXTERN void __tgt_target_data_update_nowait(
                                   ArgSizes, ArgTypes, nullptr, nullptr);
 }
 
-<<<<<<< HEAD
-EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
-                                            int32_t arg_num, void **args_base,
-                                            void **args, int64_t *arg_sizes,
-                                            int64_t *arg_types,
-                                            map_var_info_t *arg_names,
-                                            void **arg_mappers) {
-  TIMESCOPE_WITH_IDENT(loc);
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-  DP("Entering data update with %d mappings\n", arg_num);
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(device_id);
-#endif // INTEL_COLLAB
-  if (checkDeviceAndCtors(device_id, loc)) {
-    DP("Not offloading to device %" PRId64 "\n", device_id);
-=======
 EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             int32_t ArgNum, void **ArgsBase,
                                             void **Args, int64_t *ArgSizes,
@@ -354,10 +309,19 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
   DP("Entering data update with %d mappings\n", ArgNum);
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   if (checkDeviceAndCtors(DeviceId, Loc)) {
     DP("Not offloading to device %" PRId64 "\n", DeviceId);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
     return;
   }
 
@@ -367,32 +331,30 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
 
   DeviceTy &Device = *PM->Devices[DeviceId];
   AsyncInfoTy AsyncInfo(Device);
-<<<<<<< HEAD
+
 #if INTEL_COLLAB
-  Device.pushSubDevice(encodedId, device_id);
+  Device.pushSubDevice(encodedId, DeviceId);
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataUpdateBegin(device_id));
+  OMPT_TRACE(targetDataUpdateBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
-  int rc = targetDataUpdate(loc, Device, arg_num, args_base, args, arg_sizes,
-                            arg_types, arg_names, arg_mappers, AsyncInfo);
-  if (rc == OFFLOAD_SUCCESS)
-    rc = AsyncInfo.synchronize();
-  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataUpdateEnd(device_id));
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id]->popSubDevice();
-#endif // INTEL_COLLAB
-=======
+
   int Rc = targetDataUpdate(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
                             ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataUpdateEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  if (encodedId != DeviceId)
+    PM->Devices[DeviceId]->popSubDevice();
+#endif // INTEL_COLLAB
+
 }
 
 EXTERN void __tgt_target_data_update_nowait_mapper(
@@ -424,25 +386,20 @@ EXTERN int __tgt_target_nowait(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
                              ArgSizes, ArgTypes, nullptr, nullptr);
 }
 
-<<<<<<< HEAD
-EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
-                               int32_t arg_num, void **args_base, void **args,
-                               int64_t *arg_sizes, int64_t *arg_types,
-                               map_var_info_t *arg_names, void **arg_mappers) {
-  TIMESCOPE_WITH_IDENT(loc);
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(device_id);
-#endif // INTEL_COLLAB
-=======
 EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                                int32_t ArgNum, void **ArgsBase, void **Args,
                                int64_t *ArgSizes, int64_t *ArgTypes,
                                map_var_info_t *ArgNames, void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
      "\n",
      DPxPTR(HostPtr), DeviceId);
@@ -463,31 +420,15 @@ EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Push device encoding
-  PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
+  PM->Devices[DeviceId]->pushSubDevice(encodedId, DeviceId);
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetBegin(device_id));
+  OMPT_TRACE(targetBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
-  DeviceTy &Device = *PM->Devices[device_id];
-  AsyncInfoTy AsyncInfo(Device);
-  int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
-                  arg_types, arg_names, arg_mappers, 0, 0, false /*team*/,
-                  AsyncInfo);
-  if (rc == OFFLOAD_SUCCESS)
-    rc = AsyncInfo.synchronize();
-  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetEnd(device_id));
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id]->popSubDevice();
-#endif // INTEL_COLLAB
-  assert(rc == OFFLOAD_SUCCESS && "__tgt_target_mapper unexpected failure!");
-=======
+
   DeviceTy &Device = *PM->Devices[DeviceId];
   AsyncInfoTy AsyncInfo(Device);
   int Rc =
@@ -496,8 +437,17 @@ EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  if (encodedId != DeviceId)
+    PM->Devices[DeviceId]->popSubDevice();
+#endif // INTEL_COLLAB
+
   assert(Rc == OFFLOAD_SUCCESS && "__tgt_target_mapper unexpected failure!");
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   return OMP_TGT_SUCCESS;
 }
 
@@ -536,21 +486,6 @@ EXTERN int __tgt_target_teams_nowait(int64_t DeviceId, void *HostPtr,
                                    TeamNum, ThreadLimit);
 }
 
-<<<<<<< HEAD
-EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
-                                     void *host_ptr, int32_t arg_num,
-                                     void **args_base, void **args,
-                                     int64_t *arg_sizes, int64_t *arg_types,
-                                     map_var_info_t *arg_names,
-                                     void **arg_mappers, int32_t team_num,
-                                     int32_t thread_limit) {
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(device_id);
-#endif // INTEL_COLLAB
-=======
 EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
                                      void *HostPtr, int32_t ArgNum,
                                      void **ArgsBase, void **Args,
@@ -558,7 +493,15 @@ EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
                                      map_var_info_t *ArgNames,
                                      void **ArgMappers, int32_t TeamNum,
                                      int32_t ThreadLimit) {
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
      "\n",
      DPxPTR(HostPtr), DeviceId);
@@ -579,41 +522,34 @@ EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Push device encoding
-  PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
+  PM->Devices[DeviceId]->pushSubDevice(encodedId, DeviceId);
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetBegin(device_id));
+  OMPT_TRACE(targetBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
-  DeviceTy &Device = *PM->Devices[device_id];
-=======
+
   DeviceTy &Device = *PM->Devices[DeviceId];
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   AsyncInfoTy AsyncInfo(Device);
   int Rc = target(Loc, Device, HostPtr, ArgNum, ArgsBase, Args, ArgSizes,
                   ArgTypes, ArgNames, ArgMappers, TeamNum, ThreadLimit,
                   true /*team*/, AsyncInfo);
-<<<<<<< HEAD
-  if (rc == OFFLOAD_SUCCESS)
-    rc = AsyncInfo.synchronize();
-
-  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetEnd(device_id));
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id]->popSubDevice();
-#endif // INTEL_COLLAB
-  assert(rc == OFFLOAD_SUCCESS &&
-=======
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  if (encodedId != DeviceId)
+    PM->Devices[DeviceId]->popSubDevice();
+#endif // INTEL_COLLAB
+
   assert(Rc == OFFLOAD_SUCCESS &&
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
          "__tgt_target_teams_mapper unexpected failure!");
   return OMP_TGT_SUCCESS;
 }
@@ -920,7 +856,7 @@ EXTERN omp_interop_t __tgt_create_interop(
   if (device_num == OFFLOAD_DEVICE_DEFAULT)
     device_num = omp_get_default_device();
 
-  if (device_is_ready(device_num)) {
+  if (deviceIsReady(device_num)) {
     Interop = PM->Devices[device_num]->createInterop(interop_type, num_prefers,
                                                     prefer_ids);
     DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
@@ -939,7 +875,7 @@ EXTERN int __tgt_release_interop(omp_interop_t interop) {
   __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
   int64_t DeviceNum = TgtInterop->DeviceNum;
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("Device %" PRId64 " is not ready when releasing an interop " DPxMOD "\n",
        DeviceNum, DPxPTR(interop));
     return OFFLOAD_FAIL;
@@ -957,7 +893,7 @@ EXTERN int __tgt_use_interop(omp_interop_t interop) {
   __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
   int64_t DeviceNum = TgtInterop->DeviceNum;
 
-  if (!device_is_ready(DeviceNum)) {
+  if (!deviceIsReady(DeviceNum)) {
     DP("Device %" PRId64 " is not ready when using an interop " DPxMOD "\n",
        DeviceNum, DPxPTR(interop));
     return OFFLOAD_FAIL;
@@ -1004,7 +940,7 @@ EXTERN void __tgt_add_build_options(
 
   int64_t device_num = omp_get_default_device();
 
-  if (!device_is_ready(device_num)) {
+  if (!deviceIsReady(device_num)) {
     REPORT("Device %" PRId64 " is not ready.\n", device_num);
     return;
   }

@@ -471,8 +471,8 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
          "Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(TP), Size, HT.dynRefCountToStr().c_str(),
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
-<<<<<<< HEAD
-    TargetPointer = (void *)tp;
+    TargetPointer = (void *)TP;
+
 #if INTEL_COLLAB
   } else if (!requiresMapping(HstPtrBegin, Size)) {
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64
@@ -483,11 +483,9 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
              !managed_memory_supported()) {
 #else // INTEL_COLLAB
-=======
-    TargetPointer = (void *)TP;
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
+
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
@@ -646,15 +644,9 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
 #else // INTEL_CUSTOMIZATION
   if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
-<<<<<<< HEAD
-  else
-    return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                  AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
-=======
   return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
                                 AsyncInfo);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Retrieve data from device
@@ -687,15 +679,9 @@ int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
 #else // INTEL_CUSTOMIZATION
   if (!RTL->data_retrieve_async || !RTL->synchronize)
     return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
-<<<<<<< HEAD
-  else
-    return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                    AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
-=======
   return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                                   AsyncInfo);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Copy data from current device to destination device directly
@@ -729,15 +715,9 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
   if (!RTL->run_region || !RTL->synchronize)
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                            TgtVarsSize);
-<<<<<<< HEAD
-  else
-    return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                 TgtOffsets, TgtVarsSize, AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
-=======
   return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                                TgtVarsSize, AsyncInfo);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Run region on device
@@ -772,11 +752,9 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
     return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 LoopTripCount);
-<<<<<<< HEAD
-  else
-    return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                      TgtOffsets, TgtVarsSize, NumTeams,
-                                      ThreadLimit, LoopTripCount, AsyncInfo);
+  return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                    TgtOffsets, TgtVarsSize, NumTeams,
+                                    ThreadLimit, LoopTripCount, AsyncInfo);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1184,11 +1162,6 @@ int32_t DeviceTy::getDeviceInfo(int32_t InfoID, size_t InfoSize,
                                 InfoSizeRet);
   else
     return OFFLOAD_SUCCESS;
-=======
-  return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                    TgtOffsets, TgtVarsSize, NumTeams,
-                                    ThreadLimit, LoopTripCount, AsyncInfo);
->>>>>>> d27d0a673c64068c5f3a1981c428e0ef5cff8062
 }
 #endif // INTEL_COLLAB
 
