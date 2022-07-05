@@ -568,15 +568,12 @@ let Predicates = [HasAVX512] in {
 def : Pat<(v64i8 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v32i16 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v8i64 immAllZerosV), (AVX512_512_SET0)>;
-<<<<<<< HEAD
 def : Pat<(v32f16 immAllZerosV), (AVX512_512_SET0)>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 def : Pat<(v32bf16 immAllZerosV), (AVX512_512_SET0)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 def : Pat<(v16f32 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v8f64 immAllZerosV), (AVX512_512_SET0)>;
 }
@@ -609,29 +606,23 @@ let Predicates = [HasAVX512] in {
 def : Pat<(v8i16 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v16i8 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v2i64 immAllZerosV), (AVX512_128_SET0)>;
-<<<<<<< HEAD
 def : Pat<(v8f16 immAllZerosV), (AVX512_128_SET0)>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 def : Pat<(v8bf16 immAllZerosV), (AVX512_128_SET0)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 def : Pat<(v4f32 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v2f64 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v32i8 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v16i16 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v4i64 immAllZerosV), (AVX512_256_SET0)>;
-<<<<<<< HEAD
 def : Pat<(v16f16 immAllZerosV), (AVX512_256_SET0)>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 def : Pat<(v16bf16 immAllZerosV), (AVX512_256_SET0)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 def : Pat<(v8f32 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v4f64 immAllZerosV), (AVX512_256_SET0)>;
 }
@@ -640,17 +631,14 @@ def : Pat<(v4f64 immAllZerosV), (AVX512_256_SET0)>;
 // This is expanded by ExpandPostRAPseudos.
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
     isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasAVX512] in {
-<<<<<<< HEAD
   def AVX512_FsFLD0SH : I<0, Pseudo, (outs FR16X:$dst), (ins), "",
                           [(set FR16X:$dst, fp16imm0)]>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   def AVX512_FsFLD0SBF16 : I<0, Pseudo, (outs FR16X:$dst),  (ins), "",
                           [(set FR16X:$dst, fp16imm0)]>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
   def AVX512_FsFLD0SS : I<0, Pseudo, (outs FR32X:$dst), (ins), "",
                           [(set FR32X:$dst, fp32imm0)]>;
   def AVX512_FsFLD0SD : I<0, Pseudo, (outs FR64X:$dst), (ins), "",
@@ -1174,12 +1162,10 @@ def : Pat<(v8i16 (extract_subvector (v32i16 VR512:$src), (iPTR 8))),
           (v8i16 (VEXTRACTI128rr
                   (v16i16 (EXTRACT_SUBREG (v32i16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
-<<<<<<< HEAD
 def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF128rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
@@ -1188,7 +1174,6 @@ def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
                   (iPTR 1)))>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 def : Pat<(v16i8 (extract_subvector (v64i8 VR512:$src), (iPTR 16))),
           (v16i8 (VEXTRACTI128rr
                   (v32i8 (EXTRACT_SUBREG (v64i8 VR512:$src), sub_ymm)),
@@ -1218,12 +1203,10 @@ def : Pat<(v8i16 (extract_subvector (v32i16 VR512:$src), (iPTR 8))),
           (v8i16 (VEXTRACTI32x4Z256rr
                   (v16i16 (EXTRACT_SUBREG (v32i16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
-<<<<<<< HEAD
 def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF32x4Z256rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
@@ -1232,15 +1215,12 @@ def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
                   (iPTR 1)))>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 def : Pat<(v16i8 (extract_subvector (v64i8 VR512:$src), (iPTR 16))),
           (v16i8 (VEXTRACTI32x4Z256rr
                   (v32i8 (EXTRACT_SUBREG (v64i8 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
 }
 
-<<<<<<< HEAD
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 let Predicates = [HasFP16, HasVLX] in
@@ -1256,8 +1236,6 @@ def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF32x4Z256rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
-
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 
 // Additional patterns for handling a bitcast between the vselect and the
 // extract_subvector.
@@ -4168,17 +4146,14 @@ let Predicates = [HasBWI, NoVLX] in {
   defm : mask_move_lowering<"VMOVDQU16Z", v8i16x_info, v32i16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16i16x_info, v32i16_info>;
 
-<<<<<<< HEAD
   defm : mask_move_lowering<"VMOVDQU16Z", v8f16x_info, v32f16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16f16x_info, v32f16_info>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   defm : mask_move_lowering<"VMOVDQU16Z", v8bf16x_info, v32bf16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16bf16x_info, v32bf16_info>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 }
 
 let Predicates = [HasAVX512] in {
@@ -4990,9 +4965,9 @@ defm : avx512_store_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (bitconvert (i16 (and GR16:$mask, (i16 1))))), GR16, sub_16bit>;
 defm : avx512_store_scalar_lowering_subreg<"VMOVSDZ", avx512vl_f64_info,
                    (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))), GR8, sub_8bit>;
+let Predicates = [HasFP16] in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-let Predicates = [HasFP16] in {
 defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_bf16_info,
                    (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
 defm : avx512_store_scalar_lowering_subreg<"VMOVSHZ", avx512vl_bf16_info,
@@ -5004,15 +4979,6 @@ defm : avx512_store_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_bf16_info,
                            (iPTR 0))),
                    (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
                    GR8, sub_8bit>;
-
-<<<<<<< HEAD
-let Predicates = [HasFP16] in {
-defm : avx512_move_scalar_lowering<"VMOVSHZ", X86Movsh, fp16imm0, v8f16x_info>;
-defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_f16_info,
-                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
-defm : avx512_store_scalar_lowering_subreg<"VMOVSHZ", avx512vl_f16_info,
-                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
-=======
 defm : avx512_load_scalar_lowering<"VMOVSHZ", avx512vl_bf16_info,
                    (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
 defm : avx512_load_scalar_lowering_subreg<"VMOVSHZ", avx512vl_bf16_info,
@@ -5034,10 +5000,13 @@ def : Pat<(bf16 (X86selects VK1WM:$mask, (bf16 BFR16X:$src1), (bf16 BFR16X:$src2
 def : Pat<(bf16 (X86selects VK1WM:$mask, (bf16 BFR16X:$src1), bf16imm0)),
           (COPY_TO_REGCLASS (v8bf16 (VMOVSHZrrkz VK1WM:$mask, (v8bf16 (IMPLICIT_DEF)),
            (v8bf16 (COPY_TO_REGCLASS BFR16X:$src1, VR128X)))), BFR16X)>;
-}
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
+defm : avx512_move_scalar_lowering<"VMOVSHZ", X86Movsh, fp16imm0, v8f16x_info>;
+defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
+defm : avx512_store_scalar_lowering_subreg<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
 defm : avx512_store_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_f16_info,
                    (v32i1 (insert_subvector
                            (v32i1 immAllZerosV),

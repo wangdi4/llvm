@@ -606,17 +606,14 @@ def FR32 : RegisterClass<"X86", [f32], 32, (sequence "XMM%u", 0, 15)>;
 
 def FR64 : RegisterClass<"X86", [f64], 64, (add FR32)>;
 
-<<<<<<< HEAD
 def FR16 : RegisterClass<"X86", [f16], 16, (add FR32)> {let Size = 32;}
 
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 // TODO: Integrate bf16 into FR16 Register class since their ABI same.
 def BFR16 : RegisterClass<"X86", [bf16], 16, (add FR32)> {let Size = 32;}
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
 
 // FIXME: This sets up the floating point register files as though they are f64
 // values, though they really are f80 values.  This will cause us to spill

@@ -581,10 +581,8 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
 
   let Predicates = [HasSSE1,NoAVX512] in
     defm _FR32   : CMOVrr_PSEUDO<FR32, f32>;
-<<<<<<< HEAD
   let Predicates = [HasSSE2,NoAVX512] in {
     defm _FR16   : CMOVrr_PSEUDO<FR16, f16>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   let Predicates = [HasSSE2,NoAVX512] in
@@ -592,19 +590,15 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
   let Predicates = [HasSSE2,NoAVX512] in
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
     defm _FR64   : CMOVrr_PSEUDO<FR64, f64>;
   }
   let Predicates = [HasAVX512] in {
-<<<<<<< HEAD
     defm _FR16X  : CMOVrr_PSEUDO<FR16X, f16>;
-=======
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-  defm _BFR16X    : CMOVrr_PSEUDO<BFR16X, bf16>;
+    defm _BFR16X : CMOVrr_PSEUDO<BFR16X, bf16>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 5232cfb2b305ffec2279d494ce29084ed594e0c7
     defm _FR32X  : CMOVrr_PSEUDO<FR32X, f32>;
     defm _FR64X  : CMOVrr_PSEUDO<FR64X, f64>;
   }
