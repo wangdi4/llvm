@@ -901,8 +901,11 @@ define i32 @reduction_sum_multiuse(i32* noalias nocapture %A, i32* noalias nocap
 ; CHECK-NEXT:    [[L8:%.*]] = add i32 [[L7]], [[L3]]
 ; CHECK-NEXT:    [[L10]] = add i32 [[L8]], [[SUM_02]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[INDVARS_IV_NEXT]], 4294967295
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[TMP0]], 256
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
+; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[TMP0]], 256
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[END:%.*]], label [[DOTLR_PH]]
 ; CHECK:       end:
 ; CHECK-NEXT:    ret i32 [[L10]]
