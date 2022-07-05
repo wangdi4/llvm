@@ -7475,18 +7475,7 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
   return VectorizationFactor::Disabled();
 }
 
-<<<<<<< HEAD
-bool LoopVectorizationPlanner::requiresTooManyRuntimeChecks() const {
-  unsigned NumRuntimePointerChecks = Requirements.getNumRuntimePointerChecks();
-  return (NumRuntimePointerChecks >
-              VectorizerParams::RuntimeMemoryCheckThreshold &&
-          !Hints.allowReordering()) ||
-         NumRuntimePointerChecks > PragmaVectorizeMemoryCheckThreshold;
-}
-
 #if INTEL_CUSTOMIZATION
-=======
->>>>>>> 644a965c1efef68f22d9495e4cefbb599c214788
 Optional<VectorizationFactor>
 LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
                                ArrayRef<ElementCount> VFs) {
