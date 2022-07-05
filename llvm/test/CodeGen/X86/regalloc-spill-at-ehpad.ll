@@ -8,9 +8,9 @@
 
 
 ; The following checks that the value %p is reloaded within the catch handler.
-; CHECK-LABEL: "?catch$8@?0?test@4HA":
+; CHECK-LABEL: "?catch$7@?0?test@4HA": ;INTEL
 ; CHECK:           .seh_endprologue
-; CHECK:           movq    -16(%rbp), %rax
+; CHECK:           movq    -8(%rbp), %rax ;INTEL
 ; CHECK:           movb    $0, (%rax)
 
 define ptr @test(ptr %a) personality ptr @__CxxFrameHandler3 {
