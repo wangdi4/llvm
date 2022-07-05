@@ -453,7 +453,6 @@ bool cannotBeMaxInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
 bool cannotBeMinInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
                        bool Signed);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns true if loop \p L preheader or any of its predecessors has an
 /// OpenMP SIMD directive.
@@ -469,8 +468,6 @@ bool unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
                                          TargetLibraryInfo &TLI);
 #endif // INTEL_CUSTOMIZATION
 
-enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, NoHardUse, AlwaysRepl };
-=======
 enum ReplaceExitVal {
   NeverRepl,
   OnlyCheapRepl,
@@ -478,7 +475,6 @@ enum ReplaceExitVal {
   UnusedIndVarInLoop,
   AlwaysRepl
 };
->>>>>>> dbf6ab5ef9ae0e1f4706917c2b3f98a67c35826e
 
 /// If the final value of any expressions that are recurrent in the loop can
 /// be computed, substitute the exit values from the loop into any instructions
