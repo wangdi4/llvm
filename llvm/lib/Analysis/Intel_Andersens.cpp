@@ -328,6 +328,27 @@ static const char *(Andersens_Return_Arg_1_Intrinsics[]) = {
   nullptr
 };
 
+// TODO: This is same as dtrans::getCalledFunction. Needs to be reused.
+//
+// There is a possibility that a call to be analyzed is inside a BitCast, in
+// which case we need to strip the pointer casting from the \p Call operand to
+// identify the Function. The call may also be using an Alias to a Function,
+// in which case we need to get the aliasee. If a function is found, return it.
+// Otherwise, return nullptr.
+static Function *getAndersCalledFunction(const CallBase &Call) {
+  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
+  if (auto *CalledF = dyn_cast<Function>(CalledValue))
+    return CalledF;
+
+  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
+    if (!GA->isInterposable())
+      if (auto *AliasF =
+              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
+        return AliasF;
+
+  return nullptr;
+}
+
 // Information DenseSet requires implemented in order to be able to do
 // it's thing
 struct AndersensAAResult::PairKeyInfo {
@@ -2618,18 +2639,28 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
 
+  Value *CalledVal = CB.getCalledOperand()->stripPointerCasts();
   if (!F) {
     // Get target function if CalledVal is GlobalAlias and treat it
     // as direct call.
-    Value *CalledVal = CB.getCalledOperand()->stripPointerCasts();
     if (auto *GA = dyn_cast<GlobalAlias>(CalledVal))
       F = dyn_cast<Function>(GA->getAliaseeObject());
   }
 
   if (F) {
     AddConstraintsForCall(&CB, F);
-  } else {
+  } else if (CB.isIndirectCall() ||
+             (CalledVal && isa<GlobalIFunc>(CalledVal))) {
+    // GlobalIFunc calls are treated as indirect calls.
     AddConstraintsForCall(&CB, nullptr);
+  } else {
+    // getCalledFunction may return nullptr for direct calls when types of
+    // call and callee don't match. For now, conservatively set actuals
+    // and formals to UniversalSet.
+    Function *Callee = getAndersCalledFunction(CB);
+    AddConstraintsForInitActualsToUniversalSet(&CB);
+    if (Callee && !Callee->isDeclaration())
+      AddConstraintsForNonInternalLinkage(Callee);
   }
 }
 
