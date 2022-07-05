@@ -656,6 +656,15 @@ CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   return PushNumThreads;
 }
 
+void VPOParoptUtils::emitWarning(WRegionNode *W, const Twine &Message) {
+  Function *F = W->getEntryDirective()->getFunction();
+  DiagnosticInfoOptimizationFailure DI("openmp", "implementation-warning",
+                                       W->getEntryDirective()->getDebugLoc(),
+                                       W->getEntryBBlock());
+  DI << Message.str();
+  F->getContext().diagnose(DI);
+}
+
 // Allow using short names for llvm::vpo::intrinsics::IntrinsicOperandTy
 // constants (e.g. I8, I16, etc.)
 using namespace llvm::vpo::intrinsics;
@@ -722,9 +731,16 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
 
     auto MapEntry = SPIRVPrefetchMap.find({DataElemTyID, NumElementsTySize});
 
-    if (MapEntry == SPIRVPrefetchMap.end())
+    if (MapEntry == SPIRVPrefetchMap.end()) {
+      std::string TypeName = "";
+      raw_string_ostream OS(TypeName);
+      DataTy->print(OS);
+      emitWarning(W, "A 'data' clause in the '" + W->getName() +
+                         "' construct was ignored. SPIRV OpenCL prefetch API "
+                         "doesn't support its element type: " +
+                         TypeName + ".");
       continue;
-
+    }
     StringRef FnName = MapEntry->second;
 
     IRBuilder<> Builder(InsertPt);
@@ -755,18 +771,12 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
 
   // The prefetch SPIRV builtin is selected based on
   // the element data type and data type of size.
-  typedef std::pair<IntrinsicOperandTy, int>
-      LscPrefetchTy;
 
   // TODO: check if DenseMap<LscPrefetchTy, StringRef> works here
-  static const std::map<LscPrefetchTy, const std::string>
-      LscPrefetchMap = {
-        { { I32, 32 }, "__builtin_IB_lsc_prefetch_global_uint" },
-        { { I64, 32 }, "__builtin_IB_lsc_prefetch_global_ulong" },
-
-        { { I32, 64 }, "__builtin_IB_lsc_prefetch_global_uint" },
-        { { I64, 64 }, "__builtin_IB_lsc_prefetch_global_ulong" },
-      };
+  static const std::map<unsigned, const std::string> LscPrefetchMap = {
+      {32, "__builtin_IB_lsc_prefetch_global_uint"},
+      {64, "__builtin_IB_lsc_prefetch_global_ulong"},
+  };
 
   if (!W->canHaveData())
     return;
@@ -787,29 +797,40 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
     // TODO: LSC prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
     auto ElemOffsetTy = Type::getInt32Ty(C);
-    unsigned ElemOffsetTySize = ElemOffsetTy->getIntegerBitWidth();
 
+    const auto &DL = M->getDataLayout();
+    unsigned ElementSize = DL.getTypeSizeInBits(DataTy);
     auto HintTy = Type::getInt32Ty(C);
 
-    IntrinsicOperandTy DataElemTyID = { DataTy->getTypeID(),
-                                        DataTy->getPrimitiveSizeInBits() };
+    auto MapEntry = LscPrefetchMap.find(ElementSize);
 
-    auto MapEntry = LscPrefetchMap.find(
-           { DataElemTyID, ElemOffsetTySize });
-
-    if (MapEntry == LscPrefetchMap.end())
+    if (MapEntry == LscPrefetchMap.end()) {
+      std::string TypeName = "";
+      raw_string_ostream OS(TypeName);
+      DataTy->print(OS);
+      emitWarning(W, "A 'data' clause in the '" + W->getName() +
+                         "' construct was ignored. SPIRV LSC prefetch API "
+                         "doesn't support its element type: " +
+                         TypeName + ".");
       continue;
-
+    }
     StringRef FnName = MapEntry->second;
+
+    Type *OriginalElementTy = V->getType();
+    assert(OriginalElementTy->isPointerTy() &&
+           "The data address should be a pointer.");
+    unsigned AS = cast<PointerType>(OriginalElementTy)->getAddressSpace();
+    Type *PrefetchPtrTy = Type::getIntNPtrTy(C, ElementSize, AS);
 
     IRBuilder<> Builder(InsertPt);
     Value *ElemOffset =
         Builder.CreateSExtOrTrunc(DI->getNumElements(), ElemOffsetTy);
-
+    Value *PrefetchPtr =
+        Builder.CreatePointerBitCastOrAddrSpaceCast(V, PrefetchPtrTy);
     Value *CacheHint = Builder.CreateSExtOrTrunc(
                          Builder.getInt32(DI->getHint()), HintTy);
 
-    SmallVector<Value *, 2> FnArgs = {V, ElemOffset, CacheHint};
+    SmallVector<Value *, 2> FnArgs = {PrefetchPtr, ElemOffset, CacheHint};
     Type *RetTy = Type::getVoidTy(C);
 
     CallInst *PrefetchBuiltIn = genCall(M, FnName, RetTy, FnArgs);

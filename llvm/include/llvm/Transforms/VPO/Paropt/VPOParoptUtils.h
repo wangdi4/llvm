@@ -2130,6 +2130,8 @@ public:
                                                      Instruction *InsertBefore,
                                                      StringRef VarName = "");
 
+  static void emitWarning(WRegionNode *W, const Twine &Message);
+
   /// This function generates calls to perform data prefetch on ATS and PVC
   /// based on data element type, data type of number of elements.
   ///
