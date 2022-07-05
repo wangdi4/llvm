@@ -40,7 +40,11 @@
 // RUN: %clang_cl -Qunroll0 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=NO-UNROLL %s
 // UNROLL: "-funroll-loops"
-// UNROLL3: "-mllvm" "-hir-general-unroll-max-factor=3" "-mllvm" "-hir-complete-unroll-loop-trip-threshold=3" "-mllvm" "-unroll-max-count=3" "-mllvm" "-unroll-full-max-count=3"
+// UNROLL3: "-mllvm" "-hir-general-unroll-max-factor=3"
+// UNROLL3: "-mllvm" "-hir-complete-unroll-loop-trip-threshold=3"
+// UNROLL3: "-mllvm" "-hir-unroll-and-jam-max-factor=3"
+// UNROLL3: "-mllvm" "-unroll-max-count=3"
+// UNROLL3: "-mllvm" "-unroll-full-max-count=3"
 // NO-UNROLL: "-fno-unroll-loops"
 
 // Behavior with -qopt-matmul and /Qopt-matmul option
