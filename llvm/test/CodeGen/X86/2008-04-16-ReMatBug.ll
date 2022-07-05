@@ -24,11 +24,12 @@ define i16 @SQLDriversW(i8* %henv, i16 zeroext  %fDir, i32* %szDrvDesc, i16 sign
 ; CHECK-NEXT:    movzwl {{[0-9]+}}(%esp), %ebp
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %edi
 ; CHECK-NEXT:    movw $-2, %si
-; CHECK-NEXT:    jne LBB0_6
+; CHECK-NEXT:    jne LBB0_5 ;INTEL
 ; CHECK-NEXT:  ## %bb.4: ## %bb37
 ; CHECK-NEXT:    movw $0, 40(%edi)
 ; CHECK-NEXT:    movb $1, %al
 ; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    movl %ecx, %esi ;INTEL
 ; CHECK-NEXT:    leal (,%ecx,4), %ecx
 ; CHECK-NEXT:    leal (,%ebx,4), %edx
 ; CHECK-NEXT:    subl $12, %esp
@@ -45,18 +46,17 @@ define i16 @SQLDriversW(i8* %henv, i16 zeroext  %fDir, i32* %szDrvDesc, i16 sign
 ; CHECK-NEXT:    pushl %eax
 ; CHECK-NEXT:    pushl %edi
 ; CHECK-NEXT:    calll _SQLDrivers_Internal
+; CHECK-NEXT:    movl %esi, %ecx ;INTEL
 ; CHECK-NEXT:    addl $48, %esp
 ; CHECK-NEXT:    movl %eax, %esi
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    testb %al, %al
 ; CHECK-NEXT:    je LBB0_1
-; CHECK-NEXT:  ## %bb.5:
-; CHECK-NEXT:    movzwl {{[0-9]+}}(%esp), %ecx
-; CHECK-NEXT:  LBB0_6: ## %done
+; CHECK-NEXT:  LBB0_5: ## %done ;INTEL
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    testb %al, %al
-; CHECK-NEXT:    je LBB0_7
-; CHECK-NEXT:  ## %bb.8: ## %bb167
+; CHECK-NEXT:    je LBB0_6 ;INTEL
+; CHECK-NEXT:  ## %bb.7: ## %bb167 ;INTEL
 ; CHECK-NEXT:    subl $12, %esp
 ; CHECK-NEXT:    movl L_iodbcdm_global_lock$non_lazy_ptr, %eax
 ; CHECK-NEXT:    pushl %eax
@@ -64,7 +64,7 @@ define i16 @SQLDriversW(i8* %henv, i16 zeroext  %fDir, i32* %szDrvDesc, i16 sign
 ; CHECK-NEXT:    addl $16, %esp
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    jmp LBB0_2
-; CHECK-NEXT:  LBB0_7: ## %bb150
+; CHECK-NEXT:  LBB0_6: ## %bb150 ;INTEL
 ; CHECK-NEXT:    movswl %si, %eax
 ; CHECK-NEXT:    subl $8, %esp
 ; CHECK-NEXT:    movswl %cx, %ecx
