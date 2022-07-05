@@ -888,6 +888,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
             addllvmOption(Args.MakeArgString(
                 Twine("-hir-complete-unroll-loop-trip-threshold=") + Value));
             addllvmOption(Args.MakeArgString(
+                Twine("-hir-unroll-and-jam-max-factor=") + Value));
+            addllvmOption(Args.MakeArgString(
                 Twine("-unroll-max-count=") + Value));
             addllvmOption(Args.MakeArgString(
                 Twine("-unroll-full-max-count=") + Value));
