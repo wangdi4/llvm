@@ -404,7 +404,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; %div range refined from fullset: magnitude of sdiv must be <= dividend
 ; scoped mode debug print is still fullset, it won't access the non-scope
 ; range by default
-; PTR64_IDX64-NEXT:    --> %div U: [-55555,55556) S: [-55555,55556) --> sdiv (i64 55555, i64 sext (i32 add (i32 ptrtoint (i64 (i32)* @sext_like_noop to i32), i32 -1) to i64)) U: full-set S: full-set
+; PTR64_IDX64-NEXT:    --> %div U: [-55555,55556) S: [-55555,55556)
 ; end INTEL_CUSTOMIZATION
 ; PTR64_IDX64-NEXT:    %i = phi i32 [ %inc, %for.body ], [ 1, %entry ]
 ; PTR64_IDX64-NEXT:    --> {1,+,1}<nuw><%for.body> U: [1,0) S: [1,0) Exits: (-1 + (trunc i64 (ptrtoint i64 (i32)* @sext_like_noop to i64) to i32)) LoopDispositions: { %for.body: Computable }
@@ -424,7 +424,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR64_IDX32-NEXT:    %div = sdiv i64 55555, %ii
 ; INTEL_CUSTOMIZATION
 ; %div range refined from fullset
-; PTR64_IDX32-NEXT:    --> %div U: [-55555,55556) S: [-55555,55556) --> sdiv (i64 55555, i64 sext (i32 add (i32 ptrtoint (i64 (i32)* @sext_like_noop to i32), i32 -1) to i64)) U: full-set S: full-set
+; PTR64_IDX32-NEXT:    --> %div U: [-55555,55556) S: [-55555,55556)
 ; end INTEL_CUSTOMIZATION
 ; PTR64_IDX32-NEXT:    %i = phi i32 [ %inc, %for.body ], [ 1, %entry ]
 ; PTR64_IDX32-NEXT:    --> {1,+,1}<nuw><%for.body> U: [1,0) S: [1,0) Exits: (-1 + ptrtoint (i64 (i32)* @sext_like_noop to i32)) LoopDispositions: { %for.body: Computable }
@@ -444,7 +444,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR16_IDX16-NEXT:    %div = sdiv i64 55555, %ii
 ; INTEL_CUSTOMIZATION
 ; %div range refined from fullset
-; PTR16_IDX16-NEXT:    %div U: [-55555,55556) S: [-55555,55556) --> sdiv (i64 55555, i64 add (i64 zext (i16 ptrtoint (i64 (i32)* @sext_like_noop to i16) to i64), i64 -1)) U: full-set S: full-set
+; PTR16_IDX16-NEXT:    %div U: [-55555,55556) S: [-55555,55556)
 ; end INTEL_CUSTOMIZATION
 ; PTR16_IDX16-NEXT:    %i = phi i32 [ %inc, %for.body ], [ 1, %entry ]
 ; PTR16_IDX16-NEXT:    --> {1,+,1}<nuw><%for.body> U: [1,0) S: [1,0) Exits: (-1 + (zext i16 (ptrtoint i64 (i32)* @sext_like_noop to i16) to i32))<nsw> LoopDispositions: { %for.body: Computable }
@@ -464,7 +464,7 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR16_IDX32-NEXT:    %div = sdiv i64 55555, %ii
 ; INTEL_CUSTOMIZATION
 ; %div range refined from fullset
-; PTR16_IDX32-NEXT:    %div U: [-55555,55556) S: [-55555,55556) --> sdiv (i64 55555, i64 add (i64 zext (i32 ptrtoint (i64 (i32)* @sext_like_noop to i32) to i64), i64 -1)) U: full-set S: full-set
+; PTR16_IDX32-NEXT:    %div U: [-55555,55556) S: [-55555,55556)
 ; end INTEL_CUSTOMIZATION
 ; PTR16_IDX32-NEXT:    %i = phi i32 [ %inc, %for.body ], [ 1, %entry ]
 ; PTR16_IDX32-NEXT:    --> {1,+,1}<nuw><%for.body> U: [1,0) S: [1,0) Exits: (-1 + ptrtoint (i64 (i32)* @sext_like_noop to i32))<nsw> LoopDispositions: { %for.body: Computable }

@@ -10894,14 +10894,7 @@ static Constant *BuildConstantFromSCEV(const SCEV *V) {
     }
     return C;
   }
-  case scUDivExpr: {
-    const SCEVUDivExpr *SU = cast<SCEVUDivExpr>(V);
-    if (Constant *LHS = BuildConstantFromSCEV(SU->getLHS()))
-      if (Constant *RHS = BuildConstantFromSCEV(SU->getRHS()))
-        if (LHS->getType() == RHS->getType())
-          return ConstantExpr::getUDiv(LHS, RHS);
-    return nullptr;
-  }
+  case scUDivExpr:
   case scSMaxExpr:
   case scUMaxExpr:
   case scSMinExpr:
