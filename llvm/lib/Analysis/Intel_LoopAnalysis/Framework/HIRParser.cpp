@@ -3033,7 +3033,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
 
   auto *FoundElemTy = RI.findPhiElementType(Phi);
 
-  if (!FoundElemTy) {
+  if (!FoundElemTy || !FoundElemTy->isSized()) {
     return nullptr;
   }
 

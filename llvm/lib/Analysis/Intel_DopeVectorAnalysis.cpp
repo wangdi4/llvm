@@ -26,16 +26,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dopevector-analysis"
 
+#if INTEL_FEATURE_SW_ADVANCED
 // If true then we are going to relax some conditions to enable a more
 // aggressive DVCP.
-//
-// TODO: This option is turned off until the issues with HIRInterLoopBlocking
-// and HIROptPredicate are fixed.
-static cl::opt<bool> EnabledRelaxedConditions("intel-dvcp-relaxed",
+static cl::opt<bool> EnableAgressiveDVCPOpt("intel-dvcp-aggressive",
                                               cl::init(true),
                                               cl::ReallyHidden);
 
-#if INTEL_FEATURE_SW_ADVANCED
 static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
                                         cl::init(true),
                                         cl::ReallyHidden);
@@ -277,7 +274,7 @@ static bool isCallToDeallocFunction(CallBase *Call,
 // Return true if the input BitCastOperator is casting the dope vector's
 // pointer address to initialize it as null (0).
 static bool bitCastUsedForInit(BitCastInst *BI, Value *DVObject) {
-  if (!EnabledRelaxedConditions || !BI || !DVObject)
+  if (!BI || !DVObject)
     return false;
 
   if (!BI->hasOneUser())
@@ -295,6 +292,31 @@ static bool bitCastUsedForInit(BitCastInst *BI, Value *DVObject) {
   return ZeroInit && ZeroInit->isZero();
 }
 
+#if INTEL_FEATURE_SW_ADVANCED
+// Given a Value and the TargetLibraryInfo, check if it is a BitCast
+// and is only used for data allocation. Return the call to the data
+// alloc function.
+static CallBase *bitCastUsedForAllocationOnly(Value *Val,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+
+  if (!Val)
+    return nullptr;
+
+  auto *BC = dyn_cast<BitCastOperator>(Val);
+  if (!BC)
+    return nullptr;
+
+  CallBase *Call = nullptr;
+
+  if (!BC->hasOneUser())
+    return nullptr;
+  Call = dyn_cast<CallBase>(BC->user_back());
+  if (!Call || !isCallToAllocFunction(Call, GetTLI))
+    return nullptr;
+  return Call;
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
 // and is only used for data allocation and deallocation. Return the
 // call to the data alloc function.
@@ -309,19 +331,6 @@ static CallBase *bitCastUsedForAllocation(Value *Val,
     return nullptr;
 
   CallBase *Call = nullptr;
-
-  // TODO: This condition needs to be removed after fixing
-  // HIRInterLoopBlocking and HIROptPredicate
-  if (!EnabledRelaxedConditions) {
-    if (!BC->hasOneUser())
-      return nullptr;
-
-    Call = dyn_cast<CallBase>(BC->user_back());
-    if (!Call || !isCallToAllocFunction(Call, GetTLI))
-      return nullptr;
-
-    return Call;
-  }
 
   for (auto *U : BC->users()) {
     if (auto *LI = dyn_cast<LoadInst>(U)) {
@@ -565,11 +574,6 @@ void DopeVectorFieldUse::analyzeSubscriptsUses() {
 void DopeVectorFieldUse::identifyConstantValue() {
   if (!getIsSingleValue())
     return;
-
-#if INTEL_FEATURE_SW_ADVANCED
-  if (IsConstantDisabled)
-    return;
-#endif // INTEL_FEATURE_SW_ADVANCED
 
   StoreInst *SI = *Stores.begin();
   ConstantInt *Const = dyn_cast<ConstantInt>(SI->getValueOperand());
@@ -1989,58 +1993,15 @@ void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
     AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoSingleNonNullValue;
 }
 
-#if INTEL_FEATURE_SW_ADVANCED
-// Disable the constant collected for the given dope vector field.
-void DopeVectorInfo::disableDVField(DopeVectorFieldType DVField) {
-  switch(DVField) {
-  case DopeVectorFieldType::DV_ArrayPtr:
-    PtrAddr.disableConstantValue();
-    return;
-  case DopeVectorFieldType::DV_ElementSize:
-    ElementSizeAddr.disableConstantValue();
-    return;
-  case DopeVectorFieldType::DV_Codim:
-    CodimAddr.disableConstantValue();
-    return;
-  case DopeVectorFieldType::DV_Flags:
-    FlagsAddr.disableConstantValue();
-    return;
-  case DopeVectorFieldType::DV_Dimensions:
-    DimensionsAddr.disableConstantValue();
-    return;
-  case DopeVectorFieldType::DV_Reserved:
-  case DopeVectorFieldType::DV_PerDimensionArray:
-    return;
-  default:
-    break;
-  }
-
-  for (unsigned long I = 0; I < Rank; I++) {
-    switch(DVField) {
-    case DopeVectorFieldType::DV_ExtentBase:
-      ExtentAddr[I].disableConstantValue();
-      break;
-    case DopeVectorFieldType::DV_StrideBase:
-      StrideAddr[I].disableConstantValue();
-      break;
-    case DopeVectorFieldType::DV_LowerBoundBase:
-      LowerBoundAddr[I].disableConstantValue();
-      break;
-    default:
-      llvm_unreachable("Incorrect field while disabling constants");
-    }
-  }
-}
-#endif // INTEL_FEATURE_SW_ADVANCED
-
 // Return true if all pointers that access the dope vector fields were
 // collected correctly by tracing the users of V, else return false. V
 // represents a pointer to a nested dope vector (could come from a BitCast,
 // GEP or an Argument). If AllowCheckForAllocSite is true then allow to
 // trace the BitCast instructions as allocation sites, else any BitCast
-// found is treated as an ilegal access and the function will return false.
-static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
-    Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
+// found is treated as an illegal access and the function will return false.
+bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
+    NestedDopeVectorInfo *NestedDV, Value *V,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
     SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
     bool AllowCheckForAllocSite) {
 
@@ -2177,7 +2138,8 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // NOTE: AllowCheckForAllocSite will be false in this case since
   // a function should not allocate a dope vector that is passed as
   // pointer. This conservative, we may want to relax this in the future.
-  auto CollectAccessFromCall = [&HasBadSideCalls](CallBase *Call, Value *Val,
+  auto CollectAccessFromCall = [&HasBadSideCalls, this](
+      CallBase *Call, Value *Val,
       std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
       const DataLayout &DL, NestedDopeVectorInfo *NestedDV, bool ForDVCP,
       SetVector<Value *> &ValueChecked) -> bool {
@@ -2229,14 +2191,14 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
         HasBadSideCalls(Call, F, ArgNo);
     NestedDV->setNotForDVCP(NewValue);
     bool RV = collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
-        ValueChecked, DL, ForDVCP, false);
+        ValueChecked, DL, ForDVCP, false /* AllowCheckForAllocSite */);
     NestedDV->setNotForDVCP(RestoreValue);
     return RV;
   };
 
   // Return true if the input GEP is used only by a BitCast for
   // data allocation
-  auto GetCallForAllocation = [](GEPOperator *GEP,
+  auto GetCallForAllocation = [this](GEPOperator *GEP,
       std::function<const TargetLibraryInfo &(Function &F)> &GetTLI)
       -> CallBase* {
 
@@ -2249,7 +2211,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
 
     // NOTE: Most likely we will need to adjust this BitCast when opaque
     // pointers are available.
-    return bitCastUsedForAllocation(BC, GetTLI);
+    return castingUsedForDataAllocation(BC, GetTLI);
   };
 
   // Return true if the input GEP is accessing a dope vector field and store
@@ -2412,7 +2374,8 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   std::function<bool(Value *V, User *U, const DataLayout &DL,
                 NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                 SetVector<Value *> &ValueChecked)>
-      GoodDVPUser = [&](Value *V, User *U, const DataLayout &DL,
+      GoodDVPUser = [&, this](Value *V, User *U,
+                        const DataLayout &DL,
                         NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
@@ -2429,7 +2392,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       }
       if (!AllowCheckForAllocSite)
         return false;
-      CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
+      CallBase *Call = castingUsedForDataAllocation(BC, GetTLI);
       if (!Call)
         return false;
       NestedDV->addAllocSite(Call);
@@ -2515,7 +2478,8 @@ bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
   if (!BC || !GlobalDVInfo || GlobalDVInfo->hasAllocSite())
     return false;
 
-  CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
+  CallBase *Call = castingUsedForDataAllocation(BC, GetTLI);
+
   if (!Call)
     return false;
 
@@ -2639,6 +2603,20 @@ extern Argument *isIPOPropagatable(const Value *V, const User *U) {
       return F->getArg(*ArgPos);
   }
   return nullptr;
+}
+
+// Given a Value and the TargetLibraryInfo, check if it is a BitCast
+// and is only used for data allocation and deallocation. Return the
+// call to the data alloc function.
+CallBase* GlobalDopeVector::castingUsedForDataAllocation(Value *Val,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+#if INTEL_FEATURE_SW_ADVANCED
+    // If aggressive DVCP is disabled then collect the allocation sites only.
+    if (!EnableAggressiveDVCP)
+      return bitCastUsedForAllocationOnly(Val, GetTLI);
+    else
+#endif // INTEL_FEATURE_SW_ADVANCED
+      return bitCastUsedForAllocation(Val, GetTLI);
 }
 
 // Collect the nested dope vectors and store the access to them. Return false
@@ -2950,7 +2928,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   std::function<bool(Argument *A, const DataLayout &DL,
                      NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                      SetVector<Value *> &ValueChecked)>
-      CanPropUp = [&](Argument *A, const DataLayout &DL,
+      CanPropUp = [&, this](Argument *A, const DataLayout &DL,
                       NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                       SetVector<Value *> &ValueChecked) -> bool {
     Function *F = A->getParent();
@@ -2979,8 +2957,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       }
       if (auto AI = dyn_cast<AllocaInst>(AA)) {
        if (!collectNestedDopeVectorFieldAddress(NDVInfo, AI, GetTLI,
-                                                ValueChecked, DL, ForDVCP,
-                                                true))
+                ValueChecked, DL, ForDVCP, true /* AllowCheckForAllocSite */))
           return false;
         continue;
       }
@@ -3455,7 +3432,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
                                               NestedDopeVectorInfo *NDVInfo,
                                               bool &AllocSiteFound,
                                               bool ForDVCP) -> bool {
-    if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
+    if (auto *Call = castingUsedForDataAllocation(U, GetTLI)) {
       // A BitCast can used for allocating the array for the
       // nested dope vector at field 0. It represents a field 0 access.
       if (AllocSiteFound)
@@ -3496,8 +3473,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
 
         // Nested dope vector found, now collect the fields access
         if (collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
-                                                ValueChecked, DL,
-                                                ForDVCP, true))
+                ValueChecked, DL, ForDVCP, true /* AllowCheckForAllocSite */))
           return true;
         if (CanPropThruPtrAssn(U, DL, ForDVCP, NestedDVInfo))
           return true;
@@ -3805,7 +3781,7 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     for (auto *LocalDV : CopyNestedDopeVectors) {
       SetVector<Value *> ValueChecked;
       if (collectNestedDopeVectorFieldAddress(LocalDV, LocalDV->getDVObject(),
-          GetTLI, ValueChecked, DL, ForDVCP, true)) {
+          GetTLI, ValueChecked, DL, ForDVCP, true /* AllowCheckForAllocSite*/)) {
         LocalDV->analyzeNestedDopeVector();
         NestedDV->collectFromCopy(*LocalDV);
       }
@@ -3875,11 +3851,15 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
 
   // Don't perform any analysis for nested dope vectors if the current
   // global doesn't qualify for it.
-  //
-  // TODO: The condition EnabledRelaxedConditions needs to be removed after
-  // fixing HIRInterLoopBlocking and HIROptPredicate.
-  if (EnabledRelaxedConditions && !isCandidateForNestedDopeVectors(DL))
+#if INTEL_FEATURE_SW_ADVANCED
+  // If aggressive DVCP is disabled then prefer to use the analysis
+  // process to decide if the nested dope vectors is enabled
+  if (EnableAggressiveDVCP && !isCandidateForNestedDopeVectors(DL))
     return;
+#else // INTEL_FEATURE_SW_ADVANCED
+  if (!isCandidateForNestedDopeVectors(DL))
+    return;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   auto *PtrAddressField = GlobalDVInfo->getDopeVectorField(
       DopeVectorFieldType::DV_ArrayPtr);
@@ -3964,13 +3944,20 @@ void GlobalDopeVector::validateGlobalDopeVector(const DataLayout &DL) {
   // If NestedDVDataCollected is false then it means that something happened
   // while collecting the nested dope vectors
   if (!NestedDVDataCollected) {
+#if INTEL_FEATURE_SW_ADVANCED
+    // If aggressive DVCP is not enabled and NestedDVDataCollected is false,
+    // then we are going to consider the whole dope vector invalid
+    if (!EnableAggressiveDVCP) {
+      AnalysisRes =
+          GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData;
+      return;
+    }
+#endif // INTEL_FEATURE_SW_ADVANCED
+
     // If the pointer address is candidate for nested dope vectors then disable
     // DVCP. This is conservative, in reality, if we have all the information
     // for the outer dope vector, then we can propagate that information.
-    //
-    // TODO: The condition EnabledRelaxedConditions needs to be removed after
-    // fixing HIRInterLoopBlocking and HIROptPredicate.
-    if (!EnabledRelaxedConditions || isCandidateForNestedDopeVectors(DL)) {
+    if (isCandidateForNestedDopeVectors(DL)) {
       AnalysisRes =
           GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData;
       return;
@@ -4001,6 +3988,13 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
     getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
     return;
   }
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Aggressive DVCP is turned on by default, collect the option from opt if
+  // it is turned off.
+  if (EnableAggressiveDVCP)
+    EnableAggressiveDVCP = EnableAgressiveDVCPOpt;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
@@ -4036,17 +4030,6 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
   // Validate that the data was collected correctly
   validateGlobalDopeVector(DL);
 }
-
-#if INTEL_FEATURE_SW_ADVANCED
-void GlobalDopeVector::disableLowerBound() {
-  if (AnalysisRes != GlobalDopeVector::AnalysisResult::AR_Pass)
-    return;
-
-  GlobalDVInfo->disableDVField(DopeVectorFieldType::DV_LowerBoundBase);
-  for (auto *NestedDV : NestedDopeVectors)
-    NestedDV->disableDVField(DopeVectorFieldType::DV_LowerBoundBase);
-}
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DopeVectorInfo::print(uint64_t Indent) {

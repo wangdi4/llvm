@@ -2880,9 +2880,7 @@ private:
       ///    \ /     \ /
       ///     +       +
       bool reorder(int RootIdx, SmallVectorImpl<int> &OperandScores) {
-        // Early exit if no more than one operand.
-        if (getNumOperands() <= 1)
-          return false;
+        assert(getNumOperands() > 1 && "Nothing to reorder");
 
         auto CmpDistFromRoot = [RootIdx, this](int Idx1, int Idx2) -> bool {
           const LeafData &Op1 = getData(Idx1, 0);
@@ -3209,6 +3207,9 @@ private:
     ///    \ /     \ /
     ///     +       +
     bool findMultiNodeOrder() {
+      // Early exit if no more than one operand.
+      if (getNumOperands() <= 1)
+        return false;
       // When reordering we collect operands scores.
       // That will help to steer SLP through the multi-node.
       SmallVector<int> OperandScores(getNumOperands(), 0);

@@ -156,7 +156,7 @@ public:
             for (auto Linked : *LinkedList) {
               auto IdiomCode = isIdiom(Linked);
               OS << StrIndent << getIdiomName(IdiomCode) << ": ";
-              Linked->dump();
+              Linked->dump(OS);
               if (Printed.insert(Linked).second)
                 DumpLinkedIdioms(OS, Linked, Indent + 1);
             }
@@ -167,8 +167,8 @@ public:
         if (!Printed.insert(Idiom.first).second)
           continue;
         OS << getIdiomName(Idiom.second) << ": ";
-        Idiom.first->dump();
-        DumpLinkedIdioms(OS, Idiom.first, 0);
+        Idiom.first->dump(OS);
+        DumpLinkedIdioms(OS, Idiom.first, 1);
       }
   }
 
@@ -255,7 +255,7 @@ struct HIRVecIdiom : public PointerUnion<const HLInst *, const DDRef *> {
   operator const DDRef *() const { return get<const DDRef *>(); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const;
+  void dump(raw_ostream &OS) const;
 #endif
 };
 
