@@ -217,6 +217,10 @@ namespace {
                                      MachineBasicBlock *From,
                                      MachineBasicBlock *To);
 
+#if INTEL_CUSTOMIZATION
+    bool isWorthBreakingCriticalEdgeForCopyChain(MachineInstr &MI) const;
+#endif // INTEL_CUSTOMIZATION
+
     bool hasStoreBetween(MachineBasicBlock *From, MachineBasicBlock *To,
                          MachineInstr &MI);
 
@@ -619,6 +623,19 @@ bool MachineSinking::isWorthBreakingCriticalEdge(MachineInstr &MI,
   // MI is cheap, we probably don't want to break the critical edge for it.
   // However, if this would allow some definitions of its source operands
   // to be sunk then it's probably worth it.
+#if INTEL_CUSTOMIZATION
+  // Only break critical edge if at least one non-copy instruction can be sunk.
+  return isWorthBreakingCriticalEdgeForCopyChain(MI);
+#endif // INTEL_CUSTOMIZATION
+}
+
+#if INTEL_CUSTOMIZATION
+// Determine whether sinking \p MI would allow some non-copy instruction to be
+// sunk, in which case it's profitable. MI must be on a "copy chain", that is,
+// it's either a copy instruction, or it's only user is another copy instruction
+// in the same copy chain.
+bool MachineSinking::isWorthBreakingCriticalEdgeForCopyChain(
+    MachineInstr &MI) const {
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg() || !MO.isUse())
       continue;
@@ -640,13 +657,18 @@ bool MachineSinking::isWorthBreakingCriticalEdge(MachineInstr &MI,
       // If definition resides elsewhere, we aren't
       // blocking it from being sunk so don't break the edge.
       MachineInstr *DefMI = MRI->getVRegDef(Reg);
-      if (DefMI->getParent() == MI.getParent())
+      if (DefMI->getParent() == MI.getParent()) {
+        // Continue to search up the use-def chain until encountered with at
+        // least one non-copy instruction.
+        if (DefMI->isCopy())
+          return isWorthBreakingCriticalEdgeForCopyChain(*DefMI);
         return true;
+      }
     }
   }
-
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool MachineSinking::PostponeSplitCriticalEdge(MachineInstr &MI,
                                                MachineBasicBlock *FromBB,
