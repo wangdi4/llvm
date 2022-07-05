@@ -1040,7 +1040,6 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
     }
   }
 
-  Requirements->addRuntimePointerChecks(LAI->getNumRuntimePointerChecks());
   PSE.addPredicate(LAI->getPSE().getPredicate());
   return true;
 }
