@@ -956,6 +956,7 @@
 ?Ordered@__host_std@cl@@YAHVhalf@half_impl@detail@sycl@2@0@Z
 ?Plugin@?1???$getPlugin@$00@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
 ?Plugin@?1???$getPlugin@$01@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
+?Plugin@?1???$getPlugin@$02@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
 ?Plugin@?1???$getPlugin@$04@pi@detail@sycl@cl@@YAAEBVplugin@234@XZ@4PEBV5234@EB
 ?PushBack@exception_list@sycl@cl@@AEAAX$$QEAVexception_ptr@std@@@Z
 ?PushBack@exception_list@sycl@cl@@AEAAXAEBVexception_ptr@std@@@Z
