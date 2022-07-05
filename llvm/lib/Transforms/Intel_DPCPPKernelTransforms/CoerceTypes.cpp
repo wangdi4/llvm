@@ -562,8 +562,11 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
     // arguments, replace uses of old argument with the allocated value
     auto *OldArgT = cast<PointerType>(OldArgI->getType());
     Value *Alloca = [&]() -> Value * {
-      AllocaInst *AllocaRes = Builder.CreateAlloca(
-          OldArgI->getParamByValType(), PDataLayout->getAllocaAddrSpace());
+      Type *ParamTy = OldArgI->getParamByValType();
+      assert(ParamTy && "No byval type for the parameter!");
+
+      AllocaInst *AllocaRes =
+          Builder.CreateAlloca(ParamTy, PDataLayout->getAllocaAddrSpace());
       MaybeAlign Alignment = OldArgI->getParamAlign();
       if (Alignment)
         AllocaRes->setAlignment(*Alignment);

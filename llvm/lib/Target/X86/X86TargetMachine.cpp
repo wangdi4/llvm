@@ -53,6 +53,7 @@
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DataLayout.h"
@@ -74,6 +75,11 @@ using namespace llvm;
 static cl::opt<bool> EnableMachineCombinerPass("x86-machine-combiner",
                                cl::desc("Enable the machine combiner pass"),
                                cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+    EnableTileRAPass("x86-tile-ra",
+                     cl::desc("Enable the tile register allocation pass"),
+                     cl::init(true), cl::Hidden);
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
@@ -438,7 +444,7 @@ public:
   void addPreStackSlotColoring() override;  // INTEL
   void addPreEmitPass2() override;
   void addPreSched2() override;
-  bool addPreRewrite() override;
+  bool addRegAssignAndRewriteOptimized() override;
 
   std::unique_ptr<CSEConfigBase> getCSEConfig() const override;
 };
@@ -556,7 +562,8 @@ void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
 #if INTEL_CUSTOMIZATION
 void X86PassConfig::addPreStackSlotColoring() {
   if (getOptLevel() == CodeGenOpt::Aggressive &&
-      TM->Options.IntelAdvancedOptim)
+      TM->Options.IntelAdvancedOptim &&
+      !TM->getTargetTriple().isOSWindows())
     addPass(createX86VecSpillPass());
 }
 #endif // INTEL_CUSTOMIZATION
@@ -711,11 +718,21 @@ bool X86PassConfig::addPostFastRegAllocRewrite() {
   return true;
 }
 
-bool X86PassConfig::addPreRewrite() {
-  addPass(createX86TileConfigPass());
-  return true;
-}
-
 std::unique_ptr<CSEConfigBase> X86PassConfig::getCSEConfig() const {
   return getStandardCSEConfigForOpt(TM->getOptLevel());
+}
+
+static bool onlyAllocateTileRegisters(const TargetRegisterInfo &TRI,
+                                      const TargetRegisterClass &RC) {
+  return static_cast<const X86RegisterInfo &>(TRI).isTileRegisterClass(&RC);
+}
+
+bool X86PassConfig::addRegAssignAndRewriteOptimized() {
+  // Don't support tile RA when RA is specified by command line "-regalloc".
+  if (!isCustomizedRegAlloc() && EnableTileRAPass) {
+    // Allocate tile register first.
+    addPass(createGreedyRegisterAllocator(onlyAllocateTileRegisters));
+    addPass(createX86TileConfigPass());
+  }
+  return TargetPassConfig::addRegAssignAndRewriteOptimized();
 }

@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/PostDominanceFrontier.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/Predicator.h"
 
@@ -74,6 +75,7 @@ static constexpr int CallClampWeight = 2;
 static constexpr int CallMinMaxWeight = 1;
 static constexpr int CallFloorWeight = 2;
 static constexpr int CallFakeInsertExtractWeight = 2;
+static constexpr int CallRelational = 3;
 
 static constexpr int PenaltyFactorForGEPWithSixParams = 7;
 static constexpr unsigned NumParamsInGEPPenaltyHack = 6;
@@ -505,6 +507,24 @@ Type *InstCountResultImpl::estimateDominantType(
   return DominantType;
 }
 
+/// isequal ... islessgreater are already replaced with instruction in
+/// BuiltinCallToInst pass, so there is no need to handle them.
+static bool isRelationalBuiltin(StringRef Name) {
+  return StringSwitch<bool>(Name)
+      .Case("isfinite", true)
+      .Case("isinf", true)
+      .Case("isnan", true)
+      .Case("isnormal", true)
+      .Case("isordered", true)
+      .Case("isunordered", true)
+      .Case("signbit", true)
+      .Case("any", true)
+      .Case("all", true)
+      .Case("bitselect", true)
+      .Case("select", true)
+      .Default(false);
+}
+
 int InstCountResultImpl::estimateCall(CallInst *CI) {
   // TID generators are extremely common and very cheap.
   bool IsTidGen;
@@ -610,8 +630,23 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
     // calculated by ptr + indices, so we can check if the indices are in 64
     // bits; while LLVM gather/scatter intrinsic simply accepts a vector of
     // address, so we simply return the Weight.
-    if (IsGatherIntrinsic || IsScatterIntrinsic)
-      return Weight;
+    if (IsGatherIntrinsic || IsScatterIntrinsic) {
+      auto *VecTy = dyn_cast<FixedVectorType>(
+          IsGatherIntrinsic ? CI->getType() : CI->getArgOperand(0)->getType());
+      if (!VecTy)
+        return Weight;
+      // [CMPLRLLVM-38538] We increase cost on AVX2 significantly if vector size
+      // is larger than register width, since gather/scatter would be expanded.
+      unsigned VecTySize = F.getParent()
+                               ->getDataLayout()
+                               .getTypeSizeInBits(VecTy)
+                               .getFixedSize();
+      int ISARegWidth =
+          ISA == VectorVariant::XMM                                    ? 128
+          : (ISA == VectorVariant::YMM1 || ISA == VectorVariant::YMM2) ? 256
+                                                                       : 512;
+      return std::max(1, (int)VecTySize / ISARegWidth) * Weight;
+    }
 
     Value *Index = CI->getArgOperand(2);
     auto *Ty = cast<VectorType>(Index->getType());
@@ -646,15 +681,20 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
 
   // Ugly hacks start here.
   // FIXME: What about masked versions?
-  if (Name.startswith("_Z5clamp") || Name.startswith("clamp"))
+  using namespace NameMangleAPI;
+  StringRef DemangledName = isMangledName(Name) ? stripName(Name) : Name;
+  if (DemangledName == "clamp")
     return CallClampWeight;
 
-  if (Name.startswith("_Z5floor") || Name.startswith("floor"))
+  if (DemangledName == "floor")
     return CallFloorWeight;
 
-  if (Name.startswith("_Z3min") || Name.startswith("min") ||
-      Name.startswith("_Z3max") || Name.startswith("max"))
+  if (DemangledName == "fmin" || DemangledName == "min" ||
+      DemangledName == "fmax" || DemangledName == "max")
     return CallMinMaxWeight;
+
+  if (isRelationalBuiltin(DemangledName))
+    return CallRelational;
 
   if (Name.startswith("fake.insert") || Name.startswith("fake.extract"))
     return CallFakeInsertExtractWeight;

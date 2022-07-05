@@ -231,8 +231,16 @@ static bool TargetIsAVX2(TargetTransformInfo &TTI, Function *F) {
   unsigned VecWidth = 0;
   bool HasAVX2Feature = false;
   assert(F && "Null function");
+  // Get the vector width attr if it exists. This is a string, must be
+  // parsed to an integer.
   Attribute VecWidthAttr = F->getFnAttribute("prefer-vector-width");
-  VecWidth = VecWidthAttr.isValid() ? VecWidthAttr.getValueAsInt() : 0;
+  if (VecWidthAttr.isValid()) {
+    StringRef WidthStr = VecWidthAttr.getValueAsString();
+    // This returns true if there is an error, false if OK.
+    if (WidthStr.getAsInteger(0, VecWidth))
+      VecWidth = 0;
+  }
+  // Check if target-features contains "avx2".
   Attribute TFAttr = F->getFnAttribute("target-features");
   StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
   HasAVX2Feature = TFStr.contains("avx2");
