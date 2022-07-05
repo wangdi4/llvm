@@ -1,9 +1,5 @@
 // REQUIRES: x86-registered-target
-<<<<<<< HEAD
-// INTEL - added -mllvm -enable-lv RUN: %clang -O1 -mllvm -enable-lv -fvectorize -target x86_64-unknown-unknown -Rpass-analysis=loop-vectorize -emit-llvm -S %s -o - 2>&1 | FileCheck %s
-=======
-// RUN: %clang -O1 -fvectorize -target x86_64-unknown-unknown -mllvm -vectorize-memory-check-threshold=8 -Rpass-analysis=loop-vectorize -emit-llvm -S %s -o - 2>&1 | FileCheck %s
->>>>>>> 9eb657278611665433d30fb37979d1df48af2ac8
+// INTEL - added -mllvm -enable-lv RUN: %clang -O1 -mllvm -enable-lv -fvectorize -mllvm -vectorize-memory-check-threshold=8 -target x86_64-unknown-unknown -Rpass-analysis=loop-vectorize -emit-llvm -S %s -o - 2>&1 | FileCheck %s
 
 // CHECK: {{.*}}:10:11: remark: loop not vectorized: cannot prove it is safe to reorder floating-point operations; allow reordering by specifying '#pragma clang loop vectorize(enable)' before the loop or by providing the compiler option '-ffast-math'.
 
