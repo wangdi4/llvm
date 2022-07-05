@@ -440,6 +440,11 @@ def i128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand, 128>;
 def i256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand, 256>;
 def i512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand, 512>;
 def f16mem  : X86MemOperand<"printwordmem",   X86Mem16AsmOperand, 16>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def bf16mem : X86MemOperand<"printwordmem",   X86Mem16AsmOperand, 16>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def f32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand, 32>;
 def f64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand, 64>;
 def f80mem  : X86MemOperand<"printtbytemem",  X86Mem80AsmOperand, 80>;
@@ -1503,6 +1508,11 @@ def loadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
 }]>;
 
 def loadi64  : PatFrag<(ops node:$ptr), (i64 (load node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def loadbf16 : PatFrag<(ops node:$ptr), (bf16 (load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def loadf16  : PatFrag<(ops node:$ptr), (f16 (load node:$ptr))>;
 def loadf32  : PatFrag<(ops node:$ptr), (f32 (load node:$ptr))>;
 def loadf64  : PatFrag<(ops node:$ptr), (f64 (load node:$ptr))>;

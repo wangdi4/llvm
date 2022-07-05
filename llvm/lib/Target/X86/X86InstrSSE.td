@@ -131,6 +131,12 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
     isPseudo = 1, SchedRW = [WriteZero] in {
   def FsFLD0SH : I<0, Pseudo, (outs FR16:$dst), (ins), "",
                    [(set FR16:$dst, fp16imm0)]>, Requires<[HasSSE2, NoAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  def FsFLD0SBF16: I<0, Pseudo, (outs BFR16:$dst), (ins), "",
+                   [(set BFR16:$dst, bf16imm0)]>, Requires<[HasSSE2, NoAVX512]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   def FsFLD0SS : I<0, Pseudo, (outs FR32:$dst), (ins), "",
                    [(set FR32:$dst, fp32imm0)]>, Requires<[HasSSE1, NoAVX512]>;
   def FsFLD0SD : I<0, Pseudo, (outs FR64:$dst), (ins), "",
@@ -3998,6 +4004,23 @@ let Predicates = [HasAVX, NoBWI] in {
   def : Pat<(f16 (bitconvert i16:$src)), (COPY_TO_REGCLASS (VPINSRWrr (v8i16 (IMPLICIT_DEF)), (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit), 0), FR16)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [UseSSE2], AddedComplexity = -10 in {
+  def : Pat<(bf16 (load addr:$src)), (COPY_TO_REGCLASS (PINSRWrm (v8i16 (IMPLICIT_DEF)), addr:$src, 0), BFR16)>;
+  def : Pat<(store bf16:$src, addr:$dst), (MOV16mr addr:$dst, (EXTRACT_SUBREG (PEXTRWrr (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0), sub_16bit))>;
+  def : Pat<(i16 (bitconvert bf16:$src)), (EXTRACT_SUBREG (PEXTRWrr (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0), sub_16bit)>;
+  def : Pat<(bf16 (bitconvert i16:$src)), (COPY_TO_REGCLASS (PINSRWrr (v8i16 (IMPLICIT_DEF)), (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit), 0), BFR16)>;
+}
+
+let Predicates = [HasAVX, NoBWI], AddedComplexity = -10 in {
+  def : Pat<(bf16 (load addr:$src)), (COPY_TO_REGCLASS (VPINSRWrm (v8i16 (IMPLICIT_DEF)), addr:$src, 0), BFR16)>;
+  def : Pat<(i16 (bitconvert bf16:$src)), (EXTRACT_SUBREG (VPEXTRWrr (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0), sub_16bit)>;
+  def : Pat<(bf16 (bitconvert i16:$src)), (COPY_TO_REGCLASS (VPINSRWrr (v8i16 (IMPLICIT_DEF)), (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit), 0), BFR16)>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+
 //===---------------------------------------------------------------------===//
 // SSE2 - Packed Mask Creation
 //===---------------------------------------------------------------------===//
@@ -5231,6 +5254,16 @@ let Predicates = [UseSSE41] in
 
 let Predicates = [HasAVX, NoBWI] in
   def : Pat<(store f16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS FR16:$src, VR128)), 0)>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [UseSSE41] in
+  def : Pat<(store bf16:$src, addr:$dst), (PEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
+
+let Predicates = [HasAVX, NoBWI] in
+  def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 
 /// SS41I_extract32 - SSE 4.1 extract 32 bits to int reg or memory destination

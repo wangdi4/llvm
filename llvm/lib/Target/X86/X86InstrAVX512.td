@@ -70,11 +70,23 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
 
   string EltTypeName = !cast<string>(EltVT);
   // Size of the element type in bits, e.g. 32 for v16i32.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  string EltSizeName = !subst("i", "", !subst("f", "", !subst("b", "", EltTypeName)));
+#else // INTEL_FEATURE_ISA_BF16_BASE
   string EltSizeName = !subst("i", "", !subst("f", "", EltTypeName));
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   int EltSize = EltVT.Size;
 
   // "i" for integer types and "f" for floating-point types
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  string TypeVariantName = !subst("b", "", !subst(EltSizeName, "", EltTypeName));
+#else // INTEL_FEATURE_ISA_BF16_BASE
   string TypeVariantName = !subst(EltSizeName, "", EltTypeName);
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // Size of RC in bits, e.g. 512 for VR512.
   int Size = VT.Size;
@@ -83,9 +95,18 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   X86MemOperand MemOp = !cast<X86MemOperand>(TypeVariantName # Size # "mem");
   X86MemOperand ScalarMemOp = !cast<X86MemOperand>(EltVT # "mem");
   // FP scalar memory operand for intrinsics - ssmem/sdmem.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  Operand IntScalarMemOp = !if (!eq (EltTypeName, "bf16"), !cast<Operand>("sbf16mem"),
+                           !if (!eq (EltTypeName, "f16"), !cast<Operand>("shmem"),
+                           !if (!eq (EltTypeName, "f32"), !cast<Operand>("ssmem"),
+                           !if (!eq (EltTypeName, "f64"), !cast<Operand>("sdmem"), ?))));
+#else // INTEL_FEATURE_ISA_BF16_BASE
   Operand IntScalarMemOp = !if (!eq (EltTypeName, "f16"), !cast<Operand>("shmem"),
                            !if (!eq (EltTypeName, "f32"), !cast<Operand>("ssmem"),
                            !if (!eq (EltTypeName, "f64"), !cast<Operand>("sdmem"), ?)));
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // Load patterns
   PatFrag LdFrag = !cast<PatFrag>("load" # VTName);
@@ -95,9 +116,18 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   PatFrag ScalarLdFrag = !cast<PatFrag>("load" # EltVT);
   PatFrag BroadcastLdFrag = !cast<PatFrag>("X86VBroadcastld" # EltSizeName);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f16"), !cast<PatFrags>("sse_load_f16"),
+                               !if (!eq (EltTypeName, "bf16"), !cast<PatFrags>("sse_load_bf16"),
+                               !if (!eq (EltTypeName, "f32"), !cast<PatFrags>("sse_load_f32"),
+                               !if (!eq (EltTypeName, "f64"), !cast<PatFrags>("sse_load_f64"), ?))));
+#else // INTEL_FEATURE_ISA_BF16_BASE
   PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f16"), !cast<PatFrags>("sse_load_f16"),
                                !if (!eq (EltTypeName, "f32"), !cast<PatFrags>("sse_load_f32"),
                                !if (!eq (EltTypeName, "f64"), !cast<PatFrags>("sse_load_f64"), ?)));
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   // The string to specify embedded broadcast in assembly.
   string BroadcastStr = "{1to" # NumElts # "}";
@@ -110,14 +140,33 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   SubRegIndex SubRegIdx = !if (!eq (Size, 128), sub_xmm,
                           !if (!eq (Size, 256), sub_ymm, ?));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
   Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
                      !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
                      !if (!eq (EltTypeName, "f16"), SSEPackedSingle, // FIXME?
                      SSEPackedInt)));
+#else // INTEL_FEATURE_ISA_BF16_BASE
+  Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
+                     !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
+                     !if (!eq (EltTypeName, "f16"), SSEPackedSingle, // FIXME?
+                     !if (!eq (EltTypeName, "bf16"), SSEPackedSingle, // FIXME?
+                     SSEPackedInt))));
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  RegisterClass FRC = !if (!eq (EltTypeName, "f32"), FR32X,
+                      !if (!eq (EltTypeName, "f16"), FR16X,
+                      !if (!eq (EltTypeName, "bf16"), BFR16X,
+                      FR64X)));
+#else // INTEL_FEATURE_ISA_BF16_BASE
   RegisterClass FRC = !if (!eq (EltTypeName, "f32"), FR32X,
                       !if (!eq (EltTypeName, "f16"), FR16X,
                       FR64X));
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
   dag ImmAllZerosV = (VT immAllZerosV);
 
@@ -132,6 +181,11 @@ def v8i64_info  : X86VectorVTInfo<8,  i64, VR512, "q">;
 def v32f16_info : X86VectorVTInfo<32, f16, VR512, "ph">;
 def v16f32_info : X86VectorVTInfo<16, f32, VR512, "ps">;
 def v8f64_info  : X86VectorVTInfo<8,  f64, VR512, "pd">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def v32bf16_info : X86VectorVTInfo<32, bf16, VR512, "pbf16">;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 // "x" in v32i8x_info means RC = VR256X
 def v32i8x_info  : X86VectorVTInfo<32,  i8, VR256X, "b">;
@@ -141,6 +195,11 @@ def v4i64x_info  : X86VectorVTInfo<4,  i64, VR256X, "q">;
 def v16f16x_info : X86VectorVTInfo<16, f16, VR256X, "ph">;
 def v8f32x_info  : X86VectorVTInfo<8,  f32, VR256X, "ps">;
 def v4f64x_info  : X86VectorVTInfo<4,  f64, VR256X, "pd">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def v16bf16x_info : X86VectorVTInfo<16, bf16, VR256X, "pbf16">;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 def v16i8x_info  : X86VectorVTInfo<16,  i8, VR128X, "b">;
 def v8i16x_info  : X86VectorVTInfo<8,  i16, VR128X, "w">;
@@ -149,11 +208,21 @@ def v2i64x_info  : X86VectorVTInfo<2,  i64, VR128X, "q">;
 def v8f16x_info  : X86VectorVTInfo<8,  f16, VR128X, "ph">;
 def v4f32x_info  : X86VectorVTInfo<4,  f32, VR128X, "ps">;
 def v2f64x_info  : X86VectorVTInfo<2,  f64, VR128X, "pd">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def v8bf16x_info  : X86VectorVTInfo<8,  bf16, VR128X, "pbf16">;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 // We map scalar types to the smallest (128-bit) vector type
 // with the appropriate element type. This allows to use the same masking logic.
 def i32x_info    : X86VectorVTInfo<1,  i32, GR32, "si">;
 def i64x_info    : X86VectorVTInfo<1,  i64, GR64, "sq">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def bf16x_info   : X86VectorVTInfo<1,  bf16, VR128X, "sbf16">;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def f16x_info    : X86VectorVTInfo<1,  f16, VR128X, "sh">;
 def f32x_info    : X86VectorVTInfo<1,  f32, VR128X, "ss">;
 def f64x_info    : X86VectorVTInfo<1,  f64, VR128X, "sd">;
@@ -173,6 +242,12 @@ def avx512vl_i32_info : AVX512VLVectorVTInfo<v16i32_info, v8i32x_info,
                                              v4i32x_info>;
 def avx512vl_i64_info : AVX512VLVectorVTInfo<v8i64_info, v4i64x_info,
                                              v2i64x_info>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def avx512vl_bf16_info : AVX512VLVectorVTInfo<v32bf16_info, v16bf16x_info,
+                                             v8bf16x_info>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def avx512vl_f16_info : AVX512VLVectorVTInfo<v32f16_info, v16f16x_info,
                                              v8f16x_info>;
 def avx512vl_f32_info : AVX512VLVectorVTInfo<v16f32_info, v8f32x_info,
@@ -494,6 +569,11 @@ def : Pat<(v64i8 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v32i16 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v8i64 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v32f16 immAllZerosV), (AVX512_512_SET0)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v32bf16 immAllZerosV), (AVX512_512_SET0)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v16f32 immAllZerosV), (AVX512_512_SET0)>;
 def : Pat<(v8f64 immAllZerosV), (AVX512_512_SET0)>;
 }
@@ -527,12 +607,22 @@ def : Pat<(v8i16 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v16i8 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v2i64 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v8f16 immAllZerosV), (AVX512_128_SET0)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v8bf16 immAllZerosV), (AVX512_128_SET0)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v4f32 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v2f64 immAllZerosV), (AVX512_128_SET0)>;
 def : Pat<(v32i8 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v16i16 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v4i64 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v16f16 immAllZerosV), (AVX512_256_SET0)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v16bf16 immAllZerosV), (AVX512_256_SET0)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v8f32 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v4f64 immAllZerosV), (AVX512_256_SET0)>;
 }
@@ -543,6 +633,12 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
     isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasAVX512] in {
   def AVX512_FsFLD0SH : I<0, Pseudo, (outs FR16X:$dst), (ins), "",
                           [(set FR16X:$dst, fp16imm0)]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  def AVX512_FsFLD0SBF16 : I<0, Pseudo, (outs FR16X:$dst),  (ins), "",
+                          [(set FR16X:$dst, fp16imm0)]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
   def AVX512_FsFLD0SS : I<0, Pseudo, (outs FR32X:$dst), (ins), "",
                           [(set FR32X:$dst, fp32imm0)]>;
   def AVX512_FsFLD0SD : I<0, Pseudo, (outs FR64X:$dst), (ins), "",
@@ -687,6 +783,12 @@ defm : vinsert_for_size_lowering<"VINSERTI32x4Z256", v8i16x_info, v16i16x_info,
               vinsert128_insert, INSERT_get_vinsert128_imm, [HasVLX]>;
 defm : vinsert_for_size_lowering<"VINSERTI32x4Z256", v16i8x_info, v32i8x_info,
               vinsert128_insert, INSERT_get_vinsert128_imm, [HasVLX]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vinsert_for_size_lowering<"VINSERTF32x4Z256", v8bf16x_info, v16bf16x_info,
+              vinsert128_insert, INSERT_get_vinsert128_imm, [HasVLX]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vinsert_for_size_lowering<"VINSERTF32x4Z256", v8f16x_info, v16f16x_info,
               vinsert128_insert, INSERT_get_vinsert128_imm, [HasVLX]>;
 // Codegen pattern with the alternative types insert VEC128 into VEC512
@@ -694,6 +796,12 @@ defm : vinsert_for_size_lowering<"VINSERTI32x4Z", v8i16x_info, v32i16_info,
               vinsert128_insert, INSERT_get_vinsert128_imm, [HasAVX512]>;
 defm : vinsert_for_size_lowering<"VINSERTI32x4Z", v16i8x_info, v64i8_info,
                vinsert128_insert, INSERT_get_vinsert128_imm, [HasAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vinsert_for_size_lowering<"VINSERTF32x4Z", v8bf16x_info, v32bf16_info,
+              vinsert128_insert, INSERT_get_vinsert128_imm, [HasAVX512]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vinsert_for_size_lowering<"VINSERTF32x4Z", v8f16x_info, v32f16_info,
               vinsert128_insert, INSERT_get_vinsert128_imm, [HasAVX512]>;
 // Codegen pattern with the alternative types insert VEC256 into VEC512
@@ -701,6 +809,12 @@ defm : vinsert_for_size_lowering<"VINSERTI64x4Z", v16i16x_info, v32i16_info,
               vinsert256_insert, INSERT_get_vinsert256_imm, [HasAVX512]>;
 defm : vinsert_for_size_lowering<"VINSERTI64x4Z", v32i8x_info, v64i8_info,
               vinsert256_insert, INSERT_get_vinsert256_imm, [HasAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vinsert_for_size_lowering<"VINSERTF64x4Z", v16bf16x_info, v32bf16_info,
+              vinsert256_insert, INSERT_get_vinsert256_imm, [HasAVX512]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vinsert_for_size_lowering<"VINSERTF64x4Z", v16f16x_info, v32f16_info,
               vinsert256_insert, INSERT_get_vinsert256_imm, [HasAVX512]>;
 
@@ -988,6 +1102,12 @@ defm : vextract_for_size_lowering<"VEXTRACTI32x4Z256", v16i16x_info, v8i16x_info
           vextract128_extract, EXTRACT_get_vextract128_imm, [HasVLX]>;
 defm : vextract_for_size_lowering<"VEXTRACTI32x4Z256", v32i8x_info, v16i8x_info,
           vextract128_extract, EXTRACT_get_vextract128_imm, [HasVLX]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vextract_for_size_lowering<"VEXTRACTF32x4Z256", v16bf16x_info, v8bf16x_info,
+          vextract128_extract, EXTRACT_get_vextract128_imm, [HasVLX]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vextract_for_size_lowering<"VEXTRACTF32x4Z256", v16f16x_info, v8f16x_info,
           vextract128_extract, EXTRACT_get_vextract128_imm, [HasVLX]>;
 
@@ -996,6 +1116,12 @@ defm : vextract_for_size_lowering<"VEXTRACTI32x4Z", v32i16_info, v8i16x_info,
                  vextract128_extract, EXTRACT_get_vextract128_imm, [HasAVX512]>;
 defm : vextract_for_size_lowering<"VEXTRACTI32x4Z", v64i8_info, v16i8x_info,
                  vextract128_extract, EXTRACT_get_vextract128_imm, [HasAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vextract_for_size_lowering<"VEXTRACTF32x4Z", v32bf16_info, v8bf16x_info,
+                 vextract128_extract, EXTRACT_get_vextract128_imm, [HasAVX512]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vextract_for_size_lowering<"VEXTRACTF32x4Z", v32f16_info, v8f16x_info,
                  vextract128_extract, EXTRACT_get_vextract128_imm, [HasAVX512]>;
 // Codegen pattern with the alternative types extract VEC256 from VEC512
@@ -1003,6 +1129,12 @@ defm : vextract_for_size_lowering<"VEXTRACTI64x4Z", v32i16_info, v16i16x_info,
                  vextract256_extract, EXTRACT_get_vextract256_imm, [HasAVX512]>;
 defm : vextract_for_size_lowering<"VEXTRACTI64x4Z", v64i8_info, v32i8x_info,
                  vextract256_extract, EXTRACT_get_vextract256_imm, [HasAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : vextract_for_size_lowering<"VEXTRACTF64x4Z", v32bf16_info, v16bf16x_info,
+                 vextract256_extract, EXTRACT_get_vextract256_imm, [HasAVX512]>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : vextract_for_size_lowering<"VEXTRACTF64x4Z", v32f16_info, v16f16x_info,
                  vextract256_extract, EXTRACT_get_vextract256_imm, [HasAVX512]>;
 
@@ -1034,6 +1166,14 @@ def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF128rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
+          (v8bf16 (VEXTRACTF128rr
+                  (v16bf16 (EXTRACT_SUBREG (v32bf16 VR512:$src), sub_ymm)),
+                  (iPTR 1)))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v16i8 (extract_subvector (v64i8 VR512:$src), (iPTR 16))),
           (v16i8 (VEXTRACTI128rr
                   (v32i8 (EXTRACT_SUBREG (v64i8 VR512:$src), sub_ymm)),
@@ -1067,12 +1207,35 @@ def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF32x4Z256rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
+          (v8bf16 (VEXTRACTF32x4Z256rr
+                  (v16bf16 (EXTRACT_SUBREG (v32bf16 VR512:$src), sub_ymm)),
+                  (iPTR 1)))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v16i8 (extract_subvector (v64i8 VR512:$src), (iPTR 16))),
           (v16i8 (VEXTRACTI32x4Z256rr
                   (v32i8 (EXTRACT_SUBREG (v64i8 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasFP16, HasVLX] in
+def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
+          (v8bf16 (VEXTRACTF32x4Z256rr
+                  (v16bf16 (EXTRACT_SUBREG (v32bf16 VR512:$src), sub_ymm)),
+                  (iPTR 1)))>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+
+let Predicates = [HasFP16, HasVLX] in
+def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
+          (v8f16 (VEXTRACTF32x4Z256rr
+                  (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
+                  (iPTR 1)))>;
 
 // Additional patterns for handling a bitcast between the vselect and the
 // extract_subvector.
@@ -1665,6 +1828,36 @@ let Predicates = [HasVLX, HasBWI] in {
             (VPBROADCASTWZ256rr (COPY_TO_REGCLASS FR16X:$src, VR128X))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasBWI] in {
+  def : Pat<(v32bf16 (X86VBroadcastld16 addr:$src)),
+            (VPBROADCASTWZrm addr:$src)>;
+
+  def : Pat<(v32bf16 (X86VBroadcast (v8bf16 VR128X:$src))),
+            (VPBROADCASTWZrr VR128X:$src)>;
+  def : Pat<(v32bf16 (X86VBroadcast (bf16 BFR16X:$src))),
+            (VPBROADCASTWZrr (COPY_TO_REGCLASS BFR16X:$src, VR128X))>;
+}
+let Predicates = [HasVLX, HasBWI] in {
+  def : Pat<(v8bf16 (X86VBroadcastld16 addr:$src)),
+            (VPBROADCASTWZ128rm addr:$src)>;
+  def : Pat<(v16bf16 (X86VBroadcastld16 addr:$src)),
+            (VPBROADCASTWZ256rm addr:$src)>;
+
+  def : Pat<(v8bf16 (X86VBroadcast (v8bf16 VR128X:$src))),
+            (VPBROADCASTWZ128rr VR128X:$src)>;
+  def : Pat<(v16bf16 (X86VBroadcast (v8bf16 VR128X:$src))),
+            (VPBROADCASTWZ256rr VR128X:$src)>;
+
+  def : Pat<(v8bf16 (X86VBroadcast (bf16 BFR16X:$src))),
+            (VPBROADCASTWZ128rr (COPY_TO_REGCLASS BFR16X:$src, VR128X))>;
+  def : Pat<(v16bf16 (X86VBroadcast (bf16 BFR16X:$src))),
+            (VPBROADCASTWZ256rr (COPY_TO_REGCLASS BFR16X:$src, VR128X))>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // AVX-512 BROADCAST SUBVECTORS
 //
@@ -1687,6 +1880,12 @@ def : Pat<(v8f64 (X86SubVBroadcastld256 addr:$src)),
           (VBROADCASTF64X4rm addr:$src)>;
 def : Pat<(v16f32 (X86SubVBroadcastld256 addr:$src)),
           (VBROADCASTF64X4rm addr:$src)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v32bf16 (X86SubVBroadcastld256 addr:$src)),
+          (VBROADCASTF64X4rm addr:$src)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v32f16 (X86SubVBroadcastld256 addr:$src)),
           (VBROADCASTF64X4rm addr:$src)>;
 def : Pat<(v8i64 (X86SubVBroadcastld256 addr:$src)),
@@ -1702,6 +1901,12 @@ def : Pat<(v8f64 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4rm addr:$src)>;
 def : Pat<(v16f32 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4rm addr:$src)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v32bf16 (X86SubVBroadcastld128 addr:$src)),
+          (VBROADCASTF32X4rm addr:$src)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v32f16 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4rm addr:$src)>;
 def : Pat<(v8i64 (X86SubVBroadcastld128 addr:$src)),
@@ -1761,6 +1966,12 @@ def : Pat<(v4f64 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4Z256rm addr:$src)>;
 def : Pat<(v8f32 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4Z256rm addr:$src)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+def : Pat<(v16bf16 (X86SubVBroadcastld128 addr:$src)),
+          (VBROADCASTF32X4Z256rm addr:$src)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v16f16 (X86SubVBroadcastld128 addr:$src)),
           (VBROADCASTF32X4Z256rm addr:$src)>;
 def : Pat<(v4i64 (X86SubVBroadcastld128 addr:$src)),
@@ -3937,6 +4148,12 @@ let Predicates = [HasBWI, NoVLX] in {
 
   defm : mask_move_lowering<"VMOVDQU16Z", v8f16x_info, v32f16_info>;
   defm : mask_move_lowering<"VMOVDQU16Z", v16f16x_info, v32f16_info>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+  defm : mask_move_lowering<"VMOVDQU16Z", v8bf16x_info, v32bf16_info>;
+  defm : mask_move_lowering<"VMOVDQU16Z", v16bf16x_info, v32bf16_info>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 }
 
 let Predicates = [HasAVX512] in {
@@ -4130,6 +4347,115 @@ let Predicates = [HasBWI, HasVLX] in {
   def : Pat<(masked_store (v8f16 VR128X:$src), addr:$dst, VK8WM:$mask),
             (VMOVDQU16Z128mrk addr:$dst, VK8WM:$mask, VR128X:$src)>;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasBWI] in {
+  def : Pat<(v32bf16 (vselect VK32WM:$mask, (v32bf16 VR512:$src1), (v32bf16 VR512:$src0))),
+            (VMOVDQU16Zrrk VR512:$src0, VK32WM:$mask, VR512:$src1)>;
+  def : Pat<(v32bf16 (vselect VK32WM:$mask, (v32bf16 VR512:$src1), v32bf16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrrkz VK32WM:$mask, VR512:$src1)>;
+  def : Pat<(v32bf16 (alignedloadv32bf16 addr:$src)),
+            (VMOVAPSZrm addr:$src)>;
+  def : Pat<(v32bf16 (vselect VK32WM:$mask,
+                     (v32bf16 (alignedloadv32bf16 addr:$src)), (v32bf16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (vselect VK32WM:$mask,
+                     (v32bf16 (alignedloadv32bf16 addr:$src)), v32bf16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (loadv32bf16 addr:$src)),
+            (VMOVUPSZrm addr:$src)>;
+  def : Pat<(v32bf16 (vselect VK32WM:$mask,
+                     (v32bf16 (loadv32bf16 addr:$src)), (v32bf16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (vselect VK32WM:$mask,
+                     (v32bf16 (loadv32bf16 addr:$src)), v32bf16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (masked_load addr:$src, VK32WM:$mask, (v32bf16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (masked_load addr:$src, VK32WM:$mask, undef)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32bf16 (masked_load addr:$src, VK32WM:$mask, v32bf16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v32bf16 VR512:$src), addr:$dst),
+            (VMOVAPSZmr addr:$dst, VR512:$src)>;
+  def : Pat<(store (v32bf16 VR512:$src), addr:$dst),
+            (VMOVUPSZmr addr:$dst, VR512:$src)>;
+  def : Pat<(masked_store (v32bf16 VR512:$src), addr:$dst, VK32WM:$mask),
+            (VMOVDQU16Zmrk addr:$dst, VK32WM:$mask, VR512:$src)>;
+}
+let Predicates = [HasBWI, HasVLX] in {
+  def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), (v16bf16 VR256X:$src0))),
+            (VMOVDQU16Z256rrk VR256X:$src0, VK16WM:$mask, VR256X:$src1)>;
+  def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), v16bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rrkz VK16WM:$mask, VR256X:$src1)>;
+  def : Pat<(v16bf16 (alignedloadv16bf16 addr:$src)),
+            (VMOVAPSZ256rm addr:$src)>;
+  def : Pat<(v16bf16 (vselect VK16WM:$mask,
+                     (v16bf16 (alignedloadv16bf16 addr:$src)), (v16bf16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (vselect VK16WM:$mask,
+                     (v16bf16 (alignedloadv16bf16 addr:$src)), v16bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (loadv16bf16 addr:$src)),
+            (VMOVUPSZ256rm addr:$src)>;
+  def : Pat<(v16bf16 (vselect VK16WM:$mask,
+                     (v16bf16 (loadv16bf16 addr:$src)), (v16bf16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (vselect VK16WM:$mask,
+                     (v16bf16 (loadv16bf16 addr:$src)), v16bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, (v16bf16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, undef)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, v16bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v16bf16 VR256X:$src), addr:$dst),
+            (VMOVAPSZ256mr addr:$dst, VR256X:$src)>;
+  def : Pat<(store (v16bf16 VR256X:$src), addr:$dst),
+            (VMOVUPSZ256mr addr:$dst, VR256X:$src)>;
+  def : Pat<(masked_store (v16bf16 VR256X:$src), addr:$dst, VK16WM:$mask),
+            (VMOVDQU16Z256mrk addr:$dst, VK16WM:$mask, VR256X:$src)>;
+
+  def : Pat<(v8bf16 (vselect VK8WM:$mask, (v8bf16 VR128X:$src1), (v8bf16 VR128X:$src0))),
+            (VMOVDQU16Z128rrk VR128X:$src0, VK8WM:$mask, VR128X:$src1)>;
+  def : Pat<(v8bf16 (vselect VK8WM:$mask, (v8bf16 VR128X:$src1), v8bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rrkz VK8WM:$mask, VR128X:$src1)>;
+  def : Pat<(v8bf16 (alignedloadv8bf16 addr:$src)),
+            (VMOVAPSZ128rm addr:$src)>;
+  def : Pat<(v8bf16 (vselect VK8WM:$mask,
+                     (v8bf16 (alignedloadv8bf16 addr:$src)), (v8bf16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (vselect VK8WM:$mask,
+                     (v8bf16 (alignedloadv8bf16 addr:$src)), v8bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (loadv8bf16 addr:$src)),
+            (VMOVUPSZ128rm addr:$src)>;
+  def : Pat<(v8bf16 (vselect VK8WM:$mask,
+                     (v8bf16 (loadv8bf16 addr:$src)), (v8bf16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (vselect VK8WM:$mask,
+                     (v8bf16 (loadv8bf16 addr:$src)), v8bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, (v8bf16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, undef)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, v8bf16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v8bf16 VR128X:$src), addr:$dst),
+            (VMOVAPSZ128mr addr:$dst, VR128X:$src)>;
+  def : Pat<(store (v8bf16 VR128X:$src), addr:$dst),
+            (VMOVUPSZ128mr addr:$dst, VR128X:$src)>;
+  def : Pat<(masked_store (v8bf16 VR128X:$src), addr:$dst, VK8WM:$mask),
+            (VMOVDQU16Z128mrk addr:$dst, VK8WM:$mask, VR128X:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 let Predicates = [HasFP16] in {
@@ -4453,6 +4779,16 @@ defm VMOVSHZ : avx512_move_scalar<"vmovsh", X86Movsh, X86vzload16, f16x_info,
                                   HasFP16>,
                                   VEX_LIG, T_MAP5XS, EVEX_CD8<16, CD8VT1>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+// Defined some patterns to do bf16's scalar move lowering.
+let Predicates = [HasFP16, HasVLX] in {
+  def : Pat<(store BFR16X:$src, addr:$dst),(VMOVSHZmr bf16mem:$dst, (COPY_TO_REGCLASS BFR16X:$src, FR16X))>;
+  def : Pat<(loadbf16 addr:$src), (COPY_TO_REGCLASS (VMOVSHZrm_alt bf16mem:$src), BFR16X)>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+
 multiclass avx512_move_scalar_lowering<string InstrStr, SDNode OpNode,
                                        PatLeaf ZeroFP, X86VectorVTInfo _> {
 
@@ -4629,8 +4965,43 @@ defm : avx512_store_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (bitconvert (i16 (and GR16:$mask, (i16 1))))), GR16, sub_16bit>;
 defm : avx512_store_scalar_lowering_subreg<"VMOVSDZ", avx512vl_f64_info,
                    (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))), GR8, sub_8bit>;
-
 let Predicates = [HasFP16] in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
+defm : avx512_store_scalar_lowering_subreg<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
+defm : avx512_store_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (insert_subvector
+                           (v32i1 immAllZerosV),
+                           (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                           (iPTR 0))),
+                   (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                   GR8, sub_8bit>;
+defm : avx512_load_scalar_lowering<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
+defm : avx512_load_scalar_lowering_subreg<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
+defm : avx512_load_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_bf16_info,
+                   (v32i1 (insert_subvector
+                           (v32i1 immAllZerosV),
+                           (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                           (iPTR 0))),
+                   (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                   GR8, sub_8bit>;
+
+def : Pat<(bf16 (X86selects VK1WM:$mask, (bf16 BFR16X:$src1), (bf16 BFR16X:$src2))),
+          (COPY_TO_REGCLASS (v8bf16 (VMOVSHZrrk
+           (v8bf16 (COPY_TO_REGCLASS BFR16X:$src2, VR128X)),
+           VK1WM:$mask, (v8bf16 (IMPLICIT_DEF)),
+           (v8bf16 (COPY_TO_REGCLASS BFR16X:$src1, VR128X)))), BFR16X)>;
+
+def : Pat<(bf16 (X86selects VK1WM:$mask, (bf16 BFR16X:$src1), bf16imm0)),
+          (COPY_TO_REGCLASS (v8bf16 (VMOVSHZrrkz VK1WM:$mask, (v8bf16 (IMPLICIT_DEF)),
+           (v8bf16 (COPY_TO_REGCLASS BFR16X:$src1, VR128X)))), BFR16X)>;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_move_scalar_lowering<"VMOVSHZ", X86Movsh, fp16imm0, v8f16x_info>;
 defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_f16_info,
                    (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
@@ -4965,6 +5336,34 @@ let Predicates = [HasFP16] in {
   def : Pat<(v32f16 (X86vzload16 addr:$src)),
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasFP16] in {
+  def : Pat<(v8bf16 (X86vzmovl (v8bf16 VR128X:$src))),
+            (VMOVSHZrr (v8bf16 (AVX512_128_SET0)), VR128X:$src)>;
+
+  // FIXME we need better canonicalization in dag combine
+  def : Pat<(v16bf16 (X86vzmovl (v16bf16 VR256X:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8bf16 (VMOVSHZrr (v8bf16 (AVX512_128_SET0)),
+              (v8bf16 (EXTRACT_SUBREG (v16bf16 VR256X:$src), sub_xmm)))), sub_xmm)>;
+  def : Pat<(v32bf16 (X86vzmovl (v32bf16 VR512:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8bf16 (VMOVSHZrr (v8bf16 (AVX512_128_SET0)),
+              (v8bf16 (EXTRACT_SUBREG (v32bf16 VR512:$src), sub_xmm)))), sub_xmm)>;
+
+  def : Pat<(v8bf16 (X86vzload16 addr:$src)),
+            (VMOVSHZrm addr:$src)>;
+
+  def : Pat<(v16bf16 (X86vzload16 addr:$src)),
+            (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
+
+  def : Pat<(v32bf16 (X86vzload16 addr:$src)),
+            (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 let Predicates = [HasFP16] in {
@@ -12111,6 +12510,17 @@ defm VPINSRDZ : avx512_insert_elt_dq<0x22, "vpinsrd", v4i32x_info, GR32>;
 defm VPINSRQZ : avx512_insert_elt_dq<0x22, "vpinsrq", v2i64x_info, GR64>, VEX_W;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasBWI], AddedComplexity = -10 in {
+  def : Pat<(bf16 (load addr:$src)), (COPY_TO_REGCLASS (VPINSRWZrm (v8i16 (IMPLICIT_DEF)), addr:$src, 0), BFR16X)>;
+  def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWZmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
+  def : Pat<(i16 (bitconvert bf16:$src)), (EXTRACT_SUBREG (VPEXTRWZrr (v8i16 (COPY_TO_REGCLASS BFR16X:$src, VR128X)), 0), sub_16bit)>;
+  def : Pat<(bf16 (bitconvert i16:$src)), (COPY_TO_REGCLASS (VPINSRWZrr (v8i16 (IMPLICIT_DEF)), (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit), 0), BFR16X)>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 // FIXME: Renaming these record when upstream. The 128bit version should end
 // with 'Z128' and the 512bit version should end with 'Z'.
@@ -13496,6 +13906,22 @@ let hasSideEffects = 0 in {
                      "vmovw\t{$src, $dst|$dst, $src}", []>, T_MAP5PD, EVEX, VEX_W, Sched<[WriteVecMoveToGpr]>;
 }
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+let Predicates = [HasFP16] in {
+def : Pat<(bf16 (bitconvert GR16:$src)),
+          (bf16 (COPY_TO_REGCLASS
+                (VMOVW2SHrr
+                 (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit)),
+                BFR16X))>;
+def : Pat<(i16 (bitconvert BFR16X:$src)),
+          (i16 (EXTRACT_SUBREG
+                (VMOVSH2Wrr (COPY_TO_REGCLASS BFR16X:$src, VR128X)),
+                sub_16bit))>;
+}
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
 
 // Convert 16-bit float to i16/u16
 multiclass avx512_cvtph2w<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
