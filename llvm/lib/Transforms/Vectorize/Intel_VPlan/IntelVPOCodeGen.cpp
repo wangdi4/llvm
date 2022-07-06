@@ -205,6 +205,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       SerialInst = Builder.CreateCall(VPCall->getFunctionType(), FuncPtr, Ops);
     }
     auto *SerialCall = cast<CallInst>(SerialInst);
+    // Copy fast math flags represented in VPInstruction to new call.
+    if (isa<FPMathOperator>(SerialCall))
+       VPCall->copyOperatorFlagsTo(SerialCall);
     SerialCall->setCallingConv(VPCall->getOrigCallingConv());
     SerialCall->setAttributes(VPCall->getOrigCallAttrs());
     SerialCall->setTailCall(VPCall->isOrigTailCall());
