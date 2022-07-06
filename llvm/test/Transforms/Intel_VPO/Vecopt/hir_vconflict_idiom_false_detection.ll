@@ -258,7 +258,12 @@ for.body:                                         ; preds = %entry, %for.body
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM21:[0-9]+]]>         (%A)[%0] = %conv6;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM22:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
+; Flow Edge Sink:            <9>          %2 = (%A)[i1];
+; VConflict Load Candidate:  <6>          %1 = (%A)[%0];
+; VConflict Store Candidate: <13>         (%A)[%0] = %conv6;
+; The candidate vconflict idiom is <6> (load) and <13> (store). The load at <9> makes
+; the idiom illegal because contents of %A are read/written out of order
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Illegal flow edge between vconflict load and store
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM24:[0-9]+]]>         (%A)[i1] = %conv10;
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
