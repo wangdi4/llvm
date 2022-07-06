@@ -155,8 +155,8 @@ class DDWalk final : public HLNodeVisitorBase {
   /// due to safe reduction.
   bool isSafeReductionFlowDep(const DDEdge *Edge);
 
-  /// Returns true if there is an anti-edge from vconflict load to vconflict
-  /// store, otherwise returns false.
+  /// Returns true if there is an anti edge considered safe as part of a
+  /// vconflict idiom.
   bool isSafeVConflictAntiDep(const RegDDRef *SrcRef, const DDEdge *Edge);
 
 public:
@@ -378,9 +378,8 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
 bool DDWalk::isSafeVConflictAntiDep(const RegDDRef *SrcRef,
                                     const DDEdge *Edge) {
   // Consider as safe anti edges from vconflict load to vconflict store idiom.
-  // E.g., anti edge 330(Src) to Sink of 332 and 344, and anti edge 342(Src) to
-  // Sink of 332 and 344 should be ignored because we have recorded a vconflict
-  // idiom for both pairs of instructions.
+  // E.g., anti edge 342(Src) to Sink of 332 should be ignored because we have
+  // recorded a vconflict idiom for 330/332.
   //
   // <330:168>    |   %75 = (%cnt_ptr)[%and503 /u 256 + %and503))];
   // <332:168>    |   (%cnt_ptr)[%and503 /u 256 + %and503))] = %75 + 1;
@@ -1200,6 +1199,37 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
 
   if (FlowDepCnt == 0)
     return Mismatch("Store address should have one flow-dependency.");
+
+  // Check to see that flow dependences don't break grouping of multiple
+  // vconflict idioms.
+  for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
+    auto *SinkRefNode = E->getSink()->getHLDDNode();
+    auto *LoadRefNode = LoadRef->getHLDDNode();
+    if (E->isFlow() && SinkRefNode != LoadRefNode) {
+      // There is a memory(flow) dependence in between the vconflict load and
+      // store that prevents legal recording of the vconflict idiom.
+      // E.g., the following example has the vconflict idiom candidate as the
+      // pair of refs at <347> (load) and <378> (store) because they use the
+      // same DDRef of %540. In order to get correct results for groups of
+      // vconflict idioms, we must enforce a lexical ordering of load/store
+      // for each idiom. This is because vectorized vconflict idiom code will
+      // execute in a non-sequential order, so updates to memory must be done
+      // immediately without any intervening loads to potentially the same
+      // memory. In this case that means the write at <378> would occur first
+      // and could result in illegally updating the memory at <353>.
+      //
+      // LoadRefNode = vconflict load
+      // SinkRefNode = illegal dependence?
+      // CurNode/StoreMemDDRef = vconflict store
+      //
+      // <347> %540 = (%2)[sext.i32.i64((3 * %503))]  -  %539; (LoadRefNode)
+      // <353> %546 = (%2)[sext.i32.i64((3 * %503)) + 1]  -  %545; (SinkRefNode)
+      // <378> (%2)[sext.i32.i64((3 * %503))] = %540; (CurNode/StoreMemDDRef)
+      //
+      if (HLNodeUtils::isInTopSortNumRange(SinkRefNode, LoadRefNode, CurNode))
+        return Mismatch("Illegal flow edge between vconflict load and store");
+    }
+  }
 
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected, legality pending "
                     << "further dependence checking!\n");
