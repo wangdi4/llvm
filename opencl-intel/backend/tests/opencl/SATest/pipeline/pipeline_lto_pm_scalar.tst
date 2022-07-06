@@ -81,6 +81,14 @@
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass
+; CHECK-NEXT: Running pass: SGBuiltinPass
+; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
+; CHECK-NEXT: Running pass: SGBarrierPropagatePass
+; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running pass: SGLoopConstructPass
+; CHECK-NEXT: Running pass: VerifierPass
+; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValues

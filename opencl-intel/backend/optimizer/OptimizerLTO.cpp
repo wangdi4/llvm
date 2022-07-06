@@ -610,7 +610,24 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-   // Resolve subgroup barriers after subgroup emulation passes
+  // Begin sub-group emulation
+  MPM.addPass(SGBuiltinPass(getVectInfos()));
+  MPM.addPass(SGBarrierPropagatePass());
+  MPM.addPass(SGBarrierSimplifyPass());
+  // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
+  // emulation loops
+  if (m_debugType == intel::Native)
+    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
+
+  // Resume sub-group emulation
+  MPM.addPass(SGValueWidenPass());
+  MPM.addPass(SGLoopConstructPass());
+#ifdef _DEBUG
+  MPM.addPass(VerifierPass());
+#endif
+  // End sub-group emulation
+
+  // Resolve subgroup barriers after subgroup emulation passes
   MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
   MPM.addPass(SplitBBonBarrier());
   if (Level != OptimizationLevel::O0)
