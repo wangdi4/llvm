@@ -35,10 +35,120 @@ define void @f2(double %c) {
 ; CHECK: call double @exp
 ; CHECK: call double @g
 
+; Intrinsics decorated with IMF attributes should be translated to correct
+; variants.
+define void @f3(double %a, float %b, half %c) {
+  %f64_scal_call = call double @exp(double %a)
+  %f64_scal_call_br = call double @exp(double %a) #2
+  %f64_scal_call_svml = call double @exp(double %a) #3
+  %f64_scal_intrin_call = call double @llvm.exp.f64(double %a)
+  %f64_scal_intrin_call_br = call double @llvm.exp.f64(double %a) #2
+  %f64_scal_intrin_call_svml = call double @llvm.exp.f64(double %a) #3
+
+  %f32_scal_call = call float @expf(float %b)
+  %f32_scal_call_br = call float @expf(float %b) #2
+  %f32_scal_call_svml = call float @expf(float %b) #3
+  %f32_scal_intrin_call = call float @llvm.exp.f32(float %b)
+  %f32_scal_intrin_call_br = call float @llvm.exp.f32(float %b) #2
+  %f32_scal_intrin_call_svml = call float @llvm.exp.f32(float %b) #3
+
+  %f16_scal_call = call half @expf16(half %c)
+  %f16_scal_call_br = call half @expf16(half %c) #2
+  %f16_scal_call_svml = call half @expf16(half %c) #3
+  %f16_scal_intrin_call = call half @llvm.exp.f16(half %c)
+  %f16_scal_intrin_call_br = call half @llvm.exp.f16(half %c) #2
+  %f16_scal_intrin_call_svml = call half @llvm.exp.f16(half %c) #3
+  ret void
+}
+; CHECK-LABEL: @f3
+; CHECK: call double @exp(
+; CHECK: call double @__bwr_exp(
+; CHECK: call svml_cc double @__svml_exp1_ha(
+; CHECK: call double @llvm.exp.f64(
+; CHECK: call double @__bwr_exp(
+; CHECK: call svml_cc double @__svml_exp1_ha(
+
+; CHECK: call float @expf(
+; CHECK: call float @__bwr_expf(
+; CHECK: call svml_cc float @__svml_expf1_ha(
+; CHECK: call float @llvm.exp.f32(
+; CHECK: call float @__bwr_expf(
+; CHECK: call svml_cc float @__svml_expf1_ha(
+
+; FP16 functions currently have no BWR variant.
+; TODO: libimf_attr is not working correctly with FP16 + imf-use-svml
+; CHECK: call half @expf16(
+; CHECK: call half @expf16(
+; CHECK: call half @expf16(
+; CHECK: call half @llvm.exp.f16(
+; CHECK: call half @llvm.exp.f16(
+; CHECK: call half @llvm.exp.f16(
+
+; lround is special in it having an integer return type. Check that we can
+; handle it as well.
+define void @test_lround(double %a, float %b, half %c) {
+  %f64_scal_call = call i64 @lround(double %a)
+  %f64_scal_call_br = call i64 @lround(double %a) #2
+  %f64_scal_call_svml = call i64 @lround(double %a) #3
+  %f64_scal_intrin_call = call i64 @llvm.lround.i64.f64(double %a)
+  %f64_scal_intrin_call_br = call i64 @llvm.lround.i64.f64(double %a) #2
+  %f64_scal_intrin_call_svml = call i64 @llvm.lround.i64.f64(double %a) #3
+
+  %f32_scal_call = call i64 @lroundf(float %b)
+  %f32_scal_call_br = call i64 @lroundf(float %b) #2
+  %f32_scal_call_svml = call i64 @lroundf(float %b) #3
+  %f32_scal_intrin_call = call i64 @llvm.lround.i64.f32(float %b)
+  %f32_scal_intrin_call_br = call i64 @llvm.lround.i64.f32(float %b) #2
+  %f32_scal_intrin_call_svml = call i64 @llvm.lround.i64.f32(float %b) #3
+
+  %f16_scal_call = call i64 @lroundf16(half %c)
+  %f16_scal_call_br = call i64 @lroundf16(half %c) #2
+  %f16_scal_call_svml = call i64 @lroundf16(half %c) #3
+  %f16_scal_intrin_call = call i64 @llvm.lround.i64.f16(half %c)
+  %f16_scal_intrin_call_br = call i64 @llvm.lround.i64.f16(half %c) #2
+  %f16_scal_intrin_call_svml = call i64 @llvm.lround.i64.f16(half %c) #3
+  ret void
+}
+
+; CHECK-LABEL: @test_lround
+; CHECK: call i64 @lround(
+; CHECK: call i64 @__bwr_lround(
+; CHECK: call i64 @lround(
+; CHECK: call i64 @llvm.lround.i64.f64(
+; CHECK: call i64 @__bwr_lround(
+; CHECK: call i64 @llvm.lround.i64.f64(
+
+; CHECK: call i64 @lroundf(
+; CHECK: call i64 @__bwr_lroundf(
+; CHECK: call i64 @lroundf(
+; CHECK: call i64 @llvm.lround.i64.f32(
+; CHECK: call i64 @__bwr_lroundf(
+; CHECK: call i64 @llvm.lround.i64.f32(
+
+; CHECK: call i64 @lroundf16(
+; CHECK: call i64 @lroundf16(
+; CHECK: call i64 @lroundf16(
+; CHECK: call i64 @llvm.lround.i64.f16(
+; CHECK: call i64 @llvm.lround.i64.f16(
+; CHECK: call i64 @llvm.lround.i64.f16(
 
 declare double @exp(double)
+declare double @llvm.exp.f64(double)
+declare float @expf(float)
+declare float @llvm.exp.f32(float)
+declare half @expf16(half)
+declare half @llvm.exp.f16(half)
+
+declare i64 @lround(double)
+declare i64 @llvm.lround.i64.f64(double)
+declare i64 @lroundf(float)
+declare i64 @llvm.lround.i64.f32(float)
+declare i64 @lroundf16(half)
+declare i64 @llvm.lround.i64.f16(half)
+
 declare <4 x double> @__svml_exp4(<4 x double>)
 declare double @g(double)
 
 attributes #1 = { nounwind }
 attributes #2 = { nounwind "imf-arch-consistency"="true" }
+attributes #3 = { nounwind "imf-use-svml"="true" }
