@@ -993,6 +993,84 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
   return NewCI;
 }
 
+// Get the corresponding base C function name of an LLVM math function
+// intrinsic. Return empty string if it's not an eligible intrinsic.
+static StringRef getIntrinsicBaseName(Intrinsic::ID IID) {
+  switch (IID) {
+  case Intrinsic::sin:
+    return "sin";
+  case Intrinsic::cos:
+    return "cos";
+  case Intrinsic::sqrt:
+    return "sqrt";
+  case Intrinsic::exp:
+    return "exp";
+  case Intrinsic::exp2:
+    return "exp2";
+  case Intrinsic::log:
+    return "log";
+  case Intrinsic::log2:
+    return "log2";
+  case Intrinsic::log10:
+    return "log10";
+  case Intrinsic::pow:
+    return "pow";
+  case Intrinsic::powi:
+    return "powi";
+  case Intrinsic::floor:
+    return "floor";
+  case Intrinsic::ceil:
+    return "ceil";
+  case Intrinsic::trunc:
+    return "trunc";
+  case Intrinsic::rint:
+    return "rint";
+  case Intrinsic::nearbyint:
+    return "nearbyint";
+  case Intrinsic::round:
+    return "round";
+  case Intrinsic::lround:
+    return "lround";
+  case Intrinsic::llround:
+    return "llround";
+  case Intrinsic::lrint:
+    return "lrint";
+  case Intrinsic::llrint:
+    return "llrint";
+  case Intrinsic::fabs:
+    return "fabs";
+  case Intrinsic::copysign:
+    return "copysign";
+  case Intrinsic::ldexp:
+    return "ldexp";
+  default:
+    return StringRef();
+  }
+}
+
+// Determine whether there is a corresponding function in libimf for the LLVM
+// intrinsic specified by \p IID and \p T. Only floating-point intrinsics are
+// supported.
+static bool isIMFScalarFPIntrinsic(Intrinsic::ID IID, Type *T) {
+  if (!T->isFloatTy() && !T->isDoubleTy() && !T->isHalfTy())
+    return false;
+  if (getIntrinsicBaseName(IID).empty())
+    return false;
+  return true;
+}
+
+// Get the standard C function name for a scalar LLVM floating-point intrinsic.
+// The intrinsic must satisfy isIMFScalarFPIntrinsic(IID, T) == true.
+static std::string scalarFPIntrinsicToFuncName(Intrinsic::ID IID, Type *T) {
+  assert(isIMFScalarFPIntrinsic(IID, T) && "Unsupported intrinsic");
+  std::string Result = getIntrinsicBaseName(IID).str();
+  if (T->isFloatTy())
+    Result += "f";
+  else if (T->isHalfTy())
+    Result += "f16";
+  return Result;
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
@@ -1070,6 +1148,14 @@ bool MapIntrinToImlImpl::runImpl() {
           InstToTranslate.push_back(CI);
       } else if (is_libm_function(FuncName.str().c_str())) {
         ScalarCallsToTranslate.push_back(CI);
+      } else if (CI->getCalledFunction()->isIntrinsic()) {
+        Intrinsic::ID IID = CI->getIntrinsicID();
+        // Some FP functions like lround and llround have integer return types.
+        // We must use type of operand to determine whether it's an FP
+        // intrinsics.
+        if (CI->getNumOperands() >= 1 &&
+            isIMFScalarFPIntrinsic(IID, CI->getOperand(0)->getType()))
+          ScalarCallsToTranslate.push_back(CI);
       }
     }
   }
@@ -1265,8 +1351,15 @@ bool MapIntrinToImlImpl::runImpl() {
     LLVM_DEBUG(dbgs() << "ScalarCI: "; ScalarCI->dump());
     if (X86Target) {
       // TODO: Can scalar math functions have any prefixes/suffixes?
-      std::string ScalarFuncName =
-          ScalarCI->getCalledFunction()->getName().str();
+      Function *F = ScalarCI->getCalledFunction();
+      std::string ScalarFuncName;
+      assert(ScalarCI->getNumOperands() >= 1 &&
+             "Math function should have at least 1 argument");
+      if (F->isIntrinsic())
+        ScalarFuncName = scalarFPIntrinsicToFuncName(
+            F->getIntrinsicID(), ScalarCI->getOperand(0)->getType());
+      else
+        ScalarFuncName = F->getName().str();
 
       ImfAttr *AttrList = nullptr;
       createImfAttributeList(ScalarCI, &AttrList);
