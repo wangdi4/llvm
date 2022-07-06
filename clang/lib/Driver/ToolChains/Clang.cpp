@@ -8724,6 +8724,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_intel_mno_intrinsic_promote, false))
     CmdArgs.push_back("-mintrinsic-promote");
 
+  if (Args.hasFlag(options::OPT_qopt_assume_counted_loops,
+                   options::OPT_qno_opt_assume_counted_loops, false))
+    CmdArgs.push_back("-fassume-counted-loops");
+
   auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
