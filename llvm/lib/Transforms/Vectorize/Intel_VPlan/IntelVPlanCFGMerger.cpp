@@ -779,6 +779,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   VPlan *NewMainPlan = NewMainKind == LK::LKVector
                            ? &MainPlan
                            : Planner.getMaskedVPlanForVF(MainVF);
+  assert(NewMainPlan && "Unexpected null main plan.");
 
   VPlan *CurPlan = NewMainPlan;
   UsedPlans.insert(CurPlan);
@@ -802,6 +803,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   }
   case LK::LKMasked:
     CurPlan = Planner.getMaskedVPlanForVF(Scen.getPeelVF());
+    assert(CurPlan && "Unexpected null current plan.");
     if (UsedPlans.count(CurPlan)) {
       auto Clone = cast<VPlanMasked>(CurPlan)->clone(
           VPAF, VPlanVector::UpdateDA::CloneDA);
@@ -841,6 +843,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     }
     case LK::LKVector:
       CurPlan = Planner.getVPlanForVF(Rem.VF);
+      assert(CurPlan && "Unexpected null current plan.");
       if (UsedPlans.count(CurPlan)) {
         auto Clone = cast<VPlanNonMasked>(CurPlan)->clone(
             VPAF, VPlanVector::UpdateDA::CloneDA);
@@ -854,6 +857,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       break;
     case LK::LKMasked:
       CurPlan = Planner.getMaskedVPlanForVF(Rem.VF);
+      assert(CurPlan && "Unexpected null current plan.");
       if (UsedPlans.count(CurPlan)) {
         auto Clone = cast<VPlanMasked>(CurPlan)->clone(
             VPAF, VPlanVector::UpdateDA::CloneDA);
