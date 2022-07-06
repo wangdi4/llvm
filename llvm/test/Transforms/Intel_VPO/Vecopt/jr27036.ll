@@ -19,7 +19,7 @@ define void @foo(<4 x float> %float_vec, float* %arr) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = tail call float @llvm.vector.reduce.fadd.v4f32(float -0.000000e+00, <4 x float> [[FLOAT_VEC0]])
+; CHECK-NEXT:    [[TMP0:%.*]] = tail call fast float @llvm.vector.reduce.fadd.v4f32(float -0.000000e+00, <4 x float> [[FLOAT_VEC0]])
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x float> poison, float [[TMP0]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT0]], <2 x float> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[ARR0]], i64 [[UNI_PHI0]]
@@ -56,9 +56,9 @@ define void @foo2(<4 x double> %double_vec, double* %arr) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = uitofp <2 x i64> [[VEC_PHI0]] to <2 x double>
 ; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <2 x double> [[TMP0]], i32 1
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x double> [[TMP0]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call double @llvm.vector.reduce.fadd.v4f64(double [[DOTEXTRACT_0_0]], <4 x double> [[DOUBLE_VEC0]])
+; CHECK-NEXT:    [[TMP1:%.*]] = tail call fast double @llvm.vector.reduce.fadd.v4f64(double [[DOTEXTRACT_0_0]], <4 x double> [[DOUBLE_VEC0]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> undef, double [[TMP1]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = tail call double @llvm.vector.reduce.fadd.v4f64(double [[DOTEXTRACT_1_0]], <4 x double> [[DOUBLE_VEC0]])
+; CHECK-NEXT:    [[TMP3:%.*]] = tail call fast double @llvm.vector.reduce.fadd.v4f64(double [[DOTEXTRACT_1_0]], <4 x double> [[DOUBLE_VEC0]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP2]], double [[TMP3]], i32 1
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds double, double* [[ARR0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast double* [[SCALAR_GEP0]] to <2 x double>*
