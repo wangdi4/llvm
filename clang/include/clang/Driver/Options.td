@@ -5690,6 +5690,10 @@ def Z_reserved_lib_imf : Flag<["-"], "Z-reserved-lib-imf">,
 
 #if INTEL_CUSTOMIZATION
 // -q Intel options
+def qopt_assume_counted_loops : Flag<["-"], "qopt-assume-counted-loops">,
+  HelpText<"for loops in C/C++ will be treated as counted loops. If there are "
+           "side-effects, runtime error may occur.">;
+def qno_opt_assume_counted_loops : Flag<["-"], "qno-opt-assume-counted-loops">;
 def qopt_assume_no_loop_carried_dep_EQ : Joined<["-"], "qopt-assume-no-loop-carried-dep=">, Values<"0,1,2">, Flags<[NoXarchOption]>, HelpText<"Set a level of "
   "performance tuning for loops.  0 - The compiler does not assume there is "
   "loop-carried dependencies (default).  1 - Assume there are no loop-carried "
@@ -8302,6 +8306,12 @@ def _SLASH_Qopenmp_threadprivate_EQ : CLJoined<"Qopenmp-threadprivate=">,
 def _SLASH_Qopenmp_threadprivate_COL : CLJoined<"Qopenmp-threadprivate:">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">,
   Alias<qopenmp_threadprivate_EQ>;
+def _SLASH_Qopt_assume_counted_loops : CLFlag<"Qopt-assume-counted-loops">,
+  Alias<qopt_assume_counted_loops>,
+  HelpText<"for loops in C/C++ will be treated as counted loops. If there are "
+           "side-effects, runtime error may occur.">;
+def _SLASH_Qopt_assume_counted_loops_ : CLFlag<"Qopt-assume-counted-loops-">,
+  Alias<qno_opt_assume_counted_loops>;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def : CLJoined<"Qopt-assume-no-loop-carried-dep:">,

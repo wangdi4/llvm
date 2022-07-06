@@ -949,3 +949,11 @@
 // WARN-DEBUG-Od: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
 // NO-WARN-DEBUG-O0-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0'
 // NO-WARN-DEBUG-Od-NOT: warning: Note that use of '[[OPTNAME]]' without any optimization-level option will turn off most compiler optimizations similar to use of '/Od'
+
+// -q[no-]opt-assume-counted-loops and /Qopt-assume-counted-loops[-]
+// RUN: %clang -### -qopt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=ASSUME-COUNTED-LOOPS %s
+// RUN: %clang -### -qopt-assume-counted-loops -qno-opt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=NO-ASSUME-COUNTED-LOOPS %s
+// RUN: %clang_cl -### /Qopt-assume-counted-loops %s 2>&1 | FileCheck -check-prefix=ASSUME-COUNTED-LOOPS %s
+// RUN: %clang_cl -### /Qopt-assume-counted-loops /Qopt-assume-counted-loops- %s 2>&1 | FileCheck -check-prefix=NO-ASSUME-COUNTED-LOOPS %s
+// ASSUME-COUNTED-LOOPS: "-cc1"{{.*}} "-fassume-counted-loops"
+// NO-ASSUME-COUNTED-LOOPS-NOT: "-fassume-counted-loops"
