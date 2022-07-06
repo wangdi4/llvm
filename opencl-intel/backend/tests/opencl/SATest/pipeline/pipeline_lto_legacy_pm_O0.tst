@@ -47,6 +47,15 @@
 ; CHECK:          GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
 ; CHECK-NEXT:     Intel DPCPP Kernel RemoveDuplicatedBarrier Pass
+; CHECK-NEXT:     SGSizeAnalysisLegacy
+; CHECK-NEXT:     SGBuiltinLegacy
+; CHECK-NEXT:     SGBarrierPropagateLegacy
+; CHECK-NEXT:     SGBarrierSimplifyLegacy
+; CHECK-NEXT:     SGValueWidenLegacy
+; CHECK-NEXT:     SGSizeAnalysisLegacy
+; CHECK-NEXT:     SGLoopConstructLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:     ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis

@@ -542,6 +542,23 @@ void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManag
         createRemoveDuplicatedBarrierLegacyPass(m_debugType == intel::Native));
   }
 
+  // Begin sub-group emulation
+  MPM.add(createSGBuiltinLegacyPass(getVectInfos()));
+  MPM.add(createSGBarrierPropagateLegacyPass());
+  MPM.add(createSGBarrierSimplifyLegacyPass());
+  // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
+  // emulation loops
+  if (m_debugType == intel::Native)
+    MPM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ true));
+
+  // Resume sub-group emulation
+  MPM.add(createSGValueWidenLegacyPass());
+  MPM.add(createSGLoopConstructLegacyPass());
+#ifdef _DEBUG
+  MPM.add(createVerifierPass());
+#endif
+  // End sub-group emulation
+
   // Resolve subgroup barriers after subgroup emulation passes
   MPM.add(createResolveSubGroupWICallLegacyPass(
       /*ResolveSGBarrier*/ true));
