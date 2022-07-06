@@ -1431,6 +1431,9 @@ static bool isConstExprSupported(uint8_t Opcode) {
   if (Opcode >= BitcodeConstant::FirstSpecialOpcode)
     return true;
 
+  if (Instruction::isBinaryOp(Opcode))
+    return ConstantExpr::isSupportedBinOp(Opcode);
+
   return !ExpandConstantExprs;
 }
 
