@@ -41,7 +41,6 @@ add_custom_target(genconfusable DEPENDS Confusables.inc)
 add_clang_library(clangTidyMiscModule
   DefinitionsInHeadersCheck.cpp
   ConfusableIdentifierCheck.cpp
-  Homoglyph.cpp # INTEL
   MiscTidyModule.cpp
   MisleadingBidirectional.cpp
   MisleadingIdentifier.cpp
@@ -65,11 +64,7 @@ add_clang_library(clangTidyMiscModule
 
   DEPENDS
   omp_gen
-<<<<<<< HEAD
   genconfusable
-=======
-  genconfusable # INTEL
->>>>>>> 0e806e7bf1926f82e69535c62de5b29df81068d4
   )
 
 clang_target_link_libraries(clangTidyMiscModule
