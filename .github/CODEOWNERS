@@ -1,9 +1,6 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence
 
-# COMPONENT: None
-* @intel-restricted/xmain-gatekeeper @vkurkov
-
 # COMPONENT: Architecture
 # JIRA: N/A
 # Core parts of LLVM owned by the architecture group
@@ -794,3 +791,7 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 # JIRA: CMPLRLLVM->DPC++ Tools
 # sycl-post-link/
 # Temporarily removed @AlexeySachkov, @mlychkov
+
+# COMPONENT: None
+# override ownership by gatekeeper
+* @intel-restricted/xmain-product-gatekeeper @vkurkov
