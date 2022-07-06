@@ -124,6 +124,10 @@
 #include <utility>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/LoopInfo.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "isel"
@@ -457,7 +461,11 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   else
     AA = nullptr;
 
-  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE, LI); // INTEL
+#if INTEL_CUSTOMIZATION
+  auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
+  LoopInfo *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
+  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE, LI);
+#endif // INTEL_CUSTOMIZATION
 
   MF->setHasInlineAsm(false);
 

@@ -407,14 +407,6 @@ static InstructionCost computeSpeculationCost(const User *I,
   return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
-<<<<<<< HEAD
-/// Check whether this is a potentially trapping constant.
-static bool canTrap(const Value *V) {
-  if (auto *C = dyn_cast<Constant>(V))
-    return C->canTrap();
-  return false;
-}
-
 #if INTEL_CUSTOMIZATION
 /// CanDominateConditionalBranch is an Intel customized routine that
 /// replaces the LLVM open source routine called DominatesMergePoint.
@@ -433,12 +425,6 @@ static bool canTrap(const Value *V) {
 /// CanDominateConditionalBranch - If we have a merge point of an
 /// "if condition" as accepted by GetIfConditon(), return true if the
 /// specified value dominates or can dominate the conditional branch.
-=======
-/// If we have a merge point of an "if condition" as accepted above,
-/// return true if the specified value dominates the block.  We
-/// don't handle the true generality of domination here, just a special case
-/// which works well enough for us.
->>>>>>> 8ee913d83b170729300a2381158c77acdb3ac8f8
 ///
 /// If AggressiveInsts is non-null, and if V does not dominate BB, we check to
 /// see if V (which must be an instruction) and its recursive operands
@@ -468,15 +454,9 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
 
   Instruction *I = dyn_cast<Instruction>(V);
   if (!I) {
-<<<<<<< HEAD
-    // Non-instructions dominate all instructions , but not all constantexprs
-    // can be executed unconditionally.
-    return !canTrap(V);
-=======
     // Non-instructions dominate all instructions and can be executed
     // unconditionally.
     return true;
->>>>>>> 8ee913d83b170729300a2381158c77acdb3ac8f8
   }
   BasicBlock *PBB = I->getParent();
 
@@ -4784,7 +4764,6 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
       Cond->getParent() != BB || !Cond->hasOneUse())
     return false;
 
-<<<<<<< HEAD
   // Below code was moved from bottom of function, the original commit is:
   // https://reviews.llvm.org/rGb582202
 
@@ -4855,15 +4834,6 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Cond is known to be a compare or binary operator.  Check to make sure that
-  // neither operand is a potentially-trapping constant expression.
-  if (canTrap(Operands[0]))  // INTEL
-    return false;
-  if (canTrap(Operands[1]))  // INTEL
-    return false;
-
-=======
->>>>>>> 8ee913d83b170729300a2381158c77acdb3ac8f8
   // Finally, don't infinitely unroll conditional loops.
   if (is_contained(successors(BB), BB))
     return false;
