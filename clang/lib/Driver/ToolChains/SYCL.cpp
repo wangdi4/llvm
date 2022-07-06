@@ -205,14 +205,9 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
-<<<<<<< HEAD
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
       JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
-    auto isSYCLDeviceLib = [&C](const InputInfo &II) {
-=======
-  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
     auto isSYCLDeviceLib = [&C, this](const InputInfo &II) {
->>>>>>> 5331441dc6a2d43ef883f54721635cf8bf4f95ce
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
       if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
@@ -267,16 +262,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-<<<<<<< HEAD
+      std::string FileName = getToolChain().getInputFilename(II);
+
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
       } else if (II.getType() == types::TY_Tempfilelist) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      std::string FileName = getToolChain().getInputFilename(II);
-      if (II.getType() == types::TY_Tempfilelist) {
->>>>>>> 5331441dc6a2d43ef883f54721635cf8bf4f95ce
+
         // Pass the unbundled list with '@' to be processed.
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
 #if INTEL_CUSTOMIZATION
@@ -313,9 +306,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, None));
   };
 
-<<<<<<< HEAD
- // Add an intermediate output file.
-  const char *OutputFileName = Output.getFilename();
+  // Add an intermediate output file.
+  const char *OutputFileName =
+      C.getArgs().MakeArgString(getToolChain().getInputFilename(Output));
+
 #if INTEL_CUSTOMIZATION
   const char *TOutputFileName = OutputFileName;
 
@@ -328,12 +322,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     TOutputFileName = C.addTempFile(C.getArgs().MakeArgString(OMPTempFile));
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  // Add an intermediate output file.
-  const char *OutputFileName =
-      C.getArgs().MakeArgString(getToolChain().getInputFilename(Output));
 
->>>>>>> 5331441dc6a2d43ef883f54721635cf8bf4f95ce
   if (Libs.empty())
     AddLinkCommand(TOutputFileName, Objs, Opts);  //INTEL
   else {
