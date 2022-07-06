@@ -407,13 +407,6 @@ static InstructionCost computeSpeculationCost(const User *I,
   return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
-/// Check whether this is a potentially trapping constant.
-static bool canTrap(const Value *V) {
-  if (auto *C = dyn_cast<Constant>(V))
-    return C->canTrap();
-  return false;
-}
-
 #if INTEL_CUSTOMIZATION
 /// CanDominateConditionalBranch is an Intel customized routine that
 /// replaces the LLVM open source routine called DominatesMergePoint.
@@ -461,9 +454,9 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
 
   Instruction *I = dyn_cast<Instruction>(V);
   if (!I) {
-    // Non-instructions dominate all instructions , but not all constantexprs
-    // can be executed unconditionally.
-    return !canTrap(V);
+    // Non-instructions dominate all instructions and can be executed
+    // unconditionally.
+    return true;
   }
   BasicBlock *PBB = I->getParent();
 
@@ -2730,9 +2723,6 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
         passingValueIsAlwaysUndefined(ThenV, &PN))
       return false;
 
-    if (canTrap(OrigV) || canTrap(ThenV))
-      return false;
-
     HaveRewritablePHIs = true;
     ConstantExpr *OrigCE = dyn_cast<ConstantExpr>(OrigV);
     ConstantExpr *ThenCE = dyn_cast<ConstantExpr>(ThenV);
@@ -4844,13 +4834,6 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Cond is known to be a compare or binary operator.  Check to make sure that
-  // neither operand is a potentially-trapping constant expression.
-  if (canTrap(Operands[0]))  // INTEL
-    return false;
-  if (canTrap(Operands[1]))  // INTEL
-    return false;
-
   // Finally, don't infinitely unroll conditional loops.
   if (is_contained(successors(BB), BB))
     return false;
@@ -5368,9 +5351,6 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   if (tryWidenCondBranchToCondBranch(PBI, BI, DTU))
     return true;
 
-  if (canTrap(BI->getCondition()))
-    return false;
-
   // If both branches are conditional and both contain stores to the same
   // address, remove the stores from the conditionals and create a conditional
   // merged store at the end.
@@ -5412,26 +5392,12 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   // insertion of a large number of select instructions. For targets
   // without predication/cmovs, this is a big pessimization.
 
-  // Also do not perform this transformation if any phi node in the common
-  // destination block can trap when reached by BB or PBB (PR17073). In that
-  // case, it would be unsafe to hoist the operation into a select instruction.
-
   BasicBlock *CommonDest = PBI->getSuccessor(PBIOp);
   BasicBlock *RemovedDest = PBI->getSuccessor(PBIOp ^ 1);
   unsigned NumPhis = 0;
   for (BasicBlock::iterator II = CommonDest->begin(); isa<PHINode>(II);
        ++II, ++NumPhis) {
     if (NumPhis > 2) // Disable this xform.
-      return false;
-
-    PHINode *PN = cast<PHINode>(II);
-    Value *BIV = PN->getIncomingValueForBlock(BB);
-    if (canTrap(BIV))
-      return false;
-
-    unsigned PBBIdx = PN->getBasicBlockIndex(PBI->getParent());
-    Value *PBIV = PN->getIncomingValue(PBBIdx);
-    if (canTrap(PBIV))
       return false;
   }
 
