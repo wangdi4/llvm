@@ -476,6 +476,10 @@ public:
                                                            ".map.ptr.tmp");
       if (MT.second->getType()->isReferenceType())
         A.setRemovedReference();
+      if (auto *DI = CGF.getDebugInfo())
+        if (CGF.CGM.getCodeGenOpts().hasReducedDebugInfo())
+          (void)DI->EmitDeclareOfAutoVariable(MT.second, A.getPointer(),
+                                              CGF.Builder);
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
