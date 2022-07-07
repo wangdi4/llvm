@@ -98,6 +98,11 @@
 #include <clzerointrin.h>
 #endif
 
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__RDPRU__)
+#include <rdpruintrin.h>
+#endif
+
 /* INTEL_CUSTOMIZATION */
 #pragma float_control(pop)
 /* end INTEL_CUSTOMIZATION */
