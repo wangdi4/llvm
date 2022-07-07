@@ -252,6 +252,8 @@ enum Kind {
   kw_min,
   kw_umax,
   kw_umin,
+  kw_fmax,
+  kw_fmin,
 
   // Instruction Opcodes (Opcode in UIntVal).
   kw_fneg,
