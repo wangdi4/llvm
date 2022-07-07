@@ -556,7 +556,8 @@ void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
 #if INTEL_CUSTOMIZATION
 void X86PassConfig::addPreStackSlotColoring() {
   if (getOptLevel() == CodeGenOpt::Aggressive &&
-      TM->Options.IntelAdvancedOptim)
+      TM->Options.IntelAdvancedOptim &&
+      !TM->getTargetTriple().isOSWindows())
     addPass(createX86VecSpillPass());
 }
 #endif // INTEL_CUSTOMIZATION
