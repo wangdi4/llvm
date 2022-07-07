@@ -1,10 +1,42 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
   Support
   )
 
+# INTEL_CUSTOMIZATION
+# The clang-tidy additions for misc-homoglyph are marked INTEL_CUSTOMIZATION
+# but there is an expected conflict when these changes are pulled down from
+# community.
+add_subdirectory(ConfusableTable)
+
+add_custom_command(
+    OUTPUT Confusables.inc
+    COMMAND make_confusable_table ${CMAKE_CURRENT_SOURCE_DIR}/ConfusableTable/confusables.txt ${CMAKE_CURRENT_BINARY_DIR}/Confusables.inc
+    DEPENDS make_confusable_table ConfusableTable/confusables.txt)
+
+add_custom_target(genconfusable DEPENDS Confusables.inc)
+# end INTEL_CUSTOMIZATION
+
 add_clang_library(clangTidyMiscModule
   DefinitionsInHeadersCheck.cpp
+  Homoglyph.cpp # INTEL
   MiscTidyModule.cpp
   MisleadingBidirectional.cpp
   MisleadingIdentifier.cpp
@@ -28,6 +60,7 @@ add_clang_library(clangTidyMiscModule
 
   DEPENDS
   omp_gen
+  genconfusable # INTEL
   )
 
 clang_target_link_libraries(clangTidyMiscModule
