@@ -167,9 +167,9 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %rem = srem i32 %17, 32
   %cmp7 = icmp eq i32 %rem, 0
   %18 = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(),
-    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch.ascast, i32 0, i32 1, i64 32),
-    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch1.ascast, fp128 0xL00000000000000000000000000000000, i32 2, i64 99),
-    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch4.ascast, double 0.000000e+00, i32 3, i32 %n),
+    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch.ascast, i32 0, i64 32, i32 1),
+    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch1.ascast, fp128 0xL00000000000000000000000000000000, i64 99, i32 2),
+    "QUAL.OMP.DATA"(ptr addrspace(4) %.tmp.prefetch4.ascast, double 0.000000e+00, i32 %n, i32 3),
     "QUAL.OMP.IF"(i1 %cmp7) ]
   call void @llvm.directive.region.exit(token %18) [ "DIR.OMP.END.PREFETCH"() ]
   %19 = load ptr addrspace(4), ptr addrspace(4) %a.map.ptr.tmp.ascast, align 8, !tbaa !8

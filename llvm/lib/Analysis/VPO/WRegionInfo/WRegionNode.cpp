@@ -1942,19 +1942,29 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 || NumArgs == 4) &&
            "Expected 3 or 4 arguments for DATA clause");
     bool IsTyped = false;
-    int Offset = 0;
+    // The default indices of hint and number of elements are for the old IR of
+    // untyped DATA clause.
+    int HintIndex = 1;
+    int NumElemIndex = 2;
     Type *DataTy = nullptr;
     Value *Ptr = Args[0];
     if (NumArgs == 4) {
-      Offset = 1;
+      if (ClauseInfo.getIsTyped()) {
+        // This branch is for the old IR of typed DATA clause.
+        HintIndex = 2;
+        NumElemIndex = 3;
+      } else {
+        HintIndex = 3;
+        NumElemIndex = 2;
+      }
       DataTy = Args[1]->getType();
       IsTyped = true;
     }
-    assert(isa<ConstantInt>(Args[1 + Offset]) &&
+    assert(isa<ConstantInt>(Args[HintIndex]) &&
            "Hint must be a constant integer");
-    ConstantInt *CI = cast<ConstantInt>(Args[1 + Offset]);
+    ConstantInt *CI = cast<ConstantInt>(Args[HintIndex]);
     unsigned Hint = CI->getZExtValue();
-    Value *NumElements = Args[2 + Offset];
+    Value *NumElements = Args[NumElemIndex];
     assert((NumElements->getType()->isIntegerTy(32) ||
             NumElements->getType()->isIntegerTy(64)) &&
            "Number of elements must be an integer");
