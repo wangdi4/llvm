@@ -889,9 +889,13 @@ class ScopedAliasMetadataDeepCloner {
   SetVector<const MDNode *> MD;
   MetadataMap MDMap;
   void addRecursiveMetadataUses();
+#if INTEL_CUSTOMIZATION
+  const Function &Caller;
+  static int NextRootNum;
+#endif // INTEL_CUSTOMIZATION
 
 public:
-  ScopedAliasMetadataDeepCloner(const Function *F);
+  ScopedAliasMetadataDeepCloner(const CallBase &CB); // INTEL
 
   /// Create a new clone of the scoped alias metadata, which will be used by
   /// subsequent remap() calls.
@@ -900,17 +904,33 @@ public:
   /// Remap instructions in the given range from the original to the cloned
   /// metadata.
   void remap(Function::iterator FStart, Function::iterator FEnd);
+#if INTEL_CUSTOMIZATION
+  std::string NewUniqueString(std::string OldString) {
+    return OldString + "$" + std::to_string(NextRootNum);
+  }
+#endif // INTEL_CUSTOMIZATION
 };
+
+int ScopedAliasMetadataDeepCloner::NextRootNum = 0; // INTEL
+
 } // namespace
 
 ScopedAliasMetadataDeepCloner::ScopedAliasMetadataDeepCloner(
-    const Function *F) {
+#if INTEL_CUSTOMIZATION
+    const CallBase &CB) : Caller(*CB.getCaller()) {
+  Function *F = CB.getCalledFunction();
+#endif // INTEL_CUSTOMIZATION
   for (const BasicBlock &BB : *F) {
     for (const Instruction &I : BB) {
       if (const MDNode *M = I.getMetadata(LLVMContext::MD_alias_scope))
         MD.insert(M);
       if (const MDNode *M = I.getMetadata(LLVMContext::MD_noalias))
         MD.insert(M);
+#if INTEL_CUSTOMIZATION
+      if (F->isFortran())
+        if (const MDNode *M = I.getMetadata(LLVMContext::MD_tbaa))
+          MD.insert(M);
+#endif // INTEL_CUSTOMIZATION
 
       // We also need to clone the metadata in noalias intrinsics.
       if (const auto *Decl = dyn_cast<NoAliasScopeDeclInst>(&I))
@@ -934,6 +954,14 @@ void ScopedAliasMetadataDeepCloner::addRecursiveMetadataUses() {
 void ScopedAliasMetadataDeepCloner::clone() {
   assert(MDMap.empty() && "clone() already called ?");
 
+#if INTEL_CUSTOMIZATION
+  auto ShouldReplaceString = [](const Metadata *Op) -> bool {
+    if (auto MDS = dyn_cast<MDString>(Op))
+      return MDS->getString().startswith("ifx$");
+    return false;
+  };
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<TempMDTuple, 16> DummyNodes;
   for (const MDNode *I : MD) {
     DummyNodes.push_back(MDTuple::getTemporary(I->getContext(), None));
@@ -945,12 +973,21 @@ void ScopedAliasMetadataDeepCloner::clone() {
   // node.
   SmallVector<Metadata *, 4> NewOps;
   for (const MDNode *I : MD) {
+#if INTEL_CUSTOMIZATION
+    bool ItsFirst = true;
+    bool IsFortran = Caller.isFortran();
     for (const Metadata *Op : I->operands()) {
-      if (const MDNode *M = dyn_cast<MDNode>(Op))
+      if (const MDNode *M = dyn_cast<MDNode>(Op)) {
         NewOps.push_back(MDMap[M]);
-      else
+      } else if (ItsFirst && IsFortran && ShouldReplaceString(Op)) {
+        NewOps.push_back(MDString::get(I->getContext(),
+            NewUniqueString(cast<MDString>(Op)->getString().str())));
+      } else {
         NewOps.push_back(const_cast<Metadata *>(Op));
+      }
+      ItsFirst = false;
     }
+#endif // INTEL_CUSTOMIZATION
 
     MDNode *NewM = MDNode::get(I->getContext(), NewOps);
     MDTuple *TempM = cast<MDTuple>(MDMap[I]);
@@ -977,12 +1014,18 @@ void ScopedAliasMetadataDeepCloner::remap(Function::iterator FStart,
       if (MDNode *M = I.getMetadata(LLVMContext::MD_noalias))
         if (MDNode *MNew = MDMap.lookup(M))
           I.setMetadata(LLVMContext::MD_noalias, MNew);
-
+#if INTEL_CUSTOMIZATION
+      if (BB.getParent()->isFortran())
+        if (MDNode *M = I.getMetadata(LLVMContext::MD_tbaa))
+          if (MDNode *MNew = MDMap.lookup(M))
+            I.setMetadata(LLVMContext::MD_tbaa, MNew);
+#endif // INTEL_CUSTOMIZATION
       if (auto *Decl = dyn_cast<NoAliasScopeDeclInst>(&I))
         if (MDNode *MNew = MDMap.lookup(Decl->getScopeList()))
           Decl->setScopeList(MNew);
     }
   }
+  NextRootNum++; // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2415,7 +2458,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // Track the metadata that must be cloned. Do this before other changes to
     // the function, so that we do not get in trouble when inlining caller ==
     // callee.
-    ScopedAliasMetadataDeepCloner SAMetadataCloner(CB.getCalledFunction());
+    ScopedAliasMetadataDeepCloner SAMetadataCloner(CB); // INTEL
 
     auto &DL = Caller->getParent()->getDataLayout();
 
