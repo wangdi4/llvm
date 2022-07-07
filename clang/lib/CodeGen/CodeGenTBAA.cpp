@@ -471,7 +471,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
         const CXXRecordDecl *BaseRD = BaseQTy->getAsCXXRecordDecl();
         if (BaseRD->isEmpty())
           continue;
-        llvm::MDNode *TypeNode = isValidBaseType(BaseQTy)
+        llvm::MDNode *TypeNode = isValidBaseType(CGM, BaseQTy) // INTEL
                                      ? getBaseTypeInfo(BaseQTy)
                                      : getTypeInfo(BaseQTy);
         if (!TypeNode)
