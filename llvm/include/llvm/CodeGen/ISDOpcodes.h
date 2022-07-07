@@ -1319,9 +1319,16 @@ enum NodeType {
   VECREDUCE_UMAX,
   VECREDUCE_UMIN,
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   COMPLEX_MUL,
 #endif // INTEL_CUSTOMIZATION
+=======
+  // The `llvm.experimental.stackmap` intrinsic.
+  // Operands: input chain, glue, <id>, <numShadowBytes>, [live0[, live1...]]
+  // Outputs: output chain, glue
+  STACKMAP,
+>>>>>>> ed8ef65f3d9337aeb62366b9832f02f2fb3c9542
 
 // Vector Predication
 #define BEGIN_REGISTER_VP_SDNODE(VPSDID, ...) VPSDID,
