@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------------- memory.hpp - DPC++ Explicit SIMD API --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -244,6 +259,9 @@ template <typename Tx, int N, typename AccessorTy,
           class T = detail::__raw_t<Tx>>
 __ESIMD_API simd<Tx, N> block_load(AccessorTy acc, uint32_t offset,
                                    Flags = {}) {
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  return block_load<Tx, N>(__ESIMD_DNS::accessorToPointer<Tx>(acc, offset));
+#else
   constexpr unsigned Sz = sizeof(T) * N;
   static_assert(Sz >= detail::OperandSize::OWORD,
                 "block size must be at least 1 oword");
@@ -263,6 +281,7 @@ __ESIMD_API simd<Tx, N> block_load(AccessorTy acc, uint32_t offset,
   } else {
     return __esimd_oword_ld_unaligned<T, N>(surf_ind, offset);
   }
+#endif
 }
 
 /// Stores elements of a vector to a contiguous block of memory at given
@@ -304,6 +323,9 @@ template <typename Tx, int N, typename AccessorTy,
           class T = detail::__raw_t<Tx>>
 __ESIMD_API void block_store(AccessorTy acc, uint32_t offset,
                              simd<Tx, N> vals) {
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  block_store<Tx, N>(__ESIMD_DNS::accessorToPointer<Tx>(acc, offset), vals);
+#else
   constexpr unsigned Sz = sizeof(T) * N;
   static_assert(Sz >= detail::OperandSize::OWORD,
                 "block size must be at least 1 oword");
@@ -317,6 +339,7 @@ __ESIMD_API void block_store(AccessorTy acc, uint32_t offset,
   auto surf_ind = __esimd_get_surface_index(
       detail::AccessorPrivateProxy::getNativeImageObj(acc));
   __esimd_oword_st<T, N>(surf_ind, offset >> 4, vals.data());
+#endif
 }
 
 /// @} sycl_esimd_memory
@@ -426,8 +449,12 @@ __ESIMD_API std::enable_if_t<(sizeof(T) <= 4) &&
                              simd<T, N>>
 gather(AccessorTy acc, simd<uint32_t, N> offsets, uint32_t glob_offset = 0,
        simd_mask<N> mask = 1) {
-
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  return gather<T, N>(__ESIMD_DNS::accessorToPointer<T>(acc, glob_offset),
+                      offsets, mask);
+#else
   return detail::gather_impl<T, N, AccessorTy>(acc, offsets, glob_offset, mask);
+#endif
 }
 
 /// @anchor accessor_scatter
@@ -455,8 +482,12 @@ __ESIMD_API std::enable_if_t<(sizeof(T) <= 4) &&
                              !std::is_pointer<AccessorTy>::value>
 scatter(AccessorTy acc, simd<uint32_t, N> offsets, simd<T, N> vals,
         uint32_t glob_offset = 0, simd_mask<N> mask = 1) {
-
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  scatter<T, N>(__ESIMD_DNS::accessorToPointer<T>(acc, glob_offset), offsets,
+                vals, mask);
+#else
   detail::scatter_impl<T, N, AccessorTy>(acc, vals, offsets, glob_offset, mask);
+#endif
 }
 
 /// Load a scalar value from an accessor.
@@ -623,12 +654,17 @@ __ESIMD_API std::enable_if_t<((N == 8 || N == 16 || N == 32) &&
                              simd<T, N * get_num_channels_enabled(RGBAMask)>>
 gather_rgba(AccessorT acc, simd<uint32_t, N> offsets,
             uint32_t global_offset = 0, simd_mask<N> mask = 1) {
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  return gather_rgba<RGBAMask>(
+      __ESIMD_DNS::accessorToPointer<T>(acc, global_offset), offsets, mask);
+#else
   // TODO (performance) use hardware-supported scale once BE supports it
   constexpr uint32_t Scale = 0;
   const auto SI = get_surface_index(acc);
   return __esimd_gather4_masked_scaled2<detail::__raw_t<T>, N, RGBAMask,
                                         decltype(SI), Scale>(
       SI, global_offset, offsets.data(), mask.data());
+#endif
 }
 
 /// Gather data from the memory addressed by accessor \c acc, offset common
@@ -654,11 +690,16 @@ scatter_rgba(AccessorT acc, simd<uint32_t, N> offsets,
              simd<T, N * get_num_channels_enabled(RGBAMask)> vals,
              uint32_t global_offset = 0, simd_mask<N> mask = 1) {
   detail::validate_rgba_write_channel_mask<RGBAMask>();
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+  scatter_rgba<RGBAMask>(__ESIMD_DNS::accessorToPointer<T>(acc, global_offset),
+                         offsets, vals, mask);
+#else
   // TODO (performance) use hardware-supported scale once BE supports it
   constexpr uint32_t Scale = 0;
   const auto SI = get_surface_index(acc);
   __esimd_scatter4_scaled<T, N, decltype(SI), RGBAMask, Scale>(
       mask.data(), SI, global_offset, offsets.data(), vals.data());
+#endif
 }
 
 /// @} sycl_esimd_memory
@@ -1082,6 +1123,7 @@ slm_atomic_update(simd<uint32_t, N> offsets, simd<Tx, N> src0, simd<Tx, N> src1,
 
 /// @} sycl_esimd_memory_slm
 
+#ifndef __ESIMD_FORCE_STATELESS_MEM
 /// @addtogroup sycl_esimd_memory
 /// @{
 
@@ -1167,6 +1209,7 @@ __ESIMD_API void media_block_store(AccessorTy acc, unsigned x, unsigned y,
                                                                  vals.data());
   }
 }
+#endif // !__ESIMD_FORCE_STATELESS_MEM
 
 /// @} sycl_esimd_memory
 

@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==----------------- util.hpp - DPC++ Explicit SIMD API  ------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -186,6 +201,16 @@ public:
     ForHelper::template repeat<0, Action>(A);
   }
 };
+
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+/// Returns the address referenced by the accessor \p Acc and
+/// the byte offset \p Offset.
+template <typename T, typename AccessorTy>
+T *accessorToPointer(AccessorTy Acc, uint32_t Offset = 0) {
+  auto BytePtr = reinterpret_cast<char *>(Acc.get_pointer().get()) + Offset;
+  return reinterpret_cast<T *>(BytePtr);
+}
+#endif // __ESIMD_FORCE_STATELESS_MEM
 
 } // namespace __ESIMD_DNS
 } // __SYCL_INLINE_NAMESPACE(cl)
