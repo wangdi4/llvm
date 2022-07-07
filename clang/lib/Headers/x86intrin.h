@@ -98,15 +98,13 @@
 #include <clzerointrin.h>
 #endif
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-#pragma float_control(pop)
-/* end INTEL_CUSTOMIZATION */
-=======
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPRU__)
 #include <rdpruintrin.h>
 #endif
->>>>>>> 08e4fe6c61967d5c6c16ef7a4cc63d51c4992b55
+
+/* INTEL_CUSTOMIZATION */
+#pragma float_control(pop)
+/* end INTEL_CUSTOMIZATION */
 
 #endif /* __X86INTRIN_H */
