@@ -283,7 +283,7 @@ public:
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
-  virtual size_t getMaxBitIntWidth() const override { return 2048; }
+  virtual size_t getMaxBitIntWidth() const override { return 4096; }
 };
 
 // x86-64 SPIR64 Intelfpga Windows target
