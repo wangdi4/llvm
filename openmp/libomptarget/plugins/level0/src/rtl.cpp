@@ -3591,39 +3591,37 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 }
 
 // Return the number of total HW threads required to execute
-// a loop kernel compiled with the given simdWidth, and the given
+// a loop kernel compiled with the given SIMDWidth, and the given
 // loop(s) trip counts and group sizes.
 // Returns UINT64_MAX, if computations overflow.
 static uint64_t computeThreadsNeeded(
-    const size_t (&tripCounts)[3], const uint32_t (&groupSizes)[3],
-    uint32_t simdWidth) {
-  uint64_t groupCount[3];
-  for (int i = 0; i < 3; ++i) {
-    if (tripCounts[i] == 0 || groupSizes[i] == 0)
+    const size_t (&TripCounts)[3], const uint32_t (&GroupSizes)[3],
+    uint32_t SIMDWidth) {
+  uint64_t GroupCount[3];
+  for (int I = 0; I < 3; ++I) {
+    if (TripCounts[I] == 0 || GroupSizes[I] == 0)
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[i] =
-        (uint64_t(tripCounts[i]) + groupSizes[i] - 1) / groupSizes[i];
-    if (groupCount[i] > (std::numeric_limits<uint32_t>::max)())
+    GroupCount[I] =
+        (uint64_t(TripCounts[I]) + GroupSizes[I] - 1) / GroupSizes[I];
+    if (GroupCount[I] > (std::numeric_limits<uint32_t>::max)())
       return (std::numeric_limits<uint64_t>::max)();
   }
-  for (int i = 1; i < 3; ++i) {
-    if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-        groupCount[i])
+  for (int I = 1; I < 3; ++I) {
+    if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < GroupCount[I])
       return (std::numeric_limits<uint64_t>::max)();
-    groupCount[0] *= groupCount[i];
+    GroupCount[0] *= GroupCount[I];
   }
   // Multiplication of the group sizes must never overflow uint64_t
   // for any existing device.
-  uint64_t localWorkSize =
-      uint64_t(groupSizes[0]) * groupSizes[1] * groupSizes[2];
-  uint64_t threadsPerWG = ((localWorkSize + simdWidth - 1) / simdWidth);
+  uint64_t LocalWorkSize =
+      uint64_t(GroupSizes[0]) * GroupSizes[1] * GroupSizes[2];
+  uint64_t ThreadsPerWG = ((LocalWorkSize + SIMDWidth - 1) / SIMDWidth);
 
   // Check that the total number of threads fits uint64_t.
-  if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-      threadsPerWG)
+  if ((std::numeric_limits<uint64_t>::max)() / GroupCount[0] < ThreadsPerWG)
     return (std::numeric_limits<uint64_t>::max)();
 
-  return groupCount[0] * threadsPerWG;
+  return GroupCount[0] * ThreadsPerWG;
 }
 
 static int32_t decideLoopKernelGroupArguments(
@@ -3631,81 +3629,85 @@ static int32_t decideLoopKernelGroupArguments(
     ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
     ze_group_count_t &GroupCounts) {
 
-  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
-  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  uint32_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
-  DP("Preferred team size is multiple of %" PRIu32 "\n", kernelWidth);
+  auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
+  uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelPR.SIMDWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", KernelPR.Width);
 
-  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
-    DP("Capping maximum team size to %" PRIu32
-       " due to kernel constraints.\n", maxGroupSize);
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  if (KernelPR.SIMDWidth == 1) {
+    MaxGroupSize = DevicePR.numEUsPerSubslice * DevicePR.numThreadsPerEU;
   }
 
-  bool maxGroupSizeForced = false;
+  if (KernelPR.MaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelPR.MaxThreadGroupSize;
+    DP("Capping maximum team size to %" PRIu32
+       " due to kernel constraints.\n", MaxGroupSize);
+  }
+
+  bool MaxGroupSizeForced = false;
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
+    if (ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
       DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
-         maxGroupSize);
+         MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
       DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
-         maxGroupSize);
+         MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.NumTeams > 0)
     DP("OMP_NUM_TEAMS(%" PRIu32 ") is ignored\n", DeviceInfo->Option.NumTeams);
 
-  uint32_t groupCounts[3] = {1, 1, 1};
-  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
-  TgtLoopDescTy *level = LoopLevels->Levels;
-  int32_t distributeDim = LoopLevels->DistributeDim;
-  assert(distributeDim >= 0 && distributeDim <= 2 &&
+  uint32_t GRPCounts[3] = {1, 1, 1};
+  uint32_t GRPSizes[3] = {MaxGroupSize, 1, 1};
+  TgtLoopDescTy *Levels = LoopLevels->Levels;
+  int32_t DistributeDim = LoopLevels->DistributeDim;
+  assert(DistributeDim >= 0 && DistributeDim <= 2 &&
          "Invalid distribute dimension.");
-  int32_t numLoopLevels = LoopLevels->NumLoops;
-  assert((numLoopLevels > 0 && numLoopLevels <= 3) &&
+  int32_t NumLoops = LoopLevels->NumLoops;
+  assert((NumLoops > 0 && NumLoops <= 3) &&
          "Invalid loop nest description for ND partitioning");
 
   // Compute global widths for X/Y/Z dimensions.
-  size_t tripCounts[3] = {1, 1, 1};
+  size_t TripCounts[3] = {1, 1, 1};
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
+  for (int32_t I = 0; I < NumLoops; I++) {
+    assert(Levels[I].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
-       ", Stride = %" PRId64 "\n",
-       i, level[i].Lb, level[i].Ub, level[i].Stride);
-    if (level[i].Ub < level[i].Lb)
-      tripCounts[i] = 0;
+       ", Stride = %" PRId64 "\n", I, Levels[I].Lb, Levels[I].Ub,
+       Levels[I].Stride);
+    if (Levels[I].Ub < Levels[I].Lb)
+      TripCounts[I] = 0;
     else
-      tripCounts[i] =
-          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+      TripCounts[I] =
+          (Levels[I].Ub - Levels[I].Lb + Levels[I].Stride) / Levels[I].Stride;
   }
 
   // Check if any of the loop has zero iterations.
-  if (tripCounts[0] == 0 || tripCounts[1] == 0 || tripCounts[2] == 0) {
+  if (TripCounts[0] == 0 || TripCounts[1] == 0 || TripCounts[2] == 0) {
     std::fill(GroupSizes, GroupSizes + 3, 1);
-    std::fill(groupCounts, groupCounts + 3, 1);
-    if (distributeDim > 0 && tripCounts[distributeDim] != 0) {
+    std::fill(GRPCounts, GRPCounts + 3, 1);
+    if (DistributeDim > 0 && TripCounts[DistributeDim] != 0) {
       // There is a distribute dimension, and the distribute loop
       // has non-zero iterations, but some inner parallel loop
       // has zero iterations. We still want to split the distribute
@@ -3714,54 +3716,54 @@ static int32_t decideLoopKernelGroupArguments(
       // Note that this code is currently dead, because we are not
       // hoisting the inner loops' bounds outside of the target regions.
       // The code is here just for completeness.
-      size_t distributeTripCount = tripCounts[distributeDim];
-      if (distributeTripCount > UINT32_MAX) {
+      size_t DistributeTripCount = TripCounts[DistributeDim];
+      if (DistributeTripCount > UINT32_MAX) {
         DP("Invalid number of teams %zu due to large loop trip count\n",
-           distributeTripCount);
+           DistributeTripCount);
         return OFFLOAD_FAIL;
       }
-      groupCounts[distributeDim] = distributeTripCount;
+      GRPCounts[DistributeDim] = DistributeTripCount;
     }
-    GroupCounts.groupCountX = groupCounts[0];
-    GroupCounts.groupCountY = groupCounts[1];
-    GroupCounts.groupCountZ = groupCounts[2];
+    GroupCounts.groupCountX = GRPCounts[0];
+    GroupCounts.groupCountY = GRPCounts[1];
+    GroupCounts.groupCountZ = GRPCounts[2];
     return OFFLOAD_SUCCESS;
   }
 
-  if (!maxGroupSizeForced) {
+  if (!MaxGroupSizeForced) {
     // Use zeKernelSuggestGroupSize to compute group sizes,
     // or fallback to setting dimension 0 width to SIMDWidth.
-    // Note that in case of user-specified LWS groupSizes[0]
+    // Note that in case of user-specified LWS GRPSizes[0]
     // is already set according to the specified value.
-    size_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
-    if (distributeDim > 0) {
+    size_t GlobalSizes[3] = { TripCounts[0], TripCounts[1], TripCounts[2] };
+    if (DistributeDim > 0) {
       // There is a distribute dimension.
-      globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
-      globalSizes[distributeDim] = 1;
+      GlobalSizes[DistributeDim - 1] *= GlobalSizes[DistributeDim];
+      GlobalSizes[DistributeDim] = 1;
     }
-    bool LargeGlobalSize = globalSizes[0] > UINT32_MAX ||
-                           globalSizes[1] > UINT32_MAX ||
-                           globalSizes[2] > UINT32_MAX;
+    bool LargeGlobalSize = GlobalSizes[0] > UINT32_MAX ||
+                           GlobalSizes[1] > UINT32_MAX ||
+                           GlobalSizes[2] > UINT32_MAX;
 
-    ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
-    uint32_t suggestedGroupSizes[3];
+    ze_result_t RC = ZE_RESULT_ERROR_UNKNOWN;
+    uint32_t SuggestedGroupSizes[3];
     if (DeviceInfo->Option.Flags.UseDriverGroupSizes && !LargeGlobalSize) {
       // Call this only when global sizes satisfy API requirement.
-      CALL_ZE_RC(rc, zeKernelSuggestGroupSize,
-                 Kernel, (uint32_t)globalSizes[0], (uint32_t)globalSizes[1],
-                 (uint32_t)globalSizes[2], &suggestedGroupSizes[0],
-                 &suggestedGroupSizes[1], &suggestedGroupSizes[2]);
+      CALL_ZE_RC(RC, zeKernelSuggestGroupSize,
+                 Kernel, (uint32_t)GlobalSizes[0], (uint32_t)GlobalSizes[1],
+                 (uint32_t)GlobalSizes[2], &SuggestedGroupSizes[0],
+                 &SuggestedGroupSizes[1], &SuggestedGroupSizes[2]);
     }
 
-    if (rc == ZE_RESULT_SUCCESS) {
-      groupSizes[0] = suggestedGroupSizes[0];
-      groupSizes[1] = suggestedGroupSizes[1];
-      groupSizes[2] = suggestedGroupSizes[2];
+    if (RC == ZE_RESULT_SUCCESS) {
+      GRPSizes[0] = SuggestedGroupSizes[0];
+      GRPSizes[1] = SuggestedGroupSizes[1];
+      GRPSizes[2] = SuggestedGroupSizes[2];
     } else {
-      if (maxGroupSize > kernelWidth) {
-        groupSizes[0] = kernelWidth;
+      if (MaxGroupSize > KernelPR.Width) {
+        GRPSizes[0] = KernelPR.Width;
       }
-      if (distributeDim == 0) {
+      if (DistributeDim == 0) {
         // If there is a distribute dimension, then we do not use
         // thin HW threads, since we do not know anything about
         // the iteration space of the inner parallel loop regions.
@@ -3771,59 +3773,57 @@ static int32_t decideLoopKernelGroupArguments(
         // the kernel - this may allow more parallelism due to
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
-        assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
+        assert(GRPSizes[1] == 1 && GRPSizes[2] == 1 &&
                "Unexpected team sizes for dimensions 1 or/and 2.");
-        uint32_t simdWidth = KernelProperty.SIMDWidth;
-        auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-        uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
-        uint32_t numSubslices = deviceProperties.numSlices *
-            deviceProperties.numSubslicesPerSlice;
-        uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
-        uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
-            numSubslices;
-        totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
+        uint32_t SimdWidth = KernelPR.SIMDWidth;
+        uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
+        uint32_t NumSubslices =
+            DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
+        uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+        uint64_t TotalThreads =
+            uint64_t(NumThreadsPerEU) * NumEUsPerSubslice * NumSubslices;
+        TotalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
 
-        uint32_t groupSizePrev = groupSizes[0];
-        uint64_t threadsNeeded =
-            computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-        while (threadsNeeded < totalThreads) {
-          groupSizePrev = groupSizes[0];
+        uint32_t GRPSizePrev = GRPSizes[0];
+        uint64_t ThreadsNeeded =
+            computeThreadsNeeded(TripCounts, GRPSizes, SimdWidth);
+        while (ThreadsNeeded < TotalThreads) {
+          GRPSizePrev = GRPSizes[0];
           // Try to half the local work size (if possible) and see
           // how many HW threads the kernel will require with this
           // new local work size.
-          // In most implementations the initial groupSizes[0]
+          // In most implementations the initial GRPSizes[0]
           // will be a power-of-two.
-          if (groupSizes[0] <= 1)
+          if (GRPSizes[0] <= 1)
             break;
-          groupSizes[0] >>= 1;
-          threadsNeeded =
-              computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+          GRPSizes[0] >>= 1;
+          ThreadsNeeded = computeThreadsNeeded(TripCounts, GRPSizes, SimdWidth);
         }
-        groupSizes[0] = groupSizePrev;
+        GRPSizes[0] = GRPSizePrev;
       }
     }
   }
 
-  for (int32_t i = 0; i < numLoopLevels; i++) {
-    if (i < distributeDim) {
-      groupCounts[i] = 1;
+  for (int32_t I = 0; I < NumLoops; I++) {
+    if (I < DistributeDim) {
+      GRPCounts[I] = 1;
       continue;
     }
-    size_t trip = tripCounts[i];
-    if (groupSizes[i] >= trip)
-      groupSizes[i] = trip;
-    size_t Count = (trip + groupSizes[i] - 1) / groupSizes[i];
+    size_t Trip = TripCounts[I];
+    if (GRPSizes[I] >= Trip)
+      GRPSizes[I] = Trip;
+    size_t Count = (Trip + GRPSizes[I] - 1) / GRPSizes[I];
     if (Count > UINT32_MAX) {
       DP("Invalid number of teams %zu due to large loop trip count\n", Count);
       return OFFLOAD_FAIL;
     }
-    groupCounts[i] = (uint32_t)Count;
+    GRPCounts[I] = (uint32_t)Count;
   }
 
-  GroupCounts.groupCountX = groupCounts[0];
-  GroupCounts.groupCountY = groupCounts[1];
-  GroupCounts.groupCountZ = groupCounts[2];
-  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+  GroupCounts.groupCountX = GRPCounts[0];
+  GroupCounts.groupCountY = GRPCounts[1];
+  GroupCounts.groupCountZ = GRPCounts[2];
+  std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 
   return OFFLOAD_SUCCESS;
 }
@@ -3838,96 +3838,99 @@ static void decideKernelGroupArguments(
     DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
        DPxPTR(Kernel));
   }
-  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
-  auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
-  uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
-  uint32_t numSubslices = deviceProperties.numSlices *
-                          deviceProperties.numSubslicesPerSlice;
-  uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
-  bool maxGroupSizeForced = false;
-  bool maxGroupCountForced = false;
+  auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
+  uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
+  uint32_t NumSubslices = DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
+  uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+  bool MaxGroupSizeForced = false;
+  bool MaxGroupCountForced = false;
 
   // Dump input data for the occupancy calculation to ease triaging.
-  DPI("numEUsPerSubslice: %" PRIu32 "\n", numEUsPerSubslice);
-  DPI("numSubslices: %" PRIu32 "\n", numSubslices);
-  DPI("numThreadsPerEU: %" PRIu32 "\n", numThreadsPerEU);
-  DPI("totalEUs: %" PRIu32 "\n", numEUsPerSubslice * numSubslices);
-  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  uint32_t kernelWidth = KernelProperty.Width;
-  uint32_t simdWidth = KernelProperty.SIMDWidth;
-  DP("Assumed kernel SIMD width is %" PRIu32 "\n", simdWidth);
-  DP("Preferred team size is multiple of %" PRIu32 "\n", kernelWidth);
-  assert(simdWidth <= kernelWidth && "Invalid SIMD width.");
+  DPI("NumEUsPerSubslice: %" PRIu32 "\n", NumEUsPerSubslice);
+  DPI("NumSubslices: %" PRIu32 "\n", NumSubslices);
+  DPI("NumThreadsPerEU: %" PRIu32 "\n", NumThreadsPerEU);
+  DPI("TotalEUs: %" PRIu32 "\n", NumEUsPerSubslice * NumSubslices);
+  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  uint32_t KernelWidth = KernelPR.Width;
+  uint32_t SIMDWidth = KernelPR.SIMDWidth;
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", SIMDWidth);
+  DP("Preferred team size is multiple of %" PRIu32 "\n", KernelWidth);
+  assert(SIMDWidth <= KernelWidth && "Invalid SIMD width.");
 
-  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
-  if (kernelMaxThreadGroupSize < maxGroupSize) {
-    maxGroupSize = kernelMaxThreadGroupSize;
+  // Set correct max group size if the kernel was compiled with explicit SIMD
+  if (SIMDWidth == 1) {
+    MaxGroupSize = NumEUsPerSubslice * NumThreadsPerEU;
+  }
+
+  uint32_t KernelMaxThreadGroupSize = KernelPR.MaxThreadGroupSize;
+  if (KernelMaxThreadGroupSize < MaxGroupSize) {
+    MaxGroupSize = KernelMaxThreadGroupSize;
     DP("Capping maximum team size to %" PRIu32
-       " due to kernel constraints.\n", maxGroupSize);
+       " due to kernel constraints.\n", MaxGroupSize);
   }
 
   if (ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (ThreadLimit <= maxGroupSize) {
-      maxGroupSize = ThreadLimit;
+    if (ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = ThreadLimit;
       DP("Max team size is set to %" PRIu32 " (thread_limit clause)\n",
-         maxGroupSize);
+         MaxGroupSize);
     } else {
       DP("thread_limit(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         ThreadLimit, maxGroupSize);
+         ThreadLimit, MaxGroupSize);
     }
   }
 
   if (DeviceInfo->Option.ThreadLimit > 0) {
-    maxGroupSizeForced = true;
+    MaxGroupSizeForced = true;
 
-    if (DeviceInfo->Option.ThreadLimit <= maxGroupSize) {
-      maxGroupSize = DeviceInfo->Option.ThreadLimit;
+    if (DeviceInfo->Option.ThreadLimit <= MaxGroupSize) {
+      MaxGroupSize = DeviceInfo->Option.ThreadLimit;
       DP("Max team size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
-         maxGroupSize);
+         MaxGroupSize);
     } else {
       DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %" PRIu32 "\n",
-         DeviceInfo->Option.ThreadLimit, maxGroupSize);
+         DeviceInfo->Option.ThreadLimit, MaxGroupSize);
     }
   }
 
-  uint32_t maxGroupCount = 0;
+  uint32_t MaxGroupCount = 0;
 
   if (NumTeams > 0) {
-    maxGroupCount = NumTeams;
-    maxGroupCountForced = true;
+    MaxGroupCount = NumTeams;
+    MaxGroupCountForced = true;
     DP("Max number of teams is set to %" PRIu32
-       " (num_teams clause or no teams construct)\n", maxGroupCount);
+       " (num_teams clause or no teams construct)\n", MaxGroupCount);
   } else if (DeviceInfo->Option.NumTeams > 0) {
     // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
-    maxGroupCount = DeviceInfo->Option.NumTeams;
-    maxGroupCountForced = true;
+    MaxGroupCount = DeviceInfo->Option.NumTeams;
+    MaxGroupCountForced = true;
     DP("Max number of teams is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
-       maxGroupCount);
+       MaxGroupCount);
   }
 
-  if (maxGroupCountForced) {
-    // If number of teams is specified by the user, then use kernelWidth
+  if (MaxGroupCountForced) {
+    // If number of teams is specified by the user, then use KernelWidth
     // WIs per WG by default, so that it matches
     // decideLoopKernelGroupArguments() behavior.
-    if (!maxGroupSizeForced) {
-      maxGroupSize = kernelWidth;
+    if (!MaxGroupSizeForced) {
+      MaxGroupSize = KernelWidth;
     }
   } else {
-    uint32_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
-    maxGroupCount = numSubslices * numThreadsPerSubslice;
-    if (maxGroupSizeForced) {
+    uint32_t NumThreadsPerSubslice = NumEUsPerSubslice * NumThreadsPerEU;
+    MaxGroupCount = NumSubslices * NumThreadsPerSubslice;
+    if (MaxGroupSizeForced) {
       // Set group size for the HW capacity
-      uint32_t numThreadsPerGroup =
-          (maxGroupSize + simdWidth - 1) / simdWidth;
-      uint32_t numGroupsPerSubslice =
-          (numThreadsPerSubslice + numThreadsPerGroup - 1) / numThreadsPerGroup;
-      maxGroupCount = numGroupsPerSubslice * numSubslices;
+      uint32_t NumThreadsPerGroup = (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
+      uint32_t NumGroupsPerSubslice =
+          (NumThreadsPerSubslice + NumThreadsPerGroup - 1) / NumThreadsPerGroup;
+      MaxGroupCount = NumGroupsPerSubslice * NumSubslices;
     } else {
       // For kernels with cross-WG reductions use LWS equal
-      // to kernelWidth. This is just a performance heuristic.
+      // to KernelWidth. This is just a performance heuristic.
       if (KInfo && KInfo->getHasTeamsReduction() &&
           // Only do this for discrete devices.
           DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -3936,35 +3939,35 @@ static void decideKernelGroupArguments(
           // atomic-free reductions. We want to maximize
           // LWS for such kernels.
           !KInfo->isAtomicFreeReduction())
-        maxGroupSize = kernelWidth;
+        MaxGroupSize = KernelWidth;
 
-      assert(!maxGroupSizeForced && !maxGroupCountForced);
-      assert((maxGroupSize <= kernelWidth ||
-              maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+      assert(!MaxGroupSizeForced && !MaxGroupCountForced);
+      assert((MaxGroupSize <= KernelWidth ||
+              MaxGroupSize % KernelWidth == 0) && "Invalid maxGroupSize");
       // Maximize group size
-      while (maxGroupSize >= kernelWidth) {
-        uint32_t numThreadsPerGroup =
-            (maxGroupSize + simdWidth - 1) / simdWidth;
-        if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
-          uint32_t numGroupsPerSubslice =
-              numThreadsPerSubslice / numThreadsPerGroup;
-          maxGroupCount = numGroupsPerSubslice * numSubslices;
+      while (MaxGroupSize >= KernelWidth) {
+        uint32_t NumThreadsPerGroup =
+            (MaxGroupSize + SIMDWidth - 1) / SIMDWidth;
+        if (NumThreadsPerSubslice % NumThreadsPerGroup == 0) {
+          uint32_t NumGroupsPerSubslice =
+              NumThreadsPerSubslice / NumThreadsPerGroup;
+          MaxGroupCount = NumGroupsPerSubslice * NumSubslices;
           break;
         }
-        maxGroupSize -= kernelWidth;
+        MaxGroupSize -= KernelWidth;
       }
     }
   }
 
-  uint32_t groupCounts[3] = {maxGroupCount, 1, 1};
-  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
+  uint32_t GRPCounts[3] = {MaxGroupCount, 1, 1};
+  uint32_t GRPSizes[3] = {MaxGroupSize, 1, 1};
   if (KInfo && KInfo->getWINum()) {
-    groupSizes[0] =
-        (std::min)(KInfo->getWINum(), static_cast<uint64_t>(groupSizes[0]));
+    GRPSizes[0] =
+        (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GRPSizes[0]));
     DP("Capping maximum team size to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWINum());
   }
-  if (!maxGroupCountForced) {
+  if (!MaxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->Option.ReductionSubscriptionRate) {
       if (DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -3978,24 +3981,24 @@ static void decideKernelGroupArguments(
         // Also use reduction subscription rate 1 for kernels using
         // atomic-free reductions, unless user forced reduction subscription
         // rate via environment.
-        groupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
-        groupCounts[0] = (std::max)(groupCounts[0], 1u);
+        GRPCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
+        GRPCounts[0] = (std::max)(GRPCounts[0], 1u);
       }
     } else {
-      groupCounts[0] *= DeviceInfo->Option.SubscriptionRate;
+      GRPCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
   }
   if (KInfo && KInfo->getWGNum()) {
-    groupCounts[0] =
-        (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(groupCounts[0]));
+    GRPCounts[0] =
+        (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(GRPCounts[0]));
     DP("Capping maximum thread groups count to %" PRIu64
        " due to kernel constraints (reduction).\n", KInfo->getWGNum());
   }
 
-  GroupCounts.groupCountX = groupCounts[0];
-  GroupCounts.groupCountY = groupCounts[1];
-  GroupCounts.groupCountZ = groupCounts[2];
-  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+  GroupCounts.groupCountX = GRPCounts[0];
+  GroupCounts.groupCountY = GRPCounts[1];
+  GroupCounts.groupCountZ = GRPCounts[2];
+  std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
 #if INTEL_INTERNAL_BUILD
