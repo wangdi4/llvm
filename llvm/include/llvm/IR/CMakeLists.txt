@@ -25,6 +25,7 @@ tablegen(LLVM IntrinsicsAArch64.h -gen-intrinsic-enums -intrinsic-prefix=aarch64
 tablegen(LLVM IntrinsicsAMDGPU.h -gen-intrinsic-enums -intrinsic-prefix=amdgcn)
 tablegen(LLVM IntrinsicsARM.h -gen-intrinsic-enums -intrinsic-prefix=arm)
 tablegen(LLVM IntrinsicsBPF.h -gen-intrinsic-enums -intrinsic-prefix=bpf)
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_CSA
 if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
@@ -33,6 +34,9 @@ endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 tablegen(LLVM IntrinsicsDirectX.h -gen-intrinsic-enums -intrinsic-prefix=dxil)
+=======
+tablegen(LLVM IntrinsicsDirectX.h -gen-intrinsic-enums -intrinsic-prefix=dx)
+>>>>>>> e0b520865026828819a63d78f8f8bc77da34c34b
 tablegen(LLVM IntrinsicsHexagon.h -gen-intrinsic-enums -intrinsic-prefix=hexagon)
 tablegen(LLVM IntrinsicsMips.h -gen-intrinsic-enums -intrinsic-prefix=mips)
 tablegen(LLVM IntrinsicsNVPTX.h -gen-intrinsic-enums -intrinsic-prefix=nvvm)
