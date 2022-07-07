@@ -3295,7 +3295,10 @@ defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-me
             "Disabled by default. (experimental)">,
     NegFlag<SetFalse, [], "Do not enforce using stateless memory accesses. (experimental)">,
     BothFlags<[CC1Option, CoreOption], "">>;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 52a8b09d8fdbc20dccc855541caf8d7f4b81d2e5
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
 def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">,
