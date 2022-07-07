@@ -290,7 +290,11 @@ struct Config {
   /// the given output file name, and (2) creates a resolution file whose name
   /// is prefixed by the given output file name and sets ResolutionFile to its
   /// file handle.
+  ///
+  /// SaveTempsArgs can be specified to select which temps to save.
+  /// If SaveTempsArgs is not provided, all temps are saved.
   Error addSaveTemps(std::string OutputFileName,
+<<<<<<< HEAD
                      bool UseInputModulePath = false);
 
 #if INTEL_CUSTOMIZATION
@@ -298,6 +302,10 @@ struct Config {
   // whole program analysis
   WholeProgramUtils WPUtils;
 #endif // INTEL_CUSTOMIZATION
+=======
+                     bool UseInputModulePath = false,
+                     const DenseSet<StringRef> &SaveTempsArgs = {});
+>>>>>>> 65001f5777db90d6acd126e3c74773038c3a28e3
 };
 
 struct LTOLLVMDiagnosticHandler : public DiagnosticHandler {
