@@ -60,9 +60,9 @@ entry:
   %rem = srem i32 %6, 32
   %cmp = icmp eq i32 %rem, 0
   %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(),
-    "QUAL.OMP.DATA"(ptr %.tmp.prefetch, i32 0, i32 2, i64 4),
-    "QUAL.OMP.DATA"(ptr %.tmp.prefetch1, float 0.000000e+00, i32 2, i32 %n),
-    "QUAL.OMP.DATA"(ptr %.tmp.prefetch4, double 0.000000e+00, i32 0, i64 8),
+    "QUAL.OMP.DATA"(ptr %.tmp.prefetch, i32 0, i64 4, i32 2),
+    "QUAL.OMP.DATA"(ptr %.tmp.prefetch1, float 0.000000e+00, i32 %n, i32 2),
+    "QUAL.OMP.DATA"(ptr %.tmp.prefetch4, double 0.000000e+00, i64 8, i32 0),
     "QUAL.OMP.IF"(i1 %cmp) ]
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.PREFETCH"() ]
   %8 = load ptr, ptr %a.addr, align 8
