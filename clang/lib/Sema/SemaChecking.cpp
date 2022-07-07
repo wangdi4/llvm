@@ -9392,7 +9392,6 @@ ExprResult Sema::SemaConvertVectorExpr(Expr *E, TypeSourceInfo *TInfo,
 bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
   unsigned NumArgs = TheCall->getNumArgs();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHI
   if (NumArgs > 4)
@@ -9406,16 +9405,10 @@ bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
     --NumArgs;
   }
 #else // INTEL_FEATURE_ISA_PREFETCHI
-  if (NumArgs > 3)
-    return Diag(TheCall->getEndLoc(),
-                diag::err_typecheck_call_too_many_args_at_most)
-           << 0 /*function call*/ << 3 << NumArgs << TheCall->getSourceRange();
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
-=======
   if (checkArgCountAtMost(*this, TheCall, 3))
     return true;
->>>>>>> 6b8761acb8783c60e04cd7c8bef97c4b8b380082
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
 
   // Argument 0 is checked for us and the remaining arguments must be
   // constant integers.
