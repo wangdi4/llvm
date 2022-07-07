@@ -4959,7 +4959,6 @@ bool llvm::mustSuppressSpeculation(const LoadInst &LI) {
     F.hasFnAttribute(Attribute::SanitizeHWAddress);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Return true if the only users of this pointer are
 /// var.annotation intrinsics with register attribute set.
@@ -4979,10 +4978,7 @@ bool llvm::onlyUsedByVarAnnot(const Value *V) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool llvm::isSafeToSpeculativelyExecute(const Value *V,
-=======
 bool llvm::isSafeToSpeculativelyExecute(const Instruction *Inst,
->>>>>>> f96cb66d1931dc09be947502a3f1dccda933cc1b
                                         const Instruction *CtxI,
                                         const DominatorTree *DT,
                                         const TargetLibraryInfo *TLI) {
