@@ -441,7 +441,15 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
     }
 
     DTransFieldMember &Field = DTStTy->getField(FieldNum);
+    DTransType *ExistingType = Field.getType();
     Field.addResolvedType(DTFieldTy);
+
+    if (ExistingType && ExistingType != DTFieldTy) {
+      DTStTy->setReconstructError();
+      LLVM_DEBUG(
+          dbgs() << "Conflicting types for field from metadata:\n  Expected: "
+                 << *ExistingType << "\n  Found: " << *DTFieldTy << "\n");
+    }
   }
 
   LLVM_DEBUG({
