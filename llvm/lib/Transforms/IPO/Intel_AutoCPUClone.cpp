@@ -142,6 +142,9 @@ static bool cloneFunctions(Module &M,
 
   const Triple TT{M.getTargetTriple()};
 
+  if (TT.isOSWindows())
+    return false;
+
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
            std::tuple</*Resolver*/ GlobalValue *, /*Dispatch*/ GlobalValue *,
