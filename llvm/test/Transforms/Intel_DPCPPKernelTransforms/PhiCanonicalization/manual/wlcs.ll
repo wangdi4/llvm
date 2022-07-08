@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ; ModuleID = 'wlcs.ll'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -9,11 +14,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This module was already processed by -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify passes
 
-; CHECK: @Lcs
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %149, %150
-; CHECK: phi-split-bb1:                                    ; preds = %116, %117
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @Lcs
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %149, %150
+; NOSKIP: phi-split-bb1:                                    ; preds = %116, %117
+; NOSKIP: ret
 
 @Lcs.iterator_cmp = internal constant [32 x i32] [i32 16, i32 7, i32 10, i32 13, i32 17, i32 20, i32 11, i32 14, i32 18, i32 21, i32 24, i32 15, i32 19, i32 22, i32 25, i32 28, i32 32, i32 23, i32 26, i32 29, i32 33, i32 36, i32 27, i32 30, i32 34, i32 37, i32 40, i32 31, i32 35, i32 38, i32 41, i32 44], align 4
 
@@ -423,6 +430,6 @@ declare <4 x i32> @_Z3maxDv4_iS_(<4 x i32>, <4 x i32>)
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
+; DEBUGIFY-ALL-NOT: WARNING

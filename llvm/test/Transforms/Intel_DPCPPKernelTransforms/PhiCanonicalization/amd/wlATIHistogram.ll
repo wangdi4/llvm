@@ -1,7 +1,13 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+
 
 ; ModuleID = 'wlATIHistogram.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
@@ -11,10 +17,11 @@ target triple = "i686-pc-win32"
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
-; CHECK: @histogram
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.end88.loopexit, %for.end88.loopexit14
-; CHECK: ret
+; NOSKIP: @histogram
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.end88.loopexit, %for.end88.loopexit14
+
+; SKIP-NOT: phi-split-bb
 
 define void @histogram(i32 addrspace(1)* %data, i8 addrspace(3)* %sharedArray, i32 addrspace(1)* %binResult, i32 %BIN_SIZE, ...) nounwind {
 entry:
@@ -132,5 +139,5 @@ declare void @_Z7barrierm(i32)
 
 declare void @llvm.memset.p3i8.i32(i8 addrspace(3)* nocapture, i8, i32, i32, i1) nounwind
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogram --  br label %for.end88
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogram --  br label %for.end88
+; DEBUGIFY-ALL-NOT: WARNING

@@ -291,8 +291,6 @@
 
 ; CHECK: Running pass: PhiCanonicalization
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: RedundantPhiNode
 ; CHECK-NEXT: Running pass: DCEPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass

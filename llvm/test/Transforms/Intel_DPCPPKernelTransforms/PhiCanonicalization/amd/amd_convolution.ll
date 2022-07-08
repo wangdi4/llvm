@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ; ModuleID = 'amd_convolution.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
@@ -11,10 +16,16 @@ target triple = "i686-pc-win32"
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
-; CHECK: simpleConvolution
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.end119.loopexit, %for.end119.loopexit13
-; CHECK: ret
+; NOSKIP: simpleConvolution
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.end119.loopexit, %for.end119.loopexit13
+; NOSKIP: %new_phi = phi float [ 0.000000e+00, %for.end{{.*}} ], [ %add{{.*}}, %for.end{{.*}} ]
+; NOSKIP-NEXT: br label %[[LABEL:.*]]
+; NOSKIP: [[LABEL]]:
+; NOSKIP-NEXT: %{{.*}} = phi float [ 0.000000e+00, %entry ], [ %new_phi, %phi-split-bb ]
+
+; SKIP: phi float [ 0.000000e+00, %entry ], [ %add{{.*}}, %for.end{{.*}} ], [ 0.000000e+00, %for.end{{.*}} ]
+; SKIP-NOT: phi-split-bb
 
 define void @simpleConvolution(float addrspace(1)* %output, i32 addrspace(1)* %input, float addrspace(1)* %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions, ...) nounwind {
 entry:
@@ -112,5 +123,5 @@ for.end119:                                       ; preds = %for.end119.loopexit
 
 declare i32 @_Z13get_global_idj(i32)
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function simpleConvolution --  br label %for.end119
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function simpleConvolution --  br label %for.end119
+; DEBUGIFY-ALL-NOT: WARNING

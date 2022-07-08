@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ; ModuleID = 'intel_god_rays_scalar.ll'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -9,23 +14,25 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This module was already processed by -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify passes
 
-; CHECK: @evaluateRayScalar
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %._crit_edge112, %61
-; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113, %53
-; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114, %44
-; CHECK: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115, %36
-; CHECK: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %261, %265
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %327, %331
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %367, %372
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %391, %394
-; CHECK: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %54, %57
-; CHECK: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %49, %phi-split-bb[[tag5]]
-; CHECK: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %41, %phi-split-bb[[tag6]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %33, %phi-split-bb[[tag7]]
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @evaluateRayScalar
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %._crit_edge112, %61
+; NOSKIP: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113, %53
+; NOSKIP: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114, %44
+; NOSKIP: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115, %36
+; NOSKIP: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %261, %265
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %327, %331
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %367, %372
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %391, %394
+; NOSKIP: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %54, %57
+; NOSKIP: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %49, %phi-split-bb[[tag5]]
+; NOSKIP: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %41, %phi-split-bb[[tag6]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %33, %phi-split-bb[[tag7]]
+; NOSKIP: ret
 
 define void @evaluateRayScalar(float addrspace(1)* nocapture %inputImage, float addrspace(1)* nocapture %output, i32 %in_RayNum, <2 x i32> %imgSize, i32 %blend) nounwind {
 ; <label>:0
@@ -750,23 +757,23 @@ bb.nph:                                           ; preds = %bb.nph.preheader, %
 
 declare i32 @_Z13get_global_idj(i32)
 
-; CHECK: @intel_god_rays_scalar
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %._crit_edge112.i, %60
-; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113.i, %52
-; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114.i, %43
-; CHECK: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115.i, %35
-; CHECK: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %260, %264
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %326, %330
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %366, %371
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %390, %393
-; CHECK: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %53, %56
-; CHECK: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %48, %phi-split-bb[[tag5]]
-; CHECK: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %40, %phi-split-bb[[tag6]]
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %32, %phi-split-bb[[tag7]]
-; CHECK: ret
+; NOSKIP: @intel_god_rays_scalar
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %._crit_edge112.i, %60
+; NOSKIP: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113.i, %52
+; NOSKIP: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114.i, %43
+; NOSKIP: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115.i, %35
+; NOSKIP: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %260, %264
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %326, %330
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %366, %371
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %390, %393
+; NOSKIP: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %53, %56
+; NOSKIP: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %48, %phi-split-bb[[tag5]]
+; NOSKIP: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %40, %phi-split-bb[[tag6]]
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %32, %phi-split-bb[[tag7]]
+; NOSKIP: ret
 
 define void @intel_god_rays_scalar(<4 x float> addrspace(1)* nocapture %inputImage, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %blend) nounwind {
 ; <label>:0
@@ -1501,32 +1508,32 @@ declare float @_Z13convert_floati(i32)
 
 declare i32 @_Z3absi(i32)
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %269
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %335
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %379
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %396
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb32
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb33
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %400
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %268
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %334
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %378
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %395
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb32
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb33
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %evaluateRayScalar.exit
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %269
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %335
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %379
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %396
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb32
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb33
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %400
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %268
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %334
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %378
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %395
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb32
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb33
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %evaluateRayScalar.exit
+; DEBUGIFY-ALL-NOT: WARNING
