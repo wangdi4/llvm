@@ -3527,9 +3527,21 @@ int32_t OpenCLProgramTy::buildKernels() {
     Entries[I].addr = &Kernels[I];
     Entries[I].name = Name;
 
-    // Do not try to query information for deleted kernels.
-    if (!Kernels[I])
+    if (!Kernels[I]) {
+      if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
+        // Return device function ptr for entires marked as
+        // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
+        Entries[I].flags = Image->EntriesBegin[I].flags;
+        Entries[I].addr = getOffloadVarDeviceAddr(Name, Size);
+        DP("Returning device function pointer " DPxMOD
+           " for host function pointer " DPxMOD "\n",
+           DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
+      } else {
+        // Do not try to query information for deleted kernels.
+        DP("Warning: cannot find kernel %s\n", Name);
+      }
       continue;
+    }
 
     if (!readKernelInfo(Entries[I])) {
       DP("Error: failed to read kernel info for kernel %s\n", Name);
