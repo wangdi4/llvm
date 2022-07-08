@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-redundant-phi-node -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ;;*****************************************************************************
 ;; This test checks the RedundantPhiNode pass
@@ -14,7 +19,7 @@
 
 ; ModuleID = 'Program'
 
-; CHECK: @main
+; NOSKIP: @main
 define i1 @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
   br label %L1
@@ -25,15 +30,18 @@ L2:
 L3:
   %isOk = phi i1 [ %check, %L2 ]
   ret i1 %isOk
-; CHECK:   %check = icmp ult i32 %x, 0
-; CHECK:   br label %L1
-; CHECK: L1:
-; CHECK:   br label %L2
-; CHECK: L2:
-; CHECK:   br label %L3
-; CHECK: L3:
-; CHECK-NEXT:   ret i1 %check
+; NOSKIP:   %check = icmp ult i32 %x, 0
+; NOSKIP:   br label %L1
+; NOSKIP: L1:
+; NOSKIP:   br label %L2
+; NOSKIP: L2:
+; NOSKIP:   br label %L3
+; NOSKIP: L3:
+; NOSKIP:   ret i1 %check
+; SKIP: %isOk = phi i1 [ %check, %L2 ]
+; SKIP-NEXT: ret i1 %isOk
+
 }
 
-; DEBUGIFY: WARNING: Missing line 5
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Missing line 5
+; DEBUGIFY-ALL-NOT: WARNING

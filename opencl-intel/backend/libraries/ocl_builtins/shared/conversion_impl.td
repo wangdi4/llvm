@@ -123,22 +123,7 @@ foreach type_name = ["f16", "f32", "f64"] in {
     }
   }
 }
-/*
-foreach type_name = ["f32", "f64"] in {
-  defvar name = "convert_" # type_name;
-  defvar src_type_name = "f16";
-  defvar cvt_code = ExtFp;
-    foreach len = [1, 2, 3, 4, 8, 16, 32, 64] in {
-      defvar src_type = !cast<OclType>("v"#len#src_type_name);
-      def : OclBuiltinImpl<!cast<OclBuiltin>(name), [src_type], 0, cvt_code>;
-      def : OclBuiltinImpl<!cast<OclBuiltin>(name#"_rte"), [src_type], 0, cvt_code>;
-      def : OclBuiltinImpl<!cast<OclBuiltin>(name#"_rtz"), [src_type], 0, cvt_code>;
-      def : OclBuiltinImpl<!cast<OclBuiltin>(name#"_rtp"), [src_type], 0, cvt_code>;
-      def : OclBuiltinImpl<!cast<OclBuiltin>(name#"_rtn"), [src_type], 0, cvt_code>;
-    }
-  }
-}
-*/
+
 // Expand
 
 foreach type_name = ["i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64"] in {

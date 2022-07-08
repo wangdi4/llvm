@@ -187,10 +187,8 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         if (m_IsFpgaEmulator)
           MPM.addPass(RemoveAtExitPass());
 
-        // SetPreferVectorWidthPass is not enabled because it causes 3%
-        // regression on non-spirv sycl_benchmarks/apriori.
-        // MPM.addPass(SetPreferVectorWidthPass(
-        //     VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
+        MPM.addPass(SetPreferVectorWidthPass(
+            VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
 
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));

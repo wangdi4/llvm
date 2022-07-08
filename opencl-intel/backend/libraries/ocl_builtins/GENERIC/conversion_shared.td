@@ -133,12 +133,12 @@ OclBuiltinImpl cvt_f32_u8u16 = OclBuiltinImpl<convert_f32,
   }]>;
 
 OclBuiltinImpl cvt_f32_i32 = OclBuiltinImpl<convert_f32,
-                                            [v1i32, v2i32, v3i32, v4i32, v16i32], 0, [{
+                                            [v1i32, v2i32, v3i32, v4i32], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtn$SVMLSuffix($Arg0VarName);
   }]>;
 
 OclBuiltinImpl cvt_f32_u32 = OclBuiltinImpl<convert_f32,
-                                            [v1u32, v2u32, v3u32, v4u32, v8u32, v16u32], 0, [{
+                                            [v1u32, v2u32, v3u32, v4u32, v8u32], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtn$SVMLSuffix($Arg0VarName);
   }]>;
 

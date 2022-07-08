@@ -296,8 +296,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
     const void **ppBinaries, unsigned int uiNumInputBinaries,
     const size_t *puiBinariesSizes, const char *szOptions, OUT char **ppBinary,
     OUT size_t *puiBinarySize, OUT std::vector<char> &linkLog,
-    OUT bool *pbIsLibrary,
-    vector<vector<string>>* pWithSourceKernelsName) const {
+    OUT bool *pbIsLibrary, OUT char **ppKernelNames) const {
   LOG_DEBUG(
       TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, "
            "puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
@@ -306,12 +305,13 @@ cl_err_code FrontEndCompiler::LinkProgram(
 
   IOCLFEBinaryResult *Result;
   FELinkProgramsDescriptor linkDesc;
+  IOCLFELinkKernelNames *LinkKernelName;
 
   linkDesc.pBinaryContainers = ppBinaries;
   linkDesc.uiNumBinaries = uiNumInputBinaries;
   linkDesc.puiBinariesSizes = puiBinariesSizes;
   linkDesc.pszOptions = szOptions;
-  linkDesc.pKernelNames = pWithSourceKernelsName;
+  linkDesc.pKernelNames = &LinkKernelName;
 
   int Error = m_pFECompiler->LinkPrograms(&linkDesc, &Result);
 
@@ -324,6 +324,13 @@ cl_err_code FrontEndCompiler::LinkProgram(
   }
 
   try {
+    if (const char *KernelNames =
+            (*linkDesc.pKernelNames)->GetAllKernelNames()) {
+      unsigned int Length = strlen(KernelNames) + 1;
+      *ppKernelNames = new char[Length];
+      MEMCPY_S(*ppKernelNames, Length, KernelNames, Length);
+    }
+
     if (const char *ErrLog = Result->GetErrorLog()) {
       linkLog.resize(strlen(ErrLog) + 1);
       MEMCPY_S(&linkLog[0], strlen(ErrLog) + 1, ErrLog, strlen(ErrLog) + 1);
@@ -338,6 +345,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
     }
   } catch (std::bad_alloc &) {
     Result->Release();
+    (*linkDesc.pKernelNames)->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }
 
@@ -347,6 +355,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
   }
 
   Result->Release();
+  (*linkDesc.pKernelNames)->Release();
 
   return CL_SUCCESS;
 }
