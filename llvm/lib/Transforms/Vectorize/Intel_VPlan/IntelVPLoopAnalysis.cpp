@@ -753,8 +753,6 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
 
 void VPLoopEntityList::insertRunningInscanReductionInstrs(
     const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
-    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
-    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
     VPBuilder &Builder) {
   // Nothing to do if no inscan reductions present.
   if (InscanReductions.empty())
@@ -822,21 +820,24 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   //   float* %red = allocate-priv float*
   //   float %red_load = load float* %red
   //   float %red_init = reduction-init-scalar float 0.0 float %red_load
-  //   store float %red_init float* %red
   // header:
-  //   float %carry-over = phi [ %red_init, %extract_last_lane ]
+  //   float %carry-over =
+  //       phi float [ %red_init, pre.header ]
+  //                 [ %extract_last_lane, separating.pragma.block ]
   //   store float -0.000000e+00 float* %red
-  // separating pragma block:
-  //   float %running_red = running-inclusive-reduction float* %red %carry-over
+  // separating.pragma.block:
+  //   float %red_load_run = load float* %red
+  //   float %running_red = running-inclusive-reduction float %red_load_run
+  //                                                    float %carry-over
   //   store float %running_red float* %red
-  //   %extract_last_lane = extract-last-vector-lane float %running_red
+  //   float %extract_last_lane = extract-last-vector-lane float %running_red
   // post.exit:
   //   float %red_pre_final = load float* %red
   //   float %final_red = reduction-final-inscan float %red_pre_final
 
   VPBuilder::InsertPointGuard Guard(Builder);
   for (const VPInscanReduction *InscanRed : InscanReductions) {
-    auto *Private = RedPrivateMap.lookup(InscanRed);
+    auto *Private = getLinkedInstruction<VPAllocatePrivate>(InscanRed);
 
     // Initalize the reduction with Identity value in the loop header.
     VPValue *Identity = getReductionIdentity(InscanRed);
@@ -846,7 +847,8 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
       Header->getTerminator()->getDebugLocation());
     Builder.createStore(Identity, Private);
 
-    VPValue *StartValue = RedInitMap.lookup(InscanRed);
+    VPValue *StartValue =
+      getLinkedInstruction<VPReductionInit>(InscanRed);
     // Create a phi for the carry-over value.
     Builder.setInsertPointFirstNonPhi(Header);
     auto *InscanAccumPhi =
@@ -885,10 +887,7 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
-    DenseMap<const VPReduction *,
-             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
-    DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
-    DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+    DenseMap<const VPReduction *, VPInstruction *> &RedExitMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
 
   // Note: the insert location guard also guards builder debug location.
@@ -902,7 +901,6 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
-  RedPrivateMap[Reduction] = PrivateMem;
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
@@ -945,7 +943,6 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPInstruction *Init = Builder.createReductionInit(
       Identity, StartValue, UseStart, IsInscan /*IsScalar*/,
       Name + Reduction->getNameSuffix() + ".init");
-  RedInitMap[Reduction] = Init;
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                    *Reduction->getRecurrenceStartValue(), IsInscan);
@@ -975,9 +972,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
     const VPReduction *Parent = IndexRed->getParentReduction();
-    VPInstruction *ParentExit;
-    VPReductionFinal *ParentFinal;
-    std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+    VPInstruction *ParentExit = RedExitMap[Parent];
+    VPReductionFinal *ParentFinal =
+      getLinkedInstruction<VPReductionFinal>(Parent);
     Final = Builder.create<VPReductionFinal>(
         FinName, Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
         Reduction->isSigned());
@@ -1012,8 +1009,6 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
-
-
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
     auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
@@ -1021,7 +1016,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
                          Intrinsic::lifetime_end);
   }
 
-  RedFinalMap[Reduction] = std::make_pair(Final, Exit);
+  RedExitMap[Reduction] = Exit;
   ProcessedReductions.insert(Reduction);
 }
 
@@ -1033,10 +1028,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
   assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
-  DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
-      RedFinalMap;
-  DenseMap<const VPReduction *, VPValue *> RedPrivateMap;
-  DenseMap<const VPReduction *, VPValue *> RedInitMap;
+  DenseMap<const VPReduction *, VPInstruction *> RedExitMap;
   SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
   SmallVector<const VPInscanReduction *, 2> InscanReductions;
 
@@ -1066,12 +1058,11 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
     for (auto *Reduction : reverse(WorkList))
       insertOneReductionVPInstructions(
-        Reduction, Builder, PostExit, Preheader, RedFinalMap, RedPrivateMap,
-        RedInitMap, ProcessedReductions);
+        Reduction, Builder, PostExit, Preheader, RedExitMap,
+        ProcessedReductions);
   }
 
-  insertRunningInscanReductionInstrs(
-    InscanReductions, RedPrivateMap, RedInitMap, Builder);
+  insertRunningInscanReductionInstrs(InscanReductions, Builder);
 }
 
 void VPLoopEntityList::preprocess() {
