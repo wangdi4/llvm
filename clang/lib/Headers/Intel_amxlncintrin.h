@@ -49,7 +49,7 @@
 /// \headerfile <immintrin.h>
 ///
 /// \code
-/// void __tile_ttdpbf16ps(__tile srcdst, __tile a, __tile b);
+/// void __tile_tdpbf16ps(__tile srcdst, __tile a, __tile b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TTDPBF16PS </c> instruction.
@@ -99,7 +99,7 @@
 /// \headerfile <immintrin.h>
 ///
 /// \code
-/// void __tile_ttdpfp16ps(__tile srcdst, __tile a, __tile b);
+/// void __tile_tdpfp16ps(__tile srcdst, __tile a, __tile b);
 /// \endcode
 ///
 /// This intrinsic corresponds to the <c> TTDPFP16PS </c> instruction.
@@ -276,15 +276,15 @@ _tile_transposed_internal(unsigned short m, unsigned short n, _tile1024i src) {
 
 // dst = m x n (srcdest), src1 = k x m, src2 = k x n
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_TRANSPOSE
-_tile_ttdpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
-                          _tile1024i dst, _tile1024i src1, _tile1024i src2) {
+_tile_tdpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
+                         _tile1024i dst, _tile1024i src1, _tile1024i src2) {
   return __builtin_ia32_ttdpbf16ps_internal(m, n, k, dst, src1, src2);
 }
 
 // dst = m x n (srcdest), src1 = k x m, src2 = k x n
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_TRANSPOSE
-_tile_ttdpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
-                          _tile1024i dst, _tile1024i src1, _tile1024i src2) {
+_tile_tdpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
+                         _tile1024i dst, _tile1024i src1, _tile1024i src2) {
   return __builtin_ia32_ttdpfp16ps_internal(m, n, k, dst, src1, src2);
 }
 
@@ -332,9 +332,9 @@ static void __tile_transposed(__tile1024i *dst, __tile1024i src) {
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_TRANSPOSE
-static void __tile_ttdpbf16ps(__tile1024i *dst, __tile1024i src0,
-                               __tile1024i src1) {
-  dst->tile = _tile_ttdpbf16ps_internal(src0.col / 4, src1.col,
+static void __tile_tdpbf16ps(__tile1024i *dst, __tile1024i src0,
+                             __tile1024i src1) {
+  dst->tile = _tile_tdpbf16ps_internal(src0.col / 4, src1.col,
                            src1.row * 4, dst->tile, src0.tile, src1.tile);
 }
 
@@ -358,9 +358,9 @@ static void __tile_ttdpbf16ps(__tile1024i *dst, __tile1024i src0,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_TRANSPOSE
-static void __tile_ttdpfp16ps(__tile1024i *dst, __tile1024i src0,
-                               __tile1024i src1) {
-  dst->tile = _tile_ttdpfp16ps_internal(src0.col / 4, src1.col,
+static void __tile_tdpfp16ps(__tile1024i *dst, __tile1024i src0,
+                             __tile1024i src1) {
+  dst->tile = _tile_tdpfp16ps_internal(src0.col / 4, src1.col,
                            src1.row * 4, dst->tile, src0.tile, src1.tile);
 }
 
