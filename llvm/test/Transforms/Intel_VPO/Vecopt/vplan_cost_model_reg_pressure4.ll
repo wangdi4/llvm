@@ -40,8 +40,8 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 16 resulted Cost = 0
@@ -75,7 +75,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 160
 ; VPLAN-CM-AVX2-NEXT:  Total Cost: 1160.875
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]]
@@ -89,8 +89,8 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 16 resulted Cost = 0
@@ -120,7 +120,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:  Block total cost includes GS Cost: 144
 ; VPLAN-CM-AVX512-NEXT:  Base Cost: 206.9375
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB4]]

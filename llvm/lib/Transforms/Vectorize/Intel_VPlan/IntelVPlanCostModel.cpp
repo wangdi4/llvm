@@ -933,6 +933,264 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
 
     return Cost;
   }
+  case VPInstruction::InductionInit: {
+    // Add based InductionInit lowering scheme:
+    // 1. StartValBCast = bcast(StartVal)
+    // 2. StepValBCast = bcast(StepVal)
+    // 3. VectorStep = StepValBCast * [0, 1, .. VF - 1]
+    // 4. RetVal = StartValBCast + VectorStep
+    //
+    // Mul based InductionInit lowering scheme:
+    // 1. StartValBCast = bcast(StartVal)
+    // 2. VectorStep = insert(StepVal, 0)
+    // 3. StepVal = StepVal * StepVal
+    // 4. VectorStep = insert(StepVal, 1)
+    //    ...
+    // VF+1. StepVal = StepVal * StepVal
+    // VF+2. VectorStep = insert(StepVal, VF - 1)
+    // VF+3. RetVal = StartValBCast * VectorStep
+    //
+    // The last operation for RetVal turns into GEP for pointer type
+    // Inductions.
+    //
+    // Note that when StartVal and/or StepVal are constant values some
+    // operations can be folded and result is used inside the loop directly
+    // yielding zero cost of InductionInit instruction.
+    VPInstructionCost Cost = 0;
+    auto *VPInd = cast<VPInductionInit>(VPInst);
+    unsigned Opc = VPInd->getBinOpcode();
+    bool IsAdd = Opc == Instruction::Add || Opc == Instruction::FAdd ||
+                 Opc == Instruction::Sub || Opc == Instruction::FSub ||
+                 Opc == Instruction::GetElementPtr;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    bool IsPtr = VPInst->getType()->isPointerTy() ||
+                 Opc == Instruction::GetElementPtr;
+
+    auto *StepScalTy = VPInst->getOperand(1)->getType();
+    auto *StepVecTy = getWidenedType(StepScalTy, VF);
+    auto *StartVal = VPInd->getOperand(0);
+
+    if (dyn_cast<VPLiveInValue>(StartVal))
+      StartVal = Plan->getExternals().getOriginalIncomingValue(
+                   cast<VPLiveInValue>(StartVal)->getMergeId());
+
+    // StartValBCast cost.
+    if (!isa<VPConstant>(StartVal))
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast,
+                                 getWidenedType(StartVal->getType(), VF));
+
+    // StepValBCast and VectorStep costs.
+    if (!isa<VPConstant>(VPInd->getOperand(1))) {
+      if (IsAdd)
+        Cost +=
+          TTI.getShuffleCost(TTI::SK_Broadcast, StepVecTy) +
+          TTI.getArithmeticInstrCost(
+            IsFloat ? Instruction::FMul : Instruction::Mul, StepVecTy,
+            TargetTransformInfo::TCK_RecipThroughput);
+      else {
+        for (unsigned Index = 0; Index < VF; Index++)
+          Cost += TTI.getVectorInstrCost(Instruction::InsertElement,
+                                         StepVecTy, Index);
+        Cost += (VF - 1) * TTI.getArithmeticInstrCost(
+          Opc, StepScalTy, TargetTransformInfo::TCK_RecipThroughput);
+      }
+    }
+
+    // RetVal cost.
+    if (!isa<VPConstant>(StartVal) || !isa<VPConstant>(VPInd->getOperand(1)))
+      // TODO: TTI interface for GEP cost yet to be implemented.
+      if (!IsPtr)
+        Cost += TTI.getArithmeticInstrCost(
+          Opc, StepVecTy, TargetTransformInfo::TCK_RecipThroughput);
+
+    return Cost;
+  }
+
+  case VPInstruction::InductionInitStep: {
+    // Add based InductionInitStep lowering scheme:
+    // 1. ScaledStep = StepVal * VF
+    // 2. VectorStep = bcast(ScaledStep)
+    //
+    // Mul based InductionInitStep lowering scheme:
+    // 1. ScaledStep = StepVal * StepVal
+    // 2. ScaledStep = ScaledStep * ScaledStep
+    //    ...
+    // Log(VF).   ScaledStep = ScaledStep * ScaledStep
+    // Log(VF)+1. VectorStep = bcast(ScaledStep)
+    //
+    // Note that when StepVal is a constant value the operations are folded
+    // resulting zero cost of InductionInitStep instruction.
+    auto *StepVal = VPInst->getOperand(0);
+    if (isa<VPConstant>(StepVal))
+      return 0;
+
+    VPInstructionCost Cost = 0;
+    auto *VPIndStep = cast<VPInductionInitStep>(VPInst);
+    unsigned Opc = VPIndStep->getBinOpcode();
+    bool IsAdd = Opc == Instruction::Add || Opc == Instruction::FAdd ||
+                 Opc == Instruction::Sub || Opc == Instruction::FSub ||
+                 Opc == Instruction::GetElementPtr;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    auto *StepScalTy = StepVal->getType();
+
+    // ScaledStep cost.
+    if (IsAdd)
+      Cost += TTI.getArithmeticInstrCost(
+        IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
+        TargetTransformInfo::TCK_RecipThroughput,
+        TargetTransformInfo::OK_AnyValue,
+        TargetTransformInfo::OK_UniformConstantValue,
+        TargetTransformInfo::OP_None,
+        TargetTransformInfo::OP_PowerOf2);
+    else
+      Cost += TTI.getArithmeticInstrCost(
+        IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
+        TargetTransformInfo::TCK_RecipThroughput) * Log2(VF);
+
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast,
+                               getWidenedType(StepScalTy, VF));
+
+    return Cost;
+  }
+
+  case VPInstruction::InductionFinal: {
+    auto *IndInit = VPInst->getOperand(0);
+    auto *IndInitScalTy = IndInit->getType();
+
+    // One operand - extract from vector
+    if (VPInst->getNumOperands() == 1)
+      return TTI.getShuffleCost(TTI::SK_ExtractSubvector,
+                                getWidenedType(IndInitScalTy, VF), VF - 1);
+
+    VPInstructionCost Cost = 0;
+    // Otherwise (two operands) calculate by formulas
+    //  for post increment liveouts LV = start + step*upper_bound,
+    //  for pre increment liveouts LV = start + step*(upper_bound-1)
+    //
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    unsigned Opc = cast<VPInductionFinal>(VPInst)->getBinOpcode();
+    bool IsPtr = VPInst->getType()->isPointerTy() ||
+                 Opc == Instruction::GetElementPtr;
+
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    auto *VPIndFinal = cast<VPInductionFinal>(VPInst);
+
+    // The code below to find the loop is copy-pasted from CG routine
+    // VPOCodeGen::vectorizeInductionFinal().
+    VPLoop *L = nullptr;
+    VPBasicBlock *VPIndFinalBB =
+      *VPInst->getParent()->getPredecessors().begin();
+    L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    while (!L) {
+      VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
+      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    }
+    bool ExactUB = L->exactUB();
+    VPCmpInst *Cond = L->getLatchComparison();
+    VPValue *VPTripCnt = nullptr;
+    if (Cond)
+      VPTripCnt = L->isDefOutside(Cond->getOperand(0)) ?
+        Cond->getOperand(0) : Cond->getOperand(1);
+
+    auto *VPStep = VPInst->getOperand(1);
+    auto *VPStepScalTy = VPStep->getType();
+    TargetTransformInfo::OperandValueKind TripCountVK =
+      TargetTransformInfo::OK_AnyValue;
+    VPValue *VPTripCntVal = nullptr;
+
+    // If Cond is nullptr we assume TripCount is known and constant.
+    // !L->getTripCountInfo().IsEstimated is also indication of that
+    // the loop has constant TC even if corresponding to TC VPInstructions
+    // are not found.
+    if (!VPTripCnt || !L->getTripCountInfo().IsEstimated)
+      TripCountVK = TargetTransformInfo::OK_UniformConstantValue;
+    else if (dyn_cast<VPVectorTripCountCalculation>(VPTripCnt))
+      VPTripCntVal = cast<VPInstruction>(VPTripCnt)->getOperand(0);
+
+    if (VPTripCntVal && isa<VPConstant>(VPTripCntVal))
+      TripCountVK = TargetTransformInfo::OK_UniformConstantValue;
+
+    // Take into account +/- 1 adjustments if TC is not constant and they
+    // do not annihilate each other.
+    if (VPTripCntVal && TripCountVK == TargetTransformInfo::OK_AnyValue) {
+      if (VPIndFinal->isLastValPreIncrement() && ExactUB)
+        // Subtruct one.
+        Cost += TTI.getArithmeticInstrCost(
+          Instruction::Sub, VPTripCntVal->getType(),
+          TargetTransformInfo::TCK_RecipThroughput,
+          TargetTransformInfo::OK_AnyValue,
+          TargetTransformInfo::OK_UniformConstantValue);
+
+      if (!ExactUB && !VPIndFinal->isLastValPreIncrement())
+        // Add one.
+        Cost += TTI.getArithmeticInstrCost(
+          Instruction::Add, VPTripCntVal->getType(),
+          TargetTransformInfo::TCK_RecipThroughput,
+          TargetTransformInfo::OK_AnyValue,
+          TargetTransformInfo::OK_UniformConstantValue);
+
+      // TODO: int32 -> int64 or other cast are possibly inserted by CG
+      // but it is not cost modelled as CastInst::getCastOpcode() needs
+      // TripCnt Value on input.
+      //
+      // For simplicity we catch the only common case here:
+      // int32 -> int64 cast.
+      if (VPTripCnt->getType()->isIntegerTy(32) &&
+          VPStepScalTy->isIntegerTy(64))
+        Cost += TTI.getCastInstrCost(
+          Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
+          TTI::CastContextHint::None);
+    }
+
+    // TODO: Possible PowerOfTwo for known Start/TripCount Values are not
+    // cost modelled properly here.
+
+    TargetTransformInfo::OperandValueKind StepVK =
+      TargetTransformInfo::OK_AnyValue;
+    TargetTransformInfo::OperandValueProperties StepVP =
+      TargetTransformInfo::OP_None;
+
+    TargetTransformInfo::OperandValueKind MultVK =
+      TargetTransformInfo::OK_UniformConstantValue;
+
+    // Model multiply by 1 case by hand as it is common but TTI has no
+    // meaning to model it.
+    bool StepValIsOne = false;
+    if (isa<VPConstant>(VPStep)) {
+      StepVK = TargetTransformInfo::OK_UniformConstantValue;
+      if (const ConstantInt *IntConst =
+          dyn_cast<ConstantInt>(cast<VPConstant>(VPStep)->getConstant())) {
+        if (IntConst->getValue().isOne())
+          StepValIsOne = true;
+        else if (IntConst->getValue().isPowerOf2())
+          StepVP = TargetTransformInfo::OP_PowerOf2;
+      }
+    }
+
+    if (StepVK == TargetTransformInfo::OK_AnyValue ||
+        (TripCountVK == TargetTransformInfo::OK_AnyValue && !StepValIsOne)) {
+      Cost += TTI.getArithmeticInstrCost(
+        StepOpc, VPStepScalTy, TargetTransformInfo::TCK_RecipThroughput,
+        StepVK, TripCountVK, StepVP);
+      MultVK = TargetTransformInfo::OK_AnyValue;
+    }
+
+    TargetTransformInfo::OperandValueKind IndInitVK =
+      TargetTransformInfo::OK_AnyValue;
+
+    if (isa<VPConstant>(IndInit))
+      IndInitVK = TargetTransformInfo::OK_UniformConstantValue;
+
+    if (IndInitVK == TargetTransformInfo::OK_AnyValue ||
+        MultVK == TargetTransformInfo::OK_AnyValue)
+      // TODO: GEP is to be modelled once supported in TTI.
+      if (!IsPtr)
+        Cost += TTI.getArithmeticInstrCost(
+          Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
+          IndInitVK, MultVK);
+
+    return Cost;
+  }
   }
 }
 
