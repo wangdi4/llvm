@@ -2781,8 +2781,9 @@ private:
 };
 
 
-/// Finalization of inscan reduction is not required.
-/// Returns the input operand.
+/// Complicated finalization of inscan reduction is not required,
+/// in fact, the final value resides in the last vector lane.
+/// Returns the input operand's last vector lane.
 class VPReductionFinalInscan : public VPReductionFinal {
 public:
   VPReductionFinalInscan(unsigned BinOp, VPValue *ReducVec)

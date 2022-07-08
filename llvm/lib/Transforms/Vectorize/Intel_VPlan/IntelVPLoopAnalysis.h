@@ -48,6 +48,7 @@ class VPPHINode;
 class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
+class VPReductionInitScalar;
 class VPReductionFinal;
 class VPLoadStoreInst;
 class VPDominatorTree;
@@ -699,6 +700,15 @@ public:
   /// Return VPPHINode that corresponds to a recurrent entity.
   VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
 
+  // Return VPInstTy corresponding to a VPLoopEntity.
+  template<class VPInstTy>
+  VPInstTy *getLinkedInstruction(const VPLoopEntity *E) const {
+    for (auto *VPInst : E->getLinkedVPValues())
+      if (auto *Inst = dyn_cast<VPInstTy>(VPInst))
+        return Inst;
+    return nullptr;
+  }
+
   /// Return true if the \p VPhi is recurrence Phi of a reduction.
   /// Recurrence phi is phi that resides in loop header and merges
   /// initial value and value coming from loop latch.
@@ -941,25 +951,16 @@ private:
   void insertOneReductionVPInstructions(
       VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
       VPBasicBlock *Preheader,
-      // The map contains, for each reduction, pairs {ReductionFinal,
-      // ReductionExit} and is used to obtain parent reduction values needed for
+      // The map contains, for each reduction, a ReductionExit
+      // and is used to obtain parent reduction values needed for
       // the index part of min/max+index last value code generation.
-      DenseMap<const VPReduction *,
-               std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
-      // This map contains a corresponding VPAllocatePrivate for each Reduction
-      // and is used to reset the reduction with identity on each iteration.
-      DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
-      // This map contains a corresponding VPReductionInit for each reduction.
-      // Is used to intialize the reduction with correct start value.
-      DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+      DenseMap<const VPReduction *, VPInstruction *> &RedExitMap,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
 
   // Insert inscan-related reduction instructions and process
   // inclusive/exclusive pragmas in the loop body.
   void insertRunningInscanReductionInstrs(
     const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
-    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
-    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
     VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones

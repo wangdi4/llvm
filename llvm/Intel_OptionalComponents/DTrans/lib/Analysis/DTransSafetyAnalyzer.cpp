@@ -7694,8 +7694,10 @@ void DTransSafetyInfo::analyzeModule(
   TM = std::make_unique<DTransTypeManager>(Ctx);
   MDReader = std::make_unique<TypeMetadataReader>(*TM);
   if (!MDReader->initialize(M)) {
-    LLVM_DEBUG(dbgs() << "DTransSafetyInfo: Type metadata reader did not find "
-                         "structure type metadata\n");
+    LLVM_DEBUG(
+        dbgs()
+        << "DTransSafetyInfo: Type metadata reader did not find "
+           "structure type metadata or errors were detected in the metadata\n");
     return;
   }
 
