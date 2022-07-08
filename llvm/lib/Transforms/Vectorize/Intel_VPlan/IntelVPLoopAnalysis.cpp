@@ -2416,10 +2416,48 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
     }
   }
 
-  // Live-out analysis tests for LoopExit
+  if (!LoopExitVPI) {
+    // Go through update instructions and find a liveout use. E.g. in case like
+    // below, %4 is the liveout user of all the updates.
+    //
+    // if.then:
+    //   %add7 = add nsw i64 %1, %2
+    //   br ...
+    //
+    // if.then1:
+    //   %sub13 = add nsw i64 %1, -10
+    //   br ...
+    //
+    // if.else1:
+    //   %add18 = add nsw i64 %1, %3
+    //   br ...
+    //
+    // omp.inner.for.inc:
+    //   %4 = phi i64 [%sub13,%if.then1], [%add18,%if.else1], [%add7,%if.then]
+    //   ...
+    //   br label %DIR.OMP.END.SIMD.2
+    //
+    // DIR.OMP.END.SIMD.2:
+    //   %.lcssa = phi i64 [ %4, %omp.inner.for.inc ]$
+    //
+    auto HasLiveOutUse = [Loop](const VPInstruction *I) -> VPInstruction * {
+      for (auto *User : I->users())
+        if (auto *Inst = dyn_cast<VPInstruction>(User))
+          if(Loop->isLiveOut(Inst))
+            return Inst;
+      return nullptr;
+    };
+    for (const VPInstruction *I: UpdateVPInsts) {
+      if(VPInstruction* LiveOut = HasLiveOutUse(I)) {
+        LoopExitVPI = LiveOut;
+        break;
+      }
+    }
+  }
   if (!LoopExitVPI)
     return nullptr;
 
+  // Live-out analysis tests for LoopExit
   while (!Loop->isLiveOut(LoopExitVPI) &&
          (isTrivialBitcast(LoopExitVPI) || isa<VPHIRCopyInst>(LoopExitVPI))) {
     // Add the trivial copy to linked VPVals for safety
