@@ -62,6 +62,7 @@ Using Clang as a Compiler
    HLSLSupport
    ThinLTO
    APINotes
+   DebuggingCoroutines
    CommandGuide/index
    FAQ
 
