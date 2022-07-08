@@ -177,7 +177,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         /// Clear m_isFinalized in the case that program is built again.
         void ClearFinalizedFlag();
 
-        std::vector<std::vector<std::string>>& getWithSourceKernelName(){
+        std::vector<std::string>& getWithSourceKernelName(){
             return m_WithSourceKernelName;
         }
 
@@ -205,7 +205,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		std::atomic_flag m_afAutorunKernelsLaunched;
 
-		std::vector<std::vector<std::string>> m_WithSourceKernelName;
+		std::vector<std::string> m_WithSourceKernelName;
 
 	private:
 

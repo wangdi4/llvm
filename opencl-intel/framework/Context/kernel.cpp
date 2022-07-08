@@ -812,14 +812,11 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
     // set the kernel prototype for the current kernel based on its information
     if (NULL != pDeviceKernel)
     {
-        for(auto progKernelNames : m_pProgram->getWithSourceKernelName()){
-            auto Begin = progKernelNames.begin();
-            auto End = progKernelNames.end();
-            if (std::find(Begin, End, m_sKernelPrototype.m_szKernelName) != End){
-                m_KernelBuiltWithSource = true;
-                break;
-            }
-        }
+        auto Begin = m_pProgram->getWithSourceKernelName().begin();
+        auto End = m_pProgram->getWithSourceKernelName().end();
+        if (std::find(Begin, End, m_sKernelPrototype.m_szKernelName) != End)
+            m_KernelBuiltWithSource = true;
+
         SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize, maxArgumentBufferAlignment);
         SetKernelArgumentInfo(pDeviceKernel);
     }
