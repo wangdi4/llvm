@@ -5477,7 +5477,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Add: {
     // Try and fold the add operation into the canon expression for RefOps[0].
     // This helps preserve linear values and also avoids unnecessary HLInsts.
-    // Reductions cannot be folded.
+    // Reductions cannot be folded. Also, we don't fold for VPInstructions
+    // that don't have any uses, that might lead to an empty loop generation
+    // and assertion in HIR verifier.
     assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
            "Expected terminal refs");
 
@@ -5492,7 +5494,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     //  This cannot be done blindly as we need to make sure that no overflow
     //  occurs. To prevent issues, we avoid folding when we have a denominator.
     if (!ReductionVPInsts.count(VPInst) && CE1->getDenominator() == 1 &&
-        CE2->getDenominator() == 1 && CanonExprUtilities.canAdd(CE1, CE2)) {
+        CE2->getDenominator() == 1 && CanonExprUtilities.canAdd(CE1, CE2) &&
+        VPInst->getNumUsers()) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
       CanonExprUtilities.add(CE1, CE2);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
@@ -5520,10 +5523,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // Try and fold the divide operation into the canon expression for RefOp0 if
     // it is linear. This helps preserve linear values and also avoids
     // unnecessary HLInsts. This is limited to instructions inside a VPLoop.
+    // Also, we don't fold for VPInstructions that don't have any uses, that
+    // might lead to an empty loop generation and assertion in HIR verifier.
     auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
     if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
         CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
-        CE1->getDenominator() == 1 && ConstOp) {
+        CE1->getDenominator() == 1 && ConstOp && VPInst->getNumUsers()) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
       // The constant value needs to fit in 64 bits which is what setDenominator
@@ -5552,6 +5557,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // Try and fold the mul operation into the canon expression. This helps
     // preserve linear values and also avoids unnecessary HLInsts. Reductions
     // cannot be folded. This is limited to instructions inside a VPLoop.
+    // Also, we don't fold for VPInstructions that don't have any uses, that
+    // might lead to an empty loop generation and assertion in HIR verifier.
     assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
            "Expected terminal refs");
 
@@ -5561,7 +5568,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     unsigned NonConstIndex = 0;
 
     if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
-        !ReductionVPInsts.count(VPInst) &&
+        !ReductionVPInsts.count(VPInst) && VPInst->getNumUsers() &&
         CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
         CE2->isLinearAtLevel(getNestingLevelFromInsertPoint())) {
       if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))
@@ -5707,7 +5714,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Try to fold the convert operation into the canon expression. This can
     // be done if the canon expression's source and dest type are the same.
-    if (CE->getDestType() == CE->getSrcType()) {
+    // Also, we don't fold for VPInstructions that don't have any uses, that
+    // might lead to an empty loop generation and assertion in HIR verifier.
+    if (CE->getDestType() == CE->getSrcType() && VPInst->getNumUsers()) {
       // Used to make the folded ref consistent.
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       const VPValue *VPOp0 = VPInst->getOperand(0);
