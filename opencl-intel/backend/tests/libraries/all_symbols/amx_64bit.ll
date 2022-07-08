@@ -14012,6 +14012,8 @@
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS1Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS3Dv8_i
 ; CHECK-NEXT: _Z6remquoDv8_dS_PU3AS4Dv8_i
+; CHECK-NEXT: _Z6selectDv32_DhS_Dv32_sDv32_i
+; CHECK-NEXT: _Z6selectDv32_DhS_Dv32_tDv32_i
 ; CHECK-NEXT: _Z6selectDv32_cS_Dv32_hDv32_i
 ; CHECK-NEXT: _Z6selectDv32_cS_S_Dv32_i
 ; CHECK-NEXT: _Z6selectDv32_dS_Dv32_lDv32_i
@@ -14032,6 +14034,8 @@
 ; CHECK-NEXT: _Z6selectDv32_sS_S_Dv32_i
 ; CHECK-NEXT: _Z6selectDv32_tS_Dv32_sDv32_i
 ; CHECK-NEXT: _Z6selectDv32_tS_S_Dv32_i
+; CHECK-NEXT: _Z6selectDv64_DhS_Dv64_sDv64_i
+; CHECK-NEXT: _Z6selectDv64_DhS_Dv64_tDv64_i
 ; CHECK-NEXT: _Z6selectDv64_cS_Dv64_hDv64_i
 ; CHECK-NEXT: _Z6selectDv64_cS_S_Dv64_i
 ; CHECK-NEXT: _Z6selectDv64_dS_Dv64_lDv64_i
@@ -15246,6 +15250,7 @@
 ; CHECK-NEXT: _Z9atomic_orPU3AS3Vii
 ; CHECK-NEXT: _Z9atomic_orPU3AS3Vjj
 ; CHECK-NEXT: _Z9bitselectDv32_DhS_S_
+; CHECK-NEXT: _Z9bitselectDv32_DhS_S_Dv32_i
 ; CHECK-NEXT: _Z9bitselectDv32_cS_S_
 ; CHECK-NEXT: _Z9bitselectDv32_cS_S_Dv32_i
 ; CHECK-NEXT: _Z9bitselectDv32_dS_S_
@@ -15270,6 +15275,7 @@
 ; CHECK-NEXT: _Z9bitselectDv3_lS_S_
 ; CHECK-NEXT: _Z9bitselectDv3_mS_S_
 ; CHECK-NEXT: _Z9bitselectDv64_DhS_S_
+; CHECK-NEXT: _Z9bitselectDv64_DhS_S_Dv64_i
 ; CHECK-NEXT: _Z9bitselectDv64_cS_S_
 ; CHECK-NEXT: _Z9bitselectDv64_cS_S_Dv64_i
 ; CHECK-NEXT: _Z9bitselectDv64_dS_S_
