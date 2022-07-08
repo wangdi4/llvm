@@ -24,8 +24,8 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 341, UF = 1
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 8 resulted Cost = 0
@@ -72,7 +72,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96
 ; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 162
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB4]]
