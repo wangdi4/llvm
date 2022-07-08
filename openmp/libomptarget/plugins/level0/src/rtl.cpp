@@ -5631,11 +5631,21 @@ int32_t LevelZeroProgramTy::buildKernels() {
     std::string KernelName(Name);
     auto K = ModuleKernels.find(KernelName);
     if (K == ModuleKernels.end()) {
-      // If a kernel was deleted by optimizations (e.g. DCE), then
-      // zeCreateKernel will fail. We expect that such a kernel
-      // will never be actually invoked.
-      DP("Warning: cannot find kernel %s\n", Name);
-      Kernels[I] = nullptr;
+      if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
+        // Return device function ptr for entires marked as
+        // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
+        Entries[I].flags = Image->EntriesBegin[I].flags;
+        Entries[I].addr = getOffloadVarDeviceAddr(Name, Size);
+        DP("Returning device function pointer " DPxMOD
+           " for host function pointer " DPxMOD "\n",
+           DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
+      } else {
+        // If a kernel was deleted by optimizations (e.g. DCE), then
+        // zeCreateKernel will fail. We expect that such a kernel
+        // will never be actually invoked.
+        DP("Warning: cannot find kernel %s\n", Name);
+        Kernels[I] = nullptr;
+      }
       continue;
     } else {
       Kernels[I] = K->second;
