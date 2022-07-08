@@ -1,3 +1,15 @@
+// Copyright (C) 2013-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 code Expand_default = [{
     $ReturnType res;
     res$ExpandLoPattern = convert_$ReturnBaseType$LoSuffix($Arg0VarName$ExpandLoPattern);
@@ -161,7 +173,7 @@ OclBuiltinImpl sse42_fp2int_u64_f32_rtn_expand = OclBuiltinImpl<convert_u64_rtn,
 OclBuiltinImpl sse42_cvt_f32_f64 = OclBuiltinImpl<convert_f32,
                                      [v4f64, v8f64], 0, Expand_default>;
 
-OclBuiltinImpl sse42_cvt_f32_i32_i64_expand = OclBuiltinImpl<convert_f32,[v8i32, v8i64, v16i64], 0, Expand_default>;
+OclBuiltinImpl sse42_cvt_f32_i32_i64_expand = OclBuiltinImpl<convert_f32,[v8i32, v8i64, v16i32, v16u32, v16i64], 0, Expand_default>;
 OclBuiltinImpl sse42_cvt_f32_u32_u64_expand = OclBuiltinImpl<convert_f32,[v8u64, v16u64], 0, Expand_default>;
 
 // rtz rounding mode

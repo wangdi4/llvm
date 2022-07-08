@@ -1537,6 +1537,8 @@
 ; CHECK-NEXT: _Z15convert_double8Dv8_j
 ; CHECK-NEXT: _Z15convert_double8Dv8_l
 ; CHECK-NEXT: _Z15convert_double8Dv8_m
+; CHECK-NEXT: _Z15convert_float16Dv16_i
+; CHECK-NEXT: _Z15convert_float16Dv16_j
 ; CHECK-NEXT: _Z15convert_float16Dv16_l
 ; CHECK-NEXT: _Z15convert_float16Dv16_m
 ; CHECK-NEXT: _Z15convert_ulong16Dv16_f

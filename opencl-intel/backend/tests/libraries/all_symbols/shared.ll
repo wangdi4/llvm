@@ -2026,8 +2026,6 @@
 ; CHECK-NEXT: _Z15convert_float16Dv16_d
 ; CHECK-NEXT: _Z15convert_float16Dv16_f
 ; CHECK-NEXT: _Z15convert_float16Dv16_h
-; CHECK-NEXT: _Z15convert_float16Dv16_i
-; CHECK-NEXT: _Z15convert_float16Dv16_j
 ; CHECK-NEXT: _Z15convert_float16Dv16_s
 ; CHECK-NEXT: _Z15convert_float16Dv16_t
 ; CHECK-NEXT: _Z15convert_float32Dv32_Dh
