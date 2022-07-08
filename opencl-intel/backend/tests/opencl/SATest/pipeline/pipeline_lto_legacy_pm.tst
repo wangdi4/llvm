@@ -20,6 +20,7 @@
 
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
+; CHECK:          SetPreferVectorWidthLegacy
 ; CHECK:          DuplicateCalledKernels
 ; CHECK-NEXT:     InternalizeNonKernelFuncLegacy
 ; CHECK-NEXT:     FunctionPass Manager

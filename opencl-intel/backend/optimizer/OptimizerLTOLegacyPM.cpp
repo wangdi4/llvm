@@ -137,8 +137,8 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         if (m_IsFpgaEmulator)
           MPM.add(createRemoveAtExitLegacyPass());
 
-        // MPM.add(createSetPreferVectorWidthLegacyPass(
-        //     VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
+        MPM.add(createSetPreferVectorWidthLegacyPass(
+            VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.add(createAddFastMathLegacyPass());
 
