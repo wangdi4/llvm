@@ -1,7 +1,13 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+
 
 ; ModuleID = 'wlATIMonteCarlo.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
@@ -11,23 +17,25 @@ target triple = "i686-pc-win32"
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
-; CHECK: @lshift128
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %LeafBlock29, %LeafBlock
-; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock31, %phi-split-bb
-; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87, %sw.bb94
-; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb, %sw.bb82
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
-; CHECK: ret
+; NOSKIP: @lshift128
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %LeafBlock29, %LeafBlock
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock31, %phi-split-bb
+; NOSKIP: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87, %sw.bb94
+; NOSKIP: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb, %sw.bb82
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
 
-; CHECK: @calPriceVega
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %LeafBlock24, %LeafBlock
-; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock26, %phi-split-bb
-; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87.i, %sw.bb94.i
-; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb.i, %sw.bb82.i
-; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @calPriceVega
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %LeafBlock24, %LeafBlock
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock26, %phi-split-bb
+; NOSKIP: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87.i, %sw.bb94.i
+; NOSKIP: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb.i, %sw.bb82.i
+; NOSKIP: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
+
+; SKIP-NOT: phi-split-bb
 
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {
 entry:
@@ -796,14 +804,14 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) nounwind
 
 declare void @llvm.lifetime.end(i64, i8* nocapture) nounwind
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %NewDefault
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %sw.epilog
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %NewDefault
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %sw.epilog.i
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb1
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %NewDefault
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %phi-split-bb10
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function generateRand --  br label %sw.epilog
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb1
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %NewDefault
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %phi-split-bb10
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function calPriceVega --  br label %sw.epilog.i
+; DEBUGIFY-ALL-NOT: WARNING

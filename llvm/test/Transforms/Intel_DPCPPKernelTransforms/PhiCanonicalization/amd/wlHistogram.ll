@@ -1,7 +1,13 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+
 
 ; ModuleID = 'wlHistogram.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:32:32"
@@ -32,30 +38,33 @@ target triple = "i686-pc-win32"
 @fgv20 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv21 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
-; CHECK: @histogramGrouped
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body51.lr.ph, %for.end83.loopexit
-; CHECK: ret
-; CHECK: @histogramStep2int
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
-; CHECK: ret
-; CHECK: @histogramStep2int2
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
-; CHECK: ret
-; CHECK: @histogramStep2int4
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
-; CHECK: ret
-; CHECK: @histogramStep2int8
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
-; CHECK: ret
-; CHECK: @histogramStep2int16
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @histogramGrouped
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body51.lr.ph, %for.end83.loopexit
+; NOSKIP: ret
+; NOSKIP: @histogramStep2int
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
+; NOSKIP: ret
+; NOSKIP: @histogramStep2int2
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
+; NOSKIP: ret
+; NOSKIP: @histogramStep2int4
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
+; NOSKIP: ret
+; NOSKIP: @histogramStep2int8
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
+; NOSKIP: ret
+; NOSKIP: @histogramStep2int16
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %for.body.lr.ph, %for.end31.loopexit
+; NOSKIP: ret
+
 
 
 define void @histogramScalar(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiOutputArray, i32 %szMatrix, ...) nounwind {
@@ -443,10 +452,10 @@ for.end31:                                        ; preds = %for.end31.loopexit,
   ret void
 }
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramGrouped --  br label %for.end83
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int --  br label %for.end31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int2 --  br label %for.end31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int4 --  br label %for.end31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int8 --  br label %for.end31
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int16 --  br label %for.end31
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramGrouped --  br label %for.end83
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramStep2int --  br label %for.end31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramStep2int2 --  br label %for.end31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramStep2int4 --  br label %for.end31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramStep2int8 --  br label %for.end31
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function histogramStep2int16 --  br label %for.end31
+; DEBUGIFY-ALL-NOT: WARNING

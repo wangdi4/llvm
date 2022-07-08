@@ -74,6 +74,16 @@ private:
   Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *m_pProgDesc;
 };
 
+struct OCLFELinkKernelNames : public FECompilerAPI::IOCLFELinkKernelNames {
+public:
+  const char *GetAllKernelNames() override { return m_allKernelNames.c_str(); }
+  void SetAllKernelNames(std::string names) { m_allKernelNames = names; }
+  void Release() override { delete this; }
+
+private:
+  std::string m_allKernelNames;
+};
+
 } // ClangFE
 } // OpenCL
 } // Intel

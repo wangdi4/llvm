@@ -16,6 +16,7 @@
 
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK:      Skipping pass FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass

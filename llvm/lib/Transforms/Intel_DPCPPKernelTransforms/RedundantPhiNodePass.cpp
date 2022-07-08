@@ -13,10 +13,15 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS(RedundantPhiNodeLegacy, "dpcpp-kernel-redundant-phi-node",
+extern cl::opt<bool> SkipNonBarrierFunction;
+
+#define DEBUG_TYPE "dpcpp-kernel-redundant-phi-node"
+
+INITIALIZE_PASS(RedundantPhiNodeLegacy, DEBUG_TYPE,
                 "DPCPP Barrier Pass - Handle redundant Phi node", false, false)
 
 char RedundantPhiNodeLegacy::ID = 0;
@@ -37,6 +42,19 @@ PreservedAnalyses RedundantPhiNode::run(Function &F,
 }
 
 bool RedundantPhiNode::runImpl(Function &F) {
+  // Skip non-barrier functions to reduce compile time
+  if (SkipNonBarrierFunction) {
+    BarrierUtils Utils;
+    Utils.init(F.getParent());
+    CompilationUtils::FuncSet FS = Utils.getAllFunctionsWithSynchronization();
+    if (!FS.count(&F)) {
+      LLVM_DEBUG(
+          dbgs() << "Skip non-barrier function in RedundantPhiNode pass: "
+                 << F.getName() << "\n");
+      return false;
+    }
+  }
+
   SmallVector<Instruction *, 8> InstsToRemove;
   for (auto &BB : F) {
     for (auto &I : BB) {

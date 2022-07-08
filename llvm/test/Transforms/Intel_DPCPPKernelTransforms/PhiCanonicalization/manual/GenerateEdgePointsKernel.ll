@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ; ModuleID = 'file.s'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -9,15 +14,17 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This module was already processed by -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify passes
 
-; CHECK: @GenerateEdgePointsKernel
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: phi-split-bb:                                     ; preds = %424, %426
-; CHECK: phi-split-bb1:                                    ; preds = %.critedge.loopexit, %.critedge.loopexit65
-; CHECK: phi-split-bb2:                                    ; preds = %480, %506
-; CHECK: phi-split-bb3:                                    ; preds = %521, %583
-; CHECK: phi-split-bb4:                                    ; preds = %584, %phi-split-bb3
-; CHECK: phi-split-bb5:                                    ; preds = %42, %._crit_edge86
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @GenerateEdgePointsKernel
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: phi-split-bb:                                     ; preds = %424, %426
+; NOSKIP: phi-split-bb1:                                    ; preds = %.critedge.loopexit, %.critedge.loopexit65
+; NOSKIP: phi-split-bb2:                                    ; preds = %480, %506
+; NOSKIP: phi-split-bb3:                                    ; preds = %521, %583
+; NOSKIP: phi-split-bb4:                                    ; preds = %584, %phi-split-bb3
+; NOSKIP: phi-split-bb5:                                    ; preds = %42, %._crit_edge86
+; NOSKIP: ret
 
 %struct._Edge = type { [2 x i32], [2 x i32] }
 %struct._Face = type { [4 x i32] }
@@ -902,10 +909,10 @@ UnifiedReturnBlock:                               ; preds = %520, %._crit_edge86
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.outer.backedge
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.critedge
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %508
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %phi-split-bb4
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.loopexit
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %UnifiedReturnBlock
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.outer.backedge
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.critedge
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %508
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %phi-split-bb4
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.loopexit
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %UnifiedReturnBlock
+; DEBUGIFY-ALL-NOT: WARNING
