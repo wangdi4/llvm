@@ -16,7 +16,7 @@ RUN:   /OUT:%t.exe /PDB:%t.pdb 2>&1 | FileCheck --check-prefix=CHECK-MISSING %s
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 CHECK-FIRST:      {{.*}}natvis-1.natvis (16 bytes): obj=<null>, vname={{.*}}natvis-1.natvis, crc=355285096, compression=None
