@@ -26,7 +26,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; XFAIL: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 ; NO_FILTER: ---TYPES---

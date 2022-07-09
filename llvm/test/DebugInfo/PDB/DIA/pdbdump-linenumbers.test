@@ -3,7 +3,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; XFAIL: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 ; LINE_NUMS_FPO: llvm\test\debuginfo\pdb\inputs\symbolformat-fpo.cpp

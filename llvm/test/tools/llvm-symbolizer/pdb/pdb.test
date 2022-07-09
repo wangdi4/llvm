@@ -27,7 +27,7 @@ RUN:    | FileCheck %s --check-prefix=CHECK-NO-DEMANGLE
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; XFAIL: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 CHECK: foo(void)

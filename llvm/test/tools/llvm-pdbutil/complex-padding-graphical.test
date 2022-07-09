@@ -10,7 +10,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; XFAIL: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 ; DIRECT_VB_ONLY:      struct TestIVBBase [sizeof = 16]
