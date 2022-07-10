@@ -1489,6 +1489,14 @@ bool AndersensAAResult::analyzeGlobalEscape(
     const User *UR = U.getUser();
     CE = dyn_cast<ConstantExpr>(UR);
     if (CE) {
+      // If use of a GlobalVar is in ConstantExpr and Andersens's analysis
+      // can't handle it, treat the GlobalVar as escaped.
+      if (auto *C = dyn_cast<Constant>(CE))
+        if (!isa<GlobalValue>(C) &&
+            getNodeForConstantPointer(const_cast<Constant *>(C)) ==
+                UniversalSet)
+          escapes = true;
+
       if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
         escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
@@ -1668,6 +1676,9 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       return getNodeForConstantPointer(CE->getOperand(0));
     case Instruction::ExtractElement:
       return UniversalSet;
+    // ICmp instruction can be ignored.
+    case Instruction::ICmp:
+      return NullPtr;
     default:
       if (SkipAndersUnreachableAsserts) {
         return UniversalSet;
@@ -1727,6 +1738,9 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     case Instruction::ExtractElement:
       return UniversalSet;
+    // ICmp instruction can be ignored.
+    case Instruction::ICmp:
+      return NullPtr;
     default:
       if (SkipAndersUnreachableAsserts) {
         return UniversalSet;
