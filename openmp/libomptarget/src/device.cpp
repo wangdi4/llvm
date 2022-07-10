@@ -1126,13 +1126,15 @@ void DeviceTy::kernelBatchEnd(void) {
     RTL->kernel_batch_end(RTLDeviceID);
 }
 
-int32_t DeviceTy::set_function_ptr_map() {
-  std::lock_guard<std::mutex> Lock(FnPtrMapMtx);
-  uint64_t Size = FnPtrs.size();
+int32_t DeviceTy::setFunctionPtrMap() {
+  uint64_t Size = FnPtrMap.size();
   if (Size == 0)
     return OFFLOAD_SUCCESS;
   if (!RTL->set_function_ptr_map)
     return OFFLOAD_FAIL;
+  std::vector<__omp_offloading_fptr_map_t> FnPtrs;
+  for (auto &FnPtr : FnPtrMap)
+    FnPtrs.push_back({FnPtr.first, FnPtr.second});
   return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
 }
 

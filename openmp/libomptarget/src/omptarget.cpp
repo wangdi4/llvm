@@ -98,9 +98,6 @@ static int initLibrary(DeviceTy &Device) {
   int Rc = OFFLOAD_SUCCESS;
   bool SupportsEmptyImages = Device.RTL->supports_empty_images &&
                              Device.RTL->supports_empty_images() > 0;
-#if INTEL_COLLAB
-  uint64_t FnPtrsCount = 0;
-#endif // INTEL_COLLAB
 
   std::lock_guard<decltype(Device.PendingGlobalsMtx)> LG(
       Device.PendingGlobalsMtx);
@@ -167,12 +164,7 @@ static int initLibrary(DeviceTy &Device) {
                                *EntryDeviceEnd = TargetTable->EntriesEnd;
            CurrDeviceEntry != EntryDeviceEnd;
            CurrDeviceEntry++, CurrHostEntry++) {
-#if INTEL_COLLAB
-        if (CurrDeviceEntry->size != 0 ||
-            (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR)) {
-#else // INTEL_COLLAB
         if (CurrDeviceEntry->size != 0) {
-#endif // INTEL_COLLAB
           // has data.
           assert(CurrDeviceEntry->size == CurrHostEntry->size &&
                  "data size mismatch");
@@ -207,14 +199,13 @@ static int initLibrary(DeviceTy &Device) {
             Rc = OFFLOAD_FAIL;
             break;
           }
-          ++FnPtrsCount;
+          // We use a separate map for function pointers instead of adding them
+          // to the HDTT map for now.
+          Device.FnPtrMap.emplace((uint64_t)CurrHostEntry->addr,
+                                  (uint64_t)CurrDeviceEntry->addr);
         }
 #endif // INTEL_COLLAB
       }
-#if INTEL_COLLAB
-      if (Rc != OFFLOAD_SUCCESS)
-        break;
-#endif // INTEL_COLLAB
     }
   }
 
@@ -223,30 +214,8 @@ static int initLibrary(DeviceTy &Device) {
   }
 
 #if INTEL_COLLAB
-  if (FnPtrsCount != 0) {
-    Device.FnPtrMapMtx.lock();
-    Device.FnPtrs.reserve(FnPtrsCount);
-
-    DeviceTy::HDTTMapAccessorTy HDTTMap =
-        Device.HostDataToTargetMap.getExclusiveAccessor();
-    // Note that the entries in HostDataToTargetMap are sorted by
-    // HstPtrBegin, so they will be sorted in FnPtrs as well.
-    for (const auto &It : *HDTTMap) {
-      HostDataToTargetTy &HDTT = *It.HDTT;
-      if (HDTT.HstPtrBegin == HDTT.HstPtrEnd)
-        Device.FnPtrs.push_back({HDTT.HstPtrBegin, HDTT.TgtPtrBegin});
-    }
-    if (Device.FnPtrs.size() != FnPtrsCount) {
-      REPORT("Expected %zu function pointers, found %zu.\n",
-             FnPtrsCount, Device.FnPtrs.size());
-      Rc = OFFLOAD_FAIL;
-    }
-    HDTTMap.destroy();
-    Device.FnPtrMapMtx.unlock();
-
-    if (Rc == OFFLOAD_SUCCESS)
-      Rc = Device.set_function_ptr_map();
-
+  if (Device.FnPtrMap.size() > 0) {
+    Rc = Device.setFunctionPtrMap();
     if (Rc != OFFLOAD_SUCCESS) {
       Device.PendingGlobalsMtx.unlock();
       return Rc;
@@ -1740,6 +1709,17 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                                             /*UpdateRefCount=*/false,
                                             /*UseHoldRefCount=*/false, IsHostPtr).TargetPointer;
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+      }
+      if (!TgtPtrBegin) {
+        // Check if the host pointer is a function pointer from declare target
+        // indirect. We have an option to get host or device function pointer as
+        // target argument, but use host pointer for now.
+        auto FnPtrItr = Device.FnPtrMap.find((uint64_t)HstPtrBegin);
+        if (FnPtrItr != Device.FnPtrMap.end()) {
+          // Pass function pointer as literal kernel argument
+          TgtPtrBegin = HstPtrBegin;
+          TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
+        }
       }
 #else // INTEL COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)

@@ -364,6 +364,9 @@ EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
 EXTERN int __tgt_rtl_get_device_info(
     int32_t ID, int32_t InfoID, size_t InfoSize, void *InfoVal,
     size_t *InfoSizeRet);
+
+EXTERN int32_t __tgt_rtl_set_function_ptr_map(
+    int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
