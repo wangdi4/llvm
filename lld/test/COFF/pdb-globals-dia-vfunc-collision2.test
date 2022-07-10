@@ -22,7 +22,7 @@ RUN: llvm-pdbutil pretty -classes %t.pdb | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 CHECK: struct S

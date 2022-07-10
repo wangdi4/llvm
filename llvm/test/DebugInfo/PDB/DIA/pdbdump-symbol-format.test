@@ -9,7 +9,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; XFAIL: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 ; The format is func [0x<rva_start>+<prologue_length> - 0x<rva_end>-<epilogue_length>]

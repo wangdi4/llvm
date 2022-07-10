@@ -124,6 +124,13 @@ static cl::opt<unsigned> MaxCasesThreshold(
     cl::Hidden, cl::desc("Don't apply opt predicate in a switch instruction if"
     "the number of cases is larger than this threshold."));
 
+constexpr unsigned DefaultRegionCostThreshold = 3;
+
+static cl::opt<unsigned> RegionCostThreshold(
+    OPT_SWITCH "-max-region-cost", cl::init(DefaultRegionCostThreshold),
+    cl::Hidden, cl::desc("Don't apply opt predicate of an If instruction if "
+    "the number of inner loops is larger than this threshold."));
+
 namespace {
 
 // Partial Unswitch context
@@ -329,6 +336,7 @@ private:
   bool KeepLoopnestPerfect;
 
   struct CandidateLookup;
+  struct RegionSizeCalculator;
   class LoopUnswitchNodeMapper;
 
   SmallDenseMap<const HLLoop *, unsigned, 16> ThresholdMap;
@@ -495,22 +503,42 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HIROptPredicate &Pass;
   unsigned MinLevel;
   bool TransformLoop;
+  unsigned CostOfRegion;
 
   CandidateLookup(HIROptPredicate &Pass, bool TransformLoop = true,
-                  unsigned MinLevel = 0)
+                  unsigned MinLevel = 0, unsigned CostOfRegion = 0)
       : SkipNode(nullptr), Pass(Pass), MinLevel(MinLevel),
-        TransformLoop(TransformLoop) {}
+        TransformLoop(TransformLoop), CostOfRegion(CostOfRegion) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
   void visit(HLSwitch *Switch);
-
+  void visit(HLRegion *Reg);
   void visit(HLLoop *Loop);
 
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
+};
+
+// Helper structure used to count the number of nested loops in a region
+struct
+HIROptPredicate::RegionSizeCalculator final : public HLNodeVisitorBase {
+  HLNode *SkipNode;
+  HIROptPredicate &Pass;
+  unsigned RegionSize;
+
+  RegionSizeCalculator(HIROptPredicate &Pass)
+      : SkipNode(nullptr), Pass(Pass), RegionSize(0) {}
+
+  void visit(HLLoop *Loop) { RegionSize++; }
+
+  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+  void visit(const HLNode *Node) { }
+  void postVisit(const HLNode *Node) {}
+
+  unsigned getRegionSize() { return RegionSize; }
 };
 } // namespace
 
@@ -850,7 +878,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
 
   // Collect candidates within HLIf branches.
-  CandidateLookup Lookup(Pass, WillUnswitchParent, Level);
+  CandidateLookup Lookup(Pass, WillUnswitchParent, Level, CostOfRegion);
   visitChildren(Lookup, Node);
 
   if (!IsCandidate) {
@@ -913,11 +941,54 @@ static unsigned countMaxEqualConditions(ArrayRef<const HLNode *> In) {
   return Count;
 }
 
+// Calculate the cost of a region
+void HIROptPredicate::CandidateLookup::visit(HLRegion *Reg) {
+  // NOTE: The cost of a region is the number of nested loops. This is
+  // conservative. We can relax this in the future by computing the size of the
+  // region versus the size of the actual function.
+  RegionSizeCalculator RegionSize(Pass);
+  HLNodeUtils::visit(RegionSize, Reg);
+  CostOfRegion = RegionSize.getRegionSize();
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
+
+  // Return true if the input vector has only one HLNode entry, the node
+  // is HLIf, and the definition level is 0
+  auto IsCandidateForPerfectLoopNest = [this](
+      SmallVectorImpl<const HLNode *> &ChildNodes) {
+    if (ChildNodes.size() != 1)
+      return false;
+
+    auto *If = dyn_cast<HLIf>(ChildNodes[0]);
+    if (!If)
+      return false;
+
+    // Don't apply if the region was modified already
+    if (If->getParentRegion()->shouldGenCode())
+      return false;
+
+    // Don't allow the unswitch if the cost of the region is larger than
+    // the threshold. There is a chance that the size of the function grows
+    // big enough to produce slowdowns.
+    if (CostOfRegion > RegionCostThreshold)
+      return false;
+
+    PUContext PUC;
+
+    // Check if the condition can be hoisted to the outermost loop and if
+    // partial unswitch won't be performed. Partial unswitch is disabled
+    // at the moment since we don't want to create a branch with perfect loop
+    // nest and the other branch without prefect loop nest. This is
+    // conservative and can relaxed in the future through profiling and/or
+    // branch analysis.
+    return Pass.getPossibleDefLevel(If, PUC) == 0 &&
+           !PUC.isPURequired();
+  };
+
   SkipNode = Loop;
 
   bool TransformCurrentLoop = true;
-
   // Handle innermost loops and outer loops, but only if unswitching can make
   // the loopnest perfectly nested. In this case the loop will have only one
   // child.
@@ -937,16 +1008,16 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
     std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
 
-    if (countMaxEqualConditions(ChildNodes) < 3) {
+    if (countMaxEqualConditions(ChildNodes) < 3 &&
+        !IsCandidateForPerfectLoopNest(ChildNodes))
       TransformCurrentLoop = false;
-    }
   }
 
   if (Loop->isSIMD()) {
     TransformCurrentLoop = false;
   }
 
-  CandidateLookup Lookup(Pass, TransformCurrentLoop, MinLevel);
+  CandidateLookup Lookup(Pass, TransformCurrentLoop, MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
 }

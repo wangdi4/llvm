@@ -38,7 +38,7 @@
 /clang-tools-extra/ @aaronballman
 
 # DPC++ Tools
-# /clang/tools/clang-offload-*
+/clang/tools/clang-offload-* @asudarsa
 # Temporarily removed @sndmitriev, @AlexeySachkov, @mlychkov
 
 # CFE/OpenMP
@@ -794,5 +794,5 @@ xpti/ @intel-restricted/llvm-reviewers-runtime
 xptifw/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->DPC++ Tools
-# sycl-post-link/
+sycl-post-link/ @asudarsa
 # Temporarily removed @AlexeySachkov, @mlychkov

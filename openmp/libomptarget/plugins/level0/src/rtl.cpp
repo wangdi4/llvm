@@ -5662,18 +5662,31 @@ int32_t LevelZeroProgramTy::buildKernels() {
     auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
     KernelProperties.Name = Name;
     ze_kernel_properties_t KP{ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, nullptr};
+#ifndef _WIN32
+    // TODO: enable on Windows when this becomes buildable
+    ze_kernel_preferred_group_size_properties_t KPrefGRPSize
+        {ZE_STRUCTURE_TYPE_KERNEL_PREFERRED_GROUP_SIZE_PROPERTIES, nullptr};
+    if (DeviceInfo->DriverAPIVersion >= ZE_API_VERSION_1_2)
+      KP.pNext = &KPrefGRPSize;
+#endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
     if (DeviceInfo->Option.ForcedKernelWidth > 0) {
       KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
     } else {
-      KernelProperties.Width = KP.maxSubgroupSize;
       KernelProperties.SIMDWidth = KP.maxSubgroupSize;
-      // Temporary workaround before ze_kernel_preferred_group_size_properties_t
-      // becomes available with L0 1.2.
       // Here we try to match OpenCL kernel property
-      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
-      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
-        KernelProperties.Width *= 2;
+      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
+#ifndef _WIN32
+      if (KP.pNext) {
+        KernelProperties.Width = KPrefGRPSize.preferredMultiple;
+      } else
+#endif
+      {
+        // Use heuristic if driver does not support the extension
+        KernelProperties.Width = KP.maxSubgroupSize;
+        if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
+          KernelProperties.Width *= 2;
+      }
     }
     DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,

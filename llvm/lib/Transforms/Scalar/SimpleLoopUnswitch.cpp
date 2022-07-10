@@ -2694,6 +2694,13 @@ static int CalculateUnswitchCostMultiplier(
   auto *ParentL = L.getParentLoop();
   int SiblingsCount = (ParentL ? ParentL->getSubLoopsVector().size()
                                : std::distance(LI.begin(), LI.end()));
+#if INTEL_CUSTOMIZATION
+  // Reduce sibling count by 1 to enable unswitching in more cases. This can be
+  // thought of as excluding 'L' from sibling count when the count is high but
+  // is purely a heuristic.
+  if (SiblingsCount > 10)
+    --SiblingsCount;
+#endif // INTEL CUSTOMIZATION
   // Count amount of clones that all the candidates might cause during
   // unswitching. Branch/guard counts as 1, switch counts as log2 of its cases.
   int UnswitchedClones = 0;

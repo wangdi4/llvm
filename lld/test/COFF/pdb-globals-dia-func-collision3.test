@@ -40,7 +40,7 @@ RUN:                     %t.pdb | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
 ; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: *
+; UNSUPPORTED: windows
 ; end INTEL_CUSTOMIZATION
 
 CHECK:      [1 occurrences] - LuU
