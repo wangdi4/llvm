@@ -151,10 +151,6 @@ class DDWalk final : public HLNodeVisitorBase {
   /// due to safe reduction.
   bool isSafeReductionFlowDep(const DDEdge *Edge);
 
-  /// Returns true if there is an anti-edge from vconflict load to vconflict
-  /// store, otherwise returns false.
-  bool isSafeVConflictAntiDep(const RegDDRef *SrcRef, const DDEdge *Edge);
-
 public:
   DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
          HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info,
@@ -371,52 +367,6 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
          IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastVal;
 }
 
-bool DDWalk::isSafeVConflictAntiDep(const RegDDRef *SrcRef,
-                                    const DDEdge *Edge) {
-  // Consider as safe anti edges from vconflict load to vconflict store idiom.
-  // E.g., anti edge 330(Src) to Sink of 332 and 344, and anti edge 342(Src) to
-  // Sink of 332 and 344 should be ignored because we have recorded a vconflict
-  // idiom for both pairs of instructions.
-  //
-  // <330:168>    |   %75 = (%cnt_ptr)[%and503 /u 256 + %and503))];
-  // <332:168>    |   (%cnt_ptr)[%and503 /u 256 + %and503))] = %75 + 1;
-  //
-  // <342:169>    |   %76 = (%cnt_ptr)[%and514 /u 256 + %and514))];
-  // <344:169>    |   (%cnt_ptr)[%and514 /u 256 + %and514))] = %76 + 1;
-  //
-  // However, we do want to analyze all edges for any case where the sink nodes
-  // are not vconflict stores, because these could break vector legality.
-  // Notice here how <10> and <11> will form a vconflict idiom, but the index
-  // load at <9> is out of order with <8> so no vconflict idiom is formed there.
-  // Thus, we want to analyze edges for <9>. In this case, the anti edge from
-  // <9> to <8> would prevent vectorization and even though we've recorded a
-  // vconflict idiom, this edge would still prevent vectorization.
-  //
-  //<18>         + DO i1 = 0, 1023, 1   <DO_LOOP>
-  // <3>          |   %0 = (%B)[i1];
-  // <6>          |   %conv = sitofp.i32.float(%0);
-  // <7>          |   %add = %conv  +  2.000000e+00;
-  // <8>          |   (%A)[%0] = %add;
-  // <9>          |   %1 = (%A)[%0];
-  // <10>         |   %add2 = %1  +  2.000000e+00;
-  // <11>         |   (%A)[%0] = %add2;
-  // <18>         + END LOOP
-  //
-  // Note: all edges for vconflict store instructions are ignored in visit()
-  // via IdiomList.isIdiom(StoreInst), so only analyze the conflict load here.
-  auto *SrcRefNode = SrcRef->getHLDDNode();
-  if (auto Inst = dyn_cast<HLInst>(SrcRefNode)) {
-    auto *SrcDDRef = const_cast<RegDDRef*>(SrcRef);
-    if (isa<LoadInst>(Inst->getLLVMInstruction()) &&
-        IdiomList.isVConflictLoad(SrcDDRef)) {
-      if (Edge->isAnti() &&
-          IdiomList.isIdiom(cast<HLInst>(Edge->getSink()->getHLDDNode())))
-        return true;
-    }
-  }
-  return false;
-}
-
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   LLVM_DEBUG(Edge->dump());
@@ -444,12 +394,6 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   if (Edge->isFlow() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
-    return;
-  }
-
-  if (isSafeVConflictAntiDep(SrcRef, Edge)) {
-    LLVM_DEBUG(
-        dbgs() << "\tis safe to vectorize (vconflict idiom)\n");
     return;
   }
 
@@ -1092,8 +1036,12 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   int FlowDepCnt = 0;
   DDRef *LoadRef = nullptr;
   for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
-    if (E->isOutput())
+    if (E->isOutput()) {
+      if (E->getSink() != StoreMemDDRef)
+        return Mismatch(
+            "The output dependency is expected to be self-dependency.\n");
       continue;
+    }
 
     DDRef *SinkRef = E->getSink();
     HLDDNode *SinkNode = SinkRef->getHLDDNode();
@@ -1102,29 +1050,7 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
 
     assert(E->isFlow() && "Expected flow-dependency");
 
-    // Check if both source and sink nodes have the same memory reference.
-    // VConflict idioms are represented in the DDG as a flow/output pair of
-    // DDG edges. For each of those edges, the sink node should be equal to
-    // StoreMemDDRef (i.e., the Lval of the store candidate upon entry to this
-    // function). Other flow/output edges should be ignored because they could
-    // be part of other VConflict idiom sequences and we don't want to bail out
-    // when seeing them.
-    //
-    // E.g., the following two idiom sequences should be analyzed separately
-    // because the flow/output edge for each uses non-equal memory references.
-    // i.e., effectively what is RHS expression for %75 vs %76. Thus, ignore
-    // dependences across pairs.
-    //
-    // <330:168>    |   %75 = (%cnt_ptr)[%and503 /u 256 + %and503))];
-    // <332:168>    |   (%cnt_ptr)[%and503 /u 256 + %and503))] = %75 + 1;
-    //
-    // <342:169>    |   %76 = (%cnt_ptr)[%and514 /u 256 + %and514))];
-    // <344:169>    |   (%cnt_ptr)[%and514 /u 256 + %and514))] = %76 + 1;
-    //
-    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
-      continue;
-
-    if (FlowDepCnt > 1)
+    if (FlowDepCnt >= 1)
       return Mismatch("Too many dependencies.");
 
     FlowDepCnt++;
@@ -1143,6 +1069,10 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     if (E->isForwardDep())
       return Mismatch("Nodes are not in the right order.");
 
+    // Check if both source and sink nodes have the same memory reference.
+    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+      return Mismatch("Wrong memory dependency.");
+
     // Check that sink ref is not a fake ref of the call.
     if ((cast<RegDDRef>(SinkRef))->isFake())
       return Mismatch("Sink ref is fake ref.");
@@ -1160,22 +1090,6 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
       HLDDNode *NonLinBlobDefNode =
           NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
-
-      // Check to make sure that the symbases for the conflict index load and
-      // store are not the same. i.e., we can't both load index and store to the
-      // same array due to a memory dependence.
-      //; <3>  %0 = (%A)[i1];
-      //; <6>  %1 = (%A)[%0];
-      //; <7>  %add = %1  +  2.000000e+00;
-      //; <8>  (%A)[%0] = %add;
-      if (auto Inst = dyn_cast<HLInst>(NonLinBlobDefNode)) {
-        if (isa<LoadInst>(Inst->getLLVMInstruction())) {
-          auto *IndexLoadMemRef = Inst->getRvalDDRef();
-          if (StoreMemDDRef->getSymbase() == IndexLoadMemRef->getSymbase())
-            return Mismatch("Wrong memory dependency.");
-        }
-      }
-
       // Check if the node where non-linear blob for store is defined precedes
       // the load as well. E.g., index is defined before the reference to the
       // store (%0 is defined before %1).
@@ -1193,8 +1107,7 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   if (FlowDepCnt == 0)
     return Mismatch("Store address should have one flow-dependency.");
 
-  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected, legality pending "
-                    << "further dependence checking!\n");
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
   IdiomList.recordVConflictIdiom(StoreInst, LoadRef);
   return true;
 }
