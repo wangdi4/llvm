@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-local-const-prop -intel-dvcp-relaxed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
 
 ; This test case checks that dope vector constant propagation did not
 ; happen for assumed shape arrays that are using inside local functions.
@@ -28,7 +28,7 @@
 ;
 ; end subroutine assumedshape_arrs
 
-; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop -mllvm -intel-dvcp-relaxed
+; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop
 
 ; CHECK: %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.lower_bound$[]_fetch.38", i64 %"assumedshape_arrs_$ARRAY_SOURCE.dim_info$.spacing$[]_fetch.37", float* elementtype(float) %"assumedshape_arrs_$ARRAY_SOURCE.addr_a0$_fetch.31", i64 %indvars.iv518)
 ; CHECK: %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %"assumedshape_arrs_$ARRAY_ADD.dim_info$.lower_bound$[]_fetch.53", i64 %"assumedshape_arrs_$ARRAY_ADD.dim_info$.spacing$[]_fetch.52", float* elementtype(float) %"assumedshape_arrs_$ARRAY_ADD.addr_a0$_fetch.46", i64 %indvars.iv518)

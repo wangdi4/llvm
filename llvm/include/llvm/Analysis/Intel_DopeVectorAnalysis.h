@@ -152,11 +152,7 @@ public:
       : IsBottom(false), IsRead(false), IsWritten(false),
         IsOnlyWrittenWithNull(false), ConstantValue(nullptr),
         RequiresSingleNonNullValue(false),
-        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {
-#if INTEL_FEATURE_SW_ADVANCED
-    IsConstantDisabled = false;
-#endif // INTEL_FEATURE_SW_ADVANCED
-  }
+        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) { }
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
   DopeVectorFieldUse(DopeVectorFieldUse &&) = default;
@@ -259,15 +255,6 @@ public:
 
   bool isNotForDVCPLoad(LoadInst *LI) { return NotForDVCPLoads.contains(LI); }
 
-#if INTEL_FEATURE_SW_ADVANCED
-  // Set the value of the constant collected as nullptr and lock that the value
-  // can't be used.
-  void disableConstantValue() {
-    IsConstantDisabled = true;
-    ConstantValue = nullptr;
-  }
-#endif // INTEL_FEATURE_SW_ADVANCED
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -279,10 +266,6 @@ private:
   bool IsRead;
   bool IsWritten;
   bool IsOnlyWrittenWithNull;
-#if INTEL_FEATURE_SW_ADVANCED
-  // If true, then the constant collected can't be used for DVCP
-  bool IsConstantDisabled;
-#endif // INTEL_FEATURE_SW_ADVANCED
 
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;
@@ -1025,7 +1008,11 @@ public:
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
       GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
       GetTLI(GetTLI), NestedDVDataCollected(false),
-      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) { }
+      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) {
+#if INTEL_FEATURE_SW_ADVANCED
+    EnableAggressiveDVCP = true;
+#endif // INTEL_FEATURE_SW_ADVANCED
+  }
 
   ~GlobalDopeVector() {
     delete GlobalDVInfo;
@@ -1073,7 +1060,9 @@ public:
 #if INTEL_FEATURE_SW_ADVANCED
   // Disable the constant propagation for the lower bound field in the global
   // global dope vector, and the nested dope vectors.
-  void disableLowerBound();
+  void disableAggressiveDVCP() {
+    EnableAggressiveDVCP = false;
+  }
 #endif // INTEL_FEATURE_SW_ADVANCED
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1101,6 +1090,12 @@ private:
   // value is AR_Top
   AnalysisResult AnalysisRes;
 
+#if INTEL_FEATURE_SW_ADVANCED
+  // If true, then we are going to relax some conditions to enable a more
+  // aggressive DVCP (turned on by default)
+  bool EnableAggressiveDVCP;
+#endif // INTEL_FEATURE_SW_ADVANCED
+
   // Traverse through the users of the subscript instruction to identify
   // the nested dope vectors and analyze the use
   bool collectNestedDopeVectorFromSubscript(SubscriptInst *SI,
@@ -1127,6 +1122,23 @@ private:
   // information of those local dope vectors that pass the analysis will
   // be merged with the nested dope vectors.
   void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
+
+// Return true if all pointers that access the dope vector fields were
+// collected correctly by tracing the users of V, else return false. V
+// represents a pointer to a nested dope vector (could come from a BitCast,
+// GEP or an Argument). If AllowCheckForAllocSite is true then allow to
+// trace the BitCast instructions as allocation sites, else any BitCast
+// found is treated as an illegal access and the function will return false.
+bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
+    Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
+    SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
+    bool AllowCheckForAllocSite);
+
+// Given a Value and the TargetLibraryInfo, check if it is a BitCast
+// and is only used for data allocation and deallocation. Return the
+// call to the data alloc function.
+CallBase *castingUsedForDataAllocation(Value *Val,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI);
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,

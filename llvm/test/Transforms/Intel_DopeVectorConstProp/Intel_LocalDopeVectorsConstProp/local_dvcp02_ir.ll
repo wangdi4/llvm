@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-local-const-prop -intel-dvcp-relaxed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
 
 ; This test case checks that dope vector constant propagation did not
 ; happen for assumed shape arrays that are using inside local functions.
@@ -37,7 +37,7 @@
 ; CHECK: %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.lower_bound$[]_fetch.65", i64 %"assumedshape_arrs_$ARRAY_TARGET.dim_info$.spacing$[]_fetch.64", float* elementtype(float) %"assumedshape_arrs_$ARRAY_TARGET.addr_a0$_fetch.61[]", i64 %indvars.iv515)
 
 
-; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop -mllvm -intel-dvcp-relaxed
+; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop
 
 ; ModuleID = '/tmp/ifxDtVxlK.i90'
 source_filename = "/tmp/ifxDtVxlK.i90"

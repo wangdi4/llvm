@@ -1,12 +1,13 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced, asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 2>&1 | FileCheck %s
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
 
-; This test case checks that DVCP was applied even if aggressive DVCP
-; is disabled due to function @bar calls @foo 3 times, and the calls
-; are marked as "prefer-inline-tile-choice". This test case was created
-; from the following code, with functions @bar and @foo added.
+; This test case checks that DVCP was not applied since aggressive DVCP
+; is disabled, there is a call to dealloc and function @bar calls @foo 3
+; times, and the calls are marked as "prefer-inline-tile-choice". This
+; test case was created from the following code, with functions @bar and
+; @foo added.
 
 ;      MODULE ARR_MOD
 ;         REAL, POINTER :: A (:,:)
@@ -14,12 +15,6 @@
 ;         CONTAINS
 ;
 ;         SUBROUTINE ALLOCATE_ARR()
-;           ALLOCATE(A(10, 10))
-;
-;           RETURN
-;         END SUBROUTINE ALLOCATE_ARR
-;
-;         SUBROUTINE DEALLOCATE_ARR()
 ;           ALLOCATE(A(10, 10))
 ;
 ;           RETURN
@@ -62,26 +57,16 @@
 ; ifx -xCORE-AVX512 -Ofast -flto arr.f90 -mllvm -debug-only=dope-vector-global-const-prop
 
 ; The test case basically allocates the global array A in ALLOCATE_ARR, then
-; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR.
+; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR. It is the
+; same test case as global_dvcp21.ll, but it checks the IR.
 
-; CHECK: Aggressive DVCP for global dope vectors is disabled
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK:   %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %17, i64 %16, float* elementtype(float) %13, i64 %8)
+; CHECK:   %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %15, i64 %14, float* elementtype(float) %18, i64 %12)
 
-; CHECK: Global variable: arr_mod_mp_a_
-; CHECK-NEXT:   LLVM Type: QNCA_a0$float*$rank2$
-; CHECK-NEXT:   Global dope vector result: Pass
-; CHECK-NEXT:   Dope vector analysis result: Pass
-; CHECK-NEXT:   Constant propagation status: performed
-; CHECK-NEXT:     [0] Array Pointer: Read
-; CHECK-NEXT:     [1] Element size: Written | Constant = i64 4
-; CHECK-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-NEXT:     [3] Flags: Written
-; CHECK-NEXT:     [4] Dimensions: Written | Constant = i64 2
-; CHECK-NEXT:     [6][0] Extent: Written | Constant = i64 10
-; CHECK-NEXT:     [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-NEXT:     [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-NEXT:     [6][1] Extent: Written | Constant = i64 10
-; CHECK-NEXT:     [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-NEXT:     [6][1] Lower Bound: Read | Written | Constant = i64 1
+; CHECK: define internal void @arr_mod_mp_print_arr_
+; CHECK:  %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %25, i64 %24, float* elementtype(float) %21, i64 %18)
+; CHECK:  %27 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %23, i64 %22, float* elementtype(float) %26, i64 %20)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"
@@ -117,11 +102,44 @@ define internal void @arr_mod_mp_allocate_arr_() #0 {
   ret void
 }
 
+define internal void @arr_mod_mp_deallocate_arr_() #0 {
+  %1 = load i8*, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), align 16
+  %2 = load i64, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %3 = trunc i64 %2 to i32
+  %4 = shl i32 %3, 1
+  %5 = and i32 %4, 6
+  %6 = lshr i32 %3, 3
+  %7 = and i32 %6, 256
+  %8 = lshr i64 %2, 15
+  %9 = trunc i64 %8 to i32
+  %10 = and i32 %9, 65011712
+  %11 = or i32 %7, %5
+  %12 = or i32 %11, %10
+  %13 = or i32 %12, 262144
+  %14 = load i64, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 5), align 8
+  %15 = inttoptr i64 %14 to i8*
+  %16 = tail call i32 @for_dealloc_allocatable_handle(i8* %1, i32 %13, i8* %15) #3
+  %17 = icmp eq i32 %16, 0
+  br i1 %17, label %18, label %21
+
+18:                                               ; preds = %0
+  store float* null, float** getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
+  %19 = load i64, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %20 = and i64 %19, -1099243194370
+  store i64 %20, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
+  br label %21
+
+21:                                               ; preds = %18, %0
+  ret void
+}
+
 ; Function Attrs: nounwind readnone speculatable
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #1
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_allocate_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #2
+
+declare dso_local i32 @for_dealloc_allocatable_handle(i8* nocapture readonly, i32, i8*) local_unnamed_addr #2
 
 ; Function Attrs: nofree noinline nounwind uwtable
 define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1) #0 {
@@ -225,6 +243,7 @@ define dso_local void @MAIN__() #0 {
   tail call void @arr_mod_mp_allocate_arr_()
   tail call void @arr_mod_mp_initialize_arr_(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
   tail call void @arr_mod_mp_print_arr_(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
+  tail call void @arr_mod_mp_deallocate_arr_()
   ret void
 }
 

@@ -1,12 +1,12 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -intel-dvcp-relaxed -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -intel-dvcp-relaxed -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -dvcp-tile-mv-min-calls=3 -S 2>&1 | FileCheck %s
 
-; This test case checks that DVCP wasn't applied in the lowerbound field
-; because function @bar calls @foo 3 times, and the calls are marked
-; as "prefer-inline-tile-choice". This test case was created from the
-; following code, with functions @bar and @foo added.
+; This test case checks that DVCP was applied even if aggressive DVCP
+; is disabled due to function @bar calls @foo 3 times, and the calls
+; are marked as "prefer-inline-tile-choice". This test case was created
+; from the following code, with functions @bar and @foo added.
 
 ;      MODULE ARR_MOD
 ;         REAL, POINTER :: A (:,:)
@@ -59,15 +59,13 @@
 ; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR. It is the
 ; same test case as global_dvcp21.ll, but it checks the IR.
 
-; Check that the lowerbound wasn't propagated in function @arr_mod_mp_initialize_arr_ (%17 and %15)
 ; CHECK: define internal void @arr_mod_mp_initialize_arr_
-; CHECK:   %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %17, i64 40, float* elementtype(float) %13, i64 %8)
-; CHECK:   %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %15, i64 4, float* elementtype(float) %18, i64 %12)
+; CHECK:   %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %13, i64 %8)
+; CHECK:   %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %18, i64 %12)
 
-; Check that the lowerbound wasn't propagated in function @@arr_mod_mp_print_arr_ (%23 and %25)
 ; CHECK: define internal void @arr_mod_mp_print_arr_
-; CHECK:  %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %25, i64 40, float* elementtype(float) %21, i64 %18)
-; CHECK:  %27 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %23, i64 4, float* elementtype(float) %26, i64 %20)
+; CHECK:  %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %21, i64 %18)
+; CHECK:  %27 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %26, i64 %20)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop -intel-dvcp-relaxed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test case checks that dope vector constant propagation did not
 ; happen for assumed shape arrays that are using inside local functions.
@@ -29,7 +29,7 @@
 ;
 ; end subroutine assumedshape_arrs
 
-; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop -mllvm -intel-dvcp-relaxed
+; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop
 
 ; CHECK: LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_ADD" = alloca %"QNCA_a0$float*$rank3$", align 8
 ; CHECK:   RANK: 3
