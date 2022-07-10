@@ -206,13 +206,6 @@ static int initLibrary(DeviceTy &Device) {
         }
 #endif // INTEL_COLLAB
       }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-      if (Rc != OFFLOAD_SUCCESS)
-        break;
-#endif // INTEL_COLLAB
-=======
->>>>>>> 320d62fe87ab961e33f6295b4eb462cc3bce61d1
     }
   }
 
@@ -221,37 +214,9 @@ static int initLibrary(DeviceTy &Device) {
   }
 
 #if INTEL_COLLAB
-<<<<<<< HEAD
-  if (FnPtrsCount != 0) {
-    Device.FnPtrMapMtx.lock();
-    Device.FnPtrs.reserve(FnPtrsCount);
-
-    DeviceTy::HDTTMapAccessorTy HDTTMap =
-        Device.HostDataToTargetMap.getExclusiveAccessor();
-    // Note that the entries in HostDataToTargetMap are sorted by
-    // HstPtrBegin, so they will be sorted in FnPtrs as well.
-    for (const auto &It : *HDTTMap) {
-      HostDataToTargetTy &HDTT = *It.HDTT;
-      if (HDTT.HstPtrBegin == HDTT.HstPtrEnd)
-        Device.FnPtrs.push_back({HDTT.HstPtrBegin, HDTT.TgtPtrBegin});
-    }
-    if (Device.FnPtrs.size() != FnPtrsCount) {
-      REPORT("Expected %zu function pointers, found %zu.\n",
-             FnPtrsCount, Device.FnPtrs.size());
-      Rc = OFFLOAD_FAIL;
-    }
-    HDTTMap.destroy();
-    Device.FnPtrMapMtx.unlock();
-
-    if (Rc == OFFLOAD_SUCCESS)
-      Rc = Device.set_function_ptr_map();
-
-    if (Rc != OFFLOAD_SUCCESS) {
-=======
   if (Device.FnPtrMap.size() > 0) {
-    rc = Device.setFunctionPtrMap();
-    if (rc != OFFLOAD_SUCCESS) {
->>>>>>> 320d62fe87ab961e33f6295b4eb462cc3bce61d1
+    Rc = Device.setFunctionPtrMap();
+    if (Rc != OFFLOAD_SUCCESS) {
       Device.PendingGlobalsMtx.unlock();
       return Rc;
     }
