@@ -2770,17 +2770,10 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // If the caller is a recursive function then we don't want to inline
     // functions which allocate a lot of stack space because it would increase
     // the caller stack usage dramatically.
-<<<<<<< HEAD
-    if (IsCallerRecursive &&
-        AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+    if (IsCallerRecursive && AllocatedSize > RecurStackSizeThreshold) {
       auto IR = InlineResult::failure(                              // INTEL
                     "recursive and allocates too much stack space") // INTEL
                     .setIntelInlReason(NinlrTooMuchStack);          // INTEL
-=======
-    if (IsCallerRecursive && AllocatedSize > RecurStackSizeThreshold) {
-      auto IR =
-          InlineResult::failure("recursive and allocates too much stack space");
->>>>>>> a78f436c3f523ced389f7cf9f47da25efe43e28e
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
