@@ -67,6 +67,7 @@ if(OS_NAME MATCHES "Linux|Fuchsia" AND
   string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 elseif(TARGET cxx-headers OR HAVE_LIBCXX)
   # libFuzzer uses C++ standard library headers.
+  list(APPEND LIBFUZZER_CFLAGS ${COMPILER_RT_CXX_CFLAGS})
   set(LIBFUZZER_DEPS cxx-headers)
 endif()
 
