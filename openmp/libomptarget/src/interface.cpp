@@ -448,28 +448,6 @@ EXTERN void __tgt_push_mapper_component(void *RtMapperHandle, void *Base,
       MapComponentInfoTy(Base, Begin, Size, Type, Name));
 }
 
-<<<<<<< HEAD
-EXTERN void __kmpc_push_target_tripcount(int64_t DeviceId,
-                                         uint64_t LoopTripcount) {
-  __kmpc_push_target_tripcount_mapper(nullptr, DeviceId, LoopTripcount);
-}
-
-EXTERN void __kmpc_push_target_tripcount_mapper(ident_t *Loc, int64_t DeviceId,
-                                                uint64_t LoopTripcount) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  if (checkDeviceAndCtors(DeviceId, Loc)) {
-    DP("Not offloading to device %" PRId64 "\n", DeviceId);
-    return;
-  }
-
-  DP("__kmpc_push_target_tripcount(%" PRId64 ", %" PRIu64 ")\n", DeviceId,
-     LoopTripcount);
-  PM->TblMapMtx.lock();
-  PM->Devices[DeviceId]->LoopTripCnt.emplace(__kmpc_global_thread_num(NULL),
-                                             LoopTripcount);
-  PM->TblMapMtx.unlock();
-}
-
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t device_num,
                                          void *device_type) {
@@ -845,8 +823,7 @@ EXTERN void __tgt_target_free_per_hw_thread_scratch(
   return PM->Devices[device_num]->freePerHWThreadScratch(ptr);
 }
 #endif // INTEL_COLLAB
-=======
->>>>>>> 269d5c16bca15e5f3618ae0b91f907c89eaedf19
+
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
   std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
   InfoLevel.store(NewInfoLevel);
