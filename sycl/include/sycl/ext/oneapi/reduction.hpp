@@ -2358,8 +2358,6 @@ void reduAuxCGFuncImplArrayHelper(bool UniformPow2WG, bool IsOneWG,
   }
 }
 
-// Pack fold expressions are used either in the function itself or down its
-// callstack.
 template <typename... Reductions, int Dims, typename... LocalAccT,
           typename... InAccT, typename... OutAccT, typename... Ts,
           typename... BOPsT, size_t... Is>
