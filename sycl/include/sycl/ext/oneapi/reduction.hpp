@@ -2067,6 +2067,7 @@ void reduCGFuncImplArrayHelper(bool Pow2WG, bool IsOneWG, nd_item<Dims> NDIt,
   }
 }
 
+#if __cplusplus >= 201703L // pack fold expressions
 template <typename... Reductions, int Dims, typename... LocalAccT,
           typename... OutAccT, typename... ReducerT, typename... Ts,
           typename... BOPsT, size_t... Is>
@@ -2164,6 +2165,7 @@ void reduCGFuncMulti(handler &CGH, KernelType KernelFunc,
   else
     Rest(createReduOutAccs<false>(NWorkGroups, CGH, ReduTuple, ReduIndices));
 }
+#endif // __cplusplus >= 201703L
 
 namespace reduction {
 namespace main_krn {
@@ -2358,6 +2360,9 @@ void reduAuxCGFuncImplArrayHelper(bool UniformPow2WG, bool IsOneWG,
   }
 }
 
+// Pack fold expressions are used either in the function itself or down its
+// callstack.
+#if __cplusplus >= 201703L
 template <typename... Reductions, int Dims, typename... LocalAccT,
           typename... InAccT, typename... OutAccT, typename... Ts,
           typename... BOPsT, size_t... Is>
@@ -2422,6 +2427,7 @@ void reduCGFunc(handler &CGH, KernelType KernelFunc,
     }
   }
 }
+#endif // __cplusplus >= 201703L
 
 namespace reduction {
 namespace aux_krn {
