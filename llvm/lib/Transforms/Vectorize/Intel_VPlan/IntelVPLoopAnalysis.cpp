@@ -1984,12 +1984,13 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
 
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
         Opc == Instruction::GetElementPtr) {
-      // FIXME: Don't reference getElementType as it won't exist for opaque
-      // pointers. Propagate it through whole VPEntities framework.
+      Type *ElementType = nullptr;
+      if (Phi->getType()->isOpaquePointerTy())
+        ElementType = Type::getInt8Ty(Phi->getType()->getContext());
+      else
+        ElementType = Phi->getType()->getPointerElementType();
       auto *GEP =
-          Builder.createGEP(Phi->getType()->getPointerElementType(),
-                            Phi->getType()->getPointerElementType(),
-                            Phi, Step, nullptr);
+          Builder.createGEP(ElementType, ElementType, Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?
       return GEP;
     }
