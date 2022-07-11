@@ -631,14 +631,6 @@ elseif (SANITIZER_TEST_CXX_LIBNAME STREQUAL "libstdc++")
   append_list_if(COMPILER_RT_HAS_LIBSTDCXX -lstdc++ SANITIZER_TEST_CXX_LIBRARIES)
 endif()
 
-<<<<<<< HEAD
-# when cross compiling, COMPILER_RT_TEST_COMPILER_CFLAGS help
-# in compilation and linking of unittests.
-string(REPLACE " " ";" COMPILER_RT_UNITTEST_CFLAGS "${COMPILER_RT_TEST_COMPILER_CFLAGS}")
-set(COMPILER_RT_UNITTEST_LINK_FLAGS ${COMPILER_RT_UNITTEST_CFLAGS})
-
-=======
->>>>>>> 61b410cb8b9af0aa265e730a3070b3154d869803
 # Unittests support.
 set(COMPILER_RT_GTEST_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest)
 set(COMPILER_RT_GTEST_SOURCE ${COMPILER_RT_GTEST_PATH}/src/gtest-all.cc)
