@@ -493,6 +493,7 @@ class VPInstruction : public VPUser,
       case Instruction::Call:
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
+      case VPInstruction::ReductionFinalInscan:
       case VPInstruction::TreeConflict: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
