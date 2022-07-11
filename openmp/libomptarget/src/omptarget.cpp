@@ -1293,14 +1293,6 @@ uint64_t getLoopTripCount(int64_t DeviceId) {
     if (I != Device.LoopTripCnt.end()) {
       LoopTripCount = I->second;
       Device.LoopTripCnt.erase(I);
-<<<<<<< HEAD
-#if INTEL_COLLAB
-      DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
-#else  // INTEL_COLLAB
-      DP("loop trip count is %lu.\n", LoopTripCount);
-#endif  // INTEL_COLLAB
-=======
->>>>>>> c9353eb4bcf8180446d8401796527fe7790ba23c
     }
   }
 
