@@ -138,13 +138,9 @@ endforeach()
 include_directories(..)
 include_directories(../../include)
 
-<<<<<<< HEAD
-set(XRAY_CFLAGS ${SANITIZER_COMMON_CFLAGS})
-=======
 set(XRAY_CFLAGS
   ${COMPILER_RT_COMMON_CFLAGS}
   ${COMPILER_RT_CXX_CFLAGS})
->>>>>>> df90d22704d8743746fa00bc6d67e2789ca9ee9e
 set(XRAY_COMMON_DEFINITIONS XRAY_HAS_EXCEPTIONS=1)
 
 # Too many existing bugs, needs cleanup.
