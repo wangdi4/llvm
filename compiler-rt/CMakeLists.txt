@@ -546,6 +546,17 @@ endif()
 # See https://jira.devtools.intel.com/browse/CMPLRLLVM-24531.
 # end INTEL_CUSTOMIZATION
 
+# TODO: There's a lot of duplication across lib/*/tests/CMakeLists.txt files,
+# move some of the common flags to COMPILER_RT_UNITTEST_CFLAGS.
+
+# Unittests need access to C++ standard library.
+string(APPEND COMPILER_RT_TEST_COMPILER_CFLAGS " ${stdlib_flag}")
+
+# When cross-compiling, COMPILER_RT_TEST_COMPILER_CFLAGS help in compilation
+# and linking of unittests.
+string(REPLACE " " ";" COMPILER_RT_UNITTEST_CFLAGS "${COMPILER_RT_TEST_COMPILER_CFLAGS}")
+set(COMPILER_RT_UNITTEST_LINK_FLAGS ${COMPILER_RT_UNITTEST_CFLAGS})
+
 if(COMPILER_RT_USE_LLVM_UNWINDER)
   if (COMPILER_RT_ENABLE_STATIC_UNWINDER)
     set(unwinder_target unwind_static)
@@ -608,7 +619,11 @@ if (SANITIZER_TEST_CXX_LIBNAME STREQUAL "libc++")
     else()
       set(cxx_target cxx_shared)
     endif()
-    list(APPEND SANITIZER_TEST_CXX_LIBRARIES "$<$<BOOL:$<TARGET_NAME_IF_EXISTS:${cxx_target}>>:$<TARGET_LINKER_FILE:${cxx_target}>>")
+    list(APPEND SANITIZER_TEST_CXX_LIBRARIES "$<$<TARGET_EXISTS:${cxx_target}>:$<TARGET_LINKER_FILE:${cxx_target}>>")
+    list(APPEND SANITIZER_TEST_CXX_CFLAGS "$<$<TARGET_EXISTS:cxx-headers>:-isystem$<JOIN:$<TARGET_PROPERTY:cxx-headers,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-isystem>>")
+    # We are using the in tree libc++ so avoid including the default one.
+    append_list_if(COMPILER_RT_HAS_NOSTDINCXX_FLAG -nostdinc++ COMPILER_RT_UNITTEST_CFLAGS)
+    append_list_if(COMPILER_RT_HAS_NOSTDLIBXX_FLAG -nostdlib++ COMPILER_RT_UNITTEST_LINK_FLAGS)
   else()
     append_list_if(COMPILER_RT_HAS_LIBCXX -lc++ SANITIZER_TEST_CXX_LIBRARIES)
   endif()
@@ -616,11 +631,14 @@ elseif (SANITIZER_TEST_CXX_LIBNAME STREQUAL "libstdc++")
   append_list_if(COMPILER_RT_HAS_LIBSTDCXX -lstdc++ SANITIZER_TEST_CXX_LIBRARIES)
 endif()
 
+<<<<<<< HEAD
 # when cross compiling, COMPILER_RT_TEST_COMPILER_CFLAGS help
 # in compilation and linking of unittests.
 string(REPLACE " " ";" COMPILER_RT_UNITTEST_CFLAGS "${COMPILER_RT_TEST_COMPILER_CFLAGS}")
 set(COMPILER_RT_UNITTEST_LINK_FLAGS ${COMPILER_RT_UNITTEST_CFLAGS})
 
+=======
+>>>>>>> 61b410cb8b9af0aa265e730a3070b3154d869803
 # Unittests support.
 set(COMPILER_RT_GTEST_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest)
 set(COMPILER_RT_GTEST_SOURCE ${COMPILER_RT_GTEST_PATH}/src/gtest-all.cc)
