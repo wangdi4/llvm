@@ -92,7 +92,7 @@ cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
   return size; // Pass STACK_SIZE to kernel
 }
 
-#ifdef _WIN32
+#if defined _WIN32 && (defined _M_X64 || defined __x86_64__)
 TEST_F(DisableMasterJoinTest, testWithSource) {
   printf("testWithSource\n");
   // Allocate stack size with size 8MB
@@ -134,7 +134,7 @@ void DisableMasterJoinTest::buildFromBinary(
   ASSERT_OCL_SUCCESS(iRet, "clBuildProgram");
 }
 
-#ifdef _WIN32
+#if defined _WIN32 && (defined _M_X64 || defined __x86_64__)
 TEST_F(DisableMasterJoinTest, testWithBinary) {
   printf("testWithBinary\n");
 
