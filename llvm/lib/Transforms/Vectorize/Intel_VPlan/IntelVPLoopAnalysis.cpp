@@ -2279,9 +2279,27 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   else {
     for (auto *V : LinkedVPVals) {
       if (auto *VPI = dyn_cast<VPInstruction>(V))
-        if (VPI->hasFastMathFlags())
+        if (VPI->hasFastMathFlags()) {
           RedFMF = VPI->getFastMathFlags();
+          break;
+        }
     }
+    if (RedFMF.none() && AllocaInst)
+      // For in-memory reductions, analyze the stored values.
+      for (auto *User : AllocaInst->users()) {
+        auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
+        if (!VPLS)
+          continue;
+        // Look through the stores that store into the Alloca.
+        if (VPLS->getOpcode() != Instruction::Store)
+          continue;
+        if (AllocaInst == VPLS->getPointerOperand())
+          if (auto *StoredVal = dyn_cast<VPInstruction>(VPLS->getOperand(0)))
+            if (StoredVal->hasFastMathFlags()) {
+              RedFMF = StoredVal->getFastMathFlags();
+              break;
+            }
+      }
   }
 
   if (LinkPhi == nullptr)

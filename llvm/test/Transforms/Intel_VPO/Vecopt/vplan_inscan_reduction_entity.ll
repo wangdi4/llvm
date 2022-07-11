@@ -29,7 +29,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]]
 ; CHECK:          [DA: Div] float* [[VP_X_RED:%.*]] = allocate-priv float*, OrigAlign = 4
 ; CHECK:          [DA: Uni] float [[VP_LOAD:%.*]] = load float* [[X_RED0]]
-; CHECK-NEXT:     [DA: Uni] float [[VP_X_REDINSCAN_REDINSCAN_INIT:%.*]] = reduction-init-scalar float -0.000000e+00 float [[VP_LOAD]]
+; CHECK-NEXT:     [DA: Uni] float [[VP_X_REDINSCAN_REDINSCAN_INIT:%.*]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]]
 ; CHECK:          [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
@@ -37,7 +37,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Uni] float [[VP_INSCAN_ACCUM:%.*]] = phi  [ float [[VP_X_REDINSCAN_REDINSCAN_INIT]], [[BB2]] ],  [ float [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]], [[BB2]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP4]] i32* [[VP_I_LINEAR_IV:%.*]]
-; CHECK-NEXT:     [DA: Div] store float -0.000000e+00 float* [[VP_X_RED]]
+; CHECK-NEXT:     [DA: Div] store float 0.000000e+00 float* [[VP_X_RED]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP0]] i32* [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
@@ -52,7 +52,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_2:%.*]] = load float* [[VP_X_RED]]
-; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = running-inclusive-reduction float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float -0.000000e+00
+; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = running-inclusive-reduction float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00
 ; CHECK-NEXT:     [DA: Div] store float [[VP8]] float* [[VP_X_RED]]
 ; CHECK-NEXT:     [DA: Uni] float [[VP3]] = extract-last-vector-lane float [[VP8]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
