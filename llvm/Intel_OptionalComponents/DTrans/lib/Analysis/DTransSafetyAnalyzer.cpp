@@ -2891,6 +2891,13 @@ public:
     }
 
     if (auto *ParentStTy = dyn_cast<DTransStructType>(ParentTy)) {
+      // It's possible to have a type alias that is an opaque or empty
+      // structure type. In that case, there is no field info to set, so just
+      // return.
+      auto *LLVMParentStTy = cast<llvm::StructType>(ParentStTy->getLLVMType());
+      if (LLVMParentStTy->getStructNumElements() == 0)
+        return;
+
       auto *TI = DTInfo.getTypeInfo(ParentTy);
       assert(TI && "visitModule() should create all TypeInfo objects");
       auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI);
