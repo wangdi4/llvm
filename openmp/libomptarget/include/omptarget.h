@@ -655,6 +655,7 @@ void __tgt_target_data_update_nowait_mapper(
 // same action as data_end above. The following types are used; this
 // function returns 0 if it was able to transfer the execution to a
 // target and an int different from zero otherwise.
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -718,6 +719,8 @@ int __tgt_target_teams_nowait_mapper(
     map_var_info_t *arg_names, void **arg_mappers, int32_t num_teams,
     int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList);
+=======
+>>>>>>> 269d5c16bca15e5f3618ae0b91f907c89eaedf19
 int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                         int32_t ThreadLimit, void *HostPtr,
                         __tgt_kernel_arguments *Args);
@@ -727,6 +730,7 @@ int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                void *DepList, int32_t NoAliasDepNum,
                                void *NoAliasDepList);
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -819,6 +823,8 @@ EXTERN void __tgt_target_free_per_hw_thread_scratch(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+=======
+>>>>>>> 269d5c16bca15e5f3618ae0b91f907c89eaedf19
 void __tgt_set_info_flag(uint32_t);
 
 #if INTEL_COLLAB
