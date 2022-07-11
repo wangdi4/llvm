@@ -48,6 +48,38 @@ static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
   }
 }
 
+static void printOptWarning(BasicBlock *BB, std::string ShortForm,
+                            std::string Msg) {
+  DebugLoc Loc;
+  for (auto &I : *BB) {
+    if (I.getDebugLoc()) {
+      Loc = I.getDebugLoc();
+      break;
+    }
+  }
+  if (!Loc)
+    Msg += " : Enable debug option for location information.";
+  DiagnosticInfoOptimizationFailure Diag("openmp", ShortForm, Loc, BB);
+  Diag << Msg;
+  BB->getContext().diagnose(Diag);
+}
+
+// If I is a SIMD begin region directive, with no use, delete it and return
+// true.
+// Return false if no change.
+static bool fixUnreachableSimdEnd(Instruction *I) {
+  int BeginDirID = VPOAnalysisUtils::getDirectiveID(I);
+  if (BeginDirID != DIR_OMP_SIMD)
+    return false;
+  auto Users = I->users();
+  if (Users.begin() != Users.end())
+    return false;
+  printOptWarning(I->getParent(), "SimdExitUnreachable",
+                  "OpenMP simd loop does not have a reachable exit.");
+  I->eraseFromParent();
+  return true;
+}
+
 // Directives are represented with @llvm.directive.region.entry/exit
 // intrinsics. WRegion Construction requires that each such intrinsic be on
 // a BasicBlock by itself, with no other instructions in the same BB except
@@ -76,6 +108,15 @@ bool VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
   // Go through InstructionsToSplit to split the BBs according to the
   // aforementioned rules.
   for (Instruction *I : InstructionsToSplit) {
+    // SIMD loops with UB, may have an unreachable exit after optimization.
+    // Since this is also UB (the exit must be reachable), remove the SIMD
+    // entry directive, in this case.
+    // The problem will not happen for non-SIMD regions, because branches
+    // are inserted to ensure the exit is reached.
+    if (fixUnreachableSimdEnd(I)) {
+      Changed = true;
+      continue;
+    }
 
     StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
     if (!VPOAnalysisUtils::isOpenMPDirective(DirString))
