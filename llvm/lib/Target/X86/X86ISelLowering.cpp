@@ -19769,7 +19769,7 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
   //   t10: v8i1 = extract_subvector t9, 0
   if (VT.SimpleTy == MVT::v8i1 && Subtarget.useAVX512Regs()) {
     int MatchedMask[8] = {0, 0, 1, 1, 2, 2, 3, 3};
-    if (isTargetShuffleEquivalent(VT, Mask, MatchedMask)) {
+    if (isTargetShuffleEquivalent(VT, Mask, MatchedMask, DAG)) {
       SDValue Res = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v8i64, V1);
       Res = DAG.getNode(ISD::BITCAST, DL, MVT::v16i32, Res);
       Res = DAG.getNode(ISD::TRUNCATE, DL, MVT::v16i1, Res);
