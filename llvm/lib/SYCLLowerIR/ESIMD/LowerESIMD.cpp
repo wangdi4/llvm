@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===-- LowerESIMD.cpp - lower Explicit SIMD (ESIMD) constructs -----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -45,6 +62,11 @@ namespace id = itanium_demangle;
 #define SLM_BTI 254
 
 #define MAX_DIMS 3
+
+cl::opt<bool> ForceStatelessMem(
+    "lower-esimd-force-stateless-mem", llvm::cl::Optional, llvm::cl::Hidden,
+    llvm::cl::desc("Use stateless API for accessor based API."),
+    llvm::cl::init(false));
 
 namespace {
 SmallPtrSet<Type *, 4> collectGenXVolatileTypes(Module &);
@@ -1577,7 +1599,7 @@ void generateKernelMetadata(Module &M) {
                                               ->getValue()
                                               .getZExtValue())
                   : 0;
-          if (IsAcc) {
+          if (IsAcc && !ForceStatelessMem) {
             ArgDesc = "buffer_t";
             Kind = AK_SURFACE;
           } else
