@@ -205,6 +205,12 @@ static cl::opt<size_t>
                        cl::desc("Do not inline functions with a stack size "
                                 "that exceeds the specified limit"));
 
+static cl::opt<size_t>
+    RecurStackSizeThreshold("recursive-inline-max-stacksize", cl::Hidden,
+                       cl::init(InlineConstants::TotalAllocaSizeRecursiveCaller),
+                       cl::desc("Do not inline recursive functions with a stack "
+                                "size that exceeds the specified limit"));
+
 static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden,
     cl::desc("Compute the full inline cost of a call site even when the cost "
@@ -2764,11 +2770,17 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // If the caller is a recursive function then we don't want to inline
     // functions which allocate a lot of stack space because it would increase
     // the caller stack usage dramatically.
+<<<<<<< HEAD
     if (IsCallerRecursive &&
         AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
       auto IR = InlineResult::failure(                              // INTEL
                     "recursive and allocates too much stack space") // INTEL
                     .setIntelInlReason(NinlrTooMuchStack);          // INTEL
+=======
+    if (IsCallerRecursive && AllocatedSize > RecurStackSizeThreshold) {
+      auto IR =
+          InlineResult::failure("recursive and allocates too much stack space");
+>>>>>>> a78f436c3f523ced389f7cf9f47da25efe43e28e
       if (ORE)
         ORE->emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline",
