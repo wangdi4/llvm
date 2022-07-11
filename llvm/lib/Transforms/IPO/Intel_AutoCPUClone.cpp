@@ -242,9 +242,9 @@ static bool cloneFunctions(Module &M,
       Function *New = CloneFunction(&Fn, VMap);
 
       New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
-      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
-      std::string Features = LibIRCDispatchFeatures.str();
+      std::string Features =
+          LibIRCDispatchFeatures.str();
 
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
@@ -303,7 +303,6 @@ static bool cloneFunctions(Module &M,
 
     Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
     Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-    Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
     Changed = true;
   }
 
