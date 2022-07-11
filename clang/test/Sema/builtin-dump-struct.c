@@ -10,8 +10,8 @@ void invalid_uses(void) {
   int (*badfunc2)(int, ...);
   int (*badfunc3)(void);
 
-  __builtin_dump_struct();             // expected-error {{too few arguments to function call, expected 2, have 0}}
-  __builtin_dump_struct(1);            // expected-error {{too few arguments to function call, expected 2, have 1}}
+  __builtin_dump_struct();             // expected-error {{too few arguments to function call, expected at least 2, have 0}}
+  __builtin_dump_struct(1);            // expected-error {{too few arguments to function call, expected at least 2, have 1}}
   __builtin_dump_struct(1, 2);         // expected-error {{expected pointer to struct as 1st argument to '__builtin_dump_struct', found 'int'}}
   __builtin_dump_struct(&a, 2);        // expected-error {{expected a callable expression as 2nd argument to '__builtin_dump_struct', found 'int'}}
   __builtin_dump_struct(b, goodfunc); // expected-error {{expected pointer to struct as 1st argument to '__builtin_dump_struct', found 'void *'}}

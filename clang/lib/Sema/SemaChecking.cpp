@@ -138,14 +138,15 @@ static constexpr unsigned short combineFAPK(Sema::FormatArgumentPassingKind A,
 /// Checks that a call expression's argument count is at least the desired
 /// number. This is useful when doing custom type-checking on a variadic
 /// function. Returns true on error.
-static bool checkArgCountAtLeast(Sema &S, CallExpr *Call,
-                                 unsigned MinArgCount) {
+static bool checkArgCountAtLeast(Sema &S, CallExpr *Call, unsigned MinArgCount,
+                                 unsigned DiagKind = diag::
+                                     err_typecheck_call_too_few_args_at_least) {
   unsigned ArgCount = Call->getNumArgs();
   if (ArgCount >= MinArgCount)
     return false;
 
-  return S.Diag(Call->getEndLoc(), diag::err_typecheck_call_too_few_args)
-         << 0 /*function call*/ << MinArgCount << ArgCount
+  return S.Diag(Call->getEndLoc(), DiagKind) << 0 /*function call*/
+         << MinArgCount << ArgCount
          << Call->getSourceRange();
 }
 
@@ -170,7 +171,8 @@ static bool checkArgCount(Sema &S, CallExpr *Call, unsigned DesiredArgCount) {
   if (ArgCount == DesiredArgCount)
     return false;
 
-  if (checkArgCountAtLeast(S, Call, DesiredArgCount))
+  if (checkArgCountAtLeast(S, Call, DesiredArgCount,
+                           diag::err_typecheck_call_too_few_args))
     return true;
   assert(ArgCount > DesiredArgCount && "should have diagnosed this");
 
