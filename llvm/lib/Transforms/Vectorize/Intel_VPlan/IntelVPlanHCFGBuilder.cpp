@@ -419,14 +419,16 @@ public:
     assert(V->getType()->isPointerTy() &&
            "expected pointer type for explicit induction");
     Type *IndTy;
+    Type *IndPointeeTy;
     int Step;
-    std::tie(IndTy, Step) = CurValue.second;
+    std::tie(IndTy, IndPointeeTy, Step) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
     Type *StepTy = IndTy;
     if (IndTy->isPointerTy()) {
-      // TODO: revisit this once PTR_TO_PTR clause implemented
       const DataLayout &DL = cast<Instruction>(V)->getModule()->getDataLayout();
+      if (IndTy->isOpaquePointerTy())
+        Step = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * Step;
       StepTy = DL.getIntPtrType(IndTy);
     }
     Descriptor.setStep(
