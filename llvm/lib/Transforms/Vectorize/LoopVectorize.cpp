@@ -8121,7 +8121,8 @@ VPValue *VPRecipeBuilder::createBlockInMask(BasicBlock *BB, VPlanPtr &Plan) {
     Builder.setInsertPoint(HeaderVPBB, NewInsertionPoint);
     if (CM.TTI.emitGetActiveLaneMask()) {
       VPValue *TC = Plan->getOrCreateTripCount();
-      BlockMask = Builder.createNaryOp(VPInstruction::ActiveLaneMask, {IV, TC});
+      BlockMask = Builder.createNaryOp(VPInstruction::ActiveLaneMask, {IV, TC},
+                                       nullptr, "active.lane.mask");
     } else {
       VPValue *BTC = Plan->getOrCreateBackedgeTakenCount();
       BlockMask = Builder.createNaryOp(VPInstruction::ICmpULE, {IV, BTC});
@@ -8678,7 +8679,7 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
   auto *CanonicalIVIncrement =
       new VPInstruction(HasNUW ? VPInstruction::CanonicalIVIncrementNUW
                                : VPInstruction::CanonicalIVIncrement,
-                        {CanonicalIVPHI}, DL);
+                        {CanonicalIVPHI}, DL, "index.next");
   CanonicalIVPHI->addOperand(CanonicalIVIncrement);
 
   VPBasicBlock *EB = TopRegion->getExitingBasicBlock();
