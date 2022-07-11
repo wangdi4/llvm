@@ -202,6 +202,7 @@ bool NoAliasProp::run(CallGraph &CG) {
 PreservedAnalyses ArgNoAliasPropPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
 
+  SmallPtrSet<Function *, 32> BasicAARecomputed;
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
   auto &CG = AM.getResult<CallGraphAnalysis>(M);
@@ -209,6 +210,17 @@ PreservedAnalyses ArgNoAliasPropPass::run(Module &M,
   auto AARGetter = [&](Function &F) -> AAResults & {
     // BasicAA uses phi values analysis only if it is available, so force it to
     // be run on the function.
+    // Invalidate cached BasicAA so it gets recomputed with PHiValuesAnalysis
+    // BasicAARecomputed set is used to stop recomputing BasicAA multiple times.
+    if (FAM.getCachedResult<BasicAA>(F) && !BasicAARecomputed.count(&F)) {
+      auto PA = PreservedAnalyses::all();
+      // Abandoning BasicAA doesn’t help recomputing BasicAA.
+      // DominatorTreeAnalysis is dependent analysis for BasicAA.
+      // Abandoning DominatorTreeAnalysis here so that BasicAA is recomputed.
+      PA.abandon<DominatorTreeAnalysis>();
+      FAM.invalidate(F, PA);
+      BasicAARecomputed.insert(&F);
+    }
     FAM.getResult<PhiValuesAnalysis>(F);
     return FAM.getResult<AAManager>(F);
   };
