@@ -1448,28 +1448,27 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
   // If this is a pointer induction, compute the step-size in terms of
   // bytes, using the size of the pointee.
   if (isa<PointerType>(Init->getType())) {
-    unsigned TypeSizeInBytes;
-
     // Handle strides for pointer-inductions appropriately.
     // A 'uniform' pointer-shape indicates that we are dealing with non-private
     // data. Private-data, and its aliases (via casts and GEPs) will have
     // non-'uniform' shape and the stride would be the same as that of 'alloca'
     // given that we are dealing with these instructions in the loop-preheader.
-    if (Init->getBinOpcode() == Instruction::GetElementPtr) {
-      auto InitShape = getVectorShape(*(Init->getOperand(0)));
+    assert((Init->getBinOpcode() == Instruction::GetElementPtr) &&
+           "Invalid binary op in pointer induction-init");
+    auto InitShape = getVectorShape(*(Init->getOperand(0)));
 
-      // We can have strided-shape with unknown-stride. Return random vector
-      // shape in such scenario.
-      if (!InitShape.hasKnownStride())
-        return getRandomVectorShape();
+    // We can have strided-shape with unknown-stride. Return random vector
+    // shape in such scenario.
+    if (!InitShape.hasKnownStride())
+      return getRandomVectorShape();
 
-      TypeSizeInBytes =
-          InitShape.isUniform()
-              ? getTypeSizeInBytes(Init->getType()->getPointerElementType())
-              : InitShape.getStrideVal();
-    } else
-      TypeSizeInBytes =
-          getTypeSizeInBytes(Init->getType()->getPointerElementType());
+    // i8 element type for opaque pointer inductions
+    unsigned TypeSizeInBytes =
+        InitShape.isUniform()
+            ? getTypeSizeInBytes(Init->getType()->isOpaquePointerTy()
+                                     ? Type::getInt8Ty(*Plan->getLLVMContext())
+                                     : Init->getType()->getPointerElementType())
+            : InitShape.getStrideVal();
 
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else

@@ -274,6 +274,13 @@ inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
   return nullptr;
 }
 
+inline Type *getInt8OrPointerElementTy(Type *ValTy) {
+  assert(ValTy->isPointerTy() && "Expected Pointer type");
+  if (ValTy->isOpaquePointerTy())
+    return Type::getInt8Ty(ValTy->getContext());
+  return ValTy->getPointerElementType();
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces for the given memory
 // reference MemRef. DDNode specifies the underlying HLDDNode for the

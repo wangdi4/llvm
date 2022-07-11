@@ -221,7 +221,8 @@ private:
   }
 
   /// Add an explicit linear.
-  void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */, RegDDRef *Step) {
+  void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */,
+                 Type * /* PointeeTy */, RegDDRef *Step) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
 
     // TODO: Type information is not used thus far but is here for consistency

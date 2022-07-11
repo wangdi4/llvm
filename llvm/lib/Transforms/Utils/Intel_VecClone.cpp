@@ -908,8 +908,15 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
       return;
     }
 
+    std::string ClauseString = IntrinsicUtils::getClauseString(ClauseId).str();
+    std::string ClauseStringUpdates = "TYPED";
+    if (Ptr->getType()->isOpaquePointerTy() &&
+        ClauseString == "QUAL.OMP.LINEAR") {
+      ClauseStringUpdates += ".PTR_TO_PTR";
+      Ty = llvm::Type::getInt8Ty(Ty->getContext());
+    }
     OpndBundles.push_back(OperandBundleDef{
-        Clause(ClauseId, "TYPED"),
+        Clause(ClauseId, ClauseStringUpdates),
         {Ptr, Constant::getNullValue(Ty),
          ConstantInt::get(Type::getInt32Ty(Ty->getContext()), 1), // #Elts
          Ops...}});
