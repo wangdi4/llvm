@@ -138,7 +138,18 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
-<<<<<<< HEAD
+/// This struct contains all of the arguments to a target kernel region launch.
+struct __tgt_kernel_arguments {
+  int32_t Version;    // Version of this struct for ABI compatibility.
+  int32_t NumArgs;    // Number of arguments in each input pointer.
+  void **ArgBasePtrs; // Base pointer of each argument (e.g. a struct).
+  void **ArgPtrs;     // Pointer to the argument data.
+  int64_t *ArgSizes;  // Size of the argument data in bytes.
+  int64_t *ArgTypes;  // Type of the data (e.g. to / from).
+  void **ArgNames;    // Name of the data for debugging, possibly null.
+  void **ArgMappers;  // User-defined mappers, possible null.
+};
+
 #if INTEL_COLLAB
 struct __tgt_interop_obj {
   int64_t device_id; // OpenMP device id
@@ -264,19 +275,7 @@ struct __tgt_memory_info {
 #define EXTRACT_BITS(I64, HIGH, LOW)                                           \
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
-=======
-/// This struct contains all of the arguments to a target kernel region launch.
-struct __tgt_kernel_arguments {
-  int32_t Version;    // Version of this struct for ABI compatibility.
-  int32_t NumArgs;    // Number of arguments in each input pointer.
-  void **ArgBasePtrs; // Base pointer of each argument (e.g. a struct).
-  void **ArgPtrs;     // Pointer to the argument data.
-  int64_t *ArgSizes;  // Size of the argument data in bytes.
-  int64_t *ArgTypes;  // Type of the data (e.g. to / from).
-  void **ArgNames;    // Name of the data for debugging, possibly null.
-  void **ArgMappers;  // User-defined mappers, possible null.
-};
->>>>>>> ad23e4d85fb39e99ff61f588bad480b824d9d1df
+
 
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero

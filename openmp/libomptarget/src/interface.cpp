@@ -408,70 +408,9 @@ EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                                int64_t *ArgSizes, int64_t *ArgTypes,
                                map_var_info_t *ArgNames, void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(Loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
-
-  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
-     "\n",
-     DPxPTR(HostPtr), DeviceId);
-  if (checkDeviceAndCtors(DeviceId, Loc)) {
-    DP("Not offloading to device %" PRId64 "\n", DeviceId);
-    return OMP_TGT_FAIL;
-  }
-
-  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
-    printKernelArguments(Loc, DeviceId, ArgNum, ArgSizes, ArgTypes, ArgNames,
-                         "Entering OpenMP kernel");
-#ifdef OMPTARGET_DEBUG
-  for (int I = 0; I < ArgNum; ++I) {
-    DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-       ", Type=0x%" PRIx64 ", Name=%s\n",
-       I, DPxPTR(ArgsBase[I]), DPxPTR(Args[I]), ArgSizes[I], ArgTypes[I],
-       (ArgNames) ? getNameFromMapping(ArgNames[I]).c_str() : "unknown");
-  }
-#endif
-
-#if INTEL_COLLAB
-  // Push device encoding
-  PM->Devices[DeviceId]->pushSubDevice(encodedId, DeviceId);
-#endif // INTEL_COLLAB
-
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetBegin(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-  DeviceTy &Device = *PM->Devices[DeviceId];
-  AsyncInfoTy AsyncInfo(Device);
-  int Rc =
-      target(Loc, Device, HostPtr, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes,
-             ArgNames, ArgMappers, 0, 0, false /*team*/, AsyncInfo);
-  if (Rc == OFFLOAD_SUCCESS)
-    Rc = AsyncInfo.synchronize();
-  handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
-
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetEnd(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  if (encodedId != DeviceId)
-    PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
-
-  assert(Rc == OFFLOAD_SUCCESS && "__tgt_target_mapper unexpected failure!");
-  return OMP_TGT_SUCCESS;
-=======
   __tgt_kernel_arguments KernelArgs{1,        ArgNum,   ArgsBase, Args,
                                     ArgSizes, ArgTypes, ArgNames, ArgMappers};
   return __tgt_target_kernel(Loc, DeviceId, -1, 0, HostPtr, &KernelArgs);
->>>>>>> ad23e4d85fb39e99ff61f588bad480b824d9d1df
 }
 
 EXTERN int __tgt_target_nowait_mapper(
@@ -516,17 +455,6 @@ EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
                                      map_var_info_t *ArgNames,
                                      void **ArgMappers, int32_t TeamNum,
                                      int32_t ThreadLimit) {
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(Loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  int64_t encodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
-
-=======
   TIMESCOPE_WITH_IDENT(Loc);
   __tgt_kernel_arguments KernelArgs{1,        ArgNum,   ArgsBase, Args,
                                     ArgSizes, ArgTypes, ArgNames, ArgMappers};
@@ -549,7 +477,15 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
                                __tgt_kernel_arguments *Args) {
   TIMESCOPE_WITH_IDENT(Loc);
->>>>>>> ad23e4d85fb39e99ff61f588bad480b824d9d1df
+
+#if INTEL_CUSTOMIZATION
+  XPTIEventCacheTy XPTIEvt(Loc, __func__);
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(DeviceId);
+#endif // INTEL_COLLAB
+
   DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
      "\n",
      DPxPTR(HostPtr), DeviceId);
@@ -576,7 +512,6 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Push device encoding
   PM->Devices[DeviceId]->pushSubDevice(encodedId, DeviceId);
@@ -585,11 +520,10 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
-=======
+
   bool IsTeams = NumTeams != -1;
   if (!IsTeams)
     NumTeams = 0;
->>>>>>> ad23e4d85fb39e99ff61f588bad480b824d9d1df
 
   DeviceTy &Device = *PM->Devices[DeviceId];
   AsyncInfoTy AsyncInfo(Device);
@@ -599,7 +533,6 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetEnd(DeviceId));
@@ -610,11 +543,7 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
     PM->Devices[DeviceId]->popSubDevice();
 #endif // INTEL_COLLAB
 
-  assert(Rc == OFFLOAD_SUCCESS &&
-         "__tgt_target_teams_mapper unexpected failure!");
-=======
   assert(Rc == OFFLOAD_SUCCESS && "__tgt_target_kernel unexpected failure!");
->>>>>>> ad23e4d85fb39e99ff61f588bad480b824d9d1df
   return OMP_TGT_SUCCESS;
 }
 
