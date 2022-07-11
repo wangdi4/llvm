@@ -2067,16 +2067,10 @@ void reduCGFuncImplArrayHelper(bool Pow2WG, bool IsOneWG, nd_item<Dims> NDIt,
   }
 }
 
-<<<<<<< HEAD
+#if __cplusplus >= 201703L // pack fold expressions
 template <typename... Reductions, int Dims, typename... LocalAccT,
           typename... OutAccT, typename... ReducerT, typename... Ts,
           typename... BOPsT, size_t... Is>
-=======
-#if __cplusplus >= 201703L // pack fold expressions
-template <bool Pow2WG, bool IsOneWG, typename... Reductions, int Dims,
-          typename... LocalAccT, typename... OutAccT, typename... ReducerT,
-          typename... Ts, typename... BOPsT, size_t... Is>
->>>>>>> 781251ffd8c4ca9424668730d8787e1e9d4cc56d
 void reduCGFuncImplArray(
     bool Pow2WG, bool IsOneWG, nd_item<Dims> NDIt,
     ReduTupleT<LocalAccT...> LocalAccsTuple,
@@ -2126,53 +2120,6 @@ void reduCGFuncMulti(handler &CGH, KernelType KernelFunc,
   auto LocalAccsTuple =
       createReduLocalAccs<Reductions...>(LocalAccSize, CGH, ReduIndices);
 
-<<<<<<< HEAD
-=======
-  size_t NWorkGroups = IsOneWG ? 1 : Range.get_group_range().size();
-  auto OutAccsTuple =
-      createReduOutAccs<IsOneWG>(NWorkGroups, CGH, ReduTuple, ReduIndices);
-  auto IdentitiesTuple = getReduIdentities(ReduTuple, ReduIndices);
-  auto BOPsTuple = getReduBOPs(ReduTuple, ReduIndices);
-  auto InitToIdentityProps =
-      getInitToIdentityProperties(ReduTuple, ReduIndices);
-
-  using Name = typename get_reduction_main_kernel_name_t<
-      KernelName, KernelType, Pow2WG, IsOneWG, decltype(OutAccsTuple)>::name;
-  CGH.parallel_for<Name>(Range, [=](nd_item<Dims> NDIt) {
-    // Pass all reductions to user's lambda in the same order as supplied
-    // Each reducer initializes its own storage
-    auto ReduIndices = std::index_sequence_for<Reductions...>();
-    auto ReducersTuple =
-        createReducers<Reductions...>(IdentitiesTuple, BOPsTuple, ReduIndices);
-    callReduUserKernelFunc(KernelFunc, NDIt, ReducersTuple, ReduIndices);
-
-    // Combine and write-back the results of any scalar reductions
-    // reduCGFuncImplScalar<Reductions...>(NDIt, LocalAccsTuple, OutAccsTuple,
-    // ReducersTuple, IdentitiesTuple, BOPsTuple, InitToIdentityProps,
-    // ReduIndices);
-    reduCGFuncImplScalar<Pow2WG, IsOneWG, Reductions...>(
-        NDIt, LocalAccsTuple, OutAccsTuple, ReducersTuple, IdentitiesTuple,
-        BOPsTuple, InitToIdentityProps, ScalarIs);
-
-    // Combine and write-back the results of any array reductions
-    // These are handled separately to minimize temporary storage and account
-    // for the fact that each array reduction may have a different number of
-    // elements to reduce (i.e. a different extent).
-    reduCGFuncImplArray<Pow2WG, IsOneWG, Reductions...>(
-        NDIt, LocalAccsTuple, OutAccsTuple, ReducersTuple, IdentitiesTuple,
-        BOPsTuple, InitToIdentityProps, ArrayIs);
-  });
-}
-#endif // __cplusplus >= 201703L
-
-template <typename KernelName, typename KernelType, int Dims,
-          typename... Reductions, size_t... Is>
-void reduCGFunc(handler &CGH, KernelType KernelFunc,
-                const nd_range<Dims> &Range,
-                std::tuple<Reductions...> &ReduTuple,
-                std::index_sequence<Is...> ReduIndices) {
-  size_t WGSize = Range.get_local_range().size();
->>>>>>> 781251ffd8c4ca9424668730d8787e1e9d4cc56d
   size_t NWorkGroups = Range.get_group_range().size();
   bool IsOneWG = NWorkGroups == 1;
 
@@ -2218,6 +2165,7 @@ void reduCGFunc(handler &CGH, KernelType KernelFunc,
   else
     Rest(createReduOutAccs<false>(NWorkGroups, CGH, ReduTuple, ReduIndices));
 }
+#endif // __cplusplus >= 201703L
 
 namespace reduction {
 namespace main_krn {
@@ -2412,18 +2360,12 @@ void reduAuxCGFuncImplArrayHelper(bool UniformPow2WG, bool IsOneWG,
   }
 }
 
-<<<<<<< HEAD
-template <typename... Reductions, int Dims, typename... LocalAccT,
-          typename... InAccT, typename... OutAccT, typename... Ts,
-          typename... BOPsT, size_t... Is>
-=======
 // Pack fold expressions are used either in the function itself or down its
 // callstack.
 #if __cplusplus >= 201703L
-template <bool UniformPow2WG, bool IsOneWG, typename... Reductions, int Dims,
-          typename... LocalAccT, typename... InAccT, typename... OutAccT,
-          typename... Ts, typename... BOPsT, size_t... Is>
->>>>>>> 781251ffd8c4ca9424668730d8787e1e9d4cc56d
+template <typename... Reductions, int Dims, typename... LocalAccT,
+          typename... InAccT, typename... OutAccT, typename... Ts,
+          typename... BOPsT, size_t... Is>
 void reduAuxCGFuncImplArray(
     bool UniformPow2WG, bool IsOneWG, nd_item<Dims> NDIt, size_t LID,
     size_t GID, size_t NWorkItems, size_t WGSize,
