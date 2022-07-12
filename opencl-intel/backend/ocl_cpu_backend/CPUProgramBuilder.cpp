@@ -134,6 +134,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
   size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
   size_t irSize = reader.GetSectionSize(g_irSectionName);
   size_t objectSize = reader.GetSectionSize(g_objSectionName);
+  pProgram->m_binaryVersion = *((const unsigned int *)reader.GetSectionData(
+      Intel::OpenCL::ELFUtils::g_objVerSectionName));
 
   // get the buffers entries
   const char *bitCodeBuffer =
@@ -210,7 +212,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->ReloadProgram(SERIALIZE_PERSISTENT_IMAGE,
                                             pProgram, serializationBuffer,
-                                            serializationSize);
+                                            serializationSize, pProgram->m_binaryVersion);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =

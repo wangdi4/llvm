@@ -260,6 +260,7 @@ public:
      * Checks if this program has an object binary to be loaded from
      */
     bool HasCachedExecutable() const;
+    unsigned int m_binaryVersion;
 
 protected:
     ObjectCodeContainer* m_pObjectCodeContainer;

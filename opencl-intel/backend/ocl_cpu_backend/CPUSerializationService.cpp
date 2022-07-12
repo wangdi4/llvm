@@ -128,13 +128,14 @@ void CPUSerializationService::ReleaseProgram(ICLDevBackendProgram_* pProgram) co
 
 cl_dev_err_code CPUSerializationService::ReloadProgram(
     cl_serialization_type /*serializationType*/,
-    ICLDevBackendProgram_ *pProgram, const void *pBlob, size_t blobSize) const {
+    ICLDevBackendProgram_ *pProgram, const void *pBlob, size_t blobSize, unsigned int binaryVersion) const {
   try {
     SerializationStatus stats;
     stats.SetBackendFactory(m_pBackendFactory);
 
     InputBufferStream ibs((const char *)pBlob, blobSize);
     stats.DeserialVersion(ibs);
+    stats.m_binaryVersion = binaryVersion;
 
     static_cast<CPUProgram *>(pProgram)->Deserialize(ibs, &stats);
 
@@ -149,7 +150,7 @@ cl_dev_err_code CPUSerializationService::ReloadProgram(
 cl_dev_err_code CPUSerializationService::DeSerializeProgram(
         cl_serialization_type serializationType, 
         ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob, size_t blobSize) const
+        const void* pBlob, size_t blobSize, unsigned int binaryVersion) const
 {
 
     try
@@ -159,7 +160,7 @@ cl_dev_err_code CPUSerializationService::DeSerializeProgram(
 
         std::unique_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
         cl_dev_err_code err =
-            ReloadProgram(serializationType, *ppProgram, pBlob, blobSize);
+            ReloadProgram(serializationType, *ppProgram, pBlob, blobSize, binaryVersion);
         if(CL_DEV_SUCCESS == err) *ppProgram = tmpProgram.release();
         return err;
     }

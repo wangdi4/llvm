@@ -134,6 +134,7 @@ protected:
                                         size_t const) const override {}
       bool HasPrintOperation() const override { return false; }
       bool HasNoBarrierPath() const override { return false; }
+      bool HasMatrixCall() const override { return false; }
       bool HasDebugInfo() const override { return false; }
       bool HasKernelCallOperation() const override { return false; }
       bool IsNonUniformWGSizeSupported() const override { return false; }
