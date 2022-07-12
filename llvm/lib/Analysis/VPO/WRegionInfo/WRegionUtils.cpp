@@ -1074,6 +1074,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     if (AlreadyCollected.find(V) != AlreadyCollected.end())
       return;
 
+    AlreadyCollected.insert(V);
     W->addDirectlyUsedNonPointerValue(V);
   };
 
@@ -1094,19 +1095,14 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
-  auto collectSizeIfVLA = [&](Value *V, bool OnlyIfUsedInRegion) {
+  auto collectSizeIfVLA = [&](Value *V) {
     // Skip AddrSpaceCastInsts in hope to reach the underlying value.
     while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
       V = ASCI->getPointerOperand();
 
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
-      if (AI->isArrayAllocation()) {
-        if (OnlyIfUsedInRegion)
-          collectIfUsedInRegion(AI->getArraySize());
-        else
-          collectIfNonPointerNonConstant(AI->getArraySize());
-      }
-    }
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
+      if (AI->isArrayAllocation())
+        collectIfNonPointerNonConstant(AI->getArraySize());
   };
 
   auto collectArraySectionBounds = [&](const ArraySectionInfo &ASI) {
@@ -1126,7 +1122,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     // We need to capture VLA size even if it's not currently used
     // in the region because we'll use it for the allocation of
     // the private copy of the clause operand.
-    collectSizeIfVLA(I->getOrig(), /*OnlyIfUsedInRegion=*/false);
+    collectSizeIfVLA(I->getOrig());
   };
 
   if (W->canHavePrivate()) {
@@ -1153,7 +1149,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       else if (RedI->getIsTyped())
         collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
-        collectSizeIfVLA(RedI->getOrig(), /*OnlyIfUsedInRegion=*/false);
+        collectSizeIfVLA(RedI->getOrig());
     }
   }
 
@@ -1172,11 +1168,17 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   if (W->canHaveMap()) {
     MapClause &MapClause = W->getMap();
     // For map clause items, there is no private allocation needed inside the
-    // region for the item itself, but we may need to capture the base's VLA size
-    // if it is used inside the region, for example, for private initialization
-    // of a firstprivate clause on an inner parallel construct.
+    // region for the item itself, but we may need to capture the base's VLA
+    // size if it is used inside the region, for example, for private
+    // initialization of a firstprivate clause on an inner parallel construct.
+    // But it may or may not be used depending on how the inner construct is
+    // handled on that target. So, we need to unconditionally pass it in.
+    // TODO: OPAQUEPOINTER: We can remove the capturing of VLA size for map
+    // operands for opaque pointers because the typed clauses required for
+    // opaque pointers have explicit usage of the size value, and it is expected
+    // to be explicitly captured on any outer construct by the frontends.
     for (MapItem *MapI : MapClause.items())
-      collectSizeIfVLA(MapI->getOrig(), /*OnlyIfUsedInRegion=*/true);
+      collectSizeIfVLA(MapI->getOrig());
   }
 
   if (W->canHaveIf())

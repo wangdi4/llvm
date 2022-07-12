@@ -1,6 +1,7 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
-
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-emit-target-fp-ctor-dtor=true  %s | FileCheck %s --check-prefix=CTORDTOR
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -vpo-paropt-emit-target-fp-ctor-dtor=true %s | FileCheck %s --check-prefix=CTORDTOR
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOCTORDTOR
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=NOCTORDTOR
 
 ; This test is used to check emitting loop of calling copy constructor for
 ; variable length array type with target construct + firstprivate clause.
@@ -66,28 +67,35 @@ arrayctor.loop:                                   ; preds = %arrayctor.loop, %ne
 arrayctor.cont:                                   ; preds = %entry, %arrayctor.loop
   store i64 %1, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
   %3 = mul nuw i64 %1, 1
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.A addrspace(4)* %vla.ascast, void (%class.A addrspace(4)*, %class.A addrspace(4)*)* @_ZTS1A.omp.copy_constr, void (%class.A addrspace(4)*)* @_ZTS1A.omp.destr), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %d.ascast), "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast) ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.A addrspace(4)* %vla.ascast, void (%class.A addrspace(4)*, %class.A addrspace(4)*)* @_ZTS1A.omp.copy_constr, void (%class.A addrspace(4)*)* @_ZTS1A.omp.destr),
+    "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %d.ascast),
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast) ]
+
   %5 = load i64, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
   store i32 0, i32 addrspace(4)* %d.ascast, align 4
   br label %for.cond
 
 ; Copy constructor
-; CHECK:  %[[TO:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.ascast.fpriv, i32 0
-; CHECK-NEXT:  %[[FROM:[^,]+]] = getelementptr inbounds %class.A, %class.A addrspace(1)* %vla.ascast, i32 0
-; CHECK-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[TO]], i64 %[[VLA_LEN:[^,]+]]
-; CHECK-NEXT:  %priv.cpyctor.isempty = icmp eq %class.A* %[[TO]], %[[END]]
-; CHECK-NEXT:  br i1 %priv.cpyctor.isempty, label %priv.cpyctor.done, label %priv.cpyctor.body
-; CHECK-LABEL: priv.cpyctor.body:
-; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[TO]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
-; CHECK-NEXT:  %priv.cpy.src.ptr = phi %class.A addrspace(1)* [ %[[FROM]], %{{.*}} ], [ %priv.cpy.src.inc, %{{.*}} ]
-; CHECK:  call spir_func void @_ZTS1A.omp.copy_constr(%class.A addrspace(4)* %{{.*}}, %class.A addrspace(4)* %{{.*}})
-; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
-; CHECK-NEXT:  %priv.cpy.src.inc = getelementptr %class.A, %class.A addrspace(1)* %priv.cpy.src.ptr, i32 1
-; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
-; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.cpyctor.done, label %priv.cpyctor.body
-; CHECK-LABEL: priv.cpyctor.done:
-; CHECK-NEXT:  br label %{{.*}}
+; CTORDTOR:  %[[TO:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.ascast.fpriv, i32 0
+; CTORDTOR-NEXT:  %[[FROM:[^,]+]] = getelementptr inbounds %class.A, %class.A addrspace(1)* %vla.ascast, i32 0
+; CTORDTOR-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[TO]], i64 %[[VLA_LEN:[^,]+]]
+; CTORDTOR-NEXT:  %priv.cpyctor.isempty = icmp eq %class.A* %[[TO]], %[[END]]
+; CTORDTOR-NEXT:  br i1 %priv.cpyctor.isempty, label %priv.cpyctor.done, label %priv.cpyctor.body
+; CTORDTOR-LABEL: priv.cpyctor.body:
+; CTORDTOR-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[TO]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
+; CTORDTOR-NEXT:  %priv.cpy.src.ptr = phi %class.A addrspace(1)* [ %[[FROM]], %{{.*}} ], [ %priv.cpy.src.inc, %{{.*}} ]
+; CTORDTOR:  call spir_func void @_ZTS1A.omp.copy_constr(%class.A addrspace(4)* %{{.*}}, %class.A addrspace(4)* %{{.*}})
+; CTORDTOR:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
+; CTORDTOR-NEXT:  %priv.cpy.src.inc = getelementptr %class.A, %class.A addrspace(1)* %priv.cpy.src.ptr, i32 1
+; CTORDTOR-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
+; CTORDTOR-NEXT:  br i1 %priv.cpy.done, label %priv.cpyctor.done, label %priv.cpyctor.body
+; CTORDTOR-LABEL: priv.cpyctor.done:
+; CTORDTOR-NEXT:  br label %{{.*}}
 
+; Make sure we don't call the ctor/dtor unless requested
+; NOCTORDTOR-NOT: call {{.*}}@_ZTS1A.omp.copy_constr
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont
   %6 = load i32, i32 addrspace(4)* %d.ascast, align 4

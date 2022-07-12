@@ -30,11 +30,12 @@
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %fp.len '
 ; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[SIZE_ADDR1:%[^ ]+]]'
 ; CHECK: VPOParopt Transform: TARGET construct
-; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: No non-pointer values to be passed into the outlined region.
+; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %i1 '
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[I1_ADDR:%i1.addr]]'
 
 ; Check that no captured VLA size is passed in to the outlined function for the target region.
 ; CHECK: define dso_local i32 @main()
-; CHECK: call void @__omp_offloading{{.*}}main{{.*}}(ptr %vla, ptr %omp.vla.tmp)
+; CHECK: call void @__omp_offloading{{.*}}main{{.*}}(ptr %vla, ptr [[I1_ADDR]], ptr %omp.vla.tmp)
 
 ; Check that the captured VLA size is used in the parallel region for allocation of the private VLA.
 ; CHECK: define internal void @main.DIR.OMP.PARALLEL{{.*}}(ptr %{{.*}}, ptr %{{.*}}, ptr [[SIZE_ADDR1]], ptr %{{.*}})
@@ -42,7 +43,7 @@
 ; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL1]], align 16
 
 ; Check that the address of %fp.len is passed into the outlined function for the parallel region.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla, ptr %omp.vla.tmp)
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(ptr noalias %vla, ptr noalias [[I1_ADDR]], ptr %omp.vla.tmp)
 ; Check that the captured VLA size is passed in to the outlined function for the parallel region.
 ; CHECK: store i64 %fp.len, ptr [[SIZE_ADDR1]], align 8
 ; CHECK: call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr @.kmpc_loc{{.*}}, i32 2, ptr @main.DIR.OMP.PARALLEL.{{.*}}, ptr [[SIZE_ADDR1]], ptr %{{.*}})

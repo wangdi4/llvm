@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
 ; RUN: opt -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
 
 ; Test src:
@@ -29,10 +29,12 @@
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %1 '
 ; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%[^ ]+]]'
 
-; Check that the captured VLA size is used in the target region for allocation of the private VLA.
-; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i64 addrspace(1)* noalias [[SIZE_ADDR]], i32 addrspace(1)* %{{.*}}, i64 addrspace(1)* %{{.*}})
-; CHECK: [[SIZE_VAL:%[^ ]+]] = load i64, i64 addrspace(1)* [[SIZE_ADDR]], align 8
-; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL]], align 4
+; CHECK:     define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* %vla.ascast, i64 addrspace(1)* noalias [[SIZE_ADDR]], i64 addrspace(1)* %omp.vla.tmp.ascast)
+; CHECK:       [[SIZE_VAL:%[^ ]+]] = load i64, i64 addrspace(1)* [[SIZE_ADDR]], align 8
+; Make sure that we don't allocate a WILocal copy for %vla.ascast for the firstprivate clause on target.
+; CHECK-NOT:   %vla.ascast.fpriv
+; Check that the captured VLA size is used in the target region for allocation of the private VLA (for the inner parallel).
+; CHECK:       %vla.ascast.priv = alloca i32, i64 [[SIZE_VAL]], align 4
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
@@ -68,13 +70,18 @@ entry:
   store i64 %1, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
 
 
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.DEFAULTMAP.TOFROM:SCALAR"(), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %vla.ascast), "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast), "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.vla.tmp1.ascast) ]
-
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.DEFAULTMAP.TOFROM:SCALAR"(),
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %vla.ascast),
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast),
+    "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.vla.tmp1.ascast) ]
 
   %4 = load i64, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
   store i64 %4, i64 addrspace(4)* %omp.vla.tmp1.ascast, align 8
-  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %vla.ascast), "QUAL.OMP.SHARED"(i64 addrspace(4)* %omp.vla.tmp1.ascast) ]
-
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %vla.ascast),
+    "QUAL.OMP.SHARED"(i64 addrspace(4)* %omp.vla.tmp1.ascast) ]
 
   %6 = load i64, i64 addrspace(4)* %omp.vla.tmp1.ascast, align 8
   %ptridx2 = getelementptr inbounds i32, i32 addrspace(4)* %vla.ascast, i64 0

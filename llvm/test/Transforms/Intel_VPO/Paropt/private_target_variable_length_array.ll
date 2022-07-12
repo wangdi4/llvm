@@ -1,5 +1,7 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=CTORDTOR
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=CTORDTOR
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-emit-target-priv-ctor-dtor=false %s | FileCheck %s --check-prefix=NOCTORDTOR
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -vpo-paropt-emit-target-priv-ctor-dtor=false %s | FileCheck %s --check-prefix=NOCTORDTOR
 
 
 ; This test is used to check emitting loop of calling constructor for variable
@@ -65,25 +67,33 @@ arrayctor.loop:                                   ; preds = %arrayctor.loop, %ne
 
 arrayctor.cont:                                   ; preds = %entry, %arrayctor.loop
   store i64 %1, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE:NONPOD"(%class.A addrspace(4)* %vla.ascast, %class.A addrspace(4)* (%class.A addrspace(4)*)* @_ZTS1A.omp.def_constr, void (%class.A addrspace(4)*)* @_ZTS1A.omp.destr), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %d.ascast), "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.PRIVATE:NONPOD"(%class.A addrspace(4)* %vla.ascast, %class.A addrspace(4)* (%class.A addrspace(4)*)* @_ZTS1A.omp.def_constr, void (%class.A addrspace(4)*)* @_ZTS1A.omp.destr),
+    "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %d.ascast),
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %omp.vla.tmp.ascast) ]
+
   %4 = load i64, i64 addrspace(4)* %omp.vla.tmp.ascast, align 8
   store i32 0, i32 addrspace(4)* %d.ascast, align 4
   br label %for.cond
 
 
 ; Constructor
-; CHECK:  %[[CONSTR_BEGIN:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.ascast.priv, i32 0
-; CHECK-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[CONSTR_BEGIN]], i64 %[[VLA_LEN:[^,]+]]
-; CHECK-NEXT:  %priv.constr.isempty = icmp eq %class.A* %[[CONSTR_BEGIN]], %[[END]]
-; CHECK-NEXT:  br i1 %priv.constr.isempty, label %priv.constr.done, label %priv.constr.body
-; CHECK-LABEL: priv.constr.body:
-; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[CONSTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
-; CHECK:  call spir_func %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
-; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
-; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
-; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body
-; CHECK-LABEL: priv.constr.done:
-; CHECK-NEXT:  br label %{{.*}}
+; CTORDTOR:  %[[CONSTR_BEGIN:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.ascast.priv, i32 0
+; CTORDTOR-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[CONSTR_BEGIN]], i64 %[[VLA_LEN:[^,]+]]
+; CTORDTOR-NEXT:  %priv.constr.isempty = icmp eq %class.A* %[[CONSTR_BEGIN]], %[[END]]
+; CTORDTOR-NEXT:  br i1 %priv.constr.isempty, label %priv.constr.done, label %priv.constr.body
+; CTORDTOR-LABEL: priv.constr.body:
+; CTORDTOR-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[CONSTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
+; CTORDTOR:  call spir_func %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
+; CTORDTOR:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
+; CTORDTOR-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
+; CTORDTOR-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body
+; CTORDTOR-LABEL: priv.constr.done:
+; CTORDTOR-NEXT:  br label %{{.*}}
+
+; Make sure we don't call the ctor/dtor if -vpo-paropt-emit-target-priv-ctor-dtor is false.
+; NOCTORDTOR-NOT: call {{.*}}@_ZTS1A.omp.def_constr
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont
   %5 = load i32, i32 addrspace(4)* %d.ascast, align 4
