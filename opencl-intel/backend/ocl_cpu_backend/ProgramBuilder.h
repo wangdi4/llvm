@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -119,5 +119,8 @@ private:
     std::string m_dumpFilenamePrefix;
     // Workload name for the stats
     std::string m_statWkldName;
+#ifndef INTEL_PRODUCT_RELEASE
+    std::unique_ptr<llvm::LLVMContext> ReplaceModuleCtx;
+#endif
 };
 }}}
