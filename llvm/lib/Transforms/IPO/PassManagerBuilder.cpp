@@ -1729,7 +1729,6 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 }
 
-<<<<<<< HEAD
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   if (Inliner &&
@@ -2717,8 +2716,6 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> ec9a0e36d9d3182b63c5b556beca6d9e397e73f1
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
   PassManagerBuilder *PMB = new PassManagerBuilder();
   return wrap(PMB);
