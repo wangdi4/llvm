@@ -49,6 +49,9 @@ private:
   /// dimension get***id calls, or indirect calls to get***id.
   void fillKernelCallers();
 
+  /// Fills the  set with function that uses matrix call directly or indirectly.
+  void fillMatrixCallFuncs();
+
   /// Fills the subgroup-calling function set -- functions containing subroup
   /// builtins or subgroup barrier.
   void fillSubgroupCallingFuncs(CallGraph &CG);
@@ -61,6 +64,9 @@ private:
 
   /// Set of unsupported funcs.
   FuncSet UnsupportedFuncs;
+
+  /// Set of funcs use matrix call directly or indirectly.
+  FuncSet MatrixCallFuncs;
 
   /// Set of funcs containing subgroup builtins.
   FuncSet SubgroupCallingFuncs;

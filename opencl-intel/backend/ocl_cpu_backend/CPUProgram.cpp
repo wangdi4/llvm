@@ -11,7 +11,9 @@
 // License.
 
 #define NOMINMAX
-
+#ifndef WIN32
+#include "cl_amx_syscall.h"
+#endif
 #include "CPUProgram.h"
 #include "BitCodeContainer.h"
 #include "CPUBlockToKernelMapper.h"
@@ -137,6 +139,23 @@ cl_dev_err_code CPUProgram::Finalize() {
   // later is available after finalizing object/loading dll if native debugger
   // is enabled on Windows.
   CreateAndSetBlockToKernelMapper();
+
+#ifndef WIN32
+  // Read the HasMatrixCall Property of each kernel and run amx syscall.
+  static llvm::once_flag OnceFlag;
+  for (size_t i = 0; i < m_kernels->GetCount(); ++i) {
+    Kernel *kernel = m_kernels->GetKernel(i);
+    if (kernel->GetKernelProporties()->HasMatrixCall()) {
+      llvm::call_once(OnceFlag, [&] {
+        if (!Intel::OpenCL::Utils::requestPermXtileData()) {
+          throw Exceptions::CompilerException(
+              "failed to requestPermXtileData for AMX" + getLLJITLog());
+        };
+      });
+      break;
+    }
+  }
+#endif
   return CL_DEV_SUCCESS;
 }
 

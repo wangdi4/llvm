@@ -228,8 +228,8 @@ attributes #0 = { convergent }
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*)* @test1, void ()* @test2, void (i32 addrspace(1)*)* @test3, void (i32 addrspace(1)*)* @test4, void (i32 addrspace(1)*)* @test5, void (i32 addrspace(1)*)* @test6, void (i32 addrspace(1)*)* @test7, void (i32 addrspace(1)*)* @test8, void (i32 addrspace(1)*)* @test9, void (i32 addrspace(1)*)* @test10, void (i32 addrspace(1)*)* @test11, void (i32 addrspace(1)*)* @test12, void (i32 addrspace(1)*)* @test13, void (i32 addrspace(1)*)* @test14, void (i32 addrspace(1)*)* @test15, void (i32 addrspace(1)*)* @test16}
 
-; CHECK: [[SGMD_TRUE]] = !{i1 true}
-; CHECK: [[SGMD_FALSE]] = !{i1 false}
+; CHECK-DAG: [[SGMD_FALSE]] = !{i1 false}
+; CHECK-DAG: [[SGMD_TRUE]] = !{i1 true}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS
