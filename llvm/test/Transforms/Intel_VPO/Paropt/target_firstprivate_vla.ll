@@ -56,14 +56,18 @@ entry:
 
 ; Check that the captured size expression is sent in to an outlined
 ; function for the target construct.
-; CHECK: call void [[OUTLINE_FUNCTION:@__omp_offloading.+foo.+]](double** {{.+}}, i64* [[SIZE_ADDR]], double* %vla)
+; CHECK: call void [[OUTLINE_FUNCTION:@__omp_offloading.+foo.+]](double** {{.+}}, double* %vla, i64* [[SIZE_ADDR]])
 ; Check that inside the outlined function, the captured size is loaded
 ; and used in allocating a local VLA for %vla
-; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, i64* noalias [[SIZE_ADDR_ARG:[^ ]+]], double* {{.+}})
+; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, double* {{[^ ]+}}, i64* noalias [[SIZE_ADDR_ARG:[^ ]+]])
 ; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_ARG]]
 ; CHECK: {{.+}} = alloca double, i64 [[VLA_SIZE_VAL]]
 
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(double* %vla), "QUAL.OMP.MAP.TO"(double** @yptr, double** @yptr, i64 8, i64 33, i8* null, i8* null) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE"(double* %vla),
+    "QUAL.OMP.MAP.TO"(double** @yptr, double** @yptr, i64 8, i64 33, i8* null, i8* null) ]
+
   %arrayidx1 = getelementptr inbounds double, double* %vla, i64 2
   %4 = load double, double* %arrayidx1, align 16
   %5 = load double, double* %arrayidx1, align 16
