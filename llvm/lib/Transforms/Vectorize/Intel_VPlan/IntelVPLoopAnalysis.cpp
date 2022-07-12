@@ -1245,7 +1245,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
 
     if (Induction->needCloseForm()) {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
-                               *PrivateMem);
+                               PrivateMem);
     } else {
       if (auto *Instr = Induction->getInductionBinOp()) {
         assert(isConsistentInductionUpdate(Instr,
@@ -1973,7 +1973,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
                                                 VPBuilder &Builder,
                                                 VPValue &Init,
                                                 VPValue &InitStep,
-                                                VPValue &PrivateMem) {
+                                                VPValue *PrivateMem) {
   VPBuilder::InsertPointGuard Guard(Builder);
 
   auto CreateNewInductionOp =
@@ -2040,10 +2040,12 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
   // In-memory induction.
   // First insert phi and store after existing PHIs in loop header block.
   // See comment before the routine.
+  assert(PrivateMem &&
+         "Non-null private memory expected for in-memory induction.");
   Builder.setInsertPointFirstNonPhi(Loop.getHeader());
   VPPHINode *IndPhi =
       Builder.createPhiInstruction(Induction->getStartValue()->getType());
-  Builder.createStore(IndPhi, &PrivateMem);
+  Builder.createStore(IndPhi, PrivateMem);
   // Then insert increment of induction and update phi.
   Builder.setInsertPoint(LatchBlock);
   VPInstruction *NewInd = CreateNewInductionOp(IndPhi, &InitStep, Induction);
