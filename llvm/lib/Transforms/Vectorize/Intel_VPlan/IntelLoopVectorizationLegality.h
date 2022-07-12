@@ -263,6 +263,7 @@ private:
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+
     assert(Type && "Missed OMP clause item type!");
 
     Type = adjustTypeIfArray(Type, NumElements);
@@ -317,10 +318,15 @@ private:
 
   /// Register explicit linear variable
   void visitLinear(const LinearItem *Item) {
+    Type *PointeeTy = nullptr;
     Type *Type = nullptr;
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+    // TODO: Move to VPOParoptUtils::getItemInfo
+    if (Item->getIsTyped() && Item->getIsPointerToPointer()) {
+      PointeeTy = Item->getPointeeElementTypeFromIR();
+    }
     assert(Type && "Missed OMP clause item type!");
 
     // NumElements == nullptr by convention means the number is 1.
@@ -331,7 +337,7 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
-    addLinear(Val, Type, Step);
+    addLinear(Val, Type, PointeeTy, Step);
   }
 
   /// Register explicit reduction variable
@@ -380,8 +386,9 @@ private:
     return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind);
   }
 
-  void addLinear(ValueTy *Val, Type *Ty, ValueTy *Step) {
-    return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, Step);
+  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step) {
+    return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, PointeeType,
+                                                      Step);
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
@@ -436,7 +443,8 @@ public:
   /// Linear list contains explicit linear specifications, mapping linear values
   /// to their strides and a type of the linear.
   using LinearListTy =
-      MapVector<Value *, std::pair<Type * /*EltType*/, int /*Step*/>>;
+      MapVector<Value *, std::tuple<Type * /*EltType*/,
+                                    Type * /* EltPointeeTy */, int /*Step*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -628,10 +636,11 @@ private:
   }
 
   /// Add linear value to Linears map
-  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
+  void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
+                 Value *StepValue) {
     ConstantInt *CI = cast<ConstantInt>(StepValue);
     int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = std::make_pair(EltTy, Step);
+    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, Step);
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.

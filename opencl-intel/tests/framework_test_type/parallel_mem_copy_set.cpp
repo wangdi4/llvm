@@ -524,6 +524,8 @@ TEST_P(ParallelCopySetTest, usmMemset) {
   delete[] dst;
 }
 
+#ifndef _WIN32
+
 class ReadBufferThread : public SynchronizedThread {
 public:
   ReadBufferThread(cl_context context, cl_device_id device)
@@ -599,6 +601,8 @@ TEST_P(ParallelCopySetTest, readBufferMultiThreads) {
   for (size_t i = 0; i < numThreads; ++i)
     delete threads[i];
 }
+
+#endif // #ifndef _WIN32
 
 INSTANTIATE_TEST_SUITE_P(KernelLibrary, ParallelCopySetTest,
                          ::testing::Values(NoEnv, DisableParallel));

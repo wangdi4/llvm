@@ -4277,7 +4277,8 @@ void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
   Value *Ret =
       (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
           ? Builder.CreateInBoundsGEP(
-                BcastStart->getType()->getScalarType()->getPointerElementType(),
+                getInt8OrPointerElementTy(
+                    BcastStart->getType()->getScalarType()),
                 BcastStart, VectorStep, "vector_gep")
           : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                 BcastStart, VectorStep);
@@ -4386,7 +4387,7 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     LastValue =
         (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
             ? Builder.CreateInBoundsGEP(
-                  Start->getType()->getScalarType()->getPointerElementType(),
+                  getInt8OrPointerElementTy(Start->getType()->getScalarType()),
                   Start, MulV, "final_gep")
             : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                   Start, MulV);
