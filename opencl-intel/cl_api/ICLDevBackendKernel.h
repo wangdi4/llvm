@@ -152,6 +152,12 @@ public:
     virtual bool HasNoBarrierPath() const = 0;
 
     /**
+     * @returns true if the specified kernel has AMX call in the kernel
+     * body, false otherwise
+     */
+    virtual bool HasMatrixCall() const = 0;
+
+    /**
      * @returns true if the specified kernel has debug info,
      *  false otherwise
      */

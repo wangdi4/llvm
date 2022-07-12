@@ -142,6 +142,7 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasGlobalSyncTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasSubgroupsTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> NoBarrierPathTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> HasMatrixCallTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> SubgroupEmuSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VectorizedWidthTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> BlockLiteralSizeTy;
@@ -166,6 +167,7 @@ struct KernelInternalMetadataAPI {
         KernelHasGlobalSync(Func, "kernel_has_global_sync"),
         KernelHasSubgroups(Func, "kernel_has_sub_groups"),
         NoBarrierPath(Func, "no_barrier_path"),
+        HasMatrixCall(Func, "has_matrix_call"),
         VectorizedWidth(Func, "vectorized_width"),
         SubgroupEmuSize(Func, "sg_emu_size"),
         RecommendedVL(Func, "recommended_vector_length"),
@@ -187,6 +189,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<KernelHasGlobalSyncTy> KernelHasGlobalSync;
   NamedMDValueAccessor<KernelHasSubgroupsTy> KernelHasSubgroups;
   NamedMDValueAccessor<NoBarrierPathTy> NoBarrierPath;
+  NamedMDValueAccessor<HasMatrixCallTy> HasMatrixCall;
   NamedMDValueAccessor<VectorizedWidthTy> VectorizedWidth;
   NamedMDValueAccessor<SubgroupEmuSizeTy> SubgroupEmuSize;
   NamedMDValueAccessor<VectorizedWidthTy> RecommendedVL;
@@ -214,6 +217,7 @@ public:
           CanUniteWorkgroups.getID(),     VectorizedKernel.getID(),
           VectorizedMaskedKernel.getID(), KernelWrapper.getID(),
           ScalarKernel.getID(),           UseFPGAPipes.getID(),
+          HasMatrixCall.getID(),
       };
     }
     return MDNames;

@@ -467,6 +467,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // KernelAnalysisPass is running in all scenarios.
   const bool HasNoBarrierPath =
       skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
+  const bool HasMatrixCall = skimd.HasMatrixCall.hasValue() && skimd.HasMatrixCall.get();
   const unsigned int localBufferSize = skimd.LocalBufferSize.get();
   const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
   const bool useNativeSubgroups = skimd.KernelHasSubgroups.hasValue();
@@ -515,6 +516,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetReqdNumSG(reqdNumSG);
   pProps->SetTotalImplSize(localBufferSize);
   pProps->SetHasNoBarrierPath(HasNoBarrierPath);
+  pProps->SetHasMatrixCall(HasMatrixCall);
   pProps->SetHasGlobalSync(hasGlobalSync);
   pProps->SetUseNativeSubgroups(useNativeSubgroups);
   pProps->SetKernelExecutionLength(executionLength);
