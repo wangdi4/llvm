@@ -3563,6 +3563,15 @@ int32_t OpenCLProgramTy::buildKernels() {
       // assign default value to avoid any issues when using this variable.
       KernelProperty.SIMDWidth = KernelProperty.Width / 2;
     }
+
+#if INTEL_CUSTOMIZATION
+    if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+      // Adjust kernel width to match level_zero plugin.
+      KernelProperty.Width =
+          (std::max)(KernelProperty.Width, 2 * KernelProperty.SIMDWidth);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
            "Invalid preferred team size multiple.");
     CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel, Device,
