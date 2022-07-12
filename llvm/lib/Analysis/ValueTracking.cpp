@@ -4478,7 +4478,6 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
   if (StartIdx == UINT64_MAX)
     // Fail if the constant offset is excessive.
     return false;
-
 #if INTEL_CUSTOMIZATION
     // Temporary fix for 38615. accumulateConstantOffset is in bytes, must be
     // converted to elements for "StartIdx".

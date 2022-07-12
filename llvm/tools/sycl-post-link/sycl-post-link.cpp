@@ -49,13 +49,13 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/InitializePasses.h"  // INTEL
+#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/Linker/Linker.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
@@ -75,9 +75,9 @@
 
 #if INTEL_COLLAB
 #include "llvm/ADT/Triple.h"
-#include "llvm/Pass.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/Pass.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
@@ -377,7 +377,7 @@ std::vector<uint32_t> getKernelReqdWorkGroupSizeMetadata(const Function &Func) {
 // sequential ID and suffix.
 #if INTEL_COLLAB
 std::string makeResultFileName(StringRef Ext, int I, StringRef Suffix) {
-#else // INTEL_COLLAB
+#else  // INTEL_COLLAB
 std::string makeResultFileName(Twine Ext, int I, StringRef Suffix) {
 #endif // INTEL_COLLAB
   const StringRef Dir0 = OutputDir.getNumOccurrences() > 0
@@ -954,7 +954,7 @@ processInputModule(std::unique_ptr<Module> M) {
     MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
     IntelVTableFixupPass IVTFP;
     RunVTableFixup.addPass(std::move(IVTFP));
-    (void) RunVTableFixup.run(*M, MAM);
+    (void)RunVTableFixup.run(*M, MAM);
   }
 #endif // INTEL_CUSTOMIZATION
   bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
@@ -971,13 +971,12 @@ processInputModule(std::unique_ptr<Module> M) {
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
   // to modules resulting from all other kinds of splitting.
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
-      module_split::getSplitterByMode(module_split::ModuleDesc{std::move(M)},
-                                      SplitMode, IROutputOnly,
+      module_split::getSplitterByMode(
+          module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
 #if INTEL_COLLAB
-                                      EmitOnlyKernelsAsEntryPoints,
-                                      DoOmpOffload);
+          EmitOnlyKernelsAsEntryPoints, DoOmpOffload);
 #else  // INTEL_COLLAB
-                                      EmitOnlyKernelsAsEntryPoints);
+          EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
   const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
   Modified |= SplitByScope;
@@ -1105,9 +1104,9 @@ processInputModule(std::unique_ptr<Module> M) {
 #if INTEL_COLLAB
         IrPropSymFilenameTriple T =
             saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
-#else // INTEL_COLLAB
+#else  // INTEL_COLLAB
         IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
-#endif
+#endif // INTEL_COLLAB
         addTableRow(*Table, T);
       }
     }
