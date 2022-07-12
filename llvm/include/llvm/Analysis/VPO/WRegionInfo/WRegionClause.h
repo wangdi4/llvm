@@ -439,6 +439,7 @@ class SharedItem : public Item
 };
 
 class AllocateItem; // forward declaration
+class MapItem;      // forward declaration
 
 //
 //   PrivateItem: OMP PRIVATE clause item
@@ -447,20 +448,18 @@ class AllocateItem; // forward declaration
 class PrivateItem : public Item
 {
   private:
-    AllocateItem *InAllocate; // AllocateItem with the same opnd
+    AllocateItem *InAllocate = nullptr; // AllocateItem with the same opnd
+    MapItem *InMap = nullptr;           // MapItem with the same opnd
 #if INTEL_CUSTOMIZATION
     // Constructor RDECL contains copy-constructor for F90_NONPODs.
 #endif // INTEL_CUSTOMIZATION
-    RDECL Constructor;
-    RDECL Destructor;
+    RDECL Constructor = nullptr;
+    RDECL Destructor = nullptr;
 
   public:
-    PrivateItem(VAR Orig)
-        : Item(Orig, IK_Private), InAllocate(nullptr), Constructor(nullptr),
-          Destructor(nullptr) {}
+    PrivateItem(VAR Orig) : Item(Orig, IK_Private) {}
     PrivateItem(const Use *Args, bool Typed = false)
-        : Item(nullptr, IK_Private), InAllocate(nullptr), Constructor(nullptr),
-          Destructor(nullptr) {
+        : Item(nullptr, IK_Private) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = Args[0];
       setOrig(V);
@@ -488,9 +487,11 @@ class PrivateItem : public Item
              "Destructor must be a function pointer or null");
     }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
+    void setInMap(MapItem *MI) { InMap = MI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     AllocateItem *getInAllocate() const { return InAllocate; }
+    MapItem *getInMap() const { return InMap; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 
@@ -520,7 +521,6 @@ class PrivateItem : public Item
 };
 
 class LastprivateItem; // forward declaration
-class MapItem;         // forward declaration
 
 //
 //   FirstprivateItem: OMP FIRSTPRIVATE clause item
@@ -1180,7 +1180,7 @@ class UseDevicePtrItem;
 class MapItem : public Item
 {
 private:
-  unsigned MapKind;                 // bit vector for map kind and modifiers
+  unsigned MapKind = 0; // bit vector for map kind and modifiers
   // True for map-chains with function pointers as their base. e.g.:
   //   void (*fptr)(void);
   //   #pragma omp target firstprivate(fptr)
@@ -1188,12 +1188,13 @@ private:
   // %0 = load void ()*, void ()** %fptr, align 8
   // "QUAL.OMP.MAP.TOFROM:FPTR"(void ()* %0, void ()* %0, i64 0, i64 32, ...)
   bool IsFunctionPointer = false;
-  FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
-  UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
+  PrivateItem *InPrivate = nullptr;           // PrivateItem with the same opnd
+  FirstprivateItem *InFirstprivate = nullptr; // FP Item with the same opnd
+  UseDevicePtrItem *InUseDevicePtr = nullptr; // Map is for use-device-ptr
   MapChainTy MapChain;
-  ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
-  Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
-                                  // to tgt runtime calls.
+  ArraySectionInfo ArrSecInfo;              // For TARGET UPDATE TO/FROM clauses
+  Instruction *BasePtrGEPForOrig = nullptr; // GEP for Orig in the  baseptrs
+                                            // struct sent to tgt runtime calls.
 
 public:
   enum WRNMapKind {
@@ -1213,14 +1214,8 @@ public:
     WRNMapPresent    = 0x0200,
   } WRNMapKind;
 
-  MapItem(VAR Orig)
-      : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr),
-        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {}
-  MapItem(MapAggrTy *Aggr)
-      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr),
-        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {
-    MapChain.push_back(Aggr);
-  }
+  MapItem(VAR Orig) : Item(Orig, IK_Map) {}
+  MapItem(MapAggrTy *Aggr) : Item(nullptr, IK_Map) { MapChain.push_back(Aggr); }
   ~MapItem() {
     if (MapChain.empty())
       return;
@@ -1291,6 +1286,7 @@ public:
   void setIsMapClose()   { MapKind |= WRNMapClose; }
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setIsFunctionPointer(bool Flag) { IsFunctionPointer = Flag; }
+  void setInPrivate(PrivateItem *PI) { InPrivate = PI; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
@@ -1310,6 +1306,7 @@ public:
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   bool getIsFunctionPointer() const { return IsFunctionPointer; }
+  PrivateItem *getInPrivate() const { return InPrivate; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }

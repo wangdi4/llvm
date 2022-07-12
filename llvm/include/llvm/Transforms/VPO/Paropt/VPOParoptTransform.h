@@ -101,6 +101,38 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
+enum TgtOffloadMappingFlags : uint64_t {
+  TGT_MAP_TO = 0x01,
+  // instructs the runtime to copy the host data to the device.
+  TGT_MAP_FROM = 0x02,
+  // instructs the runtime to copy the device data to the host.
+  TGT_MAP_ALWAYS = 0x04,
+  // forces the copying regardless of the reference
+  // count associated with the map.
+  TGT_MAP_DELETE = 0x08,
+  // forces the unmapping of the object in a target data.
+  TGT_MAP_PTR_AND_OBJ = 0x10,
+  // forces the runtime to map the pointer variable as
+  // well as the pointee variable.
+  TGT_MAP_TARGET_PARAM = 0x20,
+  // instructs the runtime that it is the first
+  // occurrence of this mapped variable within this construct.
+  TGT_MAP_RETURN_PARAM = 0x40,
+  // instructs the runtime to return the base
+  // device address of the mapped variable.
+  TGT_MAP_PRIVATE = 0x80,
+  // informs the runtime that the variable is a private variable.
+  TGT_MAP_LITERAL = 0x100,
+  // instructs the runtime to forward the value to target construct.
+  TGT_MAP_IMPLICIT = 0x200,
+  TGT_MAP_CLOSE = 0x400,
+  // The close map-type-modifier is a hint to the runtime to
+  // allocate memory close to the target device.
+  TGT_MAP_ND_DESC = 0x800,
+  // indicates that the parameter is loop descriptor struct.
+  TGT_MAP_MEMBER_OF = 0xffff000000000000
+};
+
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
@@ -542,9 +574,12 @@ private:
   llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
       const WRegionNode *W, const Item *I) const;
 
-  /// Replace the variable with the privatized variable
+  /// Replace the variable with the privatized variable.
+  /// If \p ExcludeEntryDirective is true, then uses in the entry
+  /// directive are not replaced. Default is `false`.
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
-                                   Value *NewPrivInst);
+                                   Value *NewPrivInst,
+                                   bool ExcludeEntryDirective = false);
 
   /// For array sections, generate a base + offset GEP corresponding to the
   /// section's starting address. \p Orig is the base of the array section
@@ -617,6 +652,9 @@ private:
   /// inserted before \p W's entry BasicBlock
   bool addMapForUseDevicePtr(WRegionNode *W,
                  Instruction *InsertBefore = nullptr);
+
+  // Create maps for private/firstprivate VLAs in W, (if not already present).
+  bool addMapForPrivateAndFPVLAs(WRNTargetNode *W);
 
   bool addFastGlobalRedBufMap(WRegionNode *W);
 
@@ -1650,38 +1688,6 @@ private:
   /// the use of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 
-  enum TgtOffloadMappingFlags : uint64_t {
-    TGT_MAP_TO = 0x01,
-    // instructs the runtime to copy the host data to the device.
-    TGT_MAP_FROM = 0x02,
-    // instructs the runtime to copy the device data to the host.
-    TGT_MAP_ALWAYS = 0x04,
-    // forces the copying regardless of the reference
-    // count associated with the map.
-    TGT_MAP_DELETE = 0x08,
-    // forces the unmapping of the object in a target data.
-    TGT_MAP_PTR_AND_OBJ = 0x10,
-    // forces the runtime to map the pointer variable as
-    // well as the pointee variable.
-    TGT_MAP_TARGET_PARAM = 0x20,
-    // instructs the runtime that it is the first
-    // occurrence of this mapped variable within this construct.
-    TGT_MAP_RETURN_PARAM = 0x40,
-    // instructs the runtime to return the base
-    // device address of the mapped variable.
-    TGT_MAP_PRIVATE = 0x80,
-    // informs the runtime that the variable is a private variable.
-    TGT_MAP_LITERAL = 0x100,
-    // instructs the runtime to forward the value to target construct.
-    TGT_MAP_IMPLICIT = 0x200,
-    TGT_MAP_CLOSE = 0x400,
-    // The close map-type-modifier is a hint to the runtime to
-    // allocate memory close to the target device.
-    TGT_MAP_ND_DESC = 0x800,
-    // indicates that the parameter is loop descriptor struct.
-    TGT_MAP_MEMBER_OF = 0xffff000000000000
-  };
-
   /// Returns the corresponding flag for a given map clause modifier.
   /// Does not set TARGET_PARAM may-type flag unless IsTargetKernelArg is true.
   uint64_t getMapTypeFlag(MapItem *MpI,
@@ -1714,6 +1720,9 @@ private:
   /// If \p ReplaceUses is \b true (default), then original uses or %v are
   /// replaced with %v1.
   ///
+  /// If \p EmitLoadEvenIfNoUses is \b true, then %v1 is emitted even if there
+  /// is no use of original %v in the region, otherwise not (default).
+  ///
   /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
   /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
   /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
@@ -1730,7 +1739,8 @@ private:
   /// \returns the pointer where \p V is stored (`%v.addr` above).
   Value *replaceWithStoreThenLoad(
       WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-      bool ReplaceUses = true, bool InsertLoadInBeginningOfEntryBB = false,
+      bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
+      bool InsertLoadInBeginningOfEntryBB = false,
       bool SelectAllocaInsertPtBasedOnParentWRegion = false,
       bool CastToAddrSpaceGeneric = false);
 

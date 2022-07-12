@@ -188,6 +188,65 @@ PreservedAnalyses VPOParoptOptimizeDataSharingPass::run(
   return PA;
 }
 
+// FEs sometimes put variables both into MAP and [FIRST]PRIVATE
+// clauses. Sometimes the map type is not compatible with
+// [FIRST]PRIVATE, so trying to rely on [FIRST]PRIVATE:WILOCAL
+// will be completely incorrect.
+//
+// For example if foo() below is a member function of
+// some class, and _p is a member of this class, CFE will
+// put 'this' pointer into a FIRSTPRIVATE clause and
+// a MAP clause with map type (OMP_TGT_MAPTYPE_TO |
+// OMP_TGT_MAPTYPE_FROM | OMP_TGT_MAPTYPE_TARGET_PARAM |
+// OMP_TGT_MAPTYPE_IMPLICIT).
+//
+// void foo(int *p) {
+// #pragma omp target
+//   _p = p;
+// }
+//
+// In general, Paropt does not do privatization for
+// [FIRST]PRIVATE items that are also referenced in MAP clauses,
+// but in some cases we do want to apply privatization, e.g.
+// when it is a WILOCAL [FIRST]PRIVATE item. By replacing
+// all references inside the target region to the new private
+// copy we make all the accesses to the object explicit,
+// providing better disambiguation with accesses to other
+// objects. The private copy will be registerized, in general,
+// so it has relatively low cost.
+//
+// But we cannot apply privatization for the case above
+// just based on the fact that the item is WILOCAL [FIRST]PRIVATE.
+// In order to avoid checking the MAP clauses at the point
+// of privatization we just avoid setting WILOCAL for items
+// that are referenced in MAP clauses with conflicting map types.
+// I believe [FIRST]PRIVATE pointers may only be
+// referenced by chain heads, so we need to check
+// the map type of the chain head.
+template <typename ItemTy> bool isInMapWithoutPrivateBit(ItemTy *I) {
+  MapItem *MapI = I->getInMap();
+  if (!MapI)
+    return false;
+
+  assert(MapI->getIsMapChain() && "Paropt only supports map chains now.");
+
+  MapAggrTy *AggrHead = MapI->getMapChain()[0];
+  // Only handle MAPs with explicit map types,
+  // otherwise, be conservative.
+  if (!AggrHead->hasExplicitMapType())
+    return true;
+
+  uint64_t MapType = AggrHead->getMapType();
+  if (MapType & TGT_MAP_PRIVATE)
+    return false;
+
+  // If map type does not have TGT_MAP_PRIVATE bit, then
+  // do not optimize such items.
+  LLVM_DEBUG(dbgs() << "Item '" << *I->getOrig()
+                    << "' is in a map clause without map-type PRIVATE.\n");
+  return true;
+}
+
 // Optimize address space for PRIVATE/FIRSTPRIVATE variables for SPIR-V targets.
 //
 // Example:
@@ -387,66 +446,17 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
     SmallPtrSet<Value *, 8> PrivOptimizableItems;
     SmallPtrSet<Value *, 8> FprivOptimizableItems;
 
-    if (W->canHavePrivate()) {
+    if (W->canHavePrivate())
       for (auto *Item : W->getPriv().items())
-        if (!MaybeModifiedByEnclosedRegion(W, Item->getOrig()))
+        if (!isInMapWithoutPrivateBit(Item) &&
+            !MaybeModifiedByEnclosedRegion(W, Item->getOrig()))
           PrivOptimizableItems.insert(Item->getOrig());
-    }
-    if (W->canHaveFirstprivate()) {
-      for (auto *Item : W->getFpriv().items()) {
-        if (MapItem *MapI = Item->getInMap()) {
-          // FEs sometimes put variables both into MAP and FIRSTPRIVATE
-          // clauses. Sometimes the map type is not compatible with
-          // FIRSTPRIVATE, so trying to rely on FIRSTPRIVATE:WILOCAL
-          // will be completely incorrect.
-          //
-          // For example if foo() below is a member function of
-          // some class, and _p is a member of this class, CFE will
-          // put 'this' pointer into a FIRSTPRIVATE clause and
-          // a MAP clause with map type (OMP_TGT_MAPTYPE_TO |
-          // OMP_TGT_MAPTYPE_FROM | OMP_TGT_MAPTYPE_TARGET_PARAM |
-          // OMP_TGT_MAPTYPE_IMPLICIT).
-          //
-          // void foo(int *p) {
-          // #pragma omp target
-          //   _p = p;
-          // }
-          //
-          // In general, Paropt does not do privatization for
-          // FIRSTPRIVATE items that are also referenced in MAP clauses,
-          // but in some cases we do want to apply privatization, e.g.
-          // when it is a WILOCAL FIRSTPRIVATE item. By replacing
-          // all references inside the target region to the new private
-          // copy we make all the accesses to the object explicit,
-          // providing better disambiguation with accesses to other
-          // objects. The private copy will be registerized, in general,
-          // so it has relatively low cost.
-          //
-          // But we cannot apply privatization for the case above
-          // just based on the fact that the item is WILOCAL FIRSTPRIVATE.
-          // In order to avoid checking the MAP clauses at the point
-          // of privatization we just avoid setting WILOCAL for items
-          // that are referenced in MAP clauses with conflicting map types.
-          assert(MapI->getIsMapChain() &&
-                 "Paropt only supports map chains now.");
-          // I believe FIRSTPRIVATE pointers may only be
-          // referenced by chain heads, so we need to check
-          // the map type of the chain head.
-          MapAggrTy *AggrHead = MapI->getMapChain()[0];
-          // Only handle MAPs with explicit map types,
-          // otherwise, be conservative.
-          if (!AggrHead->hasExplicitMapType())
-            continue;
-          uint64_t MapType = AggrHead->getMapType();
-          // If map type does not have TGT_MAP_PRIVATE bit, then
-          // do not optimize such items.
-          if ((MapType & TGT_MAP_PRIVATE) == 0)
-            continue;
-        }
-        if (!MaybeModifiedByEnclosedRegion(W, Item->getOrig()))
+
+    if (W->canHaveFirstprivate())
+      for (auto *Item : W->getFpriv().items())
+        if (!isInMapWithoutPrivateBit(Item) &&
+            !MaybeModifiedByEnclosedRegion(W, Item->getOrig()))
           FprivOptimizableItems.insert(Item->getOrig());
-      }
-    }
 
     if (PrivOptimizableItems.empty() && FprivOptimizableItems.empty())
       // Nothing to do.
