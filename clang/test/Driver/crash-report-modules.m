@@ -8,8 +8,10 @@
 // RUN: not %clang -fsyntax-only %s -I %S/Inputs/module -isysroot %/t/i/                 \
 // RUN: -fmodules -fmodules-cache-path=%T/crmdir/m/ -DFOO=BAR 2>&1 | FileCheck %s
 
-// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %T/crmdir/crash-report-*.m
-// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %T/crmdir/crash-report-*.sh
+// INTEL_CUSTOMIZATION
+// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %T/crmdir/clang*/crash-report-*.m
+// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %T/crmdir/clang*/crash-report-*.sh
+// end INTEL_CUSTOMIZATION
 // REQUIRES: crash-recovery
 
 // FIXME: This test creates excessively deep directory hierarchies that cause

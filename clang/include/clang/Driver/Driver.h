@@ -184,6 +184,11 @@ public:
   /// User directory for config files.
   std::string UserConfigDir;
 
+#if INTEL_CUSTOMIZATION
+  /// Base temporary directory.
+  std::string BaseTempDir;
+#endif // INTEL_CUSTOMIZATION
+
   /// A prefix directory used to emulate a limited subset of GCC's '-Bprefix'
   /// functionality.
   /// FIXME: This type of customization should be removed in favor of the
@@ -695,6 +700,13 @@ public:
   /// GetTemporaryDirectory - Return the pathname of a temporary directory to
   /// use as part of compilation; the directory will have the given prefix.
   std::string GetTemporaryDirectory(StringRef Prefix) const;
+
+#if INTEL_CUSTOMIZATION
+  /// GetUserOnlyTemporaryDirectory - Return the pathname of a temporary
+  /// directory to use as part of compilation; the directory will have the
+  /// given prefix and created with user only read/write priviledges.
+  std::string GetUserOnlyTemporaryDirectory(StringRef Prefix) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the pathname of the pch file in clang-cl mode.
   std::string GetClPchPath(Compilation &C, StringRef BaseName) const;
