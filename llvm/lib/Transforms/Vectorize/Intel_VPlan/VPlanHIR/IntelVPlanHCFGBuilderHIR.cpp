@@ -1670,6 +1670,56 @@ public:
   }
 };
 
+class CompressExpandIdiomListCvt : public VPEntityConverterBase {
+  const HIRVectorIdioms *VecIdioms;
+
+public:
+  CompressExpandIdiomListCvt(VPDecomposerHIR &Decomp,
+                             const HIRVectorIdioms *VecIdioms)
+      : VPEntityConverterBase(Decomp), VecIdioms(VecIdioms) {}
+
+  void operator()(CompressExpandIdiomDescr &Desc, const HIRVecIdiom &Idiom) {
+
+    std::function<void(const HIRVecIdiom &Idiom)> AddIdiom =
+        [&](const HIRVecIdiom &Idiom) {
+          switch (VecIdioms->isIdiom(Idiom)) {
+          case HIRVectorIdioms::CEIndexIncFirst:
+          case HIRVectorIdioms::CEIndexIncNext: {
+            int64_t Stride;
+            bool IsIncrement = HIRVectorIdioms::isIncrementInst(
+                Idiom.get<const HLInst *>(), Stride);
+            assert(IsIncrement && "Increment instruction expected.");
+            (void)IsIncrement;
+            Desc.addIncrement(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)),
+                Stride);
+            break;
+          }
+          case HIRVectorIdioms::CEStore:
+            Desc.addStore(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
+            break;
+          case HIRVectorIdioms::CELoad:
+            Desc.addLoad(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
+            break;
+          case HIRVectorIdioms::CELdStIndex:
+            Desc.addIndex(Decomposer.getVPValueForCEIdiom(Idiom));
+            break;
+          default:
+            llvm_unreachable("Unexpected CE idiom id.");
+          }
+
+          const auto *LinkedIdioms = VecIdioms->getLinkedIdioms(Idiom);
+          if (LinkedIdioms)
+            for (const auto &LinkedIdiom : *LinkedIdioms)
+              AddIdiom(LinkedIdiom);
+        };
+
+    AddIdiom(Idiom);
+  }
+};
+
 class HLLoop2VPLoopMapper {
 public:
   HLLoop2VPLoopMapper() = delete;
@@ -1711,6 +1761,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   auto IndCvt = std::make_unique<Converter<InductionDescr>>(Plan);
   auto PrivCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
   auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
+  auto CEIdiomCvt = std::make_unique<Converter<CompressExpandIdiomDescr>>(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1760,11 +1811,19 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     PrivNonPODCvt->createDescrList(HL,
       Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
     // clang-format on
+
+    const HIRVectorIdioms *VecIdioms = Legal->getVectorIdioms(HL);
+    CEIdiomCvt->createDescrList(
+        HL, Bind(map_range(
+                     VecIdioms->getIdiomsById(HIRVectorIdioms::CEIndexIncFirst),
+                     [](const auto &Pair) { return Pair.first; }),
+                 CompressExpandIdiomListCvt(Decomposer, VecIdioms)));
   }
   CvtVec.emplace_back(std::move(RedCvt));
   CvtVec.emplace_back(std::move(IndCvt));
   CvtVec.emplace_back(std::move(PrivCvt));
   CvtVec.emplace_back(std::move(PrivNonPODCvt));
+  CvtVec.emplace_back(std::move(CEIdiomCvt));
 }
 
 bool VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {

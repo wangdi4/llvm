@@ -64,7 +64,8 @@ public:
     InscanReduction,
     Induction,
     Private,
-    PrivateNonPOD
+    PrivateNonPOD,
+    CompressExpand,
   };
   unsigned char getID() const { return SubclassID; }
 
@@ -467,6 +468,46 @@ private:
   bool IsF90NonPod;
 };
 
+class VPCompressExpandIdiom : public VPLoopEntity {
+  friend class VPLoopEntityList;
+
+public:
+  struct IncrementInfoTy {
+    VPInstruction *VPInst;
+    int64_t Stride;
+  };
+
+  VPCompressExpandIdiom(const SmallVectorImpl<IncrementInfoTy> &Increments,
+                        const SmallVectorImpl<VPInstruction *> &Stores,
+                        const SmallVectorImpl<VPInstruction *> &Loads,
+                        const SmallVectorImpl<VPValue *> &Indices)
+      : VPLoopEntity(CompressExpand, false),
+        Increments(Increments.begin(), Increments.end()),
+        Stores(Stores.begin(), Stores.end()), Loads(Loads.begin(), Loads.end()),
+        Indices(Indices.begin(), Indices.end()) {}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+  Type *getAllocatedType() const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == CompressExpand;
+  }
+
+  static inline bool classof(const VPPrivate *V) {
+    return V->getID() == CompressExpand;
+  }
+
+private:
+  SmallVector<IncrementInfoTy, 4> Increments;
+  SmallVector<VPInstruction *, 4> Stores;
+  SmallVector<VPInstruction *, 4> Loads;
+  SmallVector<VPValue *, 4> Indices;
+};
+
 /// Complimentary class that describes memory locations of the loop entities.
 /// The VPLoopEntity is linked with this descriptor through its ExitingValue
 /// field.
@@ -515,6 +556,7 @@ private:
 class VPLoopEntityList {
   using InductionKind = VPInduction::InductionKind;
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
+  using IncrementInfoTy = VPCompressExpandIdiom::IncrementInfoTy;
 
 public:
   /// Importing error indicators.
@@ -579,6 +621,12 @@ public:
                                     Type *AllocatedTy = nullptr,
                                     VPValue *AI = nullptr);
 
+  VPCompressExpandIdiom *
+  addCompressExpandIdiom(const SmallVectorImpl<IncrementInfoTy> &Increments,
+                         const SmallVectorImpl<VPInstruction *> &Stores,
+                         const SmallVectorImpl<VPInstruction *> &Loads,
+                         const SmallVectorImpl<VPValue *> &Indices);
+
   /// Final stage of importing data from IR. Go through all imported descriptors
   /// and check/create links to VPInstructions.
   void finalizeImport(void);
@@ -599,6 +647,11 @@ public:
   /// Return private descriptor by \p VPVal.
   const VPPrivate *getPrivate(const VPValue *VPVal) const {
     return find(PrivateMap, VPVal);
+  }
+
+  /// Return compress/expand idiom descriptor by \p VPVal.
+  const VPCompressExpandIdiom *getCompressExpandIdiom(const VPValue *VPVal) const {
+    return find(ComressExpandIdiomMap, VPVal);
   }
 
   /// Get descriptor for an entity's memory.
@@ -637,12 +690,14 @@ public:
   using VPReductionList = SmallVector<std::unique_ptr<VPReduction>, 4>;
   using VPInductionList = SmallVector<std::unique_ptr<VPInduction>, 4>;
   using VPPrivatesList = SmallVector<std::unique_ptr<VPPrivate>, 4>;
+  using VPComressExpandIdiomList = SmallVector<std::unique_ptr<VPCompressExpandIdiom>, 4>;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
   using VPReductionMap = DenseMap<const VPValue *, const VPReduction *>;
   using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
   using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
+  using VPComressExpandIdiomMap = DenseMap<const VPValue *, const VPCompressExpandIdiom *>;
 
   // Return the iterator-range to the list of privates loop-entities.
   inline decltype(auto) vpprivates() const {
@@ -787,10 +842,12 @@ private:
   VPReductionList ReductionList;
   VPInductionList InductionList;
   VPPrivatesList PrivatesList;
+  VPComressExpandIdiomList ComressExpandIdiomList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
   VPPrivateMap PrivateMap;
+  VPComressExpandIdiomMap ComressExpandIdiomMap;
 
   // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
   using MemDescrTy =
@@ -1356,6 +1413,37 @@ private:
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;
   VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTRegisterized;
+};
+
+class CompressExpandIdiomDescr : public VPEntityImportDescr {
+
+  using IncrementInfoTy = VPCompressExpandIdiom::IncrementInfoTy;
+
+  SmallVector<IncrementInfoTy> Increments;
+  SmallVector<VPInstruction *, 4> Stores;
+  SmallVector<VPInstruction *, 4> Loads;
+  SmallVector<VPValue *, 4> Indices;
+
+public:
+  void addIncrement(VPInstruction *VPInst, int64_t Stride) {
+    Increments.push_back({VPInst, Stride});
+  }
+  void addStore(VPInstruction *VPInst) { Stores.push_back(VPInst); }
+  void addLoad(VPInstruction *VPInst) { Loads.push_back(VPInst); }
+  void addIndex(VPValue *VPVal) { Indices.push_back(VPVal); }
+
+  /// Check for all non-null VPInstructions in the descriptor are in the \p
+  /// Loop.
+  void checkParentVPLoop(const VPLoop *Loop) const {}
+
+  /// Return true if not all data is completed.
+  bool isIncomplete() const { return false; }
+
+  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop) {}
+
+  /// Pass the data to VPlan
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
 };
 
 // Base class for loop entities converter. Used to create a list of converters
