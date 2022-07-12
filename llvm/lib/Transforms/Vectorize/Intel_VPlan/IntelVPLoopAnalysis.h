@@ -893,7 +893,7 @@ private:
   // effective in terms of run-time.
   void createInductionCloseForm(VPInduction *Induction, VPBuilder &Builder,
                                 VPValue &Init, VPValue &InitStep,
-                                VPValue &PrivateMem);
+                                VPValue *PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 
