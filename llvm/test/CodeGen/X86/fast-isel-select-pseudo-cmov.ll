@@ -484,14 +484,12 @@ define i8 @select_icmp_sle_i8(i64 %a, i64 %b, i8 %c, i8 %d) {
 ;
 ; FASTISEL-LABEL: select_icmp_sle_i8:
 ; FASTISEL:       ## %bb.0:
+; FASTISEL-NEXT:    movl %edx, %eax ;INTEL
 ; FASTISEL-NEXT:    cmpq %rsi, %rdi
-; FASTISEL-NEXT:    jle LBB12_1
-; FASTISEL-NEXT:  ## %bb.2:
+; FASTISEL-NEXT:    jle LBB12_2 ;INTEL
+; FASTISEL-NEXT:  ## %bb.1: ;INTEL
 ; FASTISEL-NEXT:    movl %ecx, %eax
-; FASTISEL-NEXT:    ## kill: def $al killed $al killed $eax
-; FASTISEL-NEXT:    retq
-; FASTISEL-NEXT:  LBB12_1:
-; FASTISEL-NEXT:    movl %edx, %eax
+; FASTISEL-NEXT:  LBB12_2: ;INTEL
 ; FASTISEL-NEXT:    ## kill: def $al killed $al killed $eax
 ; FASTISEL-NEXT:    retq
   %1 = icmp sle i64 %a, %b

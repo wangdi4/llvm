@@ -4,16 +4,16 @@
 define i8 @test_i8(i32 %a, i8 %f, i8 %t) {
 ; ALL-LABEL: test_i8:
 ; ALL:       # %bb.0: # %entry
+; ALL-NEXT:    movl %esi, %eax ;INTEL
 ; ALL-NEXT:    xorl %ecx, %ecx
 ; ALL-NEXT:    cmpl %ecx, %edi
 ; ALL-NEXT:    setg %cl
 ; ALL-NEXT:    testb $1, %cl
-; ALL-NEXT:    je .LBB0_2
-; ALL-NEXT:  # %bb.1:
-; ALL-NEXT:    movl %esi, %eax
+; ALL-NEXT:    je .LBB0_1 ;INTEL
+; ALL-NEXT:  # %bb.2: # %cond.end ;INTEL
 ; ALL-NEXT:    # kill: def $al killed $al killed $eax
 ; ALL-NEXT:    retq
-; ALL-NEXT:  .LBB0_2: # %cond.false
+; ALL-NEXT:  .LBB0_1: # %cond.false ;INTEL
 ; ALL-NEXT:    movl %edx, %eax
 ; ALL-NEXT:    # kill: def $al killed $al killed $eax
 ; ALL-NEXT:    retq
@@ -35,16 +35,16 @@ cond.end:                                         ; preds = %cond.false, %cond.t
 define i16 @test_i16(i32 %a, i16 %f, i16 %t) {
 ; ALL-LABEL: test_i16:
 ; ALL:       # %bb.0: # %entry
+; ALL-NEXT:    movl %esi, %eax ;INTEL
 ; ALL-NEXT:    xorl %ecx, %ecx
 ; ALL-NEXT:    cmpl %ecx, %edi
 ; ALL-NEXT:    setg %cl
 ; ALL-NEXT:    testb $1, %cl
-; ALL-NEXT:    je .LBB1_2
-; ALL-NEXT:  # %bb.1:
-; ALL-NEXT:    movl %esi, %eax
+; ALL-NEXT:    je .LBB1_1 ;INTEL
+; ALL-NEXT:  # %bb.2: # %cond.end ;INTEL
 ; ALL-NEXT:    # kill: def $ax killed $ax killed $eax
 ; ALL-NEXT:    retq
-; ALL-NEXT:  .LBB1_2: # %cond.false
+; ALL-NEXT:  .LBB1_1: # %cond.false ;INTEL
 ; ALL-NEXT:    movl %edx, %eax
 ; ALL-NEXT:    # kill: def $ax killed $ax killed $eax
 ; ALL-NEXT:    retq

@@ -1504,24 +1504,22 @@ define <8 x float> @load_v8f32_v8i32(<8 x i32> %trigger, <8 x float>* %addr, <8 
 define <1 x i64> @load_v1i64_v1i64(<1 x i64> %trigger, <1 x i64>* %addr, <1 x i64> %dst) {
 ; SSE-LABEL: load_v1i64_v1i64:
 ; SSE:       ## %bb.0:
+; SSE-NEXT:    movq %rdx, %rax ;INTEL
 ; SSE-NEXT:    testq %rdi, %rdi
-; SSE-NEXT:    jne LBB12_1
-; SSE-NEXT:  ## %bb.2: ## %cond.load
+; SSE-NEXT:    jne LBB12_2 ;INTEL
+; SSE-NEXT:  ## %bb.1: ## %cond.load ;INTEL
 ; SSE-NEXT:    movq (%rsi), %rax
-; SSE-NEXT:    retq
-; SSE-NEXT:  LBB12_1:
-; SSE-NEXT:    movq %rdx, %rax
+; SSE-NEXT:  LBB12_2: ## %else ;INTEL
 ; SSE-NEXT:    retq
 ;
 ; AVX-LABEL: load_v1i64_v1i64:
 ; AVX:       ## %bb.0:
+; AVX-NEXT:    movq %rdx, %rax ;INTEL
 ; AVX-NEXT:    testq %rdi, %rdi
-; AVX-NEXT:    jne LBB12_1
-; AVX-NEXT:  ## %bb.2: ## %cond.load
+; AVX-NEXT:    jne LBB12_2 ;INTEL
+; AVX-NEXT:  ## %bb.1: ## %cond.load ;INTEL
 ; AVX-NEXT:    movq (%rsi), %rax
-; AVX-NEXT:    retq
-; AVX-NEXT:  LBB12_1:
-; AVX-NEXT:    movq %rdx, %rax
+; AVX-NEXT:  LBB12_2: ## %else ;INTEL
 ; AVX-NEXT:    retq
 ;
 ; X86-AVX512-LABEL: load_v1i64_v1i64:

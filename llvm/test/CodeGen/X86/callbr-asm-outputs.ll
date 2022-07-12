@@ -57,7 +57,7 @@ define i32 @test2(i32 %out1, i32 %out2) {
 ; CHECK-NEXT:    testl %esi, %edi
 ; CHECK-NEXT:    jne .Ltmp2
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:  .LBB1_3:
+; CHECK-NEXT:  .LBB1_3: # %if.else ;INTEL
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    addl %edi, %eax
 ; CHECK-NEXT:  .Ltmp2: # Block address taken
@@ -109,33 +109,30 @@ define i32 @test3(i1 %cmp) {
 ; CHECK-NEXT:    .cfi_offset %esi, -12
 ; CHECK-NEXT:    .cfi_offset %edi, -8
 ; CHECK-NEXT:    testb $1, {{[0-9]+}}(%esp)
-; CHECK-NEXT:    je .LBB2_3
+; CHECK-NEXT:    je .LBB2_2 ;INTEL
 ; CHECK-NEXT:  # %bb.1: # %true
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    .short %esi
 ; CHECK-NEXT:    .short %edi
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:  # %bb.2:
 ; CHECK-NEXT:    movl %edi, %eax
-; CHECK-NEXT:    jmp .LBB2_5
-; CHECK-NEXT:  .LBB2_3: # %false
+; CHECK-NEXT:    jmp .LBB2_3 ;INTEL
+; CHECK-NEXT:  .Ltmp3: # Block address taken ;INTEL
+; CHECK-NEXT:  .LBB2_4: # %indirect ;INTEL
+; CHECK-NEXT:    movl $42, %eax ;INTEL
+; CHECK-NEXT:    jmp .LBB2_3 ;INTEL
+; CHECK-NEXT:  .LBB2_2: # %false ;INTEL
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    .short %eax
 ; CHECK-NEXT:    .short %edx
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:  # %bb.4:
 ; CHECK-NEXT:    movl %edx, %eax
-; CHECK-NEXT:  .LBB2_5: # %asm.fallthrough
+; CHECK-NEXT:  .LBB2_3: # %asm.fallthrough ;INTEL
 ; CHECK-NEXT:    popl %esi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    popl %edi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl
-; CHECK-NEXT:  .Ltmp3: # Block address taken
-; CHECK-NEXT:  .LBB2_6: # %indirect
-; CHECK-NEXT:    .cfi_def_cfa_offset 12
-; CHECK-NEXT:    movl $42, %eax
-; CHECK-NEXT:    jmp .LBB2_5
 entry:
   br i1 %cmp, label %true, label %false
 
