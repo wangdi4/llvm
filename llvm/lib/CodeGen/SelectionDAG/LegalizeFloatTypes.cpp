@@ -902,6 +902,7 @@ bool DAGTypeLegalizer::SoftenFloatOperand(SDNode *N, unsigned OpNo) {
   case ISD::BR_CC:       Res = SoftenFloatOp_BR_CC(N); break;
   case ISD::STRICT_FP_TO_FP16:
   case ISD::FP_TO_FP16:  // Same as FP_ROUND for softening purposes
+  case ISD::FP_TO_BF16:
   case ISD::STRICT_FP_ROUND:
   case ISD::FP_ROUND:    Res = SoftenFloatOp_FP_ROUND(N); break;
   case ISD::STRICT_FP_TO_SINT:
@@ -954,16 +955,19 @@ SDValue DAGTypeLegalizer::SoftenFloatOp_FP_ROUND(SDNode *N) {
 #if INTEL_CUSTOMIZATION
   assert(N->getOpcode() == ISD::FP_ROUND || N->getOpcode() == ISD::FP_TO_FP16 ||
          N->getOpcode() == ISD::STRICT_FP_TO_FP16 ||
+         N->getOpcode() == ISD::FP_TO_BF16 ||
          N->getOpcode() == ISD::STRICT_FP_ROUND);
 #endif // INTEL_CUSTOMIZATION
   bool IsStrict = N->isStrictFPOpcode();
   SDValue Op = N->getOperand(IsStrict ? 1 : 0);
   EVT SVT = Op.getValueType();
   EVT RVT = N->getValueType(0);
-  EVT FloatRVT = (N->getOpcode() == ISD::FP_TO_FP16 ||
-                  N->getOpcode() == ISD::STRICT_FP_TO_FP16)
-                     ? MVT::f16
-                     : RVT;
+  EVT FloatRVT = RVT;
+  if (N->getOpcode() == ISD::FP_TO_FP16 ||
+      N->getOpcode() == ISD::STRICT_FP_TO_FP16)
+    FloatRVT = MVT::f16;
+  else if (N->getOpcode() == ISD::FP_TO_BF16)
+    FloatRVT = MVT::bf16;
 
   RTLIB::Libcall LC = RTLIB::getFPROUND(SVT, FloatRVT);
   assert(LC != RTLIB::UNKNOWN_LIBCALL && "Unsupported FP_ROUND libcall");
@@ -2172,9 +2176,13 @@ SDValue DAGTypeLegalizer::ExpandFloatOp_LLRINT(SDNode *N) {
 
 static ISD::NodeType GetPromotionOpcode(EVT OpVT, EVT RetVT) {
   if (OpVT == MVT::f16) {
-      return ISD::FP16_TO_FP;
+    return ISD::FP16_TO_FP;
   } else if (RetVT == MVT::f16) {
-      return ISD::FP_TO_FP16;
+    return ISD::FP_TO_FP16;
+  } else if (OpVT == MVT::bf16) {
+    return ISD::BF16_TO_FP;
+  } else if (RetVT == MVT::bf16) {
+    return ISD::FP_TO_BF16;
   }
 
   report_fatal_error("Attempt at an invalid promotion-related conversion");

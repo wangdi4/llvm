@@ -346,7 +346,7 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     //     Message is pbmsg_size length of information bytes.
     //
     //   ------------------ End of notify table ---------------------
-    getOS().SwitchSection(Section);
+    getOS().switchSection(Section);
     MCSymbol *HeaderStartLabel =
         OutContext.createTempSymbol("optrpt_header_start", true);
     MCSymbol *HeaderEndLabel =
@@ -523,7 +523,7 @@ void OptReportAsmPrinterHandler::endModule() {
     //     followed by 0 to 255 information bytes.
     //
     //   ------------------ End of notify table ---------------------
-    getOS().SwitchSection(Section);
+    getOS().switchSection(Section);
     MCSymbol *HeaderStartLabel =
       OutContext.createTempSymbol("optrpt_header_start", true);
     MCSymbol *HeaderEndLabel =

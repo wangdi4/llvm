@@ -1042,7 +1042,7 @@ void Parser::HandlePragmaFEnvRound() {
       reinterpret_cast<uintptr_t>(Tok.getAnnotationValue()));
 
   SourceLocation PragmaLoc = ConsumeAnnotationToken();
-  Actions.setRoundingMode(PragmaLoc, RM);
+  Actions.ActOnPragmaFEnvRound(PragmaLoc, RM);
 }
 
 StmtResult Parser::HandlePragmaCaptured()
@@ -4698,7 +4698,8 @@ bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
 StmtResult Parser::ParsePragmaLoopCount(StmtVector &Stmts,
                                         ParsedStmtContext StmtCtx,
                                         SourceLocation *TrailingElseLoc,
-                                        ParsedAttributes &Attrs) {
+                                        ParsedAttributes &DeclAttrs,
+                                        ParsedAttributes &DeclSpecAttrs) {
   // Create temporary attribute list.
   ParsedAttributes TempAttrs(AttrFactory);
   // Get loop hints and consume annotated token.
@@ -4712,11 +4713,11 @@ StmtResult Parser::ParsePragmaLoopCount(StmtVector &Stmts,
       ConsumeAnyToken();
     }
   }
-  MaybeParseCXX11Attributes(Attrs);
+  MaybeParseCXX11Attributes(DeclAttrs);
   StmtResult S = ParseStatementOrDeclarationAfterAttributes(
-      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+      Stmts, StmtCtx, TrailingElseLoc, DeclAttrs, DeclSpecAttrs);
   if (HasAttrs)
-    Attrs.takeAllFrom(TempAttrs);
+    DeclAttrs.takeAllFrom(TempAttrs);
   return S;
 }
 
@@ -4783,7 +4784,8 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
 StmtResult Parser::ParsePragmaVector(StmtVector &Stmts,
                                      ParsedStmtContext StmtCtx,
                                      SourceLocation *TrailingElseLoc,
-                                     ParsedAttributes &Attrs) {
+                                     ParsedAttributes &DeclAttrs,
+                                     ParsedAttributes &DeclSpecAttrs) {
   // Create temporary attribute list.
   ParsedAttributes TempAttrs(AttrFactory);
   // Get loop hints and consume annotated token.
@@ -4796,11 +4798,11 @@ StmtResult Parser::ParsePragmaVector(StmtVector &Stmts,
       ConsumeAnyToken();
     ConsumeAnyToken(); // Consume annot_pragma_vector_end
   }
-  MaybeParseCXX11Attributes(Attrs);
+  MaybeParseCXX11Attributes(DeclAttrs);
   StmtResult S = ParseStatementOrDeclarationAfterAttributes(
-      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+      Stmts, StmtCtx, TrailingElseLoc, DeclAttrs, DeclSpecAttrs);
   if (HasAttrs)
-    Attrs.takeAllFrom(TempAttrs);
+    DeclAttrs.takeAllFrom(TempAttrs);
   return S;
 }
 

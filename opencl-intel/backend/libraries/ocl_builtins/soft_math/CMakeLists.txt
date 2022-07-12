@@ -19,8 +19,8 @@ set(TARGET_SOURCE_FILES
 )
 
 if(NOT WIN32)
-  list(APPEND TARGET_SOURCE_FILES extenddftf2.c extendsftf2.c trunctfdf2.c
-                                  trunctfhf2.c trunctfsf2.c)
+  list(APPEND TARGET_SOURCE_FILES extenddftf2.c extendhftf2.c extendsftf2.c
+                                  trunctfdf2.c trunctfhf2.c trunctfsf2.c)
 endif(NOT WIN32)
 
 if(WIN32 AND BUILD_X64)

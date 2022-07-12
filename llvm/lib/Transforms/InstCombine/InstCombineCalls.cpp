@@ -698,7 +698,7 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
     const int64_t PaddingLen = DestLen - SrcLen;
     MaybeAlign PaddingAlign;
     if (DestAlign)
-      PaddingAlign = commonAlignment(DestAlign, SrcLen);
+      PaddingAlign = commonAlignment(*DestAlign, SrcLen);
     Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, SrcLen, IsVol);
     Builder.CreateMemSet(PaddingAddr, PaddingVal, PaddingLen, PaddingAlign,
                          IsVol);
@@ -3719,7 +3719,7 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
     Optional<OperandBundleUse> Bundle =
         GCSP.getOperandBundle(LLVMContext::OB_gc_live);
     unsigned NumOfGCLives = LiveGcValues.size();
-    if (!Bundle.hasValue() || NumOfGCLives == Bundle->Inputs.size())
+    if (!Bundle || NumOfGCLives == Bundle->Inputs.size())
       break;
     // We can reduce the size of gc live bundle.
     DenseMap<Value *, unsigned> Val2Idx;

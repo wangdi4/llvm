@@ -88,12 +88,15 @@ extern "C" LLVM_BACKEND_API unsigned long long __cpu_get_time_counter() {
 // floating-point extend/truncate builtins
 extern "C" LLVM_BACKEND_API uint16_t __gnu_f2h_ieee(float a);
 extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(uint16_t a);
+extern "C" LLVM_BACKEND_API float __extendhfsf2(uint16_t a);
+extern "C" LLVM_BACKEND_API long double __extendhftf2(uint16_t a);
+extern "C" LLVM_BACKEND_API long double __extendsftf2(float a);
+extern "C" LLVM_BACKEND_API long double __extenddftf2(double a);
+extern "C" LLVM_BACKEND_API uint16_t __truncsfhf2(float a);
 extern "C" LLVM_BACKEND_API uint16_t __truncdfhf2(double a);
 extern "C" LLVM_BACKEND_API uint16_t  __trunctfhf2(long double a);
 extern "C" LLVM_BACKEND_API float __trunctfsf2(long double a);
 extern "C" LLVM_BACKEND_API double __trunctfdf2(long double a);
-extern "C" LLVM_BACKEND_API long double __extendsftf2(float a);
-extern "C" LLVM_BACKEND_API long double __extenddftf2(double a);
 
 #if defined(_WIN64)
 #if defined(__clang__)
@@ -237,11 +240,14 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("__gnu_h2f_ieee", __gnu_h2f_ieee)
     REGISTER_BI_FUNCTION("__truncdfhf2", __truncdfhf2)
 #ifndef _WIN32
+    REGISTER_BI_FUNCTION("__truncsfhf2", __truncsfhf2)
     REGISTER_BI_FUNCTION("__trunctfhf2", __trunctfhf2)
     REGISTER_BI_FUNCTION("__trunctfsf2", __trunctfsf2)
     REGISTER_BI_FUNCTION("__trunctfdf2", __trunctfdf2)
     REGISTER_BI_FUNCTION("__extendsftf2", __extendsftf2)
     REGISTER_BI_FUNCTION("__extenddftf2", __extenddftf2)
+    REGISTER_BI_FUNCTION("__extendhfsf2", __extendhfsf2)
+    REGISTER_BI_FUNCTION("__extendhftf2", __extendhftf2)
 #endif
 #if defined(_WIN64) && defined(__clang__)
     REGISTER_BI_FUNCTION("__udivmodti4", __udivmodti4)

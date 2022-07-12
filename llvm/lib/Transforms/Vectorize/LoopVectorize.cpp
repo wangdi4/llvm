@@ -507,11 +507,6 @@ public:
   /// new unrolled loop, where UF is the unroll factor.
   using VectorParts = SmallVector<Value *, 2>;
 
-  /// Vectorize a single vector PHINode in a block in the VPlan-native path
-  /// only.
-  void widenPHIInstruction(Instruction *PN, VPWidenPHIRecipe *PhiR,
-                           VPTransformState &State);
-
   /// A helper function to scalarize a single Instruction in the innermost loop.
   /// Generates a sequence of scalar instances for each lane between \p MinLane
   /// and \p MaxLane, times each part between \p MinPart and \p MaxPart,
@@ -537,8 +532,7 @@ public:
 
   /// Set the debug location in the builder \p Ptr using the debug location in
   /// \p V. If \p Ptr is None then it uses the class member's Builder.
-  void setDebugLocFromInst(const Value *V,
-                           Optional<IRBuilderBase *> CustomBuilder = None);
+  void setDebugLocFromInst(const Value *V);
 
   /// Fix the non-induction PHIs in \p Plan.
   void fixNonInductionPHIs(VPlan &Plan, VPTransformState &State);
@@ -952,8 +946,7 @@ static Instruction *getDebugLocFromInstOrOperands(Instruction *I) {
 }
 
 void InnerLoopVectorizer::setDebugLocFromInst(
-    const Value *V, Optional<IRBuilderBase *> CustomBuilder) {
-  IRBuilderBase *B = (CustomBuilder == None) ? &Builder : *CustomBuilder;
+    const Value *V) {
   if (const Instruction *Inst = dyn_cast_or_null<Instruction>(V)) {
     const DILocation *DIL = Inst->getDebugLoc();
 
@@ -965,15 +958,15 @@ void InnerLoopVectorizer::setDebugLocFromInst(
       auto NewDIL =
           DIL->cloneByMultiplyingDuplicationFactor(UF * VF.getKnownMinValue());
       if (NewDIL)
-        B->SetCurrentDebugLocation(NewDIL.getValue());
+        Builder.SetCurrentDebugLocation(*NewDIL);
       else
         LLVM_DEBUG(dbgs()
                    << "Failed to create new discriminator: "
                    << DIL->getFilename() << " Line: " << DIL->getLine());
     } else
-      B->SetCurrentDebugLocation(DIL);
+      Builder.SetCurrentDebugLocation(DIL);
   } else
-    B->SetCurrentDebugLocation(DebugLoc());
+    Builder.SetCurrentDebugLocation(DebugLoc());
 }
 
 /// Write a \p DebugMsg about vectorization to the debug output stream. If \p I
@@ -3163,12 +3156,6 @@ void InnerLoopVectorizer::createInductionResumeValues(
     PHINode *OrigPhi = InductionEntry.first;
     InductionDescriptor II = InductionEntry.second;
 
-    // Create phi nodes to merge from the  backedge-taken check block.
-    PHINode *BCResumeVal =
-        PHINode::Create(OrigPhi->getType(), 3, "bc.resume.val",
-                        LoopScalarPreHeader->getTerminator());
-    // Copy original phi DL over to the new one.
-    BCResumeVal->setDebugLoc(OrigPhi->getDebugLoc());
     Value *&EndValue = IVEndValues[OrigPhi];
     Value *EndValueFromAdditionalBypass = AdditionalBypass.second;
     if (OrigPhi == OldInduction) {
@@ -3204,6 +3191,14 @@ void InnerLoopVectorizer::createInductionResumeValues(
         EndValueFromAdditionalBypass->setName("ind.end");
       }
     }
+
+    // Create phi nodes to merge from the  backedge-taken check block.
+    PHINode *BCResumeVal =
+        PHINode::Create(OrigPhi->getType(), 3, "bc.resume.val",
+                        LoopScalarPreHeader->getTerminator());
+    // Copy original phi DL over to the new one.
+    BCResumeVal->setDebugLoc(OrigPhi->getDebugLoc());
+
     // The new PHI merges the original incoming value, in case of a bypass,
     // or the value at the end of the vectorized loop.
     BCResumeVal->addIncoming(EndValue, LoopMiddleBlock);
@@ -4225,22 +4220,6 @@ bool InnerLoopVectorizer::useOrderedReductions(
   return Cost->useOrderedReductions(RdxDesc);
 }
 
-void InnerLoopVectorizer::widenPHIInstruction(Instruction *PN,
-                                              VPWidenPHIRecipe *PhiR,
-                                              VPTransformState &State) {
-  assert(EnableVPlanNativePath &&
-         "Non-native vplans are not expected to have VPWidenPHIRecipes.");
-  // Currently we enter here in the VPlan-native path for non-induction
-  // PHIs where all control flow is uniform. We simply widen these PHIs.
-  // Create a vector phi with no operands - the vector phi operands will be
-  // set at the end of vector code generation.
-  Type *VecTy = (State.VF.isScalar())
-                    ? PN->getType()
-                    : VectorType::get(PN->getType(), State.VF);
-  Value *VecPhi = Builder.CreatePHI(VecTy, PN->getNumOperands(), "vec.phi");
-  State.set(PhiR, VecPhi, 0);
-}
-
 /// A helper function for checking whether an integer division-related
 /// instruction may divide by zero (in which case it must be predicated if
 /// executed conditionally in the scalar code).
@@ -4443,7 +4422,7 @@ void LoopVectorizationCostModel::collectLoopScalars(ElementCount VF) {
     }
 
   // Insert the forced scalars.
-  // FIXME: Currently widenPHIInstruction() often creates a dead vector
+  // FIXME: Currently VPWidenPHIRecipe() often creates a dead vector
   // induction variable when the PHI user is scalarized.
   auto ForcedScalar = ForcedScalars.find(VF);
   if (ForcedScalar != ForcedScalars.end())
@@ -5389,7 +5368,7 @@ VectorizationFactor LoopVectorizationCostModel::selectVectorizationFactor(
 #ifndef NDEBUG
     unsigned AssumedMinimumVscale = 1;
     if (Optional<unsigned> VScale = getVScaleForTuning())
-      AssumedMinimumVscale = VScale.getValue();
+      AssumedMinimumVscale = *VScale;
     unsigned Width =
         Candidate.Width.isScalable()
             ? Candidate.Width.getKnownMinValue() * AssumedMinimumVscale
@@ -5607,7 +5586,7 @@ LoopVectorizationCostModel::selectEpilogueVectorizationFactor(
   if (MainLoopVF.isScalable()) {
     EstimatedRuntimeVF = ElementCount::getFixed(MainLoopVF.getKnownMinValue());
     if (Optional<unsigned> VScale = getVScaleForTuning())
-      EstimatedRuntimeVF *= VScale.getValue();
+      EstimatedRuntimeVF *= *VScale;
   }
 
   for (auto &NextVF : ProfitableVFs)
@@ -6858,8 +6837,6 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
           Cost = getGatherScatterCost(&I, VF);
           setWideningDecision(&I, VF, CM_GatherScatter, Cost);
         } else {
-          assert((isa<LoadInst>(&I) || !VF.isScalable()) &&
-                 "Cannot yet scalarize uniform stores");
           Cost = getUniformMemOpCost(&I, VF);
           setWideningDecision(&I, VF, CM_Scalarize, Cost);
         }
@@ -7217,8 +7194,13 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
       InstWidening Decision = getWideningDecision(I, Width);
       assert(Decision != CM_Unknown &&
              "CM decision should be taken at this point");
-      if (Decision == CM_Scalarize)
+      if (Decision == CM_Scalarize) {
+        if (VF.isScalable() && isa<StoreInst>(I))
+          // We can't scalarize a scalable vector store (even a uniform one
+          // currently), return an invalid cost so as to prevent vectorization.
+          return InstructionCost::getInvalid();
         Width = ElementCount::getFixed(1);
+      }
     }
     VectorTy = ToVectorTy(getLoadStoreType(I), Width);
     return getMemoryInstructionCost(I, VF);
@@ -9057,7 +9039,11 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     VPBasicBlock *InsertBlock = PrevRecipe->getParent();
     auto *Region = GetReplicateRegion(PrevRecipe);
     if (Region)
-      InsertBlock = cast<VPBasicBlock>(Region->getSingleSuccessor());
+      InsertBlock = dyn_cast<VPBasicBlock>(Region->getSingleSuccessor());
+    if (!InsertBlock) {
+      InsertBlock = new VPBasicBlock(Region->getName() + ".succ");
+      VPBlockUtils::insertBlockAfter(InsertBlock, Region);
+    }
     if (Region || PrevRecipe->isPhi())
       Builder.setInsertPoint(InsertBlock, InsertBlock->getFirstNonPhi());
     else
@@ -9104,16 +9090,6 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
       }
   }
 
-  // From this point onwards, VPlan-to-VPlan transformations may change the plan
-  // in ways that accessing values using original IR values is incorrect.
-  Plan->disableValue2VPValue();
-
-  VPlanTransforms::optimizeInductions(*Plan, *PSE.getSE());
-  VPlanTransforms::sinkScalarOperands(*Plan);
-  VPlanTransforms::mergeReplicateRegions(*Plan);
-  VPlanTransforms::removeDeadRecipes(*Plan);
-  VPlanTransforms::removeRedundantExpandSCEVRecipes(*Plan);
-
   std::string PlanName;
   raw_string_ostream RSO(PlanName);
   ElementCount VF = Range.Start;
@@ -9126,6 +9102,16 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   RSO << "},UF>=1";
   RSO.flush();
   Plan->setName(PlanName);
+
+  // From this point onwards, VPlan-to-VPlan transformations may change the plan
+  // in ways that accessing values using original IR values is incorrect.
+  Plan->disableValue2VPValue();
+
+  VPlanTransforms::optimizeInductions(*Plan, *PSE.getSE());
+  VPlanTransforms::sinkScalarOperands(*Plan);
+  VPlanTransforms::mergeReplicateRegions(*Plan);
+  VPlanTransforms::removeDeadRecipes(*Plan);
+  VPlanTransforms::removeRedundantExpandSCEVRecipes(*Plan);
 
   // Fold Exit block into its predecessor if possible.
   // TODO: Fold block earlier once all VPlan transforms properly maintain a
@@ -9794,13 +9780,8 @@ void VPScalarIVStepsRecipe::execute(VPTransformState &State) {
   }
 }
 
-void VPWidenPHIRecipe::execute(VPTransformState &State) {
-  State.ILV->widenPHIInstruction(cast<PHINode>(getUnderlyingValue()), this,
-                                 State);
-}
-
 void VPBlendRecipe::execute(VPTransformState &State) {
-  State.ILV->setDebugLocFromInst(Phi, &State.Builder);
+  State.ILV->setDebugLocFromInst(Phi);
   // We know that all PHIs in non-header blocks are converted into
   // selects, so we don't have to worry about the insertion order and we
   // can just use the builder.

@@ -160,28 +160,16 @@ void tools::handleTargetFeaturesGroup(const ArgList &Args,
   }
 }
 
-std::vector<StringRef>
-tools::unifyTargetFeatures(const std::vector<StringRef> &Features) {
-  std::vector<StringRef> UnifiedFeatures;
-  // Find the last of each feature.
-  llvm::StringMap<unsigned> LastOpt;
-  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
-    StringRef Name = Features[I];
-    assert(Name[0] == '-' || Name[0] == '+');
-    LastOpt[Name.drop_front(1)] = I;
+SmallVector<StringRef>
+tools::unifyTargetFeatures(ArrayRef<StringRef> Features) {
+  // Only add a feature if it hasn't been seen before starting from the end.
+  SmallVector<StringRef> UnifiedFeatures;
+  llvm::DenseSet<StringRef> UsedFeatures;
+  for (StringRef Feature : llvm::reverse(Features)) {
+    if (UsedFeatures.insert(Feature.drop_front()).second)
+      UnifiedFeatures.insert(UnifiedFeatures.begin(), Feature);
   }
 
-  for (unsigned I = 0, N = Features.size(); I < N; ++I) {
-    // If this feature was overridden, ignore it.
-    StringRef Name = Features[I];
-    llvm::StringMap<unsigned>::iterator LastI = LastOpt.find(Name.drop_front(1));
-    assert(LastI != LastOpt.end());
-    unsigned Last = LastI->second;
-    if (Last != I)
-      continue;
-
-    UnifiedFeatures.push_back(Name);
-  }
   return UnifiedFeatures;
 }
 
@@ -1258,15 +1246,28 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   return true;
 }
 
-void tools::addFortranRuntimeLibs(llvm::opt::ArgStringList &CmdArgs) {
-  CmdArgs.push_back("-lFortran_main");
-  CmdArgs.push_back("-lFortranRuntime");
-  CmdArgs.push_back("-lFortranDecimal");
+void tools::addFortranRuntimeLibs(const ToolChain &TC,
+                                  llvm::opt::ArgStringList &CmdArgs) {
+  if (TC.getTriple().isKnownWindowsMSVCEnvironment()) {
+    CmdArgs.push_back("Fortran_main.lib");
+    CmdArgs.push_back("FortranRuntime.lib");
+    CmdArgs.push_back("FortranDecimal.lib");
+  } else {
+    CmdArgs.push_back("-lFortran_main");
+    CmdArgs.push_back("-lFortranRuntime");
+    CmdArgs.push_back("-lFortranDecimal");
+  }
 }
 
 void tools::addFortranRuntimeLibraryPath(const ToolChain &TC,
                                          const llvm::opt::ArgList &Args,
                                          ArgStringList &CmdArgs) {
+  // NOTE: Generating executables by Flang is considered an "experimental"
+  // feature and hence this is guarded with a command line option.
+  // TODO: Make this work unconditionally once Flang is mature enough.
+  if (!Args.hasArg(options::OPT_flang_experimental_exec))
+    return;
+
   // Default to the <driver-path>/../lib directory. This works fine on the
   // platforms that we have tested so far. We will probably have to re-fine
   // this in the future. In particular, on some platforms, we may need to use
@@ -1274,7 +1275,10 @@ void tools::addFortranRuntimeLibraryPath(const ToolChain &TC,
   SmallString<256> DefaultLibPath =
       llvm::sys::path::parent_path(TC.getDriver().Dir);
   llvm::sys::path::append(DefaultLibPath, "lib");
-  CmdArgs.push_back(Args.MakeArgString("-L" + DefaultLibPath));
+  if (TC.getTriple().isKnownWindowsMSVCEnvironment())
+    CmdArgs.push_back(Args.MakeArgString("-libpath:" + DefaultLibPath));
+  else
+    CmdArgs.push_back(Args.MakeArgString("-L" + DefaultLibPath));
 }
 
 static void addSanitizerRuntime(const ToolChain &TC, const ArgList &Args,
@@ -1981,16 +1985,11 @@ enum class LibGccType { UnspecifiedLibGcc, StaticLibGcc, SharedLibGcc };
 static LibGccType getLibGccType(const ToolChain &TC, const Driver &D,
                                 const ArgList &Args) {
   if (Args.hasArg(options::OPT_static_libgcc) ||
-      Args.hasArg(options::OPT_static) || Args.hasArg(options::OPT_static_pie))
+      Args.hasArg(options::OPT_static) || Args.hasArg(options::OPT_static_pie) ||
+      // The Android NDK only provides libunwind.a, not libunwind.so.
+      TC.getTriple().isAndroid())
     return LibGccType::StaticLibGcc;
   if (Args.hasArg(options::OPT_shared_libgcc))
-    return LibGccType::SharedLibGcc;
-  // The Android NDK only provides libunwind.a, not libunwind.so.
-  if (TC.getTriple().isAndroid())
-    return LibGccType::StaticLibGcc;
-  // For MinGW, don't imply a shared libgcc here, we only want to return
-  // SharedLibGcc if that was explicitly requested.
-  if (D.CCCIsCXX() && !TC.getTriple().isOSCygMing())
     return LibGccType::SharedLibGcc;
   return LibGccType::UnspecifiedLibGcc;
 }
@@ -2018,7 +2017,7 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
     return;
 
   LibGccType LGT = getLibGccType(TC, D, Args);
-  bool AsNeeded = LGT == LibGccType::UnspecifiedLibGcc &&
+  bool AsNeeded = LGT == LibGccType::UnspecifiedLibGcc && !D.CCCIsCXX() &&
                   !TC.getTriple().isAndroid() &&
 #if INTEL_CUSTOMIZATION
                   !Args.hasArg(options::OPT_traceback) &&
@@ -2045,15 +2044,15 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
         CmdArgs.push_back("-lunwind");
     } else if (LGT == LibGccType::StaticLibGcc) {
       CmdArgs.push_back("-l:libunwind.a");
-    } else if (TC.getTriple().isOSCygMing()) {
-      if (LGT == LibGccType::SharedLibGcc)
+    } else if (LGT == LibGccType::SharedLibGcc) {
+      if (TC.getTriple().isOSCygMing())
         CmdArgs.push_back("-l:libunwind.dll.a");
       else
-        // Let the linker choose between libunwind.dll.a and libunwind.a
-        // depending on what's available, and depending on the -static flag
-        CmdArgs.push_back("-lunwind");
+        CmdArgs.push_back("-l:libunwind.so");
     } else {
-      CmdArgs.push_back("-l:libunwind.so");
+      // Let the linker choose between libunwind.so and libunwind.a
+      // depending on what's available, and depending on the -static flag
+      CmdArgs.push_back("-lunwind");
     }
     break;
   }
@@ -2065,10 +2064,12 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
 static void AddLibgcc(const ToolChain &TC, const Driver &D,
                       ArgStringList &CmdArgs, const ArgList &Args) {
   LibGccType LGT = getLibGccType(TC, D, Args);
-  if (LGT != LibGccType::SharedLibGcc)
+  if (LGT == LibGccType::StaticLibGcc ||
+      (LGT == LibGccType::UnspecifiedLibGcc && !D.CCCIsCXX()))
     CmdArgs.push_back("-lgcc");
   AddUnwindLibrary(TC, D, CmdArgs, Args);
-  if (LGT == LibGccType::SharedLibGcc)
+  if (LGT == LibGccType::SharedLibGcc ||
+      (LGT == LibGccType::UnspecifiedLibGcc && D.CCCIsCXX()))
     CmdArgs.push_back("-lgcc");
 }
 

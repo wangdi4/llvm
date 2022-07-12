@@ -3831,9 +3831,12 @@ static void RenderOpenCLOptions(const ArgList &Args, ArgStringList &CmdArgs,
 
 static void RenderHLSLOptions(const ArgList &Args, ArgStringList &CmdArgs,
                               types::ID InputType) {
-  const unsigned ForwardedArguments[] = {
-      options::OPT_dxil_validator_version, options::OPT_D, options::OPT_S,
-      options::OPT_emit_llvm, options::OPT_disable_llvm_passes};
+  const unsigned ForwardedArguments[] = {options::OPT_dxil_validator_version,
+                                         options::OPT_D,
+                                         options::OPT_S,
+                                         options::OPT_emit_llvm,
+                                         options::OPT_disable_llvm_passes,
+                                         options::OPT_fnative_half_type};
 
   for (const auto &Arg : ForwardedArguments)
     if (const auto *A = Args.getLastArg(Arg))
@@ -3841,6 +3844,7 @@ static void RenderHLSLOptions(const ArgList &Args, ArgStringList &CmdArgs,
   // Add the default headers if dxc_no_stdinc is not set.
   if (!Args.hasArg(options::OPT_dxc_no_stdinc))
     CmdArgs.push_back("-finclude-default-header");
+  CmdArgs.push_back("-fallow-half-arguments-and-returns");
 }
 
 static void RenderARCMigrateToolOptions(const Driver &D, const ArgList &Args,
@@ -3929,20 +3933,13 @@ static void RenderBuiltinOptions(const ToolChain &TC, const llvm::Triple &T,
     UseBuiltins = false;
 
   // Process the -fno-builtin-* options.
-  for (const auto &Arg : Args) {
-    const Option &O = Arg->getOption();
-    if (!O.matches(options::OPT_fno_builtin_))
-      continue;
-
-    Arg->claim();
+  for (const Arg *A : Args.filtered(options::OPT_fno_builtin_)) {
+    A->claim();
 
     // If -fno-builtin is specified, then there's no need to pass the option to
     // the frontend.
-    if (!UseBuiltins)
-      continue;
-
-    StringRef FuncName = Arg->getValue();
-    CmdArgs.push_back(Args.MakeArgString("-fno-builtin-" + FuncName));
+    if (UseBuiltins)
+      A->render(Args, CmdArgs);
   }
 
   // le32-specific flags:
@@ -7032,7 +7029,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       "standalone", "objc", "swift", "swift-5.0", "swift-4.2", "swift-4.1",
     };
 
-    if (find(kCFABIs, StringRef(A->getValue())) == std::end(kCFABIs))
+    if (!llvm::is_contained(kCFABIs, StringRef(A->getValue())))
       D.Diag(diag::err_drv_invalid_cf_runtime_abi) << A->getValue();
     else
       A->render(Args, CmdArgs);
@@ -7495,6 +7492,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   RenderUnrollOptions(D, Args, CmdArgs);
 #endif // INTEL_CUSTOMIZATION
 
+  Args.AddLastArg(CmdArgs, options::OPT_fstrict_flex_arrays_EQ);
+
   Args.AddLastArg(CmdArgs, options::OPT_pthread);
 
   if (Args.hasFlag(options::OPT_mspeculative_load_hardening,
@@ -7730,8 +7729,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     StringRef Val = A->getValue();
     Val = Val.empty() ? "0" : Val; // Treat "" as 0 or disable.
     bool Invalid = GNUCVer.tryParse(Val);
-    unsigned Minor = GNUCVer.getMinor().getValueOr(0);
-    unsigned Patch = GNUCVer.getSubminor().getValueOr(0);
+    unsigned Minor = GNUCVer.getMinor().value_or(0);
+    unsigned Patch = GNUCVer.getSubminor().value_or(0);
     if (Invalid || GNUCVer.getBuild() || Minor >= 100 || Patch >= 100) {
       D.Diag(diag::err_drv_invalid_value)
           << A->getAsString(Args) << A->getValue();
@@ -10324,11 +10323,27 @@ void OffloadPackager::ConstructJob(Compilation &C, const JobAction &JA,
     StringRef Arch = (OffloadAction->getOffloadingArch())
                          ? OffloadAction->getOffloadingArch()
                          : TCArgs.getLastArgValue(options::OPT_march_EQ);
+    StringRef Kind =
+      Action::GetOffloadKindName(OffloadAction->getOffloadingDeviceKind());
 
-    CmdArgs.push_back(Args.MakeArgString(
-        "--image=file=" + File + "," + "triple=" + TC->getTripleString() + "," +
-        "arch=" + Arch + "," + "kind=" +
-        Action::GetOffloadKindName(OffloadAction->getOffloadingDeviceKind())));
+    ArgStringList Features;
+    SmallVector<StringRef> FeatureArgs;
+    getTargetFeatures(TC->getDriver(), TC->getTriple(), Args, Features, false);
+    llvm::copy_if(Features, std::back_inserter(FeatureArgs),
+                  [](StringRef Arg) { return !Arg.startswith("-target"); });
+
+    SmallVector<std::string> Parts{
+        "file=" + File.str(),
+        "triple=" + TC->getTripleString(),
+        "arch=" + Arch.str(),
+        "kind=" + Kind.str(),
+    };
+
+    if (TC->getDriver().isUsingLTO(/* IsOffload */ true))
+      for (StringRef Feature : FeatureArgs)
+        Parts.emplace_back("feature=" + Feature.str());
+
+    CmdArgs.push_back(Args.MakeArgString("--image=" + llvm::join(Parts, ",")));
   }
 
   C.addCommand(std::make_unique<Command>(
@@ -10981,20 +10996,6 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (D.isUsingLTO(/* IsOffload */ true)) {
-    // Pass in target features for each toolchain.
-    for (auto &I :
-         llvm::make_range(OpenMPTCRange.first, OpenMPTCRange.second)) {
-      const ToolChain *TC = I.second;
-      const ArgList &TCArgs = C.getArgsForToolChain(TC, "", Action::OFK_OpenMP);
-      ArgStringList FeatureArgs;
-      TC->addClangTargetOptions(TCArgs, FeatureArgs, Action::OFK_OpenMP);
-      auto FeatureIt = llvm::find(FeatureArgs, "-target-feature");
-      if (FeatureIt != FeatureArgs.end())
-        CmdArgs.push_back(
-            Args.MakeArgString("-target-feature=" + TC->getTripleString() +
-                               "=" + *(FeatureIt + 1)));
-    }
-
     // Pass in the optimization level to use for LTO.
     if (const Arg *A = Args.getLastArg(options::OPT_O_Group)) {
       StringRef OOpt;

@@ -65,13 +65,16 @@ def lto_legacy_pass_manager: Flag<["--"], "lto-legacy-pass-manager">,
 def no_lto_legacy_pass_manager : Flag<["--"], "no-lto-legacy-pass-manager">,
     HelpText<"Use the new pass manager in LLVM">,
     Group<grp_lld>;
-def time_trace: Flag<["--"], "time-trace">, HelpText<"Record time trace">,
+def time_trace_eq: Joined<["--"], "time-trace=">,
+    HelpText<"Record time trace to <file>">,
+    MetaVarName<"<file>">,
+    Group<grp_lld>;
+def : Flag<["--"], "time-trace">,
+    Alias<time_trace_eq>,
+    HelpText<"Record time trace to file next to output">,
     Group<grp_lld>;
 def time_trace_granularity_eq: Joined<["--"], "time-trace-granularity=">,
     HelpText<"Minimum time granularity (in microseconds) traced by time profiler">,
-    Group<grp_lld>;
-def time_trace_file_eq: Joined<["--"], "time-trace-file=">,
-    HelpText<"Specify time trace output file">,
     Group<grp_lld>;
 def deduplicate_literals: Flag<["--"], "deduplicate-literals">,
     HelpText<"Enable literal deduplication. This is implied by --icf={safe,all}">,
@@ -504,6 +507,9 @@ def exported_symbol : Separate<["-"], "exported_symbol">,
 def exported_symbols_list : Separate<["-"], "exported_symbols_list">,
     MetaVarName<"<file>">,
     HelpText<"Symbols specified in <file> remain global, while others become private externs">,
+    Group<grp_resolve>;
+def no_exported_symbols : Flag<["-"], "no_exported_symbols">,
+    HelpText<"Don't export any symbols from the binary, useful for main executables that don't have plugins">,
     Group<grp_resolve>;
 def unexported_symbol : Separate<["-"], "unexported_symbol">,
     MetaVarName<"<symbol>">,

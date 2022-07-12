@@ -288,7 +288,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   Result.AllocTy = MallocLike;
   Result.NumParams = Callee->getNumOperands();
   Result.FstParam = Args.first;
-  Result.SndParam = Args.second.getValueOr(-1);
+  Result.SndParam = Args.second.value_or(-1);
   // Allocsize has no way to specify an alignment argument
   Result.AlignParam = -1;
   return Result;
@@ -459,7 +459,7 @@ bool llvm::isAllocRemovable(const CallBase *CB, const TargetLibraryInfo *TLI) {
 Value *llvm::getAllocAlignment(const CallBase *V,
                                const TargetLibraryInfo *TLI) {
   const Optional<AllocFnsTy> FnData = getAllocationData(V, AnyAlloc, TLI);
-  if (FnData.hasValue() && FnData->AlignParam >= 0) {
+  if (FnData && FnData->AlignParam >= 0) {
     return V->getOperand(FnData->AlignParam);
   }
   return V->getArgOperandWithAttribute(Attribute::AllocAlign);
@@ -544,10 +544,12 @@ llvm::getAllocSize(const CallBase *CB,
   return Size;
 }
 
-Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
+Constant *llvm::getInitialValueOfAllocation(const Value *V,
                                             const TargetLibraryInfo *TLI,
                                             Type *Ty) {
-  assert(isAllocationFn(Alloc, TLI));
+  auto *Alloc = dyn_cast<CallBase>(V);
+  if (!Alloc)
+    return nullptr;
 
   // malloc and aligned_alloc are uninitialized (undef)
   if (isMallocLikeFn(Alloc, TLI) || isAlignedAllocLikeFn(Alloc, TLI))
@@ -846,7 +848,7 @@ STATISTIC(ObjectVisitorLoad,
 
 APInt ObjectSizeOffsetVisitor::align(APInt Size, MaybeAlign Alignment) {
   if (Options.RoundToAlign && Alignment)
-    return APInt(IntTyBits, alignTo(Size.getZExtValue(), Alignment));
+    return APInt(IntTyBits, alignTo(Size.getZExtValue(), *Alignment));
   return Size;
 }
 

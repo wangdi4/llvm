@@ -2643,26 +2643,26 @@ enum CXCursorKind {
    */
   CXCursor_OMPTargetParallelGenericLoopDirective = 299,
 
+  /** OpenMP parallel masked directive.
+   */
+  CXCursor_OMPParallelMaskedDirective = 300,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 300,
-  CXCursor_OMPPrefetchDirective = 301,
-  CXCursor_OMPScopeDirective = 302,
+  CXCursor_OMPTargetVariantDispatchDirective = 301,
+  CXCursor_OMPPrefetchDirective = 302,
+  CXCursor_OMPScopeDirective = 303,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
+  CXCursor_LastStmt = CXCursor_OMPParallelMaskedDirective,
 #endif /* INTEL_COLLAB */
 
-/**
- * Cursor that represents the translation unit itself.
- *
- * The translation unit cursor exists primarily to act as the root
- * cursor for traversing the contents of a translation unit.
- */
-#if INTEL_COLLAB
+  /**
+   * Cursor that represents the translation unit itself.
+   *
+   * The translation unit cursor exists primarily to act as the root
+   * cursor for traversing the contents of a translation unit.
+   */
   CXCursor_TranslationUnit = 350,
-#else /* INTEL_COLLAB */
-  CXCursor_TranslationUnit = 300,
-#endif /* INTEL_COLLAB */
 
   /* Attributes */
   CXCursor_FirstAttr = 400,

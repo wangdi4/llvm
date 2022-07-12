@@ -66,6 +66,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
+#include <limits>
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -197,6 +198,13 @@ static cl::opt<int> HotCallSiteRelFreq(
 static cl::opt<int> CallPenalty(
     "inline-call-penalty", cl::Hidden, cl::init(25),
     cl::desc("Call penalty that is applied per callsite when inlining"));
+
+static cl::opt<size_t>
+    StackSizeThreshold("inline-max-stacksize", cl::Hidden,
+                       cl::init(std::numeric_limits<size_t>::max()),
+                       cl::ZeroOrMore,
+                       cl::desc("Do not inline functions with a stack size "
+                                "that exceeds the specified limit"));
 
 static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden,
@@ -969,7 +977,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     auto *CallerBB = CandidateCall.getParent();
     BlockFrequencyInfo *CallerBFI = &(GetBFI(*(CallerBB->getParent())));
     CycleSavings += getCallsiteCost(this->CandidateCall, DL);
-    CycleSavings *= CallerBFI->getBlockProfileCount(CallerBB).getValue();
+    CycleSavings *= *CallerBFI->getBlockProfileCount(CallerBB);
 
     // Remove the cost of the cold basic blocks.
     int Size = Cost - ColdSize;
@@ -1043,7 +1051,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     if (auto Result = costBenefitAnalysis()) {
       DecidedByCostBenefit = true;
-      if (Result.getValue())
+      if (*Result)
         return InlineResult::success();
       else
         return InlineResult::failure("Cost over threshold.");
@@ -1157,6 +1165,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (F.getCallingConv() == CallingConv::Cold)
       Cost += InlineConstants::ColdccPenalty;
 
+    LLVM_DEBUG(dbgs() << "      Initial cost: " << Cost << "\n");
+
     // Check if we're done. This can happen due to bonuses and penalties.
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
@@ -1196,7 +1206,7 @@ public:
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
-    AllowRecursiveCall = Params.AllowRecursiveCall.getValue();
+    AllowRecursiveCall = *Params.AllowRecursiveCall;
   }
 
   // The cost and the threshold used for early exit during usual
@@ -1498,7 +1508,7 @@ void InlineCostAnnotationWriter::emitInstructionAnnot(
   auto C = ICCA->getSimplifiedValue(const_cast<Instruction *>(I));
   if (C) {
     OS << ", simplified to ";
-    C.getValue()->print(OS, true);
+    (*C)->print(OS, true);
   }
   OS << "\n";
 }
@@ -2134,7 +2144,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // current threshold, but AutoFDO + ThinLTO currently relies on this
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
-      Threshold = HotCallSiteThreshold.getValue();
+      Threshold = *HotCallSiteThreshold;
       YesReasonVector.push_back(InlrHotCallsite); // INTEL
 #if INTEL_CUSTOMIZATION
     } else if (isColdCallSite(Call, CallerBFI)
@@ -3048,6 +3058,11 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
     return InlineResult::failure("noduplicate") // INTEL
         .setIntelInlReason(NinlrDuplicateCall); // INTEL
 
+  // If the callee's stack size exceeds the user-specified threshold,
+  // do not let it be inlined.
+  if (AllocatedSize > StackSizeThreshold)
+    return InlineResult::failure("stacksize");
+
   return finalizeAnalysis();
 }
 
@@ -3342,7 +3357,7 @@ InlineCost llvm::getInlineCost(
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
 
-  if (UserDecision.hasValue()) {
+  if (UserDecision) {
 #if INTEL_CUSTOMIZATION
     if (UserDecision->isSuccess()) {
       if (UserDecision->getIntelInlReason() == InlrAlwaysInlineRecursive)

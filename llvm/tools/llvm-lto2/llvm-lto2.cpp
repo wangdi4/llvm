@@ -265,7 +265,7 @@ static int run(int argc, char **argv) {
   Conf.Options = codegen::InitTargetOptionsFromCodeGenFlags(Triple());
   Conf.MAttrs = codegen::getMAttrs();
   if (auto RM = codegen::getExplicitRelocModel())
-    Conf.RelocModel = RM.getValue();
+    Conf.RelocModel = *RM;
   Conf.CodeModel = codegen::getExplicitCodeModel();
 
   Conf.DebugPassManager = DebugPassManager;
@@ -313,7 +313,7 @@ static int run(int argc, char **argv) {
   }
 
   if (auto FT = codegen::getExplicitFileType())
-    Conf.CGFileType = FT.getValue();
+    Conf.CGFileType = *FT;
 
   Conf.OverrideTriple = OverrideTriple;
   Conf.DefaultTriple = DefaultTriple;

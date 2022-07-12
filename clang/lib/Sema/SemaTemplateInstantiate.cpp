@@ -27,12 +27,14 @@
 //===----------------------------------------------------------------------===/
 
 #include "TreeTransform.h"
+#include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/AST/TypeVisitor.h"
 #include "clang/Basic/LangOptions.h"
@@ -2218,8 +2220,7 @@ TemplateInstantiator::TransformExprRequirement(concepts::ExprRequirement *Req) {
       TransRetReq.emplace(TPL);
     }
   }
-  assert(TransRetReq.hasValue() &&
-         "All code paths leading here must set TransRetReq");
+  assert(TransRetReq && "All code paths leading here must set TransRetReq");
   if (Expr *E = TransExpr.dyn_cast<Expr *>())
     return RebuildExprRequirement(E, Req->isSimple(), Req->getNoexceptLoc(),
                                   std::move(*TransRetReq));
@@ -2245,6 +2246,7 @@ TemplateInstantiator::TransformNestedRequirement(
       Req->getConstraintExpr()->getSourceRange());
 
   ExprResult TransConstraint;
+  ConstraintSatisfaction Satisfaction;
   TemplateDeductionInfo Info(Req->getConstraintExpr()->getBeginLoc());
   {
     EnterExpressionEvaluationContext ContextRAII(
@@ -2256,6 +2258,25 @@ TemplateInstantiator::TransformNestedRequirement(
     if (ConstrInst.isInvalid())
       return nullptr;
     TransConstraint = TransformExpr(Req->getConstraintExpr());
+    if (!TransConstraint.isInvalid()) {
+      bool CheckSucceeded =
+          SemaRef.CheckConstraintExpression(TransConstraint.get());
+      (void)CheckSucceeded;
+      assert(CheckSucceeded || Trap.hasErrorOccurred() &&
+                                   "CheckConstraintExpression failed, but "
+                                   "did not produce a SFINAE error");
+    }
+    // Use version of CheckConstraintSatisfaction that does no substitutions.
+    if (!TransConstraint.isInvalid() &&
+        !TransConstraint.get()->isInstantiationDependent() &&
+        !Trap.hasErrorOccurred()) {
+      bool CheckFailed = SemaRef.CheckConstraintSatisfaction(
+          TransConstraint.get(), Satisfaction);
+      (void)CheckFailed;
+      assert(!CheckFailed || Trap.hasErrorOccurred() &&
+                                 "CheckConstraintSatisfaction failed, "
+                                 "but did not produce a SFINAE error");
+    }
     if (TransConstraint.isInvalid() || Trap.hasErrorOccurred())
       return RebuildNestedRequirement(createSubstDiag(SemaRef, Info,
           [&] (llvm::raw_ostream& OS) {
@@ -2263,7 +2284,11 @@ TemplateInstantiator::TransformNestedRequirement(
                                                     SemaRef.getPrintingPolicy());
           }));
   }
-  return RebuildNestedRequirement(TransConstraint.get());
+  if (TransConstraint.get()->isInstantiationDependent())
+    return new (SemaRef.Context)
+        concepts::NestedRequirement(TransConstraint.get());
+  return new (SemaRef.Context) concepts::NestedRequirement(
+      SemaRef.Context, TransConstraint.get(), Satisfaction);
 }
 
 
@@ -3471,6 +3496,9 @@ Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
     if (auto *Function = dyn_cast<FunctionDecl>(D)) {
       if (FunctionDecl *Pattern =
               Function->getInstantiatedFromMemberFunction()) {
+
+        if (Function->isIneligibleOrNotSelected())
+          continue;
 
         if (Function->getTrailingRequiresClause()) {
           ConstraintSatisfaction Satisfaction;

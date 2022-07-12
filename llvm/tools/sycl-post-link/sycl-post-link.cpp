@@ -49,13 +49,13 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/InitializePasses.h"  // INTEL
+#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/Linker/Linker.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
@@ -75,9 +75,9 @@
 
 #if INTEL_COLLAB
 #include "llvm/ADT/Triple.h"
-#include "llvm/Pass.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/Pass.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
@@ -377,7 +377,7 @@ std::vector<uint32_t> getKernelReqdWorkGroupSizeMetadata(const Function &Func) {
 // sequential ID and suffix.
 #if INTEL_COLLAB
 std::string makeResultFileName(StringRef Ext, int I, StringRef Suffix) {
-#else // INTEL_COLLAB
+#else  // INTEL_COLLAB
 std::string makeResultFileName(Twine Ext, int I, StringRef Suffix) {
 #endif // INTEL_COLLAB
   const StringRef Dir0 = OutputDir.getNumOccurrences() > 0
@@ -637,6 +637,9 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
   if (MD.isESIMD()) {
     PropSet[PropSetRegTy::SYCL_MISC_PROP].insert({"isEsimdImage", true});
   }
+  if (MD.isDoubleGRF())
+    PropSet[PropSetRegTy::SYCL_MISC_PROP].insert(
+        {"isDoubleGRFEsimdImage", true});
   {
     std::vector<StringRef> FuncNames = getKernelNamesUsingAssert(M);
     for (const StringRef &FName : FuncNames)
@@ -660,7 +663,7 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
 }
 
 // Saves specified collection of symbols to a file.
-std::string saveModuleSymbolTable(const module_split::EntryPointVec &Es, int I,
+std::string saveModuleSymbolTable(const module_split::EntryPointSet &Es, int I,
                                   StringRef Suffix) {
 #ifndef NDEBUG
   if (DebugPostLink > 0) {
@@ -683,10 +686,14 @@ std::string saveModuleSymbolTable(const module_split::EntryPointVec &Es, int I,
   return OutFileName;
 }
 
-bool lowerInvokeSimd(Module &M) {
-  legacy::PassManager MPM;
-  MPM.add(createSYCLLowerInvokeSimdPass());
-  return MPM.run(M);
+template <class PassClass> bool runModulePass(Module &M) {
+  ModulePassManager MPM;
+  ModuleAnalysisManager MAM;
+  // Register required analysis
+  MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+  MPM.addPass(PassClass{});
+  PreservedAnalyses Res = MPM.run(M, MAM);
+  return !Res.areAllPreserved();
 }
 
 // When ESIMD code was separated from the regular SYCL code,
@@ -739,7 +746,8 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
 #endif // INTEL_COLLAB
                                    StringRef IRFilename = "") {
   IrPropSymFilenameTriple Res;
-  StringRef Suffix = MD.isESIMD() ? "_esimd" : "";
+  StringRef Suffix =
+      MD.isDoubleGRF() ? "_esimd_x2grf" : (MD.isESIMD() ? "_esimd" : "");
 
   if (!IRFilename.empty()) {
     // don't save IR, just record the filename
@@ -787,10 +795,7 @@ module_split::ModuleDesc link(module_split::ModuleDesc &&MD1,
     error(" error when linking SYCL and ESIMD modules");
   }
   module_split::ModuleDesc Res(MD1.releaseModulePtr(), std::move(Names));
-  Res.Props.HasEsimd = MD1.Props.HasEsimd == MD2.Props.HasEsimd
-                           ? MD1.Props.HasEsimd
-                           : module_split::SyclEsimdSplitStatus::SYCL_AND_ESIMD;
-  Res.Props.SpecConstsMet = MD1.Props.SpecConstsMet || MD2.Props.SpecConstsMet;
+  Res.assignMergedProperties(MD1, MD2);
   Res.Name = "linked[" + MD1.Name + "," + MD1.Name + "]";
   return Res;
 }
@@ -813,24 +818,6 @@ bool processSpecConstants(module_split::ModuleDesc &MD) {
   PreservedAnalyses Res = RunSpecConst.run(MD.getModule(), MAM);
   MD.Props.SpecConstsMet = !Res.areAllPreserved();
   return MD.Props.SpecConstsMet;
-}
-
-bool processCompileTimeProperties(module_split::ModuleDesc &MD) {
-  Module &M = MD.getModule();
-  // TODO: the early exit can be removed as soon as we have compile-time
-  // properties not attached to device globals.
-  if (DeviceGlobals.getNumOccurrences() == 0)
-    return false;
-
-  ModulePassManager RunCompileTimeProperties;
-  ModuleAnalysisManager MAM;
-  // Register required analysis
-  MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
-  RunCompileTimeProperties.addPass(CompileTimePropertiesPass());
-
-  // Enrich the module with compile-time properties metadata
-  PreservedAnalyses Res = RunCompileTimeProperties.run(M, MAM);
-  return !Res.areAllPreserved();
 }
 
 constexpr int MAX_COLUMNS_IN_FILE_TABLE = 3;
@@ -926,7 +913,18 @@ processInputModule(std::unique_ptr<Module> M) {
   // Do invoke_simd processing before splitting because this:
   // - saves processing time (the pass is run once, even though on larger IR)
   // - doing it before SYCL/ESIMD splitting is required for correctness
-  Modified |= lowerInvokeSimd(*M);
+  const bool InvokeSimdMet = runModulePass<SYCLLowerInvokeSimdPass>(*M);
+
+  if (InvokeSimdMet && SplitEsimd) {
+    error("'invoke_simd' calls detected, '-" + SplitEsimd.ArgStr +
+          "' must not be specified");
+  }
+  Modified |= InvokeSimdMet;
+
+  // Lower kernel properties setting APIs before "double GRF" splitting, as:
+  // - the latter uses the result of the former
+  // - saves processing time
+  Modified |= runModulePass<SYCLLowerESIMDKernelPropsPass>(*M);
 
   DUMP_ENTRY_POINTS(*M, EmitOnlyKernelsAsEntryPoints, "Input");
 
@@ -956,13 +954,13 @@ processInputModule(std::unique_ptr<Module> M) {
     MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
     IntelVTableFixupPass IVTFP;
     RunVTableFixup.addPass(std::move(IVTFP));
-    (void) RunVTableFixup.run(*M, MAM);
+    (void)RunVTableFixup.run(*M, MAM);
   }
 #endif // INTEL_CUSTOMIZATION
   bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
 #endif // INTEL_COLLAB
 
-  // --ir-output-only assumes single module output thus no code splitting.
+  // -ir-output-only assumes single module output thus no code splitting.
   // Violation of this invariant is user error and must've been reported.
   // However, if split mode is "auto", then entry point filtering is still
   // performed.
@@ -971,23 +969,31 @@ processInputModule(std::unique_ptr<Module> M) {
              "invalid split mode for IR-only output");
 
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
-  // to modules resulting from the top-level splitting.
-  std::unique_ptr<module_split::ModuleSplitterBase> Splitter =
-      module_split::getSplitterByMode(std::move(M), SplitMode, IROutputOnly,
+  // to modules resulting from all other kinds of splitting.
+  std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
+      module_split::getSplitterByMode(
+          module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
 #if INTEL_COLLAB
-                                      EmitOnlyKernelsAsEntryPoints,
-                                      DoOmpOffload);
+          EmitOnlyKernelsAsEntryPoints, DoOmpOffload);
 #else  // INTEL_COLLAB
-                                      EmitOnlyKernelsAsEntryPoints);
+          EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
-  Modified |= Splitter->totalSplits() > 1;
+  const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
+  Modified |= SplitByScope;
 
   if (DeviceGlobals)
-    Splitter->verifyNoCrossModuleDeviceGlobalUsage();
+    ScopedSplitter->verifyNoCrossModuleDeviceGlobalUsage();
+
+  // TODO this nested splitting scheme will not scale well when other split
+  // "dimensions" will be added. Some infra/"split manager" needs to be
+  // implemented in this case - e.g. all needed splitters are registered, then
+  // split manager applies them in the order added and runs needed tforms on the
+  // "leaf" ModuleDesc's resulted from splitting. Some bookkeeping is needed for
+  // ESIMD splitter to link back needed modules.
 
 #if INTEL_COLLAB
   bool OMPOffloadParallelCompile =
-      (DoOmpOffload && Splitter->totalSplits() > 1);
+      (DoOmpOffload && ScopedSplitter->totalSplits() > 1);
   // Construct the resulting table which will accumulate all the outputs.
   SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
       StringRef(COL_CODE)};
@@ -1003,76 +1009,106 @@ processInputModule(std::unique_ptr<Module> M) {
   std::unique_ptr<util::SimpleTable> Table = std::move(TableE.get());
 #endif // INTEL_COLLAB
   // Proceed with top-level splitting.
-  while (Splitter->hasMoreSplits()) {
-    module_split::ModuleDesc MDesc = Splitter->nextSplit();
+  while (ScopedSplitter->hasMoreSplits()) {
+    module_split::ModuleDesc MDesc = ScopedSplitter->nextSplit();
     DUMP_ENTRY_POINTS(MDesc.entries(), MDesc.Name.c_str(), 1);
 
-    // Do SYCL/ESIMD splitting. It happens always, as ESIMD and SYCL must
-    // undergo different set of LLVMIR passes. After this they are linked back
-    // together to form single module with disjoint SYCL and ESIMD call graphs
-    // unless --split-esimd option is specified. The graphs become disjoint when
-    // linked back because functions shared between graphs are cloned and
-    // renamed.
-    std::unique_ptr<module_split::ModuleSplitterBase> ESIMDSplitter =
-        module_split::getSplitterByKernelType(
-            std::move(MDesc.releaseModulePtr()), EmitOnlyKernelsAsEntryPoints,
-            &MDesc.entries());
-    SmallVector<module_split::ModuleDesc, 2> MMs;
+    std::unique_ptr<module_split::ModuleSplitterBase> DoubleGRFSplitter =
+        module_split::getESIMDDoubleGRFSplitter(std::move(MDesc),
+                                                EmitOnlyKernelsAsEntryPoints);
+    const bool SplitByDoubleGRF = DoubleGRFSplitter->totalSplits() > 1;
+    Modified |= SplitByDoubleGRF;
 
-    while (ESIMDSplitter->hasMoreSplits()) {
-      module_split::ModuleDesc MDesc1 = ESIMDSplitter->nextSplit();
-      MDesc1.assignESIMDProperty();
+    // Now split further by "esimd-double-grf" attribute.
+    while (DoubleGRFSplitter->hasMoreSplits()) {
+      module_split::ModuleDesc MDesc1 = DoubleGRFSplitter->nextSplit();
       DUMP_ENTRY_POINTS(MDesc1.entries(), MDesc1.Name.c_str(), 2);
-      Modified |= processSpecConstants(MDesc1);
-      Modified |= processCompileTimeProperties(MDesc1);
 
-      if (!MDesc1.isSYCL() && LowerEsimd) {
-        assert(MDesc1.isESIMD() && "NYI");
-        Modified |= lowerEsimdConstructs(MDesc1);
+      // Do SYCL/ESIMD splitting. It happens always, as ESIMD and SYCL must
+      // undergo different set of LLVMIR passes. After this they are linked back
+      // together to form single module with disjoint SYCL and ESIMD call graphs
+      // unless -split-esimd option is specified. The graphs become disjoint
+      // when linked back because functions shared between graphs are cloned and
+      // renamed.
+      std::unique_ptr<module_split::ModuleSplitterBase> ESIMDSplitter =
+          module_split::getSplitterByKernelType(std::move(MDesc1),
+                                                EmitOnlyKernelsAsEntryPoints);
+      const bool SplitByESIMD = ESIMDSplitter->totalSplits() > 1;
+      Modified |= SplitByESIMD;
+
+      if (SplitByESIMD && SplitByScope &&
+          (SplitMode == module_split::SPLIT_PER_KERNEL) && !SplitEsimd) {
+        // Controversial state reached - SYCL and ESIMD entry points resulting
+        // from SYCL/ESIMD split (which is done always) are linked back, since
+        // -split-esimd is not specified, but per-kernel split is requested.
+        warning("SYCL and ESIMD entry points detected and split mode is "
+                "per-kernel, so " +
+                SplitEsimd.ValueStr + " must also be specified");
       }
-      MMs.emplace_back(std::move(MDesc1));
-    }
-    Modified |= MMs.size() > 1;
-#ifndef NDEBUG
-    bool NoSplitOccurred = (MMs.size() == 1) && (Table->getNumRows() == 0);
-#endif // NDEBUG
+      SmallVector<module_split::ModuleDesc, 2> MMs;
 
-    if (!SplitEsimd && (MMs.size() > 1)) {
-      // SYCL/ESIMD splitting is not requested, link back into single module.
-      assert(MMs.size() == 2);
-      assert(MMs[0].isESIMD() && MMs[1].isSYCL() ||
-             MMs[1].isESIMD() && MMs[0].isSYCL());
-      int ESIMDInd = MMs[0].isESIMD() ? 0 : 1;
-      int SYCLInd = MMs[0].isESIMD() ? 1 : 0;
-      // ... but before that, make sure no link conflicts will occur.
-      MMs[ESIMDInd].renameDuplicatesOf(MMs[SYCLInd].getModule(), ".esimd");
-      module_split::ModuleDesc M2 = link(std::move(MMs[0]), std::move(MMs[1]));
-      MMs.clear();
-      MMs.emplace_back(std::move(M2));
-      Modified = true;
-    }
-    if (IROutputOnly) {
-      assert(NoSplitOccurred && "--ir-output-only assumes no splitting");
-      saveModuleIR(MMs.front().getModule(), OutputFilename);
-      return Table;
-    }
-    // Empty IR file name directs saveModule to generate one and save IR to it:
-    std::string OutIRFileName = "";
+      while (ESIMDSplitter->hasMoreSplits()) {
+        module_split::ModuleDesc MDesc2 = ESIMDSplitter->nextSplit();
+        DUMP_ENTRY_POINTS(MDesc2.entries(), MDesc2.Name.c_str(), 3);
+        Modified |= processSpecConstants(MDesc2);
 
-    if (!Modified && (OutputFilename.getNumOccurrences() == 0)) {
-      assert(NoSplitOccurred);
-      OutIRFileName = InputFilename; // ... non-empty means "skip IR writing"
-      errs() << "sycl-post-link NOTE: no modifications to the input LLVM IR "
-                "have been made\n";
-    }
-    for (module_split::ModuleDesc &IrMD : MMs) {
+        // TODO: detach compile-time properties from device globals.
+        if (DeviceGlobals.getNumOccurrences() > 0) {
+          Modified |=
+              runModulePass<CompileTimePropertiesPass>(MDesc2.getModule());
+        }
+        if (!MDesc2.isSYCL() && LowerEsimd) {
+          assert(MDesc2.isESIMD() && "NYI");
+          // ESIMD lowering also detects double-GRF kernels, so it must happen
+          // before double-GRF split.
+          Modified |= lowerEsimdConstructs(MDesc2);
+        }
+        MMs.emplace_back(std::move(MDesc2));
+      }
+      if (!SplitEsimd && (MMs.size() > 1)) {
+        // SYCL/ESIMD splitting is not requested, link back into single module.
+        assert(MMs.size() == 2);
+        assert(MMs[0].isESIMD() && MMs[1].isSYCL() ||
+               MMs[1].isESIMD() && MMs[0].isSYCL());
+        int ESIMDInd = MMs[0].isESIMD() ? 0 : 1;
+        int SYCLInd = MMs[0].isESIMD() ? 1 : 0;
+        // ... but before that, make sure no link conflicts will occur.
+        MMs[ESIMDInd].renameDuplicatesOf(MMs[SYCLInd].getModule(), ".esimd");
+        module_split::ModuleDesc M2 =
+            link(std::move(MMs[0]), std::move(MMs[1]));
+        MMs.clear();
+        MMs.emplace_back(std::move(M2));
+        Modified = true;
+      }
+      bool SplitOccurred = SplitByScope || SplitByDoubleGRF || SplitByESIMD;
+
+      if (IROutputOnly) {
+        if (SplitOccurred) {
+          error("some modules had to be split, '-" + IROutputOnly.ArgStr +
+                "' can't be used");
+        }
+        saveModuleIR(MMs.front().getModule(), OutputFilename);
+        return Table;
+      }
+      // Empty IR file name directs saveModule to generate one and save IR to
+      // it:
+      std::string OutIRFileName = "";
+
+      if (!Modified && (OutputFilename.getNumOccurrences() == 0)) {
+        assert(!SplitOccurred);
+        OutIRFileName = InputFilename; // ... non-empty means "skip IR writing"
+        errs() << "sycl-post-link NOTE: no modifications to the input LLVM IR "
+                  "have been made\n";
+      }
+      for (module_split::ModuleDesc &IrMD : MMs) {
 #if INTEL_COLLAB
-      IrPropSymFilenameTriple T =
-          saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
-#else // INTEL_COLLAB
-      IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
-#endif
-      addTableRow(*Table, T);
+        IrPropSymFilenameTriple T =
+            saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
+#else  // INTEL_COLLAB
+        IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
+#endif // INTEL_COLLAB
+        addTableRow(*Table, T);
+      }
     }
     ++ID;
   }
@@ -1191,7 +1227,7 @@ int main(int argc, char **argv) {
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
-  if (IROutputOnly && (DoSplit && SplitMode != module_split::SPLIT_AUTO)) {
+  if (IROutputOnly && DoSplit && (SplitMode != module_split::SPLIT_AUTO)) {
     errs() << "error: -" << SplitMode.ArgStr << "=" << SplitMode.ValueStr
            << " can't be used with -" << IROutputOnly.ArgStr << "\n";
     return 1;

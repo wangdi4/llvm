@@ -19,7 +19,6 @@
 #include "llvm/ExecutionEngine/JITLink/aarch64.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "jitlink"
 
@@ -107,8 +106,9 @@ private:
       return ELFLd64GOTLo12;
     }
 
-    return make_error<JITLinkError>("Unsupported aarch64 relocation:" +
-                                    formatv("{0:d}", Type));
+    return make_error<JITLinkError>(
+        "Unsupported aarch64 relocation:" + formatv("{0:d}: ", Type) +
+        object::getELFRelocationTypeName(ELF::EM_AARCH64, Type));
   }
 
   Error addRelocations() override {

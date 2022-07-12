@@ -269,7 +269,7 @@ void X86AsmPrinter::PrintOperand(const MachineInstr *MI, unsigned OpNo,
 void X86AsmPrinter::PrintModifiedOperand(const MachineInstr *MI, unsigned OpNo,
                                          raw_ostream &O, const char *Modifier) {
   const MachineOperand &MO = MI->getOperand(OpNo);
-  if (!Modifier || MO.getType() != MachineOperand::MO_Register)
+  if (!Modifier || !MO.isReg())
     return PrintOperand(MI, OpNo, O);
   if (MI->getInlineAsmDialect() == InlineAsm::AD_ATT)
     O << '%';
@@ -971,7 +971,7 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
   // of anchor address structure field for a corresponding anchor.
   int16_t Version = EmitTabV0102 ? 0x0102 : 0x0101;
 
-  OutStreamer->SwitchSection(Notify);
+  OutStreamer->switchSection(Notify);
 
   MCSymbol *NotifyStart = MMI->getContext().getOrCreateSymbol("itt_notify_tab");
   MCSymbol *EntriesStart =

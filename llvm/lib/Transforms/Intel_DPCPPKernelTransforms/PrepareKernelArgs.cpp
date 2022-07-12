@@ -546,7 +546,7 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
-  Alignment = max(Alignment, MaybeAlign(ByValAlignment));
+  Alignment = std::max(Alignment, MaybeAlign(ByValAlignment).valueOrOne());
 
   Value *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr,
                                     Alignment, Arg->getName() + Twine(".ptr"),

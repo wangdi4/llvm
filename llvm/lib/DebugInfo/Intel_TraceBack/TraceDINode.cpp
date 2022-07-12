@@ -228,7 +228,7 @@ void TraceModule::emit(MCStreamer &OS) const {
   TraceSection->setAlignment(Align(PointerSize));
 
   // Switch to .trace for writing
-  OS.SwitchSection(TraceSection);
+  OS.switchSection(TraceSection);
   OS.emitLabel(ModuleBegin);
   emitTag(OS, getTag());
   // Format version

@@ -79,10 +79,8 @@ define intel_features_init_cc i32 @__libirc_set_cpu_feature(i64* noalias nocaptu
 ; CHECK-LABEL: __libirc_set_cpu_feature:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushl %edx
-; CHECK-NEXT:    pushl %ebx
 ; CHECK-NEXT:    pushl %edi
 ; CHECK-NEXT:    pushl %esi
-; CHECK-NEXT:    subl $12, %esp
 ; CHECK-NEXT:    movl %eax, %edx
 ; CHECK-NEXT:    cmpb $0, __libirc_isa_info_initialized
 ; CHECK-NEXT:    jne .LBB3_2
@@ -98,25 +96,22 @@ define intel_features_init_cc i32 @__libirc_set_cpu_feature(i64* noalias nocaptu
 ; CHECK-NEXT:    testl %ecx, %ecx
 ; CHECK-NEXT:    js .LBB3_4
 ; CHECK-NEXT:  # %bb.3: # %if.end
-; CHECK-NEXT:    movl %ecx, %eax
-; CHECK-NEXT:    shrl $6, %eax
-; CHECK-NEXT:    movl $1, %esi
+; CHECK-NEXT:    movl $1, %eax
+; CHECK-NEXT:    xorl %esi, %esi
 ; CHECK-NEXT:    xorl %edi, %edi
-; CHECK-NEXT:    xorl %ebx, %ebx
-; CHECK-NEXT:    shldl %cl, %esi, %ebx
-; CHECK-NEXT:    shll %cl, %esi
+; CHECK-NEXT:    shldl %cl, %eax, %edi
+; CHECK-NEXT:    shll %cl, %eax
 ; CHECK-NEXT:    testb $32, %cl
-; CHECK-NEXT:    cmovnel %esi, %ebx
-; CHECK-NEXT:    cmovnel %edi, %esi
-; CHECK-NEXT:    orl %esi, (%edx,%eax,8)
-; CHECK-NEXT:    orl %ebx, 4(%edx,%eax,8)
+; CHECK-NEXT:    cmovnel %eax, %edi
+; CHECK-NEXT:    cmovnel %esi, %eax
+; CHECK-NEXT:    shrl $6, %ecx
+; CHECK-NEXT:    orl %eax, (%edx,%ecx,8)
+; CHECK-NEXT:    orl %edi, 4(%edx,%ecx,8)
 ; CHECK-NEXT:    xorl %ecx, %ecx
 ; CHECK-NEXT:  .LBB3_4: # %cleanup
 ; CHECK-NEXT:    movl %ecx, %eax
-; CHECK-NEXT:    addl $12, %esp
 ; CHECK-NEXT:    popl %esi
 ; CHECK-NEXT:    popl %edi
-; CHECK-NEXT:    popl %ebx
 ; CHECK-NEXT:    popl %edx
 ; CHECK-NEXT:    retl
 entry:

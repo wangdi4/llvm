@@ -102,11 +102,11 @@ The llvm target-specific intrinsics (``@llvm.x86...``) are defined in llvm ``Int
 .. code-block:: c
   :emphasize-lines: 1,5
 
-  def int_x86_mmx_padd_d : GCCBuiltin<"__builtin_ia32_paddd">,
+  def int_x86_mmx_padd_d : ClangBuiltin<"__builtin_ia32_paddd">,
               Intrinsic<[llvm_x86mmx_ty], [llvm_x86mmx_ty, llvm_x86mmx_ty],
                         [IntrNoMem]>;
 
-  def int_x86_mmx_padd_q : GCCBuiltin<"__builtin_ia32_paddq">,
+  def int_x86_mmx_padd_q : ClangBuiltin<"__builtin_ia32_paddq">,
               Intrinsic<[llvm_x86mmx_ty], [llvm_x86mmx_ty, llvm_x86mmx_ty],
                         [IntrNoMem]>;
 

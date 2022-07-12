@@ -20,23 +20,27 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-# INTEL_CUSTOMIZATION
-# The clang-tidy additions for misc-homoglyph are marked INTEL_CUSTOMIZATION
-# but there is an expected conflict when these changes are pulled down from
-# community.
+if(LLVM_USE_HOST_TOOLS)
+  build_native_tool(make-confusable-table make_confusable_table)
+  set(make_confusable_table_target "${make_confusable_table}")
+else()
+  set(make_confusable_table $<TARGET_FILE:make-confusable-table>)
+  set(make_confusable_table_target make-confusable-table)
+endif()
+
 add_subdirectory(ConfusableTable)
+
 
 add_custom_command(
     OUTPUT Confusables.inc
-    COMMAND make_confusable_table ${CMAKE_CURRENT_SOURCE_DIR}/ConfusableTable/confusables.txt ${CMAKE_CURRENT_BINARY_DIR}/Confusables.inc
-    DEPENDS make_confusable_table ConfusableTable/confusables.txt)
+    COMMAND ${make_confusable_table} ${CMAKE_CURRENT_SOURCE_DIR}/ConfusableTable/confusables.txt ${CMAKE_CURRENT_BINARY_DIR}/Confusables.inc
+    DEPENDS ${make_confusable_table_target} ConfusableTable/confusables.txt)
 
 add_custom_target(genconfusable DEPENDS Confusables.inc)
-# end INTEL_CUSTOMIZATION
 
 add_clang_library(clangTidyMiscModule
   DefinitionsInHeadersCheck.cpp
-  Homoglyph.cpp # INTEL
+  ConfusableIdentifierCheck.cpp
   MiscTidyModule.cpp
   MisleadingBidirectional.cpp
   MisleadingIdentifier.cpp
@@ -60,7 +64,7 @@ add_clang_library(clangTidyMiscModule
 
   DEPENDS
   omp_gen
-  genconfusable # INTEL
+  genconfusable
   )
 
 clang_target_link_libraries(clangTidyMiscModule

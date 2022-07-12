@@ -133,6 +133,11 @@ static cl::opt<int> IntraSCCCostMultiplier(
 static cl::opt<bool> KeepAdvisorForPrinting("keep-inline-advisor-for-printing",
                                             cl::init(false), cl::Hidden);
 
+/// Allows printing the contents of the advisor after each SCC inliner pass.
+static cl::opt<bool>
+    EnablePostSCCAdvisorPrinting("enable-scc-inline-advisor-printing",
+                                 cl::init(false), cl::Hidden);
+
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -913,7 +918,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           .getManager();
 
   InlineAdvisor &Advisor = getAdvisor(MAMProxy, FAM, M);
-  Advisor.onPassEntry();
+  Advisor.onPassEntry(&InitialC);
 
   auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(&InitialC); });
 
@@ -1112,7 +1117,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       int CBCostMult =
           getStringFnAttrAsInt(
               *CB, InlineConstants::FunctionInlineCostMultiplierAttributeName)
-              .getValueOr(1);
+              .value_or(1);
 
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
@@ -1384,9 +1389,14 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-  if (MandatoryFirst)
+  if (MandatoryFirst) {
     PM.addPass(InlinerPass(/*OnlyMandatory*/ true));
+    if (EnablePostSCCAdvisorPrinting)
+      PM.addPass(InlineAdvisorAnalysisPrinterPass(dbgs()));
+  }
   PM.addPass(InlinerPass());
+  if (EnablePostSCCAdvisorPrinting)
+    PM.addPass(InlineAdvisorAnalysisPrinterPass(dbgs()));
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,

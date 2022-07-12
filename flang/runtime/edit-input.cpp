@@ -693,9 +693,6 @@ bool EditCharacterInput(
     return false;
   }
   const ConnectionState &connection{io.GetConnectionState()};
-  if (connection.IsAtEOF()) {
-    return false;
-  }
   std::size_t remaining{length};
   if (edit.width && *edit.width > 0) {
     remaining = *edit.width;
@@ -733,7 +730,17 @@ bool EditCharacterInput(
         chunk = 1;
       }
       --remaining;
-    } else {
+    } else if constexpr (sizeof *x > 1) {
+      // Read single byte with expansion into multi-byte CHARACTER
+      chunk = 1;
+      if (skipping) {
+        --skip;
+      } else {
+        *x++ = static_cast<unsigned char>(*input);
+        --length;
+      }
+      --remaining;
+    } else { // single bytes -> default CHARACTER
       if (skipping) {
         chunk = std::min<std::size_t>(skip, ready);
         skip -= chunk;

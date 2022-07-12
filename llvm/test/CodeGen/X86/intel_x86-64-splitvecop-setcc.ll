@@ -5,20 +5,22 @@
 define <2 x i16> @foo(<2 x half>%a) #0 {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movzwl %di, %eax
-; CHECK-NEXT:    vmovd %eax, %xmm0
+; CHECK-NEXT:    vpextrw $0, %xmm1, %eax
+; CHECK-NEXT:    vpextrw $0, %xmm0, %ecx
+; CHECK-NEXT:    movzwl %cx, %ecx
+; CHECK-NEXT:    vmovd %ecx, %xmm0
 ; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vucomiss %xmm1, %xmm0
-; CHECK-NEXT:    setnp %al
-; CHECK-NEXT:    sete %cl
-; CHECK-NEXT:    andb %al, %cl
-; CHECK-NEXT:    andl $1, %ecx
-; CHECK-NEXT:    kmovw %ecx, %k0
-; CHECK-NEXT:    movzwl %si, %eax
+; CHECK-NEXT:    setnp %cl
+; CHECK-NEXT:    sete %dl
+; CHECK-NEXT:    andb %cl, %dl
+; CHECK-NEXT:    andl $1, %edx
+; CHECK-NEXT:    kmovw %edx, %k0
+; CHECK-NEXT:    movzwl %ax, %eax
 ; CHECK-NEXT:    vmovd %eax, %xmm0
 ; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
+; CHECK-NEXT:    vucomiss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; CHECK-NEXT:    setnp %al
 ; CHECK-NEXT:    sete %cl
 ; CHECK-NEXT:    andb %al, %cl

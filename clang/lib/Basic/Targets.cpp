@@ -662,9 +662,7 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   }
   case llvm::Triple::spir64: {
     llvm::Triple HT(Opts.HostTriple);
-#if INTEL_CUSTOMIZATION
     bool IsFPGASubArch = Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga;
-#endif // INTEL_CUSTOMIZATION
 
     switch (HT.getOS()) {
     case llvm::Triple::Win32:

@@ -272,7 +272,7 @@ Attribute CombiningKindAttr::parse(AsmParser &parser, Type type) {
   if (failed(parser.parseGreater()))
     return {};
 
-  return CombiningKindAttr::get(kind.getValue(), parser.getContext());
+  return CombiningKindAttr::get(*kind, parser.getContext());
 }
 
 Attribute VectorDialect::parseAttribute(DialectAsmParser &parser,
@@ -4239,9 +4239,13 @@ OpFoldResult BitCastOp::fold(ArrayRef<Attribute> operands) {
     return getSource();
 
   // Canceling bitcasts.
-  if (auto otherOp = getSource().getDefiningOp<BitCastOp>())
+  if (auto otherOp = getSource().getDefiningOp<BitCastOp>()) {
     if (getResult().getType() == otherOp.getSource().getType())
       return otherOp.getSource();
+
+    setOperand(otherOp.getSource());
+    return getResult();
+  }
 
   Attribute sourceConstant = operands.front();
   if (!sourceConstant)
@@ -4755,7 +4759,7 @@ ParseResult WarpExecuteOnLane0Op::parse(OpAsmParser &parser,
 void WarpExecuteOnLane0Op::getSuccessorRegions(
     Optional<unsigned> index, ArrayRef<Attribute> operands,
     SmallVectorImpl<RegionSuccessor> &regions) {
-  if (index.hasValue()) {
+  if (index) {
     regions.push_back(RegionSuccessor(getResults()));
     return;
   }

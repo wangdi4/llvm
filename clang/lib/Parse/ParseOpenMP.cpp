@@ -209,6 +209,7 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_master, OMPD_taskloop, OMPD_master_taskloop},
       {OMPD_master_taskloop, OMPD_simd, OMPD_master_taskloop_simd},
       {OMPD_parallel, OMPD_master, OMPD_parallel_master},
+      {OMPD_parallel, OMPD_masked, OMPD_parallel_masked},
       {OMPD_parallel_master, OMPD_taskloop, OMPD_parallel_master_taskloop},
       {OMPD_parallel_master_taskloop, OMPD_simd,
        OMPD_parallel_master_taskloop_simd}};
@@ -676,7 +677,7 @@ TypeResult Parser::parseOpenMPDeclareMapperVarDecl(SourceRange &Range,
 
   // Parse the declarator.
   DeclaratorContext Context = DeclaratorContext::Prototype;
-  Declarator DeclaratorInfo(DS, Context);
+  Declarator DeclaratorInfo(DS, ParsedAttributesView::none(), Context);
   ParseDeclarator(DeclaratorInfo);
   Range = DeclaratorInfo.getSourceRange();
   if (DeclaratorInfo.getIdentifier() == nullptr) {
@@ -1612,7 +1613,7 @@ bool Parser::parseOpenMPAppendArgs(
     // Parse the interop-types.
     if (Optional<OMPDeclareVariantAttr::InteropType> IType =
             parseInteropTypeList(*this))
-      InterOpTypes.push_back(IType.getValue());
+      InterOpTypes.push_back(*IType);
     else
       HasError = true;
 
@@ -1949,7 +1950,7 @@ void Parser::ParseOMPDeclareTargetClauses(
       if (!HasDeviceTypeClause)
         HasDeviceTypeClause = IsDeviceTypeClause;
 #endif // INTEL_COLLAB
-      if (DTCI.Indirect.hasValue() && IsIndirectClause) {
+      if (DTCI.Indirect && IsIndirectClause) {
         Diag(Tok, diag::err_omp_more_one_clause)
             << getOpenMPDirectiveName(OMPD_declare_target)
             << getOpenMPClauseName(OMPC_indirect) << 0;
@@ -2009,7 +2010,7 @@ void Parser::ParseOMPDeclareTargetClauses(
           case OMPC_DEVICE_TYPE_unknown:
             llvm_unreachable("Unexpected device_type");
           }
-          DeviceTypeLoc = DevTypeData.getValue().Loc;
+          DeviceTypeLoc = DevTypeData->Loc;
         }
         continue;
       }
@@ -2050,7 +2051,7 @@ void Parser::ParseOMPDeclareTargetClauses(
       ConsumeToken();
   }
 
-  if (DTCI.Indirect.hasValue() && DTCI.DT != OMPDeclareTargetDeclAttr::DT_Any)
+  if (DTCI.Indirect && DTCI.DT != OMPDeclareTargetDeclAttr::DT_Any)
     Diag(DeviceTypeLoc, diag::err_omp_declare_target_indirect_device_type);
 
 #if INTEL_COLLAB
@@ -2562,6 +2563,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_parallel_for_simd:
   case OMPD_parallel_sections:
   case OMPD_parallel_master:
+  case OMPD_parallel_masked:
   case OMPD_atomic:
   case OMPD_target:
   case OMPD_teams:
@@ -3075,6 +3077,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   case OMPD_parallel_for_simd:
   case OMPD_parallel_sections:
   case OMPD_parallel_master:
+  case OMPD_parallel_masked:
   case OMPD_task:
   case OMPD_ordered:
   case OMPD_atomic:

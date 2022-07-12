@@ -2,6 +2,9 @@
 ; RUN: opt < %s -passes=sccp -S | FileCheck %s
 ; PR1938
 
+; INTEL_CUSTOMIZATION
+; Too many changes to merge individually. If this test fails, run
+; update_test_checks again.
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
@@ -58,3 +61,4 @@ cond_next18:
 }
 
 declare void @abort()
+; end INTEL_CUSTOMIZATION

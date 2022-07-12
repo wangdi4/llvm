@@ -34,6 +34,8 @@
 
 let Predicates = [NoAVX512] in {
   // A vector extract of the first f32/f64 position is a subregister copy
+  def : Pat<(f16 (extractelt (v8f16 VR128:$src), (iPTR 0))),
+            (COPY_TO_REGCLASS (v8f16 VR128:$src), FR16)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(bf16 (extractelt (v8bf16 VR128:$src), (iPTR 0))),
@@ -63,6 +65,8 @@ let Predicates = [HasAVX512] in {
 }
 
 let Predicates = [NoVLX] in {
+  def : Pat<(v8f16 (scalar_to_vector FR16:$src)),
+            (COPY_TO_REGCLASS FR16:$src, VR128)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   def : Pat<(v8bf16 (scalar_to_vector BFR16:$src)),

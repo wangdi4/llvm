@@ -390,11 +390,11 @@ void AVRToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
   // Omit if there is no avr-libc installed.
   Optional<std::string> AVRLibcRoot = findAVRLibcInstallation();
-  if (!AVRLibcRoot.hasValue())
+  if (!AVRLibcRoot)
     return;
 
   // Add 'avr-libc/include' to clang system include paths if applicable.
-  std::string AVRInc = AVRLibcRoot.getValue() + "/include";
+  std::string AVRInc = *AVRLibcRoot + "/include";
   if (llvm::sys::fs::is_directory(AVRInc))
     addSystemInclude(DriverArgs, CC1Args, AVRInc);
 }
@@ -432,7 +432,9 @@ void AVR::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   llvm::Optional<unsigned> SectionAddressData = GetMCUSectionAddressData(CPU);
 
   // Compute the linker program path, and use GNU "avr-ld" as default.
-  std::string Linker = getToolChain().GetLinkerPath(nullptr);
+  const Arg *A = Args.getLastArg(options::OPT_fuse_ld_EQ);
+  std::string Linker = A ? getToolChain().GetLinkerPath(nullptr)
+                         : getToolChain().GetProgramPath(getShortName());
 
   ArgStringList CmdArgs;
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);

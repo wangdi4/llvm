@@ -502,7 +502,7 @@ Optional<StringRef> LinkerDriver::findFile(StringRef filename) {
   }
 
   if (path.endswith_insensitive(".lib"))
-    visitedLibs.insert(std::string(sys::path::filename(path)));
+    visitedLibs.insert(std::string(sys::path::filename(path).lower()));
   return path;
 }
 
@@ -649,7 +649,7 @@ void LinkerDriver::addWinSysRootLibSearchPaths() {
 // Parses LIB environment which contains a list of search paths.
 void LinkerDriver::addLibSearchPaths() {
   Optional<std::string> envOpt = Process::GetEnv("LIB");
-  if (!envOpt.hasValue())
+  if (!envOpt)
     return;
   StringRef env = saver().save(*envOpt);
   while (!env.empty()) {
@@ -1956,7 +1956,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   if (!icfLevel)
     icfLevel = doGC ? ICFLevel::All : ICFLevel::None;
   config->doGC = doGC;
-  config->doICF = icfLevel.getValue();
+  config->doICF = *icfLevel;
   config->tailMerge =
       (tailMerge == 1 && config->doICF != ICFLevel::None) || tailMerge == 2;
   config->ltoNewPassManager = ltoNewPM; // INTEL

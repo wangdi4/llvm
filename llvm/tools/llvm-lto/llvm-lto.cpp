@@ -1092,7 +1092,7 @@ int main(int argc, char **argv) {
   CodeGen.setUseNewPM(UseNewPM); // INTEL
 
   if (auto FT = codegen::getExplicitFileType())
-    CodeGen.setFileType(FT.getValue());
+    CodeGen.setFileType(*FT);
 
   if (!OutputFilename.empty()) {
     if (SaveLinkedModuleFile) {

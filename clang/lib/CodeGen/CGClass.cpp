@@ -2769,7 +2769,7 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
   else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
                               // Don't insert type test assumes if we are
                               // forcing public std visibility.
-                              !CGM.HasLTOVisibilityPublicStd(RD))) {
+                              !CGM.AlwaysHasLTOVisibilityPublic(RD))) {
 
     llvm::BasicBlock *ContinueBB;
     if (WrappingNeeded) {
@@ -2783,9 +2783,9 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     }
 #else  // INTEL_FEATURE_SW_DTRANS
   else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           // Don't insert type test assumes if we are forcing public std
+           // Don't insert type test assumes if we are forcing public
            // visibility.
-           !CGM.HasLTOVisibilityPublicStd(RD)) {
+           !CGM.AlwaysHasLTOVisibilityPublic(RD)) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     llvm::Metadata *MD =

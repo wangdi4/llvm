@@ -723,6 +723,8 @@ public:
                                            bool Insert, bool Extract) {
     /// FIXME: a bitfield is not a reasonable abstraction for talking about
     /// which elements are needed from a scalable vector
+    if (isa<ScalableVectorType>(InTy))
+      return InstructionCost::getInvalid();
     auto *Ty = cast<FixedVectorType>(InTy);
 
     assert(DemandedElts.getBitWidth() == Ty->getNumElements() &&
@@ -745,6 +747,8 @@ public:
   /// Helper wrapper for the DemandedElts variant of getScalarizationOverhead.
   InstructionCost getScalarizationOverhead(VectorType *InTy, bool Insert,
                                            bool Extract) {
+    if (isa<ScalableVectorType>(InTy))
+      return InstructionCost::getInvalid();
     auto *Ty = cast<FixedVectorType>(InTy);
 
     APInt DemandedElts = APInt::getAllOnes(Ty->getNumElements());
@@ -1149,6 +1153,9 @@ public:
     // TODO: If one of the types get legalized by splitting, handle this
     // similarly to what getCastInstrCost() does.
     if (auto *ValVTy = dyn_cast<VectorType>(ValTy)) {
+      if (isa<ScalableVectorType>(ValTy))
+        return InstructionCost::getInvalid();
+
       unsigned Num = cast<FixedVectorType>(ValVTy)->getNumElements();
       if (CondTy)
         CondTy = CondTy->getScalarType();
@@ -1221,7 +1228,7 @@ public:
            EI != EE; ++EI) {
         MaybeAlign ElementAlignment =
             Alignment
-                ? commonAlignment(Alignment, SL->getElementOffset(EI - EB))
+                ? commonAlignment(*Alignment, SL->getElementOffset(EI - EB))
                 : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, *EI, ElementAlignment, AddressSpace, CostKind, I);
@@ -1236,7 +1243,7 @@ public:
       uint64_t EltSize = DL.getTypeAllocSize(EltTy);
       for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
         MaybeAlign ElementAlignment =
-            Alignment ? commonAlignment(Alignment, i * EltSize) : Alignment;
+            Alignment ? commonAlignment(*Alignment, i * EltSize) : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, EltTy, ElementAlignment, AddressSpace, CostKind, I);
       }
@@ -1366,8 +1373,7 @@ public:
 
       // Scale the cost of the load by the fraction of legal instructions that
       // will be used.
-      Cost = divideCeil(UsedInsts.count() * Cost.getValue().getValue(),
-                        NumLegalInsts);
+      Cost = divideCeil(UsedInsts.count() * *Cost.getValue(), NumLegalInsts);
     }
 
     // Then plus the cost of interleave operation.
@@ -1474,6 +1480,26 @@ public:
     default:
       break;
 
+    case Intrinsic::powi:
+      if (auto *RHSC = dyn_cast<ConstantInt>(Args[1])) {
+        bool ShouldOptForSize = I->getParent()->getParent()->hasOptSize();
+        if (getTLI()->isBeneficialToExpandPowI(RHSC->getSExtValue(),
+                                               ShouldOptForSize)) {
+          // The cost is modeled on the expansion performed by ExpandPowI in
+          // SelectionDAGBuilder.
+          APInt Exponent = RHSC->getValue().abs();
+          unsigned ActiveBits = Exponent.getActiveBits();
+          unsigned PopCount = Exponent.countPopulation();
+          InstructionCost Cost = (ActiveBits + PopCount - 2) *
+                                 thisT()->getArithmeticInstrCost(
+                                     Instruction::FMul, RetTy, CostKind);
+          if (RHSC->getSExtValue() < 0)
+            Cost += thisT()->getArithmeticInstrCost(Instruction::FDiv, RetTy,
+                                                    CostKind);
+          return Cost;
+        }
+      }
+      break;
     case Intrinsic::cttz:
       // FIXME: If necessary, this should go in target-specific overrides.
       if (RetVF.isScalar() && getTLI()->isCheapToSpeculateCttz())
@@ -1563,8 +1589,6 @@ public:
     }
     case Intrinsic::fshl:
     case Intrinsic::fshr: {
-      if (isa<ScalableVectorType>(RetTy))
-        return BaseT::getIntrinsicInstrCost(ICA, CostKind);
       const Value *X = Args[0];
       const Value *Y = Args[1];
       const Value *Z = Args[2];

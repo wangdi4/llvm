@@ -134,7 +134,10 @@ IncrementalParser::IncrementalParser(std::unique_ptr<CompilerInstance> Instance,
   P->Initialize();
 }
 
-IncrementalParser::~IncrementalParser() { Act->FinalizeAction(); }
+IncrementalParser::~IncrementalParser() {
+  P.reset();
+  Act->FinalizeAction();
+}
 
 llvm::Expected<PartialTranslationUnit &>
 IncrementalParser::ParseOrWrapTopLevelDecl() {
@@ -188,7 +191,7 @@ IncrementalParser::ParseOrWrapTopLevelDecl() {
     S.TUScope->setEntity(PreviousTU);
 
     // Clean up the lookup table
-    if (StoredDeclsMap *Map = PreviousTU->getLookupPtr()) {
+    if (StoredDeclsMap *Map = PreviousTU->getPrimaryContext()->getLookupPtr()) {
       for (auto I = Map->begin(); I != Map->end(); ++I) {
         StoredDeclsList &List = I->second;
         DeclContextLookupResult R = List.getLookupResult();

@@ -109,7 +109,7 @@ static void warnAboutLeftoverTransformations(Loop *L,
              "requested transformation; the transformation might be disabled "
              "or specified as part of an unsupported transformation ordering");
     } // INTEL
-    else if (InterleaveCount.getValueOr(0) != 1)
+    else if (InterleaveCount.value_or(0) != 1)
       ORE->emit(
           DiagnosticInfoOptimizationFailure(DEBUG_TYPE,
                                             "FailedRequestedInterleaving",

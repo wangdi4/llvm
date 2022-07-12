@@ -5357,7 +5357,7 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
   for (ReductionItem *RedI : RedClause.items()) {
     Align OrigAlignment =
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
-    MaxAlignment = max(OrigAlignment, MaxAlignment);
+    MaxAlignment = std::max(OrigAlignment, MaxAlignment.valueOrOne());
 
     if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
         getIsVlaOrVlaSection(RedI)) {

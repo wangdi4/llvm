@@ -1,4 +1,3 @@
-// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -opaque-pointers -fsycl-is-device -fintelfpga -triple spir64_fpga -aux-triple x86_64-unknown-linux-gnu -IInputs -emit-llvm %s -o - | FileCheck %s
 
 // This test checks that we generate appropriate code for division
@@ -26,4 +25,3 @@ int main() {
   };
   h.single_task(lambda);
 }
-// end INTEL_CUSTOMIZATION

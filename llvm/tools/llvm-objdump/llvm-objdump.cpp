@@ -1730,7 +1730,7 @@ static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
                 "no assembly info for target " + TripleName);
 
   if (MCPU.empty())
-    MCPU = Obj->tryGetCPUName().getValueOr("").str();
+    MCPU = Obj->tryGetCPUName().value_or("").str();
 
   std::unique_ptr<const MCSubtargetInfo> STI(
       TheTarget->createMCSubtargetInfo(TripleName, MCPU, Features.getString()));
@@ -2194,7 +2194,7 @@ void objdump::printSymbol(const ObjectFile *O, const SymbolRef &Symbol,
           dyn_cast<const XCOFFObjectFile>(O), Symbol);
       if (SymRef) {
 
-        Expected<StringRef> NameOrErr = SymRef.getValue().getName();
+        Expected<StringRef> NameOrErr = SymRef->getName();
 
         if (NameOrErr) {
           outs() << " (csect:";
@@ -2348,13 +2348,13 @@ static void printFaultMaps(const ObjectFile *Obj) {
 
   outs() << "FaultMap table:\n";
 
-  if (!FaultMapSection.hasValue()) {
+  if (!FaultMapSection) {
     outs() << "<not found>\n";
     return;
   }
 
   StringRef FaultMapContents =
-      unwrapOrError(FaultMapSection.getValue().getContents(), Obj->getFileName());
+      unwrapOrError(FaultMapSection->getContents(), Obj->getFileName());
   FaultMapParser FMP(FaultMapContents.bytes_begin(),
                      FaultMapContents.bytes_end());
 

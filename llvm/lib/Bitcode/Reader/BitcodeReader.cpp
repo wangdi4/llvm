@@ -616,8 +616,8 @@ public:
   /// Main interface to parsing a bitcode buffer.
   /// \returns true if an error occurred.
   Error parseBitcodeInto(
-      Module *M, bool ShouldLazyLoadMetadata = false, bool IsImporting = false,
-      DataLayoutCallbackTy DataLayoutCallback = [](StringRef) { return None; });
+      Module *M, bool ShouldLazyLoadMetadata, bool IsImporting,
+      DataLayoutCallbackTy DataLayoutCallback);
 
   static uint64_t decodeSignRotatedValue(uint64_t V);
 
@@ -3384,7 +3384,7 @@ Error BitcodeReader::globalCleanup() {
       // Some types could be renamed during loading if several modules are
       // loaded in the same LLVMContext (LTO scenario). In this case we should
       // remangle intrinsics names as well.
-      RemangledIntrinsics[&F] = Remangled.getValue();
+      RemangledIntrinsics[&F] = *Remangled;
     // Look for functions that rely on old function attribute behavior.
     UpgradeFunctionAttributes(F);
   }

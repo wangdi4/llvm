@@ -129,7 +129,7 @@ static const uint64_t kFreeBSDKasan_ShadowOffset64 = 0xdffff7c000000000;
 static const uint64_t kNetBSD_ShadowOffset32 = 1ULL << 30;
 static const uint64_t kNetBSD_ShadowOffset64 = 1ULL << 46;
 static const uint64_t kNetBSDKasan_ShadowOffset64 = 0xdfff900000000000;
-static const uint64_t kPS4_ShadowOffset64 = 1ULL << 40;
+static const uint64_t kPS_ShadowOffset64 = 1ULL << 40;
 static const uint64_t kWindowsShadowOffset32 = 3ULL << 28;
 static const uint64_t kEmscriptenShadowOffset = 0;
 
@@ -488,7 +488,7 @@ static ShadowMapping getShadowMapping(const Triple &TargetTriple, int LongSize,
   bool IsMacOS = TargetTriple.isMacOSX();
   bool IsFreeBSD = TargetTriple.isOSFreeBSD();
   bool IsNetBSD = TargetTriple.isOSNetBSD();
-  bool IsPS4 = TargetTriple.isPS4();
+  bool IsPS = TargetTriple.isPS();
   bool IsLinux = TargetTriple.isOSLinux();
   bool IsPPC64 = TargetTriple.getArch() == Triple::ppc64 ||
                  TargetTriple.getArch() == Triple::ppc64le;
@@ -547,8 +547,8 @@ static ShadowMapping getShadowMapping(const Triple &TargetTriple, int LongSize,
         Mapping.Offset = kNetBSDKasan_ShadowOffset64;
       else
         Mapping.Offset = kNetBSD_ShadowOffset64;
-    } else if (IsPS4)
-      Mapping.Offset = kPS4_ShadowOffset64;
+    } else if (IsPS)
+      Mapping.Offset = kPS_ShadowOffset64;
     else if (IsLinux && IsX86_64) {
       if (IsKasan)
         Mapping.Offset = kLinuxKasan_ShadowOffset64;
@@ -587,7 +587,7 @@ static ShadowMapping getShadowMapping(const Triple &TargetTriple, int LongSize,
   // offset is not necessary 1/8-th of the address space.  On SystemZ,
   // we could OR the constant in a single instruction, but it's more
   // efficient to load it once and use indexed addressing.
-  Mapping.OrShadowOffset = !IsAArch64 && !IsPPC64 && !IsSystemZ && !IsPS4 &&
+  Mapping.OrShadowOffset = !IsAArch64 && !IsPPC64 && !IsSystemZ && !IsPS &&
                            !IsRISCV64 &&
                            !(Mapping.Offset & (Mapping.Offset - 1)) &&
                            Mapping.Offset != kDynamicShadowSentinel;
@@ -639,39 +639,6 @@ static uint64_t GetCtorAndDtorPriority(Triple &TargetTriple) {
 }
 
 namespace {
-
-#if INTEL_CUSTOMIZATION
-/// Module analysis for getting various metadata about the module.
-class ASanGlobalsMetadataWrapperPass : public ModulePass {
-public:
-  static char ID;
-
-  ASanGlobalsMetadataWrapperPass() : ModulePass(ID) {
-    initializeASanGlobalsMetadataWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    GlobalsMD = GlobalsMetadata(M);
-    return false;
-  }
-
-  StringRef getPassName() const override {
-    return "ASanGlobalsMetadataWrapperPass";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  GlobalsMetadata &getGlobalsMD() { return GlobalsMD; }
-
-private:
-  GlobalsMetadata GlobalsMD;
-};
-
-char ASanGlobalsMetadataWrapperPass::ID = 0;
-#endif // INTEL_CUSTOMIZATION
 
 /// AddressSanitizer: instrument the code in module to find memory bugs.
 struct AddressSanitizer {
@@ -808,54 +775,6 @@ private:
   FunctionCallee AMDGPUAddressPrivate;
 };
 
-#if INTEL_CUSTOMIZATION
-class AddressSanitizerLegacyPass : public FunctionPass {
-public:
-  static char ID;
-
-  explicit AddressSanitizerLegacyPass(
-      bool CompileKernel = false, bool Recover = false,
-      bool UseAfterScope = false,
-      AsanDetectStackUseAfterReturnMode UseAfterReturn =
-          AsanDetectStackUseAfterReturnMode::Runtime)
-      : FunctionPass(ID), CompileKernel(CompileKernel), Recover(Recover),
-        UseAfterScope(UseAfterScope), UseAfterReturn(UseAfterReturn) {
-    initializeAddressSanitizerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override {
-    return "AddressSanitizerFunctionPass";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ASanGlobalsMetadataWrapperPass>();
-    if (ClUseStackSafety)
-      AU.addRequired<StackSafetyGlobalInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    GlobalsMetadata &GlobalsMD =
-        getAnalysis<ASanGlobalsMetadataWrapperPass>().getGlobalsMD();
-    const StackSafetyGlobalInfo *const SSGI =
-        ClUseStackSafety
-            ? &getAnalysis<StackSafetyGlobalInfoWrapperPass>().getResult()
-            : nullptr;
-    const TargetLibraryInfo *TLI =
-        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    AddressSanitizer ASan(*F.getParent(), &GlobalsMD, SSGI, CompileKernel,
-                          Recover, UseAfterScope, UseAfterReturn);
-    return ASan.instrumentFunction(F, TLI);
-  }
-
-private:
-  bool CompileKernel;
-  bool Recover;
-  bool UseAfterScope;
-  AsanDetectStackUseAfterReturnMode UseAfterReturn;
-};
-#endif // INTEL_CUSTOMIZATION
-
 class ModuleAddressSanitizer {
 public:
   ModuleAddressSanitizer(Module &M, const GlobalsMetadata *GlobalsMD,
@@ -953,46 +872,6 @@ private:
   Function *AsanCtorFunction = nullptr;
   Function *AsanDtorFunction = nullptr;
 };
-
-#if INTEL_CUSTOMIZATION
-class ModuleAddressSanitizerLegacyPass : public ModulePass {
-public:
-  static char ID;
-
-  explicit ModuleAddressSanitizerLegacyPass(
-      bool CompileKernel = false, bool Recover = false, bool UseGlobalGC = true,
-      bool UseOdrIndicator = false,
-      AsanDtorKind DestructorKind = AsanDtorKind::Global)
-      : ModulePass(ID), CompileKernel(CompileKernel), Recover(Recover),
-        UseGlobalGC(UseGlobalGC), UseOdrIndicator(UseOdrIndicator),
-        DestructorKind(DestructorKind) {
-    initializeModuleAddressSanitizerLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ModuleAddressSanitizer"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ASanGlobalsMetadataWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    GlobalsMetadata &GlobalsMD =
-        getAnalysis<ASanGlobalsMetadataWrapperPass>().getGlobalsMD();
-    ModuleAddressSanitizer ASanModule(M, &GlobalsMD, CompileKernel, Recover,
-                                      UseGlobalGC, UseOdrIndicator,
-                                      DestructorKind);
-    return ASanModule.instrumentModule(M);
-  }
-
-private:
-  bool CompileKernel;
-  bool Recover;
-  bool UseGlobalGC;
-  bool UseOdrIndicator;
-  AsanDtorKind DestructorKind;
-};
-#endif // INTEL_CUSTOMIZATION
 
 // Stack poisoning does not play well with exception handling.
 // When an exception is thrown, we essentially bypass the code
@@ -1331,51 +1210,6 @@ PreservedAnalyses ModuleAddressSanitizerPass::run(Module &M,
   Modified |= ModuleSanitizer.instrumentModule(M);
   return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-#if INTEL_CUSTOMIZATION
-INITIALIZE_PASS(ASanGlobalsMetadataWrapperPass, "asan-globals-md",
-                "Read metadata to mark which globals should be instrumented "
-                "when running ASan.",
-                false, true)
-
-char AddressSanitizerLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    AddressSanitizerLegacyPass, "asan",
-    "AddressSanitizer: detects use-after-free and out-of-bounds bugs.", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(ASanGlobalsMetadataWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(StackSafetyGlobalInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(
-    AddressSanitizerLegacyPass, "asan",
-    "AddressSanitizer: detects use-after-free and out-of-bounds bugs.", false,
-    false)
-
-FunctionPass *llvm::createAddressSanitizerFunctionPass(
-    bool CompileKernel, bool Recover, bool UseAfterScope,
-    AsanDetectStackUseAfterReturnMode UseAfterReturn) {
-  assert(!CompileKernel || Recover);
-  return new AddressSanitizerLegacyPass(CompileKernel, Recover, UseAfterScope,
-                                        UseAfterReturn);
-}
-
-char ModuleAddressSanitizerLegacyPass::ID = 0;
-
-INITIALIZE_PASS(
-    ModuleAddressSanitizerLegacyPass, "asan-module",
-    "AddressSanitizer: detects use-after-free and out-of-bounds bugs."
-    "ModulePass",
-    false, false)
-
-ModulePass *llvm::createModuleAddressSanitizerLegacyPassPass(
-    bool CompileKernel, bool Recover, bool UseGlobalsGC, bool UseOdrIndicator,
-    AsanDtorKind Destructor) {
-  assert(!CompileKernel || Recover);
-  return new ModuleAddressSanitizerLegacyPass(
-      CompileKernel, Recover, UseGlobalsGC, UseOdrIndicator, Destructor);
-}
-#endif // INTEL_CUSTOMIZATION
 
 static size_t TypeSizeToSizeIndex(uint32_t TypeSize) {
   size_t Res = countTrailingZeros(TypeSize / 8);

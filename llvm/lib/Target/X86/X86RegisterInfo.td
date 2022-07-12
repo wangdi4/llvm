@@ -606,6 +606,8 @@ def FR32 : RegisterClass<"X86", [f32], 32, (sequence "XMM%u", 0, 15)>;
 
 def FR64 : RegisterClass<"X86", [f64], 64, (add FR32)>;
 
+def FR16 : RegisterClass<"X86", [f16], 16, (add FR32)> {let Size = 32;}
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 // TODO: Integrate bf16 into FR16 Register class since their ABI same.
@@ -689,7 +691,7 @@ def FR32X : RegisterClass<"X86", [f32], 32, (sequence "XMM%u", 0, 31)>;
 
 def FR64X : RegisterClass<"X86", [f64], 64, (add FR32X)>;
 
-def FR16X : RegisterClass<"X86", [f16], 16, (add FR32X)>;
+def FR16X : RegisterClass<"X86", [f16], 16, (add FR32X)> {let Size = 32;}
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
