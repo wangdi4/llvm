@@ -8345,7 +8345,6 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
             S.getInc(),
             [&S, LoopExit](CodeGenFunction &CGF) {
               CGF.EmitOMPLoopBody(S, LoopExit);
-              CGF.EmitStopPoint(&S);
             },
             [&S](CodeGenFunction &CGF) { CGF.EmitLateOutlineOMPFinals(S); });
         EmitBlock(LoopExit.getBlock());
