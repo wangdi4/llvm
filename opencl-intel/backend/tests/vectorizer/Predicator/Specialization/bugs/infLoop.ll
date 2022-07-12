@@ -32,7 +32,10 @@ for.body.lr.ph.split.us:                          ; preds = %for.body.lr.ph
 
 if.end40.us.us:                                   ; preds = %for.body.lr.ph.split.us, %if.end40.us.us
   %indvars.iv52 = phi i64 [ %indvars.iv.next53, %if.end40.us.us ], [ %0, %for.body.lr.ph.split.us ]
-  %call27.us.us = tail call float @_Z3maxff(float 0.000000e+00, float fdiv (float fsub (float 5.000000e-01, float undef), float fsub (float 1.000000e+00, float undef))) nounwind readnone
+  %fsub.nonconst.1 = fsub float 5.000000e-01, undef
+  %fsub.nonconst.2 = fsub float 1.000000e+00, undef
+  %div.nonconst.1 = fdiv float %fsub.nonconst.1, %fsub.nonconst.2
+  %call27.us.us = tail call float @_Z3maxff(float 0.000000e+00, float %div.nonconst.1) nounwind readnone
   %arrayidx42.us.us = getelementptr inbounds float, float addrspace(1)* %gpfAbove, i64 %indvars.iv52
   store float %call27.us.us, float addrspace(1)* %arrayidx42.us.us, align 4
   %indvars.iv.next53 = add i64 %indvars.iv52, %1
@@ -45,7 +48,9 @@ if.else28.us:                                     ; preds = %for.body.lr.ph.spli
   br i1 %or.cond1, label %if.then33.us, label %if.end40.us
 
 if.then33.us:                                     ; preds = %if.else28.us
-  %call36.us = tail call float @_Z3maxff(float 0.000000e+00, float fdiv (float fsub (float undef, float 5.000000e-01), float undef)) nounwind readnone
+  %fsub.nonconst.3 = fsub float undef, 5.000000e-01
+  %div.nonconst.2 = fdiv float %fsub.nonconst.3, undef
+  %call36.us = tail call float @_Z3maxff(float 0.000000e+00, float %div.nonconst.2) nounwind readnone
   %sub37.us = fsub float 1.000000e+00, %call36.us
   br label %if.end40.us
 

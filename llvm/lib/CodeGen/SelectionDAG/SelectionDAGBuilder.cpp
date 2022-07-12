@@ -9116,7 +9116,7 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
     Chain = lowerStartEH(Chain, EHPadBB, BeginLabel);
   }
 
-  ArgNo = -1; // INTEL
+  unsigned ArgNo = -1; // INTEL
   SmallVector<StringRef> AsmStrs; // INTEL
   IA->collectAsmStrs(AsmStrs);    // INTEL
 
