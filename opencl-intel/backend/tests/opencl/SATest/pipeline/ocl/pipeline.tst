@@ -327,6 +327,7 @@
 
 ; CHECK:      Running analysis: DPCPPAliasAnalysis
 
+<<<<<<< HEAD
 ; CHECK: Running pass: LICMPass
 ; CHECK: Running pass: BuiltinLICMPass
 ; CHECK: Running pass: LoopStridedCodeMotionPass
@@ -339,6 +340,20 @@
 ; CHECK: Running pass: LoopSimplifyPass
 ; CHECK: Running pass: LoopSimplifyPass
 ; CHECK: Running pass: LCSSAPass
+=======
+; CHECK:      Running pass: LICMPass
+; CHECK:      Running pass: BuiltinLICMPass
+; CHECK:      Running pass: LoopStridedCodeMotionPass
+; CHECK-NEXT: Running analysis: LoopWIAnalysis
+
+; CHECK:      Running pass: LICMPass
+; CHECK:      Running pass: BuiltinLICMPass
+; CHECK:      Running pass: LoopStridedCodeMotionPass
+; CHECK-NEXT: Running analysis: LoopWIAnalysis
+; CHECK:      Running pass: LoopSimplifyPass
+; CHECK:      Running pass: LoopSimplifyPass
+; CHECK:      Running pass: LCSSAPass
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 
 ; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis

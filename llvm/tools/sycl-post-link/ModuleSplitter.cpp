@@ -191,12 +191,20 @@ groupEntryPointsByKernelType(const ModuleDesc &MD,
 // variables definitions are extracted into a single module. This module must
 // be listed first in the output table. For the special case, this function is
 // called with AddSeparateGroupForGlobals set to 'true'
+<<<<<<< HEAD
 EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
                                            EntryPointsGroupScope EntryScope,
                                            bool EmitOnlyKernelsAsEntryPoints,
                                            bool AddSeparateGroupForGlobals
                                                = false) {
 #else // INTEL_COLLAB
+=======
+EntryPointGroupVec
+groupEntryPointsByScope(const ModuleDesc &MD, EntryPointsGroupScope EntryScope,
+                        bool EmitOnlyKernelsAsEntryPoints,
+                        bool AddSeparateGroupForGlobals = false) {
+#else  // INTEL_COLLAB
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
                                            EntryPointsGroupScope EntryScope,
                                            bool EmitOnlyKernelsAsEntryPoints) {
@@ -245,7 +253,7 @@ EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
       EntryPointGroups.reserve(EntryPointMap.size() + 1);
     else
       EntryPointGroups.reserve(EntryPointMap.size());
-#else // INTEL_COLLAB
+#else  // INTEL_COLLAB
     EntryPointGroups.reserve(EntryPointMap.size());
 #endif // INTEL_COLLAB
     for (auto &EPG : EntryPointMap) {
@@ -257,7 +265,11 @@ EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
 #if INTEL_COLLAB
     // last module should contain global variables definitions if needed.
     if (AddSeparateGroupForGlobals && EntryScope == Scope_PerKernel)
+<<<<<<< HEAD
       EntryPointGroups.push_back(EntryPointGroup{OMP_GLOBAL_VARS_NAME, EntryPointSet{}});
+=======
+      EntryPointGroups.push_back({OMP_GLOBAL_VARS_NAME, {}});
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 #endif // INTEL_COLLAB
   } else {
     // No entry points met, record this.
@@ -435,7 +447,12 @@ ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
   SetVector<const GlobalValue *> GVs;
 
   if (!IsGlobalsModule)
+<<<<<<< HEAD
     collectFunctionsToExtract(GVs, ModuleEntryPoints, CallGraph{MD.getModule()});
+=======
+    collectFunctionsToExtract(GVs, ModuleEntryPoints,
+                              CallGraph{MD.getModule()});
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
   else
     collectGlobalVarsToExtract(GVs, MD.getModule());
 
@@ -508,11 +525,17 @@ getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
 
   EntryPointsGroupScope Scope =
       selectDeviceCodeGroupScope(MD.getModule(), Mode, AutoSplitIsGlobalScope);
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
   EntryPointGroupVec Groups =
       groupEntryPointsByScope(MD, Scope, EmitOnlyKernelsAsEntryPoints,
                               IsOMPOffload);
+=======
+#if INTEL_COLLAB
+  EntryPointGroupVec Groups = groupEntryPointsByScope(
+      MD, Scope, EmitOnlyKernelsAsEntryPoints, IsOMPOffload);
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 #else  // INTEL_COLLAB
   EntryPointGroupVec Groups =
       groupEntryPointsByScope(MD, Scope, EmitOnlyKernelsAsEntryPoints);
@@ -522,7 +545,12 @@ getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
                   (Groups.size() > 1 || !Groups.cbegin()->Functions.empty()));
 #if INTEL_COLLAB
   if (IsOMPOffload && (Scope == Scope_PerKernel))
+<<<<<<< HEAD
     return std::make_unique<OMPModuleSplitter>(std::move(MD), std::move(Groups));
+=======
+    return std::make_unique<OMPModuleSplitter>(std::move(MD),
+                                               std::move(Groups));
+>>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 #endif // INTEL_COLLAB
   if (DoSplit)
     return std::make_unique<ModuleSplitter>(std::move(MD), std::move(Groups));
