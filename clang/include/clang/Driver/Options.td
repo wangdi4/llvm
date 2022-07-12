@@ -584,6 +584,9 @@ def ccc_gcc_name : Separate<["-"], "ccc-gcc-name">, InternalDriverOpt,
 def _dpcpp : Flag<["--"], "dpcpp">, Group<internal_driver_Group>,
   Flags<[CoreOption, NoXarchOption, HelpHidden]>,
   HelpText<"Enable specific DPC++ driver behaviors">;
+def disable_extra_temp_dir : Flag<["--"], "disable-extra-temp-dir">,
+  Group<internal_driver_Group>, Flags<[CoreOption, NoXarchOption, HelpHidden]>,
+  HelpText<"Disable additional temporary directory level used for temp files">;
 #endif // INTEL_CUSTOMIZATION
 
 class InternalDebugOpt : Group<internal_debug_Group>,

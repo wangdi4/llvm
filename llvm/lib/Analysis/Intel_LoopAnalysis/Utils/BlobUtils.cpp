@@ -243,6 +243,17 @@ bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
   return true;
 }
 
+bool BlobUtils::isZeroExtendBlob(BlobTy Blob, BlobTy *Val) {
+  if (auto CastSCEV = dyn_cast<SCEVZeroExtendExpr>(Blob)) {
+    if (Val) {
+      *Val = CastSCEV->getOperand();
+    }
+    return true;
+  }
+
+  return false;
+}
+
 bool BlobUtils::isSignExtendBlob(BlobTy Blob, BlobTy *Val) {
   if (auto CastSCEV = dyn_cast<SCEVSignExtendExpr>(Blob)) {
     if (Val) {
@@ -637,4 +648,15 @@ bool BlobUtils::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
 
 bool BlobUtils::getMaxBlobValue(BlobTy Blob, int64_t &Val) const {
   return getHIRParser().getMaxBlobValue(Blob, Val);
+}
+
+unsigned BlobUtils::getUnderlyingExtBlobIndex(unsigned Index) {
+  BlobTy InnerBlob = nullptr;
+  if (isSignExtendBlob(getBlob(Index), &InnerBlob)) {
+    return findBlob(InnerBlob);
+  } else if (isZeroExtendBlob(getBlob(Index), &InnerBlob)) {
+    return findBlob(InnerBlob);
+  }
+
+  return Index;
 }

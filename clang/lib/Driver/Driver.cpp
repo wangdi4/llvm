@@ -1837,6 +1837,13 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Temporary files will be created in the TMP location underneath an
+  // additional directory.  Set that directory here.
+  if (!Args.hasArg(options::OPT_disable_extra_temp_dir))
+    BaseTempDir = GetUserOnlyTemporaryDirectory(Name);
+#endif // INTEL_CUSTOMIZATION
+
   // Check for working directory option before accessing any files
   if (Arg *WD = Args.getLastArg(options::OPT_working_directory))
     if (VFS->setCurrentWorkingDirectory(WD->getValue()))
@@ -9181,7 +9188,17 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
 
 std::string Driver::GetTemporaryPath(StringRef Prefix, StringRef Suffix) const {
   SmallString<128> Path;
-  std::error_code EC = llvm::sys::fs::createTemporaryFile(Prefix, Suffix, Path);
+#if INTEL_CUSTOMIZATION
+  std::error_code EC;
+  if (BaseTempDir.size()) {
+    SmallString<128> BaseAndPrefix(BaseTempDir);
+    llvm::sys::path::append(BaseAndPrefix, Prefix);
+    EC = llvm::sys::fs::createUniqueFile(
+        Twine(BaseAndPrefix) + Twine("-%%%%%%.") + Suffix, Path,
+        llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
+  } else
+    EC = llvm::sys::fs::createTemporaryFile(Prefix, Suffix, Path);
+#endif // INTEL_CUSTOMIZATION
   if (EC) {
     Diag(clang::diag::err_unable_to_make_temp) << EC.message();
     return "";
@@ -9212,6 +9229,20 @@ std::string Driver::GetTemporaryDirectory(StringRef Prefix) const {
 
   return std::string(Path.str());
 }
+
+#if INTEL_CUSTOMIZATION
+std::string Driver::GetUserOnlyTemporaryDirectory(StringRef Prefix) const {
+  SmallString<128> Path;
+  llvm::sys::fs::createUniquePath(Twine(Prefix) + Twine("-%%%%%%"), Path, true);
+  std::error_code EC =
+      llvm::sys::fs::create_directory(Path, true, llvm::sys::fs::owner_all);
+  if (EC) {
+    Diag(clang::diag::err_unable_to_make_temp) << EC.message();
+    return "";
+  }
+  return std::string(Path.str());
+}
+#endif // INTEL_CUSTOMIZATION
 
 std::string Driver::GetClPchPath(Compilation &C, StringRef BaseName) const {
   SmallString<128> Output;

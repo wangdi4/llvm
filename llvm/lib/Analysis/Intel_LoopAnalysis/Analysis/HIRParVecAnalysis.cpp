@@ -1246,44 +1246,19 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
   if (!Inst || !isa<HLIf>(Inst->getParent()))
     return;
 
-  if (Inst->getLLVMInstruction()->getOpcode() != Instruction::Add)
+  int64_t Stride;
+  if (!HIRVectorIdioms::isIncrementInst(Inst, Stride))
     return;
 
-  RegDDRef *LhsDDRef = Inst->getLvalDDRef();
-  assert(LhsDDRef && "Add instruction expected to have non-null lval DDRef");
-  if (LhsDDRef->isMemRef() || !LhsDDRef->getSrcType()->isIntegerTy())
+  if (Stride < 0)
     return;
 
-  assert(Inst->getNumOperands() == 3 &&
-         "Add instruction expected to have 3 operands");
-  RegDDRef *Op0 = Inst->getOperandDDRef(0);
-  RegDDRef *Op1 = Inst->getOperandDDRef(1);
-  RegDDRef *Op2 = Inst->getOperandDDRef(2);
-  if (!Op1->isTerminalRef() || !Op2->isTerminalRef())
-    return;
-
-  CanonExprUtils &CEU = Op0->getCanonExprUtils();
-  CanonExpr *Sum =
-      CEU.cloneAndAdd(Op1->getSingleCanonExpr(), Op2->getSingleCanonExpr());
-  if (!Sum)
-    return;
-
-  CanonExpr *Stride = CEU.cloneAndSubtract(Sum, Op0->getSingleCanonExpr());
-  if (!Stride)
-    return;
-
-  // TODO: relax the restriction to check for invariant strides.
-  int64_t Inc;
-  if (!Stride->isIntConstant(&Inc))
-    return;
-  if (Inc < 0)
-    return;
-
-  LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment {sb:"
-                    << Op0->getSymbase() << "}+" << Inc << " detected: ";
+  unsigned Symbase = Inst->getOperandDDRef(0)->getSymbase();
+  LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment {sb:" << Symbase
+                    << "}+" << Stride << " detected: ";
              CurNode->dump());
 
-  Increments[Op0->getSymbase()].insert(Inst);
+  Increments[Symbase].insert(Inst);
 }
 
 // The function collects compress/expand idioms for further processing.

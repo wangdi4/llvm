@@ -167,6 +167,10 @@ public:
   /// If blob is metadata, sets the return value in Val.
   static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
+  /// Returns true if \p Blob represents a zero extension value.
+  /// If blob is zext, sets the return value in Val.
+  static bool isZeroExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
+
   /// Returns true if \p Blob represents a signed extension value.
   /// If blob is sext, sets the return value in Val.
   static bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
@@ -345,6 +349,10 @@ public:
   bool getMaxBlobValue(unsigned BlobIndex, int64_t &Val) const {
     return getMaxBlobValue(getBlob(BlobIndex), Val);
   }
+
+  // Returns underlying blob index if there is an extension, or the default
+  // blob index if not applicable.
+  unsigned getUnderlyingExtBlobIndex(unsigned Index);
 };
 
 } // End namespace loopopt

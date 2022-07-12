@@ -13,12 +13,14 @@
 // RUN: not %clang -fsyntax-only %s -I %S/Inputs/crash-recovery -isysroot %/t/i/ \
 // RUN: -fmodules -fmodules-cache-path=%t/m/ 2>&1 | FileCheck %s
 
-// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %t/crash-vfs-*.m
-// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %t/crash-vfs-*.sh
+// INTEL_CUSTOMIZATION
+// RUN: FileCheck --check-prefix=CHECKSRC %s -input-file %t/clang*/crash-vfs-*.m
+// RUN: FileCheck --check-prefix=CHECKSH %s -input-file %t/clang*/crash-vfs-*.sh
 // RUN: FileCheck --check-prefix=CHECKYAML %s -input-file \
-// RUN: %t/crash-vfs-*.cache/vfs/vfs.yaml
-// RUN: find %t/crash-vfs-*.cache/vfs | \
+// RUN: %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml
+// RUN: find %t/clang*/crash-vfs-*.cache/vfs | \
 // RUN:   grep "Inputs/crash-recovery/usr/include/stdio.h" | count 1
+// end INTEL_CUSTOMIZATIOn
 
 #include "usr/././//////include/../include/./././../include/stdio.h"
 
@@ -54,13 +56,15 @@
 // and fed into clang to test whether we're correctly representing them
 // in the VFS overlay.
 
+// INTEL_CUSTOMIZATION
 // RUN: sed -e "s@usr/include@usr/include/../include@g" \
-// RUN:     %t/crash-vfs-*.cache/vfs/vfs.yaml > %t/vfs.yaml
-// RUN: cp %t/vfs.yaml %t/crash-vfs-*.cache/vfs/vfs.yaml
+// RUN:     %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml > %t/vfs.yaml
+// RUN: cp %t/vfs.yaml %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml
 // RUN: unset FORCE_CLANG_DIAGNOSTICS_CRASH
 // RUN: %clang -E %s -I %S/Inputs/crash-recovery -isysroot %/t/i/ \
-// RUN:     -ivfsoverlay %t/crash-vfs-*.cache/vfs/vfs.yaml -fmodules \
+// RUN:     -ivfsoverlay %t/clang*/crash-vfs-*.cache/vfs/vfs.yaml -fmodules \
 // RUN:     -fmodules-cache-path=%t/m/ 2>&1 \
 // RUN:     | FileCheck %s --check-prefix=CHECKOVERLAY
+// end INTEL_CUSTOMIZATION
 
 // CHECKOVERLAY: #pragma clang module import cstd.stdio /* clang -E: implicit import
