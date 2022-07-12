@@ -1,7 +1,12 @@
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s -check-prefix=SKIP
+
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY-NOSKIP,DEBUGIFY-ALL
+; RUN: opt -dpcpp-kernel-phi-canonicalization -dpcpp-skip-non-barrier-function=false %s -S -o - | FileCheck %s -check-prefix=NOSKIP
 
 ; ModuleID = 'PhiCanonSwitchCase1'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -9,18 +14,20 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This module was already processed by -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loopsimplify passes
 
-; CHECK: @PhiCanonSwitchCase1
-; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: BB1:                                              ; preds = %entry
-; CHECK: BB2:                                              ; preds = %BB1
-; CHECK: phi-split-bb:                                     ; preds = %BB2, %BB2
-; CHECK: phi-split-bb1:                                    ; preds = %BB1, %phi-split-bb
-; CHECK:   %new_phi = phi float [ %arg2, %phi-split-bb ], [ %arg1, %BB1 ]
-; CHECK: BB3:                                              ; preds = %phi-split-bb1, %BB1
-; CHECK:   %res = phi float [ %arg1, %BB1 ], [ %new_phi, %phi-split-bb1 ]
-; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %BB2, %BB3
-; CHECK: END:                                              ; preds = %phi-split-bb[[tag1]], %BB1
-; CHECK: ret
+; SKIP-NOT: phi-split-bb
+
+; NOSKIP: @PhiCanonSwitchCase1
+; NOSKIP-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
+; NOSKIP: BB1:                                              ; preds = %entry
+; NOSKIP: BB2:                                              ; preds = %BB1
+; NOSKIP: phi-split-bb:                                     ; preds = %BB2, %BB2
+; NOSKIP: phi-split-bb1:                                    ; preds = %BB1, %phi-split-bb
+; NOSKIP:   %new_phi = phi float [ %arg2, %phi-split-bb ], [ %arg1, %BB1 ]
+; NOSKIP: BB3:                                              ; preds = %phi-split-bb1, %BB1
+; NOSKIP:   %res = phi float [ %arg1, %BB1 ], [ %new_phi, %phi-split-bb1 ]
+; NOSKIP: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %BB2, %BB3
+; NOSKIP: END:                                              ; preds = %phi-split-bb[[tag1]], %BB1
+; NOSKIP: ret
 
 define void @PhiCanonSwitchCase1(float %arg1, float %arg2, float addrspace(1)* nocapture %a) nounwind {
 entry:
@@ -53,7 +60,7 @@ END:
 declare i32 @_Z13get_global_idj(i32) readnone
 declare i32 @_Z12get_local_idj(i32) readnone
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %phi-split-bb1
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %BB3
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %END
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %phi-split-bb1
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %BB3
+; DEBUGIFY-NOSKIP: WARNING: Instruction with empty DebugLoc in function PhiCanonSwitchCase1 --  br label %END
+; DEBUGIFY-ALL-NOT: WARNING

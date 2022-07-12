@@ -15,11 +15,18 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS_BEGIN(PhiCanonicalizationLegacy,
-                      "dpcpp-kernel-phi-canonicalization",
+cl::opt<bool> SkipNonBarrierFunction(
+    "dpcpp-skip-non-barrier-function", cl::init(true), cl::Hidden,
+    cl::desc("Skip non-barrier function when processing phi node to "
+             "reduce compile time."));
+
+#define DEBUG_TYPE "dpcpp-kernel-phi-canonicalization"
+
+INITIALIZE_PASS_BEGIN(PhiCanonicalizationLegacy, DEBUG_TYPE,
                       "Phi Canonicalizer pass (two-based Phi)", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
@@ -56,6 +63,19 @@ PreservedAnalyses PhiCanonicalization::run(Function &F,
 
 bool PhiCanonicalization::runImpl(Function &F, DominatorTree *DT,
                                   PostDominatorTree *PDT) {
+  // Skip non-barrier functions to reduce compile time
+  if (SkipNonBarrierFunction) {
+    BarrierUtils Utils;
+    Utils.init(F.getParent());
+    CompilationUtils::FuncSet FS = Utils.getAllFunctionsWithSynchronization();
+    if (!FS.count(&F)) {
+      LLVM_DEBUG(
+          dbgs() << "Skip non-barrier function in PhiCanonicalization pass: "
+                 << F.getName() << "\n");
+      return false;
+    }
+  }
+
   std::vector<BasicBlock*> bb_to_fix;
   bool changed = false;
 
