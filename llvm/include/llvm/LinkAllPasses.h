@@ -576,6 +576,9 @@ namespace {
       // VPO Paropt Loop Collapse Pass
       (void) llvm::createVPOParoptLoopCollapsePass();
 
+      // VPO Paropt Loop Transform Pass
+      (void) llvm::createVPOParoptLoopTransformPass();
+
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 

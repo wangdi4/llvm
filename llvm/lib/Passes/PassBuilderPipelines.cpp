@@ -323,6 +323,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLoopTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
@@ -1877,6 +1878,8 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
   // due to NUM_TEAMS clause).
   FPM.addPass(VPOParoptApplyConfigPass());
 #endif // INTEL_CUSTOMIZATION
+  FPM.addPass(VPOParoptLoopTransformPass());
+  FPM.addPass(VPOCFGRestructuringPass());
   FPM.addPass(VPOParoptLoopCollapsePass());
   // TODO: maybe we have to make sure loop collapsing preserves
   //       the restructured CFG.

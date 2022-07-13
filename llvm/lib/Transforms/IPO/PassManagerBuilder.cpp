@@ -676,6 +676,8 @@ void PassManagerBuilder::populateFunctionPassManager(
     // due to NUM_TEAMS clause).
     FPM.add(createVPOParoptApplyConfigPass());
 #endif // INTEL_CUSTOMIZATION
+    FPM.add(createVPOParoptLoopTransformPass());
+    FPM.add(createVPOCFGRestructuringPass());
     FPM.add(createVPOParoptLoopCollapsePass());
     // TODO: maybe we have to make sure loop collapsing preserves
     //       the restructured CFG.
