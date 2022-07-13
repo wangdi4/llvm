@@ -51,7 +51,11 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #endif
 
 #ifndef VER_MINOR
-#define VER_MINOR DPCPP_VERSION_MINOR
+  #ifdef DPCPP_VERSION_MINOR
+    #define VER_MINOR DPCPP_VERSION_MINOR
+  #else
+    #define VER_MINOR 0
+  #endif
 #endif
 
 #ifndef VER_UPDATE
