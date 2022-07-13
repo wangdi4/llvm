@@ -2129,7 +2129,8 @@ if (INTEL_CUSTOMIZATION)
     #                   COMMAND "${CMAKE_COMMAND}" --build . --target all )
     # add_custom_target(deploy DEPENDS do_build ${manifest_list})
 
-    add_custom_target(deploy DEPENDS ${manifest_list})
+    # Touch __force_it file in order to force installation regardless of manifest files state.
+    add_custom_target(deploy DEPENDS ${manifest_list} COMMAND ${CMAKE_COMMAND} -E touch __force_it)
   else()
     # no specific components was given so do full installation
     set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
@@ -2140,6 +2141,7 @@ if (INTEL_CUSTOMIZATION)
                        DEPENDS  __force_it
                        COMMENT "Performing deploy operation..."
                        USES_TERMINAL)
-    add_custom_target(deploy DEPENDS ${manifest})
+    # Touch __force_it file in order to force installation regardless of manifest files state.
+    add_custom_target(deploy DEPENDS ${manifest} COMMAND ${CMAKE_COMMAND} -E touch __force_it)
   endif()
 endif (INTEL_CUSTOMIZATION)
