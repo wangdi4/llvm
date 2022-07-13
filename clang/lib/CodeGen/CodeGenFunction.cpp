@@ -1210,7 +1210,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && D->hasAttr<NoProfileFunctionAttr>())
     Fn->addFnAttr(llvm::Attribute::NoProfile);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
     auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
@@ -1239,7 +1238,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 #endif // INTEL_CUSTOMIZATION
   if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
     Fn->addFnAttr("sycl_kernel");
-=======
+
   if (D) {
     // Function attributes take precedence over command line flags.
     if (auto *A = D->getAttr<FunctionReturnThunksAttr>()) {
@@ -1253,7 +1252,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     } else if (CGM.getCodeGenOpts().FunctionReturnThunks)
       Fn->addFnAttr(llvm::Attribute::FnRetThunkExtern);
   }
->>>>>>> bbfb97d50c15b124506d2eb1a68987510e0d93de
 
   if (getLangOpts().SYCLIsDevice && D) {
     if (const auto *A = D->getAttr<SYCLIntelLoopFuseAttr>()) {
