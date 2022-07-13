@@ -25,7 +25,8 @@ class TraceIntelPT : public Trace {
 public:
   void Dump(Stream *s) const override;
 
-  llvm::Error SaveLiveTraceToDisk(FileSpec directory) override;
+  llvm::Expected<FileSpec> SaveToDisk(FileSpec directory,
+                                      bool compact) override;
 
   ~TraceIntelPT() override = default;
 
@@ -156,6 +157,14 @@ public:
   /// \return
   ///     The timer object for this trace.
   TaskTimer &GetTimer();
+
+  /// \return
+  ///     The ScopedTaskTimer object for the given thread in this trace.
+  ScopedTaskTimer &GetThreadTimer(lldb::tid_t tid);
+
+  /// \return
+  ///     The global copedTaskTimer object for this trace.
+  ScopedTaskTimer &GetGlobalTimer();
 
   TraceIntelPTSP GetSharedPtr();
 
