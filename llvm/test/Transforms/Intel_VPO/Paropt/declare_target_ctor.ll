@@ -1,9 +1,11 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
-;
+
 ; This tests checks that paropt creates offload entries for declare target
 ; variable with constructor in host compilation. It is based on IR from the
 ; following sample
+
+; Test src:
 ;
 ; #pragma omp declare target
 ; struct S {
@@ -12,7 +14,7 @@
 ; S Var;
 ; #pragma omp end declare target
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
 
@@ -20,29 +22,42 @@ target device_triples = "x86_64-pc-linux-gnu"
 
 $_ZN1SC2Ev = comdat any
 
-@Var = dso_local target_declare global %struct.S zeroinitializer, align 1
-@__omp_offloading__32_d79701d5_Var_l5_ctor = private constant i8 0
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__cxx_global_var_init, i8* null }]
-@llvm.used = appending global [1 x i8*] [i8* @__omp_offloading__32_d79701d5_Var_l5_ctor], section "llvm.metadata"
+@Var = protected target_declare global %struct.S zeroinitializer, align 1
 
 ; Check that paropt creates offload entry for the Var and its constructor.
-; CHECK-DAG: %struct.__tgt_offload_entry = type { i8*, i8*, i64, i32, i32 }
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant %struct.__tgt_offload_entry { i8* getelementptr inbounds (%struct.S, %struct.S* @Var, i32 0, i32 0), i8* {{.*}}, i32 0, i32 0), i64 1, i32 0, i32 0 }, section "omp_offloading_entries"
-; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant %struct.__tgt_offload_entry { i8* @__omp_offloading__32_d79701d5_Var_l5_ctor, i8* {{.*}}, i32 0, i32 0), i64 0, i32 2, i32 0 }, section "omp_offloading_entries"
+; CHECK-DAG: %struct.__tgt_offload_entry = type { ptr, ptr, i64, i32, i32 }
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant %struct.__tgt_offload_entry { ptr @Var, ptr {{.*}}, i64 1, i32 0, i32 0 }, section "omp_offloading_entries"
+; CHECK-DAG: @.omp_offloading.entry.{{.*}} = weak target_declare constant %struct.__tgt_offload_entry { ptr @__omp_offloading__35_8d6d72f7_Var_l5_ctor, ptr {{.*}}, i64 0, i32 2, i32 0 }, section "omp_offloading_entries"
 
-define internal void @__cxx_global_var_init() section ".text.startup" {
+define void @__omp_offloading__35_8d6d72f7_Var_l5_ctor() #0 section ".text.startup" {
 entry:
-  call void @_ZN1SC2Ev(%struct.S* @Var)
+  call void @_ZN1SC2Ev(ptr noundef nonnull align 1 dereferenceable(1) @Var) #2
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN1SC2Ev(%struct.S* %this) unnamed_addr comdat align 2 {
+; Function Attrs: convergent noinline nounwind optnone uwtable
+define linkonce_odr protected void @_ZN1SC2Ev(ptr noundef nonnull align 1 dereferenceable(1) %this) unnamed_addr #1 comdat align 2 {
 entry:
+  %this.addr = alloca ptr, align 8
+  store ptr %this, ptr %this.addr, align 8
+  %this1 = load ptr, ptr %this.addr, align 8
   ret void
 }
+
+attributes #0 = { "min-legal-vector-width"="0" "openmp-target-declare"="true" }
+attributes #1 = { convergent noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #2 = { convergent }
 
 ; Check that offload metadata is removed after outlining.
 ; CHECK-NOT: !omp_offload.info
 !omp_offload.info = !{!0, !1}
-!0 = !{i32 1, !"Var", i32 0, i32 0, %struct.S* @Var}
-!1 = !{i32 0, i32 50, i32 -677969451, !"__omp_offloading__32_d79701d5_Var_l5_ctor", i32 5, i32 1, i32 2}
+!llvm.module.flags = !{!2, !3, !4, !5, !6, !7}
+
+!0 = !{i32 0, i32 53, i32 -1922206985, !"__omp_offloading__35_8d6d72f7_Var_l5_ctor", i32 5, i32 1, i32 2}
+!1 = !{i32 1, !"_Z3Var", i32 0, i32 0, ptr @Var}
+!2 = !{i32 1, !"wchar_size", i32 4}
+!3 = !{i32 7, !"openmp", i32 51}
+!4 = !{i32 7, !"openmp-device", i32 51}
+!5 = !{i32 7, !"PIC Level", i32 2}
+!6 = !{i32 7, !"uwtable", i32 2}
+!7 = !{i32 7, !"frame-pointer", i32 2}
