@@ -7,11 +7,6 @@
 ; RUN: llvm-pdbutil pretty -enums -typedefs %p/../Inputs/symbolformat.pdb | FileCheck --check-prefix=TYPES_FORMAT %s
 ; RUN: llvm-pdbutil pretty -globals %p/../Inputs/symbolformat.pdb | FileCheck --check-prefix=GLOBALS %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; The format is func [0x<rva_start>+<prologue_length> - 0x<rva_end>-<epilogue_length>]
 ; SYM_FORMAT_FPO: ---SYMBOLS---
 ; SYM_FORMAT_FPO: symbolformat-fpo.obj

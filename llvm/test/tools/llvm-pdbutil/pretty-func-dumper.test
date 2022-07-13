@@ -6,11 +6,6 @@
 ; RUN: FileCheck -input-file=%t %s -check-prefix=GLOBALS_DATA
 ; RUN: FileCheck -input-file=%t %s -check-prefix=TYPEDEF
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; GLOBALS_FUNC: ---GLOBALS---
 ; GLOBALS_FUNC-DAG: void __cdecl NS::Func(char a, int b, ...)
 ; GLOBALS_FUNC-DAG: void __cdecl TemplateFunc<1,int>(int <Arg_0>)

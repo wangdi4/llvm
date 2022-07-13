@@ -2313,6 +2313,11 @@ private:
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
 
+  /// If the given region is an OpenMP loop transformation tile construct,
+  /// then the method will tile the loop nest accordingly.
+  /// Otherwise, it will do nothing.
+  bool tileOmpLoops(WRegionNode *W);
+
   /// For SPIR-V target propagate simdlen() from SIMD loops
   /// to the enclosing target region. If there are multiple
   /// SIMD loops with different simdlen() values, then the minimum

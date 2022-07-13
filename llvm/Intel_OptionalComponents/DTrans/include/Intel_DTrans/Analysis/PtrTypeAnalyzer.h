@@ -522,6 +522,21 @@ public:
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
 
+  // Used for describing flattened GEPs. A flattened GEP is a GEP that uses a
+  // single value type (e.g. ptr, i32, double, etc) as the indexing type, but
+  // was analyzed as indexing into a structure type. These are similar to
+  // byte-flattened GEPs, but for now are kept separate because existing code in
+  // the transformations only handled the byte-flattened cases. Eventually, this
+  // should be unified with the byte-flattened GEP storage and interfaces.
+  //
+  // <Type, Field number, Index multiplier>
+  using FlattenedGEPInfoType = std::tuple<DTransType *, size_t, size_t>;
+
+  // If the GEP was identified as a flattened GEP during the type analysis,
+  // return <structure type, field number, indexing multipler>.
+  llvm::Optional<FlattenedGEPInfoType>
+  getFlattenedGEPElement(GEPOperator *GEP) const;
+
   // If the call is to a function identified as returning allocated memory,
   // return the AllocKind of the call. Otherwise, return AK_NotAlloc.
   dtrans::AllocKind getAllocationCallKind(CallBase *Call) const;

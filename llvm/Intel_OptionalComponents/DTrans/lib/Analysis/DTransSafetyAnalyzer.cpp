@@ -843,6 +843,20 @@ public:
       return;
     }
 
+    auto FlatGepInfo = PTA.getFlattenedGEPElement(GEP);
+    if (FlatGepInfo) {
+      // TODO: To fully support arbitrary flattened GEPs, we need to extend the
+      // DTransFieldInfo structure, and locations that use the DTransFieldInfo
+      // structure to indicate which fields are addressed that way. Also,
+      // transformations may need to be updated to be able to process those
+      // GEPs. Because currently this is not seen on the types we know we
+      // need to transform, we will just mark the structure that is indexed as
+      // 'unhandled'.
+      setAllElementPointeeSafetyData(
+          GEPInfo, dtrans::UnhandledUse,
+          "Only byte-flattened GEPs currently supported", GEP);
+    }
+
     if (!PtrInfo->canAliasToAggregatePointer())
       return;
 
