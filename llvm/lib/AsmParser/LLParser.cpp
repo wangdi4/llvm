@@ -482,10 +482,15 @@ bool LLParser::parseTargetDefinition() {
 #endif // INTEL_COLLAB
   case lltok::kw_datalayout:
     Lex.Lex();
-    if (parseToken(lltok::equal, "expected '=' after target datalayout") ||
-        parseStringConstant(Str))
+    if (parseToken(lltok::equal, "expected '=' after target datalayout"))
       return true;
-    M->setDataLayout(Str);
+    LocTy Loc = Lex.getLoc();
+    if (parseStringConstant(Str))
+      return true;
+    Expected<DataLayout> MaybeDL = DataLayout::parse(Str);
+    if (!MaybeDL)
+      return error(Loc, toString(std::move(MaybeDL.takeError())));
+    M->setDataLayout(MaybeDL.get());
     return false;
   }
 }
