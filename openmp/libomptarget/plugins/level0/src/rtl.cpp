@@ -5674,18 +5674,17 @@ int32_t LevelZeroProgramTy::buildKernels() {
       KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
     } else {
       KernelProperties.SIMDWidth = KP.maxSubgroupSize;
+      KernelProperties.Width = KP.maxSubgroupSize;
       // Here we try to match OpenCL kernel property
       // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
 #ifndef _WIN32
-      if (KP.pNext) {
+      if (KP.pNext)
         KernelProperties.Width = KPrefGRPSize.preferredMultiple;
-      } else
 #endif
-      {
-        // Use heuristic if driver does not support the extension
-        KernelProperties.Width = KP.maxSubgroupSize;
-        if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
-          KernelProperties.Width *= 2;
+      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+        // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
+        KernelProperties.Width =
+            (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
       }
     }
     DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
