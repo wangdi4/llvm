@@ -1709,7 +1709,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   // Check whether all header phis are recognized as entities.
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
-        !LE->getPrivate(&Phi)) {
+        !LE->getPrivate(&Phi) && !LE->getCompressExpandIdiom(&Phi)) {
       // Non-entity phi. No other PHIs are expected in loop header since we are
       // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");

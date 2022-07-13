@@ -391,6 +391,10 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
           decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                     Instruction::Add);
+
+      BlobDDRef *BlobRef = RDDR->getBlobDDRef(BlobIdx);
+      if (Idioms->isCEIdiom(BlobRef))
+        CEIdiomToVPValue[BlobRef] = DecompDef;
     }
 
   // Decompose IV expression. If the canon expression is invariant without
@@ -499,8 +503,6 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   // load memory references might not be in separate instructions. For this
   // reason, in legality, we mark the DDRef that includes VConflict load memory
   // references. Here, we collect load instructions along with their index.
-  const HIRVectorIdioms *Idioms =
-      HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp));
   bool IsVConflictLoad = Idioms->isVConflictLoad(Ref);
 
   // Note: the insert location guard also guards builder debug location.
@@ -599,6 +601,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                                                 ->getScalarType()
                                                 ->getPointerAddressSpace()));
   }
+
+  if (Idioms->isCEIdiom(Ref))
+    CEIdiomToVPValue[Ref] = MemOpVPI;
 
   // If memory reference is AddressOf type, return the last generated
   // VPInstruction
@@ -950,6 +955,10 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
       NewVPInst->HIR().setOperandDDR(RvalDDR);
+
+    if (Idioms->isCEIdiom(HInst))
+      CEIdiomToVPValue[HInst] = NewVPInst;
+
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);

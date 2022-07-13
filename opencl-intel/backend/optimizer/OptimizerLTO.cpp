@@ -614,8 +614,9 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
   MPM.addPass(SGBarrierSimplifyPass());
   // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
   // emulation loops
-  if (m_debugType == intel::Native)
-    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
+  // TODO: Refine and re-enable ImplicitGID pass
+  // if (m_debugType == intel::Native)
+  //   MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
 
   // Resume sub-group emulation
   MPM.addPass(SGValueWidenPass());

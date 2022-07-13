@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
@@ -91,6 +92,28 @@ void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   FuncSet SyncFunctions = getAllSyncBuiltinsDecls(*M);
 
   LoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
+}
+
+void DPCPPKernelAnalysisPass::fillMatrixCallFuncs() {
+  FuncSet MatrixIntrins;
+  for (auto &F : *M) {
+    switch (F.getIntrinsicID()) {
+    default:
+      break;
+    case Intrinsic::experimental_matrix_load:
+    case Intrinsic::experimental_matrix_store:
+    case Intrinsic::experimental_matrix_mad:
+    case Intrinsic::experimental_matrix_sumad:
+    case Intrinsic::experimental_matrix_usmad:
+    case Intrinsic::experimental_matrix_uumad:
+    case Intrinsic::experimental_matrix_extract_row_slice:
+    case Intrinsic::experimental_matrix_insert_row_slice:
+    case Intrinsic::experimental_matrix_fill:
+      MatrixIntrins.insert(&F);
+      break;
+    }
+  }
+  LoopUtils::fillFuncUsersSet(MatrixIntrins, MatrixCallFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillKernelCallers() {
@@ -204,11 +227,14 @@ bool DPCPPKernelAnalysisPass::runImpl(
 
   fillKernelCallers();
   fillSyncUsersFuncs();
+  fillMatrixCallFuncs();
   fillSubgroupCallingFuncs(CG);
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    if (MatrixCallFuncs.count(Kernel))
+      KIMD.HasMatrixCall.set(true);
     KIMD.NoBarrierPath.set(!UnsupportedFuncs.contains(Kernel));
     KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
     KIMD.KernelHasGlobalSync.set(hasAtomicBuiltinCall(CG, RTS, Kernel));
@@ -234,6 +260,7 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     OS << "Kernel <" << FuncName << ">:\n";
     OS.indent(2) << "NoBarrierPath=" << KIMD.NoBarrierPath.get() << "\n";
+    OS.indent(2) << "KernelHasMatrixCall=" << KIMD.HasMatrixCall.get() << "\n";
     OS.indent(2) << "KernelHasSubgroups=" << KIMD.KernelHasSubgroups.get()
                  << "\n";
     OS.indent(2) << "KernelHasGlobalSync=" << KIMD.KernelHasGlobalSync.get()

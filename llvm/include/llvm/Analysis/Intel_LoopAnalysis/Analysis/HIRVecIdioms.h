@@ -20,6 +20,8 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerUnion.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+
 namespace llvm {
 namespace loopopt {
 
@@ -108,6 +110,13 @@ public:
     return Iter == IdiomData.end() ? NoIdiom : Iter->second;
   }
 
+  /// Return true if \p ISubj is registered as a compress/expand idiom.
+  bool isCEIdiom(IdiomSubject ISubj) const {
+    IdiomId Id = isIdiom(ISubj);
+    return Id == CEIndexIncFirst || Id == CEIndexIncNext || Id == CEStore ||
+           Id == CELoad || Id == CELdStIndex;
+  }
+
   /// Add \p Linked as an idiom marked with \p Id, and link it to \p Master.
   void addLinked(IdiomSubject Master, IdiomSubject Linked, IdiomId Id) {
     addIdiom(Linked, Id);
@@ -123,6 +132,11 @@ public:
 
   const_iterator begin() const { return IdiomData.begin(); }
   const_iterator end() const { return IdiomData.end(); }
+
+  auto getIdiomsById(IdiomId Id) const {
+    return make_filter_range(make_range(begin(), end()),
+                             [Id](const auto &V) { return V.second == Id; });
+  }
 
   /// Return list of idioms linked to \p Master
   const LinkedIdiomListTy *getLinkedIdioms(IdiomSubject Master) const {
@@ -213,6 +227,39 @@ public:
     return llvm::find_if(VConflictStoreToLoadMap, [LoadRef](const auto &Pair) {
              return Pair.second == LoadRef;
            }) != VConflictStoreToLoadMap.end();
+  }
+
+  static bool isIncrementInst(const HLInst *Inst, int64_t &Stride) {
+
+    if (Inst->getLLVMInstruction()->getOpcode() != Instruction::Add)
+      return false;
+
+    const RegDDRef *LhsDDRef = Inst->getLvalDDRef();
+    assert(LhsDDRef && "Add instruction expected to have non-null lval DDRef");
+    if (LhsDDRef->isMemRef() || !LhsDDRef->getSrcType()->isIntegerTy())
+      return false;
+
+    assert(Inst->getNumOperands() == 3 &&
+           "Add instruction expected to have 3 operands");
+    const RegDDRef *Op0 = Inst->getOperandDDRef(0);
+    const RegDDRef *Op1 = Inst->getOperandDDRef(1);
+    const RegDDRef *Op2 = Inst->getOperandDDRef(2);
+    if (!Op1->isTerminalRef() || !Op2->isTerminalRef())
+      return false;
+
+    CanonExprUtils &CEU = Op0->getCanonExprUtils();
+    CanonExpr *SumCE =
+        CEU.cloneAndAdd(Op1->getSingleCanonExpr(), Op2->getSingleCanonExpr());
+    if (!SumCE)
+      return false;
+
+    CanonExpr *StrideCE =
+        CEU.cloneAndSubtract(SumCE, Op0->getSingleCanonExpr());
+    if (!StrideCE)
+      return false;
+
+    // TODO: relax the restriction to check for invariant strides.
+    return StrideCE->isIntConstant(&Stride);
   }
 
 private:

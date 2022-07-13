@@ -49,7 +49,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         void DeserialVersion(IInputStream& stream);
         int GetRuntimeVersion() const;
         int GetLLVMVersion() const;
-    
+        unsigned int m_binaryVersion;
+
     private:
         ICLDevBackendJITAllocator* m_pJITAllocator;
         IAbstractBackendFactory* m_pBackendFactory;

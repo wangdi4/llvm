@@ -195,6 +195,34 @@ void VPPrivate::dump(raw_ostream &OS) const {
   printLinkedValues(OS);
 }
 
+void VPCompressExpandIdiom::dump(raw_ostream &OS) const {
+
+  auto DumpList = [&](const auto &Name, const auto &List, auto &&PrintFn) {
+    if (List.empty())
+      return;
+    OS << "  " << Name << ":\n";
+    for (const auto &Item : List) {
+      OS << "   ";
+      PrintFn(Item, OS);
+      OS << '\n';
+    }
+  };
+
+  DumpList("Increments", Increments,
+           [](const IncrementInfoTy &Info, raw_ostream &OS) {
+             Info.VPInst->print(OS);
+             OS << " (Stride = " << Info.Stride << ')';
+           });
+
+  auto PrintVPInst = [](VPInstruction *VPInst, raw_ostream &OS) {
+    VPInst->print(OS);
+  };
+  DumpList("Stores", Stores, PrintVPInst);
+  DumpList("Loads", Loads, PrintVPInst);
+
+  printLinkedValues(OS);
+}
+
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->print(OS);
 }
@@ -220,6 +248,11 @@ VPPrivate::~VPPrivate() {
       AliasMapIt.second.first->dropAllReferences();
       delete AliasMapIt.second.first;
     }
+}
+
+Type *VPCompressExpandIdiom::getAllocatedType() const {
+  assert(!Increments.empty() && "Expected at least one increment.");
+  return Increments.front().VPInst->getType();
 }
 
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
@@ -428,6 +461,40 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
   return Priv;
 }
 
+VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
+    const SmallVectorImpl<IncrementInfoTy> &Increments,
+    const SmallVectorImpl<VPInstruction *> &Stores,
+    const SmallVectorImpl<VPInstruction *> &Loads,
+    const SmallVectorImpl<VPValue *> &Indices) {
+
+  VPCompressExpandIdiom *CEIdiom =
+      new VPCompressExpandIdiom(Increments, Stores, Loads, Indices);
+  ComressExpandIdiomList.emplace_back(CEIdiom);
+
+  std::function<void(VPValue *)> LinkIncrement = [&](VPValue *V) {
+    VPInstruction *I = dyn_cast<VPInstruction>(V);
+    if (!I)
+      return;
+
+    linkValue(ComressExpandIdiomMap, CEIdiom, I);
+
+    if (I->getOpcode() == Instruction::Add)
+      for (VPValue *Op : I->operands())
+        LinkIncrement(Op);
+  };
+
+  for (auto &Info : Increments)
+    LinkIncrement(Info.VPInst);
+
+  for (VPInstruction *VPInst : Stores)
+    linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
+
+  for (VPInstruction *VPInst : Loads)
+    linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
+
+  return CEIdiom;
+}
+
 void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
   if (!AI)
     return;
@@ -589,6 +656,8 @@ void VPLoopEntityList::dump(raw_ostream &OS,
       dumpList("\nInduction list\n", InductionList, OS);
     if (!PrivatesList.empty())
       dumpList("\nPrivate list\n", PrivatesList, OS);
+    if (!ComressExpandIdiomList.empty())
+      dumpList("\nCompress/expand idiom list\n", ComressExpandIdiomList, OS);
     OS << "\n";
   }
 }
@@ -2920,4 +2989,10 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
     unsigned StepOpIdx = PhiOpIdx == 0 ? 1 : 0;
     Step = InductionOp->getOperand(StepOpIdx);
   }
+}
+
+void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
+
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+  LE->addCompressExpandIdiom(Increments, Stores, Loads, Indices);
 }

@@ -42,12 +42,12 @@ public:
     virtual cl_dev_err_code
     ReloadProgram(cl_serialization_type serializationType,
                   ICLDevBackendProgram_ *pProgram, const void *pBlob,
-                  size_t blobSize) const;
+                  size_t blobSize, unsigned int binaryVersion) const;
 
     virtual cl_dev_err_code
     DeSerializeProgram(cl_serialization_type serializationType,
                        ICLDevBackendProgram_ **ppProgram, const void *pBlob,
-                       size_t blobSize) const override;
+                       size_t blobSize, unsigned int binaryVersion) const override;
 
     virtual void ReleaseProgram(ICLDevBackendProgram_ *pProgram) const override;
 

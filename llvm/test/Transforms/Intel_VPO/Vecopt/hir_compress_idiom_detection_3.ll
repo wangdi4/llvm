@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom 2>&1 | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
@@ -10,12 +10,65 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK:      [Compress/Expand Idiom] Increment {sb:3}+9 detected: {{.*}} %j.014 = 4  +  %j.014 + 5;
+; CHECK:      [Compress/Expand Idiom] Increment {sb:3}+9 detected: {{.*}} [[J_0140:%.*]] = 4  +  [[J_0140]] + 5
 ; CHECK-NOT:  [Compress/Expand Idiom] Increment rejected
 ; CHECK:      Idiom List
-; CHECK-NEXT: CEIndexIncFirst: {{.*}} %j.014 = 4  +  %j.014 + 5;
-; CHECK-NEXT:   CEStore: {{.*}} (%B)[%j.014] = (%A)[i1];
-; CHECK-NEXT:     CELdStIndex: %j.014
+; CHECK-NEXT: CEIndexIncFirst: {{.*}} [[J_0140]] = 4  +  [[J_0140]] + 5
+; CHECK-NEXT:   CEStore: {{.*}} ([[B0:%.*]])[%j.014] = ([[A0:%.*]])[i1]
+; CHECK-NEXT:     CELdStIndex: [[J_0140]]
+
+; CHECK:       Loop Entities of the loop with header [[BB0:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Induction list
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:    Linked values: i64 [[VP6]], i64 [[VP5]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK:       Compress/expand idiom list
+; CHECK-NEXT:    Increments:
+; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 4 i32 [[VP8:%.*]] (Stride = 9)
+; CHECK-NEXT:    Stores:
+; CHECK-NEXT:     store double [[VP_LOAD:%.*]] double* [[VP_SUBSCRIPT:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP8]], i32 [[VP9:%.*]], void [[VP_STORE:%.*]],
+
+; CHECK:         [[BB1:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP0:%.*]] i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     br [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP9]] = phi  [ i32 [[J_0140]], [[BB2]] ],  [ i32 [[VP11:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP5]], [[BB3]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
+; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
+; CHECK-NEXT:       double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       i64 [[VP13:%.*]] = sext i32 [[VP9]] to i64
+; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP13]]
+; CHECK-NEXT:       store double [[VP_LOAD]] double* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP9]] i32 5
+; CHECK-NEXT:       i32 [[VP7]] = add i32 4 i32 [[VP8]]
+; CHECK-NEXT:       br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB0]]
+; CHECK-NEXT:     i32 [[VP11]] = phi  [ i32 [[VP7]], [[BB4]] ],  [ i32 [[VP9]], [[BB0]] ]
+; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP5]] i64 [[VP10]]
+; CHECK-NEXT:     br i1 [[VP14]], [[BB0]], [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
+; CHECK-NEXT:     i64 [[VP__IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     br <External Block>
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -155,6 +155,12 @@ public:
     virtual bool HasNoBarrierPath() const override;
 
     /**
+     * @returns true if the specified kernel has amx call in the kernel
+     * body, false otherwise
+     */
+    virtual bool HasMatrixCall() const override;
+
+    /**
      * @returns true if the specified kernel has debug info,
      *  false otherwise
      */
@@ -233,6 +239,7 @@ public:
     void SetReqdNumSG(size_t value) { m_reqdNumSG = value; }
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasNoBarrierPath(bool value) { m_hasNoBarrierPath = value; }
+    void SetHasMatrixCall(bool value) { m_hasMatrixCall = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
     void SetUseNativeSubgroups(bool value) { m_useNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
@@ -279,6 +286,7 @@ public:
 
 protected:
     bool m_hasNoBarrierPath;
+    bool m_hasMatrixCall;
     bool m_hasGlobalSync;
     bool m_useNativeSubgroups;
     bool m_DAZ;

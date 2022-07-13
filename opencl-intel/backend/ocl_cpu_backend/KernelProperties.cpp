@@ -44,15 +44,16 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
 }
 
 KernelProperties::KernelProperties()
-    : m_hasNoBarrierPath(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
-      m_DAZ(false), m_optWGSize(0), m_totalImplSize(0), m_barrierBufferSize(0),
-      m_privateMemorySize(0), m_maxPrivateMemorySize(0), m_reqdNumSG(0),
-      m_kernelExecutionLength(0), m_vectorizationWidth(1),
-      m_minGroupSizeFactorial(1), m_isVectorizedWithTail(false),
-      m_uiSizeT(sizeof(void *)), m_bIsBlock(false), m_bIsAutorun(false),
-      m_bNeedSerializeWGs(false), m_bIsTask(false),
-      m_bCanUseGlobalWorkOffset(true), m_bIsNonUniformWGSizeSupported(false),
-      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false) {
+    : m_hasNoBarrierPath(false), m_hasMatrixCall(false), m_hasGlobalSync(false),
+      m_useNativeSubgroups(false), m_DAZ(false), m_optWGSize(0),
+      m_totalImplSize(0), m_barrierBufferSize(0), m_privateMemorySize(0),
+      m_maxPrivateMemorySize(0), m_reqdNumSG(0), m_kernelExecutionLength(0),
+      m_vectorizationWidth(1), m_minGroupSizeFactorial(1),
+      m_isVectorizedWithTail(false), m_uiSizeT(sizeof(void *)),
+      m_bIsBlock(false), m_bIsAutorun(false), m_bNeedSerializeWGs(false),
+      m_bIsTask(false), m_bCanUseGlobalWorkOffset(true),
+      m_bIsNonUniformWGSizeSupported(false), m_canUniteWG(false),
+      m_verctorizeOnDimention(0), m_debugInfo(false) {
   memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
   memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
@@ -63,6 +64,8 @@ void KernelProperties::Serialize(IOutputStream &ost,
   // Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
   Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
   Serializer::SerialPrimitive<bool>(&m_hasNoBarrierPath, ost);
+  if (OCL_CACHED_BINARY_VERSION >= 15)
+    Serializer::SerialPrimitive<bool>(&m_hasMatrixCall, ost);
   Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
   Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
   Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
@@ -119,11 +122,13 @@ void KernelProperties::Serialize(IOutputStream &ost,
 }
 
 void KernelProperties::Deserialize(IInputStream &ist,
-                                   SerializationStatus * /*stats*/) {
+                                   SerializationStatus *stats) {
   // Need to revert dbgPrint flag
   // Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
   Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
   Serializer::DeserialPrimitive<bool>(&m_hasNoBarrierPath, ist);
+  if (stats->m_binaryVersion >= 15)
+    Serializer::DeserialPrimitive<bool>(&m_hasMatrixCall, ist);
   Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
   Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
   Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
@@ -306,6 +311,8 @@ bool KernelProperties::HasGlobalSyncOperation() const
 
 bool KernelProperties::HasNoBarrierPath() const { return m_hasNoBarrierPath; }
 
+bool KernelProperties::HasMatrixCall() const { return m_hasMatrixCall; }
+
 bool KernelProperties::HasDebugInfo() const
 {
     return m_debugInfo;
@@ -451,6 +458,7 @@ void KernelProperties::Print() const {
     outs() << "}\n";
   };
   outs().indent(NS) << "hasNoBarrierPath: " << m_hasNoBarrierPath << "\n";
+  outs().indent(NS) << "hasMatrixCall: " << m_hasMatrixCall << "\n";
   outs().indent(NS) << "hasGlobalSync: " << m_hasGlobalSync << "\n";
   outs().indent(NS) << "useNativeSubgroups: " << m_useNativeSubgroups << "\n";
   outs().indent(NS) << "DAZ: " << m_DAZ << "\n";

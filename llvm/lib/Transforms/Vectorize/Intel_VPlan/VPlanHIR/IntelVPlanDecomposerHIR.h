@@ -100,6 +100,12 @@ private:
   // HIR legality object
   HIRVectorizationLegality &HIRLegality;
 
+  // Recognized VPlan idioms.
+  const HIRVectorIdioms *Idioms;
+
+  // Maps compress/expand idiom Nodes/Refs to VPValues.
+  SmallDenseMap<HIRVecIdiom, VPValue *> CEIdiomToVPValue;
+
   // Maps Load RegDDRef to the generated load instruction that corresponds
   // to VConflict idiom.
   SmallDenseMap<DDRef *, VPInstruction *> RefToVPLoadConflict;
@@ -268,7 +274,9 @@ public:
   VPDecomposerHIR(VPlanVector *P, const loopopt::HLLoop *OHLp,
                   const loopopt::DDGraph &DDG,
                   HIRVectorizationLegality &HIRLegality)
-      : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality){};
+      : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality),
+        Idioms(
+            HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp))){};
 
   /// Create VPInstructions for the incoming \p Node and insert them into \p
   /// InsPointVPBB. \p Node will be decomposed into several VPInstructions if
@@ -321,6 +329,11 @@ public:
   void fixExternalUses();
 
   VPValue *getVPValueForNode(const loopopt::HLNode *Node);
+
+  VPValue *getVPValueForCEIdiom(const HIRVecIdiom &Idiom) {
+    assert(CEIdiomToVPValue.find(Idiom) != CEIdiomToVPValue.end());
+    return CEIdiomToVPValue[Idiom];
+  }
 
   /// Return requested VPConstant, for components that don't have VPlan
   /// reference.

@@ -143,6 +143,17 @@ bool Compilation::CleanupFile(const char *File, bool IssueErrors) const {
   // llvm::sys::fs::remove into a removeFile and a removeDir and avoid the
   // duplicated stat from is_regular_file.
 
+#if INTEL_CUSTOMIZATION
+  if (llvm::sys::fs::is_directory(File) && llvm::sys::fs::can_write(File) &&
+      StringRef(File) == TheDriver.BaseTempDir) {
+    if (std::error_code EC = llvm::sys::fs::remove_directories(File)) {
+      if (IssueErrors)
+        getDriver().Diag(diag::err_drv_unable_to_remove_file) << EC.message();
+      return false;
+    }
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
   // Don't try to remove files which we don't have write access to (but may be
   // able to remove), or non-regular files. Underlying tools may have
   // intentionally not overwritten them.
@@ -198,6 +209,11 @@ bool Compilation::CleanupFileList(const TempFileList &Files,
     }
     Success &= CleanupFile(File.first, IssueErrors);
   }
+#if INTEL_CUSTOMIZATION
+  if (Files.size())
+    // Remove the base temporary directory after the files have been cleaned up.
+    Success &= CleanupFile(TheDriver.BaseTempDir.c_str(), IssueErrors);
+#endif // INTEL_CUSTOMIZATION
   return Success;
 }
 
