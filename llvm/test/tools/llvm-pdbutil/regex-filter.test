@@ -24,11 +24,6 @@
 ; RUN: llvm-pdbutil pretty -types -module-syms -globals -include-symbols="[[:<:]](IntGlobalVar|DoubleGlobalVar)[[:>:]]" \
 ; RUN:    %p/Inputs/FilterTest.pdb | FileCheck --check-prefix=INCLUDE_ONLY_VARS %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; NO_FILTER: ---TYPES---
 ; NO_FILTER: Enums:
 ; NO_FILTER: enum GlobalEnum

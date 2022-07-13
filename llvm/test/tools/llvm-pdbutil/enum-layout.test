@@ -4,11 +4,6 @@
 ; RUN: FileCheck -input-file=%t %s -check-prefix=GLOBAL_ENUM
 ; RUN: FileCheck -input-file=%t %s -check-prefix=MEMBER_ENUM
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; GLOBAL_ENUM: ---TYPES---
 ; GLOBAL_ENUM: Enums:
 ; GLOBAL_ENUM: enum GlobalsTest::Enum {
