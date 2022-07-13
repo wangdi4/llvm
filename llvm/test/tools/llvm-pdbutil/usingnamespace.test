@@ -3,11 +3,6 @@
 ; RUN: llvm-pdbutil pretty -module-syms %p/Inputs/UsingNamespaceTest.pdb > %t
 ; RUN: FileCheck -input-file=%t %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; CHECK: ---SYMBOLS---
 ; CHECK-NEXT: {{.*}}UsingNamespaceTest.obj
 ; CHECK-DAG: using namespace NS

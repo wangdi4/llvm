@@ -5,11 +5,6 @@
 ; RUN: llvm-pdbutil pretty -externals -load-address=0x40000000 \
 ; RUN: %p/Inputs/LoadAddressTest.pdb | FileCheck --check-prefix=VA %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; RVA: ---EXTERNALS---
 ; RVA: [0x00001010] _main
 

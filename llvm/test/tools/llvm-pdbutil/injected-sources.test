@@ -5,11 +5,6 @@
 ; RUN: llvm-pdbutil pretty -injected-sources -injected-source-content \
 ; RUN:   %p/Inputs/ClassLayoutTest.pdb | FileCheck --check-prefix=NEGATIVE %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; CHECK:      ---INJECTED SOURCES---
 ; CHECK:      c.natvis (140 bytes): obj=<null>, vname=c.natvis, crc=334478030, compression=None
 ; CHECK-NEXT: <?xml version="1.0" encoding="utf-8"?>

@@ -29,11 +29,6 @@ clang-cl /Z7 /GS- /GR- /c main.cpp /Foglobals-dia-vfunc-collision.obj
 RUN: lld-link /debug /nodefaultlib /entry:main /out:%t.exe %S/Inputs/globals-dia-vfunc-collision.obj
 RUN: llvm-pdbutil pretty -classes %t.pdb | FileCheck %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 CHECK: struct T
 CHECK: func [0x000010c0+ 0 - 0x000010dd-29 | sizeof= 29] (FPO) virtual {{.*}}A105()
 CHECK: func [0x00001100+ 0 - 0x0000111b-27 | sizeof= 27] (FPO) virtual {{.*}}A307()

@@ -1,11 +1,6 @@
 ; RUN: llvm-pdbutil pretty -lines %p/../Inputs/symbolformat.pdb | FileCheck --check-prefix=LINE_NUMS_FPO %s
 ; RUN: llvm-pdbutil pretty -lines %p/../Inputs/symbolformat.pdb | FileCheck --check-prefix=LINE_NUMS %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; LINE_NUMS_FPO: llvm\test\debuginfo\pdb\inputs\symbolformat-fpo.cpp
 ; LINE_NUMS_FPO: Line 5, Address: [0x000011a0 - 0x000011a5] (6 bytes)
 ; LINE_NUMS_FPO: Line 6, Address: [0x000011a6 - 0x000011a6] (1 bytes)

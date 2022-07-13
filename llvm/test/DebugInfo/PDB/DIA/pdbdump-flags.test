@@ -3,11 +3,6 @@
 ; RUN: llvm-pdbutil pretty -compilands %p/../Inputs/empty.pdb | FileCheck %s -check-prefix=COMPILANDS
 ; RUN: llvm-pdbutil pretty -types -compilands %p/../Inputs/empty.pdb | FileCheck %s -check-prefix=MULTIPLE
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; Check that neither symbols nor compilands are dumped when neither argument specified.
 ; NO_ARGS: empty.pdb
 ; NO_ARGS: Guid: {4156350B-A086-49A2-896F-9988FAE52FF0}

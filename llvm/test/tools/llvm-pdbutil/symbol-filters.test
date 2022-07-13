@@ -24,11 +24,6 @@
 ; RUN: llvm-pdbutil pretty -globals -module-syms -sym-types=funcs \
 ; RUN: -symbol-order=size %p/Inputs/FilterTest.pdb | FileCheck --check-prefix=SIZE_SORT_FUNCS %s
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; ONLY_DATA-NOT: func
 ; ONLY_DATA-NOT: thunk
 ; ONLY_DATA-DAG: data {{.*}} static char OneByte

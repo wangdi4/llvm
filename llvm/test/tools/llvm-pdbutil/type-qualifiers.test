@@ -6,11 +6,6 @@
 ; RUN: FileCheck -input-file=%t %s -check-prefix=GLOBALS_DATA
 ; RUN: FileCheck -input-file=%t %s -check-prefix=QUALS
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; GLOBALS_FUNC: ---GLOBALS---
 ; GLOBALS_FUNC-DAG: int __cdecl f(const volatile int* __restrict arg_crv)
 ; GLOBALS_FUNC-DAG: void __cdecl g(int& __restrict arg_ref)

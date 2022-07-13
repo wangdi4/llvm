@@ -17,11 +17,6 @@
 ; RUN: FileCheck -input-file=%t %s -check-prefix=DEEP_INHERIT
 ; RUN: FileCheck -input-file=%t %s -check-prefix=AGGREGATE
 
-; INTEL_CUSTOMIZATION
-; This is for fixing the fail of CMPLRTOOLS-27224.
-; UNSUPPORTED: windows
-; end INTEL_CUSTOMIZATION
-
 ; NO_PADDING:      struct SimplePadNoPadding [sizeof = 8] {
 ; NO_PADDING-NEXT:   data +0x00 [sizeof=4] int X
 ; NO_PADDING-NEXT:   data +0x04 [sizeof=4] int Y
