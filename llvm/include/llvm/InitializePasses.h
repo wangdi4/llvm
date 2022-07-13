@@ -844,6 +844,8 @@ void initializeVPOCFGRestructuringPass(PassRegistry&);
 void initializeVPOCFGSimplifyPass(PassRegistry&);
 // VPO Paropt Loop Collapse Pass
 void initializeVPOParoptLoopCollapsePass(PassRegistry&);
+// VPO Paropt Loop Transform Pass
+void initializeVPOParoptLoopTransformPass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Pass to restore operands renamed by VPO Paropt Prepare pass

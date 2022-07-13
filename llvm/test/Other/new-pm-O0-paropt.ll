@@ -36,10 +36,12 @@
 ;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
-;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running pass: VPOParoptLoopTransformPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
