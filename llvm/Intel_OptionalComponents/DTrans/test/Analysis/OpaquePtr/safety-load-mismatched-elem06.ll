@@ -40,9 +40,11 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
   %vField = load i16*, i16** %pField.as.pp16
 
   ; This instruction is needed for the pointer type analyzer to identify
-  ; %vField as being used as an i16* type. This instruction cases %test.test02b
+  ; %vField as being used as an i16* type. This instruction causes %test.test02b
   ; to be marked as an "Ambiguous GEP" because %vField is believed to be a
-  ; pointer to a structure type.
+  ; pointer to a structure type. %test.test02b also gets marked as 'Unhandled use'
+  ; because the GEP is indexing a field without a structure type or byte-flattened
+  ; form.
   %use = getelementptr i16, i16* %vField, i64 4
   ret void
 }
@@ -53,7 +55,7 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02b
-; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unhandled use{{ *$}}
 ; CHECK: End LLVMType: %struct.test02b
 
 

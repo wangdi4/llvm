@@ -51,7 +51,7 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02b
-; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unhandled use{{ *$}}
 ; CHECK: End LLVMType: %struct.test02b
 
 

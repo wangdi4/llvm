@@ -234,6 +234,11 @@ public:
     // LocalPointerAnalyzer dumps.
     if (Info && (ExpectPointerInfo || !Info->empty())) {
       OS << "\n";
+      if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+        auto FlatGepInfo = Analyzer.getFlattenedGEPElement(GEP);
+        if (FlatGepInfo)
+          OS << ";      <FLATTENED GEP>\n";
+      }
       Info->print(OS, CombineUseAndDecl, ";    ");
       OS << ";      ";
       printDominantUsageType(OS, *Info);
@@ -298,6 +303,38 @@ public:
 
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
+  // Record that a GEP result for the field was obtained using a GEP that
+  // indexed the field by using multiples of the size of a pointer. This is
+  // similar to a byte-flattened GEP access, but the offset is computing using a
+  // multiple of the size of a pointer (or some other type), rather than
+  // requiring it to be a single byte.
+  //
+  // For example, given:
+  //   %struct.BMLog = type { ptr, ptr, ptr, %struct.ListBase, ptr }
+  //   %struct.ListBase = type { ptr, ptr }
+  //
+  // If %in was resolved to be a pointer to %struct.BMLog, then all the
+  // following are equivalent, and resolve to the address of the last
+  // field of %struct.BMLog:
+  //   1)  %field4 = getelementptr %struct.BMLog, ptr %in, i64 0, i32 4
+  //   2)  %field4 = getelementptr ptr, ptr %in, i64 5
+  //   3)  %field4 = getelementptr i8, ptr %in, i64 40
+  //
+  // 1. uses normal structure addressing
+  // 2. uses flattened addressing
+  // 3. uses byte-flattened GEP addressing. (this is just a specific form of
+  //    flattened indexing that the transformations currently understand)
+  //
+  // TODO: It would be nice to unify this with the byte-flattened GEP tracking,
+  // instead of having a separate map for the cases that were identified as
+  // being a byte-flattened GEP.
+  void addFlattenedGEPMapping(GEPOperator *GEP, DTransType *Ty, size_t Idx,
+                              size_t Multiplier);
+
+  // Query function for saved results about flattened GEPs.
+  llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+  getFlattenedGEPElement(GEPOperator *GEP) const;
 
   void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
     AllocationCalls.insert({Call, Kind});
@@ -462,6 +499,23 @@ private:
   using ByteFlattenedGEPInfoMapType =
       DenseMap<GEPOperator *, std::pair<DTransType *, size_t>>;
   ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
+
+  // A mapping from GEPs that have been identified as being structure
+  // element accesses in flattened form to map the GEP to:
+  //   <Type, Field number, Index multiplier>
+  //
+  // For example:
+  // Given %in that represents a pointer to a structure that is 48 bytes long,
+  // the following would be accessing a field within the structure using a
+  // flattened form:
+  //
+  //   %field = getelementptr ptr, ptr %in, i64 5
+  // or
+  //   %gep = getelementptr double, ptr %in, i64 5
+  //
+  using FlattenedGEPInfoMapType =
+      DenseMap<GEPOperator *, PtrTypeAnalyzer::FlattenedGEPInfoType>;
+  FlattenedGEPInfoMapType FlattenedGEPInfoMap;
 
   // Map of calls identified as being memory allocation calls to the allocation
   // kind.
@@ -3053,13 +3107,144 @@ private:
     //   getelementptr ptr, ptr %x, i64 5
     //   getelementptr <ty>, <ptr vector> %x, <vector index type> %idx
     //
-    // These are treating the source operand as an array, and therefore are
+    // These may be treating the source operand as an array, and therefore are
     // generating the same type as the pointer operand. However, there is a
-    // special case when indexed type is an i8, since it may be a
-    // byte-flattened GEP that needs to be analyzed.
-    if (ProcessedAsByteFlattenedGEP == BFG_None)
-      propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
-                DerefType::DT_SameType);
+    // special case when indexed type is a single value type (ptr, i8, i32,
+    // double, etc) where the indexing is just the number of bytes computed
+    // based on the type and the GEP operand. Supported byte-flattened cases
+    // were checked above. If it's not one of those cases, we still need to
+    // check for the possibility that the GEP is addressing into a structure
+    // with some other type.
+    //
+    // Note: we can only handle the case where the indexing amount is a
+    // constant. If it is not constant, we assume it is indexing an array. When
+    // the safety analyzer runs, hopefully it would detect a type mismatch where
+    // the result is used, if it is not an array.
+    if (ProcessedAsByteFlattenedGEP == BFG_None) {
+      std::function<bool(const DataLayout &, DTransStructType *, uint64_t,
+                         DTransStructType **, DTransType **, uint32_t *)>
+          GetFieldTypeAndIndex;
+
+      GetFieldTypeAndIndex =
+          [&GetFieldTypeAndIndex](
+              const DataLayout &DL, DTransStructType *DTransStTy,
+              uint64_t OffsetInBytes, DTransStructType **IndexedType,
+              DTransType **FieldType, uint32_t *FieldIndex) -> bool {
+        // Try to find a field of 'DTransStTy' that starts at 'OffsetInBytes'
+        auto *StTy = cast<llvm::StructType>(DTransStTy->getLLVMType());
+        auto *SL = DL.getStructLayout(StTy);
+        uint64_t ElemIdx = SL->getElementContainingOffset(OffsetInBytes);
+        uint64_t ElemOffset = SL->getElementOffset(ElemIdx);
+        if (OffsetInBytes == ElemOffset) {
+          *IndexedType = DTransStTy;
+          *FieldType = DTransStTy->getFieldType(ElemIdx);
+          assert(*FieldType && "Fields should be set for structure");
+          *FieldIndex = ElemIdx;
+          return true;
+        }
+
+        // The offset does not start a field in the 'DTransStTy'. Check
+        // whether a field with that offset is within is an aggregate type
+        // within the current structure.
+
+        // The field number of the llvm::Type should be valid for the
+        // DTransType, but make sure.
+        if (ElemIdx >= DTransStTy->getNumFields())
+          return false;
+
+        // Adjust the offset to where the aggregate field begins.
+        uint64_t NewOffset = OffsetInBytes - ElemOffset;
+        DTransType *DTransFieldTy = DTransStTy->getFieldType(ElemIdx);
+        assert(DTransFieldTy && "Expected fields to be set");
+
+        if (auto *DTransFieldStTy = dyn_cast<DTransStructType>(DTransFieldTy))
+          return GetFieldTypeAndIndex(DL, DTransFieldStTy, NewOffset,
+                                      IndexedType, FieldType, FieldIndex);
+
+        // If the field is an array, find the array type to check for a
+        // structure type being indexed.
+        if (DTransFieldTy->isArrayTy()) {
+          while (DTransFieldTy->isArrayTy()) {
+            llvm::Type *FieldTy = DTransFieldTy->getLLVMType();
+            uint64_t FieldSize = DL.getTypeAllocSize(FieldTy);
+            if (FieldSize == 0)
+              return false;
+            NewOffset = NewOffset % FieldSize;
+            DTransFieldTy = DTransFieldTy->getArrayElementType();
+          }
+
+          // Handle an array of structures.
+          if (auto *DTransFieldStTy = dyn_cast<DTransStructType>(DTransFieldTy))
+            return GetFieldTypeAndIndex(DL, DTransFieldStTy, NewOffset,
+                                        IndexedType, FieldType, FieldIndex);
+
+          // The array was to a pointer type, or other non-structure type.
+          *IndexedType = DTransStTy;
+          *FieldType = DTransFieldTy;
+          *FieldIndex = ElemIdx;
+          return true;
+        }
+
+        return false;
+      };
+
+      bool ProcessedAsFlattenedGEP = false;
+      // Check for the case of a GEP that indexes into a structure by using a
+      // multiple of size of an atomic type, such as:
+      //    %field = getelementptr ptr, ptr %in, i64 5
+      if (GEP.getNumIndices() == 1 && !SrcTy->isAggregateType() &&
+          PointerInfo->canAliasToAggregatePointer()) {
+        auto *ConstOffset = dyn_cast<ConstantInt>(GEP.getOperand(1));
+        if (ConstOffset) {
+          size_t GEPSize = DL.getTypeAllocSize(SrcTy);
+          int64_t OffsetInBytes = ConstOffset->getSExtValue() * GEPSize;
+
+          for (auto *AliasTy :
+               PointerInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            if (!AliasTy->isPointerTy() ||
+                !AliasTy->getPointerElementType()->isStructTy())
+              continue;
+
+            auto *DStTy =
+                cast<DTransStructType>(AliasTy->getPointerElementType());
+            auto *StTy = cast<llvm::StructType>(DStTy->getLLVMType());
+            if (StTy->isSized()) {
+              uint64_t StructSize = DL.getTypeAllocSize(StTy);
+              if (OffsetInBytes > 0 && (uint64_t)OffsetInBytes < StructSize) {
+                DTransStructType *IndexedType = nullptr;
+                DTransType *FieldType;
+                uint32_t FieldNum = 0;
+                bool Identified =
+                    GetFieldTypeAndIndex(DL, DStTy, OffsetInBytes, &IndexedType,
+                                         &FieldType, &FieldNum);
+                if (Identified) {
+                  ResultInfo->addTypeAlias(
+                      ValueTypeInfo::VAT_Decl,
+                      TM.getOrCreatePointerType(FieldType));
+                  ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl,
+                                                IndexedType, FieldNum);
+                  PTA.addFlattenedGEPMapping(&GEP, IndexedType, FieldNum,
+                                             GEPSize);
+                  ProcessedAsFlattenedGEP = true;
+                } else {
+                  // The GEP is inside of an aggregate type, but a field was
+                  // not identified.
+                  ResultInfo->setUnhandled();
+                  DEBUG_WITH_TYPE_P(
+                      FNFilter, VERBOSE_TRACE,
+                      dbgs() << "GEP to unknown location within structure: "
+                             << GEP << "\nStructure type: " << *DStTy << "\n");
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!ProcessedAsFlattenedGEP)
+        propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+                  DerefType::DT_SameType);
+    }
   }
 
   // Check whether the GEP is a byte-flattened GEP or an array of 'i8' elements.
@@ -4343,6 +4528,30 @@ PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return ByteFlattenedGEPInfoMap.lookup(GEP);
 }
 
+void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
+                                                 DTransType *Ty, size_t Idx,
+                                                 size_t Multiplier) {
+  if (FlattenedGEPInfoMap.insert({GEP, {Ty, Idx, Multiplier}}).second)
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
+      dbgs() << "Adding Flattened-GEP access: ";
+      dbgs() << *Ty << " @ " << Idx << " -- ";
+      if (auto *I = dyn_cast<Instruction>(GEP))
+        dbgs() << "[" << I->getFunction()->getName() << "] ";
+      printValue(dbgs(), GEP);
+      dbgs() << " - Multiplier = " << Multiplier;
+      dbgs() << "\n";
+      });
+}
+
+llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
+  auto Entry = FlattenedGEPInfoMap.find(GEP);
+  if (Entry != FlattenedGEPInfoMap.end())
+    return Entry->second;
+    
+  return None;
+}
+
 void PtrTypeAnalyzerImpl::run(Module &M) {
   DTransLibInfo.initialize(M);
   DTransAllocCollector DTAC(MDReader, GetTLI);
@@ -4875,6 +5084,11 @@ bool PtrTypeAnalyzer::isPtrToIntOrFloat(ValueTypeInfo &Info) const {
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+PtrTypeAnalyzer::getFlattenedGEPElement(GEPOperator *GEP) const {
+  return Impl->getFlattenedGEPElement(GEP);
 }
 
 dtrans::AllocKind PtrTypeAnalyzer::getAllocationCallKind(CallBase *Call) const {
