@@ -284,11 +284,9 @@ Improvements to Clang's diagnostics
   unevaluated operands of a ``typeid`` expression, as they are now
   modeled correctly in the CFG. This fixes
   `Issue 21668 <https://github.com/llvm/llvm-project/issues/21668>`_.
-- ``-Wself-assign``, ``-Wself-assign-overloaded`` and ``-Wself-move`` will
+- ``-Wself-assign``, ``-Wself-assign-overloaded`` and ``-Wself-move`` will 
   suggest a fix if the decl being assigned is a parameter that shadows a data
   member of the contained class.
-- Added ``-Winvalid-utf8`` which diagnoses invalid UTF-8 code unit sequences in
-  comments.
 
 Non-comprehensive list of changes in this release
 -------------------------------------------------
@@ -311,6 +309,10 @@ Non-comprehensive list of changes in this release
 - Previously disabled sanitizer options now enabled by default:
   - ASAN_OPTIONS=detect_stack_use_after_return=1 (only on Linux).
   - MSAN_OPTIONS=poison_in_dtor=1.
+
+- Some type-trait builtins, such as ``__has_trivial_assign``, have been documented
+  as deprecated for a while because their semantics don't mix well with post-C++11 type-traits.
+  Clang now emits deprecation warnings for them under the flag ``-Wdeprecated-builtins``.
 
 New Compiler Flags
 ------------------
@@ -611,7 +613,7 @@ AST Matchers
 
 - Added ``forEachTemplateArgument`` matcher which creates a match every
   time a ``templateArgument`` matches the matcher supplied to it.
-
+  
 - Added ``objcStringLiteral`` matcher which matches ObjectiveC String
   literal expressions.
 
