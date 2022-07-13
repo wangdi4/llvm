@@ -2559,6 +2559,14 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
     }
   }
 
+  // Replacing a concrete type of source element type
+  // with a pointer type doesn't seem to help.
+  // e.g.) %7 = getelementptr inbounds double, ptr %2, i64 400000
+  //       store ptr %7, ptr %0, align 8, !dbg !25, !tbaa !17
+  // Replacing double with the ptr in the first instruction is not desirable.
+  if (LoadStoreTy->isPointerTy())
+    return nullptr;
+
   // Convert GEP's src element type to load/store type.
   uint64_t LoadStoreSize = DL.getTypeAllocSize(LoadStoreTy).getFixedSize();
   uint64_t SrcElemSize = DL.getTypeAllocSize(SrcElemTy).getFixedSize();
