@@ -971,13 +971,8 @@ processInputModule(std::unique_ptr<Module> M) {
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
   // to modules resulting from all other kinds of splitting.
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
-<<<<<<< HEAD
-      module_split::getSplitterByMode(module_split::ModuleDesc{std::move(M)},
-                                      SplitMode, IROutputOnly,
-=======
       module_split::getSplitterByMode(
           module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
->>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
 #if INTEL_COLLAB
           EmitOnlyKernelsAsEntryPoints, DoOmpOffload);
 #else  // INTEL_COLLAB
@@ -1109,15 +1104,9 @@ processInputModule(std::unique_ptr<Module> M) {
 #if INTEL_COLLAB
         IrPropSymFilenameTriple T =
             saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
-<<<<<<< HEAD
-#else // INTEL_COLLAB
-        IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
-#endif
-=======
 #else  // INTEL_COLLAB
         IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
 #endif // INTEL_COLLAB
->>>>>>> 94c27acdf54554d19570101f0b44303dc1af2376
         addTableRow(*Table, T);
       }
     }
