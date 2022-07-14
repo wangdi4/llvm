@@ -235,6 +235,7 @@ public:
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  using UDRList = VPOVectorizationLegality::UDRList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
   using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
 
@@ -318,6 +319,30 @@ public:
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
+  }
+};
+// Conversion functor for user-defined reductions. Implementation mimics
+// in-memory reduction converter along with capturing
+// initialization/finalization functions.
+class UDRListCvt : public VPEntityConverterBase {
+public:
+  UDRListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+
+  void operator()(ReductionDescr &Descriptor,
+                  const UDRList::value_type &CurValue) {
+    Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue->getRef());
+    VPValue *StartVal = Builder.getOrCreateVPOperand(CurValue->getRef());
+    Descriptor.setStart(StartVal);
+    Descriptor.setKind(CurValue->getKind());
+    auto *AI = cast<AllocaInst>(CurValue->getRef()->stripPointerCasts());
+    Descriptor.setRecType(AI->getAllocatedType());
+    Descriptor.setSigned(false);
+    Descriptor.setAllocaInst(StartVal);
+    Descriptor.setCombiner(CurValue->getCombiner());
+    Descriptor.setInitializer(CurValue->getInitializer());
+    Descriptor.setCtor(CurValue->getCtor());
+    Descriptor.setDtor(CurValue->getDtor());
   }
 };
 
@@ -628,7 +653,9 @@ void PlainCFGBuilder::convertEntityDescriptors(
   RedCvt->createDescrList(TheLoop,
       Bind(*Legal->getReductionVars(),          ReductionListCvt{*this}),
       Bind(*Legal->getExplicitReductionVars(),  ExplicitReductionListCvt{*this}),
-      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}));
+      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}),
+      Bind(*Legal->getUDRVars(),                UDRListCvt{*this}));
+
 
   IndCvt->createDescrList(TheLoop,
       Bind(*Legal->getInductionVars(),          InductionListCvt{*this, Plan, SE}),

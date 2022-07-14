@@ -1133,6 +1133,11 @@ public:
   Optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
   }
+  bool isUDR() const { return K == RecurKind::Udr; }
+  Function *getCombiner() const { return Combiner; }
+  Function *getInitializer() const { return Initializer; }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1146,6 +1151,10 @@ public:
     InscanRedKind = V;
   }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
+  void setCombiner(Function *CombinerFn) { Combiner = CombinerFn; }
+  void setInitializer(Function *InitFn) { Initializer = InitFn; }
+  void setCtor(Function *CtorFn) { Ctor = CtorFn; }
+  void setDtor(Function *DtorFn) { Dtor = DtorFn; }
 
   /// Clear the content.
   void clear() override {
@@ -1160,6 +1169,10 @@ public:
     LinkedVPVals.clear();
     IsLinearIndex = false;
     InscanRedKind = None;
+    Combiner = nullptr;
+    Initializer = nullptr;
+    Ctor = nullptr;
+    Dtor = nullptr;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1225,6 +1238,11 @@ private:
   // instructions for any analyses, the store is saved in linked VPValues for
   // later stage analyses or corrections (example would be private memory).
   SmallVector<VPValue *, 4> LinkedVPVals;
+  // Functions needed for initialization/finalization of UDRs.
+  Function *Combiner = nullptr;
+  Function *Initializer = nullptr;
+  Function *Ctor = nullptr;
+  Function *Dtor = nullptr;
 };
 
 /// Intermediate induction descriptor. Same as ReductionDescr above but for

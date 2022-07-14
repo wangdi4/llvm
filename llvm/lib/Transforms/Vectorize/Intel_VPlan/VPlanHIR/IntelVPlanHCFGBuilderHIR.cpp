@@ -117,6 +117,11 @@ void HIRVectorizationLegality::dump(raw_ostream &OS) const {
     Red.dump();
     OS << "\n";
   }
+  OS << "\n\nHIRLegality UDRList:\n";
+  for (auto &UDR : UDRList) {
+    UDR.dump();
+    OS << "\n";
+  }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -140,9 +145,10 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
 }
 
 // Explicit template instantiations for findDescr.
-template HIRVectorizationLegality::RedDescr *
+template HIRVectorizationLegality::RedDescrTy *
 HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::RedDescr> List, const DDRef *Ref) const;
+    ArrayRef<HIRVectorizationLegality::RedDescrTy> List,
+    const DDRef *Ref) const;
 template HIRVectorizationLegality::PrivDescrTy *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
@@ -158,7 +164,7 @@ HIRVectorizationLegality::findDescr(
 
 void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
-  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
+  DescrWithInitValueTy *Descr = getLinearRednDescriptors(Ref);
 
   // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
@@ -174,7 +180,7 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
     // Ref is an alias to the original descriptor
     auto AliasIt = Descr->findAlias(Ref);
     assert(AliasIt && "Alias not found.");
-    auto *Alias = cast<DescrWithInitValue>(AliasIt);
+    auto *Alias = cast<DescrWithInitValueTy>(AliasIt);
     Alias->setInitValue(Ref);
   }
 }
@@ -274,8 +280,8 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
     return Descr;
   };
   auto addAlias = [](DescrWithAliasesTy *Descr, DDRef *Val) {
-    if (isa<DescrWithInitValue>(Descr))
-      Descr->addAlias(Val, std::make_unique<DescrWithInitValue>(Val));
+    if (isa<DescrWithInitValueTy>(Descr))
+      Descr->addAlias(Val, std::make_unique<DescrWithInitValueTy>(Val));
     else
       Descr->addAlias(Val, std::make_unique<DescrWithAliasesTy>(Val));
   };
@@ -1446,6 +1452,7 @@ public:
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
+  using UDRList = HIRVectorizationLegality::UDRListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
   using PrivatesNonPODListTy = HIRVectorizationLegality::PrivatesNonPODListTy;
   using InductionKind = VPInduction::InductionKind;
@@ -1583,7 +1590,7 @@ public:
     if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurrValue.getValidAlias()) {
       auto *RedAlias =
-          cast<HIRVectorizationLegality::DescrWithInitValue>(Alias);
+          cast<HIRVectorizationLegality::DescrWithInitValueTy>(Alias);
       VPValue *AliasInit =
           Decomposer.getVPExternalDefForDDRef(RedAlias->getInitValue());
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1601,25 +1608,41 @@ public:
     Descriptor.setAllocaInst(Descriptor.getStart());
 
     Descriptor.setStartPhi(nullptr);
-    Descriptor.setKind(CurrValue.Kind);
+    Descriptor.setKind(CurrValue.getKind());
     // In the directive, we have the kinds always set as for integers. Need to
     // correct them for fp-data.
     if (RType->isFloatingPointTy()) {
-      if (CurrValue.Kind == RecurKind::Add)
+      if (CurrValue.getKind() == RecurKind::Add)
         Descriptor.setKind(RecurKind::FAdd);
-      else if (CurrValue.Kind == RecurKind::Mul)
+      else if (CurrValue.getKind() == RecurKind::Mul)
         Descriptor.setKind(RecurKind::FMul);
-      else if (CurrValue.Kind == RecurKind::UMin ||
-               CurrValue.Kind == RecurKind::SMin)
+      else if (CurrValue.getKind() == RecurKind::UMin ||
+               CurrValue.getKind() == RecurKind::SMin)
         Descriptor.setKind(RecurKind::FMin);
-      else if (CurrValue.Kind == RecurKind::UMax ||
-               CurrValue.Kind == RecurKind::SMax)
+      else if (CurrValue.getKind() == RecurKind::UMax ||
+               CurrValue.getKind() == RecurKind::SMax)
         Descriptor.setKind(RecurKind::FMax);
     }
     Descriptor.setRecType(RType);
-    Descriptor.setSigned(CurrValue.IsSigned);
+    Descriptor.setSigned(CurrValue.isSigned());
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setIsLinearIndex(false);
+  }
+
+  /// Fill in the data from list of user defined reductions
+  void operator()(ReductionDescr &Descriptor,
+                  const UDRList::value_type &CurrValue) {
+    Descriptor.clear();
+    // Use explicit reductions data filling operator above to populate
+    // preliminary fields in descriptor.
+    auto *BaseTyVal =
+        static_cast<const ExplicitReductionList::value_type *>(&CurrValue);
+    ExplicitReductionListCvt{Decomposer}(Descriptor, *BaseTyVal);
+    // Capture functions needed for initialization/finalization.
+    Descriptor.setCombiner(CurrValue.getCombiner());
+    Descriptor.setInitializer(CurrValue.getInitializer());
+    Descriptor.setCtor(CurrValue.getCtor());
+    Descriptor.setDtor(CurrValue.getDtor());
   }
 };
 
@@ -1795,7 +1818,8 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
       Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
       Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
                       MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
-           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}));
+           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}),
+      Bind(Legal->getUDRs(), ExplicitReductionListCvt{Decomposer}));
 
     IndCvt->createDescrList(HL,
       Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),

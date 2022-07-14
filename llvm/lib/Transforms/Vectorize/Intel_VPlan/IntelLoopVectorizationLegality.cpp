@@ -219,6 +219,10 @@ void VPOVectorizationLegality::dump(raw_ostream &OS) const {
   for (auto const &Pvt : Privates) {
     Pvt.second->print(OS);
   }
+  OS << "\n\nVPOLegality UDRList:\n";
+  for (auto const &UDR : UserDefinedReductions) {
+    UDR->print(OS);
+  }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
