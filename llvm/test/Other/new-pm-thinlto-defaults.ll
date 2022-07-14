@@ -202,11 +202,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
-<<<<<<< HEAD
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
-=======
 ; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
->>>>>>> 846d10f16a573401191e406d3752b6f60c7d6459
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
