@@ -23,7 +23,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/device.hpp>
 #include <detail/allowlist.hpp>
 #include <detail/config.hpp>
 #include <detail/device_impl.hpp>
@@ -32,6 +31,7 @@
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
 #include <detail/force_device.hpp>    // INTEL
+#include <sycl/device.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -356,7 +356,7 @@ bool platform_impl::has(aspect Aspect) const {
 #define __SYCL_PARAM_TRAITS_SPEC(param_type, param, ret_type)                  \
   template ret_type platform_impl::get_info<info::param_type::param>() const;
 
-#include <CL/sycl/info/platform_traits.def>
+#include <sycl/info/platform_traits.def>
 #undef __SYCL_PARAM_TRAITS_SPEC
 
 } // namespace detail
