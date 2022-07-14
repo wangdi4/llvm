@@ -1177,6 +1177,11 @@ unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
   case RecurKind::FMin:
   case RecurKind::SelectFCmp:
     return Instruction::FCmp;
+#if INTEL_CUSTOMIZATION
+  // For UDRs finalization is done by calling custom reducer.
+  case RecurKind::Udr:
+    return Instruction::Call;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown recurrence operation");
   }

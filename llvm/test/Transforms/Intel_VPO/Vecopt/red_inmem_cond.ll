@@ -26,7 +26,8 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-NEXT:    ([[R_RED0]])[0] = [[CONV70:%.*]]
 ; HIR-NEXT:    ([[R_RED0]])[0] = [[TMP4:%.*]] + 1
 ; HIR-NEXT:    InitValue: [[R_RED0]]
-; HIR-EMPTY:
+; HIR-NEXT:    RedDescr: {Kind: add, IsSigned: 0}
+; HIR:       HIRLegality UDRList:
 ; HIR-NEXT:  VPlan after insertion of VPEntities instructions:
 ; HIR-NEXT:  VPlan IR for: _Z4funciPf:HIR.#{{[0-9]+}}
 ; HIR-NEXT:  External Defs Start:

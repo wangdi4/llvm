@@ -78,6 +78,9 @@ void VPReduction::dump(raw_ostream &OS) const {
   case RecurKind::FMax:
     OS << "(FloatMax)";
     break;
+  case RecurKind::Udr:
+    OS << "(UDR)";
+    break;
   }
   if (getRecurrenceStartValue()) {
     OS << " Start: ";
@@ -532,6 +535,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::FMax:
   case RecurKind::SelectICmp:
   case RecurKind::SelectFCmp:
+  case RecurKind::Udr:
     return Red->getRecurrenceStartValue();
   case RecurKind::None:
     llvm_unreachable("Unknown recurrence kind");
@@ -2201,41 +2205,76 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
   return LastNonheaderPHI;
 }
 
+// Helper utility to check if given VPValue is used by any call or is stored-to
+// inside the provided VPLoop.
+static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
+  for (auto *U : V->users()) {
+    if (auto *UserI = dyn_cast<VPInstruction>(U)) {
+      if (!Lp->contains(UserI))
+        continue;
+
+      if (isa<VPCallInstruction>(UserI))
+        return true;
+      if (UserI->getOpcode() == Instruction::Store &&
+          cast<VPLoadStoreInst>(UserI)->getPointerOperand() == V)
+        return true;
+    }
+  }
+
+  // All checks failed.
+  return false;
+}
+
 // This method tries to populate missing data in a ReductionDescr by using
 // additional knowledge from the VPlan CFG (def-use chains) that this reduction
 // belongs to. Following is the series of checks and cases handled -
 //
-// 1. Unknown loop exit instruction
+// 1. User-defined reductions
+//    - Check if reduction variable (Start) has a valid user inside the
+//      loop that ensures that the variable was not registerized. Update
+//      descriptor's ValidMemOnly state if UDR was not registerized.
+//    - Valid users - call, store's pointer operand.
+//    - No additional checks are needed for UDRs.
+//
+// 2. Unknown loop exit instruction
 //    - In case of explicit reductions, additional analysis is performed to
 //      identify reduction's loop exit instruction.
 //    - Replacing original descriptor with an alias is done here if needed.
 //    - Exit instruction is expected to be live-out (nullptr otherwise).
 //    - Masked reduction scenario is also accounted for here.
 //
-// 2. Unknown recurrence PHI when loop exit instruction is known
+// 3. Unknown recurrence PHI when loop exit instruction is known
 //    - Given that Exit is known we try to find recurrence PHI for this
 //      reduction based on users of Exit.
 //    - Exit can be non-liveout in cases like masked HIR SafeReductions.
 //    - Masked reduction pattern is also accounted for here.
 //
-// 3. Unknown recurrence PHI based on linked VPValues
+// 4. Unknown recurrence PHI based on linked VPValues
 //    - If checks in Case 2 fail then we try to identify recurrence PHI based on
 //      users of reduction's linked VPValues.
 //
-// 4. Pure in-memory reduction pattern
+// 5. Pure in-memory reduction pattern
 //    - If checks in both Case 2 and Case 3 fail, then we are dealing with an
 //      in-memory reduction.
 //    - Memory uses (load/store) of reduction's Start value inside the loop are
 //      identified.
 //
-// 5. Unknown Start value when recurrence PHI is known
+// 6. Unknown Start value when recurrence PHI is known
 //    - Live-in or const operand of recurrence PHI is identified as reduction's
 //      Start value.
 //
-// 6. Unknown recurrence type
+// 7. Unknown recurrence type
 //    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
 void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
+  // Special handling of UDRs. Additional analyses below are not needed for
+  // them.
+  if (isUDR()) {
+    if (Start && isUsedByInLoopCallOrStore(Start, Loop))
+      ValidMemOnly = true;
+    return;
+  }
+
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
     // VPInstruction. Auto-recognized reductions don't need this.
