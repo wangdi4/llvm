@@ -320,7 +320,7 @@ public:
   /// given offset. Update the offset to be relative to the field type.
   TBAAStructTypeNode getField(uint64_t &Offset) const {
     bool NewFormat = isNewFormat();
-    const ArrayRef<MDOperand> Operands(Node->op_begin(), Node->op_end());
+    const ArrayRef<MDOperand> Operands = Node->operands();
     const unsigned NumOperands = Operands.size();
 
     if (NewFormat) {
@@ -893,7 +893,8 @@ MDNode *AAMDNodes::extendToTBAA(MDNode *MD, ssize_t Len) {
     return nullptr;
 
   // Otherwise, create TBAA with the new Len
-  SmallVector<Metadata *, 4> NextNodes(MD->operands());
+  ArrayRef<MDOperand> MDOperands = MD->operands();
+  SmallVector<Metadata *, 4> NextNodes(MDOperands.begin(), MDOperands.end());
   ConstantInt *PreviousSize = mdconst::extract<ConstantInt>(NextNodes[3]);
 
   // Don't create a new MDNode if it is the same length.
