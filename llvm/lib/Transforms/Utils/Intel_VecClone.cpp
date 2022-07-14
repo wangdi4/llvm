@@ -210,11 +210,17 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   FunctionType::param_iterator ParmEnd = OrigFunctionType->param_end();
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
+    Type* ParmType = *ParmIt;
     if (VKIt->isVector()) {
+      if (ParmType->isIntegerTy(1)) {
+        // Promote an `i1` argument to `i8` to avoid a GEP into `<VF x i1>` when
+        // accessing elements.
+        ParmType = Type::getInt8Ty(ParmType->getContext());
+      }
       unsigned VF = V.getVlen();
-      if (auto *FVT = dyn_cast<FixedVectorType>(*ParmIt))
+      if (auto *FVT = dyn_cast<FixedVectorType>(ParmType))
         VF *= FVT->getNumElements();
-      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(), VF));
+      ParmTypes.push_back(FixedVectorType::get(ParmType->getScalarType(), VF));
     } else {
       ParmTypes.push_back(*ParmIt);
     }
@@ -364,8 +370,8 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
 
 void VecCloneImpl::updateVectorArgumentUses(
     Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
-    BitCastInst *VecArgCast, BasicBlock *EntryBlock, BasicBlock *LoopLatch,
-    PHINode *Phi) {
+    Type *ElemType, BitCastInst *VecArgCast, BasicBlock *EntryBlock,
+    BasicBlock *LoopLatch, PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
@@ -382,11 +388,9 @@ void VecCloneImpl::updateVectorArgumentUses(
         LoopLatch->getFirstNonPHI() : User;
 
     GetElementPtrInst *VecGep = nullptr;
-    Type *OrigElemType = OrigFn.getArg(Arg->getArgNo())->getType();
     if (!isa<PHINode>(User))
-      VecGep = GetElementPtrInst::Create(OrigElemType, VecArgCast,
-                                         Phi, VecArgCast->getName() + ".gep",
-                                          InsertPt);
+      VecGep = GetElementPtrInst::Create(
+          ElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep", InsertPt);
 
     // Otherwise, we need to load the value from the gep first before
     // using it. This effectively loads the particular element from
@@ -394,7 +398,7 @@ void VecCloneImpl::updateVectorArgumentUses(
     if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
       BasicBlock *IncommingBB = PHIUser->getIncomingBlock(U.getOperandNo());
       VecGep = GetElementPtrInst::Create(
-          OrigElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep",
+          ElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep",
           IncommingBB->getTerminator());
     }
     assert(VecGep && "Expect VecGep to be a non-null value.");
@@ -403,11 +407,25 @@ void VecCloneImpl::updateVectorArgumentUses(
         LoadTy, VecGep, "vec." + Arg->getName() + ".elem", false /*volatile*/,
         Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
     ArgElemLoad->insertAfter(VecGep);
+
+    Value *ArgValue = ArgElemLoad;
+    Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
+    if (OrigArgTy->isIntegerTy(1)) {
+      // If the original arg type was `i1`, we need truncate the value back to
+      // its original type after loads.
+      assert(ElemType->isIntegerTy(8) &&
+             "expected element type to be promoted to i8 from i1");
+      TruncInst *TruncatedLoad = new TruncInst(
+          ArgElemLoad, OrigArgTy, ArgElemLoad->getName() + ".trunc");
+      TruncatedLoad->insertAfter(ArgElemLoad);
+      ArgValue = TruncatedLoad;
+    }
+
     // If the user happens to be a return instruction, then the operand
     // of the return is replaced with the load also. This doesn't matter
     // because this instruction is later replaced with the return vector
     // in updateReturnBlockInstructions().
-    User->setOperand(U.getOperandNo(), ArgElemLoad);
+    User->setOperand(U.getOperandNo(), ArgValue);
   }
 }
 
@@ -471,17 +489,28 @@ Instruction *VecCloneImpl::widenVectorArguments(
       VecAlloca->insertBefore(&EntryBlock->front());
     LastAlloca = VecAlloca;
 
-    Type *ArgTy = nullptr;
+    Type *OrigArgTy = nullptr;
     for (const auto &Pair : VMap)
       if (Pair.second == Arg)
-        ArgTy = Pair.first->getType();
+        OrigArgTy = Pair.first->getType();
 
-    // If the argument is a mask, it does not exist in VMap.
-    if (!ArgTy)
-      ArgTy = VecType->getElementType();
+    Type *ElemType = nullptr;
+    if (!OrigArgTy) {
+      // If the argument is a mask, it does not exist in VMap.
+      ElemType = VecType->getElementType();
+    } else if (OrigArgTy->isIntegerTy(1)) {
+      // If the original argument type was `i1`, then we promoted it to an
+      // `i8`. Use `i8` as the element type instead, to avoid a GEP into a
+      // `<VF x i1>` when updating the argument's uses.
+      assert(VecType->getElementType()->isIntegerTy(8) &&
+             "expected element type to be promoted to i8 from i1");
+      ElemType = VecType->getElementType();
+    } else {
+      ElemType = OrigArgTy;
+    }
 
     PointerType *ElemTypePtr =
-        PointerType::get(ArgTy, VecAlloca->getType()->getAddressSpace());
+        PointerType::get(ElemType, VecAlloca->getType()->getAddressSpace());
 
     BitCastInst *VecArgCast = nullptr;
     if (MaskArg) {
@@ -505,8 +534,8 @@ Instruction *VecCloneImpl::widenVectorArguments(
                                      DL.getABITypeAlign(ArgValue->getType()));
     Store->insertBefore(EntryBlock->getTerminator());
 
-    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, VecArgCast, EntryBlock,
-                             LoopHeader, Phi);
+    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArgCast,
+                             EntryBlock, LoopHeader, Phi);
   }
 
   return nullptr;

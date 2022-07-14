@@ -106,7 +106,7 @@ entry:
 
   %tobool = icmp ne i32 %0, 0
   %call19 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool)
-; CHECK: call <4 x i32> @intel_sub_group_ballot_vf4(<4 x i1> zeroext {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: call <4 x i32> @intel_sub_group_ballot_vf4(<4 x i8> zeroext {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %mul = mul i32 %call4, 1000
   %conv = zext i32 %mul to i64
