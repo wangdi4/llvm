@@ -121,8 +121,6 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
-; CHECK-NEXT: Running pass: ImplicitGIDPass
-; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
@@ -131,6 +129,7 @@
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValues
 ; CHECK:      Running analysis: DataPerValueAnalysis
+; CHECK:      Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 ; CHECK:      Running analysis: DominanceFrontierAnalysis
 ; CHECK:      Running analysis: DominatorTreeAnalysis
