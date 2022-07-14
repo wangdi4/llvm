@@ -1701,10 +1701,30 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   if (!LE)
     return false;
   // Check whether all reductions are supported
-  for (auto Red : LE->vpreductions())
+  for (auto Red : LE->vpreductions()) {
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp)
       return false;
+
+    // Bailouts for user-defined reductions.
+    if (Red->getRecurrenceKind() == RecurKind::Udr) {
+      // Check if UDR is registerized. This can happen due to hoisting/invariant
+      // code motion done by pre-vectorizer passes. TODO: This should be changed
+      // to assert in future when Paropt is fixed to prohibit registerization of
+      // UDRs.
+      if (!Red->getRecurrenceStartValue() ||
+          LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
+        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
+        return false;
+      }
+
+      // Temporary bailout until entities lowering and codegen support is
+      // implemented for UDRs.
+      LLVM_DEBUG(
+          dbgs() << "LVP: UDR lowering and codegen not implemented yet.\n");
+      return false;
+    }
+  }
 
   // Check whether all header phis are recognized as entities.
   for (auto &Phi : Header->getVPPhis())

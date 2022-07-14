@@ -66,7 +66,6 @@ public:
     // TODO: CMPLRLLVM-30686.
     ArrayLastprivateNonPod,
     ArrayPrivate,
-    UserDefinedReduction,
     UnsupportedReductionOp,
     InscanReduction,
     VectorCondLastPrivate, // need CG implementation
@@ -87,8 +86,6 @@ public:
       return "Cannot handle nonPOD array lastprivates.\n";
     case BailoutReason::ArrayPrivate:
       return "Cannot handle array privates yet.\n";
-    case BailoutReason::UserDefinedReduction:
-      return "User defined reductions are not supported.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
     case BailoutReason::InscanReduction:
@@ -164,9 +161,8 @@ private:
       case ReductionItem::WRNReductionBor:
       case ReductionItem::WRNReductionBxor:
       case ReductionItem::WRNReductionBand:
-        return true;
       case ReductionItem::WRNReductionUdr:
-        return bailout(BailoutReason::UserDefinedReduction);
+        return true;
       default:
         return bailout(BailoutReason::UnsupportedReductionOp);
       }
@@ -227,6 +223,8 @@ private:
       return RecurKind::Xor;
     case ReductionItem::WRNReductionBand:
       return RecurKind::And;
+    case ReductionItem::WRNReductionUdr:
+      return RecurKind::Udr;
     default:
       llvm_unreachable("Unsupported reduction type");
     }
@@ -361,7 +359,11 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
-    if (Item->getIsInscan()) {
+    // Capture functions for init/finalization for UDRs.
+    if (Kind == RecurKind::Udr) {
+      addReduction(Val, Item->getCombiner(), Item->getInitializer(),
+                   Item->getConstructor(), Item->getDestructor());
+    } else if (Item->getIsInscan()) {
       assert(InscanMap.count(Item->getInscanIdx()) &&
              "The inscan item must be present in the separating pragma");
       addReduction(Val, Kind, InscanMap[Item->getInscanIdx()]);
@@ -396,6 +398,12 @@ private:
     return static_cast<LegalityTy *>(this)->addReduction(
       V, Kind, InscanRedKind);
   }
+
+  void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
+                    Function *Constr, Function *Destr) {
+    return static_cast<LegalityTy *>(this)->addReduction(
+        V, Combiner, Initializer, Constr, Destr);
+  }
 };
 
 class VPOVectorizationLegality final
@@ -421,6 +429,7 @@ public:
   using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
+  using UDRDescrTy = RedDescrUDR<Value>;
 
   /// Container-class for storing the different types of Privates
   using PrivatesListTy = MapVector<const Value *, std::unique_ptr<PrivDescrTy>>;
@@ -435,6 +444,9 @@ public:
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
   using InMemoryReductionList = MapVector<Value *, InMemoryReductionDescr>;
+  /// The list of user-defined reductions. Stores the Legality descriptor that
+  /// captures the SIMD reduction variable.
+  using UDRList = SmallVector<std::unique_ptr<UDRDescrTy>, 2>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -465,6 +477,10 @@ public:
   InMemoryReductionList *getInMemoryReductionVars() {
     return &InMemoryReductions;
   }
+
+  /// Returns the list of user-defined reductions (legality descriptors) found
+  /// in loop.
+  UDRList *getUDRVars() { return &UserDefinedReductions; }
 
   /// Return a recurrence descriptor for the given \p Phi node.
   /// (For explicit reduction variables)
@@ -528,6 +544,8 @@ private:
   /// Holds the explicitly-specified reduction variables that
   /// calculated in loop using memory.
   InMemoryReductionList InMemoryReductions;
+  /// Holds descriptors that describe user-defined reduction variables.
+  UDRList UserDefinedReductions;
 
   /// Holds all of the induction variables that we found in the loop.
   /// Notice that inductions don't need to start at zero and that induction
@@ -608,6 +626,12 @@ public:
     return make_first_range(InMemoryReductions);
   }
 
+  // Return the iterator-range to the list of user-defined reduction variables.
+  inline decltype(auto) userDefinedReductions() const {
+    return make_range(UserDefinedReductions.begin(),
+                      UserDefinedReductions.end());
+  }
+
   // Return the iterator-range to the list of 'linear' variables.
   inline decltype(auto) linearVals() const { return make_first_range(Linears); }
 
@@ -646,6 +670,14 @@ private:
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
   void addReduction(Value *V, RecurKind Kind,
                     Optional<InscanReductionKind> InscanRedKind);
+
+  /// Add a user-defined reduction variable \p V and functions that are needed
+  /// for its initialization/finalization.
+  void addReduction(Value *V, Function *Combiner, Function *Initializer,
+                    Function *Constr, Function *Destr) {
+    UserDefinedReductions.emplace_back(
+        std::make_unique<UDRDescrTy>(V, Combiner, Initializer, Constr, Destr));
+  }
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);

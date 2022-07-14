@@ -60,63 +60,12 @@ public:
 
   using DescrValueTy = DescrValue<DDRef>;
   using DescrWithAliasesTy = DescrWithAliases<DDRef>;
+  using DescrWithInitValueTy = DescrWithInitValue<DDRef>;
 
-  // Class used to store aliases and initvalue required for loop vectorization
-  // legality analysis for incoming HIR.
-  class DescrWithInitValue : public DescrWithAliasesTy {
-    using DescrKind = typename DescrValueTy::DescrKind;
-    // NOTE: InitValue holds only DDRefs for which VPExternalDefs were created
-    // for a descriptor/alias. DDRefs with VPConstants are not accounted for.
-    // Each descriptor/alias may have multiple updating HLInsts within the loop.
-    const DDRef *InitValue;
-
-  public:
-    DescrWithInitValue(DDRef *RefV)
-        : DescrWithAliasesTy(RefV, DescrKind::DK_WithInitValue),
-          InitValue(nullptr) {}
-    // Move constructor
-    DescrWithInitValue(DescrWithInitValue &&Other) = default;
-
-    void setInitValue(DDRef *Val) { InitValue = Val; }
-    const DDRef *getInitValue() const { return InitValue; }
-
-    bool isValidAlias() const override {
-      return InitValue && getUpdateInstructions().size() > 0;
-    }
-
-    static bool classof(const DescrWithAliasesTy *Descr) {
-      return Descr->getKind() == DescrKind::DK_WithInitValue;
-    }
-
-    static bool classof(const DescrValueTy *Descr) {
-      return Descr->getKind() == DescrKind::DK_WithInitValue;
-    }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void print(raw_ostream &OS, unsigned Indent = 0) const override {
-      DescrWithAliasesTy::print(OS);
-      if (InitValue) {
-        OS.indent(Indent + 2) << "InitValue: ";
-        InitValue->dump();
-        OS << "\n";
-      }
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  };
-
-  // Specialized class to represent reduction descriptors specified explicitly
-  // via SIMD reduction clause. The reduction's kind and signed datatype
-  // information is also stored within this class.
-  struct RedDescr : public DescrWithInitValue {
-    RedDescr(RegDDRef *RegV, RecurKind KindV, bool Signed)
-        : DescrWithInitValue(RegV), Kind(KindV), IsSigned(Signed) {}
-    // Move constructor
-    RedDescr(RedDescr &&Other) = default;
-
-    RecurKind Kind;
-    bool IsSigned;
-  };
-  using ReductionListTy = SmallVector<RedDescr, 8>;
+  using RedDescrTy = RedDescr<DDRef>;
+  using ReductionListTy = SmallVector<RedDescrTy, 8>;
+  using RedDescrUDRTy = RedDescrUDR<DDRef>;
+  using UDRListTy = SmallVector<RedDescrUDRTy, 8>;
 
   using PrivDescrTy = PrivDescr<DDRef>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
@@ -125,9 +74,9 @@ public:
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
-  struct LinearDescr : public DescrWithInitValue {
+  struct LinearDescr : public DescrWithInitValueTy {
     LinearDescr(RegDDRef *RegV, const RegDDRef *StepV)
-        : DescrWithInitValue(RegV), Step(StepV) {}
+        : DescrWithInitValueTy(RegV), Step(StepV) {}
     // Move constructor
     LinearDescr(LinearDescr &&Other) = default;
 
@@ -159,6 +108,7 @@ public:
   }
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
+  const UDRListTy &getUDRs() const { return UDRList; }
 
   PrivDescrTy *getPrivateDescr(const DDRef *Ref) const {
     return findDescr<PrivDescrTy>(PrivatesList, Ref);
@@ -169,8 +119,11 @@ public:
   LinearDescr *getLinearDescr(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
   }
-  RedDescr *getReductionDescr(const DDRef *Ref) const {
-    return findDescr<RedDescr>(ReductionList, Ref);
+  RedDescrTy *getReductionDescr(const DDRef *Ref) const {
+    return findDescr<RedDescrTy>(ReductionList, Ref);
+  }
+  RedDescrUDRTy *getUDRDescr(const DDRef *Ref) const {
+    return findDescr<RedDescrUDRTy>(UDRList, Ref);
   }
 
   /// Check if the given temp ref \p Ref is part of minmax+index idiom
@@ -242,6 +195,12 @@ private:
     ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
   }
 
+  /// Add an explicit user-defined reduction variable.
+  void addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
+                    Function *Constr, Function *Destr) {
+    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr);
+  }
+
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
   /// corresponding to it, else nullptr
@@ -251,13 +210,16 @@ private:
   /// Return the descriptor object corresponding to the input \p Ref, if it
   /// represents a reduction or linear SIMD variable (original or aliases). If
   /// \p Ref is not a SIMD descriptor variable nullptr is returned.
-  DescrWithInitValue *getLinearRednDescriptors(DDRef *Ref) {
+  DescrWithInitValueTy *getLinearRednDescriptors(DDRef *Ref) {
     // Check if Ref is a linear descriptor
-    DescrWithInitValue *Descr = getLinearDescr(Ref);
+    DescrWithInitValueTy *Descr = getLinearDescr(Ref);
 
     // If Ref is not linear, check if it is a reduction variable
     if (!Descr)
       Descr = getReductionDescr(Ref);
+
+    if (!Descr)
+      Descr = getUDRDescr(Ref);
 
     return Descr;
   }
@@ -269,6 +231,7 @@ private:
   PrivatesNonPODListTy PrivatesNonPODList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
+  UDRListTy UDRList;
 
   using IdiomListTy = std::unique_ptr<HIRVectorIdioms>;
   // List of idioms recognized for each corresponding HLLoop.

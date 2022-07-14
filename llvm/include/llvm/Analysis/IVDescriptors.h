@@ -65,6 +65,7 @@ enum class RecurKind {
   FMin,       ///< FP min implemented in terms of select(cmp()).
   FMax,       ///< FP max implemented in terms of select(cmp()).
   FMulAdd,    ///< Fused multiply-add of floats (a * b + c).
+  Udr,        ///< User-defined recurrence operation. // INTEL
   SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
               ///< invariant
   SelectFCmp  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop

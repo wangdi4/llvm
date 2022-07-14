@@ -1,15 +1,5 @@
-; RUN: opt -disable-output -vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; REQUIRES: asserts
-
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Test to check VPlan vectorizer llvm IR path to bail out on user defined reductions.
+; Test to verify VPlan Planner bails out for fully/partially registerized
+; user-defined reductions.
 
 ; #pragma omp declare reduction(+: double: omp_out += omp_in)
 ; double test() {
@@ -23,13 +13,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   return counter;
 ; }
 
-; CHECK: VPlan LLVM-IR Driver for Function: test_user_defined_reduction
-; CHECK: User defined reductions are not supported.
-; CHECK: VD: Not vectorizing: Cannot prove legality.
+; RUN: opt -disable-output -vplan-vec -debug-only=LoopVectorizationPlanner  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="vplan-vec" -debug-only=LoopVectorizationPlanner  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; REQUIRES: asserts
 
-; HIR: VPlan HIR Driver for Function: test_user_defined_reduction
-; HIR: User defined reductions are not supported.
-; HIR: VD: Not vectorizing: Cannot prove legality.
+; CHECK: LVP: Registerized UDR found.
+; CHECK: LVP: VPlan is not legal to process, bailing out.
+
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local double @test_user_defined_reduction() local_unnamed_addr #0 {
