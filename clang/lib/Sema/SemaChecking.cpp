@@ -13803,6 +13803,9 @@ Sema::CheckReturnValExpr(Expr *RetValExp, QualType lhsType,
 /// intended. // INTEL
 void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                                 BinaryOperatorKind Opcode) {
+  if (!BinaryOperator::isEqualityOp(Opcode))
+    return;
+
   // Match and capture subexpressions such as "(float) X == 0.1".
   FloatingLiteral *FPLiteral;
   CastExpr *FPCast;
@@ -13838,6 +13841,7 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Issue a warning (unless they are equality self-comparisons)
   // since they are not likely to do what the programmer intended.
@@ -13874,6 +13878,12 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
   if (!BinaryOperator::isEqualityOp(Opcode))
     return;
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (auto *DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
+    if (auto *DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
+      if (DRL->getDecl() == DRR->getDecl())
+        return;
+>>>>>>> e71fd547194591fbdfb617479e47b1b7cf6e9151
 
   // Special case: check for comparisons against literals that can be exactly
   //  represented by APFloat.  In such cases, do not emit a warning.  This

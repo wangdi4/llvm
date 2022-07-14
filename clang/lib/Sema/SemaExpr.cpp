@@ -12628,12 +12628,16 @@ static QualType checkArithmeticOrEnumeralCompare(Sema &S, ExprResult &LHS,
     return S.InvalidOperands(Loc, LHS, RHS);
 
   // Check for comparisons of floating point operands using != and ==.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check for comparisons of floating point operands using all comparison
   // operators.
   if (Type->hasFloatingRepresentation() &&
       (BinaryOperator::isEqualityOp(Opc) || S.getLangOpts().IntelCompat))
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Type->hasFloatingRepresentation())
+>>>>>>> e71fd547194591fbdfb617479e47b1b7cf6e9151
     S.CheckFloatComparison(Loc, LHS.get(), RHS.get(), Opc);
 
   // The result of comparisons is 'bool' in C++, 'int' in C.
@@ -13244,7 +13248,10 @@ QualType Sema::CheckVectorCompareOperands(ExprResult &LHS, ExprResult &RHS,
   diagnoseTautologicalComparison(*this, Loc, LHS.get(), RHS.get(), Opc);
 
   // Check for comparisons of floating point operands using != and ==.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> e71fd547194591fbdfb617479e47b1b7cf6e9151
   if (LHSType->hasFloatingRepresentation()) {
     assert(RHS.get()->getType()->hasFloatingRepresentation());
     CheckFloatComparison(Loc, LHS.get(), RHS.get(), Opc);
@@ -13280,8 +13287,7 @@ QualType Sema::CheckSizelessVectorCompareOperands(ExprResult &LHS,
   diagnoseTautologicalComparison(*this, Loc, LHS.get(), RHS.get(), Opc);
 
   // Check for comparisons of floating point operands using != and ==.
-  if (BinaryOperator::isEqualityOp(Opc) &&
-      LHSType->hasFloatingRepresentation()) {
+  if (LHSType->hasFloatingRepresentation()) {
     assert(RHS.get()->getType()->hasFloatingRepresentation());
     CheckFloatComparison(Loc, LHS.get(), RHS.get(), Opc);
   }
