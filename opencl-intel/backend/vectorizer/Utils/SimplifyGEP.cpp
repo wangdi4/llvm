@@ -506,7 +506,7 @@ SimplifyGEP::SimplifyGEP()
     }
     if (pGep2 && pGep2->getPointerOperand() == pPhiNode &&
         pGep2->getNumIndices() == 1 && pGep2->hasOneUse()) {
-      Type *Ty = pGep1->getSourceElementType();
+      Type *Ty = pGep2->getSourceElementType();
       if (Ty->isFloatingPointTy() || Ty->isIntegerTy())
         return 1;
     }
