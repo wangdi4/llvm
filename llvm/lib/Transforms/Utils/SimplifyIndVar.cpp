@@ -677,7 +677,7 @@ bool SimplifyIndvar::replaceIVUserWithLoopInvariant(Instruction *I) {
 
   auto *IP = GetLoopInvariantInsertPosition(L, I);
 
-  if (!isSafeToExpandAt(S, IP, *SE)) {
+  if (!Rewriter.isSafeToExpandAt(S, IP)) {
     LLVM_DEBUG(dbgs() << "INDVARS: Can not replace IV user: " << *I
                       << " with non-speculable loop invariant: " << *S << '\n');
     return false;
@@ -705,9 +705,13 @@ bool SimplifyIndvar::replaceFloatIVWithIntegerIV(Instruction *UseInst) {
   unsigned DestNumSigBits = UseInst->getType()->getFPMantissaWidth();
   if (IVRange.getActiveBits() <= DestNumSigBits) {
     for (User *U : UseInst->users()) {
-      // Match for fptosi of sitofp and with same type.
-      auto *CI = dyn_cast<FPToSIInst>(U);
+      // Match for fptosi/fptoui of sitofp and with same type.
+      auto *CI = dyn_cast<CastInst>(U);
       if (!CI || IVOperand->getType() != CI->getType())
+        continue;
+
+      CastInst::CastOps Opcode = CI->getOpcode();
+      if (Opcode != CastInst::FPToSI && Opcode != CastInst::FPToUI)
         continue;
 
       CI->replaceAllUsesWith(IVOperand);
