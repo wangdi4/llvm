@@ -42,6 +42,11 @@ using namespace llvm;
 static cl::opt<bool> VPlanSIMDAssertDefault(
     "vplan-simd-assert-default", cl::init(false),
     cl::desc("Emits assert if pragma simd loop is not vectorized by VPlan"));
+static cl::opt<bool> VPlanSIMDAssertNoError(
+    "vplan-simd-assert-no-error", cl::init(true),
+    cl::desc(
+        "Emit a warning instead of an error if pragma simd assert loop is not "
+        "vectorized by VPlan"));
 #endif
 
 /// Emit warnings for forced (i.e. user-defined) loop transformations which have
@@ -87,7 +92,7 @@ static void warnAboutLeftoverTransformations(Loop *L,
 #if INTEL_CUSTOMIZATION
     {
       if (VPlanSIMDAssertDefault ||
-          getBooleanLoopAttribute(L, "llvm.loop.intel.vector.assert"))
+          (getBooleanLoopAttribute(L, "llvm.loop.intel.vector.assert") && !VPlanSIMDAssertNoError))
         F->getContext().diagnose(DiagnosticInfoUnsupported(
             *F,
             "loop not vectorized: the optimizer was unable to perform the "
