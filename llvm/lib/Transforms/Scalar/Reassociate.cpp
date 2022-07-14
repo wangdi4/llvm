@@ -2431,12 +2431,8 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   // First, walk the expression tree, linearizing the tree, collecting the
   // operand information.
   SmallVector<RepeatedValue, 8> Tree;
-<<<<<<< HEAD
   const bool TreeHasNoWrapFlags = IsNonOverflowingTree(I); // INTEL
-  MadeChange |= LinearizeExprTree(I, Tree);
-=======
   MadeChange |= LinearizeExprTree(I, Tree, RedoInsts);
->>>>>>> 230c8c56f21cfe4e23a24793f3137add1af1d1f0
   SmallVector<ValueEntry, 8> Ops;
   Ops.reserve(Tree.size());
   for (const RepeatedValue &E : Tree)
