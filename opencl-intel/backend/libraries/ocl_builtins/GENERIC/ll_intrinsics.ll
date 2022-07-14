@@ -358,33 +358,36 @@ define %opencl.pipe_wo_t addrspace(1)* @_Z39__spirv_CreatePipeFromPipeStorage_wr
 
 ; Ballot (NEO-like)
 
-define <16 x i32> @intel_sub_group_ballot_vf16(<16 x i1> %pred, <16 x i32> %vec_mask) #1 {
-  %1 = icmp ne <16 x i32> %vec_mask, zeroinitializer
-  %2 = and <16 x i1> %pred, %1
-  %3 = bitcast <16 x i1> %2 to i16
-  %conv = zext i16 %3 to i32
+define <16 x i32> @intel_sub_group_ballot_vf16(<16 x i8> %pred, <16 x i32> %vec_mask) #1 {
+  %1 = trunc <16 x i8> %pred to <16 x i1>
+  %2 = icmp ne <16 x i32> %vec_mask, zeroinitializer
+  %3 = and <16 x i1> %1, %2
+  %4 = bitcast <16 x i1> %3 to i16
+  %conv = zext i16 %4 to i32
   %splat.splatinsert = insertelement <16 x i32> undef, i32 %conv, i32 0
   %splat.splat = shufflevector <16 x i32> %splat.splatinsert, <16 x i32> undef, <16 x i32> zeroinitializer
   ret <16 x i32> %splat.splat
 }
 
-define <8 x i32> @intel_sub_group_ballot_vf8(<8 x i1> %pred, <8 x i32> %vec_mask) #1 {
-  %1 = icmp ne <8 x i32> %vec_mask, zeroinitializer
-  %2 = and <8 x i1> %pred, %1
-  %3 = bitcast <8 x i1> %2 to i8
-  %conv = zext i8 %3 to i32
+define <8 x i32> @intel_sub_group_ballot_vf8(<8 x i8> %pred, <8 x i32> %vec_mask) #1 {
+  %1 = trunc <8 x i8> %pred to <8 x i1>
+  %2 = icmp ne <8 x i32> %vec_mask, zeroinitializer
+  %3 = and <8 x i1> %1, %2
+  %4 = bitcast <8 x i1> %3 to i8
+  %conv = zext i8 %4 to i32
   %splat.splatinsert = insertelement <8 x i32> undef, i32 %conv, i32 0
   %splat.splat = shufflevector <8 x i32> %splat.splatinsert, <8 x i32> undef, <8 x i32> zeroinitializer
   ret <8 x i32> %splat.splat
 }
 
-define <4 x i32> @intel_sub_group_ballot_vf4(<4 x i1> %pred, <4 x i32> %vec_mask) #1 {
-  %1 = icmp ne <4 x i32> %vec_mask, zeroinitializer
-  %m = shufflevector <4 x i1> %1, <4 x i1> zeroinitializer, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %d = shufflevector <4 x i1> %pred, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-  %2 = and <8 x i1> %m, %d
-  %3 = bitcast <8 x i1> %2 to i8
-  %conv = zext i8 %3 to i32
+define <4 x i32> @intel_sub_group_ballot_vf4(<4 x i8> %pred, <4 x i32> %vec_mask) #1 {
+  %1 = trunc <4 x i8> %pred to <4 x i1>
+  %2 = icmp ne <4 x i32> %vec_mask, zeroinitializer
+  %m = shufflevector <4 x i1> %2, <4 x i1> zeroinitializer, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %d = shufflevector <4 x i1> %1, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  %3 = and <8 x i1> %m, %d
+  %4 = bitcast <8 x i1> %3 to i8
+  %conv = zext i8 %4 to i32
   %splat.splatinsert = insertelement <4 x i32> undef, i32 %conv, i32 0
   %splat.splat = shufflevector <4 x i32> %splat.splatinsert, <4 x i32> undef, <4 x i32> zeroinitializer
   ret <4 x i32> %splat.splat
