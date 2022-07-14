@@ -23,23 +23,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/backend_types.hpp>
-#include <CL/sycl/detail/device_filter.hpp>
-#include <CL/sycl/device.hpp>
-#include <CL/sycl/device_selector.hpp>
-#include <CL/sycl/exception.hpp>
-#include <CL/sycl/stl.hpp>
 #include <detail/config.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/filter_selector_impl.hpp>
 #include <detail/force_device.hpp>
 #include <detail/global_handler.hpp>
+#include <sycl/backend_types.hpp>
+#include <sycl/detail/device_filter.hpp>
+#include <sycl/device.hpp>
+#include <sycl/device_selector.hpp>
+#include <sycl/exception.hpp>
 #include <sycl/ext/oneapi/filter_selector.hpp>
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 #include <detail/config.hpp>
 #endif // INTEL_CUSTOMIZATION
 #include <sycl/ext/oneapi/filter_selector.hpp>
 
+=======
+#include <sycl/stl.hpp>
+>>>>>>> ee93fbc9b48e3a03a60d24b8aebcaf1af57ed1a2
 // 4.6.1 Device selection class
 
 #include <algorithm>

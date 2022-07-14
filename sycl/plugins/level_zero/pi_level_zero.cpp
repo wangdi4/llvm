@@ -29,7 +29,6 @@
 /// \ingroup sycl_pi_level_zero
 
 #include "pi_level_zero.hpp"
-#include <CL/sycl/detail/spinlock.hpp>
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
@@ -38,6 +37,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <sycl/detail/spinlock.hpp>
 #include <thread>
 #include <utility>
 
@@ -8375,7 +8375,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
 
 #define _PI_API(api)                                                           \
   (PluginInit->PiFunctionTable).api = (decltype(&::api))(&api);
-#include <CL/sycl/detail/pi.def>
+#include <sycl/detail/pi.def>
 
   enableZeTracing();
   return PI_SUCCESS;
