@@ -30,11 +30,8 @@
 #include <detail/global_handler.hpp>
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
-<<<<<<< HEAD
 #include <detail/force_device.hpp>    // INTEL
-=======
 #include <sycl/device.hpp>
->>>>>>> ee93fbc9b48e3a03a60d24b8aebcaf1af57ed1a2
 
 #include <algorithm>
 #include <cstring>

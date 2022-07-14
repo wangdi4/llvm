@@ -21,15 +21,10 @@
 #define SYCL_FALLBACK_ASSERT 1
 // Enable use of interop kernel c-tor
 #define __SYCL_INTERNAL_API
-<<<<<<< HEAD
 // Enable fallback assert
 #define SYCL_ENABLE_FALLBACK_ASSERT 1
-#include <CL/sycl.hpp>
-#include <CL/sycl/backend/opencl.hpp>
-=======
 #include <sycl/backend/opencl.hpp>
 #include <sycl/sycl.hpp>
->>>>>>> ee93fbc9b48e3a03a60d24b8aebcaf1af57ed1a2
 
 #include <helpers/CommonRedefinitions.hpp>
 #include <helpers/PiImage.hpp>

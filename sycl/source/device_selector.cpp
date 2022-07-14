@@ -34,15 +34,7 @@
 #include <sycl/device_selector.hpp>
 #include <sycl/exception.hpp>
 #include <sycl/ext/oneapi/filter_selector.hpp>
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
-#include <detail/config.hpp>
-#endif // INTEL_CUSTOMIZATION
-#include <sycl/ext/oneapi/filter_selector.hpp>
-
-=======
 #include <sycl/stl.hpp>
->>>>>>> ee93fbc9b48e3a03a60d24b8aebcaf1af57ed1a2
 // 4.6.1 Device selection class
 
 #include <algorithm>
