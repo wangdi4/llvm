@@ -374,6 +374,13 @@ private:
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
+  /// Vectorize running inclusive reduction.
+  void vectorizeRunningInclusiveReduction(
+    VPRunningInclusiveReduction *InscanRed);
+
+  /// Vectorize extract last vector lane instruction.
+  Value *vectorizeExtractLastVectorLane(VPInstruction *VPInst);
+
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
 

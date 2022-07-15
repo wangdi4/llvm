@@ -25,6 +25,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -1505,19 +1506,39 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     //
     // Generated instructions-
     // %0 = insertelement <4 x i32> zeroinitializer, i32 %red.init, i32 0
+    //
+    // If the instruction is marked as Scalar, we need only lane 0.
 
-    Value *Identity = getVectorValue(VPInst->getOperand(0));
-    if (VPInst->getNumOperands() > 1) {
-      auto *StartVPVal = VPInst->getOperand(1);
-      auto *StartVal = getScalarValue(StartVPVal, 0);
-      Identity = Builder.CreateInsertElement(
+    auto *Init = cast<VPReductionInit>(VPInst);
+    if (Init->isScalar()) {
+      Value *Result = nullptr;
+      if (VPInst->getNumOperands() > 1)
+        // Use start value.
+        Result = getScalarValue(VPInst->getOperand(1), 0);
+      else
+        Result = getScalarValue(VPInst->getOperand(0), 0);
+      VPScalarMap[VPInst][0] = Result;
+    } else {
+      Value *Identity = getVectorValue(VPInst->getOperand(0));
+      if (VPInst->getNumOperands() > 1) {
+        auto *StartVPVal = VPInst->getOperand(1);
+        auto *StartVal = getScalarValue(StartVPVal, 0);
+        Identity = Builder.CreateInsertElement(
           Identity, StartVal, Builder.getInt32(0), "red.init.insert");
+      }
+      VPWidenMap[VPInst] = Identity;
     }
-    VPWidenMap[VPInst] = Identity;
+
     return;
   }
   case VPInstruction::ReductionFinal: {
     vectorizeReductionFinal(cast<VPReductionFinal>(VPInst));
+    return;
+  }
+  case VPInstruction::ReductionFinalInscan: {
+    // We need the last vector lane as the final reduction value is there.
+    // ReductionFinalInscan opcode is needed for correct work of CFG merger.
+    VPScalarMap[VPInst][0] = vectorizeExtractLastVectorLane(VPInst);
     return;
   }
   case VPInstruction::InductionInit: {
@@ -1987,11 +2008,28 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
     return;
   }
+  case VPInstruction::RunningInclusiveReduction: {
+    auto RunningReduction = cast<VPRunningInclusiveReduction>(VPInst);
+    vectorizeRunningInclusiveReduction(RunningReduction);
+    return;
+  }
+  case VPInstruction::RunningExclusiveReduction: {
+    llvm_unreachable("RunningExclusiveReduction is not implemented yet!");
+    return;
+  }
+  case VPInstruction::ExtractLastVectorLane: {
+    VPScalarMap[VPInst][0] = vectorizeExtractLastVectorLane(VPInst);
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
   }
   }
+}
+
+Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
+  return getScalarValue(VPInst->getOperand(0), VF - 1);
 }
 
 Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
@@ -4034,6 +4072,94 @@ void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
     Ret = Builder.CreateExtractElement(Operand, VF - 1, "extracted.priv");
 
   VPScalarMap[VPInst][0] = Ret;
+}
+
+void VPOCodeGen::vectorizeRunningInclusiveReduction(
+    VPRunningInclusiveReduction *RunningReduction) {
+  // Here and below examples are for a case of integer sum reduction, VF = 4.
+  // Operation as follows.
+  // <4 x Ty> running-inclusive-reduction(<4 x Ty> vx, Ty x) {
+  //   return [vx3 + vx2 + vx1 + vx0 + x,
+  //           vx2 + vx1 + vx0 + x,
+  //           vx1 + vx0 + x,
+  //           vx0 + x];
+  //  }
+
+  // This can be optimized since some of the additions are repeated across
+  // different vector lanes. The following approach asks for 2 shuffles and
+  // 2 additions.
+  // %shuf1 = shufflevector %vx, zeroinitalizer, <4, 0, 1, 2>
+  //         ; yields <0, vx0, vx1, vx2>
+  // %add1 = add %vx, %shuf1
+  //         ; yields <vx0, vx0 + vx1, vx1 + vx2, vx2 + vx3>
+  // %shuf2 = shufflevector %add1, zeroinitalizer <4, 5, 0, 1>
+  //         ; <0, 0, vx0, vx0 + vx1>
+  // %add2 = add %add1, %shuf2
+  //         ; <vx0, vx0 + vx1, vx0 + vx1 + vx2, vx0 + vx1 + vx2 + vx3>
+  //
+  // If generalized, this approach asks for log(VF) shuffles and summations.
+  // Each step involves shuffle with certain amount of the first elements
+  // being Identity values, the rest of elements are shifted right.
+  // The number of the first elements displaced with Identity values is
+  // different on even and odd steps (assuming numbering starting from one).
+  // For odd numbered shuffle+add steps, the number of displaced elements is
+  // 2**i, where counter i starts from 0 and is incremented by 1.
+  // For even numbered steps it is
+  // VF / 2 ** j, where j counter starts from 1 and is incremented by 1.
+  //
+  // For example,
+  // With VF = 4, on the first step we displace 2**0 = 1 elements,
+  // on the second step we displace VF / 2 ** 1 = 2 elements.
+  // We need only log(VF) = 2 steps to complete scan reduction.
+  //
+  Value *Input = getVectorValue(RunningReduction->getInputOperand());
+  Value *CarryOver = getVectorValue(RunningReduction->getCarryOverOperand());
+  Value *IdentityValue = getVectorValue(RunningReduction->getIdentityOperand());
+
+  unsigned Step = 1;
+  unsigned Steps = Log2_64(VF);
+  unsigned i = 0, j = 1;
+  Value *LastReduced = Input;
+  auto BinOpCode =
+    static_cast<Instruction::BinaryOps>(RunningReduction->getBinOpcode());
+
+  // Utility to set FastMathFlags for generated instructions.
+  auto SetFastMathFlags = [RunningReduction](Value *V) {
+    if (isa<FPMathOperator>(V) && RunningReduction->hasFastMathFlags())
+      cast<Instruction>(V)->setFastMathFlags(
+        RunningReduction->getFastMathFlags());
+  };
+
+  while (Step <= Steps) {
+    unsigned DisplacedElems = 0;
+    if (Step % 2 == 1) {
+      DisplacedElems = 1 << i;
+      i++;
+    } else {
+      DisplacedElems = VF / (1 << j);
+      j++;
+    }
+    Step++;
+
+    // Prepare the shuffle mask for this step.
+    SmallVector<int, 8> ShufMask;
+    for(unsigned k = 0; k < DisplacedElems; k++)
+      ShufMask.push_back(VF + k); // Pick from Identity vector;
+    for (unsigned k = 0; k < VF - DisplacedElems; k++)
+      ShufMask.push_back(k);  // Pick from the last reduced vector.
+    Value *Shuff =
+      Builder.CreateShuffleVector(LastReduced, IdentityValue, ShufMask);
+    LastReduced = Builder.CreateBinOp(BinOpCode, LastReduced, Shuff);
+    // Set FMF for generated reduction code.
+    SetFastMathFlags(LastReduced);
+  }
+
+  // Reduce with the carry-over value from the previous iteration.
+  LastReduced = Builder.CreateBinOp(BinOpCode, LastReduced, CarryOver);
+  SetFastMathFlags(LastReduced);
+
+  VPWidenMap[RunningReduction] = LastReduced;
+  return;
 }
 
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
