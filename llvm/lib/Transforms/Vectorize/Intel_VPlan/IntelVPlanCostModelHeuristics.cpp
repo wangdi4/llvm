@@ -581,7 +581,7 @@ void HeuristicGatherScatter::apply(
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);
 
-  unsigned CGThreshold = CMGatherScatterDefaultThreshold;
+  unsigned CGThreshold = CMGatherScatterThreshold;
 
   // If CMGatherScatterThreshold is not specified in the command line the
   // default value for heuristic is different in ZMM-enabled context.

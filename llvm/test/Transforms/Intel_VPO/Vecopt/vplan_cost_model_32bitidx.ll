@@ -3,14 +3,27 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
-; RUN:     -vplan-cm-gather-scatter-threshold=50 -enable-intel-advanced-opts \
+; RUN:     -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
-; RUN:     -vplan-cm-gather-scatter-threshold=50 -enable-intel-advanced-opts \
+; RUN:     -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
+
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
+; RUN:     -vplan-cm-gather-scatter-threshold=80 -enable-intel-advanced-opts \
+; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | \
+; RUN:     FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8-GS80
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
+; RUN:     -vplan-cm-gather-scatter-threshold=80 -enable-intel-advanced-opts \
+; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | \
+; RUN:     FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8-GS80
 
 @arr.i32.0 = external local_unnamed_addr global [1024 x i32], align 16
 @arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16
@@ -80,6 +93,10 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 8 resulted Cost = 0
 ;
+
+; Verify that GS heuristic does not cause penalty on this test with threshold set to 80.
+; VPLAN-HIR-CM-VF8-GS80-NOT:  Extra cost due to Gather/Scatter heuristic
+
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
