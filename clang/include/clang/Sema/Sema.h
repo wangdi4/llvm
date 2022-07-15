@@ -13932,6 +13932,10 @@ private:
 public:
   void CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                             BinaryOperatorKind Opcode);
+#if INTEL_CUSTOMIZATION
+  void CheckInfNaNFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
+                                  BinaryOperatorKind Opcode);
+#endif // INTEL_CUSTOMIZATION
 
 private:
   void CheckImplicitConversions(Expr *E, SourceLocation CC = SourceLocation());
