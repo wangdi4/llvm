@@ -1,6 +1,6 @@
 //===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -223,10 +223,10 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   int64_t Reason = 0;
   getOpVal(CSIR->getOperand(CSMDIR_InlineReason), "reason: ", &Reason);
   assert(InlineReasonText[Reason].Type != InlPrtNone);
-  printIndentCount(OS, IndentCount);
   int64_t IsInlined = 0;
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
+    printIndentCount(OS, IndentCount);
     OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
@@ -237,12 +237,14 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
       case NinlrDeleted:
+        printIndentCount(OS, IndentCount);
         OS << "-> DELETE: ";
         printCalleeNameModuleLineCol(CSIR);
         OS << "\n";
         break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
+          printIndentCount(OS, IndentCount);
           OS << "-> EXTERN: ";
           printCalleeNameModuleLineCol(CSIR);
           OS << "\n";
@@ -250,6 +252,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         break;
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
+          printIndentCount(OS, IndentCount);
           OS << "-> INDIRECT: ";
           printCalleeNameModuleLineCol(CSIR);
           printSimpleMessage(InlineReasonText[Reason].Message, false,
@@ -257,6 +260,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         }
         break;
       case NinlrOuterInlining:
+        printIndentCount(OS, IndentCount);
         OS << "-> ";
         printCalleeNameModuleLineCol(CSIR);
         printOuterCostAndThreshold(CSIR);
@@ -267,6 +271,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         assert(0);
       }
     } else {
+      printIndentCount(OS, IndentCount);
       OS << "-> ";
       printCalleeNameModuleLineCol(CSIR);
       if (InlineReasonText[Reason].Type == InlPrtCost)
