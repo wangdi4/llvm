@@ -858,11 +858,15 @@ public:
   }
 
   hsa_status_t addDeviceMemoryPool(hsa_amd_memory_pool_t MemoryPool,
+<<<<<<< HEAD
                                    int DeviceId) {
 #if INTEL_COLLAB
     assert((size_t)DeviceId < DeviceFineGrainedMemoryPools.size() &&
            "Error here.");
 #else // INTEL_COLLAB
+=======
+                                   unsigned int DeviceId) {
+>>>>>>> 1f940b69c366beb39493b695327d5c112a7bb57b
     assert(DeviceId < DeviceFineGrainedMemoryPools.size() && "Error here.");
 #endif // INTEL_COLLAB
     uint32_t GlobalFlags = 0;
@@ -883,7 +887,7 @@ public:
   }
 
   hsa_status_t setupDevicePools(const std::vector<hsa_agent_t> &Agents) {
-    for (int DeviceId = 0; DeviceId < Agents.size(); DeviceId++) {
+    for (unsigned int DeviceId = 0; DeviceId < Agents.size(); DeviceId++) {
       hsa_status_t Err = hsa::amd_agent_iterate_memory_pools(
           Agents[DeviceId], [&](hsa_amd_memory_pool_t MemoryPool) {
             hsa_status_t ValidStatus = core::isValidMemoryPool(MemoryPool);
@@ -947,12 +951,16 @@ public:
     return HSA_STATUS_ERROR;
   }
 
+<<<<<<< HEAD
   hsa_amd_memory_pool_t getDeviceMemoryPool(int DeviceId) {
 #if INTEL_COLLAB
     assert(DeviceId >= 0 &&
            (size_t)DeviceId < DeviceCoarseGrainedMemoryPools.size() &&
            "Invalid device Id");
 #else // INTEL_COLLAB
+=======
+  hsa_amd_memory_pool_t getDeviceMemoryPool(unsigned int DeviceId) {
+>>>>>>> 1f940b69c366beb39493b695327d5c112a7bb57b
     assert(DeviceId >= 0 && DeviceId < DeviceCoarseGrainedMemoryPools.size() &&
            "Invalid device Id");
 #endif // INTEL_COLLAB
@@ -1215,6 +1223,7 @@ LaunchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
   int ThreadsPerGroup = RTLDeviceInfoTy::DefaultWgSize;
   int NumGroups = 0;
 
+<<<<<<< HEAD
   int MaxTeams =
       Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
 #if INTEL_COLLAB
@@ -1222,6 +1231,10 @@ LaunchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
 #else // INTEL_COLLAB
   if (Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
 #endif // INTEL_COLLAB
+=======
+  int MaxTeams = Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
+  if (MaxTeams > static_cast<int>(RTLDeviceInfoTy::HardTeamLimit))
+>>>>>>> 1f940b69c366beb39493b695327d5c112a7bb57b
     MaxTeams = RTLDeviceInfoTy::HardTeamLimit;
 
   if (print_kernel_trace & STARTUP_DETAILS) {
