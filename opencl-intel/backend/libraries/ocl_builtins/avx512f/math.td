@@ -1,3 +1,15 @@
+// Copyright (C) 2016-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 // AVX-512F math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,6 +49,15 @@ OclBuiltinImpl rint_v8f64_impl = OclBuiltinImpl<rint, [v8f64], 0, [{
   }]>;
 OclBuiltinImpl rint_v16f32_impl = OclBuiltinImpl<rint, [v16f32], 0, [{
   return _mm512_roundscale_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
+  }]>;
+
+// rsqrt
+OclBuiltinImpl rsqrt_v16f32_impl = OclBuiltinImpl<rsqrt, [v16f32], 0, [{
+    return _mm512_rsqrt14_ps($Arg0VarName);
+  }]>;
+
+OclBuiltinImpl rsqrt_v8f64_impl = OclBuiltinImpl<rsqrt, [v8f64], 0, [{
+    return _mm512_rsqrt14_pd($Arg0VarName);
   }]>;
 
 // sqrt
@@ -167,13 +188,22 @@ OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v8f64], 0, [{
     return __ocl_svml_$Target_inv$VecLength($Arg0VarName);
   }]>;
 
-OclBuiltinImpl native_rsqrt_v16f32_impl = OclBuiltinImpl<native_rsqrt, [v16f32], 0, [{
-    return _mm512_rsqrt14_ps($Arg0VarName);
+// native sqrt
+OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0, [{
+    return sqrt($Arg0VarName);
   }]>;
 
-// native rsqrt double8
+OclBuiltinImpl native_sqrt_v8f64_impl = OclBuiltinImpl<native_sqrt, [v8f64], 0, [{
+    return sqrt($Arg0VarName);
+  }]>;
+
+// native rsqrt
+OclBuiltinImpl native_rsqrt_v16f32_impl = OclBuiltinImpl<native_rsqrt, [v16f32], 0, [{
+    return rsqrt($Arg0VarName);
+  }]>;
+
 OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
-    return __ocl_svml_$Target_rsqrt$VecLength($Arg0VarName);
+    return rsqrt($Arg0VarName);
   }]>;
 
 OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, [v32f32], 0, svml_native_code_sincos>;

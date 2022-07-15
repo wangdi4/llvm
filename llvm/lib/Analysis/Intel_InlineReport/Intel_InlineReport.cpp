@@ -204,8 +204,8 @@ void InlineReportCallSite::printCalleeNameModuleLineCol(
 void InlineReportCallSite::print(formatted_raw_ostream &OS,
                                  unsigned IndentCount, unsigned Level) {
   assert(InlineReasonText[getReason()].Type != InlPrtNone);
-  printIndentCount(OS, IndentCount);
   if (getIsInlined()) {
+    printIndentCount(OS, IndentCount);
     OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(OS, Level);
     if (InlineReasonText[getReason()].Type == InlPrtCost)
@@ -216,12 +216,14 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
     if (InlineReasonText[getReason()].Type == InlPrtSpecial) {
       switch (getReason()) {
       case NinlrDeleted:
+        printIndentCount(OS, IndentCount);
         OS << "-> DELETE: ";
         printCalleeNameModuleLineCol(OS, Level);
         OS << "\n";
         break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
+          printIndentCount(OS, IndentCount);
           OS << "-> EXTERN: ";
           printCalleeNameModuleLineCol(OS, Level);
           OS << "\n";
@@ -229,6 +231,7 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
         break;
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
+          printIndentCount(OS, IndentCount);
           OS << "-> INDIRECT: ";
           printCalleeNameModuleLineCol(OS, Level);
           printSimpleMessage(OS, InlineReasonText[getReason()].Message,
@@ -236,6 +239,7 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
         }
         break;
       case NinlrOuterInlining:
+        printIndentCount(OS, IndentCount);
         OS << "-> ";
         printCalleeNameModuleLineCol(OS, Level);
         printOuterCostAndThreshold(OS, Level);
@@ -246,6 +250,7 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
         assert(0);
       }
     } else {
+      printIndentCount(OS, IndentCount);
       OS << "-> ";
       printCalleeNameModuleLineCol(OS, Level);
       if (InlineReasonText[getReason()].Type == InlPrtCost)

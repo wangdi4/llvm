@@ -4699,9 +4699,9 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
         // Obj->ArenaAllocator.List.FreeHead = null;
         if (!isa<Constant>(ValOp) || !cast<Constant>(ValOp)->isNullValue())
           return false;
-        if (!isListHeadAddr(PtrOp, ThisObj))
+        if (isListHeadAddr(PtrOp, ThisObj))
           ListHeadAssigned++;
-        else if (!isListFreeHeadAddr(PtrOp, ThisObj))
+        else if (isListFreeHeadAddr(PtrOp, ThisObj))
           ListFreeHeadAssigned++;
         else
           return false;
