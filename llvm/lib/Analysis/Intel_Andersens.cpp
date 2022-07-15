@@ -287,6 +287,13 @@ static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
   nullptr      
 };
 
+// Table contains fortran's io library calls.
+//
+static const char *(Andersens_Fortran_No_Side_Effects_Intrinsics[]) = {
+  "for_read_seq_lis", "for_read_seq_lis_xmit",
+  nullptr
+};
+
 // Table contains memcpy like lib calls
 //
 static const char *(Andersens_Memcpy_Intrinsics[]) = {
@@ -1864,6 +1871,12 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
   if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
     return true;
   }
+
+  // Ignore no side effect fortran calls
+  if (F->isFortran() &&
+      findNameInTable(F->getName(),
+                      Andersens_Fortran_No_Side_Effects_Intrinsics))
+    return true;
 
   // VARARG node is created for every Vararg function. VARARG node is
   // used to model varargs for both call and callee. 
