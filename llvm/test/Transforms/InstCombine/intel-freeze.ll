@@ -64,5 +64,21 @@ end:
   ret void
 }
 
-attributes #0 = { "target-cpu"="skylake-avx512" "target-features"="+avx512f,+avx512vl,+avx512dq"}
+; Uses "prefer-vector-width" attribute.
+define void @freeze_dominated_uses_test3(i32 %v) #1 {
+; CHECK-LABEL: @freeze_dominated_uses_test3(
+; CHECK-NEXT:    [[V_FR:%.*]] = freeze i32 [[V:%.*]]
+; CHECK-NEXT:    call void @use_i32(i32 [[V_FR]])
+; CHECK-NEXT:    call void @use_i32(i32 [[V_FR]])
+; CHECK-NEXT:    ret void
+;
+  %v.fr = freeze i32 %v
+  call void @use_i32(i32 %v)
+  call void @use_i32(i32 %v.fr)
+  ret void
+}
+
+
+attributes #0 = { "target-cpu"="skylake-avx512" "target-features"="+avx2,+avx512f,+avx512vl,+avx512dq"}
+attributes #1 = { "prefer-vector-width"="256" }
 ; end INTEL_FEATURE_SW_ADVANCED

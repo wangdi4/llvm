@@ -220,19 +220,33 @@ static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
                                                cl::Hidden, cl::init(true));
 
 #if INTEL_CUSTOMIZATION
-// Returns true if the code is targeted to "advanced" vector architectures:
-// prefer-vector-width is on the function (used for OpenCL targets), OR
-// enable-intel-advanced-opts is true and AVX2 or AVX512 is enabled on the
-// target.
-static bool TargetIsAVX(TargetTransformInfo &TTI, Function *F) {
-  auto HasAVX512 =
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
-  auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  bool HasVecWidth = false;
-  if (F)
-    HasVecWidth = F->getFnAttribute("prefer-vector-width").isValid();
-  return TTI.isAdvancedOptEnabled(HasAVX2) ||
-         TTI.isAdvancedOptEnabled(HasAVX512) || HasVecWidth;
+// Returns true if the code is targeted to Intel AVX2 vector architectures.
+// Any of the following can be true:
+// TTI has AdvancedOptLevel::AO_TargetHasIntelAVX2
+// Function has prefer-vector-width attribute, value >= 128
+// Function has target-features attribute, containing "avx2".
+static bool TargetIsAVX2(TargetTransformInfo &TTI, Function *F) {
+  auto HasAVX2TTI =
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  unsigned VecWidth = 0;
+  bool HasAVX2Feature = false;
+  assert(F && "Null function");
+  // Get the vector width attr if it exists. This is a string, must be
+  // parsed to an integer.
+  Attribute VecWidthAttr = F->getFnAttribute("prefer-vector-width");
+  if (VecWidthAttr.isValid()) {
+    StringRef WidthStr = VecWidthAttr.getValueAsString();
+    // This returns true if there is an error, false if OK.
+    if (WidthStr.getAsInteger(0, VecWidth))
+      VecWidth = 0;
+  }
+  // Check if target-features contains "avx2".
+  Attribute TFAttr = F->getFnAttribute("target-features");
+  StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
+  HasAVX2Feature = TFStr.contains("avx2");
+
+  return TTI.isAdvancedOptEnabled(HasAVX2TTI) || VecWidth >= 128 ||
+         HasAVX2Feature;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4163,7 +4177,7 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
       // %r2 = add %fr.1
       // ... cmp %fr.1
       auto &TTI = getTargetTransformInfo();
-      if (TargetIsAVX(TTI, Phi->getFunction()))
+      if (TargetIsAVX2(TTI, Phi->getFunction()))
         if (!Phi->hasOneUse())
           for (auto *UserI : Phi->users())
             if (isa<BinaryOperator>(UserI))
@@ -4221,7 +4235,7 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
   // TODO: Investigate removal of the freezes at their source, 2fa8fc3d.
   auto &TTI = getTargetTransformInfo();
   auto *F = FI.getFunction();
-  if (!F->isFortran() && TargetIsAVX(TTI, F))
+  if (!F->isFortran() && TargetIsAVX2(TTI, F))
     MoveBefore = &FI;
 #endif // INTEL_CUSTOMIZATION
 

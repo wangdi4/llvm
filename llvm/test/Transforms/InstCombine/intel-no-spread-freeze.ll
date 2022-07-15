@@ -1,4 +1,5 @@
 ; RUN: opt -enable-intel-advanced-opts -passes="instcombine" -S %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S %s | FileCheck %s
 
 ; InstCombine was "spreading" the freeze in storemerge.fr, to the other uses
 ; of storemerge92, especially the mul...200 instruction.
