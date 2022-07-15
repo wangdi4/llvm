@@ -4901,6 +4901,10 @@ int32_t LevelZeroProgramTy::addModule(
     ze_module_format_t Format) {
   ze_module_constants_t SpecConstants =
       DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
+  // Allow library module compilation only for XeHP.
+  if (IsLibModule && DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeHP)
+    return OFFLOAD_SUCCESS;
+
   std::string BuildOptions(CommonBuildOptions);
   // Add required flag to enable dynamic linking. We can do this only if the
   // module does not contain any kernels or globals.
@@ -5806,6 +5810,10 @@ void *LevelZeroProgramTy::initDynamicMemPool() {
 }
 
 int32_t LevelZeroProgramTy::initProgramData() {
+  // Return quickly if no module is available
+  if (!GlobalModule)
+    return OFFLOAD_SUCCESS;
+
   // Look up program data location on device
   PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
   if (!PGMDataPtr) {
