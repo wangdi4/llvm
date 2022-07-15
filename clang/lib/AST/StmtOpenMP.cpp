@@ -1371,6 +1371,12 @@ OMPMaskedTaskLoopDirective *OMPMaskedTaskLoopDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1389,6 +1395,7 @@ OMPMaskedTaskLoopDirective *OMPMaskedTaskLoopDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -1467,6 +1474,12 @@ OMPMaskedTaskLoopSimdDirective *OMPMaskedTaskLoopSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1485,6 +1498,7 @@ OMPMaskedTaskLoopSimdDirective *OMPMaskedTaskLoopSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1565,6 +1579,12 @@ OMPParallelMaskedTaskLoopDirective *OMPParallelMaskedTaskLoopDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1583,6 +1603,7 @@ OMPParallelMaskedTaskLoopDirective *OMPParallelMaskedTaskLoopDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -1667,6 +1688,12 @@ OMPParallelMaskedTaskLoopSimdDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1685,6 +1712,7 @@ OMPParallelMaskedTaskLoopSimdDirective::Create(
   Dir->setDependentCounters(Exprs.DependentCounters);
   Dir->setDependentInits(Exprs.DependentInits);
   Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
