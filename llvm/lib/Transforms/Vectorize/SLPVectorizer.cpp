@@ -6568,11 +6568,21 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   SmallVector<unsigned> SortedIndices;
   BasicBlock *BB = nullptr;
 #if INTEL_CUSTOMIZATION
+  // Customization note.
+  // The condition for AreAllSameInsts in community code was added specifically
+  // for handling gather load operands case but the problem is that logically
+  // it is too tied with generic cases. For multi-node support we do not bail
+  // out when S.getOpcode() does not return a valid opcode. But for gather
+  // load operands we should do that - that functionality added in community
+  // and we are not supposed to modify its behavior. We differentiate between
+  // these cases with ProcessingScatterOperands flag.
+
+  bool ProcessingScatterOperands =
+      UserTreeIdx.UserTE &&
+      UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
   bool AreAllSameInsts =
-      allSameBlock(VL) ||
-      (S.OpValue->getType()->isPointerTy() && UserTreeIdx.UserTE &&
-       UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize &&
-       VL.size() > 2 &&
+      !ProcessingScatterOperands || (S.getOpcode() && allSameBlock(VL)) ||
+      (S.OpValue->getType()->isPointerTy() && VL.size() > 2 &&
        all_of(VL,
               [&BB](Value *V) {
                 auto *I = dyn_cast<GetElementPtrInst>(V);
@@ -6585,7 +6595,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
        BB &&
        sortPtrAccesses(VL, UserTreeIdx.UserTE->getMainOp()->getType(), *DL, *SE,
                        SortedIndices));
-  if (allConstant(VL) || isSplat(VL) || !AreAllSameInsts ||
+
+  if (allConstant(VL) || isSplat(VL) ||
+      (!ProcessingScatterOperands && !allSameBlock(VL)) || !AreAllSameInsts ||
       (S.getOpcode() &&
        isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
