@@ -73,6 +73,12 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+bool clang::isOpenMPExtensionDirective(OpenMPDirectiveKind DKind) {
+  return DKind == OMPD_declare_target_function || DKind == OMPD_prefetch;
+}
+#endif // INTEL_COLLAB
+
 unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
                                           const LangOptions &LangOpts) {
   switch (Kind) {

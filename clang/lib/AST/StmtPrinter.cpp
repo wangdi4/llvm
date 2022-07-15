@@ -782,7 +782,7 @@ void StmtPrinter::VisitOMPTargetVariantDispatchDirective(
 }
 
 void StmtPrinter::VisitOMPPrefetchDirective(OMPPrefetchDirective *Node) {
-  Indent() << "#pragma omp prefetch";
+  Indent() << "#pragma ompx prefetch";
   PrintOMPExecutableDirective(Node);
 }
 
