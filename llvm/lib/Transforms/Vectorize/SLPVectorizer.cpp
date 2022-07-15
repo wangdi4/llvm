@@ -12790,6 +12790,41 @@ bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
   return tryToVectorizeList(VL, R);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+static bool isHighRegPressureFMALoop(BasicBlock *BB, LoopInfo *LI,
+                                     ArrayRef<Value *> &VL) {
+  Loop *Lp = LI->getLoopFor(BB);
+  if (!Lp || !Lp->getLoopLatch() || Lp->getNumBlocks() != 1)
+    return false;
+
+  // Walk the statements.  We are looking for 12 loads of type double
+  // with loop-carried dependences.
+  unsigned int NumLoads = 0;
+  SmallDenseSet<Instruction *> FirstUsers;
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+    if (!isa<LoadInst>(*I)) {
+      // Not a loop-carried dependence?  Not namd.
+      if (FirstUsers.count(&*I))
+        return false;
+      continue;
+    }
+    if (!(*I).getType()->isDoubleTy())
+      continue;
+    if (++NumLoads > 12)
+      return false;
+    if ((*I).getNumUses() == 0)
+      return false;
+    Instruction *FirstUser = (*I).user_back();
+    if (!FirstUser || FirstUser->getParent() != BB)
+      return false;
+    (void)FirstUsers.insert(FirstUser);
+  }
+
+  return NumLoads == 12;
+}
+#endif // INTEL_CUSTOMIZATION
+
 #ifdef INTEL_COLLAB
 void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
                                       ArrayRef<Value *> &VL) {
@@ -12817,6 +12852,18 @@ void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
   InstructionCost FMASavings = TTI->getFMACostSavings(VL[0]->getType(), FMF);
 
   if (FMASavings > 0) {
+#ifdef INTEL_CUSTOMIZATION
+    // CMPLRLLVM-38484: Before doing anything rash, check whether we think
+    // this is the critical loop in 508.namd_r.  This is characterized by a
+    // single-block loop that contains loop-carried memory preloads and is
+    // very sensitive to register pressure.  Biasing towards scalar FMAs
+    // can worsen the register pressure here, so leave the cost alone if it
+    // looks like namd.  The critical loop is the first loop (the for loop)
+    // in _Z22pairlist_from_pairlistddddPK8CompAtomPKtiPtdPd.
+    if (isHighRegPressureFMALoop(cast<Instruction>(VL[0])->getParent(),
+                                 LI, VL))
+      return;
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << VL.size() * FMASavings
                << " for vectorization that breaks " << VL.size() << " FMAs\n");
     Cost += FMASavings * VL.size();
