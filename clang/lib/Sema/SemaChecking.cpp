@@ -13797,10 +13797,43 @@ Sema::CheckReturnValExpr(Expr *RetValExp, QualType lhsType,
     CheckPPCMMAType(RetValExp->getType(), ReturnLoc);
 }
 
-/// Check for comparisons of floating-point values using all comparison
-/// operators. // INTEL
-/// Issue a warning if the comparison is not likely to do what the programmer
-/// intended. // INTEL
+#if INTEL_CUSTOMIZATION
+void Sema::CheckInfNaNFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
+                                      BinaryOperatorKind Opcode) {
+  if (!getLangOpts().IntelCompat)
+    return;
+  Expr *LeftExprSansParen = LHS->IgnoreParenImpCasts();
+  Expr *RightExprSansParen = RHS->IgnoreParenImpCasts();
+
+  // Diagnose comparison to NAN or INFINITY in fast fp modes,
+  // since comparison to NaN or INFINITY is always false in
+  // fast modes: float evaluation will not result in inf or nan.
+  FPOptions FPO = LHS->getFPFeaturesInEffect(getLangOpts());
+  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares;
+  bool NoHonorInfs = FPO.getNoHonorInfs();
+  llvm::APFloat Value(0.0);
+  bool IsConstant;
+  IsConstant = !LHS->isValueDependent() &&
+               LeftExprSansParen->EvaluateAsFloat(Value, Context,
+                                                  Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+  IsConstant = !RHS->isValueDependent() &&
+               RightExprSansParen->EvaluateAsFloat(Value, Context,
+                                                   Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+}
+#endif // INTEL_CUSTOMIZATION
+
+/// Check for comparisons of floating-point values using == and !=. Issue a
+/// warning if the comparison is not likely to do what the programmer intended.
 void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                                 BinaryOperatorKind Opcode) {
 
@@ -13844,42 +13877,10 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
-#if INTEL_CUSTOMIZATION
-  // Issue a warning (unless they are equality self-comparisons)
-  // since they are not likely to do what the programmer intended.
-  if (BinaryOperator::isEqualityOp(Opcode))
-    if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
-      if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
-        if (DRL->getDecl() == DRR->getDecl())
-          return;
-
-  // Diagnose comparison to NAN or INFINITY in fast fp modes,
-  // since comparison to NaN or INFINITY is always false in
-  // fast modes: float evaluation will not result in inf or nan.
-  FPOptions FPO = LHS->getFPFeaturesInEffect(getLangOpts());
-  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares;
-  bool NoHonorInfs = FPO.getNoHonorInfs();
-  llvm::APFloat Value(0.0);
-  bool IsConstant;
-  IsConstant = !LHS->isValueDependent() &&
-               LeftExprSansParen->EvaluateAsFloat(Value, Context,
-                                                  Expr::SE_AllowSideEffects);
-  if (IsConstant &&
-      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
-    Diag(Loc, diag::warn_fast_floating_point_eq)
-        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
-        << RHS->getSourceRange();
-  IsConstant = !RHS->isValueDependent() &&
-               RightExprSansParen->EvaluateAsFloat(Value, Context,
-                                                   Expr::SE_AllowSideEffects);
-  if (IsConstant &&
-      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
-    Diag(Loc, diag::warn_fast_floating_point_eq)
-        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
-        << RHS->getSourceRange();
-  if (!BinaryOperator::isEqualityOp(Opcode))
-    return;
-#endif // INTEL_CUSTOMIZATION
+  if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
+    if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
+      if (DRL->getDecl() == DRR->getDecl())
+        return;
 
   // Special case: check for comparisons against literals that can be exactly
   //  represented by APFloat.  In such cases, do not emit a warning.  This
