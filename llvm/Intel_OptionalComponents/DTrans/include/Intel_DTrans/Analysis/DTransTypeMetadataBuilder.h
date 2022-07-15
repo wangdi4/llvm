@@ -49,6 +49,11 @@ public:
   // defined by 'FnType'
   static void setDTransFuncMetadata(Function *F, DTransFunctionType *FnType);
 
+  // Copy any DTrans type attributes and DTrans type metadata that is on 'SrcF'
+  // to 'DstF'. This function should only be used when the destination function
+  // has the same signature as the source function.
+  static void copyDTransFuncMetadata(Function* SrcF, Function *DstF);
+
   // Create metadata to represent a literal structure based on a list of
   // metadata nodes contained in 'MDTypeList'
   //
