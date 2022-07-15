@@ -2693,6 +2693,138 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   return true;
 }
 
+/// For [first]private clauses on \p W with non-constant number-of-elements,
+/// create a Map clause to let the runtime handle their privatization. Any
+/// instructions generated for the map clause are inserted before \p W's entry
+/// BasicBlock.
+///
+/// \code
+/// (A)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+/// %vla = alloca i32, i32 %n             |  %vla = alloca i32, i64 %n
+///                                       |
+///                                      (1) %n.cast = zext i32 %n to i64
+///                                      (2) %n.in.bytes = mul i64 %n.cast, 4
+///                                       |
+/// "PRIVATE"(i32* %vla)                  |  "PRIVATE"(i32 %vla)
+///                                      (3) "MAP"(i32* %vla, i32* %vla,
+///                                       |        i64 %n.in.bytes,
+///                                       |        PARAM|PRIVATE) // Not in IR
+///                                       |
+///
+/// (B)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+/// %vla = alloca i32, i32 %n             |  %vla = alloca i32, i64 %n
+///                                       |
+///                                      (1) %n.cast = zext i32 %n to i64
+///                                      (2) %n.in.bytes = mul i64 %n.cast, 4
+///                                       |
+/// "FIRSTPRIVATE"(i32* %vla)             |  "PRIVATE"(i32 %vla)
+///                                      (3) "MAP"(i32* %vla, i32* %vla,
+///                                       |        i64 %n.in.bytes,
+///                                       |        PARAM|PRIVATE|TO)// Not in IR
+///                                       |
+///
+/// \endcode
+/// Note: the map itself is not added to the IR, only to the node \p W.
+///
+/// Note: This may not be safe to do for TYPED clauses, since the size is sent
+/// as a bundle operand, which may get constant propagated in either host/device
+/// compilation. That would cause one phase to treat it as a VLA, and the other
+/// as a constant-sized array, causing a mismatch in the number of arguments.
+/// It would be safer for the frontend to directly emit the additional map.
+bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
+  assert(W && "Null WRegionNode.");
+
+  Instruction *InsertPt = nullptr;
+  auto SetupInsertPointIfNeeded = [&]() {
+    // Create an empty BB before the entry BB, to insert size computation for
+    // the new map clauses if InsertPt is null.
+    if (InsertPt)
+      return;
+
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *NewEntryBB =
+        SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+    W->setEntryBBlock(NewEntryBB);
+    W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+    InsertPt = EntryBB->getTerminator();
+  };
+
+  auto AddMapForVLAIfNotPresent = [&, FunctionName =
+                                          __FUNCTION__](auto *I) -> MapItem * {
+    Value *Orig = I->getOrig();
+
+    // If there's already a frontend-generated map for the item, we don't need
+    // to do anything.
+    if (I->getInMap())
+      return nullptr;
+
+    Type *ElementTy = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElementTy, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
+
+    // If the item is not for a VLA, we don't need to emit a map clause for it.
+    if (!NumElements || isa<ConstantInt>(NumElements))
+      return nullptr;
+
+    // WILOCAL private VLAs can be allocated within the body of the target
+    // region's outlined function, so we don't need to create a map for them.
+    if (I->getIsWILocal())
+      return nullptr;
+
+    SetupInsertPointIfNeeded();
+    IRBuilder<> MapBuilder(InsertPt);
+
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    Type *I64Ty = MapBuilder.getInt64Ty();
+    Value *ElementSize =
+        ConstantInt::get(I64Ty, DL.getTypeAllocSize(ElementTy));
+    Value *NumElementsCast = MapBuilder.CreateZExtOrTrunc(
+        NumElements, I64Ty, NumElements->getName() + ".cast"); //          (1)
+
+    Value *MappedVal = Orig;
+    Value *MapSize = MapBuilder.CreateMul(NumElementsCast, ElementSize, // (2)
+                                          NumElements->getName() + ".in.bytes");
+    uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_PRIVATE;
+    if (isa<FirstprivateItem>(I))
+      MapType |= TGT_MAP_TO;
+
+    MapClause &MapC = W->getMap();
+    MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
+    MapItem *MapI = new MapItem(MapAggr);
+    MapI->setOrig(MappedVal);
+    MapC.add(MapI); //                                                     (3)
+    I->setInMap(MapI);
+
+    LLVM_DEBUG(dbgs() << FunctionName << ": Added map clause for VLA '";
+               I->dump(); dbgs() << "'.\n");
+    (void)FunctionName;
+    return MapI;
+  };
+
+  bool Changed = false;
+  for (PrivateItem *PrivI : W->getPriv().items()) {
+    if (MapItem *MapI = AddMapForVLAIfNotPresent(PrivI)) {
+      MapI->setInPrivate(PrivI);
+      Changed = true;
+    }
+  }
+
+  for (FirstprivateItem *FprivI : W->getFpriv().items()) {
+    if (MapItem *MapI = AddMapForVLAIfNotPresent(FprivI)) {
+      MapI->setInFirstprivate(FprivI);
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 // Add globals for fast GPU reduction global buffers (one per reduction item)
 // and global teams counter (one per kernel)
 bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S %s 2>&1 | FileCheck %s
 
 ; Test src:
@@ -32,25 +32,43 @@
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %1 '
 ; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64* [[SIZE_ADDR2:%[^ ]+]]'
 
-; Check that the captured VLA size is passed in to the outlined function for the target region.
+; Check that the map-type for the VLA (first one) is 161 (TO|PRIVATE)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [3 x i64] [i64 161, i64 33, i64 161]
+
+; Check that we capture vla size and emit a map for the firstprivate VLA on target.
 ; CHECK: define dso_local i32 @main()
-; CHECK: [[SIZE_ADDR2]] = alloca i64, align 8
-; CHECK: store i64 %1, i64* [[SIZE_ADDR2]], align 8
-; CHECK: call void @__omp_offloading{{.*}}main{{.*}}(i64* [[SIZE_ADDR2]], i32* %vla, i64* %{{.*}})
+; CHECK:   [[SIZE_ADDR2]] = alloca i64, align 8
+; CHECK:   [[VLA_SIZE_BYTES:%.+]] = mul i64 %1, 4
+; CHECK:   store i64 %1, i64* [[SIZE_ADDR2]], align 8
+
+; CHECK:   [[VLA_CAST:%.+]] = bitcast i32* %vla to i8*
+; CHECK:   [[BASE_GEP:%.+]] = getelementptr inbounds [3 x i8*], [3 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; CHECK:   store i8* [[VLA_CAST]], i8** [[BASE_GEP]], align 8
+
+; CHECK:   [[START_GEP:%.+]] = getelementptr inbounds [3 x i8*], [3 x i8*]* %.offload_ptrs, i32 0, i32 0
+; CHECK:   [[VLA_CAST1:%.+]] = bitcast i32* %vla to i8*
+; CHECK:   store i8* [[VLA_CAST1]], i8** [[START_GEP]], align 8
+
+; CHECK:   [[SIZE_GEP:%.+]] = getelementptr inbounds [3 x i64], [3 x i64]* %.offload_sizes, i32 0, i32 0
+; CHECK:   store i64 [[VLA_SIZE_BYTES]], i64* [[SIZE_GEP]], align 8
+
+; Check that the captured VLA size is passed in to the outlined function for the target region.
+; CHECK:   call void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64* [[SIZE_ADDR2]], i64* %omp.vla.tmp)
 
 ; Check that the captured VLA size is used in the parallel region for allocation of the private VLA.
-; CHECK: define internal void @main.DIR.OMP.PARALLEL{{.*}}(i32* %{{.*}}, i32* %{{.*}}, i64* [[SIZE_ADDR1]], i64* %{{.*}})
-; CHECK: [[SIZE_VAL1:%[^ ]+]] = load i64, i64* [[SIZE_ADDR1]], align 8
-; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL1]], align 16
+; CHECK: define internal void @main.DIR.OMP.PARALLEL{{.*}}(i32* %tid, i32* %bid, i64* [[SIZE_ADDR1]], i64* %omp.vla.tmp1)
+; CHECK:   [[SIZE_VAL1:%[^ ]+]] = load i64, i64* [[SIZE_ADDR1]], align 8
+; CHECK:   %vla.priv = alloca i32, i64 [[SIZE_VAL1]], align 16
 
 ; Check that the captured VLA size is used in the target region for allocation of the private VLA.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i64* noalias [[SIZE_ADDR2]], i32* %{{.*}}, i64* %{{.*}})
-; CHECK: [[SIZE_ADDR1]] = alloca i64, align 8
-; CHECK: [[SIZE_VAL2:%[^ ]+]] = load i64, i64* [[SIZE_ADDR2]], align 8
-; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL2]], align 16
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64* noalias [[SIZE_ADDR2]], i64* %omp.vla.tmp)
+; CHECK:   [[SIZE_ADDR1]] = alloca i64, align 8
+; CHECK:   [[SIZE_VAL2:%[^ ]+]] = load i64, i64* [[SIZE_ADDR2]], align 8
+; CHECK:   %vla.fpriv = alloca i32, i64 [[SIZE_VAL2]], align 16
+
 ; Check that the captured VLA size is passed in to the outlined function for the parallel region.
 ; CHECK: store i64 [[SIZE_VAL2]], i64* [[SIZE_ADDR1]], align 8
-; CHECK: call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 2, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*)* @main.DIR.OMP.PARALLEL{{.*}} to void (i32*, i32*, ...)*), i64* [[SIZE_ADDR1]], i64* %{{.*}})
+; CHECK:   call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 2, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64*, i64*)* @main.DIR.OMP.PARALLEL{{.*}} to void (i32*, i32*, ...)*), i64* [[SIZE_ADDR1]], i64* %omp.vla.tmp1.priv)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -79,13 +97,18 @@ entry:
   store i64 %1, i64* %omp.vla.tmp, align 8
 
 
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.DEFAULTMAP.TOFROM:SCALAR"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %vla), "QUAL.OMP.FIRSTPRIVATE"(i64* %omp.vla.tmp), "QUAL.OMP.PRIVATE"(i64* %omp.vla.tmp1) ]
-
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.DEFAULTMAP.TOFROM:SCALAR"(),
+    "QUAL.OMP.FIRSTPRIVATE"(i32* %vla),
+    "QUAL.OMP.FIRSTPRIVATE"(i64* %omp.vla.tmp),
+    "QUAL.OMP.PRIVATE"(i64* %omp.vla.tmp1) ]
 
   %4 = load i64, i64* %omp.vla.tmp, align 8
   store i64 %4, i64* %omp.vla.tmp1, align 8
-  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %vla), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp1) ]
-
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE"(i32* %vla),
+    "QUAL.OMP.SHARED"(i64* %omp.vla.tmp1) ]
 
   %6 = load i64, i64* %omp.vla.tmp1, align 8
   %ptridx2 = getelementptr inbounds i32, i32* %vla, i64 0

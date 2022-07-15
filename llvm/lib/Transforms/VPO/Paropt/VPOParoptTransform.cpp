@@ -186,6 +186,11 @@ cl::opt<bool>
                               cl::desc("Keep intra-WG reduction items in SLM"));
 extern cl::opt<uint32_t> AtomicFreeRedLocalBufSize;
 
+static cl::opt<bool> EmitTargetPrivCtorDtors(
+    "vpo-paropt-emit-target-priv-ctor-dtor", cl::Hidden, cl::init(true),
+    cl::desc("Enable emission of constructors/destructors for private "
+             "operands on target constructs, during target compilation."));
+
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
     cl::desc("Enable emission of constructors/destructors for firstprivate "
@@ -222,7 +227,8 @@ static cl::opt<bool> EmitKmpcBeginEndOnlyForWindows(
              "Windows, and not for other systems."));
 
 namespace {
-enum TargetNonWILocalFPAllocOptions { RTLAlloc, ModuleAlloc, WILocal };
+enum class TargetAllocMode { RTLAlloc, ModuleAlloc, WILocal };
+enum class TeamAllocMode { ModuleAlloc, WILocal };
 } // namespace
 
 // For variables marked firstprivate (without a map clause) on a target
@@ -231,20 +237,21 @@ enum TargetNonWILocalFPAllocOptions { RTLAlloc, ModuleAlloc, WILocal };
 // * allocate the private copy in ADDRESS_SPACE_GLOBAL, and guard its
 // firstprivate initialization with a master thread check.
 // FIXME: Default needs to be changed to RTLAlloc/ModuleAlloc.
-// Referece LIT tests: target_fp_spir64.ll. target_fp_host.ll
-static cl::opt<TargetNonWILocalFPAllocOptions> TargetNonWILocalFPAllocationMode(
+// Reference LIT tests: target_fp_spir64.ll. target_fp_host.ll
+static cl::opt<TargetAllocMode> TargetNonWILocalFPAllocationMode(
     "vpo-paropt-target-non-wilocal-fp-alloc-mode", cl::Hidden,
-    cl::init(WILocal),
+    cl::init(TargetAllocMode::WILocal),
     cl::desc("Allocation mode for non-work-item-local target firstprivate "
              "operands"),
-    cl::values(clEnumValN(RTLAlloc, "rtl", "managed by libomptarget RTL"),
-               clEnumValN(ModuleAlloc, "module",
+    cl::values(clEnumValN(TargetAllocMode::RTLAlloc, "rtl",
+                          "managed by libomptarget RTL"),
+               clEnumValN(TargetAllocMode::ModuleAlloc, "module",
                           "allocate in the module's addrspace 1"),
-               clEnumValN(WILocal, "wilocal",
+               clEnumValN(TargetAllocMode::WILocal, "wilocal",
                           "treat them as work-item local (default).")));
 
 // FIXME: Default needs to be changed to true.
-// Referece LIT test: target_teams_fp_spir64.ll
+// Reference LIT test: target_teams_fp_spir64.ll
 static cl::opt<bool> HandleFirstprivateOnTeams(
     "vpo-paropt-handle-firstprivate-on-teams", cl::Hidden, cl::init(false),
     cl::desc("Handle firstprivate clause on teams. Most common use cases don't "
@@ -253,11 +260,25 @@ static cl::opt<bool> HandleFirstprivateOnTeams(
              "impact for device compilation, so it's disabled by default."));
 
 // FIXME: Default needs to be changed to false.
-// Referece LIT test: target_teams_distribute_fp_spir64.ll
+// Reference LIT test: target_teams_distribute_fp_spir64.ll
 static cl::opt<bool> MakeDistributeFPWILocal(
     "vpo-paropt-target-make-distribute-fp-wilocal", cl::Hidden, cl::init(true),
     cl::desc("Allocate firstprivate copies for distribute construct in private "
              "address space."));
+
+// FIXME: Default needs to be changed to false when we can allocate VLAs at
+// module level.
+static cl::opt<TeamAllocMode> TeamsNonWILocalVLAAllocMode(
+    "vpo-paropt-teams-non-wilocal-vla-alloc-mode", cl::Hidden,
+    cl::init(TeamAllocMode::WILocal),
+    cl::desc(
+        "Allocation mode for non-work-item-local "
+        "private/firstprivate/reduction VLAs on teams/distribute constructs."),
+    cl::values(
+        clEnumValN(TeamAllocMode::ModuleAlloc, "module",
+                   "allocate in the module's addrspace 3 (experimental)"),
+        clEnumValN(TeamAllocMode::WILocal, "wilocal",
+                   "treat them as work-item local (default).")));
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
@@ -2191,6 +2212,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
+          Changed |= addMapForPrivateAndFPVLAs(cast<WRNTargetNode>(W));
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -6882,15 +6904,15 @@ static void genPrivatizationDebug(WRegionNode *W,
 }
 
 // Replace the variable with the privatized variable
-void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
-                                                     Value *PrivValue,
-                                                     Value *NewPrivValue) {
+void VPOParoptTransform::genPrivatizationReplacement(
+    WRegionNode *W, Value *PrivValue, Value *NewPrivValue,
+    bool ExcludeEntryDirective) {
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> UserInsts;
   SmallPtrSet<ConstantExpr *, 8> UserExprs;
-  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &UserInsts, false,
-                                       &UserExprs))
+  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &UserInsts,
+                                       ExcludeEntryDirective, &UserExprs))
     return; // Found no applicable uses of PrivValue in W's body
 
   // Replace all USEs of each PrivValue with its NewPrivValue in the
@@ -7473,7 +7495,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
            // firstprivates if
            // vpo-paropt-target-non-wilocal-fp-alloc-mode=RTLAlloc is used.
            (isa<WRNTargetNode>(W) && !FprivI->getIsWILocal() &&
-            TargetNonWILocalFPAllocationMode == RTLAlloc))) {
+            TargetNonWILocalFPAllocationMode == TargetAllocMode::RTLAlloc))) {
 
         // In some cases, clang may put a variable both into map and
         // firstprivate clauses. Usually, in such cases, we do not need to
@@ -7514,11 +7536,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         //     void (%class.C*)* @_ZTS1C.omp.destr),
         //   "QUAL.OMP.MAP.TO"(%class.C* %c1, %class.C* %c1, i64 4, i64 161) ]
         //
-        // Also, we cannot allocate VLAs at the module level, but we should
-        // not reach here for VLAs because the FEs emit map clauses for them,
-        // not firstprivate.
-        assert(!getIsVlaOrVlaSection(FprivI) &&
-               "VLAs should have map clause, not firstprivate.");
 #if INTEL_CUSTOMIZATION
         // For F90 dope vectors which are firstprivate, ifx frontend emits a
         // map in addition to a firstprivate clause. We need to honor both.
@@ -7668,7 +7685,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             !FprivI->getIsF90NonPod() &&
 #endif // INTEL_CUSTOMIZATION
             (!isa<WRNTargetNode>(W) || FprivI->getIsWILocal() ||
-             TargetNonWILocalFPAllocationMode != RTLAlloc) &&
+             TargetNonWILocalFPAllocationMode != TargetAllocMode::RTLAlloc) &&
             !FprivI->getInMap() && !FprivI->getIsByRef()) {
           std::tie(ValueIntTy, IntPtrTy) =
               GetPassAsScalarSizeInBits(F, NewPrivInst, FprivI);
@@ -7948,8 +7965,11 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   if (W->canHavePrivate())
     for (PrivateItem *PI : W->getPriv().items())
       if (auto *Dtor = PI->getDestructor())
-        genPrivatizationInitOrFini(PI, Dtor, FK_Dtor, PI->getNew(), nullptr,
-                                   InsertBeforePt, DT);
+        if (auto *PNew = PI->getNew()) // getNew() can be null for firstprivate
+                                       // on target constructs based on
+                                       // EmitTargetPrivCtorDtors.
+          genPrivatizationInitOrFini(PI, Dtor, FK_Dtor, PNew, nullptr,
+                                     InsertBeforePt, DT);
 
   // Destructors for firstprivates
   if (W->canHaveFirstprivate())
@@ -8001,7 +8021,7 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 //   address space 4 (generic) before doing the store/load.
 Value *VPOParoptTransform::replaceWithStoreThenLoad(
     WRegionNode *W, Value *V, Instruction *InsertPtForStore, bool ReplaceUses,
-    bool InsertLoadInBeginningOfEntryBB,
+    bool EmitLoadEvenIfNoUses, bool InsertLoadInBeginningOfEntryBB,
     bool SelectAllocaInsertPtBasedOnParentWRegion,
     bool CastToAddrSpaceGeneric) {
 
@@ -8038,7 +8058,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
              dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
              dbgs() << "'.\n";);
 
-  if (UserInsts.empty())
+  if (UserInsts.empty() && !EmitLoadEvenIfNoUses)
     return VAddr; // Nothing to replace inside the region. Just capture the
                   // address of V to VAddr and return it.
 
@@ -8879,7 +8899,8 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 //                                    |
 //                                    |  ; Note: `%size2` is added as shared to
 //                                    |  ; W, but the directive is not modified
-//
+// TODO: Change shared/map(to) to firstprivate where possible. map(to)
+// especially is an unnecessary overhead.
 bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     WRegionNode *W) {
 
@@ -8917,6 +8938,11 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     Value *CapturedValAddr = //                                         (2)
         replaceWithStoreThenLoad(W, ValToCapture, InsertStoreBefore,
                                  true, // Replace uses in the region
+                                 // For target regions, insert the load even
+                                 // if ValToCapture has no use in the
+                                 // region, to avoid argument mismatch b/w
+                                 // host and device.
+                                 isa<WRNTargetNode>(W),
                                  true, // Insert (4) in beginning of NewEntryBB
                                  true, // Insert alloca based on parent WRegions
                                  isTargetSPIRV()); // Add addrspace cast to
@@ -9095,7 +9121,7 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   // Use private address space for target firstprivates if wilocal is the
   // default allocation mode.
   if (isa<WRNTargetNode>(W) && isa<FirstprivateItem>(I) &&
-      TargetNonWILocalFPAllocationMode == WILocal)
+      TargetNonWILocalFPAllocationMode == TargetAllocMode::WILocal)
     return vpo::ADDRESS_SPACE_PRIVATE;
 
   // Use private address space for distribute firstprivates based on
@@ -9119,6 +9145,22 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   std::tie(AllocaTy, NumElements, std::ignore) = VPOParoptUtils::getItemInfo(I);
   if (I->getIsNonPod() && (AllocaTy->isArrayTy() || (NumElements != nullptr)))
     return vpo::ADDRESS_SPACE_PRIVATE;
+
+  // FIXME: VLAs don't have a way to be allocated in LLVM IR at the module level
+  // (addrspace global/local), so, we allocate them in addrspace private (local
+  // to the kernel's stack).
+  if ((WRegionUtils::isDistributeNode(W) || isa<WRNTeamsNode>(W)) &&
+      TeamsNonWILocalVLAAllocMode == TeamAllocMode::WILocal && NumElements &&
+      !isa<ConstantInt>(NumElements)) {
+    OptimizationRemarkMissed R("openmp", "VLA", W->getEntryDirective());
+    R << "VLAs requested to be team (work group) local will be made thread "
+         "(work-item) local. Team local VLA allocation is not supported. The "
+         "experimental flag `-mllvm "
+         "-vpo-paropt-teams-non-wilocal-vla-alloc-mode=module` can be used to "
+         "force a team-local allocation, but is not recommended.";
+    ORE.emit(R);
+    return vpo::ADDRESS_SPACE_PRIVATE;
+  }
 
   if (WRegionUtils::isDistributeNode(W) ||
       isa<WRNTeamsNode>(W))
@@ -9482,6 +9524,38 @@ bool VPOParoptTransform::genPrivatizationCode(
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
+      // For target compilation, we can skip handling private operands that are
+      // not WILocal and have a map clause. The RTL will handle the
+      // privatization via the map clause. But we still need to do the
+      // privatization for the host fallback.
+      bool IsInMapAndNotWILocal = PrivI->getInMap() && !PrivI->getIsWILocal();
+      // If emission of constructors/destructors is enabled, we do the
+      // privatization even if there's a map clause for the private operand.
+      // TODO: Need to check if ctor/dtor calls can be emitted without
+      // privatizing the item here.
+      bool NeedsCtorDtorEmissionOnDevice =
+          PrivI->getIsNonPod() && EmitTargetPrivCtorDtors;
+
+      bool CanSkipPrivatizationOnDevice =
+#if INTEL_CUSTOMIZATION
+          // For private F90_DVs, pointee data can NOT be privatized using
+          // private maptype in the middle of the map-chain:
+          //   <&DV, &DV, size(DV) PARAM|ALLOC>
+          //   <&DV, &DV.field0[0], size(data), MEMBER_OF_1|PTR_AND_OBJ|PRIVATE>
+          //   <&DV.field1, size(DV) - sizeof(ptr), MEMBER_OF_1|TO>
+          //
+          // So for now, we honor the PRIVATE:F90_DV and make them wilocal.
+          !PrivI->getIsF90DopeVector() &&
+#endif // INTEL_CUSTOMIZATION
+          IsInMapAndNotWILocal && !NeedsCtorDtorEmissionOnDevice;
+
+      if (CanSkipPrivatizationOnDevice && hasOffloadCompilation()) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": '";
+                   Orig->printAsOperand(dbgs());
+                   dbgs() << "' will be privatized using a map clause.\n");
+        continue;
+      }
+
       if (GeneralUtils::isOMPItemGlobalVAR(Orig) ||
           GeneralUtils::isOMPItemLocalVAR(Orig)) {
         Value *NewPrivInst;
@@ -9513,7 +9587,15 @@ bool VPOParoptTransform::genPrivatizationCode(
         }
         PrivI->setNew(NewPrivInst);
         Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
-        genPrivatizationReplacement(W, Orig, ReplacementVal);
+        // If the item is in a map clause and is not wilocal, we do the
+        // privatization on host side but not device side. This can cause a
+        // mismatch in the number of arguments of the kernel. To avoid that, in
+        // host compilation, we need to keep the uses of the original operand in
+        // the entry directive, so that we pass it into the outlined function
+        // even though it's not needed inside the outlined function on host.
+        bool ExcludeEntryDirective = CanSkipPrivatizationOnDevice;
+        genPrivatizationReplacement(W, Orig, ReplacementVal,
+                                    ExcludeEntryDirective);
 
         if (auto *Ctor = PrivI->getConstructor()) {
           if(!CtorInsertPt) {
@@ -12377,7 +12459,10 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
     return;
 
   for (auto *I : PrivClause.items()) {
-    resetValueInOmpClauseGeneric(W, I->getOrig());
+    // If the private item is also in a map clause because we want the outlined
+    // function to have an argument for them.
+    if (!I->getInMap())
+      resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 
