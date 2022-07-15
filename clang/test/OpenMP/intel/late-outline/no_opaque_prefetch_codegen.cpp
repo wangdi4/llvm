@@ -241,26 +241,26 @@ int main(int argc, char *argv[]) {
   int foo2[10];
   int *p = foo1;
 
-  #pragma omp prefetch data(&foo1:1:1)
-  #pragma omp prefetch data(&foo1[1]:1:2) if (a < b)
-  #pragma omp prefetch if (a == 0) data(&foo1[i]:1:3)
+  #pragma ompx prefetch data(&foo1:1:1)
+  #pragma ompx prefetch data(&foo1[1]:1:2) if (a < b)
+  #pragma ompx prefetch if (a == 0) data(&foo1[i]:1:3)
 
   // One data clause with two prefetch expressions should generate same IR
   // as prefetch with two data clauses and same expressions.
 #ifndef MULTI_DATA
-  #pragma omp prefetch data(&foo1:1:1, &foo2:2:5)
+  #pragma ompx prefetch data(&foo1:1:1, &foo2:2:5)
 #else
-  #pragma omp prefetch data(&foo1:1:1) data(&foo2:2:5)
+  #pragma ompx prefetch data(&foo1:1:1) data(&foo2:2:5)
 #endif
 
 #ifndef MULTI_DATA
-  #pragma omp prefetch data(&foo1:1:1, &foo2:2:4, p:3:10)
+  #pragma ompx prefetch data(&foo1:1:1, &foo2:2:4, p:3:10)
 #else
-  #pragma omp prefetch data(&foo1:1:1) data(&foo2:2:4) data(p:3:10)
+  #pragma ompx prefetch data(&foo1:1:1) data(&foo2:2:4) data(p:3:10)
 #endif
   {}
 
-  #pragma omp prefetch data(&bar:1:2, &bar.d:3:20) data(&bar.d[++i]:2:10)
+  #pragma ompx prefetch data(&bar:1:2, &bar.d:3:20) data(&bar.d[++i]:2:10)
   for (int i = 0; i < 10; ++i) {}
 
   {
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
     int *ptr = &pp;
     int **pptr = &ptr;
 
-    #pragma omp prefetch data((*pptr):1:100, (*pptr + 1):4:200)
+    #pragma ompx prefetch data((*pptr):1:100, (*pptr + 1):4:200)
   }
   return 0;
 }
@@ -320,19 +320,19 @@ void prefetch_test()
   int i;
 
 #ifndef MULTI_DATA
-  #pragma omp prefetch data(&A::i:1:100, &B::j[i]:4:5)
+  #pragma ompx prefetch data(&A::i:1:100, &B::j[i]:4:5)
 #else
-  #pragma omp prefetch data(&A::i:1:100) data(&B::j[i]:4:5)
+  #pragma ompx prefetch data(&A::i:1:100) data(&B::j[i]:4:5)
 #endif
 
   return;
 }
 
-// Verify #pragma omp prefetch in function template.
+// Verify #pragma ompx prefetch in function template.
 template <typename T, unsigned size>
 T run() {
   T foo[size];
-  #pragma omp prefetch data(&foo:1:10)
+  #pragma ompx prefetch data(&foo:1:10)
   return foo[0];
 }
 

@@ -25,7 +25,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo1(i32** nocapture %p)  {
+define internal void @foo1(i32** nocapture %p)  {
 entry:
   %call = tail call noalias i8* @malloc(i64 40) 
   %0 = bitcast i32** %p to i8**

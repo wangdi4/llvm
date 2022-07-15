@@ -2131,11 +2131,11 @@ void Parser::ParseOMPEndDeclareTargetDirective(OpenMPDirectiveKind BeginDKind,
 static bool checkOpenMPExtension(Parser &P, OpenMPDirectiveKind DKind,
                                  bool IsExtension) {
   Token Tok = P.getCurToken();
-  if (!IsExtension && DKind == OMPD_declare_target_function) {
+  if (!IsExtension && isOpenMPExtensionDirective(DKind)) {
     P.Diag(Tok, diag::err_omp_extension_mismatch) << 1;
     return false;
   }
-  if (IsExtension && DKind != OMPD_declare_target_function) {
+  if (IsExtension && !isOpenMPExtensionDirective(DKind)) {
     P.Diag(Tok, diag::err_omp_extension_mismatch) << 0;
     return false;
   }
@@ -2789,6 +2789,12 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   if (!ReadDirectiveWithinMetadirective)
     assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
            "Not an OpenMP directive!");
+#if INTEL_COLLAB
+  bool IsExtension = ReadDirectiveWithinMetadirective
+                         ? false
+                         : static_cast<bool>(reinterpret_cast<uintptr_t>(
+                               Tok.getAnnotationValue()));
+#endif // INTEL_COLLAB
   ParsingOpenMPDirectiveRAII DirScope(*this);
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
   SmallVector<OMPClause *, 5> Clauses;
@@ -2811,6 +2817,17 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
   bool HasAssociatedStatement = true;
+
+#if INTEL_COLLAB
+  if (!ReadDirectiveWithinMetadirective &&
+      !checkOpenMPExtension(*this, DKind, IsExtension)) {
+    ConsumeToken();
+    skipUntilPragmaOpenMPEnd(DKind);
+    // Skip the last annot_pragma_openmp_end.
+    ConsumeAnnotationToken();
+    return StmtError();
+  }
+#endif // INTEL_COLLAB
 
   switch (DKind) {
   case OMPD_nothing:
@@ -3260,7 +3277,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 #if INTEL_COLLAB
     else if (DKind == OMPD_prefetch &&
              !FirstClauses[unsigned(OMPC_data)].getInt())
-      Diag(Loc, diag::err_omp_required_clause)
+      Diag(Loc, diag::err_ompx_required_clause)
           << getOpenMPDirectiveName(OMPD_prefetch) << "data";
 #endif // INTEL_COLLAB
 
@@ -3671,8 +3688,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_if:
 #if INTEL_COLLAB
     if (!FirstClause && DKind == OMPD_prefetch) {
-      Diag(Tok, diag::err_omp_more_one_clause)
-          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      Diag(Tok, diag::err_ompx_more_one_clause)
+          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind);
       ErrorFound = true;
     }
 #endif // INTEL_COLLAB

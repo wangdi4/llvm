@@ -232,6 +232,12 @@ enum OpenMPBindClauseKind {
   OMPC_BIND_unknown
 };
 
+#if INTEL_COLLAB
+/// Checks if the specified directive if an OpenMP extension.
+/// These use the 'ompx' prefix instead of 'omp'.
+bool isOpenMPExtensionDirective(OpenMPDirectiveKind DKind);
+#endif // INTEL_COLLAB
+
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
                                    const LangOptions &LangOpts);
 const char *getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind, unsigned Type);

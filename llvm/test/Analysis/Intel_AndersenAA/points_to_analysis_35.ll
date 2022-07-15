@@ -4,7 +4,7 @@
 
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
-; CHECK: [1] baz:test1     --> ({{[0-9]+}}): bar:mem
+; CHECK: [2] baz:test1     --> ({{[0-9]+}}): <universal>, ({{[0-9]+}}): bar:mem
 
 ; REQUIRES: asserts
 

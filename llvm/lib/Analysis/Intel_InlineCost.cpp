@@ -145,6 +145,14 @@ static cl::opt<unsigned> HugeFunctionBasicBlockCount(
     "inlining-huge-bb-count", cl::init(90), cl::ReallyHidden,
     cl::desc("Function with this many basic blocks or more may be huge"));
 
+static cl::opt<unsigned> HugeODRFunctionBasicBlockCount(
+#ifndef _WIN32
+    "inlining-huge-odr-bb-count", cl::init(35), cl::ReallyHidden,
+#else
+    "inlining-huge-odr-bb-count", cl::init(25), cl::ReallyHidden,
+#endif // _WIN32
+    cl::desc("ODR Function with this many basic blocks or more may be huge"));
+
 static cl::opt<unsigned> HugeFunctionArgCount(
     "inlining-huge-arg-count", cl::init(8), cl::ReallyHidden,
     cl::desc("Function with this many arguments or more may be huge"));
@@ -578,8 +586,15 @@ extern bool forgivableCondition(const Instruction *TI) {
 // basic blocks, and loops. We test them in this order (from cheapest to
 // most expensive).
 //
-extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC) {
-  if (!InlineForXmain || !DTransInlineHeuristics)
+extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
+                           const TargetTransformInfo &TTI, bool PrepareForLTO,
+                           bool LinkForLTO) {
+  if (!InlineForXmain)
+    return false;
+  if (F->hasLinkOnceODRLinkage() && !PrepareForLTO && !LinkForLTO &&
+      F->size() > HugeODRFunctionBasicBlockCount)
+    return true;
+  if (!DTransInlineHeuristics)
     return false;
   size_t ArgSize = F->arg_size();
   if (ArgSize < HugeFunctionArgCount)

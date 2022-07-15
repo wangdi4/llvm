@@ -25228,7 +25228,7 @@ static ExprResult verifyDataClauseAddrExpr(Sema &S, Expr *E) {
     return E;
   if (!E->getType()->isPointerType()) {
     S.Diag(E->getExprLoc(),
-        diag::err_prefetch_invalid_argument) << "omp prefetch data";
+        diag::err_prefetch_invalid_argument) << "ompx prefetch data";
     return ExprError();
   }
   return E;
@@ -25244,7 +25244,7 @@ static ExprResult verifyDataClauseHintExpr(Sema &S, Expr *E) {
       S.VerifyIntegerConstantExpression(E, &Result, /*Fold=*/false);
   if (Val.isInvalid()) {
     S.Diag(E->getExprLoc(), diag::err_prefetch_invalid_argument) <<
-        "omp prefetch data";
+        "ompx prefetch data";
     return ExprError();
   }
   if (Result.getExtValue() <= 0 || Result.getExtValue() > 4) {

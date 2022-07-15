@@ -12,7 +12,7 @@
 @B = internal global i32* null, align 8
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i32** nocapture %A)  {
+define internal void @foo(i32** nocapture %A)  {
 entry:
   %call = tail call noalias i8* @malloc(i64 40)
   %0 = bitcast i32** %A to i8**
@@ -24,7 +24,7 @@ entry:
 declare noalias i8* @malloc(i64)
 
 ; Function Attrs: noinline nounwind uwtable
-define void @bar(i32** nocapture %B)  {
+define internal void @bar(i32** nocapture %B)  {
 entry:
   %call = tail call noalias i8* @malloc(i64 40)
   %0 = bitcast i32** %B to i8**
@@ -33,7 +33,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo1(i32** nocapture readonly %p)  {
+define internal void @foo1(i32** nocapture readonly %p)  {
 entry:
   %0 = load i32*, i32** %p, align 8
   store i32 1, i32* %0, align 4

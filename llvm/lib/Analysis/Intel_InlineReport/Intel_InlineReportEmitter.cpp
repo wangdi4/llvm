@@ -1,6 +1,6 @@
 //===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -56,6 +56,8 @@ private:
   bool PrepareForLTO;     // True in the LTO "Compile Step"
   std::set<StringRef>            // Names of dead Fortran Functions, used
      DeadFortranFunctionNames;   // to provide language char.
+  SmallDenseMap <StringRef, StringRef> // Map from dead function name to linkage
+     DeadFunctionLinkage; 
   formatted_raw_ostream &OS;     // Stream to print Inline Report to
 
   // Print the linkage character for the Function with name 'CalleeName'.
@@ -95,8 +97,9 @@ private:
 
   // Using the metadata inline report 'MIR', find the names of the dead
   // Fortran Functions, in case we need to print the language char for all
-  // Functions.
-  void findDeadFortranFunctionNames(NamedMDNode *MIR);
+  // Functions. Also, find and store the linkage information for dead
+  // functions to be used when printing linkage for the callsites.
+  void findDeadFunctionInfo(NamedMDNode *MIR);
 
   // Print the inline report info for a Function. 'Node' is a metadata tuple
   // including the info.
@@ -110,9 +113,8 @@ void IREmitterInfo::printFunctionLinkageChar(StringRef CalleeName) {
     OS << llvm::getLinkageStr(F) << ' ';
     return;
   }
-  // If we can't find a function in the module, then it is dead. Which means it
-  // should have local linkage.
-  OS << "L ";
+  // Otherwise it is dead, so look up the value in the map.
+  OS << DeadFunctionLinkage[CalleeName] << ' ';
 }
 
 void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
@@ -223,10 +225,10 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   int64_t Reason = 0;
   getOpVal(CSIR->getOperand(CSMDIR_InlineReason), "reason: ", &Reason);
   assert(InlineReasonText[Reason].Type != InlPrtNone);
-  printIndentCount(OS, IndentCount);
   int64_t IsInlined = 0;
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
+    printIndentCount(OS, IndentCount);
     OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
@@ -237,12 +239,14 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
       case NinlrDeleted:
+        printIndentCount(OS, IndentCount);
         OS << "-> DELETE: ";
         printCalleeNameModuleLineCol(CSIR);
         OS << "\n";
         break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
+          printIndentCount(OS, IndentCount);
           OS << "-> EXTERN: ";
           printCalleeNameModuleLineCol(CSIR);
           OS << "\n";
@@ -250,6 +254,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         break;
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
+          printIndentCount(OS, IndentCount);
           OS << "-> INDIRECT: ";
           printCalleeNameModuleLineCol(CSIR);
           printSimpleMessage(InlineReasonText[Reason].Message, false,
@@ -257,6 +262,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         }
         break;
       case NinlrOuterInlining:
+        printIndentCount(OS, IndentCount);
         OS << "-> ";
         printCalleeNameModuleLineCol(CSIR);
         printOuterCostAndThreshold(CSIR);
@@ -267,6 +273,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         assert(0);
       }
     } else {
+      printIndentCount(OS, IndentCount);
       OS << "-> ";
       printCalleeNameModuleLineCol(CSIR);
       if (InlineReasonText[Reason].Type == InlPrtCost)
@@ -293,8 +300,9 @@ void IREmitterInfo::printCallSiteInlineReports(Metadata *MD,
   }
 }
 
-void IREmitterInfo::findDeadFortranFunctionNames(NamedMDNode *MIR) {
-  if (!(Level & InlineReportOptions::Language))
+void IREmitterInfo::findDeadFunctionInfo(NamedMDNode *MIR) {
+  if (!(Level & InlineReportOptions::Language) &&
+      !(Level & InlineReportOptions::Linkage))
     return;
   for (unsigned I = 0, E = MIR->getNumOperands(); I < E; ++I) {
     MDNode *Node = MIR->getOperand(I);
@@ -305,17 +313,21 @@ void IREmitterInfo::findDeadFortranFunctionNames(NamedMDNode *MIR) {
     getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
     if (!IsDead)
       continue;
+    StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    StringRef LinkageStr = getOpStr(FuncReport->getOperand(FMDIR_LinkageStr),
+                                 "linkage: ");
+    DeadFunctionLinkage[SR] = LinkageStr;
     StringRef LangStr = getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
                                  "language: ");
     bool IsFortran = LangStr == "F";
     if (!IsFortran)
       continue;
-    StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
     DeadFortranFunctionNames.insert(SR);
   }
 }
 
 void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
+
   assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
   MDTuple *FuncReport = cast<MDTuple>(Node);
   if (!FuncReport) {
@@ -418,7 +430,7 @@ bool IREmitterInfo::runImpl() {
     return false;
   }
 
-  findDeadFortranFunctionNames(ModuleInlineReport);
+  findDeadFunctionInfo(ModuleInlineReport);
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     printFunctionInlineReportFromMetadata(Node);

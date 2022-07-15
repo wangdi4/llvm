@@ -126,7 +126,7 @@ void test2()
 
   int foov[10];
   double d;
-  #pragma omp prefetch data(&foov:1:5) data(&d:1:1)
+  #pragma ompx prefetch data(&foov:1:5) data(&d:1:1)
   //CHECK: "DIR.OMP.PREFETCH"()
   //CHECK-SAME: "QUAL.OMP.DATA:TYPED"(ptr [[TP1]], ptr null, i32 1, i64 5)
   //CHECK-SAME: "QUAL.OMP.DATA:TYPED"(ptr [[TP2]], ptr null, i32 1, i64 1) ]
