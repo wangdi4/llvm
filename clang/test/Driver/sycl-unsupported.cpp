@@ -1,4 +1,3 @@
-// INTEL XFAIL: i686-pc-windows-msvc
 /// Diagnose unsupported options specific to SYCL compilations
 // RUN: %clangxx -fsycl -fsanitize=address -fsycl-targets=spir64 -### %s 2>&1 \
 // RUN:  | FileCheck %s --check-prefix=SANITIZE -DARCH=spir64
