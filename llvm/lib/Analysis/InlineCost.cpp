@@ -2185,7 +2185,8 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
        F.hasOneLiveUse() && &F == Call.getCalledFunction()
 #if INTEL_FEATURE_SW_ADVANCED
-       && !isHugeFunction(&F, ILIC)
+       && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.getValueOr(false),
+           Params.LinkForLTO.getValueOr(false))
 #endif // INTEL_FEATURE_SW_ADVANCED
        ;
 #endif // INTEL_CUSTOMIZATION
