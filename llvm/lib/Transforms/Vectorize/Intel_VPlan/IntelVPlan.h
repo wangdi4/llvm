@@ -494,7 +494,9 @@ class VPInstruction : public VPUser,
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
-      case VPInstruction::TreeConflict: {
+      case VPInstruction::TreeConflict:
+      case VPInstruction::RunningInclusiveReduction:
+      case VPInstruction::RunningExclusiveReduction: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
         if (!InstTy)
@@ -2785,6 +2787,7 @@ private:
 /// Complicated finalization of inscan reduction is not required,
 /// in fact, the final value resides in the last vector lane.
 /// Returns the input operand's last vector lane.
+/// ExtractLastVectorLane cannot be reused for CFG Merger to work correctly.
 class VPReductionFinalInscan : public VPReductionFinal {
 public:
   VPReductionFinalInscan(unsigned BinOp, VPValue *ReducVec)
@@ -2793,6 +2796,60 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionFinalInscan;
+  }
+};
+
+/// Calculates the value of running inclusive reduction using the binary
+/// operation opcode.
+class VPRunningInclusiveReduction : public VPInstruction {
+public:
+  VPRunningInclusiveReduction(
+    unsigned BinOp, VPValue *Input, VPValue *CarryOver, VPValue *Identity,
+    unsigned OpCode = VPInstruction::RunningInclusiveReduction)
+      : VPInstruction(OpCode, Input->getType(), {Input, CarryOver, Identity}),
+        BinOpcode(BinOp) {}
+
+  unsigned getBinOpcode() const { return BinOpcode; }
+  VPValue *getInputOperand() const { return getOperand(0); }
+  VPValue *getCarryOverOperand() const { return getOperand(1); }
+  VPValue *getIdentityOperand() const { return getOperand(2); }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::RunningInclusiveReduction;
+  }
+
+protected:
+  // Clones VPRunningInclusiveReduction
+  virtual VPRunningInclusiveReduction *cloneImpl() const override {
+    return new VPRunningInclusiveReduction(getBinOpcode(), getInputOperand(),
+                                           getCarryOverOperand(),
+                                           getIdentityOperand(),
+                                           getOpcode());
+  }
+private:
+  unsigned BinOpcode;
+};
+
+/// Calculates the value of running exclusive reduction using the binary
+/// opcode.
+class VPRunningExclusiveReduction : public VPRunningInclusiveReduction {
+public:
+  VPRunningExclusiveReduction(
+    unsigned BinOp, VPValue *Input, VPValue *CarryOver, VPValue *Identity)
+      : VPRunningInclusiveReduction(BinOp, Input, CarryOver, Identity,
+                                    VPInstruction::RunningExclusiveReduction) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::RunningExclusiveReduction;
+  }
+protected:
+  // Clones VPRunningExclusiveReduction.
+  virtual VPRunningExclusiveReduction *cloneImpl() const final {
+    return new VPRunningExclusiveReduction(getBinOpcode(), getInputOperand(),
+                                           getCarryOverOperand(),
+                                           getIdentityOperand());
   }
 };
 

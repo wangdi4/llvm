@@ -902,6 +902,7 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   //   float %red_load_run = load float* %red
   //   float %running_red = running-inclusive-reduction float %red_load_run
   //                                                    float %carry-over
+  //                                                    float -0.000000e+00
   //   store float %running_red float* %red
   //   float %extract_last_lane = extract-last-vector-lane float %running_red
   // post.exit:
@@ -940,11 +941,17 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
     // Generate load for running reduction instruction.
     Type *Ty = InscanRed->getRecurrenceType();
     auto *InscanInput = Builder.createLoad(Ty, Private);
-    auto Opcode = InscanRed->getInscanKind() == InscanReductionKind::Inclusive ?
-      VPInstruction::RunningInclusiveReduction :
-      VPInstruction::RunningExclusiveReduction;
-    auto *RunningReduction = Builder.createNaryOp(
-      Opcode, Identity->getType(), {InscanInput, InscanAccumPhi, Identity});
+    unsigned BinOpcode = InscanRed->getReductionOpcode();
+    VPInstruction *RunningReduction =
+      InscanRed->getInscanKind() == InscanReductionKind::Inclusive ?
+        Builder.create<VPRunningInclusiveReduction>(
+          "incl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity) :
+        Builder.create<VPRunningExclusiveReduction>(
+          "excl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity);
+    // Attach FastMathFlags to running reduction.
+    FastMathFlags FMF = InscanRed->getFastMathFlags();
+    if (FMF.any())
+      RunningReduction->setFastMathFlags(FMF);
     Builder.createStore(RunningReduction, Private);
     // Extract last lane for the next iteration.
     auto *CarryOver = Builder.createNaryOp(
