@@ -13836,11 +13836,8 @@ void Sema::CheckInfNaNFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
 /// warning if the comparison is not likely to do what the programmer intended.
 void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
                                 BinaryOperatorKind Opcode) {
-
-#if INTEL_CUSTOMIZATION
-  if (!getLangOpts().IntelCompat && !BinaryOperator::isEqualityOp(Opcode))
+  if (!BinaryOperator::isEqualityOp(Opcode))
     return;
-#endif // INTEL_CUSTOMIZATION
 
   // Match and capture subexpressions such as "(float) X == 0.1".
   FloatingLiteral *FPLiteral;
