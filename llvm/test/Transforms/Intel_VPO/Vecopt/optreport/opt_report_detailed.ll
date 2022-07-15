@@ -23,6 +23,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
 ; LLVM-NEXT:      remark #15477: vector cost: 4.500000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
@@ -57,6 +58,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15476: scalar cost: 2.000000
 ; HIR-NEXT:      remark #15477: vector cost: 4.500000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 2
@@ -94,6 +96,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
 ; LLVM-NEXT:      remark #15477: vector cost: 4.500000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
@@ -126,6 +129,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15476: scalar cost: 2.000000
 ; HIR-NEXT:      remark #15477: vector cost: 4.500000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 1
@@ -162,6 +166,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15476: scalar cost: 31.000000
 ; LLVM-NEXT:      remark #15477: vector cost: 12.000000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.578125
+; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
@@ -190,6 +195,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15476: scalar cost: 31.000000
 ; HIR-NEXT:      remark #15477: vector cost: 12.000000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 2.578125
+; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 0

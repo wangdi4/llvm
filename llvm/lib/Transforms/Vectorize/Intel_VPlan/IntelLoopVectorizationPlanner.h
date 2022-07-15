@@ -640,12 +640,18 @@ protected:
     VPInstructionCost ScalarIterationCost;
     VPInstructionCost VectorIterationCost;
     VPInstructionCost Speedup;
+    VPInstructionCost LoopOverhead;
 
     VPCostSummary(VPInstructionCost ScalarIterationCost,
                   VPInstructionCost VectorIterationCost,
-                  VPInstructionCost Speedup)
+                  VPInstructionCost Speedup, VPInstructionCost VectorInitFini)
         : ScalarIterationCost(ScalarIterationCost),
-          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {}
+          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {
+      if (VectorIterationCost.isValid() && VectorIterationCost != 0)
+        LoopOverhead = VectorInitFini / VectorIterationCost;
+      else
+        LoopOverhead = VPInstructionCost::getInvalid();
+    }
   };
 
 private:

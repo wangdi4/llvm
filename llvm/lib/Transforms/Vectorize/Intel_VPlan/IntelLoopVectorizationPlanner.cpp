@@ -1092,8 +1092,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     VPInstructionCost VectorIterationCost =
         GoUnaligned ? MainLoopIterationCostWithoutPeel : MainLoopIterationCost;
     VectorIterationCost = VectorIterationCost / (VF * BestUF);
-    VFCosts.insert(
-        {VF, VPCostSummary(ScalarIterationCost, VectorIterationCost, Speedup)});
+    VPInstructionCost VectorInitFini =
+        GoUnaligned ? MainLoopOverheadWithoutPeel : MainLoopOverhead;
+    VFCosts.insert({VF, VPCostSummary(ScalarIterationCost, VectorIterationCost,
+                                      Speedup, VectorInitFini)});
 
     const char CmpChar = ScalarCost < VectorCost    ? '<'
                          : ScalarCost == VectorCost ? '='
@@ -1254,6 +1256,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // Add remark: estimated potential speedup
       OptRptStats.CostModelRemarks.emplace_back(
           15478, std::to_string(CostSummary.Speedup.getFloatValue()));
+    }
+    if (CostSummary.LoopOverhead.isValid()) {
+      // Add remark: vectorization support: normalized vectorization overhead
+      OptRptStats.CostModelRemarks.emplace_back(
+          15309, std::to_string(CostSummary.LoopOverhead.getFloatValue()));
     }
   }
 
