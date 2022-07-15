@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -85,6 +86,42 @@ void DTransTypeMetadataBuilder::setDTransFuncMetadata(
     auto *MDTypes = MDTuple::getDistinct(F->getContext(), MDTypeList);
     F->addMetadata(DTransFuncTypeMDTag, *MDTypes);
   }
+}
+
+void DTransTypeMetadataBuilder::copyDTransFuncMetadata(Function *SrcF,
+                                                       Function *DstF) {
+  auto CopyAttributeIfAvailable = [](Function *DestF, AttributeSet &Attrs,
+                                     unsigned Index) {
+    Attribute Attr = Attrs.getAttribute(DTransFuncIndexTag);
+    if (Attr.isValid())
+      DestF->addAttributeAtIndex(Index, Attr);
+  };
+
+  MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*SrcF);
+  if (!MD)
+    return;
+
+  // It's only meaningful to use this function when the argument count is the
+  // same for the two functions.
+  unsigned NumArgs = SrcF->arg_size();
+  if (DstF->arg_size() != NumArgs)
+    return;
+
+  // Copy the "intel_dtrans_func_index" attributes
+  AttributeList SrcAttrs = SrcF->getAttributes();
+  AttributeSet RetAttrs = SrcAttrs.getRetAttrs();
+  CopyAttributeIfAvailable(DstF, RetAttrs, AttributeList::ReturnIndex);
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+    AttributeSet ArgAttrs = SrcAttrs.getParamAttrs(ArgIdx);
+    CopyAttributeIfAvailable(DstF, ArgAttrs,
+                             AttributeList::FirstArgIndex + ArgIdx);
+  }
+
+  // Prepare the !intel.dtrans.func.type metadata
+  SmallVector<Metadata *, 8> MDTypeList(
+      iterator_range<const MDOperand *>{MD->operands()});
+  auto *MDTypes = MDTuple::getDistinct(DstF->getContext(), MDTypeList);
+  DstF->addMetadata(DTransFuncTypeMDTag, *MDTypes);
 }
 
 MDTuple *DTransTypeMetadataBuilder::createLiteralStructMetadata(
