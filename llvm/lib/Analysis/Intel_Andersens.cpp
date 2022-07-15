@@ -76,6 +76,7 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
@@ -354,6 +355,70 @@ static Function *getAndersCalledFunction(const CallBase &Call) {
         return AliasF;
 
   return nullptr;
+}
+
+// Returns true if "PtrOp" is address of VarArg like below.
+// Makes sure "TheCall" is in between @llvm.va_start() and @llvm.va_end()
+// calls. Makes sure PtrOp doesn't have any other real user except "UseInst".
+//
+// PtrOp:   %2 = alloca i8*, align 8
+//          %3 = bitcast i8** %2 to i8*
+//          call void @llvm.va_start(i8* nonnull %3)
+// UseInst: %4 = getelementptr %2, 0, 0
+// TheCall: %8 = call i32 @vsprintf(%7, %5, %0, null, %4 )
+//          call void @llvm.va_end(i8* nonnull %3)
+static bool isVarArgAddress(Value *PtrOp, Instruction *TheCall,
+                            Instruction *UseInst,
+                            SmallPtrSetImpl<const Instruction *> &Visited) {
+  auto AI = dyn_cast<AllocaInst>(PtrOp);
+  if (!AI)
+    return false;
+
+  // Check that AI has only two real uses (llvm.va_start and llvm.va_end).
+  SmallVector<const Value *, 8> WorkList;
+
+  // llvm.va_start instruction.
+  const Instruction *StartII = nullptr;
+  // llvm.va_end instruction.
+  const Instruction *EndII = nullptr;
+  WorkList.push_back(AI);
+  while (!WorkList.empty()) {
+    const Value *V = WorkList.pop_back_val();
+    for (auto *U : V->users()) {
+      auto *I = dyn_cast<Instruction>(U);
+      if (!I)
+        return false;
+      Visited.insert(I);
+      // Ignore LoadInst that is used by TheCall.
+      if (I->isLifetimeStartOrEnd() || I == UseInst || isa<DbgInfoIntrinsic>(I))
+        continue;
+      if (isa<BitCastInst>(I)) {
+        WorkList.push_back(I);
+        continue;
+      }
+      auto *II = dyn_cast<IntrinsicInst>(I);
+      if (!II)
+        return false;
+      if (II->getIntrinsicID() == Intrinsic::vastart) {
+        if (StartII)
+          return false;
+        StartII = I;
+      } else if (II->getIntrinsicID() == Intrinsic::vaend) {
+        if (EndII)
+          return false;
+        EndII = I;
+      } else {
+        return false;
+      }
+    }
+  }
+  if (!StartII || !EndII)
+    return false;
+  // Check dominator info for all three calls.
+  if (!StartII->comesBefore(TheCall) || !TheCall->comesBefore(EndII))
+    return false;
+  Visited.insert(AI);
+  return true;
 }
 
 // Information DenseSet requires implemented in order to be able to do
@@ -759,11 +824,53 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
+  // Returns true if "F" is a wrapper to the "vsprintf" function.
+  // This routine mainly checks that 1st and vararg arguments of "F"
+  // are passed only "vsprintf" call and no other uses to the arguments.
+  // No need to check remaining part of function definition of "F".
+  //
+  // define i32 @t_printf(i8* %0, ...) {
+  //   %2 = alloca [1 x %struct.__va_list_tag]
+  //   %3 = bitcast [1 x %struct.__va_list_tag]* %2 to i8*
+  //   call void @llvm.lifetime.start.p0i8(i64 24, i8* %3)
+  //   %4 = getelementptr [1 x %struct.__va_list_tag], %2, i64 0, i64 0
+  //   call void @llvm.va_start(i8* nonnull %3)
+  //   %5 = call i32 @vsprintf(i8* @pf_buf, i64 0, i64 0), i8* %0, %4)
+  //   ...
+  //   call void @llvm.va_end(i8* nonnull %3)
+  //   ...
+  auto IsVSPrintfWrapper = [&](Function *F) {
+    if (F->size() != 1 || !F->getFunctionType()->isVarArg())
+      return false;
+    if (F->arg_size() != 1)
+      return false;
+    Argument *Arg0 = F->getArg(0);
+    if (!Arg0 || !Arg0->hasOneUse())
+      return false;
+    auto *CB = dyn_cast<CallBase>(*Arg0->user_begin());
+    if (!CB || CB->arg_size() != 3 || CB->getArgOperand(1) != Arg0)
+      return false;
+    Function *Callee = CB->getCalledFunction();
+    LibFunc LibF;
+    auto &TLI = GetTLI(*F);
+    if (!Callee || !TLI.getLibFunc(Callee->getName(), LibF) || !TLI.has(LibF) ||
+        LibF != LibFunc_vsprintf)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(CB->getArgOperand(2));
+    if (!GEPI || !GEPI->hasOneUse() || !GEPI->hasAllZeroIndices())
+      return false;
+    SmallPtrSet<const Instruction *, 2> Visited;
+    if (!isVarArgAddress(GEPI->getPointerOperand(), CB, GEPI, Visited))
+      return false;
+    return true;
+  };
+
   SkipAndersensAnalysis = false;
   PointerSizeInBits = DL.getPointerSizeInBits();
   IndirectCallList.clear();
   DirectCallList.clear();
   // Check basic heuristic to continue Andersens's analysis.
+  // Also, collect wrapper functions for "vsprintf"
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     if (F->isDeclaration())
       continue;
@@ -772,6 +879,9 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
         dbgs() << "\nAnders disabled...exceeded FunctionSizeMaxLimit\n";
       return;
     }
+
+    if (IsVSPrintfWrapper(&(*F)))
+      VSPrintfWrappers.insert(&(*F));
   }
   IdentifyObjects(M);
   CollectConstraints(M);
@@ -900,6 +1010,7 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ObjectNodes(std::move(Arg.ObjectNodes)),
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
+      VSPrintfWrappers(std::move(Arg.VSPrintfWrappers)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
       IMR(std::move(Arg.IMR)),
@@ -1862,15 +1973,17 @@ bool AndersensAAResult::IsLibFunction(const Function *F) {
 /// return false.
 bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
                                                       Function *F) {
-  assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) &&
+  assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition() ||
+          VSPrintfWrappers.count(F)) &&
          "Not an external function!");
 
   if (isa<DbgInfoIntrinsic>(CB))
     return true;
 
-  if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
+  // Model wrappers of vsprintf as library function calls for points-to.
+  if (VSPrintfWrappers.count(F) ||
+      findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics))
     return true;
-  }
 
   // Ignore no side effect fortran calls
   if (F->isFortran() &&
@@ -2062,15 +2175,6 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       if (isTrackableType(I->getType()))
         getNodeValue(*I);
 
-    // At some point we should just add constraints for the escaping functions
-    // at solve time, but this slows down solving. For now, we simply mark
-    // address taken functions as escaping and treat them as external until
-    // Escape analysis is implemented.
-    // Functions without definition (library calls/external functions)
-    // are treated separately in "AddConstraintsForCall" routine.
-    if (!F->isDeclaration() && (!F->hasLocalLinkage() || F->hasAddressTaken()))
-      AddConstraintsForNonInternalLinkage(&(*F));
-
     // Functions without definition (library calls/external functions)
     // are handled in "AddConstraintsForCall" routine. No need to do
     // anything special here.
@@ -2082,6 +2186,22 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     }
     if (checkConstraintsSizeLimitExceeded(false /* AfterOpt */))
       return;
+  }
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+    // At some point we should just add constraints for the escaping functions
+    // at solve time, but this slows down solving. For now, we simply mark
+    // address taken functions as escaping and treat them as external until
+    // Escape analysis is implemented.
+    // Functions without definition (library calls/external functions)
+    // are treated separately in "AddConstraintsForCall" routine.
+    //
+    // Don't treat target functions in CallBacks as AddressTaken if
+    // all CallBacks are handled in the mdoule.
+    if (!F->isDeclaration() &&
+        (!F->hasLocalLinkage() ||
+         F->hasAddressTaken(nullptr,
+                            /*IgnoreCallbackUses*/ HandledAllCallBacks)))
+      AddConstraintsForNonInternalLinkage(&(*F));
   }
 
   // Model ifuncs here:
@@ -2562,6 +2682,7 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallBase *CB, Function *F)
     ++arg_itr;
   }
 
+
   if (F->getFunctionType()->isVarArg()) {
     for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
@@ -2594,6 +2715,60 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallBase *CB)
       CreateConstraint(Constraint::Store, getNode(actual), UniversalSet);
     }
   }
+}
+
+// Model AbstractCalls here if possible. Returns false if it can't handle
+// AbstractCall for some reason.
+bool AndersensAAResult::addConstraintsForAbstractCall(CallBase *CB) {
+  SmallVector<const Use *, 4> CallbackUses;
+  // This is used to collect all arguments that are handled.
+  SmallPtrSet<Value *, 16> SpecialArguments;
+
+  AbstractCallSite::getCallbackUses(*CB, CallbackUses);
+
+  for (const Use *U : CallbackUses) {
+    AbstractCallSite ACS(U);
+    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+    Function *TargetFunc = ACS.getCalledFunction();
+    unsigned NumCalleeArgs = ACS.getNumArgOperands();
+    if (!TargetFunc || NumCalleeArgs != TargetFunc->arg_size() ||
+        TargetFunc->getFunctionType()->isVarArg())
+      return false;
+
+    SpecialArguments.insert(ACS.getCalledOperand());
+    for (unsigned Idx = 0; Idx < NumCalleeArgs; ++Idx) {
+      Value *actual = ACS.getCallArgOperand(Idx);
+      Argument *formal = TargetFunc->getArg(Idx);
+      if (!actual || !formal)
+        return false;
+      SpecialArguments.insert(actual);
+      Type *FTy = formal->getType();
+      Type *ATy = actual->getType();
+      if (isPointsToType(FTy) && isPointsToType(ATy)) {
+        CreateConstraint(Constraint::Copy, getNode(formal), getNode(actual));
+      } else if (isTrackableType(FTy) || isTrackableType(ATy)) {
+        CreateConstraint(Constraint::Copy, getNode(formal), UniversalSet);
+        CreateConstraint(Constraint::Copy, getNode(actual), UniversalSet);
+      }
+    }
+  }
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
+
+  if (isTrackableType(CB->getType()))
+    CreateConstraint(Constraint::Copy, getNode(CB), UniversalSet);
+
+  // Treat unhandled arguments conservatively.
+  for (; arg_itr != arg_end; ++arg_itr) {
+    Value *actual = *arg_itr;
+    // Ignore arguments that are already handled.
+    if (SpecialArguments.count(actual))
+      continue;
+    if (isTrackableType(actual->getType()))
+      CreateConstraint(Constraint::Store, getNode(actual), UniversalSet);
+  }
+  return true;
 }
 
 /// AddConstraintsForCall - Add constraints for a call with actual arguments
@@ -2632,10 +2807,10 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
   // Treat calls to weak functions as external calls.
-  if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
-    if (AddConstraintsForExternalCall(CB, F)) {
+  if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition() ||
+      VSPrintfWrappers.count(F)) {
+    if (AddConstraintsForExternalCall(CB, F))
       return;
-    }
     AddConstraintsForInitActualsToUniversalSet(CB);
 
     return;
@@ -2674,7 +2849,12 @@ void AndersensAAResult::checkCall(CallBase &CB) {
       F = dyn_cast<Function>(GA->getAliaseeObject());
   }
 
-  if (F) {
+  if (F && F->hasMetadata(LLVMContext::MD_callback)) {
+    if (!addConstraintsForAbstractCall(&CB)) {
+      AddConstraintsForInitActualsToUniversalSet(&CB);
+      HandledAllCallBacks = false;
+    }
+  } else if (F) {
     AddConstraintsForCall(&CB, F);
   } else if (CB.isIndirectCall() ||
              (CalledVal && isa<GlobalIFunc>(CalledVal))) {
@@ -2716,6 +2896,7 @@ void AndersensAAResult::clearOnEarlyExit(void) {
   VarargNodes.clear();
   IndirectCallList.clear();
   DirectCallList.clear();
+  VSPrintfWrappers.clear();
   NonEscapeStaticVars.clear();
   NonPointerAssignments.clear();
 }
@@ -4227,7 +4408,32 @@ void AndersensAAResult::SolveConstraints() {
       }
       CurrNode->Edges->intersectWithComplement(ToErase);
       CurrNode->Edges |= NewEdges;
+
+      // If UniversalSet is in point-to of a pointer, need to propagate
+      // UniversalSet to points-to sets of all dereference levels of
+      // the pointer.
+      //
+      //  Ex:
+      //     q = malloc();
+      //     *p = q;
+      //     Unknown_function(p);
+      //
+      // Since "p" is escaped though Unknown_function, points-to set of
+      // "P" = { <UniversalSet>, "q" }
+      //
+      // <UniversalSet> needs to be propagated to points-to set of "q" since
+      // "q" is escaped through "p".
+      //
+      if (CurrNode->PointsTo->test(UniversalSet)) {
+        for (SparseBitVector<>::iterator bi = CurrNode->PointsTo->begin();
+             bi != CurrNode->PointsTo->end(); ++bi) {
+          unsigned Node = FindNode(*bi);
+          if (GraphNodes[Node].PointsTo->test_and_set(UniversalSet))
+            NextWL->insert(&GraphNodes[Node]);
+        }
+      }
     }
+
 
     // Process Indirect calls here for now. 
     // TODO: Need to find correct placement for this call later.
@@ -6203,54 +6409,8 @@ bool IntelModRefImpl::isDefinedLibFunc(Function *F,
     auto LI = dyn_cast<LoadInst>(Val);
     if (!LI)
       return false;
-    auto AI = dyn_cast<AllocaInst>(LI->getPointerOperand());
-    if (!AI)
+    if (!isVarArgAddress(LI->getPointerOperand(), TheCall, LI, Visited))
       return false;
-
-    // Check that AI has only two real uses (llvm.va_start and llvm.va_end).
-    SmallVector<const Value *, 8> WorkList;
-
-    // llvm.va_start instruction.
-    const Instruction *StartII = nullptr;
-    // llvm.va_end instruction.
-    const Instruction *EndII = nullptr;
-    WorkList.push_back(AI);
-    while (!WorkList.empty()) {
-      const Value *V = WorkList.pop_back_val();
-      for (auto *U : V->users()) {
-        auto *I = dyn_cast<Instruction>(U);
-        if (!I)
-          return false;
-        Visited.insert(I);
-        // Ignore LoadInst that is used by TheCall.
-        if (I->isLifetimeStartOrEnd() || I == LI || isa<DbgInfoIntrinsic>(I))
-          continue;
-        if (isa<BitCastInst>(I)) {
-          WorkList.push_back(I);
-          continue;
-        }
-        auto *II = dyn_cast<IntrinsicInst>(I);
-        if (!II)
-          return false;
-        if (II->getIntrinsicID() == Intrinsic::vastart) {
-          if (StartII)
-            return false;
-          StartII = I;
-        } else if (II->getIntrinsicID() == Intrinsic::vaend) {
-          if (EndII)
-            return false;
-          EndII = I;
-        } else {
-          return false;
-        }
-      }
-    }
-    if (!StartII || !EndII)
-      return false;
-    // Check dominator info for all three calls.
-    if (!StartII->comesBefore(TheCall) || !TheCall->comesBefore(EndII))
-      return false;
-    Visited.insert(AI);
     return true;
   };
 

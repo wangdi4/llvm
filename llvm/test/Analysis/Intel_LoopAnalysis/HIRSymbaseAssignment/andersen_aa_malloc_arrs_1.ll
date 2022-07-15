@@ -31,7 +31,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo1(i32** nocapture readonly %p)  {
+define internal void @foo1(i32** nocapture readonly %p)  {
 entry:
   %0 = load i32*, i32** %p, align 8
   store i32 1, i32* %0, align 4

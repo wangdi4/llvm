@@ -13,14 +13,14 @@
 @glob2 = common global [10 x i32] zeroinitializer, align 16
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i32** nocapture %p)  {
+define internal void @foo(i32** nocapture %p)  {
 entry:
   store i32* getelementptr inbounds ([10 x i32], [10 x i32]* @glob1, i64 0, i64 4), i32** %p, align 8
   ret void
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @bar(i32** nocapture %p)  {
+define internal void @bar(i32** nocapture %p)  {
 entry:
   %call = tail call noalias i8* @malloc(i64 40) 
   %0 = bitcast i32** %p to i8**
