@@ -2065,10 +2065,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
         Opc == Instruction::GetElementPtr) {
       Type *ElementType = nullptr;
-      if (Phi->getType()->isOpaquePointerTy())
-        ElementType = Type::getInt8Ty(Phi->getType()->getContext());
-      else
-        ElementType = Phi->getType()->getPointerElementType();
+      ElementType = getInt8OrPointerElementTy(Phi->getType());
       auto *GEP =
           Builder.createGEP(ElementType, ElementType, Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?
