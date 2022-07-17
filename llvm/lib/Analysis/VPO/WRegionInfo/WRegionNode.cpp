@@ -160,17 +160,17 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
         }
       }
     }
-    if (hasMap && canHavePrivate()) {
-      for (PrivateItem *PrivI : getPriv().items()) {
-        Value *Orig = PrivI->getOrig();
-        MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
-        if (!MapI)
-          continue;
-        MapI->setInPrivate(PrivI);
-        PrivI->setInMap(MapI);
-        LLVM_DEBUG(dbgs() << "Found (" << *Orig
-                          << ") in both Private and Map\n");
-      }
+  }
+
+  if (hasMap && canHavePrivate()) {
+    for (PrivateItem *PrivI : getPriv().items()) {
+      Value *Orig = PrivI->getOrig();
+      MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
+      if (!MapI)
+        continue;
+      MapI->setInPrivate(PrivI);
+      PrivI->setInMap(MapI);
+      LLVM_DEBUG(dbgs() << "Found (" << *Orig << ") in both Private and Map\n");
     }
   }
 

@@ -18,7 +18,8 @@
 ; PRIVATE clause for p2.
 
 ; We check that optimize-data-sharing pass can mark p1 as WILOCAL, but leaves
-; p2 as-is.
+; p2 as-is, because the maptype for p1 has the PRIVATE bit, but the maptype for
+; p2 does not.
 ; CHECK:      "QUAL.OMP.PRIVATE:TYPED.WILOCAL"(ptr addrspace(4) %p1.ascast, ptr addrspace(4) null, i32 1)
 ; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %p2.ascast, ptr addrspace(4) null, i32 1)
 
