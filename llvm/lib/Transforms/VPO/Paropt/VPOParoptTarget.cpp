@@ -2723,7 +2723,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 ///                                      (1) %n.cast = zext i32 %n to i64
 ///                                      (2) %n.in.bytes = mul i64 %n.cast, 4
 ///                                       |
-/// "FIRSTPRIVATE"(i32* %vla)             |  "PRIVATE"(i32 %vla)
+/// "FIRSTPRIVATE"(i32* %vla)             |  "FIRSTPRIVATE"(i32 %vla)
 ///                                      (3) "MAP"(i32* %vla, i32* %vla,
 ///                                       |        i64 %n.in.bytes,
 ///                                       |        PARAM|PRIVATE|TO)// Not in IR
