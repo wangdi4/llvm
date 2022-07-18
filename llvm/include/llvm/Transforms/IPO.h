@@ -302,7 +302,6 @@ createWholeProgramDevirtPass(ModuleSummaryIndex *ExportSummary,
 /// devirtualization and control-flow integrity.
 ModulePass *createGlobalSplitPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \brief This pass enables more functions to be converted to use the 'fastcc'
 /// calling convention.
@@ -404,14 +403,6 @@ ModulePass *createArgNoAliasPropPass(void);
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
-//===----------------------------------------------------------------------===//
-// SampleProfilePass - Loads sample profile data from disk and generates
-// IR metadata to reflect the profile.
-ModulePass *createSampleProfileLoaderPass();
-ModulePass *createSampleProfileLoaderPass(StringRef Name);
-
-=======
->>>>>>> dd5e3f0e2743df3a0e5c1bdf9b8ef6fb0cbba851
 /// Write ThinLTO-ready bitcode to Str.
 ModulePass *createWriteThinLTOBitcodePass(raw_ostream &Str,
                                           raw_ostream *ThinLinkOS = nullptr);
