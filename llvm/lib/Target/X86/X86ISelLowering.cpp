@@ -2025,19 +2025,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v8i32, Custom);
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v4i32, Custom);
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v2i32, Custom);
-<<<<<<< HEAD
-    setOperationAction(ISD::UINT_TO_FP, MVT::v8i32,
-                       Subtarget.hasVLX() ? Legal : Custom);
-    setOperationAction(ISD::UINT_TO_FP, MVT::v4i32,
-                       Subtarget.hasVLX() ? Legal : Custom);
-    setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v8i32,
-                       Subtarget.hasVLX() ? Legal : Custom);
-    setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v4i32,
-                       Subtarget.hasVLX() ? Legal : Custom);
     setOperationAction(ISD::LDEXP, MVT::f64, Custom); // INTEL
     setOperationAction(ISD::LDEXP, MVT::f32, Custom); // INTEL
-=======
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 
     if (Subtarget.hasDQI()) {
       // Fast v2f32 SINT_TO_FP( v2i64 ) custom conversion.
@@ -2746,7 +2735,6 @@ handleMaskRegisterForCallingConv(unsigned NumElts, CallingConv::ID CC,
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2755,14 +2743,9 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
     return VT.getSimpleVT();
 #endif
 
-  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
-      Subtarget.hasAVX512()) {
-    unsigned NumElts = VT.getVectorNumElements();
-=======
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
       unsigned NumElts = VT.getVectorNumElements();
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 
       MVT RegisterVT;
       unsigned NumRegisters;
@@ -2787,7 +2770,6 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2796,14 +2778,9 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
     return 1;
 #endif
 
-  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
-      Subtarget.hasAVX512()) {
-    unsigned NumElts = VT.getVectorNumElements();
-=======
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
       unsigned NumElts = VT.getVectorNumElements();
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 
       MVT RegisterVT;
       unsigned NumRegisters;
@@ -25090,14 +25067,11 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
            EltVT == MVT::f64);
 #else // INTEL_FEATURE_ISA_BF16_BASE
     assert(EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64);
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-#endif
-=======
+
     if (isSoftFP16(EltVT, Subtarget))
       return SDValue();
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 
     bool IsSignaling = Op.getOpcode() == ISD::STRICT_FSETCCS;
     SDValue Chain = IsStrict ? Op.getOperand(0) : SDValue();

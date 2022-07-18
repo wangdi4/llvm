@@ -2244,23 +2244,6 @@ define void @test_concat_v2i1(ptr %arg, ptr %arg1, ptr %arg2) {
 ; KNL-NEXT:    kmovw %eax, %k2
 ; KNL-NEXT:    kshiftlw $1, %k2, %k2
 ; KNL-NEXT:    korw %k2, %k1, %k1
-<<<<<<< HEAD
-; KNL-NEXT:    kandw %k1, %k0, %k0
-; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k0, %r8d ;INTEL
-; KNL-NEXT:    kmovw %k1, %edi
-; KNL-NEXT:    movzwl 2(%rsi), %eax
-; KNL-NEXT:    xorl %ecx, %ecx
-; KNL-NEXT:    testb $1, %dil
-; KNL-NEXT:    cmovel %ecx, %eax
-; KNL-NEXT:    testb $1, %r8b ;INTEL
-; KNL-NEXT:    je LBB85_2
-; KNL-NEXT:  ## %bb.1:
-; KNL-NEXT:    movl (%rsi), %ecx
-; KNL-NEXT:  LBB85_2:
-; KNL-NEXT:    movw %cx, (%rdx)
-; KNL-NEXT:    movw %ax, 2(%rdx)
-=======
 ; KNL-NEXT:    kandw %k1, %k0, %k1
 ; KNL-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
 ; KNL-NEXT:    vpternlogd $255, %zmm1, %zmm1, %zmm1 {%k1} {z}
@@ -2268,7 +2251,6 @@ define void @test_concat_v2i1(ptr %arg, ptr %arg1, ptr %arg2) {
 ; KNL-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; KNL-NEXT:    vmovd %xmm0, (%rdx)
 ; KNL-NEXT:    vzeroupper
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: test_concat_v2i1:
@@ -2305,28 +2287,10 @@ define void @test_concat_v2i1(ptr %arg, ptr %arg1, ptr %arg2) {
 ; SKX-NEXT:    kshiftlb $7, %k2, %k2
 ; SKX-NEXT:    kshiftrb $7, %k2, %k2
 ; SKX-NEXT:    korw %k1, %k2, %k1
-<<<<<<< HEAD
-; SKX-NEXT:    kandw %k1, %k0, %k0
-; SKX-NEXT:    kshiftrb $1, %k0, %k1
-; SKX-NEXT:    kmovd %k0, %r8d ;INTEL
-; SKX-NEXT:    kmovd %k1, %edi
-; SKX-NEXT:    movzwl 2(%rsi), %eax
-; SKX-NEXT:    xorl %ecx, %ecx
-; SKX-NEXT:    testb $1, %dil
-; SKX-NEXT:    cmovel %ecx, %eax
-; SKX-NEXT:    testb $1, %r8b ;INTEL
-; SKX-NEXT:    je LBB85_2
-; SKX-NEXT:  ## %bb.1:
-; SKX-NEXT:    movl (%rsi), %ecx
-; SKX-NEXT:  LBB85_2:
-; SKX-NEXT:    movw %cx, (%rdx)
-; SKX-NEXT:    movw %ax, 2(%rdx)
-=======
 ; SKX-NEXT:    kandw %k1, %k0, %k1
 ; SKX-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
 ; SKX-NEXT:    vmovdqu16 %xmm0, %xmm0 {%k1} {z}
 ; SKX-NEXT:    vmovd %xmm0, (%rdx)
->>>>>>> f18794816270244f9942e9217b96e23a94a7f32c
 ; SKX-NEXT:    retq
   %tmp = load <2 x half>, ptr %arg, align 8
   %tmp3 = fcmp fast olt <2 x half> %tmp, <half 0xH4600, half 0xH4600>
