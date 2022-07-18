@@ -96,13 +96,10 @@ struct GCOVOptions {
   std::string Exclude;
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
                                    GCOVOptions::getDefault());
 #endif // INTEL_CUSTOMIZATION
-
-ModulePass *createCGProfileLegacyPass();
 
 #if INTEL_CUSTOMIZATION
 // PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
@@ -118,8 +115,6 @@ ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
 FunctionPass *createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 685775bbab06c42ce77a40b85a5d7bd5c821caae
 // The pgo-specific indirect call promotion function declared below is used by
 // the pgo-driven indirect call promotion and sample profile passes. It's a
 // wrapper around llvm::promoteCall, et al. that additionally computes !prof
