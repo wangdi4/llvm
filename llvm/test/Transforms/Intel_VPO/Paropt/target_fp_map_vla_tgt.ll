@@ -14,13 +14,13 @@
 ; }
 
 ; The test is a version of target_fp_vla_tgt.ll, with the hand-modified change
-; to add a map clause in addition to the private clause on the VLA.
+; to add a map clause in addition to the firstprivate clause on the VLA.
 
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val i64 %n.val1 '
 ; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr addrspace(4) [[SIZE_ADDR:%n.val.addr.*]]'
 ; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr addrspace(4) [[SIZE_ADDR1:%n.val1.addr.*]]'
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
 ; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(ptr addrspace(1) %vla.ascast, ptr addrspace(1) noalias [[SIZE_ADDR]], ptr addrspace(1) noalias [[SIZE_ADDR1]])
 
 ; Check that no extra local copy is made for the VLA inside the kernel, and the argument passed-in is used directly.

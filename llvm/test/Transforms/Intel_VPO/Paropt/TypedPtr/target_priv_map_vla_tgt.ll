@@ -19,7 +19,7 @@
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val '
 ; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%n.val.addr.*]]'
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
 ; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla.ascast, i64 addrspace(1)* noalias [[SIZE_ADDR]])
 
 ; Check that no extra local copy is made for the VLA inside the kernel, and the argument passed-in is used directly.

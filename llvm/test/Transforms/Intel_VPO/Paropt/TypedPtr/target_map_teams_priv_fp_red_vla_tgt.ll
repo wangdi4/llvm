@@ -36,7 +36,7 @@
 ; MODULE:    [[VLA1:@vla1.ascast.fpriv.__local]] = internal addrspace(3) global i32 0
 ; MODULE:    [[VLA2:@vla2.ascast.red.__local]] = internal addrspace(3) global i32 0
 
-; Check that the kernal function has arguments for the VLA and the captured VLA size.
+; Check that the kernel function has arguments for the VLA and the captured VLA size.
 ; ALL:      define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla1.ascast, i32 addrspace(1)* noalias %vla2.ascast, i32 addrspace(1)* noalias %vla.ascast, i64 addrspace(1)* noalias [[NV1_ADDR]], i64 addrspace(1)* noalias [[NV2_ADDR]], i64 addrspace(1)* noalias [[NV_ADDR]])
 
 ; Check that by default, the local copies of the three VLAs is allocated in the stack of the kernel.
