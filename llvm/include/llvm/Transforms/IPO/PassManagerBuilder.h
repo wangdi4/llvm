@@ -191,6 +191,7 @@ public:
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
   /// We are after SLP pass.
@@ -216,6 +217,8 @@ public:
     this->WPUtils = std::move(WPUtils);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> f5021155617ebe068bafca83240d8534e2d72235
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;

@@ -403,6 +403,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   if (TM)
     TM->adjustPassManager(Builder);
 
+<<<<<<< HEAD
   switch (PGOKindFlag) {
   case InstrGen:
     Builder.EnablePGOInstrGen = true;
@@ -433,6 +434,8 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
     Builder.PrepareForLTO = true;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> f5021155617ebe068bafca83240d8534e2d72235
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
