@@ -88,10 +88,10 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   // The llvm-foreach command looks like this:
   // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
   ArgStringList ForeachArgs;
-  std::string OutputFileName(Output.getFilename());
+  std::string OutputFileName(T->getToolChain().getInputFilename(Output));
   ForeachArgs.push_back(C.getArgs().MakeArgString("--out-ext=" + Ext));
   for (auto &I : InputFiles) {
-    std::string Filename(I.getFilename());
+    std::string Filename(T->getToolChain().getInputFilename(I));
     ForeachArgs.push_back(
         C.getArgs().MakeArgString("--in-file-list=" + Filename));
     ForeachArgs.push_back(
@@ -207,14 +207,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   // instead of the original object.
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
       JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
-    auto isSYCLDeviceLib = [&C](const InputInfo &II) {
+    auto isSYCLDeviceLib = [&C, this](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
       if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
           C.getDriver().IsCLMode())
         LibPostfix = ".obj";
-      StringRef InputFilename =
-          llvm::sys::path::filename(StringRef(II.getFilename()));
+      std::string FileName = this->getToolChain().getInputFilename(II);
+      StringRef InputFilename = llvm::sys::path::filename(FileName);
       StringRef LibSyclPrefix("libsycl-");
       if (!InputFilename.startswith(LibSyclPrefix) ||
           !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
@@ -262,26 +262,29 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
+      std::string FileName = getToolChain().getInputFilename(II);
+
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
       } else if (II.getType() == types::TY_Tempfilelist) {
 #endif // INTEL_CUSTOMIZATION
+
         // Pass the unbundled list with '@' to be processed.
-        std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
 #if INTEL_CUSTOMIZATION
       } else if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
 #endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
-        Libs.push_back(II.getFilename());
+        Libs.push_back(C.getArgs().MakeArgString(FileName));
       } else
-        Objs.push_back(II.getFilename());
+        Objs.push_back(C.getArgs().MakeArgString(FileName));
     }
   } else
     for (const auto &II : InputFiles)
-      Objs.push_back(II.getFilename());
+      Objs.push_back(
+          C.getArgs().MakeArgString(getToolChain().getInputFilename(II)));
 
   // Get llvm-link path.
   SmallString<128> ExecPath(C.getDriver().Dir);
@@ -303,8 +306,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, None));
   };
 
- // Add an intermediate output file.
-  const char *OutputFileName = Output.getFilename();
+  // Add an intermediate output file.
+  const char *OutputFileName =
+      C.getArgs().MakeArgString(getToolChain().getInputFilename(Output));
+
 #if INTEL_CUSTOMIZATION
   const char *TOutputFileName = OutputFileName;
 
@@ -317,6 +322,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     TOutputFileName = C.addTempFile(C.getArgs().MakeArgString(OMPTempFile));
   }
 #endif // INTEL_CUSTOMIZATION
+
   if (Libs.empty())
     AddLinkCommand(TOutputFileName, Objs, Opts);  //INTEL
   else {

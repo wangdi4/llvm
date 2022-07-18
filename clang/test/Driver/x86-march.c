@@ -118,6 +118,7 @@
 // gracemont: "-target-cpu" "gracemont"
 // end INTEL_CUSTOMIZATION
 //
+
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=sapphirerapids 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=sapphirerapids
 // sapphirerapids: "-target-cpu" "sapphirerapids"

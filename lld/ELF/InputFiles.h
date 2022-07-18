@@ -406,15 +406,6 @@ inline bool isBitcode(MemoryBufferRef mb) {
 
 std::string replaceThinLTOSuffix(StringRef path);
 
-extern SmallVector<std::unique_ptr<MemoryBuffer>> memoryBuffers;
-extern SmallVector<BinaryFile *, 0> binaryFiles;
-extern SmallVector<BitcodeFile *, 0> bitcodeFiles;
-extern SmallVector<BitcodeFile *, 0> lazyBitcodeFiles;
-extern SmallVector<ELFFileBase *, 0> objectFiles;
-extern SmallVector<SharedFile *, 0> sharedFiles;
-extern SmallVector<InputFile *, 0> gnuLTOFiles;  // INTEL
-extern SmallVector<InputFile *, 0> lazyGNULTOFiles;  // INTEL
-
 } // namespace elf
 } // namespace lld
 

@@ -603,6 +603,8 @@ static unsigned getEncodedRMWOperation(AtomicRMWInst::BinOp Op) {
   case AtomicRMWInst::UMin: return bitc::RMW_UMIN;
   case AtomicRMWInst::FAdd: return bitc::RMW_FADD;
   case AtomicRMWInst::FSub: return bitc::RMW_FSUB;
+  case AtomicRMWInst::FMax: return bitc::RMW_FMAX;
+  case AtomicRMWInst::FMin: return bitc::RMW_FMIN;
   }
 }
 
@@ -2730,10 +2732,6 @@ void ModuleBitcodeWriter::writeConstants(unsigned FirstVal, unsigned LastVal,
         Record.push_back(VE.getValueID(C->getOperand(0)));
         Record.push_back(VE.getValueID(C->getOperand(1)));
         Record.push_back(CE->getPredicate());
-        break;
-      case Instruction::ExtractValue:
-      case Instruction::InsertValue:
-        report_fatal_error("extractvalue/insertvalue constexprs not supported");
         break;
       }
     } else if (const BlockAddress *BA = dyn_cast<BlockAddress>(C)) {

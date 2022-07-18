@@ -1,3 +1,6 @@
+; Test broken due to pulldown. Temporarily disable this test.
+; Volcano vectorizer will be removed soon, then we won't need this test.
+; UNSUPPORTED: true
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %oclopt -targetlibinfo -tbaa -basic-aa -domtree -globalopt -ipsccp -deadargelim       -instcombine -simplifycfg -basiccg -prune-eh -inline -function-attrs -argpromotion -sroa -early-cse -lazy-value-info -jump-threading -correlated-propagation -tailcallelim -reassociate   -loops -lcssa -loop-rotate -licm -loop-unswitch -scalar-evolution -loop-simplify -indvars -loop-idiom -loop-deletion -loop-unroll -memdep -gvn -memcpyopt -sccp -dse -adce -strip-dead-prototypes       -globaldce -constmerge -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll

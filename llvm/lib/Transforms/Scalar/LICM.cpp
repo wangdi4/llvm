@@ -1529,8 +1529,7 @@ static bool canSplitPredecessors(PHINode *PN, LoopSafetyInfo *SafetyInfo) {
   if (!SafetyInfo->getBlockColors().empty() && BB->getFirstNonPHI()->isEHPad())
     return false;
   for (BasicBlock *BBPred : predecessors(BB)) {
-    if (isa<IndirectBrInst>(BBPred->getTerminator()) ||
-        isa<CallBrInst>(BBPred->getTerminator()))
+    if (isa<IndirectBrInst>(BBPred->getTerminator()))
       return false;
   }
   return true;
@@ -1627,7 +1626,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
       continue;
 
     if (!DT->isReachableFromEntry(User->getParent())) {
-      U = UndefValue::get(I.getType());
+      U = PoisonValue::get(I.getType());
       Changed = true;
       continue;
     }
@@ -1640,7 +1639,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
     // unreachable.
     BasicBlock *BB = PN->getIncomingBlock(U);
     if (!DT->isReachableFromEntry(BB)) {
-      U = UndefValue::get(I.getType());
+      U = PoisonValue::get(I.getType());
       Changed = true;
       continue;
     }

@@ -2549,7 +2549,8 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
     BodyStmts.insert(BodyStmts.end(), FinalizeStmts.begin(),
                      FinalizeStmts.end());
 
-    return CompoundStmt::Create(SemaRef.getASTContext(), BodyStmts, {}, {});
+    return CompoundStmt::Create(SemaRef.getASTContext(), BodyStmts,
+                                FPOptionsOverride(), {}, {});
   }
 
   void annotateHierarchicalParallelismAPICalls() {

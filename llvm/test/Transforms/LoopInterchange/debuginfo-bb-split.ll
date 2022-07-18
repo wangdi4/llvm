@@ -1,4 +1,8 @@
 ; RUN: opt < %s -loop-interchange -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; xmain cost model doesn't want to interchange these loops, no override exists.
+; XFAIL: *
+; end INTEL_CUSTOMIZATION
 ;
 ; This test verifies that when a basic block is split at
 ; a debug intrinsic call, the source location of the br

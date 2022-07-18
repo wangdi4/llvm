@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -argpromotion -S < %s | FileCheck %s
 ; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
 
 ; Check that 3 fields of a single structure argument are promoted,

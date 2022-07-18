@@ -1739,6 +1739,42 @@ static bool tryToReplaceGlobalWithMSVCStdout(
 }
 #endif // INTEL_CUSTOMIZATION
 
+// For a global variable with one store, if the store dominates any loads,
+// those loads will always load the stored value (as opposed to the
+// initializer), even in the presence of recursion.
+static bool forwardStoredOnceStore(
+    GlobalVariable *GV, const StoreInst *StoredOnceStore,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+  const Value *StoredOnceValue = StoredOnceStore->getValueOperand();
+  // We can do this optimization for non-constants in nosync + norecurse
+  // functions, but globals used in exactly one norecurse functions are already
+  // promoted to an alloca.
+  if (!isa<Constant>(StoredOnceValue))
+    return false;
+  const Function *F = StoredOnceStore->getFunction();
+  SmallVector<LoadInst *> Loads;
+  for (User *U : GV->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      if (LI->getFunction() == F &&
+          LI->getType() == StoredOnceValue->getType() && LI->isSimple())
+        Loads.push_back(LI);
+    }
+  }
+  // Only compute DT if we have any loads to examine.
+  bool MadeChange = false;
+  if (!Loads.empty()) {
+    auto &DT = LookupDomTree(*const_cast<Function *>(F));
+    for (auto *LI : Loads) {
+      if (DT.dominates(StoredOnceStore, LI)) {
+        LI->replaceAllUsesWith(const_cast<Value *>(StoredOnceValue));
+        LI->eraseFromParent();
+        MadeChange = true;
+      }
+    }
+  }
+  return MadeChange;
+}
+
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool
@@ -1852,11 +1888,6 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
   }
   Value *StoredOnceValue = GS.getStoredOnceValue();
   if (GS.StoredType == GlobalStatus::StoredOnce && StoredOnceValue) {
-    // Avoid speculating constant expressions that might trap (div/rem).
-    auto *SOVConstant = dyn_cast<Constant>(StoredOnceValue);
-    if (SOVConstant && SOVConstant->canTrap())
-      return Changed;
-
     Function &StoreFn =
         const_cast<Function &>(*GS.StoredOnceStore->getFunction());
     bool CanHaveNonUndefGlobalInitializer =
@@ -1869,6 +1900,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     // This is restricted to address spaces that allow globals to have
     // initializers. NVPTX, for example, does not support initializers for
     // shared memory (AS 3).
+    auto *SOVConstant = dyn_cast<Constant>(StoredOnceValue);
     if (SOVConstant && isa<UndefValue>(GV->getInitializer()) &&
         DL.getTypeAllocSize(SOVConstant->getType()) ==
             DL.getTypeAllocSize(GV->getValueType()) &&
@@ -1908,45 +1940,51 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       return true;
 
 #if INTEL_CUSTOMIZATION
-  // If a global variable is accessed only in one routine and all uses
-  // of the global variable is dominated by single store with a constant
-  // value, Replace all uses of the global variable with the constant value.
-  if (!GS.HasMultipleAccessingFunctions &&
-      GS.AccessingFunction &&
-      GV->getValueType()->isSingleValueType() &&
-      GV->getType()->getAddressSpace() == 0 &&
-      !GV->isExternallyInitialized() &&
-      allNonInstructionUsersCanBeMadeInstructions(GV) &&
-      isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
-                                     StoredOnceValue, LookupDomTree)) {
-    LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
-    return true;
-  }
-  // Replace uses of global variable with another global variable if
-  // possible.
-  if (GS.StoredType == GlobalStatus::StoredOnce &&
-      StoredOnceValue &&
-      GV->getValueType()->isSingleValueType() &&
-      GV->getType()->getAddressSpace() == 0 &&
-      !GV->isExternallyInitialized() &&
-      tryToReplaceGlobalWithStoredOnceValue(GV, StoredOnceValue, WPInfo)) {
-    LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH ANOTHER GLOBAL: "
-                      << *GV << "\n");
-    return true;
-  }
-  // Replace uses of global variable with @__acrt_iob_func(i32 1) if possible.
-  if (GS.StoredType == GlobalStatus::StoredOnce &&
-      StoredOnceValue &&
-      GV->getValueType()->isSingleValueType() &&
-      GV->getType()->getAddressSpace() == 0 &&
-      !GV->isExternallyInitialized() &&
-      tryToReplaceGlobalWithMSVCStdout(GV, StoredOnceValue, WPInfo,
-                                       GetTLI)) {
-    LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH __acrt_iob_func(1): "
-                      << *GV << "\n");
-    return true;
-  }
+    // If a global variable is accessed only in one routine and all uses
+    // of the global variable is dominated by single store with a constant
+    // value, Replace all uses of the global variable with the constant value.
+    if (!GS.HasMultipleAccessingFunctions &&
+        GS.AccessingFunction &&
+        GV->getValueType()->isSingleValueType() &&
+        GV->getType()->getAddressSpace() == 0 &&
+        !GV->isExternallyInitialized() &&
+        allNonInstructionUsersCanBeMadeInstructions(GV) &&
+        isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
+                                       StoredOnceValue, LookupDomTree)) {
+      LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
+      return true;
+    }
+    // Replace uses of global variable with another global variable if
+    // possible.
+    if (GS.StoredType == GlobalStatus::StoredOnce &&
+        StoredOnceValue &&
+        GV->getValueType()->isSingleValueType() &&
+        GV->getType()->getAddressSpace() == 0 &&
+        !GV->isExternallyInitialized() &&
+        tryToReplaceGlobalWithStoredOnceValue(GV, StoredOnceValue, WPInfo)) {
+      LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH ANOTHER GLOBAL: "
+                        << *GV << "\n");
+      return true;
+    }
+    // Replace uses of global variable with @__acrt_iob_func(i32 1) if possible.
+    if (GS.StoredType == GlobalStatus::StoredOnce &&
+        StoredOnceValue &&
+        GV->getValueType()->isSingleValueType() &&
+        GV->getType()->getAddressSpace() == 0 &&
+        !GV->isExternallyInitialized() &&
+        tryToReplaceGlobalWithMSVCStdout(GV, StoredOnceValue, WPInfo,
+                                         GetTLI)) {
+      LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH __acrt_iob_func(1): "
+                        << *GV << "\n");
+      return true;
+    }
 #endif // INTEL_CUSTOMIZATION
+
+    // Try to forward the store to any loads. If we have more than one store, we
+    // may have a store of the initializer between StoredOnceStore and a load.
+    if (GS.NumStores == 1)
+      if (forwardStoredOnceStore(GV, GS.StoredOnceStore, LookupDomTree))
+        return true;
 
     // Otherwise, if the global was not a boolean, we can shrink it to be a
     // boolean. Skip this optimization for AS that doesn't allow an initializer.

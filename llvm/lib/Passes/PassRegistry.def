@@ -65,7 +65,6 @@ MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis(WPUtils))     // INTEL
 MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
-MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
 #if INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-builtin-info-analysis", BuiltinLibInfoAnalysis())
@@ -278,7 +277,7 @@ MODULE_PASS("indirectcallconv", IndirectCallConvPass(/*UseAndersen=*/false))
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
-MODULE_PASS("inliner-ml-advisor-release", ModuleInlinerWrapperPass(getInlineParams(), true, InliningAdvisorMode::Release, 0))
+MODULE_PASS("inliner-ml-advisor-release", ModuleInlinerWrapperPass(getInlineParams(), true, {}, InliningAdvisorMode::Release, 0))
 MODULE_PASS("print<inline-advisor>", InlineAdvisorAnalysisPrinterPass(dbgs()))
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
   getInlineParams(),
@@ -465,7 +464,7 @@ CGSCC_PASS_WITH_PARAMS("coro-split",
                          return CoroSplitPass(OptimizeFrame);
                        },
                        parseCoroSplitPassOptions,
-                       "optimizing")
+                       "reuse-storage")
 #undef CGSCC_PASS_WITH_PARAMS
 
 #ifndef FUNCTION_ANALYSIS

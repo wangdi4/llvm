@@ -199,7 +199,7 @@ EXTERN
 int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
                                          ptrdiff_t *Offsets, int32_t NumArgs,
                                          int32_t NumTeams, int32_t ThreadLimit,
-                                         uint64_t loop_tripcount);
+                                         uint64_t LoopTripcount);
 
 // Asynchronous version of __tgt_rtl_run_target_team_region
 #if INTEL_COLLAB
@@ -207,7 +207,7 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region_async(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
-    int32_t NumTeams, int32_t ThreadLimit, uint64_t loop_tripcount,
+    int32_t NumTeams, int32_t ThreadLimit, uint64_t LoopTripcount,
     __tgt_async_info *AsyncInfo);
 
 // Device synchronization. In case of success, return zero. Otherwise, return an

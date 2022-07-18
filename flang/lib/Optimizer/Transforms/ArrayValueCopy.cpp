@@ -706,7 +706,7 @@ void ArrayCopyAnalysis::construct(mlir::Operation *topLevelOp) {
       if (callConflict || conflict || refConflict) {
         LLVM_DEBUG(llvm::dbgs()
                    << "CONFLICT: copies required for " << st << '\n'
-                   << "   adding conflicts on: " << op << " and "
+                   << "   adding conflicts on: " << *op << " and "
                    << st.getOriginal() << '\n');
         conflicts.insert(op);
         conflicts.insert(st.getOriginal().getDefiningOp());
@@ -969,7 +969,7 @@ void genArrayCopy(mlir::Location loc, mlir::PatternRewriter &rewriter,
       loc, getEleTy(dst.getType()), dst, shapeOp,
       !CopyIn && copyUsingSlice ? sliceOp : mlir::Value{},
       factory::originateIndices(loc, rewriter, dst.getType(), shapeOp, indices),
-      getTypeParamsIfRawData(loc, builder, arrLoad, src.getType()));
+      getTypeParamsIfRawData(loc, builder, arrLoad, dst.getType()));
   auto eleTy = unwrapSequenceType(unwrapPassByRefType(dst.getType()));
   // Copy from (to) object to (from) temp copy of same object.
   if (auto charTy = eleTy.dyn_cast<CharacterType>()) {

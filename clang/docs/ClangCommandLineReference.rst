@@ -1873,6 +1873,10 @@ Enable sanitizer for AMDGPU target
 
 Specify that single precision floating-point divide and sqrt used in the program source are correctly rounded (HIP device compilation only)
 
+.. option:: -fhip-kernel-arg-name, -fno-hip-kernel-arg-name
+
+Specify that kernel argument names are preserved (HIP only)
+
 .. option:: -fhip-new-launch-api, -fno-hip-new-launch-api
 
 Use new kernel launching API for HIP
@@ -2638,12 +2642,6 @@ Enable unstable and experimental features
 .. option:: -fuse-cxa-atexit, -fno-use-cxa-atexit
 
 .. option:: -fuse-init-array, -fno-use-init-array
-
-.. option:: -fstrict-flex-arrays=<arg>, -fno-strict-flex-arrays
-
-Control which arrays are considered as flexible arrays members. <arg>
-can be 1 (array of size 0, 1 and undefined are considered), 2 (array of size 0
-and undefined are considered) or 3 (only array of undefined size are considered).
 
 .. option:: -fuse-ld=<arg>
 
@@ -3445,6 +3443,10 @@ Work around VLLDM erratum CVE-2021-35465 (ARM only)
 
 Work around Cortex-A57 Erratum 1742098 (ARM only)
 
+.. option:: -mframe-chain=<arg>
+
+Select the frame chain model used to emit frame records (Arm only). <arg> must be 'none', 'aapcs' or 'aapcs+leaf'.
+
 .. option:: -mno-bti-at-return-twice
 
 Do not add a BTI instruction after a setjmp or other return-twice construct (Arm/AArch64 only)
@@ -4062,6 +4064,8 @@ X86
 .. end INTEL_CUSTOMIZATION
 
 .. option:: -mrdpid, -mno-rdpid
+
+.. option:: -mrdpru, -mno-rdpru
 
 .. option:: -mrdrnd, -mno-rdrnd
 

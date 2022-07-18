@@ -21,6 +21,18 @@ namespace detail {
 #define _Bool bool
 #endif
 
+// As stated above, this header file cannot include any of the standard C++
+// headers. We need int64_t.  Here we are matching the exact definition used by
+// the SemaSYCL version of kernel_desc.hpp in the FE.
+template <bool Cond, typename TrueT, typename FalseT> struct conditional {
+  using type = TrueT;
+};
+template <typename TrueT, typename FalseT>
+struct conditional<false, TrueT, FalseT> {
+  using type = FalseT;
+};
+using int64_t = conditional<sizeof(long) == 8, long, long long>::type;
+
 // kernel parameter kinds
 enum class kernel_param_kind_t {
   kind_accessor = 0,
@@ -79,6 +91,7 @@ template <class KernelNameType> struct KernelInfo {
   static constexpr const char *getFunctionName() { return ""; }
   static constexpr unsigned getLineNumber() { return 0; }
   static constexpr unsigned getColumnNumber() { return 0; }
+  static constexpr int64_t getKernelSize() { return 0; }
 };
 #else
 template <char...> struct KernelInfoData {
@@ -93,6 +106,7 @@ template <char...> struct KernelInfoData {
   static constexpr const char *getFunctionName() { return ""; }
   static constexpr unsigned getLineNumber() { return 0; }
   static constexpr unsigned getColumnNumber() { return 0; }
+  static constexpr int64_t getKernelSize() { return 0; }
 };
 
 // C++14 like index_sequence and make_index_sequence
@@ -135,6 +149,9 @@ template <class KernelNameType> struct KernelInfo {
   static constexpr const char *getFunctionName() { return ""; }
   static constexpr unsigned getLineNumber() { return 0; }
   static constexpr unsigned getColumnNumber() { return 0; }
+  static constexpr int64_t getKernelSize() {
+    return SubKernelInfo::getKernelSize();
+  }
 };
 #endif //__SYCL_UNNAMED_LAMBDA__
 

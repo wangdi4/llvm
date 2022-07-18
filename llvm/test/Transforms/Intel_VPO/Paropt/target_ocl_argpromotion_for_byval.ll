@@ -1,4 +1,3 @@
-; RUN: opt -argpromotion -S %s | FileCheck %s
 ; RUN: opt -passes='argpromotion' -S %s | FileCheck %s
 
 ; Original code:

@@ -32,7 +32,6 @@
 #include "NewPMDriver.h"
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
-#include "llvm/Transforms/Coroutines.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -255,18 +254,6 @@ static cl::opt<bool> VerifyDebugInfoPreserve(
     cl::desc("Start the pipeline with collecting and end it with checking of "
              "debug info preservation."));
 
-static cl::opt<bool> VerifyEachDebugInfoPreserve(
-    "verify-each-debuginfo-preserve",
-    cl::desc("Start each pass with collecting and end it with checking of "
-             "debug info preservation."));
-
-static cl::opt<std::string>
-    VerifyDIPreserveExport("verify-di-preserve-export",
-                   cl::desc("Export debug info preservation failures into "
-                            "specified (JSON) file (should be abs path as we use"
-                            " append mode to insert new JSON objects)"),
-                   cl::value_desc("filename"), cl::init(""));
-
 static cl::opt<bool>
 PrintBreakpoints("print-breakpoints-for-testing",
                  cl::desc("Print select breakpoints location for testing"));
@@ -295,13 +282,6 @@ static cl::opt<bool> DiscardValueNames(
     "discard-value-names",
     cl::desc("Discard names from Value (other than GlobalValue)."),
     cl::init(false), cl::Hidden);
-
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool> Coroutines(
-  "enable-coroutines",
-  cl::desc("Enable coroutine passes."),
-  cl::init(false), cl::Hidden);
-#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> TimeTrace(
     "time-trace",
@@ -422,11 +402,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 
   if (TM)
     TM->adjustPassManager(Builder);
-
-#if INTEL_CUSTOMIZATION
-  if (Coroutines)
-    addCoroutinePassesToExtensionPoints(Builder);
-#endif // INTEL_CUSTOMIZATION
 
   switch (PGOKindFlag) {
   case InstrGen:
@@ -600,7 +575,6 @@ int main(int argc, char **argv) {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeCoroutines(Registry); // INTEL
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
@@ -945,7 +919,8 @@ int main(int argc, char **argv) {
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
                            Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
-                           EmitModuleHash, EnableDebugify)
+                           EmitModuleHash, EnableDebugify,
+                           VerifyDebugInfoPreserve)
                ? 0
                : 1;
   }

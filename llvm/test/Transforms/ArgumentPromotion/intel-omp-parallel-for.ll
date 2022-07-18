@@ -1,4 +1,4 @@
-; RUN: opt -S -argpromotion %s | FileCheck %s
+; RUN: opt -S -passes=argpromotion %s | FileCheck %s
 ;
 ;    void bar(int, float, double);
 ;
@@ -72,9 +72,9 @@ declare void @__kmpc_for_static_fini(%__struct.ident_t*, i32) local_unnamed_addr
 ; Function Attrs: noinline nounwind uwtable
 define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split17(i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly %p, i32* nocapture readonly %.omp.lb, double* nocapture readonly %q, i32* nocapture readonly %.omp.ub) {
 ; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split17(i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly %p, i64 [[LBVAL:%.*]], i64 [[QVAL:%.*]], i64 [[UBVAL:%.*]])
-; CHECK:   %0 = trunc i64 [[LBVAL]] to i32
+; CHECK:   %0 = trunc i64 [[UBVAL]] to i32
 ; CHECK:   %1 = bitcast i64 [[QVAL]] to double
-; CHECK:   %2 = trunc i64 [[UBVAL]] to i32
+; CHECK:   %2 = trunc i64 [[LBVAL]] to i32
 newFuncRoot:
   %is.last = alloca i32, align 4
   %lower.bnd = alloca i32, align 4

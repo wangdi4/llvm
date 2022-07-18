@@ -1334,7 +1334,7 @@ HLInst *HLNodeUtils::createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
   SmallVector<Type *, 2> Tys = {OpRef1->getDestType(),
                                 SubVecRef->getDestType()};
   Function *F = Intrinsic::getDeclaration(
-      &getModule(), Intrinsic::experimental_vector_insert, Tys);
+      &getModule(), Intrinsic::vector_insert, Tys);
   RegDDRef *IdxRef =
       getDDRefUtils().createConstDDRef(Type::getInt64Ty(getContext()), Idx);
   return createCall(F, {OpRef1, SubVecRef, IdxRef}, Name, LvalRef);

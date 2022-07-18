@@ -1,6 +1,4 @@
-; RUN: opt -opaque-pointers -enable-new-pm=0 -argpromotion -S < %s | FileCheck %s --check-prefix=CHECK-ON
 ; RUN: opt -opaque-pointers -passes=argpromotion -S < %s | FileCheck %s --check-prefix=CHECK-ON
-; RUN: opt -opaque-pointers -enable-new-pm=0 -argpromotion -argpro-single-level-recursive=false -S < %s | FileCheck %s --check-prefix=CHECK-OFF
 ; RUN: opt -opaque-pointers -passes=argpromotion -argpro-single-level-recursive=false -S < %s | FileCheck %s --check-prefix=CHECK-OFF
 
 ; Check that arg promotion happened on the single argument recursive function

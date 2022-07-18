@@ -2,8 +2,7 @@
 ; INTEL_CUSTOMIZATION
 ;; INTEL: Added -argpro-single-level-recursive=false to replicate llorg
 ;; INTEL: behavior on community test.
-; RUN: opt -S < %s -enable-new-pm=1 -inline -argpromotion -argpro-single-level-recursive=false | FileCheck %s --check-prefixes=ARGPROMOTION,ALL_OLDPM --allow-unused-prefixes
-; RUN: opt -S < %s -enable-new-pm=1 -passes=inline,argpromotion -argpro-single-level-recursive=false | FileCheck %s --check-prefixes=ARGPROMOTION,ALL_NEWPM --allow-unused-prefixes
+; RUN: opt -S < %s -passes=inline,argpromotion -argpro-single-level-recursive=false | FileCheck %s --check-prefix=ARGPROMOTION
 ; end INTEL_CUSTOMIZATION
 
 %S = type { %S* }
@@ -59,10 +58,6 @@ bb:
 }
 
 define internal i1 @barney(i8* %arg) {
-; ALL_OLDPM-LABEL: define {{[^@]+}}@barney() {
-; ALL_OLDPM-NEXT:  bb:
-; ALL_OLDPM-NEXT:    ret i1 undef
-;
 bb:
   ret i1 undef
 }

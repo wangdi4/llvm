@@ -178,6 +178,8 @@ struct BBAddrMapEntry {
     llvm::yaml::Hex64 Size;
     llvm::yaml::Hex64 Metadata;
   };
+  uint8_t Version;
+  llvm::yaml::Hex8 Feature;
   llvm::yaml::Hex64 Address;
   Optional<uint64_t> NumBlocks;
   Optional<std::vector<BBEntry>> BBEntries;
@@ -450,10 +452,10 @@ struct GnuHashSection : Section {
   GnuHashSection() : Section(ChunkKind::GnuHash) {}
 
   std::vector<std::pair<StringRef, bool>> getEntries() const override {
-    return {{"Header", Header.hasValue()},
-            {"BloomFilter", BloomFilter.hasValue()},
-            {"HashBuckets", HashBuckets.hasValue()},
-            {"HashValues", HashValues.hasValue()}};
+    return {{"Header", Header.has_value()},
+            {"BloomFilter", BloomFilter.has_value()},
+            {"HashBuckets", HashBuckets.has_value()},
+            {"HashValues", HashValues.has_value()}};
   };
 
   static bool classof(const Chunk *S) { return S->Kind == ChunkKind::GnuHash; }

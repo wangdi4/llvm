@@ -7,7 +7,6 @@
 // XFAIL:*
 // end INTEL_CUSTOMIZATION
 
-//
 // RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=i386-unknown-linux -rtlib=platform \
 // RUN:     --gcc-toolchain="" \

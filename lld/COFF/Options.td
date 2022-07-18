@@ -323,6 +323,7 @@ def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
 def editandcontinue : F<"editandcontinue">;
 def fastfail : F<"fastfail">;
+def kernel : F<"kernel">;
 def pdbcompress : F<"pdbcompress">;
 
 def delay : P_priv<"delay">;

@@ -75,8 +75,6 @@ void initializeGlobalISel(PassRegistry&);
 void initializeTarget(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION
-/// Initialize all passes linked into the Coroutines library.
-void initializeCoroutines(PassRegistry&);
 
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
@@ -125,7 +123,6 @@ void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
 void initializeAnnotationRemarksLegacyPass(PassRegistry &);
 void initializeOpenMPOptCGSCCLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
-void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);

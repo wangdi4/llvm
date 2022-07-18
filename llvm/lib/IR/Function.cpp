@@ -58,6 +58,7 @@
 #include "llvm/IR/IntrinsicsCSA.h"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/IR/IntrinsicsDirectX.h"
 #include "llvm/IR/IntrinsicsHexagon.h"
 #include "llvm/IR/IntrinsicsMips.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"

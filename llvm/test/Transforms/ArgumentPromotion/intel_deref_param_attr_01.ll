@@ -3,7 +3,6 @@
 ; with "dereferenceable(8)" attribute. %c will not be promoted because
 ; it is not marked with dereferenceable.
 
-; RUN: opt < %s -argpromotion -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 ; CHECK-LABEL: define {{[^@]+}}@f

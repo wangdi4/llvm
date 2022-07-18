@@ -271,19 +271,19 @@ TargetTransformInfo::UnrollingPreferences llvm::gatherUnrollingPreferences(
     UP.MaxIterationsCountToAnalyze = UnrollMaxIterationsCountToAnalyze;
 
   // Apply user values provided by argument
-  if (UserThreshold.hasValue()) {
+  if (UserThreshold) {
     UP.Threshold = *UserThreshold;
     UP.PartialThreshold = *UserThreshold;
   }
-  if (UserCount.hasValue())
+  if (UserCount)
     UP.Count = *UserCount;
-  if (UserAllowPartial.hasValue())
+  if (UserAllowPartial)
     UP.Partial = *UserAllowPartial;
-  if (UserRuntime.hasValue())
+  if (UserRuntime)
     UP.Runtime = *UserRuntime;
-  if (UserUpperBound.hasValue())
+  if (UserUpperBound)
     UP.UpperBound = *UserUpperBound;
-  if (UserFullUnrollMaxCount.hasValue())
+  if (UserFullUnrollMaxCount)
     UP.FullUnrollMaxCount = *UserFullUnrollMaxCount;
 
   return UP;
@@ -1350,7 +1350,7 @@ static LoopUnrollResult tryToUnrollLoop(
     Optional<MDNode *> RemainderLoopID =
         makeFollowupLoopID(OrigLoopID, {LLVMLoopUnrollFollowupAll,
                                         LLVMLoopUnrollFollowupRemainder});
-    if (RemainderLoopID.hasValue())
+    if (RemainderLoopID)
       RemainderLoop->setLoopID(RemainderLoopID.getValue());
   }
 
@@ -1358,7 +1358,7 @@ static LoopUnrollResult tryToUnrollLoop(
     Optional<MDNode *> NewLoopID =
         makeFollowupLoopID(OrigLoopID, {LLVMLoopUnrollFollowupAll,
                                         LLVMLoopUnrollFollowupUnrolled});
-    if (NewLoopID.hasValue()) {
+    if (NewLoopID) {
       L->setLoopID(NewLoopID.getValue());
 
       // Do not setLoopAlreadyUnrolled if loop attributes have been specified

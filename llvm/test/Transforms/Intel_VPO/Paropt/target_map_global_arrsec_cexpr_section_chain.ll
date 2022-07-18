@@ -15,7 +15,6 @@
 ;   c.a[0];
 ; }
 
-; CHECK: renameNonPointerConstExprVInEntryDirective: Expr 'i64 sdiv exact (i64 sub (i64 ptrtoint (i32** getelementptr (i32*, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i32 1) to i64), i64 ptrtoint (%struct.b* @c to i64)), i64 ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i64))' hoisted to Instruction 'i64 %{{.*}}'.
 ; CHECK: createRenamedValueForV : Renamed 'i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0)' (via launder intrinsic) to: 'i32** %{{.*}}'.
 ; CHECK: createRenamedValueForV : Renamed '%struct.b* @c' (via launder intrinsic) to: '%struct.b* %c'.
 
@@ -44,7 +43,8 @@ entry:
   %0 = load i32*, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), align 8
   %ptridx = getelementptr inbounds i32, i32* %0, i64 1
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TOFROM"(%struct.b* @c, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i64 sdiv exact (i64 sub (i64 ptrtoint (i32** getelementptr (i32*, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i32 1) to i64), i64 ptrtoint (%struct.b* @c to i64)), i64 ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i64)), i64 32, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM:CHAIN"(i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i32* %ptridx, i64 4, i64 281474976710675, i8* null, i8* null) ]
+  %sdiv = sdiv exact i64 sub (i64 ptrtoint (i32** getelementptr (i32*, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i32 1) to i64), i64 ptrtoint (%struct.b* @c to i64)), ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i64)
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TOFROM"(%struct.b* @c, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i64 %sdiv, i64 32, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM:CHAIN"(i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), i32* %ptridx, i64 4, i64 281474976710675, i8* null, i8* null) ]
 
   %2 = load i32*, i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0), align 8
   %ptridx1 = getelementptr inbounds i32, i32* %2, i64 0

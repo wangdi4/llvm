@@ -290,8 +290,12 @@ struct Config {
   /// the given output file name, and (2) creates a resolution file whose name
   /// is prefixed by the given output file name and sets ResolutionFile to its
   /// file handle.
+  ///
+  /// SaveTempsArgs can be specified to select which temps to save.
+  /// If SaveTempsArgs is not provided, all temps are saved.
   Error addSaveTemps(std::string OutputFileName,
-                     bool UseInputModulePath = false);
+                     bool UseInputModulePath = false,
+                     const DenseSet<StringRef> &SaveTempsArgs = {});
 
 #if INTEL_CUSTOMIZATION
   // Store the information collected from the linker that is needed for the

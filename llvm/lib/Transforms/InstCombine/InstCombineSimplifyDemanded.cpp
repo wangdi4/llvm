@@ -1009,7 +1009,7 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
         // Handle target specific intrinsics
         Optional<Value *> V = targetSimplifyDemandedUseBitsIntrinsic(
             *II, DemandedMask, Known, KnownBitsComputed);
-        if (V.hasValue())
+        if (V)
           return V.getValue();
         break;
       }
@@ -1720,7 +1720,7 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
       Optional<Value *> V = targetSimplifyDemandedVectorEltsIntrinsic(
           *II, DemandedElts, UndefElts, UndefElts2, UndefElts3,
           simplifyAndSetOp);
-      if (V.hasValue())
+      if (V)
         return V.getValue();
       break;
     }

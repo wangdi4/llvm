@@ -1,4 +1,3 @@
-; RUN: opt < %s -argpromotion -argpro-force-remove-homed-arguments -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -argpro-force-remove-homed-arguments -S | FileCheck %s
 
 ; CHECK-30596: Check that the argument of @foo was promoted even though

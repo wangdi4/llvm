@@ -90,8 +90,7 @@ define i1 @dom_multiple_function_loads() {
 ; CHECK-LABEL: @dom_multiple_function_loads(
 ; CHECK-NEXT:    store i1 true, ptr @g6, align 1
 ; CHECK-NEXT:    call void @b()
-; CHECK-NEXT:    [[R:%.*]] = load i1, ptr @g6, align 1
-; CHECK-NEXT:    ret i1 [[R]]
+; CHECK-NEXT:    ret i1 true
 ;
   store i1 true, ptr @g6
   call void @b()

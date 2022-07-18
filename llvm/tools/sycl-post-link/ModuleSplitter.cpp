@@ -505,6 +505,7 @@ getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
 #else  // INTEL_COLLAB
                   bool EmitOnlyKernelsAsEntryPoints) {
 #endif // INTEL_COLLAB
+
   EntryPointsGroupScope Scope =
       selectDeviceCodeGroupScope(MD.getModule(), Mode, AutoSplitIsGlobalScope);
 #if INTEL_COLLAB

@@ -4,7 +4,6 @@
 ; %c won't be promoted because it is marked with dereferenceable(8) attribute
 ; that confirms only the 8 bytes (out of 16) are dereferenceable.
 
-; RUN: opt < %s -argpromotion -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 %struct.ss = type { i64, i32 }
