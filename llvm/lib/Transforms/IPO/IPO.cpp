@@ -84,7 +84,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeStripNonDebugSymbolsPass(Registry);
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
-  initializeSampleProfileLoaderLegacyPassPass(Registry);
   initializeFunctionImportLegacyPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
 #if INTEL_CUSTOMIZATION

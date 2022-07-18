@@ -1264,15 +1264,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
 #endif // INTEL_CUSTOMIZATION
 
-  if (!PGOSampleUse.empty()) {
-    MPM.add(createPruneEHPass());
-    // In ThinLTO mode, when flattened profile is used, all the available
-    // profile information will be annotated in PreLink phase so there is
-    // no need to load the profile again in PostLink.
-    if (!(FlattenedProfileUsed && PerformThinLTO))
-      MPM.add(createSampleProfileLoaderPass(PGOSampleUse));
-  }
-
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
 
@@ -1729,14 +1720,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createInlineReportSetupPass(getMDInlineReport()));
   }
 
-#endif // INTEL_CUSTOMIZATION
-  // Load sample profile before running the LTO optimization pipeline.
-  if (!PGOSampleUse.empty()) {
-    PM.add(createPruneEHPass());
-    PM.add(createSampleProfileLoaderPass(PGOSampleUse));
-  }
-
-#if INTEL_CUSTOMIZATION
   PM.add(createXmainOptLevelWrapperPass(OptLevel));
   // Whole Program Analysis
   if (EnableWPA) {
