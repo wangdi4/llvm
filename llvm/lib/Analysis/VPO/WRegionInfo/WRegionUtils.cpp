@@ -1071,6 +1071,19 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   };
 
   auto collectIfNotAlreadyCollected = [&](Value *V) {
+    if (isa<WRNTargetNode>(W)) {
+      // For target constructs, we need to capture the values a
+      // deterministic number of times to avoid mismatch between host
+      // and device compilation. Even if that means capturing the same
+      // value twice. For example, we need to mark %n for collection twice
+      // for the following:
+      //   %vla1 = alloca i32, i64 %n
+      //   %vla2 = alloca i32, i64 %n
+      //   "PRIVATE"(i32* %vla1, i32* %vla2)
+      W->addDirectlyUsedNonPointerValue(V);
+      return;
+    }
+
     if (AlreadyCollected.find(V) != AlreadyCollected.end())
       return;
 
@@ -1177,8 +1190,19 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     // operands for opaque pointers because the typed clauses required for
     // opaque pointers have explicit usage of the size value, and it is expected
     // to be explicitly captured on any outer construct by the frontends.
-    for (MapItem *MapI : MapClause.items())
+    for (MapItem *MapI : MapClause.items()) {
+      // If the map item already has a non-typed private/fp clause, its VLA
+      // size would have been collected by the private/fp clause handling above.
+      if (const PrivateItem *PI = MapI->getInPrivate())
+        if (!PI->getIsTyped())
+          continue;
+
+      if (const FirstprivateItem *FPI = MapI->getInFirstprivate())
+        if (!FPI->getIsTyped())
+          continue;
+
       collectSizeIfVLA(MapI->getOrig());
+    }
   }
 
   if (W->canHaveIf())
