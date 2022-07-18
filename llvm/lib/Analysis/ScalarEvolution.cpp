@@ -7668,7 +7668,6 @@ static const Loop *getOutermostLoop(const Loop *Lp) {
   return Lp;
 }
 
-<<<<<<< HEAD
 static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
                             SCEV::NoWrapFlags &Flags) {
   if (!UserBinOp->hasNoUnsignedWrap())
@@ -7678,26 +7677,6 @@ static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
     Flags = ScalarEvolution::clearFlags(Flags, SCEV::FlagNSW);
 
   return Flags != SCEV::FlagAnyWrap;
-=======
-/// Fills \p Ops with unique operands of \p S, if it has operands. If not,
-/// \p Ops remains unmodified.
-static void collectUniqueOps(const SCEV *S,
-                             SmallVectorImpl<const SCEV *> &Ops) {
-  SmallPtrSet<const SCEV *, 4> Unique;
-  auto InsertUnique = [&](const SCEV *S) {
-    if (Unique.insert(S).second)
-      Ops.push_back(S);
-  };
-  if (auto *S2 = dyn_cast<SCEVCastExpr>(S))
-    for (const auto *Op : S2->operands())
-      InsertUnique(Op);
-  else if (auto *S2 = dyn_cast<SCEVNAryExpr>(S))
-    for (const auto *Op : S2->operands())
-      InsertUnique(Op);
-  else if (auto *S2 = dyn_cast<SCEVUDivExpr>(S))
-    for (const auto *Op : S2->operands())
-      InsertUnique(Op);
->>>>>>> 601b3a13dea746e2b1e683bbbece41ae9de76c2b
 }
 
 static bool getRefinedFlagsUsingConstantFoldingRec(
@@ -7972,13 +7951,13 @@ static void collectUniqueOps(const SCEV *S,
       Ops.push_back(S);
   };
   if (auto *S2 = dyn_cast<SCEVCastExpr>(S))
-    for (auto *Op : S2->operands())
+    for (const auto *Op : S2->operands())
       InsertUnique(Op);
   else if (auto *S2 = dyn_cast<SCEVNAryExpr>(S))
-    for (auto *Op : S2->operands())
+    for (const auto *Op : S2->operands())
       InsertUnique(Op);
   else if (auto *S2 = dyn_cast<SCEVUDivExpr>(S))
-    for (auto *Op : S2->operands())
+    for (const auto *Op : S2->operands())
       InsertUnique(Op);
 }
 
