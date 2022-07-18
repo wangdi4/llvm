@@ -1657,23 +1657,14 @@ bb3:
 ;   sum4 = phi sum3, sum3_nc, sum1
 ; } while (tmp2 != 100)
 ; return sum4
-<<<<<<< HEAD
-define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
-; INTEL_CUSTOMIZATION
-=======
 define i32 @test_chr_18(ptr %i, i32 %sum0) !prof !14 {
->>>>>>> 9ff36df5a4a7d52c51e950522870bb64912688d2
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @test_chr_18(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB0:%.*]]
 ; CHECK:       bb0:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[INC1:%.*]] = phi i32 [ [[TMP3:%.*]], [[BB2:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[LI:%.*]] = load i32, i32* [[I:%.*]], align 4
-=======
-; CHECK-NEXT:    [[INC1:%.*]] = phi i32 [ [[TMP2:%.*]], [[BB2:%.*]] ], [ 0, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[LI:%.*]] = load i32, ptr [[I:%.*]], align 4
->>>>>>> 9ff36df5a4a7d52c51e950522870bb64912688d2
 ; CHECK-NEXT:    [[LI_FR:%.*]] = freeze i32 [[LI]]
 ; CHECK-NEXT:    [[SUM1:%.*]] = add i32 [[SUM0:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i32 [[LI_FR]], 5

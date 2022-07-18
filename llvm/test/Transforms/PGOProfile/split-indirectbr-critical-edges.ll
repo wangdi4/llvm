@@ -16,20 +16,13 @@ entry:
   br label %for.cond2
 
 for.cond2:                                        ; preds = %if.end, %for.cond2, %entry
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; BB processing order is reversed, so newly created BB numbering is changed.
 ; CHECK: for.cond2:                                        ; preds = %.split
 ; end INTEL_CUSTOMIZATION
-  %p.addr.0 = phi i8* [ %p, %entry ], [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %for.cond2 ]
-  %incdec.ptr = getelementptr inbounds i8, i8* %p.addr.0, i64 1
-  %0 = load i8, i8* %p.addr.0, align 1
-=======
-; CHECK: for.cond2:                                        ; preds = %.split1
   %p.addr.0 = phi ptr [ %p, %entry ], [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %for.cond2 ]
   %incdec.ptr = getelementptr inbounds i8, ptr %p.addr.0, i64 1
   %0 = load i8, ptr %p.addr.0, align 1
->>>>>>> 9ff36df5a4a7d52c51e950522870bb64912688d2
   %cond = icmp eq i8 %0, 93
   br i1 %cond, label %if.end.preheader, label %for.cond2
 
@@ -37,20 +30,13 @@ if.end.preheader:                                 ; preds = %for.cond2
   br label %if.end
 
 if.end:                                           ; preds = %if.end.preheader, %if.end
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; BB processing order is reversed, so newly created BB numbering is changed.
 ; CHECK: if.end:                                           ; preds = %.split
 ; end INTEL_CUSTOMIZATION
-  %p.addr.1 = phi i8* [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %if.end.preheader ]
-  %incdec.ptr5 = getelementptr inbounds i8, i8* %p.addr.1, i64 1
-  %1 = load i8, i8* %p.addr.1, align 1
-=======
-; CHECK: if.end:                                           ; preds = %.split1
   %p.addr.1 = phi ptr [ %incdec.ptr5, %if.end ], [ %incdec.ptr, %if.end.preheader ]
   %incdec.ptr5 = getelementptr inbounds i8, ptr %p.addr.1, i64 1
   %1 = load i8, ptr %p.addr.1, align 1
->>>>>>> 9ff36df5a4a7d52c51e950522870bb64912688d2
   %idxprom6 = zext i8 %1 to i64
   %arrayidx7 = getelementptr inbounds [256 x ptr], ptr %targets, i64 0, i64 %idxprom6
   %2 = load ptr, ptr %arrayidx7, align 8
