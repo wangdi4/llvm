@@ -3944,8 +3944,8 @@ def EL : Flag<["-"], "EL">, Alias<mlittle_endian>;
 def mbig_endian : Flag<["-"], "mbig-endian">, Flags<[NoXarchOption]>;
 def EB : Flag<["-"], "EB">, Alias<mbig_endian>;
 def m16 : Flag<["-"], "m16">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>;
+def m32 : Flag<["-"], "m32">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>;
 #if INTEL_CUSTOMIZATION
-def m32 : Flag<["-"], "m32">, Group<m_Group>, Flags<[NoXarchOption, CoreOption, Deprecated]>;
 #if INTEL_FEATURE_XUCC
 def mxucc : Flag<["-"], "mxucc">, Group<m_Group>, Flags<[NoXarchOption, CoreOption]>,
             HelpText<"Enable XuCC mode">;
