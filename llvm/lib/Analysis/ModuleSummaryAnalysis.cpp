@@ -424,7 +424,7 @@ static void computeFunctionSummary(
         // to enable importing for subsequent indirect call promotion and
         // inlining.
         if (auto *MD = I.getMetadata(LLVMContext::MD_callees)) {
-          for (auto &Op : MD->operands()) {
+          for (const auto &Op : MD->operands()) {
             Function *Callee = mdconst::extract_or_null<Function>(Op);
             if (Callee)
               CallGraphEdges[Index.getOrInsertValueInfo(Callee)];
@@ -436,7 +436,7 @@ static void computeFunctionSummary(
         auto CandidateProfileData =
             ICallAnalysis.getPromotionCandidatesForInstruction(
                 &I, NumVals, TotalCount, NumCandidates);
-        for (auto &Candidate : CandidateProfileData)
+        for (const auto &Candidate : CandidateProfileData)
           CallGraphEdges[Index.getOrInsertValueInfo(Candidate.Value)]
               .updateHotness(getHotness(Candidate.Count, PSI));
       }
@@ -475,7 +475,7 @@ static void computeFunctionSummary(
     // If both load and store instruction reference the same variable
     // we won't be able to optimize it. Add all such reference edges
     // to RefEdges set.
-    for (auto &VI : StoreRefEdges)
+    for (const auto &VI : StoreRefEdges)
       if (LoadRefEdges.remove(VI))
         RefEdges.insert(VI);
 
@@ -483,11 +483,11 @@ static void computeFunctionSummary(
     // All new reference edges inserted in two loops below are either
     // read or write only. They will be grouped in the end of RefEdges
     // vector, so we can use a single integer value to identify them.
-    for (auto &VI : LoadRefEdges)
+    for (const auto &VI : LoadRefEdges)
       RefEdges.insert(VI);
 
     unsigned FirstWORef = RefEdges.size();
-    for (auto &VI : StoreRefEdges)
+    for (const auto &VI : StoreRefEdges)
       RefEdges.insert(VI);
 
     Refs = RefEdges.takeVector();
@@ -713,7 +713,7 @@ computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
 // Set LiveRoot flag on entries matching the given value name.
 static void setLiveRoot(ModuleSummaryIndex &Index, StringRef Name) {
   if (ValueInfo VI = Index.getValueInfo(GlobalValue::getGUID(Name)))
-    for (auto &Summary : VI.getSummaryList())
+    for (const auto &Summary : VI.getSummaryList())
       Summary->setLive(true);
 }
 
@@ -821,7 +821,7 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
 
   // Compute summaries for all functions defined in module, and save in the
   // index.
-  for (auto &F : M) {
+  for (const auto &F : M) {
     if (F.isDeclaration())
       continue;
 
