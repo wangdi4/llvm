@@ -760,7 +760,6 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     Options.DoCounterPromotion = true;
     Options.UseBFIInPromotion = IsCS;
     MPM.add(createLoopRotatePass());
-    MPM.add(createInstrProfilingLegacyPass(Options, IsCS));
   }
   if (!PGOInstrUse.empty())
     MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse, IsCS));

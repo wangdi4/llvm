@@ -841,10 +841,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
       MPM.add(createStripSymbolsPass(true));
   }
 
-  if (Optional<InstrProfOptions> Options =
-          getInstrProfOptions(CodeGenOpts, LangOpts))
-    MPM.add(createInstrProfilingLegacyPass(*Options, false));
-
   bool hasIRInstr = false;
   if (CodeGenOpts.hasProfileIRInstr()) {
     PMBuilder.EnablePGOInstrGen = true;
