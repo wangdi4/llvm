@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2022 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -38,14 +36,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "OclBuiltinEmitter.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/TableGen/Record.h"
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 using namespace llvm;
 
@@ -71,6 +70,16 @@ static cl::opt<std::string, false, cl::parser<std::string> >
 static cl::opt<bool>
   GenOCLBuiltinExclude("gen-ocl-Exclude", cl::NotHidden,
   cl::desc("Exclude pre-defined subset of built-ins"), cl::init(false));
+
+static cl::opt<bool> HandleImplTargetInheritance(
+    "handle-impl-target-inheritance", cl::Hidden,
+    cl::desc("Consider the target field of OclBuiltinImpl and handle "
+             "inheritance in TableGen backend"),
+    cl::init(false));
+
+static cl::opt<std::string> EmitTargetName("emit-target-name", cl::Hidden,
+                                           cl::desc("The target code to emit"),
+                                           cl::init("sse"));
 
 #define GENOCL_WARNING(X)  do { } while (0)
 /*
@@ -1006,9 +1015,11 @@ OclBuiltinImpl::getCImpl(const std::string& in) const
   return "";
 }
 
-void OclBuiltinImpl::appendImpl(const Record *R, const char *Loc) {
+void OclBuiltinImpl::appendImpl(const Record *R, const char *Loc,
+                                int TargetID) {
   for (std::vector<Impl*>::iterator I = m_Impls.begin(), E = m_Impls.end(); I != E; ++I) {
-    if ((*I)->m_Record != R || (*I)->m_Loc != Loc)
+    if ((*I)->m_Record != R || (*I)->m_Loc != Loc ||
+        (HandleImplTargetInheritance && (*I)->m_TargetID != TargetID))
       continue;
 
     // If found, put it at the end.
@@ -1090,7 +1101,18 @@ void OclBuiltinImpl::appendImpl(const Record *R, const char *Loc) {
     } else
       impl->m_Code = std::string(R->getValueAsString("Impl"));
   }
+  // TargetID
+  impl->m_TargetID = TargetID;
+
   m_Impls.push_back(impl.release());
+}
+
+void OclBuiltinImpl::sortImplsByTarget() {
+  if (!HandleImplTargetInheritance)
+    return;
+
+  std::sort(m_Impls.begin(), m_Impls.end(),
+            [](Impl *A, Impl *B) { return A->m_TargetID > B->m_TargetID; });
 }
 
 bool OclBuiltinDB::hasAlias(const OclBuiltin* builtin) const {
@@ -1147,6 +1169,16 @@ void OclBuiltinDB::processAliasMap(){
   }
 }
 
+static int getTargetID(StringRef TargetName) {
+  return StringSwitch<int>(TargetName)
+      .CaseLower("sse", 1)
+      .CaseLower("avx", 2)
+      .CaseLower("avx2", 3)
+      .CaseLower("avx512", 4)
+      .CaseLower("amx", 5)
+      .Default(-1);
+}
+
 /// OclBuiltinDB
 OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
 : m_Records(R)
@@ -1178,7 +1210,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
   processAliasMap();
 
   // OclBuiltinImpl
-  {
+  if (!HandleImplTargetInheritance) {
     const char*const GENERIC = "Generic";
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions(GENERIC);
     const Record* Rec = m_Record = (Rs.size() > 0) ? Rs.front() :
@@ -1275,6 +1307,43 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
         CollectImpls(OBI, Rec, Resolver);
       }
     }
+  } else {
+    // Map current target name to id.
+    int CurrentTargetID = getTargetID(EmitTargetName);
+    assert(CurrentTargetID != -1 &&
+           "Invalid target name! Please refer to source/core/targets.td for "
+           "available target names.");
+
+    LLVM_DEBUG(dbgs() << "Collecting impls with `Target' field\n");
+    std::vector<Record *> Impls =
+        m_Records.getAllDerivedDefinitions("OclBuiltinImpl");
+    for (auto *Rec : Impls) {
+      Record *TargetDef = Rec->getValueAsDef("Target");
+      assert(TargetDef && "Target def is not found");
+      int TargetID = getTargetID(TargetDef->getValueAsString("Name"));
+
+      // Don't collect this impl if it's for a higher ISA than the current one.
+      if (TargetID > CurrentTargetID)
+        continue;
+
+      const OclBuiltin *Proto =
+          getOclBuiltin(Rec->getValueAsDef("Builtin")->getNameInitAsString());
+      assert(Proto && "Builtin prototype not found!");
+      auto II = m_ImplMap.find(Proto);
+      if (m_ImplMap.end() == II) {
+        OclBuiltinImpl *OI = new OclBuiltinImpl(*this, Rec);
+        assert(Proto == OI->getOclBuiltin() &&
+               "OclBuiltinImpl prototype mismatches.");
+        II = m_ImplMap.insert({OI->getOclBuiltin(), OI}).first;
+      }
+      II->second->appendImpl(Rec, Rec->getLoc().begin()->getPointer(),
+                             TargetID);
+    }
+
+    // Sort impls so that the implementations for higher ISA overrides those for
+    // lower ISA.
+    for (auto &Pair : m_ImplMap)
+      Pair.second->sortImplsByTarget();
   }
 }
 
