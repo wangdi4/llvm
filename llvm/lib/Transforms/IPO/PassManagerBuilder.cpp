@@ -1256,6 +1256,7 @@ void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
   MPM.add(createAnnotation2MetadataLegacyPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
   // is handled separately, so just check this is not the ThinLTO post-link.
@@ -1273,6 +1274,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createSampleProfileLoaderPass(PGOSampleUse));
   }
 
+=======
+>>>>>>> dd5e3f0e2743df3a0e5c1bdf9b8ef6fb0cbba851
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
 
