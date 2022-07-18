@@ -101,8 +101,6 @@ ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
                                    GCOVOptions::getDefault());
 #endif // INTEL_CUSTOMIZATION
 
-ModulePass *createCGProfileLegacyPass();
-
 #if INTEL_CUSTOMIZATION
 // PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
 // instrumentation.
