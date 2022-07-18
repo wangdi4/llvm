@@ -120,7 +120,6 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializePGOMemOPSizeOptLegacyPassPass(Registry);// INTEL
   initializeMemorySanitizerLegacyPassPass(Registry); // INTEL
   initializeInstrOrderFileLegacyPassPass(Registry);
-  initializeInstrProfilingLegacyPassPass(Registry);
   initializeThreadSanitizerLegacyPassPass(Registry); // INTEL
   initializeDataFlowSanitizerLegacyPassPass(Registry);
 }
