@@ -346,41 +346,6 @@ public:
   /// Returns 1st non-reassociative FP instruction in the PHI node's use-chain.
   Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
-<<<<<<< HEAD
-=======
-  /// Returns true if the recurrence kind is an integer kind.
-  static bool isIntegerRecurrenceKind(RecurKind Kind);
-
-  /// Returns true if the recurrence kind is a floating point kind.
-  static bool isFloatingPointRecurrenceKind(RecurKind Kind);
-
-  /// Returns true if the recurrence kind is an integer min/max kind.
-  static bool isIntMinMaxRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::UMin || Kind == RecurKind::UMax ||
-           Kind == RecurKind::SMin || Kind == RecurKind::SMax;
-  }
-
-  /// Returns true if the recurrence kind is a floating-point min/max kind.
-  static bool isFPMinMaxRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::FMin || Kind == RecurKind::FMax;
-  }
-
-  /// Returns true if the recurrence kind is any min/max kind.
-  static bool isMinMaxRecurrenceKind(RecurKind Kind) {
-    return isIntMinMaxRecurrenceKind(Kind) || isFPMinMaxRecurrenceKind(Kind);
-  }
-
-  /// Returns true if the recurrence kind is of the form
-  ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
-  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
-  }
-
-  /// Returns the type of the recurrence. This type can be narrower than the
-  /// actual type of the Phi if the recurrence has been type-promoted.
-  Type *getRecurrenceType() const { return RecurrenceType; }
-
->>>>>>> 92a1b2afc89880a1c13eabf6cec1c9542ee4bb29
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
