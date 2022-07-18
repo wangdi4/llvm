@@ -1005,6 +1005,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Clean up after everything.
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
+<<<<<<< HEAD
 
   if (EnableCHR && OptLevel >= 3 &&
       (!PGOInstrUse.empty() || !PGOSampleUse.empty() || EnablePGOCSInstrGen))
@@ -1023,6 +1024,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
 bool PassManagerBuilder::isLoopOptStaticallyDisabled() const {
   return DisableIntelProprietaryOpts || OptLevel < 2 || PerformThinLTO;
+=======
+>>>>>>> f9d6f37201eb45a831a99204281f963f2748b786
 }
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOnly(legacy::PassManagerBase &PM) const {
