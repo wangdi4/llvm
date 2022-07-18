@@ -874,18 +874,17 @@ unsigned getMaxNumExternalThreads() {
   return std::min((unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors(), 10u);
 }
 
-bool fileContains(const std::string &Filename,
+void fileContains(const std::string &Filename,
                   const std::vector<std::string> &Patterns) {
   std::ifstream IFS(Filename);
-  if (!IFS)
-    return false;
+  ASSERT_TRUE(IFS) << "Failed to open file " << Filename;
   std::stringstream SS;
   SS << IFS.rdbuf();
   std::string Buffer = SS.str();
   for (auto &Pattern : Patterns)
-    if (Buffer.find(Pattern) == std::string::npos)
-      return false;
-  return true;
+    ASSERT_NE(Buffer.find(Pattern), std::string::npos)
+        << "Pattern \"" << Pattern << "\" is not found in file " << Filename
+        << "\n";
 }
 
 std::string findFileInDir(const std::string &Dir, const Regex &R) {
