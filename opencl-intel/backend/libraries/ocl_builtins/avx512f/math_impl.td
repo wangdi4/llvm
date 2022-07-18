@@ -11,7 +11,7 @@
 // License.
 
 // Expand
-foreach name = ["fma", "rint", "rsqrt", "native_rsqrt", "sqrt", "native_sqrt"] in {
+foreach name = ["fma", "rint", "native_rsqrt", "sqrt", "native_sqrt"] in {
   defvar builtin = !cast<OclBuiltin>(name);
   defvar types = [v16f64];
   defvar num_args = !size(builtin.Ins);
@@ -31,7 +31,7 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "lgamma_r_gen", "log", "log2", "log10", "log1p", "logb",
     "modf_pas", "modf_las", "modf_gas", "modf_gen", "nextafter",
     "pow", "pown", "powr", "remainder", "remquo_pas", "remquo_las",
-    "remquo_gas", "remquo_gen", "rootn", "round", "sin",
+    "remquo_gas", "remquo_gen", "rootn", "round", "rsqrt", "sin",
     "sincos_pas", "sincos_las", "sincos_gas", "sincos_gen",
     "sinh", "sinpi", "tan", "tanh", "tanpi", "tgamma"] in {
   defvar builtin = !cast<OclBuiltin>(name);

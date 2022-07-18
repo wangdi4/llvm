@@ -51,15 +51,6 @@ OclBuiltinImpl rint_v16f32_impl = OclBuiltinImpl<rint, [v16f32], 0, [{
   return _mm512_roundscale_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 
-// rsqrt
-OclBuiltinImpl rsqrt_v16f32_impl = OclBuiltinImpl<rsqrt, [v16f32], 0, [{
-    return _mm512_rsqrt14_ps($Arg0VarName);
-  }]>;
-
-OclBuiltinImpl rsqrt_v8f64_impl = OclBuiltinImpl<rsqrt, [v8f64], 0, [{
-    return _mm512_rsqrt14_pd($Arg0VarName);
-  }]>;
-
 // sqrt
 OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
     return _mm512_sqrt_pd($Arg0VarName);
@@ -199,11 +190,11 @@ OclBuiltinImpl native_sqrt_v8f64_impl = OclBuiltinImpl<native_sqrt, [v8f64], 0, 
 
 // native rsqrt
 OclBuiltinImpl native_rsqrt_v16f32_impl = OclBuiltinImpl<native_rsqrt, [v16f32], 0, [{
-    return rsqrt($Arg0VarName);
+    return _mm512_rsqrt14_ps($Arg0VarName);
   }]>;
 
 OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
-    return rsqrt($Arg0VarName);
+    return _mm512_rsqrt14_pd($Arg0VarName);
   }]>;
 
 OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, [v32f32], 0, svml_native_code_sincos>;
