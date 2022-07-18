@@ -75,5 +75,11 @@ int compareit(float a, float b) {
 // expected-warning@+2 {{comparison with NaN always evaluates to false in fast floating point modes}}
 #endif
   n = __builtin_isnan(a);
+
+  // These should NOT warn, since they are not comparing with NaN or infinity.
+  j = a > 1.1;
+  j = b < 1.1;
+  j = a >= 1.1;
+  j = b <= 1.1;
   return 0;
 }
