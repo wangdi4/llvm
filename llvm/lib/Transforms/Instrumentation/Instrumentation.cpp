@@ -122,8 +122,11 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializeCGProfileLegacyPassPass(Registry); // INTEL
   initializeInstrOrderFileLegacyPassPass(Registry);
   initializeInstrProfilingLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeThreadSanitizerLegacyPassPass(Registry); // INTEL
   initializeModuleSanitizerCoverageLegacyPassPass(Registry);
+=======
+>>>>>>> df8f5be596060c695c4a1ba728320e4548168695
   initializeDataFlowSanitizerLegacyPassPass(Registry);
 }
 
