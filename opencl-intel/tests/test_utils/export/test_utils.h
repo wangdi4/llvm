@@ -150,7 +150,7 @@ cl_ulong trySetStackSize(cl_ulong size);
 unsigned getMaxNumExternalThreads();
 
 /// Check whether the file contains all of the pattern strings.
-bool fileContains(const std::string &Filename,
+void fileContains(const std::string &Filename,
                   const std::vector<std::string> &Patterns);
 
 /// Find a file with name matching the regex in a directory.
