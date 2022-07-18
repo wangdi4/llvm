@@ -8773,6 +8773,11 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 // LoopOptimizedAway and return false, otherwise return true.
 bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   Loop *L = W->getWRNLoopInfo().getLoop(Index);
+  if (!L) {
+    // The expected nested loop is not found as it may be optimized away
+    W->getWRNLoopInfo().setLoopOptimizedAway();
+    return false;
+  }
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
   LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);

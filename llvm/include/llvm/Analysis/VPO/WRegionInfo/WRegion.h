@@ -171,19 +171,20 @@ public:
 
   /// Return the ith level of loop in a loop nest. This utility is valid
   /// only if all the loops inside the loop nest up to depth I contains only
-  /// one child loop.
+  /// one child loop. Return nullptr if the nested loop is optimized away
   Loop *getLoop(unsigned I = 0) const {
     // When I==0, allow Lp to be nullptr (do not assert)
     if (I == 0)
       return Lp;
     Loop *CurLoop = Lp;
     while (I > 0) {
-      assert(!CurLoop->getSubLoops().empty() &&
-             "getLoop(I): cannot have I >= loop_depth");
+      // We are expecting a nested loop but if the loop is not there then
+      // most likely the loop is optimized away.
+      if (CurLoop->getSubLoops().empty())
+        return nullptr;
       CurLoop = CurLoop->getSubLoops()[0];
       I--;
     }
-    assert(CurLoop && "getLoop(I): Loop not found");
     return CurLoop;
   }
   Value *getNormIV(unsigned I=0) const;
