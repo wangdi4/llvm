@@ -615,7 +615,7 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI,
   // We may be able to unfold a load and hoist it if the instruction is
   // loading from an amenable memory location or stack.
   int FI = std::numeric_limits<int>::min();
-  if (!MI->isDereferenceableInvariantLoad(AA) &&
+  if (!MI->isDereferenceableInvariantLoad() &&
       !(TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
       return;
 
