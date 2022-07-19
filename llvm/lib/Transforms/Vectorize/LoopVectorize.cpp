@@ -8505,8 +8505,6 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
 
   auto *Recipe = new VPReplicateRecipe(I, Plan->mapToVPValues(I->operands()),
                                        IsUniform, IsPredicated);
-  setRecipe(I, Recipe);
-  Plan->addVPValue(I, Recipe);
 
   // Find if I uses a predicated instruction. If so, it will use its scalar
   // value. Avoid hoisting the insert-element which packs the scalar value into
@@ -8525,6 +8523,8 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
   // Finalize the recipe for Instr, first if it is not predicated.
   if (!IsPredicated) {
     LLVM_DEBUG(dbgs() << "LV: Scalarizing:" << *I << "\n");
+    setRecipe(I, Recipe);
+    Plan->addVPValue(I, Recipe);
     VPBB->appendRecipe(Recipe);
     return VPBB;
   }
@@ -8535,7 +8535,7 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
                        "predicated replication.");
   VPBlockUtils::disconnectBlocks(VPBB, SingleSucc);
   // Record predicated instructions for above packing optimizations.
-  VPBlockBase *Region = createReplicateRegion(I, Recipe, Plan);
+  VPBlockBase *Region = createReplicateRegion(Recipe, Plan);
   VPBlockUtils::insertBlockAfter(Region, VPBB);
   auto *RegSucc = new VPBasicBlock();
   VPBlockUtils::insertBlockAfter(RegSucc, Region);
@@ -8543,11 +8543,12 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
   return RegSucc;
 }
 
-VPRegionBlock *VPRecipeBuilder::createReplicateRegion(
-    Instruction *Instr, VPReplicateRecipe *PredRecipe, VPlanPtr &Plan) {
+VPRegionBlock *
+VPRecipeBuilder::createReplicateRegion(VPReplicateRecipe *PredRecipe,
+                                       VPlanPtr &Plan) {
+  Instruction *Instr = PredRecipe->getUnderlyingInstr();
   // Instructions marked for predication are replicated and placed under an
   // if-then construct to prevent side-effects.
-
   // Generate recipes to compute the block mask for this region.
   VPValue *BlockInMask = createBlockInMask(Instr->getParent(), Plan);
 
@@ -8560,9 +8561,13 @@ VPRegionBlock *VPRecipeBuilder::createReplicateRegion(
                         ? nullptr
                         : new VPPredInstPHIRecipe(PredRecipe);
   if (PHIRecipe) {
-    Plan->removeVPValueFor(Instr);
+    setRecipe(Instr, PHIRecipe);
     Plan->addVPValue(Instr, PHIRecipe);
+  } else {
+    setRecipe(Instr, PredRecipe);
+    Plan->addVPValue(Instr, PredRecipe);
   }
+
   auto *Exiting = new VPBasicBlock(Twine(RegionName) + ".continue", PHIRecipe);
   auto *Pred = new VPBasicBlock(Twine(RegionName) + ".if", PredRecipe);
   VPRegionBlock *Region = new VPRegionBlock(Entry, Exiting, RegionName, true);

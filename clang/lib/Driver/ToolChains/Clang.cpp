@@ -7536,6 +7536,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   RenderUnrollOptions(D, Args, CmdArgs);
 #endif // INTEL_CUSTOMIZATION
 
+  Args.AddLastArg(CmdArgs, options::OPT_fstrict_flex_arrays_EQ);
+
   Args.AddLastArg(CmdArgs, options::OPT_pthread);
 
   if (Args.hasFlag(options::OPT_mspeculative_load_hardening,
