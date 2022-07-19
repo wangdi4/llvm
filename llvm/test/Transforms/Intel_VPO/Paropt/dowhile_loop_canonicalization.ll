@@ -1,7 +1,8 @@
-; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 
-; Original code:
+; Test src:
+;
 ; int foo() {
 ;   int i, l = 0;
 ; #pragma omp for
@@ -30,71 +31,75 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo() local_unnamed_addr #0 {
-entry:
+DIR.OMP.LOOP.26:
   %i = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %.omp.lb = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
-  %0 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  %1 = bitcast i32* %.omp.iv to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #2
-  %2 = bitcast i32* %.omp.lb to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %2) #2
-  store i32 0, i32* %.omp.lb, align 4, !tbaa !2
-  %3 = bitcast i32* %.omp.ub to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %3) #2
-  store volatile i32 99, i32* %.omp.ub, align 4, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i) #2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %.omp.iv) #2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %.omp.lb) #2
+  store i32 0, ptr %.omp.lb, align 4, !tbaa !4
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %.omp.ub) #2
+  store volatile i32 99, ptr %.omp.ub, align 4, !tbaa !4
   %end.dir.temp = alloca i1, align 1
   br label %DIR.OMP.LOOP.1
 
-DIR.OMP.LOOP.1:                                   ; preds = %entry
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
+DIR.OMP.LOOP.1:                                   ; preds = %DIR.OMP.LOOP.26
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
+    "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp) ]
   br label %DIR.OMP.LOOP.27
 
 DIR.OMP.LOOP.27:                                  ; preds = %DIR.OMP.LOOP.1
-  %temp.load = load volatile i1, i1* %end.dir.temp, align 1
-  br i1 %temp.load, label %omp.loop.exit.split, label %DIR.OMP.LOOP.2
+  %temp.load = load volatile i1, ptr %end.dir.temp, align 1
+  br i1 %temp.load, label %DIR.OMP.END.LOOP.4, label %DIR.OMP.LOOP.2
 
 DIR.OMP.LOOP.2:                                   ; preds = %DIR.OMP.LOOP.27
-  %5 = load i32, i32* %.omp.lb, align 4, !tbaa !2
-  store volatile i32 %5, i32* %.omp.iv, align 4, !tbaa !2
+  %1 = load i32, ptr %.omp.lb, align 4, !tbaa !4
+  store volatile i32 %1, ptr %.omp.iv, align 4, !tbaa !4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.body, %DIR.OMP.LOOP.2
   %l.0 = phi i32 [ 0, %DIR.OMP.LOOP.2 ], [ %inc, %omp.inner.for.body ]
-  %6 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  %7 = load volatile i32, i32* %.omp.ub, align 4, !tbaa !2
-  %cmp = icmp sgt i32 %6, %7
-  br i1 %cmp, label %omp.loop.exit.split, label %omp.inner.for.body
+  %2 = load volatile i32, ptr %.omp.iv, align 4, !tbaa !4
+  %3 = load volatile i32, ptr %.omp.ub, align 4, !tbaa !4
+  %cmp.not = icmp sgt i32 %2, %3
+  br i1 %cmp.not, label %DIR.OMP.END.LOOP.4.loopexit, label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %8 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  store i32 %8, i32* %i, align 4, !tbaa !2
+  %4 = load volatile i32, ptr %.omp.iv, align 4, !tbaa !4
+  store i32 %4, ptr %i, align 4, !tbaa !4
   %inc = add nuw nsw i32 %l.0, 1
-  %9 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  %add1 = add nsw i32 %9, 1
-  store volatile i32 %add1, i32* %.omp.iv, align 4, !tbaa !2
+  %5 = load volatile i32, ptr %.omp.iv, align 4, !tbaa !4
+  %add1 = add nsw i32 %5, 1
+  store volatile i32 %add1, ptr %.omp.iv, align 4, !tbaa !4
   br label %omp.inner.for.cond
 
-omp.loop.exit.split:                              ; preds = %omp.inner.for.cond, %DIR.OMP.LOOP.27
-  %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.27 ], [ %l.0, %omp.inner.for.cond ]
-  br label %DIR.OMP.END.LOOP.3
-
-DIR.OMP.END.LOOP.3:                               ; preds = %omp.loop.exit.split
-  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.LOOP"() ]
+DIR.OMP.END.LOOP.4.loopexit:                      ; preds = %omp.inner.for.cond
   br label %DIR.OMP.END.LOOP.4
 
-DIR.OMP.END.LOOP.4:                               ; preds = %DIR.OMP.END.LOOP.3
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %3) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
+DIR.OMP.END.LOOP.4:                               ; preds = %DIR.OMP.END.LOOP.4.loopexit, %DIR.OMP.LOOP.27
+  %l.1 = phi i32 [ 0, %DIR.OMP.LOOP.27 ], [ %l.0, %DIR.OMP.END.LOOP.4.loopexit ]
+  br label %DIR.OMP.END.LOOP.3
+
+DIR.OMP.END.LOOP.3:                               ; preds = %DIR.OMP.END.LOOP.4
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
+  br label %DIR.OMP.END.LOOP.48
+
+DIR.OMP.END.LOOP.48:                              ; preds = %DIR.OMP.END.LOOP.3
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %.omp.ub) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %.omp.lb) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %.omp.iv) #2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i) #2
   ret i32 %l.1
 }
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -102,19 +107,19 @@ declare token @llvm.directive.region.entry() #2
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
 
-; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind willreturn }
+attributes #0 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { argmemonly mustprogress nocallback nofree nosync nounwind willreturn }
 attributes #2 = { nounwind }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
+!llvm.module.flags = !{!0, !1, !2}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
+!1 = !{i32 7, !"openmp", i32 51}
+!2 = !{i32 7, !"uwtable", i32 2}
+!4 = !{!5, !5, i64 0}
+!5 = !{!"int", !6, i64 0}
+!6 = !{!"omnipotent char", !7, i64 0}
+!7 = !{!"Simple C/C++ TBAA"}
