@@ -25870,11 +25870,13 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   MVT VT = Op1.getSimpleValueType();
   SDValue CC;
 
-<<<<<<< HEAD
-  if (isSoftFP16(VT))
-    return DAG.getBitcast(MVT::f16, DAG.getNode(ISD::SELECT, DL, MVT::i16, Cond,
-                                                DAG.getBitcast(MVT::i16, Op1),
-                                                DAG.getBitcast(MVT::i16, Op2)));
+  if (isSoftFP16(VT)) {
+    MVT NVT = VT.changeTypeToInteger();
+    return DAG.getBitcast(VT, DAG.getNode(ISD::SELECT, DL, NVT, Cond,
+                                          DAG.getBitcast(NVT, Op1),
+                                          DAG.getBitcast(NVT, Op2)));
+  }
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (VT == MVT::bf16 && !Subtarget.hasFP16())
@@ -25884,14 +25886,6 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
            DAG.getBitcast(MVT::i16, Op2)));
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (isSoftFP16(VT)) {
-    MVT NVT = VT.changeTypeToInteger();
-    return DAG.getBitcast(VT, DAG.getNode(ISD::SELECT, DL, NVT, Cond,
-                                          DAG.getBitcast(NVT, Op1),
-                                          DAG.getBitcast(NVT, Op2)));
-  }
->>>>>>> 9234a7c0dfa38bd3855a11a57a9a645fcef7ef79
 
   // Lower FP selects into a CMP/AND/ANDN/OR sequence when the necessary SSE ops
   // are available or VBLENDV if AVX is available.
