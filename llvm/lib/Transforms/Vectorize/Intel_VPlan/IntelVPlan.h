@@ -2673,6 +2673,13 @@ public:
                       {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
+  /// Constructor for SelectCmp reduction-final
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   VPValue *ChangeValue, bool Sign)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
+                      {ReducVec, StartValue, ChangeValue}),
+        BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionFinal;
@@ -2693,7 +2700,14 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() == 2 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2
+      || BinOpcode == Instruction::ICmp
+      || BinOpcode == Instruction::FCmp ? getOperand(1) : nullptr;
+  }
+
+  /// Return operand that corresponds to the change value for a SelectCmp.
+  VPValue *getChangeValueOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent vector value.
@@ -2765,7 +2779,12 @@ public:
 protected:
   // Clones VPReductionFinal.
   virtual VPReductionFinal *cloneImpl() const final {
-    if (isMinMaxIndex())
+    if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp)
+      // SelectCmp
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getStartValueOperand(),
+                                  getChangeValueOperand(), isSigned());
+    else if (isMinMaxIndex())
       return new VPReductionFinal(
           getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
           cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
@@ -4130,7 +4149,7 @@ public:
   // mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
   // the region.
   VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
-                          std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
+                          std::unique_ptr<VPRegion> Rgn,
                           ArrayRef<VPValue *> Params)
       : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
         Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
@@ -4139,8 +4158,9 @@ public:
     // Region has the instructions of VConflict pattern that should be included
     // in the loop that we generate for optimized general conflict.
     addOperand(Region.get());
-    // Add conflict load as operand.
-    addOperand(VConflictLoad);
+    assert(Params.size() > 0 && isa<VPInstruction>(Params[0]) &&
+           cast<VPInstruction>(Params[0])->getOpcode() == Instruction::Load &&
+           "VConflictLoad is expected to be the third operand.");
     for (auto *P : Params)
       // There is an implicit mapping between the operands [2:] of
       // VPGeneralMemOptConflict and the live-ins of the region.
@@ -4169,8 +4189,8 @@ public:
 
   VPGeneralMemOptConflict *cloneImpl() const override {
     return new VPGeneralMemOptConflict(
-        getType(), getOperand(0), Region->clone(), getOperand(2),
-        ArrayRef<VPValue *>(op_begin() + 3, op_end()));
+        getType(), getConflictIndex(), Region->clone(),
+        ArrayRef<VPValue *>(op_begin() + 2, op_end()));
   }
 
 private:

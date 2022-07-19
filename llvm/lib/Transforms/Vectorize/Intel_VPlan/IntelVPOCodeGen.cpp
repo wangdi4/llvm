@@ -4163,6 +4163,12 @@ void VPOCodeGen::vectorizeRunningInclusiveReduction(
 }
 
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
+  unsigned BinOpcode = RedFinal->getBinOpcode();
+  if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp) {
+    vectorizeSelectCmpReductionFinal(RedFinal);
+    return;
+  }
+
   Value *VecValue = getVectorValue(RedFinal->getOperand(0));
   Intrinsic::ID Intrin = RedFinal->getVectorReduceIntrinsic();
   Type *ElType = RedFinal->getOperand(0)->getType();
@@ -4248,6 +4254,23 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
     SetFastMathFlags(Ret);
   }
 
+  VPScalarMap[RedFinal][0] = Ret;
+}
+
+void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
+  assert(RedFinal->getNumOperands() == 3
+         && "Wrong operand count for SelectCmp reduction-final!");
+  assert(!isa<VectorType>(RedFinal->getOperand(0)->getType())
+         && "Unsupported vector data type in reduction");
+
+  Value *VecValue = getVectorValue(RedFinal->getOperand(0));
+  Value *StartVPVal = getScalarValue(RedFinal->getOperand(1), 0);
+  Value *ChangeVPVal = getScalarValue(RedFinal->getOperand(2), 0);
+  Value *Splat = Builder.CreateVectorSplat(VF, StartVPVal);
+  // FIXME: Can handle floating-point reductions with FCmp UNE also.
+  Value *Cmp = Builder.CreateICmpNE(VecValue, Splat);
+  Value *Reduc = Builder.CreateOrReduce(Cmp);
+  Value *Ret = Builder.CreateSelect(Reduc, ChangeVPVal, StartVPVal);
   VPScalarMap[RedFinal][0] = Ret;
 }
 
