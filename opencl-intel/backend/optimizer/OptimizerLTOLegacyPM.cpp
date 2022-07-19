@@ -101,7 +101,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createDPCPPPreprocessSPIRVFriendlyIRLegacyPass());
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
-  MaterializerMPM.add(createNameAnonGlobalPass());
 #ifndef NDEBUG
   MaterializerMPM.add(createVerifierPass());
 #endif // #ifndef NDEBUG
