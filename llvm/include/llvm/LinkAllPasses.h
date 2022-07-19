@@ -199,7 +199,6 @@ namespace {
       (void) llvm::createDomPrinterWrapperPassPass();
       (void) llvm::createDomOnlyViewerWrapperPassPass();
       (void) llvm::createDomViewerWrapperPassPass();
-      (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
