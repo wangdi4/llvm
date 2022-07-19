@@ -394,14 +394,6 @@ cl::opt<bool> EnableDFAJumpThreading("enable-dfa-jump-thread",
                                      cl::desc("Enable DFA jump threading."),
                                      cl::init(false), cl::Hidden);
 
-static cl::opt<bool>
-    EnablePrepareForThinLTO("prepare-for-thinlto", cl::init(false), cl::Hidden,
-                            cl::desc("Enable preparation for ThinLTO."));
-
-static cl::opt<bool>
-    EnablePerformThinLTO("perform-thinlto", cl::init(false), cl::Hidden,
-                         cl::desc("Enable performing ThinLTO."));
-
 cl::opt<bool> EnableHotColdSplit("hot-cold-split",
                                  cl::desc("Enable hot-cold splitting pass"));
 
@@ -504,9 +496,6 @@ PassManagerBuilder::PassManagerBuilder() {
     VerifyInput = false;
     VerifyOutput = false;
     MergeFunctions = false;
-    PrepareForLTO = false;
-    PrepareForThinLTO = EnablePrepareForThinLTO;
-    PerformThinLTO = EnablePerformThinLTO;
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
@@ -786,6 +775,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (EnableMatrix)
     MPM.add(createVectorCombinePass());
 
+<<<<<<< HEAD
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
   if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
@@ -825,6 +815,47 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
 #endif // INTEL_CUSTOMIZATION
+=======
+// Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
+// optimizations rely on TTI, which is not accurate for SPIR target.
+if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+
+  // The simple loop unswitch pass relies on separate cleanup passes. Schedule
+  // them first so when we re-process a loop they run before other loop
+  // passes.
+  MPM.add(createLoopInstSimplifyPass());
+  MPM.add(createLoopSimplifyCFGPass());
+
+  // Try to remove as much code from the loop header as possible,
+  // to reduce amount of IR that will have to be duplicated. However,
+  // do not perform speculative hoisting the first time as LICM
+  // will destroy metadata that may not need to be destroyed if run
+  // after loop rotation.
+  // TODO: Investigate promotion cap for O1.
+  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                         /*AllowSpeculation=*/false));
+  // Rotate Loop - disable header duplication at -Oz
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+  // TODO: Investigate promotion cap for O1.
+  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
+                         /*AllowSpeculation=*/true));
+  MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
+  // FIXME: We break the loop pass pipeline here in order to do full
+  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
+  // the need for this.
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+  MPM.add(createInstructionCombiningPass());
+  // We resume loop passes creating a second loop pipeline here.
+  if (EnableLoopFlatten) {
+    MPM.add(createLoopFlattenPass()); // Flatten loops
+    MPM.add(createLoopSimplifyCFGPass());
+  }
+  MPM.add(createLoopIdiomPass());      // Recognize idioms like memset.
+  MPM.add(createIndVarSimplifyPass()); // Canonicalize indvars
+  addExtensionsToPM(EP_LateLoopOptimizations, MPM);
+  MPM.add(createLoopDeletionPass()); // Delete dead loops
+>>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
 
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
@@ -1209,17 +1240,9 @@ void PassManagerBuilder::populateModulePassManager(
     else if (GlobalExtensionsNotEmpty() || !Extensions.empty())
       MPM.add(createBarrierNoopPass());
 
-    if (PerformThinLTO) {
-      MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
-      // Drop available_externally and unreferenced globals. This is necessary
-      // with ThinLTO in order to avoid leaving undefined references to dead
-      // globals in the object file.
-      MPM.add(createEliminateAvailableExternallyPass());
-      MPM.add(createGlobalDCEPass());
-    }
-
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
+<<<<<<< HEAD
     if (PrepareForLTO || PrepareForThinLTO) {
       MPM.add(createCanonicalizeAliasesPass());
       // Rename anon globals to be able to export them in the summary.
@@ -1240,6 +1263,8 @@ void PassManagerBuilder::populateModulePassManager(
     }
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
     MPM.add(createAnnotationRemarksLegacyPass());
     return;
   }
@@ -1255,17 +1280,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   addInitialAliasAnalysisPasses(MPM);
-
-  // For ThinLTO there are two passes of indirect call promotion. The
-  // first is during the compile phase when PerformThinLTO=false and
-  // intra-module indirect call targets are promoted. The second is during
-  // the ThinLTO backend when PerformThinLTO=true, when we promote imported
-  // inter-module indirect calls. For that we perform indirect call promotion
-  // earlier in the pass pipeline, here before globalopt. Otherwise imported
-  // available_externally functions look unreferenced and are removed.
-  if (PerformThinLTO) {
-    MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
-  }
 
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
@@ -1392,6 +1406,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (RunPartialInlining)
     MPM.add(createPartialInliningPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableStdContainerOpt)
     MPM.add(createStdContainerOptPass());
@@ -1399,6 +1414,9 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   if (OptLevel > 1 && !PrepareForLTO && !PrepareForThinLTO)
+=======
+  if (OptLevel > 1)
+>>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
     // Remove avail extern fns and globals definitions if we aren't
     // compiling an object file for later LTO. For LTO we want to preserve
     // these so they are eligible for inlining at link-time. Note if they
@@ -1425,24 +1443,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createGlobalOptimizerPass());
     MPM.add(createGlobalDCEPass());
   }
-
-  // If we are planning to perform ThinLTO later, let's not bloat the code with
-  // unrolling/vectorization/... now. We'll first run the inliner + CGSCC passes
-  // during ThinLTO and perform the rest of the optimizations afterward.
-  if (PrepareForThinLTO) {
-    // Ensure we perform any last passes, but do so before renaming anonymous
-    // globals in case the passes add any.
-    addExtensionsToPM(EP_OptimizerLast, MPM);
-    MPM.add(createCanonicalizeAliasesPass());
-    // Rename anon globals to be able to export them in the summary.
-    MPM.add(createNameAnonGlobalPass());
-    return;
-  }
-
-  if (PerformThinLTO)
-    // Optimize globals now when performing ThinLTO, this enables more
-    // optimizations later.
-    MPM.add(createGlobalOptimizerPass());
 
   // Scheduling LoopVersioningLICM when inlining is over, because after that
   // we may see more accurate aliasing. Reason to run this late is that too
@@ -1506,6 +1506,7 @@ void PassManagerBuilder::populateModulePassManager(
   } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
+<<<<<<< HEAD
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
 
@@ -1514,6 +1515,20 @@ void PassManagerBuilder::populateModulePassManager(
     INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, MPM) // INTEL
     addLoopOptAndAssociatedVPOPasses(MPM, false);
     INTEL_LIMIT_END // INTEL
+=======
+    // Re-rotate loops in all our loop nests. These may have fallout out of
+    // rotated form due to GVN or other transformations, and the vectorizer relies
+    // on the rotated form. Disable header duplication at -Oz.
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+
+    // Distribute loops to allow partial vectorization.  I.e. isolate dependences
+    // into separate loop that would otherwise inhibit vectorization.  This is
+    // currently only performed for loops marked with the metadata
+    // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
+    MPM.add(createLoopDistributePass());
+
+    addVectorPasses(MPM, /* IsFullLTO */ false);
+>>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
   }
 #endif // INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) { // INTEL
@@ -1540,7 +1555,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   // See comment in the new PM for justification of scheduling splitting at
   // this stage (\ref buildModuleSimplificationPipeline).
-  if (EnableHotColdSplit && !(PrepareForLTO || PrepareForThinLTO))
+  if (EnableHotColdSplit)
     MPM.add(createHotColdSplittingPass());
 
   if (EnableIROutliner)
@@ -1573,6 +1588,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
+<<<<<<< HEAD
   if (PrepareForLTO) {
     MPM.add(createCanonicalizeAliasesPass());
     // Rename anon globals to be able to handle them in the summary
@@ -1588,6 +1604,8 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
