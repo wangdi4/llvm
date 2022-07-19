@@ -132,6 +132,11 @@ public:
         getRecurrenceKind());
   }
 
+  bool isSelectCmp() const {
+    return RecurrenceDescriptorData::isSelectCmpRecurrenceKind(
+        getRecurrenceKind());
+  }
+
   virtual StringRef getNameSuffix() const {
     return isMinMax() ? "minmax.red" : "red";
   }

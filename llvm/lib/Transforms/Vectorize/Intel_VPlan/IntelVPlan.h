@@ -2673,6 +2673,13 @@ public:
                       {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
+  /// Constructor for SelectCmp reduction-final
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   VPValue *ChangeValue, bool Sign)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
+                      {ReducVec, StartValue, ChangeValue}),
+        BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionFinal;
@@ -2693,7 +2700,14 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() == 2 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2
+      || BinOpcode == Instruction::ICmp
+      || BinOpcode == Instruction::FCmp ? getOperand(1) : nullptr;
+  }
+
+  /// Return operand that corresponds to the change value for a SelectCmp.
+  VPValue *getChangeValueOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent vector value.
@@ -2765,7 +2779,12 @@ public:
 protected:
   // Clones VPReductionFinal.
   virtual VPReductionFinal *cloneImpl() const final {
-    if (isMinMaxIndex())
+    if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp)
+      // SelectCmp
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getStartValueOperand(),
+                                  getChangeValueOperand(), isSigned());
+    else if (isMinMaxIndex())
       return new VPReductionFinal(
           getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
           cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
