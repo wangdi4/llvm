@@ -1709,10 +1709,6 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
     return false;
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions()) {
-    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
-        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
-      return false;
-
     // Bailouts for user-defined reductions.
     if (Red->getRecurrenceKind() == RecurKind::Udr) {
       // Check if UDR is registerized. This can happen due to hoisting/invariant

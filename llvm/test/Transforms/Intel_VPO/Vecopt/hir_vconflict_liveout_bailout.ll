@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Idiom List
 ; CHECK-NEXT: VConflictLikeStore: <[[NUM1]]>          (%A)[%0] = (%A)[%0];
 
-; CHECK:      VConflict idiom load could not be a VConflict store operand.
+; CHECK:      VConflict store operand cannot be a live-in.
 ; CHECK-NEXT: The current VConflict idiom is not supported.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress

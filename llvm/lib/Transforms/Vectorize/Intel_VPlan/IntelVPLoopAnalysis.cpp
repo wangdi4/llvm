@@ -1048,6 +1048,35 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (Reduction->getIsMemOnly() || !Exit)
     Exit = Builder.createLoad(Ty, PrivateMem);
 
+  VPValue *ChangeValue = nullptr;
+  if (Reduction->isSelectCmp()) {
+    // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
+    // instruction.  The pattern may also recognize two logically ANDed
+    // conditions, in which case we must look through a PHI.  No more complex
+    // conditions are recognized.  In the PHI case, one of the predecessor
+    // blocks will be the loop header.  The other block will contain the
+    // select.
+    VPInstruction *Select = Exit;
+    VPBasicBlock *Header = Loop.getHeader();
+    if (auto *Phi = dyn_cast<VPPHINode>(Select)) {
+      assert(Phi->getNumOperands() == 2 && "Phi must have 2 arguments!");
+      VPBasicBlock *BB0 = Phi->getIncomingBlock((unsigned)0);
+      unsigned Index = BB0 == Header ? 1 : 0;
+      VPValue *Incoming = Phi->getIncomingValue(Index);
+      if (!(Select = dyn_cast<VPInstruction>(Incoming)))
+        llvm_unreachable("Phi predecessor isn't an instruction!");
+    }
+    assert(Select->getOpcode() == Instruction::Select
+           && "Exit is not a select!");
+    // One of the operands comes from the PHI recurrence.  The other is
+    // the change value.  Note the change value can come from a PHI
+    // outside the loop, so we have to make sure we have the right PHI.
+    ChangeValue = Select->getOperand(1);
+    if (isa<VPPHINode>(ChangeValue)
+        && cast<VPInstruction>(ChangeValue)->getParent() == Header)
+      ChangeValue = Select->getOperand(2);
+  }
+
   VPReductionFinal *Final = nullptr;
   std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
@@ -1064,7 +1093,12 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       Final = Builder.create<VPReductionFinalInscan>(
         FinName, Reduction->getReductionOpcode(), Exit);
   } else {
-    if (StartIncluded || Reduction->isMinMax()) {
+    if (Reduction->isSelectCmp())
+      Final = Builder.create<VPReductionFinal>(
+          FinName, Reduction->getReductionOpcode(), Exit,
+          Reduction->getRecurrenceStartValue(), ChangeValue,
+          Reduction->isSigned());
+    else if (StartIncluded || Reduction->isMinMax()) {
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit);
     } else {

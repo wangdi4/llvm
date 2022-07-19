@@ -328,16 +328,26 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-  list(APPEND CMD_ARGS -gen-ocl-bi)
   # generate OCL builtin implementation
+  # TODO: remove this tblgenoclblt invocation when we migrate all builtins to
+  # source/main.td
   tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     ${TARGET_DIR}
     target-${ARCH}.td
     target-${ARCH}.cl
-    ${CMD_ARGS}
+    --gen-ocl-bi
   )
-  list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+  # The newly added builtins are implemented in souce/main.td
+  tblgenoclblt(OCL_TABLEGEN_SOURCE_NEW
+    ${INTERMEDIATE_OUTPUT_DIR}
+    source
+    main.td
+    target-${ARCH}-new.cl
+    # args for ocl-tblgen
+    --gen-ocl-bi --handle-impl-target-inheritance --emit-target-name=${TARGET_DIR}
+  )
+  list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE} ${OCL_TABLEGEN_SOURCE_NEW})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})

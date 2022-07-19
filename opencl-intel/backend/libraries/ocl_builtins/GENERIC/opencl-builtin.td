@@ -1086,7 +1086,7 @@ def KERNEL_CONVERGENT_CALL : OclBuiltinVectorAttr<"kernel-convergent-call">;
 def OPENCL_VEC_UNIFORM_RETURN : OclBuiltinVectorAttr<"opencl-vec-uniform-return">;
 
 // OclBuiltin
-class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types = [], list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
   string Name = name;
   dag Outs = outs;
   dag Ins = ins;
