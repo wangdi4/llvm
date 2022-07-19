@@ -2324,6 +2324,13 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       }
     }
   }
+  for (const auto *C : Directive.getClausesOfKind<OMPIsDevicePtrClause>()) {
+    for (const auto *E : C->varlists()) {
+      const VarDecl *VD = getExplicitVarDecl(E);
+      assert(VD && "expected VarDecl in is_device_ptr clause");
+      addExplicit(VD, OMPC_is_device_ptr);
+    }
+  }
   SmallVector<CGOpenMPRuntime::LOMapInfo, 4> Info;
   {
     // Generate map values and emit outside the current directive.
@@ -2341,7 +2348,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
           cast<OMPDeclareMapperDecl>(I.Mapper));
     if (!I.IsChain && I.Var) {
       QualType Ty = I.Var->getType();
-      if (isImplicitTask(OMPD_task)) {
+      if (isImplicitTask(OMPD_task) && !isExplicitForIsDevicePtr(I.Var)) {
         // OpenMP 5.1 target Construct:
         // If a variable or part of a variable is mapped by the target
         // construct and does not appear as a list item in an

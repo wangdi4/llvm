@@ -568,6 +568,15 @@ public:
       ExplicitRefs.insert({VD,CKs});
     }
   }
+  bool isExplicitForIsDevicePtr(const VarDecl *V) {
+    const auto &It = ExplicitRefs.find(V);
+    if (It == ExplicitRefs.end())
+      return false;
+    for (auto &CK : (*It).second)
+      if (CK == llvm::omp::OMPC_is_device_ptr)
+        return true;
+    return false;
+  }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
   void setInsertPoint() {
     assert(MarkerInstruction);
