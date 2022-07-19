@@ -605,14 +605,8 @@ void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM, bool EnableUpCasting) const {
   // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
   bool EnableFcmpMinMaxCombine =
-      (!PrepareForLTO && !SLPVectorize) || AfterSLPVectorizer;
-#if INTEL_FEATURE_SW_DTRANS
-  // Configure the instruction combining pass to avoid some transformations
-  // that lose type information for DTrans.
-  bool PreserveForDTrans = (PrepareForLTO && DTransEnabled);
-#else // INTEL_FEATURE_SW_DTRANS
+      (!SLPVectorize) || AfterSLPVectorizer;
   bool PreserveForDTrans = false;
-#endif // INTEL_FEATURE_SW_DTRANS
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
     // the instructions combining pass inserts value definitions
@@ -627,7 +621,7 @@ void PassManagerBuilder::addInstructionCombiningPass(
   }
 
   PM.add(createInstructionCombiningPass(PreserveForDTrans,
-                                        PrepareForLTO && EnableIPArrayTranspose,
+                                        false,
                                         EnableFcmpMinMaxCombine,
                                         EnableUpCasting));
 }
@@ -747,11 +741,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  bool SkipRecProgression = PrepareForLTO && DTransEnabled;
-#else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
-#endif // INTEL_FEATURE_SW_DTRANS
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
@@ -775,7 +765,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (EnableMatrix)
     MPM.add(createVectorCombinePass());
 
-<<<<<<< HEAD
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
   if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
@@ -805,7 +794,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
                              /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
     // Rotate Loop - disable header duplication at -Oz
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
@@ -815,47 +804,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   else
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
 #endif // INTEL_CUSTOMIZATION
-=======
-// Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
-// optimizations rely on TTI, which is not accurate for SPIR target.
-if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
-
-  // The simple loop unswitch pass relies on separate cleanup passes. Schedule
-  // them first so when we re-process a loop they run before other loop
-  // passes.
-  MPM.add(createLoopInstSimplifyPass());
-  MPM.add(createLoopSimplifyCFGPass());
-
-  // Try to remove as much code from the loop header as possible,
-  // to reduce amount of IR that will have to be duplicated. However,
-  // do not perform speculative hoisting the first time as LICM
-  // will destroy metadata that may not need to be destroyed if run
-  // after loop rotation.
-  // TODO: Investigate promotion cap for O1.
-  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                         /*AllowSpeculation=*/false));
-  // Rotate Loop - disable header duplication at -Oz
-  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
-  // TODO: Investigate promotion cap for O1.
-  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                         /*AllowSpeculation=*/true));
-  MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
-  // FIXME: We break the loop pass pipeline here in order to do full
-  // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
-  // the need for this.
-  MPM.add(createCFGSimplificationPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-  MPM.add(createInstructionCombiningPass());
-  // We resume loop passes creating a second loop pipeline here.
-  if (EnableLoopFlatten) {
-    MPM.add(createLoopFlattenPass()); // Flatten loops
-    MPM.add(createLoopSimplifyCFGPass());
-  }
-  MPM.add(createLoopIdiomPass());      // Recognize idioms like memset.
-  MPM.add(createIndVarSimplifyPass()); // Canonicalize indvars
-  addExtensionsToPM(EP_LateLoopOptimizations, MPM);
-  MPM.add(createLoopDeletionPass()); // Delete dead loops
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
 
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
@@ -928,7 +876,7 @@ if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
   // memset/memmov calls of struct types.
-  if (!PrepareForLTO || !DTransEnabled)
+  if (!DTransEnabled)
     MPM.add(createMemCpyOptPass());           // Remove memcpy / form memset
 #else // INTEL_FEATURE_SW_DTRANS
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
@@ -975,7 +923,7 @@ if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
 
 #if INTEL_CUSTOMIZATION
 bool PassManagerBuilder::isLoopOptStaticallyDisabled() const {
-  return DisableIntelProprietaryOpts || OptLevel < 2 || PerformThinLTO;
+  return DisableIntelProprietaryOpts || OptLevel < 2;
 }
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOnly(legacy::PassManagerBase &PM) const {
@@ -1005,9 +953,8 @@ PassManagerBuilder::limitLightLoopOptOnly(legacy::PassManagerBase &PM) const {
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOrNotPrepareForLTO(
     legacy::PassManagerBase &PM) const {
-  bool ForceRun = isLoopOptStaticallyDisabled() || !PrepareForLTO;
   return legacy::LoopOptLimitingPassManager(PM, LoopOptLimiter::NoLoopOptOnly,
-                                            false /*ForceSkip*/, ForceRun);
+                                            false /*ForceSkip*/, true);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1115,7 +1062,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (SLPVectorize) {
     PM.add(createSLPVectorizerPass());
 #if INTEL_CUSTOMIZATION
-    AfterSLPVectorizer = !PrepareForLTO;
+    AfterSLPVectorizer = true;
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP) {
@@ -1188,8 +1135,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
     // Postpone warnings to LTO link phase. Most transformations which process
     // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
-    if (!PrepareForLTO)
-      PM.add(createWarnMissedTransformationsPass());
+    PM.add(createWarnMissedTransformationsPass());
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1242,15 +1188,6 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
-<<<<<<< HEAD
-    if (PrepareForLTO || PrepareForThinLTO) {
-      MPM.add(createCanonicalizeAliasesPass());
-      // Rename anon globals to be able to export them in the summary.
-      // This has to be done after we add the extensions to the pass manager
-      // as there could be passes (e.g. Adddress sanitizer) which introduce
-      // new unnamed globals.
-      MPM.add(createNameAnonGlobalPass());
-    }
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -1263,8 +1200,6 @@ void PassManagerBuilder::populateModulePassManager(
     }
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
     MPM.add(createAnnotationRemarksLegacyPass());
     return;
   }
@@ -1290,12 +1225,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createInlineListsPass()); // -[no]inline-list parsing
     if (RunVPOParopt && EnableVPOParoptTargetInline)
       MPM.add(createVPOParoptTargetInlinePass());
-#if INTEL_FEATURE_SW_DTRANS
-    if (PrepareForLTO && DTransEnabled) {
-      MPM.add(createDTransForceInlineWrapperPass());
-      MPM.add(createDTransForceInlineOPWrapperPass());
-    }
-#endif  // INTEL_FEATURE_SW_DTRANS
   }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -1406,17 +1335,13 @@ void PassManagerBuilder::populateModulePassManager(
   if (RunPartialInlining)
     MPM.add(createPartialInliningPass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableStdContainerOpt)
     MPM.add(createStdContainerOptPass());
   MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (OptLevel > 1 && !PrepareForLTO && !PrepareForThinLTO)
-=======
   if (OptLevel > 1)
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
     // Remove avail extern fns and globals definitions if we aren't
     // compiling an object file for later LTO. For LTO we want to preserve
     // these so they are eligible for inlining at link-time. Note if they
@@ -1502,11 +1427,10 @@ void PassManagerBuilder::populateModulePassManager(
   // Re-rotate loops in all our loop nests. These may have fallout out of
   // rotated form due to GVN or other transformations, and the vectorizer relies
   // on the rotated form. Disable header duplication at -Oz.
-  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
   } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
-<<<<<<< HEAD
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
 
@@ -1515,20 +1439,6 @@ void PassManagerBuilder::populateModulePassManager(
     INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, MPM) // INTEL
     addLoopOptAndAssociatedVPOPasses(MPM, false);
     INTEL_LIMIT_END // INTEL
-=======
-    // Re-rotate loops in all our loop nests. These may have fallout out of
-    // rotated form due to GVN or other transformations, and the vectorizer relies
-    // on the rotated form. Disable header duplication at -Oz.
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
-
-    // Distribute loops to allow partial vectorization.  I.e. isolate dependences
-    // into separate loop that would otherwise inhibit vectorization.  This is
-    // currently only performed for loops marked with the metadata
-    // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
-    MPM.add(createLoopDistributePass());
-
-    addVectorPasses(MPM, /* IsFullLTO */ false);
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
   }
 #endif // INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) { // INTEL
@@ -1588,13 +1498,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
-<<<<<<< HEAD
-  if (PrepareForLTO) {
-    MPM.add(createCanonicalizeAliasesPass());
-    // Rename anon globals to be able to handle them in the summary
-    MPM.add(createNameAnonGlobalPass());
-  }
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (EnableCSAPasses) {
@@ -1604,17 +1507,10 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
-  // If LTO is enabled, then check if the declaration for math libraries are
-  // needed
-  if (PrepareForLTO)
-    MPM.add(createIntelMathLibrariesDeclarationWrapperPass()); // INTEL
-  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
-                                        PrepareForLTO || PrepareForThinLTO));
+  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -2511,7 +2407,6 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
-  PerformThinLTO = true;
   if (LibraryInfo)
     PM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
@@ -2539,7 +2434,6 @@ void PassManagerBuilder::populateThinLTOPassManager(
 
   if (VerifyOutput)
     PM.add(createVerifierPass());
-  PerformThinLTO = false;
 }
 
 void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {

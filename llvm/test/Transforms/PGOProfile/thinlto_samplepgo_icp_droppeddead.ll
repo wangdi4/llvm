@@ -5,17 +5,10 @@
 ; Tests that with dead stripping in the thin link enabled (default), we do not
 ; promote to target of the dropped dead symbol _ZL3foov. This can happen with a
 ; sample profile collected for one binary used to  optimize for another binary.
-<<<<<<< HEAD
 ; INTEL RUN: llvm-lto2 run -opaque-pointers -save-temps -o %t2 %t.bc -r %t.bc,fptr,plx \
 ; RUN:		-r %t.bc,main,plx -r %t.bc,_ZL3foov,l
 ; RUN: llvm-dis < %t2.1.4.opt.bc | FileCheck %s --check-prefix=OPT
 ; INTEL RUN: llvm-lto2 run -opaque-pointers -save-temps -o %t2 %t.bc -r %t.bc,fptr,plx \
-=======
-; RUN: llvm-lto2 run -opaque-pointers -save-temps -o %t2 %t.bc -r %t.bc,fptr,plx \
-; RUN:		-r %t.bc,main,plx -r %t.bc,_ZL3foov,l
-; RUN: llvm-dis < %t2.1.4.opt.bc | FileCheck %s --check-prefix=OPT
-; RUN: llvm-lto2 run -opaque-pointers -save-temps -o %t2 %t.bc -r %t.bc,fptr,plx \
->>>>>>> abadc871ae8f9d289a313917cd1fffef13412e4f
 ; RUN: 		-r %t.bc,main,plx -r %t.bc,_ZL3foov,l -compute-dead=false
 ; RUN: llvm-dis < %t2.1.4.opt.bc | FileCheck %s --check-prefix=OPT-NODEAD
 

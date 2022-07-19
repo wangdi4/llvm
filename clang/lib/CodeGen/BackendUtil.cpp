@@ -743,8 +743,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   // enabled when loop unrolling is enabled.
   PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
   PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
-  PMBuilder.PrepareForThinLTO = CodeGenOpts.PrepareForThinLTO;
-  PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
   PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
