@@ -111,7 +111,6 @@ ModulePass *createPGOInstrumentationGenCreateVarLegacyPass(
     StringRef CSInstrName = StringRef(""));
 ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
                                                      bool SamplePGO = false);
-FunctionPass *createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 // The pgo-specific indirect call promotion function declared below is used by

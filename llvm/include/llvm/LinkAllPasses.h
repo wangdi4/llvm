@@ -194,7 +194,6 @@ namespace {
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOInstrumentationGenCreateVarLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
-      (void) llvm::createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createDomOnlyPrinterWrapperPassPass();
       (void) llvm::createDomPrinterWrapperPassPass();
