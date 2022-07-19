@@ -735,12 +735,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addExtensionsToPM(EP_Peephole, MPM);
 
 #if INTEL_CUSTOMIZATION
-  // Optimize memory intrinsic calls based on the profiled size information.
-  if (SizeLevel == 0)
-    MPM.add(createPGOMemOPSizeOptLegacyPass());
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
   bool SkipRecProgression = false;
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)

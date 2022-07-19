@@ -422,7 +422,6 @@ void initializePGOIndirectCallPromotionLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationGenLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationUseLegacyPassPass(PassRegistry&);
 void initializePGOInstrumentationGenCreateVarLegacyPassPass(PassRegistry&);
-void initializePGOMemOPSizeOptLegacyPassPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializePHIEliminationPass(PassRegistry&);
 void initializePartialInlinerLegacyPassPass(PassRegistry&);
