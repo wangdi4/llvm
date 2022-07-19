@@ -127,6 +127,7 @@ std::string ToNarrow(const wchar_t *s, char dfault = '?',
 //    char dlim - the char to use as a delimiter
 /////////////////////////////////////////////////////////////////////////
 std::vector<std::string> &SplitString(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> &SplitStringAllowEmpty(const std::string &s, char delim, std::vector<std::string> &elems);
 std::vector<std::string> SplitString(const std::string &s, char delim);
 
 /// Split the string using given delimiter and all elements are integer.

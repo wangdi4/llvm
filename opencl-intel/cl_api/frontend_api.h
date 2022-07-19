@@ -80,6 +80,18 @@ struct FECompileProgramDescriptor
     bool            bEyeQEmulator;
 };
 
+// Kernel names of all programs in link task
+// TODO: It is more appropriate to split LinkPrograms into LoadModules task
+// and Link task. So that IOCLFELinkKernelNames will not be needed to pass
+// kernel names result.
+struct IOCLFELinkKernelNames{
+    virtual const char *GetAllKernelNames() = 0;
+    virtual void Release() = 0;
+
+protected:
+    virtual ~IOCLFELinkKernelNames() {}
+};
+
 // Link task descriptor, contains FE Linking info
 struct FELinkProgramsDescriptor
 {
@@ -91,8 +103,8 @@ struct FELinkProgramsDescriptor
     const size_t*   puiBinariesSizes;
     // A string for link options
     const char*     pszOptions;
-    // array of kernels name which program is built with source
-    std::vector<std::vector<std::string>>* pKernelNames;
+    // All kernel names
+    IOCLFELinkKernelNames** pKernelNames;
 };
 
 struct FESPIRVProgramDescriptor

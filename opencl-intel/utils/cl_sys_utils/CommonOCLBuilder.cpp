@@ -104,14 +104,14 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   //
   IOCLFEBinaryResult* executableResult = nullptr;
   FELinkProgramsDescriptor linkDescriptor;
+  IOCLFELinkKernelNames* linkKernelNames = nullptr;
   linkDescriptor.uiNumBinaries = 1;
   linkDescriptor.pszOptions = "";
   const void* irBuffer = res->GetIR();
   linkDescriptor.pBinaryContainers = &irBuffer;
   size_t execsize = res->GetIRSize();
   linkDescriptor.puiBinariesSizes = &execsize;
-  vector<vector<string>> KernelNames;
-  linkDescriptor.pKernelNames = &KernelNames;
+  linkDescriptor.pKernelNames = &linkKernelNames;
   rc = m_pCompiler->LinkPrograms(&linkDescriptor, &executableResult);
   if (rc || nullptr == executableResult)
     throw ocl_string_exception("linkage failed");

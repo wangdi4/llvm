@@ -168,7 +168,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                   OUT size_t*     puiBinarySize,
                                   OUT std::vector<char>& linkLog,
                                   OUT bool*       pbIsLibrary,
-                                  OUT vector<vector<string>>* pWithSourceKernelsName) const;
+                                  OUT char**      ppKernelNames) const;
 
         /******************************************************************************************
         * Function:     GetKernelArgInfo    

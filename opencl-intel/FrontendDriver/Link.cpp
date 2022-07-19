@@ -272,23 +272,24 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
   return funcCallsValid;
 }
 
-static void
-saveKernelNames(llvm::Module *M,
-                std::vector<std::vector<std::string>> *KernelsName) {
-  if (KernelsName == NULL)
+static void saveKernelNames(llvm::Module *M, std::string *KernelsName) {
+  if (KernelsName == nullptr)
     return;
 
-  vector<string> KernelsNameInProg;
+  // Names between input programs are separated by ';'
+  // Names in a program are separated by ','
   for (auto &F : M->getFunctionList())
-    if (F.getCallingConv() == llvm::CallingConv::SPIR_KERNEL)
-      KernelsNameInProg.push_back(F.getName().data());
-  KernelsName->push_back(KernelsNameInProg);
+    if (F.getCallingConv() == llvm::CallingConv::SPIR_KERNEL) {
+      KernelsName->append(F.getName().data());
+      KernelsName->append(",");
+    }
+  KernelsName->append(";");
 }
 
-OCLFEBinaryResult *
-LinkInternal(const void **pInputBinaries, unsigned int uiNumBinaries,
-             const size_t *puiBinariesSizes, const char *pszOptions,
-             std::vector<std::vector<std::string>> *pKernelsName) {
+OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
+                                unsigned int uiNumBinaries,
+                                const size_t *puiBinariesSizes,
+                                const char *pszOptions, string *pKernelsName) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
 
@@ -413,12 +414,15 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
   }
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
+  std::unique_ptr<OCLFELinkKernelNames> pKernelNames =
+	  std::make_unique<OCLFELinkKernelNames>();
+  std::string kernelNames;
   int resultCode = CL_SUCCESS;
   try {
     pResult.reset(LinkInternal(m_Binaries.data(), m_pProgDesc->uiNumBinaries,
                                m_BinariesSizes.data(),
                                m_pProgDesc->pszOptions,
-                               m_pProgDesc->pKernelNames));
+                               &kernelNames));
     resultCode = pResult->getResult();
   } catch (std::bad_alloc &) {
     resultCode = CL_OUT_OF_HOST_MEMORY;
@@ -442,5 +446,11 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
   if (pBinaryResult) {
     *pBinaryResult = pResult.release();
   }
+
+  pKernelNames->SetAllKernelNames(kernelNames);
+  if (m_pProgDesc->pKernelNames) {
+    *m_pProgDesc->pKernelNames = pKernelNames.release();
+  }
+
   return resultCode;
 }

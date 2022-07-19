@@ -277,19 +277,23 @@ void CompileTask::Cancel()
     SetComplete(CL_BUILD_ERROR);
 }
 
-static void getAllKernelNamesFromSource(
-        SharedPtr<Program> *ppInputLinkProgs,
-        std::vector<std::vector<std::string>> &WithSourceKernelNames,
-        unsigned int numInputPrograms) {
+static void getAllKernelNamesFromSource(SharedPtr<Program> *ppInputLinkProgs,
+                                        char *AllKernelNames,
+                                        unsigned int numInputPrograms,
+                                        vector<string> &WithSourceKernelNames) {
+    // Names between input programs are separated by ';'
+    // Names in a program are separated by ','
+    vector<string> ProgKernelNames;
+    SplitStringAllowEmpty(AllKernelNames, ';', ProgKernelNames);
+    assert(ProgKernelNames.size() >= numInputPrograms);
 
-    assert(WithSourceKernelNames.size() >= numInputPrograms);
-
-    std::vector<std::vector<std::string>> TempKernelNames;
     for (unsigned int I = 0; I < numInputPrograms; ++I)
-        if (ppInputLinkProgs[I].DynamicCast<ProgramWithSource>())
-            TempKernelNames.push_back(WithSourceKernelNames[I]);
-
-     WithSourceKernelNames.assign(TempKernelNames.begin(), TempKernelNames.end());
+        if (ppInputLinkProgs[I].DynamicCast<ProgramWithSource>()) {
+            vector<string> KernelNames;
+            SplitString(ProgKernelNames[I], ',', KernelNames);
+            WithSourceKernelNames.insert(WithSourceKernelNames.end(),
+                                         KernelNames.begin(), KernelNames.end());
+        }
 }
 
 LinkTask::LinkTask(_cl_context_int*             context,
@@ -336,6 +340,9 @@ bool LinkTask::Execute()
     clLocalArray<const void*> arrBinaries(m_uiNumPrograms);
     clLocalArray<size_t> arrBinariesSizes(m_uiNumPrograms);
 
+    // Will get all kernel names when LinkTask parse all input programs' IR
+    auto_ptr_ex<char, ArrayDP<char> > pKernelNames;
+
     if (useInputPrograms)
     {
         // user provided input programs
@@ -364,14 +371,14 @@ bool LinkTask::Execute()
                                    &uiOutBinarySize,
                                    linkLog,
                                    &bIsLibrary,
-                                   &m_pProg->getWithSourceKernelName());
+                                   pKernelNames.getOutPtr());
     }
 
     // filter to get all kernels name which come from ProgramWithSource
     if (useInputPrograms)
-        getAllKernelNamesFromSource(m_ppPrograms,
-                                    m_pProg->getWithSourceKernelName(),
-                                    m_uiNumPrograms);
+        getAllKernelNamesFromSource(m_ppPrograms, pKernelNames.get(),
+                                    m_uiNumPrograms,
+                                    m_pProg->getWithSourceKernelName());
 
     if (0 == uiOutBinarySize)
     {
