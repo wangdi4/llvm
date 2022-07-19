@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -opaque-pointers -S -wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 ; RUN: opt -opaque-pointers -S -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 
 ; This test case checks that the assume intrinsic was removed and the virtual
