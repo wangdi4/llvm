@@ -83,6 +83,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeStripNonDebugSymbolsPass(Registry);
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeWholeProgramDevirtPass(Registry);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -112,6 +113,8 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0e3447bf8a3aa1b70fa5fb61228a9150c9ea1e5b
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

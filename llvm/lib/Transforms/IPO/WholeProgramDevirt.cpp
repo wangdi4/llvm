@@ -829,6 +829,7 @@ struct DevirtIndex {
 
   void run();
 };
+<<<<<<< HEAD
 
 struct WholeProgramDevirt : public ModulePass {
   static char ID;
@@ -930,6 +931,10 @@ llvm::createWholeProgramDevirtPass(ModuleSummaryIndex *ExportSummary,
   return new WholeProgramDevirt(ExportSummary, ImportSummary);
 }
 
+=======
+} // end anonymous namespace
+
+>>>>>>> 0e3447bf8a3aa1b70fa5fb61228a9150c9ea1e5b
 PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                                               ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
