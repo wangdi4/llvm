@@ -1677,9 +1677,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // control flow integrity are enabled.
   PM.add(createGlobalSplitPass());
 
-  // Apply whole-program devirtualization and virtual constant propagation.
-  PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
-
   // That's all we need at opt level 1.
   if (OptLevel == 1)
     return;
@@ -2407,22 +2404,6 @@ void PassManagerBuilder::populateThinLTOPassManager(
   if (VerifyInput)
     PM.add(createVerifierPass());
 
-  if (ImportSummary) {
-    // This pass imports type identifier resolutions for whole-program
-    // devirtualization and CFI. It must run early because other passes may
-    // disturb the specific instruction patterns that these passes look for,
-    // creating dependencies on resolutions that may not appear in the summary.
-    //
-    // For example, GVN may transform the pattern assume(type.test) appearing in
-    // two basic blocks into assume(phi(type.test, type.test)), which would
-    // transform a dependency on a WPD resolution into a dependency on a type
-    // identifier resolution for CFI.
-    //
-    // Also, WPD has access to more precise information than ICP and can
-    // devirtualize more effectively, so it should operate on the IR first.
-    PM.add(createWholeProgramDevirtPass(nullptr, ImportSummary));
-  }
-
   populateModulePassManager(PM);
 
   if (VerifyOutput)
@@ -2440,12 +2421,6 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 
   if (OptLevel != 0)
     addLTOOptimizationPasses(PM);
-  else {
-    // The whole-program-devirt pass needs to run at -O0 because only it knows
-    // about the llvm.type.checked.load intrinsic: it needs to both lower the
-    // intrinsic itself and handle it in the summary.
-    PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
-  }
 
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.
