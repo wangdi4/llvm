@@ -19,18 +19,6 @@ defvar broadcast_extended_types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64
 
 let VectorAttrs = [KERNEL_CALL_ONCE] in {
 
-let NeedForwardDecl = 1, Types = [ v1u32 ],
-   Attrs = [OVERLOADABLE] in {
-  def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_max_sub_group_size : OclBuiltin<"get_max_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_num_sub_groups : OclBuiltin<"get_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_enqueued_num_sub_groups : OclBuiltin<"get_enqueued_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_sub_group_id : OclBuiltin<"get_sub_group_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def get_sub_group_local_id : OclBuiltin<"get_sub_group_local_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
-  def sub_group_barrier : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence), [], [], 1, 0>;
-  def sub_group_barrier_with_scope : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence, memory_scope:$scope), [], [], 1, 0>;
-}
-
 //
 // Ballot (NEO-like)
 //
