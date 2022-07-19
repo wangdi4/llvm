@@ -903,10 +903,6 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     assert(VConflictIndex && "Conflict index is expected.");
     VConflictIndex->setName("vconflict.index");
 
-    if (VConflictStore->getOperand(0) == VConflictLoad)
-      return reportMatchFail(
-          "VConflict idiom load could not be a VConflict store operand.");
-
     // Collect the instructions of VConflict region by checking the uses of
     // VConflictLoad. In the simplest case, one value of the data of store
     // instruction is the load instruction and the other one is the value:
@@ -983,20 +979,19 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // Collect the live-ins of VConflict region. We check if any operands of the
     // VConflct region's instructions have definition outside of the region.
     SetVector<VPValue *> RgnLiveIns;
+    RgnLiveIns.insert(VConflictLoad);
     for (auto *VPInst : RegionInsns) {
       for (auto *Op : VPInst->operands()) {
         if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op))
           continue;
         if (is_contained(RegionInsns, Op))
           continue;
-        if (cast<VPInstruction>(Op) == VConflictLoad) {
-          // We want VConflictLoad to be the third operand of VConflict
-          // instruction.
-          continue;
-        }
         RgnLiveIns.insert(Op);
       }
     }
+
+    if (RgnLiveIns.contains(VConflictStore->getOperand(0)))
+      return reportMatchFail("VConflict store operand cannot be a live-in.");
 
     // Create new region and fill it with instructions, live-ins and live-outs.
     auto Region =
@@ -1021,13 +1016,6 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // by the region.
     int LInIt = 0;
     SmallVector<std::unique_ptr<VPValue>, 2> RenamedLiveIns;
-    // VConflictLoad is also a live-in for VPGeneralMemOptConflict. Therefore,
-    // we need to rename it.
-    auto NewValue = std::make_unique<VPValue>(VConflictLoad->getType());
-    NewValue->setName("live.in" + std::to_string(LInIt));
-    VConflictLoad->replaceAllUsesWithInRegion(NewValue.get(), VConflictBBs);
-    RenamedLiveIns.push_back(std::move(NewValue));
-    LInIt++;
     for (auto *LIn : RgnLiveIns) {
       auto NewValue = std::make_unique<VPValue>(LIn->getType());
       NewValue->setName("live.in" + std::to_string(LInIt));
@@ -1049,8 +1037,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     VPBldr.setInsertPoint(VConflictStore);
     auto *Conflict = VPBldr.create<VPGeneralMemOptConflict>(
         "vp.general.mem.opt.conflict", VConflictStore->getOperand(0)->getType(),
-        VConflictIndex, std::move(Region), VConflictLoad,
-        RgnLiveIns.getArrayRef());
+        VConflictIndex, std::move(Region), RgnLiveIns.getArrayRef());
     // Update VPConflictStore's first operand with VPGeneralMemOptConflict.
     VConflictStore->setOperand(0, Conflict);
   }

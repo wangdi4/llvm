@@ -4130,7 +4130,7 @@ public:
   // mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
   // the region.
   VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
-                          std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
+                          std::unique_ptr<VPRegion> Rgn,
                           ArrayRef<VPValue *> Params)
       : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
         Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
@@ -4139,8 +4139,9 @@ public:
     // Region has the instructions of VConflict pattern that should be included
     // in the loop that we generate for optimized general conflict.
     addOperand(Region.get());
-    // Add conflict load as operand.
-    addOperand(VConflictLoad);
+    assert(Params.size() > 0 && isa<VPInstruction>(Params[0]) &&
+           cast<VPInstruction>(Params[0])->getOpcode() == Instruction::Load &&
+           "VConflictLoad is expected to be the third operand.");
     for (auto *P : Params)
       // There is an implicit mapping between the operands [2:] of
       // VPGeneralMemOptConflict and the live-ins of the region.
@@ -4169,8 +4170,8 @@ public:
 
   VPGeneralMemOptConflict *cloneImpl() const override {
     return new VPGeneralMemOptConflict(
-        getType(), getOperand(0), Region->clone(), getOperand(2),
-        ArrayRef<VPValue *>(op_begin() + 3, op_end()));
+        getType(), getConflictIndex(), Region->clone(),
+        ArrayRef<VPValue *>(op_begin() + 2, op_end()));
   }
 
 private:
