@@ -35,7 +35,6 @@
 
 namespace llvm {
 class Function;
-class FunctionPass;
 class Module;
 class StringRef;
 class raw_ostream;
