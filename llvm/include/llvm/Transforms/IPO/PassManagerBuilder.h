@@ -184,9 +184,6 @@ public:
   bool VerifyInput;
   bool VerifyOutput;
   bool MergeFunctions;
-  bool PrepareForLTO;
-  bool PrepareForThinLTO;
-  bool PerformThinLTO;
   bool DivergentTarget;
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;

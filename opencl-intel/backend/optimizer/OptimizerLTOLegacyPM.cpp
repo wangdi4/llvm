@@ -71,8 +71,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.DisableUnrollLoops = false;
   PMBuilder.LoopsInterleaved = false;
   PMBuilder.MergeFunctions = false;
-  PMBuilder.PrepareForThinLTO = false;
-  PMBuilder.PrepareForLTO = false;
   PMBuilder.RerollLoops = false;
 
   DPCPPForceOptnone = PMBuilder.OptLevel == 0;
@@ -87,8 +85,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
     auto Params =
-        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
-                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO);
+        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel, false, false);
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }

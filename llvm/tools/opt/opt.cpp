@@ -403,11 +403,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   if (TM)
     TM->adjustPassManager(Builder);
 
-#if INTEL_CUSTOMIZATION
-  if (PrepareForLTOFlag)
-    Builder.PrepareForLTO = true;
-#endif // INTEL_CUSTOMIZATION
-
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
