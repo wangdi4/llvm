@@ -498,7 +498,7 @@ public:
   virtual std::pair<BasicBlock *, Value *> createVectorizedLoopSkeleton();
 
   /// Widen a single call instruction within the innermost loop.
-  void widenCallInstruction(CallInst &I, VPValue *Def, VPUser &ArgOperands,
+  void widenCallInstruction(CallInst &CI, VPValue *Def, VPUser &ArgOperands,
                             VPTransformState &State);
 
   /// Fix the vectorized code, taking care of header phi's, live-outs, and more.
@@ -4235,27 +4235,26 @@ static bool mayDivideByZero(Instruction &I) {
   return !CInt || CInt->isZero();
 }
 
-void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
+void InnerLoopVectorizer::widenCallInstruction(CallInst &CI, VPValue *Def,
                                                VPUser &ArgOperands,
                                                VPTransformState &State) {
-  assert(!isa<DbgInfoIntrinsic>(I) &&
+  assert(!isa<DbgInfoIntrinsic>(CI) &&
          "DbgInfoIntrinsic should have been dropped during VPlan construction");
-  State.setDebugLocFromInst(&I);
-
-  auto *CI = cast<CallInst>(&I);
+  State.setDebugLocFromInst(&CI);
 
   SmallVector<Type *, 4> Tys;
-  for (Value *ArgOperand : CI->args())
+  for (Value *ArgOperand : CI.args())
     Tys.push_back(ToVectorTy(ArgOperand->getType(), VF.getKnownMinValue()));
 
-  Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
+  Intrinsic::ID ID = getVectorIntrinsicIDForCall(&CI, TLI);
 
   // The flag shows whether we use Intrinsic or a usual Call for vectorized
   // version of the instruction.
   // Is it beneficial to perform intrinsic call compared to lib call?
   bool NeedToScalarize = false;
-  InstructionCost CallCost = Cost->getVectorCallCost(CI, VF, NeedToScalarize);
-  InstructionCost IntrinsicCost = ID ? Cost->getVectorIntrinsicCost(CI, VF) : 0;
+  InstructionCost CallCost = Cost->getVectorCallCost(&CI, VF, NeedToScalarize);
+  InstructionCost IntrinsicCost =
+      ID ? Cost->getVectorIntrinsicCost(&CI, VF) : 0;
   bool UseVectorIntrinsic = ID && IntrinsicCost <= CallCost;
   assert((UseVectorIntrinsic || !NeedToScalarize) &&
          "Instruction should be scalarized elsewhere.");
@@ -4263,7 +4262,7 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
          "Either the intrinsic cost or vector call cost must be valid");
 
   for (unsigned Part = 0; Part < UF; ++Part) {
-    SmallVector<Type *, 2> TysForDecl = {CI->getType()};
+    SmallVector<Type *, 2> TysForDecl = {CI.getType()};
     SmallVector<Value *, 4> Args;
     for (auto &I : enumerate(ArgOperands.operands())) {
       // Some intrinsics have a scalar argument - don't replace it with a
@@ -4283,25 +4282,25 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
     if (UseVectorIntrinsic) {
       // Use vector version of the intrinsic.
       if (VF.isVector())
-        TysForDecl[0] = VectorType::get(CI->getType()->getScalarType(), VF);
+        TysForDecl[0] = VectorType::get(CI.getType()->getScalarType(), VF);
       Module *M = State.Builder.GetInsertBlock()->getModule();
       VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
       assert(VectorF && "Can't retrieve vector intrinsic.");
     } else {
       // Use vector version of the function call.
-      const VFShape Shape = VFShape::get(*CI, VF, false /*HasGlobalPred*/);
+      const VFShape Shape = VFShape::get(CI, VF, false /*HasGlobalPred*/);
 #ifndef NDEBUG
-      assert(VFDatabase(*CI).getVectorizedFunction(Shape) != nullptr &&
+      assert(VFDatabase(CI).getVectorizedFunction(Shape) != nullptr &&
              "Can't create vector function.");
 #endif
-        VectorF = VFDatabase(*CI).getVectorizedFunction(Shape);
+      VectorF = VFDatabase(CI).getVectorizedFunction(Shape);
     }
       SmallVector<OperandBundleDef, 1> OpBundles;
-      CI->getOperandBundlesAsDefs(OpBundles);
+      CI.getOperandBundlesAsDefs(OpBundles);
       CallInst *V = Builder.CreateCall(VectorF, Args, OpBundles);
 
       if (isa<FPMathOperator>(V))
-        V->copyFastMathFlags(CI);
+        V->copyFastMathFlags(&CI);
 
 #if INTEL_CUSTOMIZATION
       // Make sure we don't lose attributes at the call site. E.g., IMF
@@ -4311,7 +4310,7 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
 #endif // INTEL_CUSTOMIZATION
 
       State.set(Def, V, Part);
-      State.addMetadata(V, &I);
+      State.addMetadata(V, &CI);
   }
 }
 
