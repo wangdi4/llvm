@@ -382,12 +382,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   PMB.LoopVectorize = true;
   PMB.SLPVectorize = true;
   PMB.OptLevel = Conf.OptLevel;
-  PMB.PGOSampleUse = Conf.SampleProfile;
-  PMB.EnablePGOCSInstrGen = Conf.RunCSIRInstr;
-  if (!Conf.RunCSIRInstr && !Conf.CSIRProfile.empty()) {
-    PMB.EnablePGOCSInstrUse = true;
-    PMB.PGOInstrUse = Conf.CSIRProfile;
-  }
   if (IsThinLTO)
     PMB.populateThinLTOPassManager(passes);
   else

@@ -191,25 +191,11 @@ public:
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
   /// We are after SLP pass.
   bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
-
-  /// Enable profile instrumentation pass.
-  bool EnablePGOInstrGen;
-  /// Enable profile context sensitive instrumentation pass.
-  bool EnablePGOCSInstrGen;
-  /// Enable profile context sensitive profile use pass.
-  bool EnablePGOCSInstrUse;
-  /// Profile data file name that the instrumentation will be written to.
-  std::string PGOInstrGen;
-  /// Path of the profile data file.
-  std::string PGOInstrUse;
-  /// Path of the sample Profile data file.
-  std::string PGOSampleUse;
 
 #if INTEL_CUSTOMIZATION
   /// Add the information related to whole program utils
@@ -217,8 +203,6 @@ public:
     this->WPUtils = std::move(WPUtils);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> f5021155617ebe068bafca83240d8534e2d72235
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
@@ -262,7 +246,6 @@ private:
 #endif // INTEL_CUSTOMIZATION
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
-  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION

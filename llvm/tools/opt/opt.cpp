@@ -403,39 +403,11 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   if (TM)
     TM->adjustPassManager(Builder);
 
-<<<<<<< HEAD
-  switch (PGOKindFlag) {
-  case InstrGen:
-    Builder.EnablePGOInstrGen = true;
-    Builder.PGOInstrGen = ProfileFile;
-    break;
-  case InstrUse:
-    Builder.PGOInstrUse = ProfileFile;
-    break;
-  case SampleUse:
-    Builder.PGOSampleUse = ProfileFile;
-    break;
-  default:
-    break;
-  }
-
-  switch (CSPGOKindFlag) {
-  case CSInstrGen:
-    Builder.EnablePGOCSInstrGen = true;
-    break;
-  case CSInstrUse:
-    Builder.EnablePGOCSInstrUse = true;
-    break;
-  default:
-    break;
-  }
 #if INTEL_CUSTOMIZATION
   if (PrepareForLTOFlag)
     Builder.PrepareForLTO = true;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> f5021155617ebe068bafca83240d8534e2d72235
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
