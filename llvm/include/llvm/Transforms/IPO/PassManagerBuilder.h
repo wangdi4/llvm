@@ -197,19 +197,6 @@ public:
   bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
 
-  /// Enable profile instrumentation pass.
-  bool EnablePGOInstrGen;
-  /// Enable profile context sensitive instrumentation pass.
-  bool EnablePGOCSInstrGen;
-  /// Enable profile context sensitive profile use pass.
-  bool EnablePGOCSInstrUse;
-  /// Profile data file name that the instrumentation will be written to.
-  std::string PGOInstrGen;
-  /// Path of the profile data file.
-  std::string PGOInstrUse;
-  /// Path of the sample Profile data file.
-  std::string PGOSampleUse;
-
 #if INTEL_CUSTOMIZATION
   /// Add the information related to whole program utils
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
@@ -259,7 +246,6 @@ private:
 #endif // INTEL_CUSTOMIZATION
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
-  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION

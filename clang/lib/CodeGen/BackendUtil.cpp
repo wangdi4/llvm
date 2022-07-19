@@ -841,35 +841,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
       MPM.add(createStripSymbolsPass(true));
   }
 
-  bool hasIRInstr = false;
-  if (CodeGenOpts.hasProfileIRInstr()) {
-    PMBuilder.EnablePGOInstrGen = true;
-    hasIRInstr = true;
-  }
-  if (CodeGenOpts.hasProfileCSIRInstr()) {
-    assert(!CodeGenOpts.hasProfileCSIRUse() &&
-           "Cannot have both CSProfileUse pass and CSProfileGen pass at the "
-           "same time");
-    assert(!hasIRInstr &&
-           "Cannot have both ProfileGen pass and CSProfileGen pass at the "
-           "same time");
-    PMBuilder.EnablePGOCSInstrGen = true;
-    hasIRInstr = true;
-  }
-  if (hasIRInstr) {
-    if (!CodeGenOpts.InstrProfileOutput.empty())
-      PMBuilder.PGOInstrGen = CodeGenOpts.InstrProfileOutput;
-    else
-      PMBuilder.PGOInstrGen = getDefaultProfileGenName();
-  }
-  if (CodeGenOpts.hasProfileIRUse()) {
-    PMBuilder.PGOInstrUse = CodeGenOpts.ProfileInstrumentUsePath;
-    PMBuilder.EnablePGOCSInstrUse = CodeGenOpts.hasProfileCSIRUse();
-  }
-
-  if (!CodeGenOpts.SampleProfileFile.empty())
-    PMBuilder.PGOSampleUse = CodeGenOpts.SampleProfileFile;
-
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
 }

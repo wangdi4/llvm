@@ -11,11 +11,6 @@
 ; now produce only a single inlining report per compilation.
 
 ; RUN: llvm-profdata merge %S/Inputs/soatoaos01-inlpgo.proftext -o %t.profdata
-; RUN: opt -enable-new-pm=0 -enable-dtrans -disable-output -O2 -prepare-for-lto -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
-
-
-; Test without the LTO configuration
-; RUN: opt -enable-new-pm=0 -disable-output -O2 -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 ; New pass manager
 ; RUN: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=0xe807 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost -enable-npm-dtrans %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
