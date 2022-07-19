@@ -58,8 +58,16 @@ exit:
 define i16 @test(i16 %arg) {
 ; CHECK-LABEL: @test(
 ; CHECK-NEXT:  bb6.i.i.i:
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[DATA_I_SROA_0_0_INSERT_INSERT:%.*]] = call i16 @llvm.bswap.i16(i16 [[ARG:%.*]])
 ; CHECK-NEXT:    ret i16 [[DATA_I_SROA_0_0_INSERT_INSERT]]
+=======
+; INTEL_CUSTOMIZATION
+; under O2 we inline the function and the bswap ends up here
+; CHECK-NEXT:    [[DATA_I_SROA_0_0_INSERT_INSERT:%.*]] = call i16 @llvm.bswap.i16(i16 [[ARG:%.*]])
+; CHECK-NEXT:    ret i16 [[DATA_I_SROA_0_0_INSERT_INSERT]]
+; end INTEL_CUSTOMIZATION
+>>>>>>> c021a7248a4c1ba7909d0a24f040bc6665d34652
 ;
   %ret = call i16 @helper(i16 %arg, i64 1)
   ret i16 %ret

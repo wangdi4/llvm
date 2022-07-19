@@ -1,4 +1,9 @@
 // RUN: %libomptarget-compile-run-and-check-generic
+// INTEL_CUSTOMIZATION
+// Disable this test until build system starts picking up the latest host
+// runtime containing a correct fix.
+// UNSUPPORTED: x86_64-pc-linux-gnu, x86_64-pc-linux-gnu-LTO
+// end INTEL_CUSTOMIZATION
 
 #include <stdio.h>
 #include <omp.h>
