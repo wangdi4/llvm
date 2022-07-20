@@ -1114,6 +1114,8 @@ void ToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
   switch (Type) {
   case ToolChain::CST_Libcxx:
     CmdArgs.push_back("-lc++");
+    if (Args.hasArg(options::OPT_fexperimental_library))
+      CmdArgs.push_back("-lc++experimental");
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT__intel))
       CmdArgs.push_back("-lc++abi");
