@@ -29,6 +29,7 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
+<<<<<<< HEAD
 set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
@@ -45,9 +46,23 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND LIBOMPTARGET_SRC_FILES ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/src/xpti_proxy.cpp)
   endif()
 endif(INTEL_CUSTOMIZATION)
+=======
+add_llvm_library(omptarget
+  SHARED
 
-set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
+  api.cpp
+  device.cpp
+  interface.cpp
+  interop.cpp
+  omptarget.cpp
+  rtl.cpp
+  LegacyAPI.cpp
+>>>>>>> 70039be62774ae8fc53bb3b8f1bdbd2b0efb3355
 
+  ADDITIONAL_HEADER_DIRS
+  ${LIBOMPTARGET_INCLUDE_DIR}
+
+<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
 endif(INTEL_CUSTOMIZATION)
@@ -131,3 +146,15 @@ if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
 endif()
 # end INTEL_CUSTOMIZATION
 # end INTEL_COLLAB
+=======
+  LINK_COMPONENTS
+  Support
+  Object
+
+  LINK_LIBS
+  ${CMAKE_DL_LIBS}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
+)
+
+target_include_directories(omptarget PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
+>>>>>>> 70039be62774ae8fc53bb3b8f1bdbd2b0efb3355
