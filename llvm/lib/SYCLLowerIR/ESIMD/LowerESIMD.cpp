@@ -31,6 +31,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/ESIMD/ESIMDUtils.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -699,10 +700,8 @@ static const ESIMDIntrinDesc &getIntrinDesc(StringRef SrcSpelling) {
   const auto &Table = getIntrinTable();
   auto It = Table.find(SrcSpelling.str());
 
-  if (It == Table.end()) {
-    Twine Msg("unknown ESIMD intrinsic: " + SrcSpelling);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
+  llvm::esimd::assert_and_diag(It != Table.end(),
+                               "unknown ESIMD intrinsic: ", SrcSpelling);
   return It->second;
 }
 
@@ -950,7 +949,7 @@ static void updateGenXMDNodes(llvm::Function *F, genx::KernelMDOp MD,
                               uint64_t NewVal) {
   llvm::NamedMDNode *GenXKernelMD =
       F->getParent()->getNamedMetadata(GENX_KERNEL_METADATA);
-  assert(GenXKernelMD && "invalid genx.kernels metadata");
+  llvm::esimd::assert_and_diag(GenXKernelMD, "invalid genx.kernels metadata");
 
   SmallPtrSet<Function *, 32> FunctionsVisited;
   SmallVector<Function *, 32> Worklist{F};
@@ -993,9 +992,8 @@ static void updateGenXMDNodes(llvm::Function *F, genx::KernelMDOp MD,
 static void translateSLMInit(CallInst &CI) {
   auto F = CI.getFunction();
   auto *ArgV = CI.getArgOperand(0);
-  if (!isa<ConstantInt>(ArgV))
-    llvm::report_fatal_error(llvm::Twine(__FILE__ " ") +
-                             "integral constant is expected for slm size");
+  llvm::esimd::assert_and_diag(isa<ConstantInt>(ArgV), __FILE__,
+                               " integral constant is expected for slm size");
 
   uint64_t NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero slm bytes being requested");
@@ -1007,10 +1005,9 @@ static void translateSLMInit(CallInst &CI) {
 static void translateNbarrierInit(CallInst &CI) {
   auto F = CI.getFunction();
   auto *ArgV = CI.getArgOperand(0);
-  if (!isa<ConstantInt>(ArgV))
-    llvm::report_fatal_error(
-        llvm::Twine(__FILE__ " ") +
-        "integral constant is expected for named barrier count");
+  llvm::esimd::assert_and_diag(
+      isa<ConstantInt>(ArgV), __FILE__,
+      " integral constant is expected for named barrier count");
 
   auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
   assert(NewVal != 0 && "zero named barrier count being requested");
@@ -1020,20 +1017,18 @@ static void translateNbarrierInit(CallInst &CI) {
 static void translatePackMask(CallInst &CI) {
   using Demangler = id::ManglingParser<SimpleAllocator>;
   Function *F = CI.getCalledFunction();
-  assert(F && "function to translate is invalid");
+  llvm::esimd::assert_and_diag(F, "function to translate is invalid");
 
   StringRef MnglName = F->getName();
   Demangler Parser(MnglName.begin(), MnglName.end());
   id::Node *AST = Parser.parse();
 
-  if (!AST || !Parser.ForwardTemplateRefs.empty()) {
-    Twine Msg("failed to demangle ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
-  if (AST->getKind() != id::Node::KFunctionEncoding) {
-    Twine Msg("bad ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
+  llvm::esimd::assert_and_diag(
+      AST && Parser.ForwardTemplateRefs.empty(),
+      "failed to demangle ESIMD intrinsic: ", MnglName);
+  llvm::esimd::assert_and_diag(AST->getKind() == id::Node::KFunctionEncoding,
+                               "bad ESIMD intrinsic: ", MnglName);
+
   auto *FE = static_cast<id::FunctionEncoding *>(AST);
   llvm::LLVMContext &Context = CI.getContext();
   Type *TTy = nullptr;
@@ -1062,19 +1057,17 @@ static void translatePackMask(CallInst &CI) {
 static void translateUnPackMask(CallInst &CI) {
   using Demangler = id::ManglingParser<SimpleAllocator>;
   Function *F = CI.getCalledFunction();
-  assert(F && "function to translate is invalid");
+  llvm::esimd::assert_and_diag(F, "function to translate is invalid");
   StringRef MnglName = F->getName();
   Demangler Parser(MnglName.begin(), MnglName.end());
   id::Node *AST = Parser.parse();
 
-  if (!AST || !Parser.ForwardTemplateRefs.empty()) {
-    Twine Msg("failed to demangle ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
-  if (AST->getKind() != id::Node::KFunctionEncoding) {
-    Twine Msg("bad ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
+  llvm::esimd::assert_and_diag(
+      AST && Parser.ForwardTemplateRefs.empty(),
+      "failed to demangle ESIMD intrinsic: ", MnglName);
+  llvm::esimd::assert_and_diag(AST->getKind() == id::Node::KFunctionEncoding,
+                               "bad ESIMD intrinsic: ", MnglName);
+
   auto *FE = static_cast<id::FunctionEncoding *>(AST);
   llvm::LLVMContext &Context = CI.getContext();
   Type *TTy = nullptr;
@@ -1214,8 +1207,9 @@ void translateFmuladd(CallInst *CI) {
 
 // Translates an LLVM intrinsic to a form, digestable by the BE.
 bool translateLLVMIntrinsic(CallInst *CI) {
-  Function *F = CI->getCalledFunction() ? CI->getCalledFunction() : nullptr;
-  assert(F && F->isIntrinsic());
+  Function *F = CI->getCalledFunction();
+  llvm::esimd::assert_and_diag(F && F->isIntrinsic(),
+                               "malformed llvm intrinsic call");
 
   switch (F->getIntrinsicID()) {
   case Intrinsic::assume:
@@ -1297,7 +1291,8 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
       NewInst = generateGenXCall(EEI, "group.count", true);
     }
 
-    assert(NewInst && "Load from global SPIRV builtin was not translated");
+    llvm::esimd::assert_and_diag(
+        NewInst, "Load from global SPIRV builtin was not translated");
     EEI->replaceAllUsesWith(NewInst);
     InstsToErase.push_back(EEI);
   }
@@ -1457,19 +1452,17 @@ static Function *createTestESIMDDeclaration(const ESIMDIntrinDesc &Desc,
 static void translateESIMDIntrinsicCall(CallInst &CI) {
   using Demangler = id::ManglingParser<SimpleAllocator>;
   Function *F = CI.getCalledFunction();
-  assert(F && "function to translate is invalid");
+  llvm::esimd::assert_and_diag(F, "function to translate is invalid");
   StringRef MnglName = F->getName();
   Demangler Parser(MnglName.begin(), MnglName.end());
   id::Node *AST = Parser.parse();
 
-  if (!AST || !Parser.ForwardTemplateRefs.empty()) {
-    Twine Msg("failed to demangle ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
-  if (AST->getKind() != id::Node::KFunctionEncoding) {
-    Twine Msg("bad ESIMD intrinsic: " + MnglName);
-    llvm::report_fatal_error(Msg, false /*no crash diag*/);
-  }
+  llvm::esimd::assert_and_diag(
+      AST && Parser.ForwardTemplateRefs.empty(),
+      "failed to demangle ESIMD intrinsic: ", MnglName);
+  llvm::esimd::assert_and_diag(AST->getKind() == id::Node::KFunctionEncoding,
+                               "bad ESIMD intrinsic: ", MnglName);
+
   auto *FE = static_cast<id::FunctionEncoding *>(AST);
   id::StringView BaseNameV = FE->getName()->getBaseName();
 
