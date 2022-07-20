@@ -7,7 +7,7 @@
 ; #include <stdio.h>
 ; int main() {
 ;   int n = 2;
-;   int x[n];
+;   int x[n], y[n];
 ;
 ; #pragma omp target map(to:x, y)
 ;   printf("%p %p\n", x, y);
