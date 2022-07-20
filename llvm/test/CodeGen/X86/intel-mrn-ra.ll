@@ -10,7 +10,7 @@ define dso_local void @test_load(i8 %arg1, i16 %arg2, i64 %arg3, i8 %arg4, i8* %
 ; CHECK-NEXT:    pushl %esi
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %ebx
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %ebp
-; CHECK-NEXT:    movb {{[0-9]+}}(%esp), %cl
+; CHECK-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx
 ; CHECK-NEXT:    movzbl {{[0-9]+}}(%esp), %edi
 ; CHECK-NEXT:  .LBB0_1: # %bb1
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
