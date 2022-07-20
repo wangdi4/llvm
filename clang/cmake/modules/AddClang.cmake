@@ -174,25 +174,6 @@ macro(add_clang_tool name)
   if (NOT CLANG_BUILD_TOOLS)
     set(EXCLUDE_FROM_ALL ON)
   endif()
-<<<<<<< HEAD
-
-  add_clang_executable(${name} ${ARGN})
-  add_dependencies(${name} clang-resource-headers)
-
-  if (CLANG_BUILD_TOOLS)
-    get_target_export_arg(${name} Clang export_to_clangtargets)
-    install(TARGETS ${name}
-      ${export_to_clangtargets}
-# INTEL_CUSTOMIZATION
-      RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
-# end INTEL_CUSTOMIZATION
-      COMPONENT ${name})
-
-    if(NOT LLVM_ENABLE_IDE)
-      add_llvm_install_targets(install-${name}
-                               DEPENDS ${name}
-                               COMPONENT ${name})
-=======
   if(ARG_GENERATE_DRIVER AND LLVM_TOOL_LLVM_DRIVER_BUILD)
     set(get_obj_args ${ARGN})
     list(FILTER get_obj_args EXCLUDE REGEX "^SUPPORT_PLUGINS$")
@@ -206,7 +187,9 @@ macro(add_clang_tool name)
       get_target_export_arg(${name} Clang export_to_clangtargets)
       install(TARGETS ${name}
         ${export_to_clangtargets}
-        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+# INTEL_CUSTOMIZATION
+        RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
+# end INTEL_CUSTOMIZATION
         COMPONENT ${name})
 
       if(NOT LLVM_ENABLE_IDE)
@@ -215,7 +198,6 @@ macro(add_clang_tool name)
                                  COMPONENT ${name})
       endif()
       set_property(GLOBAL APPEND PROPERTY CLANG_EXPORTS ${name})
->>>>>>> 09d4dbc3829e91397f96d7d7f243440555adee87
     endif()
   endif()
 endmacro()
