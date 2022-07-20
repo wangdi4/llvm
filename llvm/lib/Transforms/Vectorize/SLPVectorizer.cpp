@@ -6724,7 +6724,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     return;
   }
 
-#if INTEL_CUSTOMIZATION
   // Don't go into catchswitch blocks, which can happen with PHIs.
   // Such blocks can only have PHIs and the catchswitch.  There is no
   // place to insert a shuffle if we need to, so just avoid that issue.
@@ -6733,7 +6732,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
     return;
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Check that every instruction appears once in this bundle.
   if (!TryToFindDuplicates(S))
