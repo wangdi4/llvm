@@ -1190,6 +1190,27 @@ struct AAPointerInfoImpl
   /// Statistic tracking for all AAPointerInfo implementations.
   /// See AbstractAttribute::trackStatistics().
   void trackPointerInfoStatistics(const IRPosition &IRP) const {}
+
+  /// Dump the state into \p O.
+  void dumpState(raw_ostream &O) {
+    for (auto &It : AccessBins) {
+      O << "[" << It.first.getOffset() << "-"
+        << It.first.getOffset() + It.first.getSize()
+        << "] : " << It.getSecond()->size() << "\n";
+      for (auto &Acc : *It.getSecond()) {
+        O << "     - " << Acc.getKind() << " - " << *Acc.getLocalInst() << "\n";
+        if (Acc.getLocalInst() != Acc.getRemoteInst())
+          O << "     -->                         " << *Acc.getRemoteInst()
+            << "\n";
+        if (!Acc.isWrittenValueYetUndetermined()) {
+          if (Acc.getWrittenValue())
+            O << "       - c: " << *Acc.getWrittenValue() << "\n";
+          else
+            O << "       - c: <unknown>\n";
+        }
+      }
+    }
+  }
 };
 
 struct AAPointerInfoFloating : public AAPointerInfoImpl {
@@ -1297,7 +1318,7 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
         Follow = true;
         return true;
       }
-      if (isa<CastInst>(Usr) || isa<SelectInst>(Usr))
+      if (isa<CastInst>(Usr) || isa<SelectInst>(Usr) || isa<ReturnInst>(Usr))
         return HandlePassthroughUser(Usr, OffsetInfoMap[CurPtr], Follow);
 
       // For PHIs we need to take care of the recurrence explicitly as the value
@@ -1389,36 +1410,30 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
       return false;
     };
     auto EquivalentUseCB = [&](const Use &OldU, const Use &NewU) {
-      if (OffsetInfoMap.count(NewU))
+      if (OffsetInfoMap.count(NewU)) {
+        LLVM_DEBUG({
+          if (!(OffsetInfoMap[NewU] == OffsetInfoMap[OldU])) {
+            dbgs() << "[AAPointerInfo] Equivalent use callback failed: "
+                   << OffsetInfoMap[NewU].Offset << " vs "
+                   << OffsetInfoMap[OldU].Offset << "\n";
+          }
+        });
         return OffsetInfoMap[NewU] == OffsetInfoMap[OldU];
+      }
       OffsetInfoMap[NewU] = OffsetInfoMap[OldU];
       return true;
     };
     if (!A.checkForAllUses(UsePred, *this, AssociatedValue,
                            /* CheckBBLivenessOnly */ true, DepClassTy::OPTIONAL,
-                           /* IgnoreDroppableUses */ true, EquivalentUseCB))
+                           /* IgnoreDroppableUses */ true, EquivalentUseCB)) {
+      LLVM_DEBUG(
+          dbgs() << "[AAPointerInfo] Check for all uses failed, abort!\n");
       return indicatePessimisticFixpoint();
+    }
 
     LLVM_DEBUG({
       dbgs() << "Accesses by bin after update:\n";
-      for (auto &It : AccessBins) {
-        dbgs() << "[" << It.first.getOffset() << "-"
-               << It.first.getOffset() + It.first.getSize()
-               << "] : " << It.getSecond()->size() << "\n";
-        for (auto &Acc : *It.getSecond()) {
-          dbgs() << "     - " << Acc.getKind() << " - " << *Acc.getLocalInst()
-                 << "\n";
-          if (Acc.getLocalInst() != Acc.getRemoteInst())
-            dbgs() << "     -->                         "
-                   << *Acc.getRemoteInst() << "\n";
-          if (!Acc.isWrittenValueYetUndetermined()) {
-            if (Acc.getWrittenValue())
-              dbgs() << "       - c: " << *Acc.getWrittenValue() << "\n";
-            else
-              dbgs() << "       - c: <unknown>\n";
-          }
-        }
-      }
+      dumpState(dbgs());
     });
 
     return Changed;
@@ -1491,6 +1506,12 @@ struct AAPointerInfoCallSiteArgument final : AAPointerInfoFloating {
                           << *MI << "\n");
         return indicatePessimisticFixpoint();
       }
+
+      LLVM_DEBUG({
+        dbgs() << "Accesses by bin after update:\n";
+        dumpState(dbgs());
+      });
+
       return Changed;
     }
 
@@ -7393,7 +7414,7 @@ bool AAMemoryBehaviorFloating::followUsersOfUseIn(Attributor &A, const Use &U,
                                                   const Instruction *UserI) {
   // The loaded value is unrelated to the pointer argument, no need to
   // follow the users of the load.
-  if (isa<LoadInst>(UserI))
+  if (isa<LoadInst>(UserI) || isa<ReturnInst>(UserI))
     return false;
 
   // By default we follow all uses assuming UserI might leak information on U,
@@ -9533,8 +9554,11 @@ private:
 
       for (auto *AAEdges : AAEdgesList) {
         if (AAEdges->hasUnknownCallee()) {
-          if (!CanReachUnknownCallee)
+          if (!CanReachUnknownCallee) {
+            LLVM_DEBUG(dbgs()
+                       << "[QueryResolver] Edges include unknown callee!\n");
             Change = ChangeStatus::CHANGED;
+          }
           CanReachUnknownCallee = true;
           return Change;
         }
@@ -9698,8 +9722,11 @@ public:
     // This is a hack for us to be able to cache queries.
     auto *NonConstThis = const_cast<AAFunctionReachabilityFunction *>(this);
     QueryResolver &InstQSet = NonConstThis->InstQueries[&Inst];
-    if (!AllKnown)
+    if (!AllKnown) {
+      LLVM_DEBUG(dbgs() << "[AAReachability] Not all reachable edges known, "
+                           "may reach unknown callee!\n");
       InstQSet.CanReachUnknownCallee = true;
+    }
 
     return InstQSet.isReachable(A, *NonConstThis, CallEdges, Fn);
   }
@@ -9732,8 +9759,11 @@ public:
         bool AllKnown =
             getReachableCallEdges(A, *Reachability, *InstPair.first, CallEdges);
         // Update will return change if we this effects any queries.
-        if (!AllKnown)
+        if (!AllKnown) {
+          LLVM_DEBUG(dbgs() << "[AAReachability] Not all reachable edges "
+                               "known, may reach unknown callee!\n");
           InstPair.second.CanReachUnknownCallee = true;
+        }
         Change |= InstPair.second.update(A, *this, CallEdges);
       }
     }
@@ -9746,8 +9776,11 @@ public:
         WholeFunction.Reachable.size() + WholeFunction.Unreachable.size();
 
     return "FunctionReachability [" +
-           std::to_string(WholeFunction.Reachable.size()) + "," +
-           std::to_string(QueryCount) + "]";
+           (canReachUnknownCallee()
+                ? "unknown"
+                : (std::to_string(WholeFunction.Reachable.size()) + "," +
+                   std::to_string(QueryCount))) +
+           "]";
   }
 
   void trackStatistics() const override {}
@@ -10113,8 +10146,12 @@ struct AAPotentialValuesFloating : AAPotentialValuesImpl {
     if (!AA::getPotentiallyLoadedValues(A, LI, PotentialCopies,
                                         PotentialValueOrigins, *this,
                                         UsedAssumedInformation,
-                                        /* OnlyExact */ true))
+                                        /* OnlyExact */ true)) {
+      LLVM_DEBUG(dbgs() << "[AAPotentialValues] Failed to get potentially "
+                           "loaded values for load instruction "
+                        << LI << "\n");
       return false;
+    }
 
     // Do not simplify loads that are only used in llvm.assume if we cannot also
     // remove all stores that may feed into the load. The reason is that the
@@ -10132,8 +10169,12 @@ struct AAPotentialValuesFloating : AAPotentialValuesImpl {
             return A.isAssumedDead(*I, this, /* LivenessAA */ nullptr,
                                    UsedAssumedInformation,
                                    /* CheckBBLivenessOnly */ false);
-          }))
+          })) {
+        LLVM_DEBUG(dbgs() << "[AAPotentialValues] Load is onl used by assumes "
+                             "and we cannot delete all the stores: "
+                          << LI << "\n");
         return false;
+      }
     }
 
     // Values have to be dynamically unique or we loose the fact that a
@@ -10146,8 +10187,12 @@ struct AAPotentialValuesFloating : AAPotentialValuesImpl {
       AllLocal &= AA::isValidInScope(*PC, getAnchorScope());
       return AA::isDynamicallyUnique(A, *this, *PC);
     });
-    if (!DynamicallyUnique)
+    if (!DynamicallyUnique) {
+      LLVM_DEBUG(dbgs() << "[AAPotentialValues] Not all potentially loaded "
+                           "values are dynamically unique: "
+                        << LI << "\n");
       return false;
+    }
 
     for (auto *PotentialCopy : PotentialCopies) {
       if (AllLocal) {
