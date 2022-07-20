@@ -897,6 +897,10 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     assert(VConflictIndex && "Conflict index is expected.");
     VConflictIndex->setName("vconflict.index");
 
+    if (VConflictStore->getOperand(0) == VConflictLoad)
+      return reportMatchFail(
+          "VConflict idiom load could not be a VConflict store operand.");
+
     // Collect the instructions of VConflict region by checking the uses of
     // VConflictLoad. In the simplest case, one value of the data of store
     // instruction is the load instruction and the other one is the value:
@@ -948,8 +952,10 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
         It.skipChildren();
         continue;
       }
-      if (!InsnsBetweenLoadStore.count(cast<VPInstruction>(*It)))
-        return reportMatchFail("VConflict load's use-chain escapes the region.");
+      if (!isa<VPInstruction>(*It) ||
+          !InsnsBetweenLoadStore.count(cast<VPInstruction>(*It)))
+        return reportMatchFail(
+            "VConflict load's use-chain escapes the region.");
       RegionInsns.push_back(cast<VPInstruction>(*It));
       It++;
     }
