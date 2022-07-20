@@ -117,7 +117,6 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializePGOInstrumentationUseLegacyPassPass(Registry); // INTEL
   initializePGOIndirectCallPromotionLegacyPassPass(Registry); // INTEL
   initializeMemorySanitizerLegacyPassPass(Registry); // INTEL
-  initializeInstrOrderFileLegacyPassPass(Registry);
   initializeThreadSanitizerLegacyPassPass(Registry); // INTEL
   initializeDataFlowSanitizerLegacyPassPass(Registry);
 }
