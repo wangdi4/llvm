@@ -923,12 +923,17 @@ macro(add_llvm_library name)
   endif()
 endmacro(add_llvm_library name)
 
+<<<<<<< HEAD
 macro(add_llvm_executable name)
   cmake_parse_arguments(ARG
     "DISABLE_LLVM_LINK_LLVM_DYLIB;IGNORE_EXTERNALIZE_DEBUGINFO;NO_INSTALL_RPATH;SUPPORT_PLUGINS;GENERATE_DRIVER;CUSTOM_WIN_VER"
     "ENTITLEMENTS;BUNDLE_PATH"
     "DEPENDS"
     ${ARGN})
+=======
+macro(generate_llvm_objects name)
+  cmake_parse_arguments(ARG "GENERATE_DRIVER" "" "DEPENDS" ${ARGN})
+>>>>>>> 09d4dbc3829e91397f96d7d7f243440555adee87
 
   llvm_process_sources( ALL_FILES ${ARG_UNPARSED_ARGUMENTS} )
 
@@ -974,12 +979,24 @@ macro(add_llvm_executable name)
     target_link_libraries(${obj_name} ${LLVM_PTHREAD_LIB})
     llvm_config(${obj_name} ${USE_SHARED} ${LLVM_LINK_COMPONENTS} )
   endif()
+endmacro()
 
+<<<<<<< HEAD
   # INTEL_CUSTOMIZATION
   if(NOT ARG_CUSTOM_WIN_VER)
     add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
   endif()
   # end INTEL_CUSTOMIZATION
+=======
+macro(add_llvm_executable name)
+  cmake_parse_arguments(ARG
+    "DISABLE_LLVM_LINK_LLVM_DYLIB;IGNORE_EXTERNALIZE_DEBUGINFO;NO_INSTALL_RPATH;SUPPORT_PLUGINS"
+    "ENTITLEMENTS;BUNDLE_PATH"
+    ""
+    ${ARGN})
+  generate_llvm_objects(${name} ${ARG_UNPARSED_ARGUMENTS})
+  add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
+>>>>>>> 09d4dbc3829e91397f96d7d7f243440555adee87
 
   if(XCODE)
     # Note: the dummy.cpp source file provides no definitions. However,
@@ -1346,30 +1363,36 @@ if(NOT LLVM_TOOLCHAIN_TOOLS)
 endif()
 
 macro(add_llvm_tool name)
+  cmake_parse_arguments(ARG "DEPENDS;GENERATE_DRIVER" "" "" ${ARGN})
   if( NOT LLVM_BUILD_TOOLS )
     set(EXCLUDE_FROM_ALL ON)
   endif()
-  add_llvm_executable(${name} ${ARGN})
+  if(ARG_GENERATE_DRIVER AND LLVM_TOOL_LLVM_DRIVER_BUILD)
+    generate_llvm_objects(${name} ${ARGN})
+    add_custom_target(${name} DEPENDS llvm-driver)
+  else()
+    add_llvm_executable(${name} ${ARGN})
 
-  if ( ${name} IN_LIST LLVM_TOOLCHAIN_TOOLS OR NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
-    if( LLVM_BUILD_TOOLS )
-      get_target_export_arg(${name} LLVM export_to_llvmexports)
-      install(TARGETS ${name}
-              ${export_to_llvmexports}
-              RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
-              COMPONENT ${name})
+    if ( ${name} IN_LIST LLVM_TOOLCHAIN_TOOLS OR NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
+      if( LLVM_BUILD_TOOLS )
+        get_target_export_arg(${name} LLVM export_to_llvmexports)
+        install(TARGETS ${name}
+                ${export_to_llvmexports}
+                RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
+                COMPONENT ${name})
 
-      if (NOT LLVM_ENABLE_IDE)
-        add_llvm_install_targets(install-${name}
-                                 DEPENDS ${name}
-                                 COMPONENT ${name})
+        if (NOT LLVM_ENABLE_IDE)
+          add_llvm_install_targets(install-${name}
+                                  DEPENDS ${name}
+                                  COMPONENT ${name})
+        endif()
       endif()
     endif()
+    if( LLVM_BUILD_TOOLS )
+      set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
+    endif()
+    set_target_properties(${name} PROPERTIES FOLDER "Tools")
   endif()
-  if( LLVM_BUILD_TOOLS )
-    set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
-  endif()
-  set_target_properties(${name} PROPERTIES FOLDER "Tools")
 endmacro(add_llvm_tool name)
 
 # INTEL_CUSTOMIZATION
@@ -2127,6 +2150,11 @@ function(llvm_install_library_symlink name dest type)
 endfunction()
 
 function(llvm_install_symlink name dest)
+  get_property(LLVM_DRIVER_TOOLS GLOBAL PROPERTY LLVM_DRIVER_TOOLS)
+  if(LLVM_TOOL_LLVM_DRIVER_BUILD AND ${dest} IN_LIST LLVM_DRIVER_TOOLS)
+    set_property(GLOBAL APPEND PROPERTY LLVM_DRIVER_TOOL_SYMLINKS ${name})
+    return()
+  endif()
   cmake_parse_arguments(ARG "ALWAYS_GENERATE" "COMPONENT" "" ${ARGN})
   foreach(path ${CMAKE_MODULE_PATH})
     if(EXISTS ${path}/LLVMInstallSymlink.cmake)
@@ -2147,6 +2175,9 @@ function(llvm_install_symlink name dest)
 
   set(full_name ${name}${CMAKE_EXECUTABLE_SUFFIX})
   set(full_dest ${dest}${CMAKE_EXECUTABLE_SUFFIX})
+  if (${dest} STREQUAL "llvm-driver")
+    set(full_dest llvm${CMAKE_EXECUTABLE_SUFFIX})
+  endif()
 
   install(SCRIPT ${INSTALL_SYMLINK}
           CODE "install_symlink(${full_name} ${full_dest} ${LLVM_TOOLS_INSTALL_DIR})"
