@@ -500,6 +500,7 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
   switch (MI->getOpcode()) {
 
   case X86::MOV8rm:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Only replace 8 bit loads with the zero extending versions if
     // in a loop and not optimizing for size. This takes
@@ -510,6 +511,14 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
           !OptForSize)
         return tryReplaceLoad(X86::MOVZX32rm8, MI);
     }
+=======
+    // Replace 8-bit loads with the zero-extending version if not optimizing
+    // for size. The extending op is cheaper across a wide range of uarch and
+    // it avoids a potentially expensive partial register stall. It takes an
+    // extra byte to encode, however, so don't do this when optimizing for size.
+    if (!OptForSize)
+      return tryReplaceLoad(X86::MOVZX32rm8, MI);
+>>>>>>> 9d1ea1774c51c44ddf0b5065bf600919988d7015
     break;
 #endif
 
