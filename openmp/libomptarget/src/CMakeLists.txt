@@ -29,11 +29,6 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
-# INTEL_CUSTOMIZATION
-# Revert "70039be62774 [Libomptarget] Make libomptarget an LLVM library"
-# temporarily and wait for code owner to resolve this conflict.
-# end INTEL_CUSTOMIZATION
-
 set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
@@ -50,6 +45,8 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND LIBOMPTARGET_SRC_FILES ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/src/xpti_proxy.cpp)
   endif()
 endif(INTEL_CUSTOMIZATION)
+
+set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
 
 if(INTEL_CUSTOMIZATION)
   set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
