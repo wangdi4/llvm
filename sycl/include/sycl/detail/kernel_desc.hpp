@@ -10,8 +10,13 @@
 
 // This header file must not include any standard C++ header files.
 
+<<<<<<< HEAD:sycl/include/sycl/detail/kernel_desc.hpp
 #include <sycl/detail/defines_elementary.hpp>
 #include <sycl/detail/export.hpp>
+=======
+#include <CL/sycl/detail/defines_elementary.hpp>
+#include <CL/sycl/detail/export.hpp>
+>>>>>>> c021a7248a4c1ba7909d0a24f040bc6665d34652:sycl/include/CL/sycl/detail/kernel_desc.hpp
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
