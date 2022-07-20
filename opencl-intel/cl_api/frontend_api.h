@@ -76,8 +76,6 @@ struct FECompileProgramDescriptor
     const char*     pszOptions;
     // Fpga emulator indicator
     bool            bFpgaEmulator;
-    // EyeQ emulator indicator
-    bool            bEyeQEmulator;
 };
 
 // Kernel names of all programs in link task

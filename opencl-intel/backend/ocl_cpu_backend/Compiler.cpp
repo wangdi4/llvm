@@ -326,7 +326,6 @@ void Compiler::Terminate()
 
 Compiler::Compiler(const ICompilerConfig &config)
     : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
-      m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
       m_transposeSize(config.GetTransposeSize()),
       m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
       m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
@@ -433,11 +432,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     }
 
     CompilerBuildOptions buildOptions(pBuildOptions);
-    if (m_bIsEyeQEmulator)
-    {
-        buildOptions.SetRelaxedMath(false);
-        buildOptions.SetDenormalsZero(true);
-    }
 
     // Record the debug control flags.
     m_debug = buildOptions.GetDebugInfoFlag();
@@ -472,7 +466,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetUniformWGSize(),
                                             m_bIsFPGAEmulator,
-                                            m_bIsEyeQEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor,
@@ -589,24 +582,6 @@ SmallVector<std::unique_ptr<Module>, 2>
 Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
     SmallVector<std::unique_ptr<Module>, 2> builtinsModules;
     LLVMContext &Ctx = getLLVMContext();
-    llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4>
-        rtlBuffersForEyeQEmulationMode = pLibrary->GetRtlBuffersForEyeQEmulationMode();
-    // This is an empty loop unless in EyeQ emulation mode
-    for (std::unique_ptr<llvm::MemoryBuffer> &rtlBufferForEyeQEmulationMode :
-         rtlBuffersForEyeQEmulationMode) {
-        assert(rtlBufferForEyeQEmulationMode &&
-               "rtlBufferForEyeQEmulationMode is NULL pointer");
-        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
-            expectedToErrorOrAndEmitErrors(
-                Ctx, llvm::getOwningLazyBitcodeModule(
-                         std::move(rtlBufferForEyeQEmulationMode), Ctx));
-
-        if (!spModuleOrErr) {
-            throw Exceptions::CompilerException(
-                "Failed to allocate/parse buitin module");
-        }
-        builtinsModules.push_back(std::move(spModuleOrErr.get()));
-    }
 
     std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(pLibrary->GetRtlBuffer());
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");

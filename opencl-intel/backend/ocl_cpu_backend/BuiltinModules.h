@@ -57,13 +57,6 @@ public:
     return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBuffer);
   }
     std::unique_ptr<llvm::MemoryBuffer> GetRtlBufferSvmlShared() const { return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBufferSvmlShared); }
-    llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4> GetRtlBuffersForEyeQEmulationMode() const {
-        llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4> Ret;
-        for (llvm::MemoryBuffer *BufferForEyeQEmulationMode : m_RtlBuffersForEyeQEmulationMode) {
-            Ret.push_back(std::unique_ptr<llvm::MemoryBuffer>(BufferForEyeQEmulationMode));
-        }
-        return Ret;
-    }
 
     Intel::OpenCL::Utils::ECPU GetCPU() const { return m_cpuId->GetCPU(); }
 
@@ -86,7 +79,6 @@ protected:
   const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
   llvm::MemoryBuffer *m_pRtlBuffer;
   llvm::MemoryBuffer *m_pRtlBufferSvmlShared;
-  llvm::SmallVector<llvm::MemoryBuffer *, 4> m_RtlBuffersForEyeQEmulationMode;
   std::string m_builtinLibLog;
 };
 

@@ -388,11 +388,6 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         return OPENCL_VERSION_1_2;
     }
 
-    if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    {
-        s_ver = OPENCL_VERSION_1_2;
-        return OPENCL_VERSION_1_2;
-    }
 #ifdef BUILD_OPENCL_21
     s_ver = OPENCL_VERSION_2_1;
     return OPENCL_VERSION_2_1;

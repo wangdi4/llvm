@@ -584,9 +584,6 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
           if ("fpga-emu" == strDeviceMode) {
             return FPGA_EMU_DEVICE;
           }
-          if ("eyeq-emu" == strDeviceMode) {
-            return EYEQ_EMU_DEVICE;
-          }
           // TODO: strDeviceMode may be empty. But currently we do not define
           // invalid device. We return CPU device by default. It's better to fix
           // it.

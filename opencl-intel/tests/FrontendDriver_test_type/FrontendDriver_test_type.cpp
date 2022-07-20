@@ -72,7 +72,6 @@ TEST_F(ClangCompilerTestType, Test_PassingHeaders)
     desc.pszInputHeadersNames = header_names.data();
     desc.pszOptions = build_options;
     desc.bFpgaEmulator = false;
-    desc.bEyeQEmulator = false;
 
     int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
 
@@ -95,7 +94,6 @@ TEST_F(ClangCompilerTestType, Test_FPAtomics)
     desc.pszInputHeadersNames = nullptr;
     desc.pszOptions = build_options;
     desc.bFpgaEmulator = false;
-    desc.bEyeQEmulator = false;
 
     int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
     ASSERT_EQ(CL_SUCCESS, err) << "Pre-release header is not available." << std::endl
@@ -115,7 +113,6 @@ TEST_F(ClangCompilerTestType, Test_OptNone) {
   desc.pszInputHeadersNames = nullptr;
   desc.pszOptions = build_options;
   desc.bFpgaEmulator = false;
-  desc.bEyeQEmulator = false;
 
   int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
 
