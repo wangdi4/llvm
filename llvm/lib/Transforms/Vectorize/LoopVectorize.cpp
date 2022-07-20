@@ -4306,7 +4306,7 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &CI, VPValue *Def,
       // Make sure we don't lose attributes at the call site. E.g., IMF
       // attributes are taken from call sites in MapIntrinToIml to refine SVML
       // calls for precision.
-      V->setAttributes(CI->getAttributes());
+      V->setAttributes(CI.getAttributes());
 #endif // INTEL_CUSTOMIZATION
 
       State.set(Def, V, Part);
