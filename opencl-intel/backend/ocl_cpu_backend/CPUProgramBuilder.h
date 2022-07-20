@@ -98,7 +98,6 @@ private:
     mutable Intel::OpenCL::PluginManager m_pluginManger;
     #endif
     bool m_isFpgaEmulator;
-    bool m_isEyeQEmulator;
 };
 
 }}}

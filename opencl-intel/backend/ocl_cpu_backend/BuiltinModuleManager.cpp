@@ -18,7 +18,6 @@
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CPUBuiltinLibrary.h"
-#include "EyeQBuiltinLibrary.h"
 #include "FPGAEmuBuiltinLibrary.h"
 
 llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev,
@@ -87,12 +86,6 @@ BuiltinModuleManager::GetOrLoadDeviceLibrary(const CPUDetect *cpuId) {
 BuiltinLibrary *
 BuiltinModuleManager::GetOrLoadCPULibrary(const CPUDetect *cpuId) {
   return GetOrLoadDeviceLibrary<CPUBuiltinLibrary>(cpuId);
-}
-
-// TODO: Make this method re-entrable
-BuiltinLibrary *
-BuiltinModuleManager::GetOrLoadEyeQLibrary(const CPUDetect *cpuId) {
-  return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
 }
 
 // TODO: Make this method re-entrable

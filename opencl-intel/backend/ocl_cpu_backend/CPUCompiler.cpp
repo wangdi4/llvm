@@ -104,8 +104,7 @@ BuiltinModules* CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad)
     if (ForceLoad || It == m_builtinModules.end()) {
         BuiltinModuleManager *Manager = BuiltinModuleManager::GetInstance();
         BuiltinLibrary *Library =
-            m_bIsEyeQEmulator   ? Manager->GetOrLoadEyeQLibrary(m_CpuId)
-            : m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
+            m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
                                 : Manager->GetOrLoadCPULibrary(m_CpuId);
         auto bltnModules = LoadBuiltinModules(Library);
         m_builtinModules[TID].reset(new BuiltinModules(std::move(bltnModules)));

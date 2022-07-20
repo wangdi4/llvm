@@ -26,7 +26,6 @@
 #include <string.h>
 
 extern cl::opt<std::string> OptReqdSubGroupSizes;
-extern cl::opt<bool> OptEyeQDivCrashBehavior;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -152,10 +151,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             + std::to_string(channelDepthEmulationMode));
         m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
         m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");
-    }
-    else if (EYEQ_EMU_DEVICE == m_targetDevice)
-    {
-      m_LLVMOptions.emplace_back("-" + OptEyeQDivCrashBehavior.ArgStr.str());
     }
 
     if (llvm::find_if(m_LLVMOptions, [](std::string S) {

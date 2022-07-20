@@ -180,7 +180,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(DPCPPEqualizerPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
-        if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit() &&
+        if (TargetTriple.isArch64Bit() &&
             TargetTriple.isOSWindows())
           MPM.addPass(CoerceWin64TypesPass());
 
@@ -270,8 +270,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
           }
           if (Config.GetTransposeSize() != 1 &&
               (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
-            if (!m_IsEyeQEmulator)
-              FPM.addPass(SinCosFoldPass());
+            FPM.addPass(SinCosFoldPass());
             // Replace 'div' and 'rem' instructions with calls to optimized
             // library functions
             FPM.addPass(MathLibraryFunctionsReplacementPass());
@@ -403,7 +402,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
     FunctionPassManager FPM;
-    if (Level != OptimizationLevel::O0 && !m_IsEyeQEmulator)
+    if (Level != OptimizationLevel::O0)
       FPM.addPass(OptimizeIDivAndIRemPass());
     FPM.addPass(PreventDivCrashesPass());
     if (Level != OptimizationLevel::O0) {

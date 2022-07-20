@@ -127,7 +127,6 @@ protected:
   bool m_IsOMP;
 
   bool m_IsFpgaEmulator;
-  bool m_IsEyeQEmulator;
 
   intel::DebuggingServiceType m_debugType;
   bool m_UseTLSGlobals;

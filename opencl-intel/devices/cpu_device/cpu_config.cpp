@@ -133,8 +133,6 @@ bool CPUDeviceConfig::IsSpirSupported() const
 }
 
 bool CPUDeviceConfig::IsDoubleSupported() const {
-  if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    return false;
   // Keep original logic
   // disabled on Atom
   if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetHostCPUBrandFamily())
@@ -193,20 +191,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
         GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
         GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
         GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
-
-        return m_extensions;
-    }
-
-    if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    {
-        GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES, 1, 0, 0);
-        GET_EXT_VER(OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY, 1, 0, 0);
 
         return m_extensions;
     }

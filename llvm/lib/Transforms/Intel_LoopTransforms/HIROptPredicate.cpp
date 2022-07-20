@@ -124,6 +124,14 @@ static cl::opt<unsigned> MaxCasesThreshold(
     cl::Hidden, cl::desc("Don't apply opt predicate in a switch instruction if"
     "the number of cases is larger than this threshold."));
 
+constexpr unsigned DefaultMaxIfsInLoopThreshold = 7;
+
+static cl::opt<unsigned> MaxIfsInLoopThreshold(
+    OPT_SWITCH "-max-ifs-in-loop-threshold",
+    cl::init(DefaultMaxIfsInLoopThreshold), cl::Hidden, cl::desc("Don't apply "
+    "opt predicate in a switch instruction if the number of Ifs in the parent "
+    "loop is larger than this threshold."));
+
 constexpr unsigned DefaultRegionCostThreshold = 3;
 
 static cl::opt<unsigned> RegionCostThreshold(
@@ -320,8 +328,9 @@ class HIROptPredicate {
 public:
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                  bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
-      : HIRF(HIRF), DDA(DDA), BU(HIRF.getBlobUtils()),
+                  HIRLoopStatistics &HLS, bool EnablePartialUnswitch,
+                  bool KeepLoopnestPerfect)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), BU(HIRF.getBlobUtils()),
         EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
         KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
 
@@ -330,6 +339,7 @@ public:
 private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
+  HIRLoopStatistics &HLS;
   BlobUtils &BU;
 
   bool EnablePartialUnswitch;
@@ -341,6 +351,9 @@ private:
 
   SmallDenseMap<const HLLoop *, unsigned, 16> ThresholdMap;
   SmallVector<HoistCandidate, 16> Candidates;
+
+  // Set used to track which regions has been modified by the optimization.
+  SmallSetVector<const HLRegion *, 16> RegionThresholdSet;
 
   // Opt-report chunk number
   unsigned VNum = 1;
@@ -522,23 +535,40 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
-// Helper structure used to count the number of nested loops in a region
+// Helper structure used to count the number of nested loops in a region.
+// If an HLIf is provided to the constructor then it will collect how many
+// times the same If condition is repeated in the nodes.
 struct
 HIROptPredicate::RegionSizeCalculator final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
   unsigned RegionSize;
+  HLIf *IfToCompare;
+  unsigned NumSameIfs;
+  unsigned IfWithElse;
 
-  RegionSizeCalculator(HIROptPredicate &Pass)
-      : SkipNode(nullptr), Pass(Pass), RegionSize(0) {}
+  RegionSizeCalculator(HIROptPredicate &Pass, HLIf *IfToCompare = nullptr)
+      : SkipNode(nullptr), Pass(Pass), RegionSize(0),
+        IfToCompare(IfToCompare), NumSameIfs(0), IfWithElse(0) {}
 
   void visit(HLLoop *Loop) { RegionSize++; }
 
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
   void visit(const HLNode *Node) { }
   void postVisit(const HLNode *Node) {}
+  void visit(HLIf *If) {
+    // If an HLIf was provided to the constructor than count how many times
+    // the same If condition appears in the region
+    if (IfToCompare && HLNodeUtils::areEqualConditions(IfToCompare,If))
+      NumSameIfs++;
 
+    if (If->hasElseChildren())
+      IfWithElse++;
+  }
+
+  unsigned getNumSameIfs() { return NumSameIfs; }
   unsigned getRegionSize() { return RegionSize; }
+  unsigned getNumOfIfWithElse() { return IfWithElse; }
 };
 } // namespace
 
@@ -1248,6 +1278,54 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
       continue;
     }
 
+    HLRegion *ParentRegion = TargetLoop->getParentRegion();
+    auto LoopStats = HLS.getTotalLoopStatistics(TargetLoop);
+    bool SkipLoop = false;
+    unsigned NumOfIfs = LoopStats.getNumIfs();
+    if (!RegionThresholdSet.insert(ParentRegion) && Candidate.isIf() &&
+        NumOfIfs > MaxIfsInLoopThreshold) {
+      // If the region was transformed once, the candidate is an If and the
+      // number of If conditions in the loopnest is larger than
+      // MaxIfsInLoopThreshold, then check how many times the candidate
+      // condition repeats in the loopnest. If the number of times repeated
+      // is less than half of the conditionals, and more than 40% of the If
+      // statements have an Else child node in the loop nest, then disable
+      // the current candidate. The reason is that it will introduce a large
+      // number of new candidates which increases the compile time, and many
+      // of these candidates won't necessarily be hoisted to the outermost
+      // loop. Else, if there is a large count of the candidate condition then
+      // it means that most likely the loop was unrolled.
+      RegionSizeCalculator PredCounter(*this, Candidate.getIf());
+      TargetLoop->getHLNodeUtils().visitRange(PredCounter,
+                                              TargetLoop->child_begin(),
+                                              TargetLoop->child_end());
+
+#if INTEL_FEATURE_SW_ADVANCED
+      // TODO: Disabling the If condition (just leaving the computation of
+      // SkipLoop) provides an extra 5% for CPU2017/538.imagick
+      // (CMPLRLLVM-38999).
+#endif // INTEL_FEATURE_SW_ADVANCED
+      if (PredCounter.getNumOfIfWithElse() > ((double)NumOfIfs * 0.4))
+        SkipLoop =
+            (double)PredCounter.getNumSameIfs() < ((double)NumOfIfs / 2.0);
+    }
+
+    if (SkipLoop) {
+      // If the parent loop was converted already and there is a large
+      // number of conditionals, then do not apply it again.
+      LLVM_DEBUG({
+        dbgs() << "Skipping opportunity because the number of Ifs in loop "
+               << "is larger than max allowed ("
+               << LoopStats.getNumIfs()
+               << " > " << MaxIfsInLoopThreshold << ")\n";
+      });
+      Candidates.pop_back();
+      if (Candidate.isIf()) {
+        Candidate.getIf()->setUnswitchDisabled();
+      }
+      continue;
+    }
+
     HIRInvalidationUtils::invalidateBody(ParentLoop);
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
@@ -1791,6 +1869,7 @@ void HIROptPredicate::addPredicateOptReportRemark(
 PreservedAnalyses HIROptPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   EnablePartialUnswitch, KeepLoopnestPerfect)
       .run();
 
@@ -1828,6 +1907,7 @@ public:
 
     return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                            getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                           getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
                            EnablePartialUnswitch, KeepLoopnestPerfect)
         .run();
   }
