@@ -4134,7 +4134,6 @@ define i1 @movmsk_v16i8_var(<16 x i8> %x, <16 x i8> %y, i32 %z) {
 ; SSE-NEXT:    setb %al
 ; SSE-NEXT:    retq
 ;
-<<<<<<< HEAD
 ; AVX-LABEL: movmsk_v16i8_var: ;INTEL
 ; AVX:       # %bb.0: ;INTEL
 ; AVX-NEXT:    vpcmpeqb %xmm1, %xmm0, %xmm0 ;INTEL
@@ -4142,33 +4141,6 @@ define i1 @movmsk_v16i8_var(<16 x i8> %x, <16 x i8> %y, i32 %z) {
 ; AVX-NEXT:    btl %edi, %eax ;INTEL
 ; AVX-NEXT:    setb %al ;INTEL
 ; AVX-NEXT:    retq ;INTEL
-=======
-; AVX1OR2-LABEL: movmsk_v16i8_var:
-; AVX1OR2:       # %bb.0:
-; AVX1OR2-NEXT:    vpcmpeqb %xmm1, %xmm0, %xmm0
-; AVX1OR2-NEXT:    vpmovmskb %xmm0, %eax
-; AVX1OR2-NEXT:    btl %edi, %eax
-; AVX1OR2-NEXT:    setb %al
-; AVX1OR2-NEXT:    retq
-;
-; KNL-LABEL: movmsk_v16i8_var:
-; KNL:       # %bb.0:
-; KNL-NEXT:    vpcmpeqb %xmm1, %xmm0, %xmm0
-; KNL-NEXT:    vpmovmskb %xmm0, %eax
-; KNL-NEXT:    btl %edi, %eax
-; KNL-NEXT:    setb %al
-; KNL-NEXT:    retq
-;
-; SKX-LABEL: movmsk_v16i8_var:
-; SKX:       # %bb.0:
-; SKX-NEXT:    # kill: def $edi killed $edi def $rdi
-; SKX-NEXT:    vpcmpeqb %xmm1, %xmm0, %k0
-; SKX-NEXT:    vpmovm2b %k0, %xmm0
-; SKX-NEXT:    vmovdqa %xmm0, -{{[0-9]+}}(%rsp)
-; SKX-NEXT:    andl $15, %edi
-; SKX-NEXT:    movzbl -24(%rsp,%rdi), %eax
-; SKX-NEXT:    retq
->>>>>>> f0dd12ec5c0169ba5b4363b62d59511181cf954a
   %cmp = icmp eq <16 x i8> %x, %y
   %val = extractelement <16 x i1> %cmp, i32 %z
   ret i1 %val
