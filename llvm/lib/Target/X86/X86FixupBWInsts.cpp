@@ -500,6 +500,7 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
   switch (MI->getOpcode()) {
 
   case X86::MOV8rm:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The community has changed this to the below code, but it's going to be
     // reverted so I'm keeping this code to resolve that upcoming conflict.
@@ -521,6 +522,14 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     // extra byte to encode, however, so don't do this when optimizing for size.
     if (!OptForSize)
       return tryReplaceLoad(X86::MOVZX32rm8, MI);
+=======
+    // Only replace 8 bit loads with the zero extending versions if
+    // in an inner most loop and not optimizing for size. This takes
+    // an extra byte to encode, and provides limited performance upside.
+    if (MachineLoop *ML = MLI->getLoopFor(&MBB))
+      if (ML->begin() == ML->end() && !OptForSize)
+        return tryReplaceLoad(X86::MOVZX32rm8, MI);
+>>>>>>> 95401b015393b350f826d097cc5b45b6a604dfa5
     break;
 
   case X86::MOV16rm:
