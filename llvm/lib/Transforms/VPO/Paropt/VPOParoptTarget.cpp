@@ -5304,7 +5304,6 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // - WrapperCall after:
   //          call void @foo2.wrapper(%struct.A* byval(%struct.A) align 8 %AAA)
   LLVMContext &C = Builder.getContext();
-  FunctionType *WrapperFnTy = VariantWrapperCall->getFunctionType();
   for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
       Value *BaseArg = BaseArgs[ArgNum];
@@ -5318,15 +5317,16 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
            ++WrapperArgNum) {
         Value *WrapperArg = VariantWrapperCall->getArgOperand(WrapperArgNum);
         if (BaseArg == WrapperArg) {
-          Type *ArgType = WrapperFnTy->getParamType(WrapperArgNum);
-          assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
-          // TODO: OPAQUEPOINTER: Use BaseArg's byval attribute type here.
+          assert(isa<PointerType>(
+                     VariantWrapperCall->getFunctionType()->getParamType(
+                         WrapperArgNum)) &&
+                 "Byval expects a pointer type");
           VariantWrapperCall->addParamAttr(
-              WrapperArgNum,
-              Attribute::getWithByValType(C, ArgType->getPointerElementType()));
-          WrapperFn->addParamAttr(
-              WrapperArgNum,
-              Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+              WrapperArgNum, Attribute::getWithByValType(
+                                 C, BaseCall->getParamByValType(ArgNum)));
+          WrapperFn->addParamAttr(WrapperArgNum,
+                                  Attribute::getWithByValType(
+                                      C, BaseCall->getParamByValType(ArgNum)));
           if (Alignment > 1) {
             VariantWrapperCall->addParamAttr(
                 WrapperArgNum,
