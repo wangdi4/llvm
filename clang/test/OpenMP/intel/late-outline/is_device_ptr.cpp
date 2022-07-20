@@ -69,6 +69,17 @@ void use_template() {
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
 
+// CHECK-LABEL: omp_kernel
+void omp_kernel(float * __restrict xxi) {
+//CHECK: "DIR.OMP.TASK"()
+//CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %xxi.addr)
+ #pragma omp target teams distribute nowait is_device_ptr(xxi)
+  for (int n = 0; n < 100; n += 10) {
+    xxi[0] = 0;
+  }
+// CHECK: "DIR.OMP.END.TASK"
+}
+
 //CHECK-LABEL: main
 int main() {
   float a = 0;

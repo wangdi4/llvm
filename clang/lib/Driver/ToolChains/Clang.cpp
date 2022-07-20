@@ -4901,7 +4901,7 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
   ClangTidyArgs.push_back(InputFile.getFilename());
   ClangTidyArgs.push_back("--checks=misc-misleading-bidirectional"
                           ",misc-misleading-identifier"
-                          ",misc-homoglyph");
+                          ",misc-confusable-identifiers");
 
   // Add the command line options
   ClangTidyArgs.push_back("--");

@@ -356,7 +356,7 @@ static void populatePassesPostFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module &M,
     SmallVectorImpl<Module *> &pRtlModuleList, unsigned OptLevel,
     const intel::OptimizerConfig &pConfig, bool isOcl20, bool isFpgaEmulator,
-    bool isEyeQEmulator, bool UnrollLoops, bool UseVplan, bool IsSPIRV,
+    bool UnrollLoops, bool UseVplan, bool IsSPIRV,
     bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
     bool UseTLSGlobals) {
   bool isProfiling = pConfig.GetProfilingFlag();
@@ -462,9 +462,7 @@ static void populatePassesPostFailCheck(
       PM.add(createProfilingInfoLegacyPass());
     }
 
-    if (!isEyeQEmulator) {
-      PM.add(createSinCosFoldLegacyPass());
-    }
+    PM.add(createSinCosFoldLegacyPass());
 
     if (!pRtlModuleList.empty()) {
       if (UseVplan) {
@@ -565,8 +563,7 @@ static void populatePassesPostFailCheck(
   // Unroll small loops with unknown trip count.
   if (OptLevel > 0) {
     PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
-    if (!isEyeQEmulator)
-      PM.add(createOptimizeIDivAndIRemLegacyPass());
+    PM.add(createOptimizeIDivAndIRemLegacyPass());
   }
   PM.add(createPreventDivCrashesLegacyPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
@@ -717,7 +714,7 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createPromoteMemoryToRegisterPass());
   }
   // Only support CPU Device
-  if (OptLevel > 0 && !isFpgaEmulator && !isEyeQEmulator) {
+  if (OptLevel > 0 && !isFpgaEmulator) {
     PM.add(llvm::createLICMPass());      // Hoist loop invariants
     PM.add(llvm::createLoopIdiomPass()); // Transform simple loops to non-loop form, e.g. memcpy
     PM.add(createLoopDeletionPass()); // Delete dead loops
@@ -783,7 +780,7 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
     m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass());
     Triple TargetTriple(m_M.getTargetTriple());
-    if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
+    if (TargetTriple.isArch64Bit()) {
       if (TargetTriple.isOSLinux())
         m_PM.add(createCoerceTypesLegacyPass());
       else if (TargetTriple.isOSWindows())
@@ -799,7 +796,7 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
                              EnableVPlan);
 
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                              m_IsOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+                              m_IsOcl20, m_IsFpgaEmulator,
                               UnrollLoops, EnableVPlan, m_IsSPIRV, m_IsSYCL,
                               m_IsOMP, m_debugType, m_UseTLSGlobals);
 }
@@ -863,8 +860,7 @@ Optimizer::Optimizer(llvm::Module &M,
       m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
       m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
-      m_IsFpgaEmulator(Config.isFpgaEmulator()),
-      m_IsEyeQEmulator(Config.isEyeQEmulator()) {
+      m_IsFpgaEmulator(Config.isFpgaEmulator()) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
@@ -873,7 +869,7 @@ Optimizer::Optimizer(llvm::Module &M,
               llvm::CompilationUtils::OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
-  m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
+  m_UseTLSGlobals = (m_debugType == intel::Native);
 }
 
 void Optimizer::setDiagnosticHandler(llvm::raw_ostream &LogStream) {

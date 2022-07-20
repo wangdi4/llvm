@@ -22,8 +22,7 @@ using namespace llvm;
 // List of supported devices that differs from the a given one in cl.h
 enum DeviceMode {
   CPU_DEVICE      = 0,
-  FPGA_EMU_DEVICE = 1,
-  EYEQ_EMU_DEVICE = 2
+  FPGA_EMU_DEVICE = 1
 };
 
 // List of supported vectorizers

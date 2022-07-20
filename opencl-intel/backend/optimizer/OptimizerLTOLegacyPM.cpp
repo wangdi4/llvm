@@ -130,7 +130,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
         Triple TargetTriple(m_M.getTargetTriple());
-        if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit() &&
+        if (TargetTriple.isArch64Bit() &&
             TargetTriple.isOSWindows())
           MPM.add(createCoerceWin64TypesLegacyPass());
 
@@ -255,8 +255,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         if (Config.GetProfilingFlag())
           MPM.add(createProfilingInfoLegacyPass());
 
-        if (!m_IsEyeQEmulator)
-          MPM.add(createSinCosFoldLegacyPass());
+        MPM.add(createSinCosFoldLegacyPass());
 
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
@@ -349,7 +348,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
 
   MPM.add(createResolveSubGroupWICallLegacyPass(
       /*ResolveSGBarrier*/ false));
-  if (OptLevel > 0 && !m_IsEyeQEmulator)
+  if (OptLevel > 0)
     MPM.add(createOptimizeIDivAndIRemLegacyPass());
 
   MPM.add(createPreventDivCrashesLegacyPass());

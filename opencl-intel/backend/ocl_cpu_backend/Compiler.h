@@ -226,7 +226,6 @@ protected:
     }
 protected:
     bool                     m_bIsFPGAEmulator;
-    bool                     m_bIsEyeQEmulator;
     // Each host thread should have its own LLVMContext, because it is not
     // thread-safe for multiple threads to access LLVM resources within a
     // single LLVMContext.

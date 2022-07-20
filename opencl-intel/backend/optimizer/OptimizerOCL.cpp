@@ -160,7 +160,7 @@ void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
   MPM.addPass(NameAnonGlobalPass());
   MPM.addPass(DPCPPEqualizerPass());
   Triple TargetTriple(m_M.getTargetTriple());
-  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
+  if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
       MPM.addPass(CoerceTypesPass());
     else if (TargetTriple.isOSWindows())
@@ -445,8 +445,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
       MPM.addPass(ProfilingInfoPass());
 
     FunctionPassManager FPM1;
-    if (!m_IsEyeQEmulator)
-      FPM1.addPass(SinCosFoldPass());
+    FPM1.addPass(SinCosFoldPass());
 
     if (EmitKernelVectorizerSignOn)
       dbgs() << "Kernel Vectorizer\n";
@@ -550,8 +549,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
     FPM1.addPass(LoopUnrollPass(UnrollOpts));
 
-    if (!m_IsEyeQEmulator)
-      FPM1.addPass(OptimizeIDivAndIRemPass());
+    FPM1.addPass(OptimizeIDivAndIRemPass());
   }
   FPM1.addPass(PreventDivCrashesPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
@@ -703,8 +701,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
   // Only support CPU Device
-  if (Level != OptimizationLevel::O0 && !m_IsFpgaEmulator &&
-      !m_IsEyeQEmulator) {
+  if (Level != OptimizationLevel::O0 && !m_IsFpgaEmulator) {
     LoopPassManager LPM;
     LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation*/ true));

@@ -344,6 +344,18 @@ private:
   // %red.lvc = @llvm.experimental.vector.reduce.add.v4i32 (%vec.red.add)
   void vectorizeReductionFinal(VPReductionFinal *RedFinal);
 
+  /// Generate vector code for reduction finalization of select-compare.
+  /// There is no horizontal reduction intrinsic for this case, so it
+  /// requires separate handling from vectorizeReductionFinal.
+  // Example -
+  // i32 %vp1 = reduction-final{u_icmp} i32 %vpexit i32 %vpstart i32 %vpchg
+  //
+  // Generated instructions for VF=4 -
+  // %cmp = icmp ne <4 x i32> %vpexit', <i32 %vpstart, ..., i32 %vpstart>
+  // %or = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> %cmp)
+  // %sel = select i1 %or, i32 %vpchg, i32 %vpstart
+  void vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal);
+
   /// Generate vector code for induction initialization.
   /// InductionInit has two arguments {Start, Step} and keeps the operation
   /// opcode. We generate

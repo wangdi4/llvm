@@ -64,11 +64,6 @@ CommonOCLBuilder& CommonOCLBuilder::withFpgaEmulator(bool isFpgaEmulation) {
   return *this;
 }
 
-CommonOCLBuilder& CommonOCLBuilder::withEyeQEmulator(bool isEyeQEmulation) {
-  m_bEyeQEmulator = isEyeQEmulation;
-  return *this;
-}
-
 void CommonOCLBuilder::close(){
   m_dynamicLoader.Close();
   if (m_pCompiler)
@@ -88,7 +83,6 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   programDescriptor.pszInputHeadersNames = nullptr;
   programDescriptor.pszOptions = m_options.c_str();
   programDescriptor.bFpgaEmulator = m_bFpgaEmulator;
-  programDescriptor.bEyeQEmulator = m_bEyeQEmulator;
   IOCLFEBinaryResult* res;
   int rc = m_pCompiler->CompileProgram(&programDescriptor, &res);
   if (rc || nullptr == res){
@@ -122,8 +116,7 @@ CommonOCLBuilder::CommonOCLBuilder():
   m_pCompiler(nullptr),
   m_bSupportFP64(true),
   m_bSupportImages(true),
-  m_bFpgaEmulator(false),
-  m_bEyeQEmulator(false) {
+  m_bFpgaEmulator(false) {
 }
 
 IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){

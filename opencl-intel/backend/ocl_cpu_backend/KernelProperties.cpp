@@ -499,8 +499,7 @@ void KernelProperties::Print() const {
   outs().indent(NS) << "debugInfo: " << m_debugInfo << "\n";
   outs().indent(NS) << "targetDevice: "
                     << ((m_targetDevice == CPU_DEVICE)        ? "cpu"
-                        : (m_targetDevice == FPGA_EMU_DEVICE) ? "fpga-emu"
-                                                              : "eyeq-emu")
+                        : "fpga-emu")
                     << "\n";
   outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
 }

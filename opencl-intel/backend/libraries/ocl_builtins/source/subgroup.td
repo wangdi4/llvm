@@ -10,17 +10,38 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-include "source/core/targets.td"
+include "GENERIC/code_helpers.td"
 include "GENERIC/opencl-builtin.td"
+include "source/core/targets.td"
 
-// Prototype
-def get_sub_group_eq_mask : OclBuiltin<"get_sub_group_eq_mask", (outs v4u32:$ret), (ins), [v1i32]>;
+// --- Dummy subgroup builtins ---
+//
+// ResolveSubGroupWICall doesn't resolve these builtin when they are contained
+// in functions that are NOT called by the kernel.
+// So we need to provide fake implementations to avoid "unimplemented" error.
+//
+// Prototypes
+let Types = [v1i32], Attrs = [OVERLOADABLE] in {
+defset list<OclBuiltin> dummy_builtins = {
+  def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void)>;
+  def get_max_sub_group_size : OclBuiltin<"get_max_sub_group_size", (outs uint:$ret), (ins void)>;
+  def get_num_sub_groups : OclBuiltin<"get_num_sub_groups", (outs uint:$ret), (ins void)>;
+  def get_enqueued_num_sub_groups : OclBuiltin<"get_enqueued_num_sub_groups", (outs uint:$ret), (ins void)>;
+  def get_sub_group_id : OclBuiltin<"get_sub_group_id", (outs uint:$ret), (ins void)>;
+  def get_sub_group_local_id : OclBuiltin<"get_sub_group_local_id", (outs uint:$ret), (ins void)>;
+} // defset dummy_builtins
+defset list<OclBuiltin> dummy_no_ret_builtins = {
+  def sub_group_barrier : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence)>;
+  def sub_group_barrier_with_scope : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence, memory_scope:$scope)>;
+} // defset dummy_no_ret_builtins
+}
 
-// Implementation
-def : OclBuiltinImpl<get_sub_group_eq_mask, get_sub_group_eq_mask.Types, /*isDeclOnly*/false, [{
-  return 0;
-}]>, SSE;
+// Implementations
+foreach bi = dummy_builtins in {
+  def : OclBuiltinImpl<bi, bi.Types, /*isDeclOnly*/false, ret_zero_code>, SSE;
+}
+foreach bi = dummy_no_ret_builtins in {
+  def : OclBuiltinImpl<bi, bi.Types, /*isDeclOnly*/false, ret_void_code>, SSE;
+}
 
-def : OclBuiltinImpl<get_sub_group_eq_mask, get_sub_group_eq_mask.Types, /*isDeclOnly*/false, [{
-  return 1;
-}]>, AVX512;
+// VectInfos (not needed for dummy subgroup builtins)

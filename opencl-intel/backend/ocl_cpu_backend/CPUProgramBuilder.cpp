@@ -43,8 +43,7 @@ using namespace Intel::OpenCL::ELFUtils;
 CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory *pBackendFactory,
                                      std::unique_ptr<ICompilerConfig> config)
     : ProgramBuilder(pBackendFactory, std::move(config)), m_compiler(*m_config),
-      m_isFpgaEmulator(FPGA_EMU_DEVICE == m_config->TargetDevice()),
-      m_isEyeQEmulator(EYEQ_EMU_DEVICE == m_config->TargetDevice()) {}
+      m_isFpgaEmulator(FPGA_EMU_DEVICE == m_config->TargetDevice()) {}
 
 CPUProgramBuilder::~CPUProgramBuilder()
 {
@@ -278,7 +277,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
       intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
           buildOptions.GetDebugInfoFlag(), pModule,
           buildOptions.GetUseNativeDebuggerFlag());
-      bool useTLSGlobals = (debugType == intel::Native) && !m_isEyeQEmulator;
+      bool useTLSGlobals = (debugType == intel::Native);
       std::unique_ptr<Kernel> spKernel(
           CreateKernel(pFunc, pWrapperFunc->getName().str(),
                        spKernelProps.get(), useTLSGlobals));

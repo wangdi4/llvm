@@ -15,7 +15,7 @@
 // RUN: %clang_cl /Wcheck-unicode-security -DFOO -c -### %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK_SECURITY %s
 // CHECK_SECURITY: clang-tidy
-// CHECK_SECURITY-SAME: "--checks=misc-misleading-bidirectional,misc-misleading-identifier,misc-homoglyph"
+// CHECK_SECURITY-SAME: "--checks=misc-misleading-bidirectional,misc-misleading-identifier,misc-confusable-identifiers"
 // CHECK_SECURITY-SAME: "--"
 // CHECK_SECURITY-SAME: "-D FOO" "-c"
 

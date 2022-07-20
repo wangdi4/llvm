@@ -1171,7 +1171,7 @@ void OclBuiltinDB::processAliasMap(){
 
 static int getTargetID(StringRef TargetName) {
   return StringSwitch<int>(TargetName)
-      .CaseLower("sse", 1)
+      .CasesLower("sse", "sse42", 1)
       .CaseLower("avx", 2)
       .CaseLower("avx2", 3)
       .CaseLower("avx512", 4)
