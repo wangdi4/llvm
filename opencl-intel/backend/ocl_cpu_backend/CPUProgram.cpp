@@ -147,10 +147,10 @@ cl_dev_err_code CPUProgram::Finalize() {
     Kernel *kernel = m_kernels->GetKernel(i);
     if (kernel->GetKernelProporties()->HasMatrixCall()) {
       llvm::call_once(OnceFlag, [&] {
-        if (!Intel::OpenCL::Utils::requestPermXtileData()) {
-          throw Exceptions::CompilerException(
-              "failed to requestPermXtileData for AMX" + getLLJITLog());
-        };
+        // we can't emit exception for checking the status of
+        // requestPermXtileData here. Otherwise, for sde users,
+        // requestPermXtileData will fail and lead to exception.
+        Intel::OpenCL::Utils::requestPermXtileData();
       });
       break;
     }
