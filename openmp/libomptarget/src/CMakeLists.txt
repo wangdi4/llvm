@@ -29,6 +29,11 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
+# INTEL_CUSTOMIZATION
+# Revert dc52712a063241bd "[Libomptarget] Make libomptarget an LLVM library"
+# temporarily and wait for code owner to resolve this conflict.
+# end INTEL_CUSTOMIZATION
+
 set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
