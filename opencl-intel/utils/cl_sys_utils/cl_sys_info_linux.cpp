@@ -450,6 +450,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index)
 {
     // TODO use hwloc to get the cpu index of numa node
+    index.clear();
     const char *prefix = "/sys/devices/system/node/node";
     std::string path(prefix);
     path.append(std::to_string(node) + "/cpumap");
