@@ -30,6 +30,7 @@
 #include <cl_sys_info.h>
 #include <clang_device_info.h>
 #include <cpu_dev_limits.h>
+#include <numeric>
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -417,6 +418,49 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     return CL_DEV_SUCCESS;
 }
 
+/// Read processor indices from each numa node and rearrange them so that a
+/// logical core index is placed right after its physical core index.
+/// This assumes GetProcessorIndexFromNumaNode is returning a list of physical
+/// core indices followed by logical core indices.
+/// E.g.
+///   NUMA node0 CPU(s):   0-27,56-83
+///   NUMA node1 CPU(s):   28-55,84-111
+///   GetProcessorIndexFromNumaNode returns
+///     node0 [0,1,...,27,56,67,...,83] and node1 [28,29,...,55,84,85,...,111]
+///   This function returns [0,56,1,67,...,27,83,  28,84,29,85,...,55,111]
+static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores) {
+  std::vector<unsigned> processorMap(numCores);
+  std::iota(processorMap.begin(), processorMap.end(), 0);
+
+  const unsigned numNodes = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  if (numNodes <= 1)
+    return processorMap;
+
+  const bool hyperThreadEnabled =
+      Intel::OpenCL::Utils::IsHyperThreadingEnabled();
+  const unsigned numCoresPerNode = numCores / numNodes;
+  for (unsigned s = 0; s < numNodes; ++s) {
+    std::vector<cl_uint> index;
+    bool res = Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(s, index);
+    // TODO replace with assert once GetProcessorIndexFromNumaNode supports
+    // windows.
+    if (!res)
+      return processorMap;
+    assert(index.size() == numCoresPerNode &&
+           "invalid number of processors in node");
+    if (hyperThreadEnabled) {
+      for (unsigned i = 0; i < numCoresPerNode; ++i)
+        processorMap[s * numCoresPerNode + i] =
+            index[(i / 2) + (i % 2) * (numCoresPerNode / 2)];
+    } else {
+      std::copy(index.begin(), index.end(),
+                processorMap.begin() + s * numCoresPerNode);
+    }
+  }
+
+  return processorMap;
+}
+
 void CPUDevice::calculateComputeUnitMap()
 {
     // default mapping
@@ -431,8 +475,10 @@ void CPUDevice::calculateComputeUnitMap()
     clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
 
+    const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+
     // Prevent divide by 0.
-    if (m_numCores <= 1)
+    if (m_numCores <= 1 || numSockets == 0)
       return;
 
     // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
@@ -506,8 +552,6 @@ void CPUDevice::calculateComputeUnitMap()
 
     const size_t numTbbThreads =
         TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
-    const unsigned int numSockets =
-        Intel::OpenCL::Utils::GetNumberOfCpuSockets();
     const unsigned int numCoresPerSocket = m_numCores / numSockets;
     const unsigned int numCoresHalf = m_numCores / 2;
 
@@ -550,6 +594,10 @@ void CPUDevice::calculateComputeUnitMap()
         if (dpcppAffinityMap[i] < m_numCores)
             m_pComputeUnitMap[i] = dpcppAffinityMap[i];
     }
+
+    std::vector<unsigned> processorMap = getProcessorIndexMap(m_numCores);
+    for (unsigned int i = 0; i < m_numCores; i++)
+        m_pComputeUnitMap[i] = processorMap[m_pComputeUnitMap[i]];
 }
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
