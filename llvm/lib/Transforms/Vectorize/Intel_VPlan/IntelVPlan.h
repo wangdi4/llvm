@@ -128,7 +128,6 @@ class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
 class VPlanMasked;
 class VPlanScalarPeel;
-class VPRegionLiveOut;
 
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
@@ -649,6 +648,7 @@ public:
                            // extract of the item correspnding MSB set in the
                            // mask.
     PrivateFinalArray,
+    PrivateFinalArrayMasked,
     PrivateLastValueNonPOD,
     CompressStore, // generate llvm.masked.compressstore intrinsic, for
                    // unit stride stores

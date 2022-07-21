@@ -24,11 +24,15 @@
 ; CHECK-NEXT:    Linked values: i64 [[VP6]], i64 [[VP5]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 4 i32 [[VP8:%.*]] (Stride = 9)
+; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 4 i32 [[VP8:%.*]]
+; CHECK-NEXT:        Stride: 9
+; CHECK-NEXT:        Init: i32 [[J_0140]]
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:     store double [[VP_LOAD:%.*]] double* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store double [[VP_LOAD:%.*]] double* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:    Indices:
+; CHECK-NEXT:      i32 [[VP9:%.*]] = phi  [ i32 [[J_0140]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP10:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP8]], i32 [[VP9:%.*]], void [[VP_STORE:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[J_0140]], void [[VP_STORE:%.*]], i32 [[VP9]],
 
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]

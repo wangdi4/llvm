@@ -1026,8 +1026,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // Generate new live-out. Its operand is the original live-out.
     SmallVector<std::unique_ptr<VPRegionLiveOut>, 2> RgnLiveOuts;
     VPValue *LiveOutUse = VConflictStore->getOperand(0);
-    auto NewLiveOut =
-        std::make_unique<VPRegionLiveOut>(LiveOutUse, LiveOutUse->getType());
+    auto NewLiveOut = std::make_unique<VPRegionLiveOut>(LiveOutUse);
     RgnLiveOuts.push_back(std::move(NewLiveOut));
     Region->addRgnLiveInsOuts(std::move(RenamedLiveIns),
                               std::move(RgnLiveOuts));

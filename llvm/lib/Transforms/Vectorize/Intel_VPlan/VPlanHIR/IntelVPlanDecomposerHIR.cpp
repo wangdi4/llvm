@@ -392,9 +392,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
       DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                     Instruction::Add);
 
-      BlobDDRef *BlobRef = RDDR->getBlobDDRef(BlobIdx);
-      if (Idioms->isCEIdiom(BlobRef))
-        CEIdiomToVPValue[BlobRef] = DecompDef;
+      tryAddVPValueForCEIdiom(RDDR->getBlobDDRef(BlobIdx), DecompBlob);
     }
 
   // Decompose IV expression. If the canon expression is invariant without
@@ -602,8 +600,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                                                 ->getPointerAddressSpace()));
   }
 
-  if (Idioms->isCEIdiom(Ref))
-    CEIdiomToVPValue[Ref] = MemOpVPI;
+  tryAddVPValueForCEIdiom(Ref, MemOpVPI);
 
   // If memory reference is AddressOf type, return the last generated
   // VPInstruction
@@ -956,8 +953,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
       NewVPInst->HIR().setOperandDDR(RvalDDR);
 
-    if (Idioms->isCEIdiom(HInst))
-      CEIdiomToVPValue[HInst] = NewVPInst;
+    tryAddVPValueForCEIdiom(HInst, NewVPInst);
 
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.

@@ -276,8 +276,8 @@ class OpenMPLateOutliner {
 
   // Add an argument that is the result of emitting an Expr.
   void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
-              bool NeedsTypedElements = true,
-              llvm::Type *ElementType = nullptr);
+              bool NeedsTypedElements = true, llvm::Type *ElementType = nullptr,
+              bool ArraySecUsesBase = true);
 
   // Add through the Expr with 'typed' arguments.
   void addTypedArg(const Expr *E, bool IsRef = false,

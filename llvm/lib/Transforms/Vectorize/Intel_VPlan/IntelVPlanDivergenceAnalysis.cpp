@@ -1564,6 +1564,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalArray)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateFinalArrayMasked)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPOD)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPODMasked)

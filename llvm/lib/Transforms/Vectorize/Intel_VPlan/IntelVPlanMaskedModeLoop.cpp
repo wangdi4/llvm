@@ -287,7 +287,8 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
           [](VPInstruction &I) {
             return I.getOpcode() == VPInstruction::PrivateFinalUncond ||
                    I.getOpcode() == VPInstruction::PrivateFinalUncondMem ||
-                   I.getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+                   I.getOpcode() == VPInstruction::PrivateLastValueNonPOD ||
+                   I.getOpcode() == VPInstruction::PrivateFinalArray;
           }),
       [](VPInstruction &I) { return &I; }));
 
@@ -304,6 +305,12 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
                               {I->getOperand(0), NewHeaderCond, Incoming});
       break;
     }
+    case VPInstruction::PrivateFinalUncondMem: {
+      NewPriv =
+          VPBldr.createNaryOp(VPInstruction::PrivateFinalMaskedMem,
+                              I->getType(), {I->getOperand(0), NewHeaderCond});
+      break;
+    }
     case VPInstruction::PrivateLastValueNonPOD: {
       NewPriv = VPBldr.create<VPPrivateLastValueNonPODMaskedInst>(
           ".priv.lastval.nonpod.masked", I->getType(),
@@ -312,10 +319,10 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
           cast<VPPrivateLastValueNonPODInst>(I)->getCopyAssign());
       break;
     }
-    case VPInstruction::PrivateFinalUncondMem: {
-      NewPriv =
-          VPBldr.createNaryOp(VPInstruction::PrivateFinalMaskedMem,
-                              I->getType(), {I->getOperand(0), NewHeaderCond});
+    case VPInstruction::PrivateFinalArray: {
+      NewPriv = VPBldr.createNaryOp(
+          VPInstruction::PrivateFinalArrayMasked, I->getType(),
+          {I->getOperand(0), I->getOperand(1), NewHeaderCond});
       break;
     }
     default:

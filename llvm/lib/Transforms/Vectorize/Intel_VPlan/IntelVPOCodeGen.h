@@ -184,6 +184,10 @@ public:
                         const Twine &Name = "cloned.loop");
 
 private:
+  /// Helper function to process SOA layout for private final arrays and
+  /// generate exit basic block as a result.
+  BasicBlock *processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
+                               Type *ElementType, Value *ElementPosition);
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
   bool needScalarCode(VPInstruction *V);

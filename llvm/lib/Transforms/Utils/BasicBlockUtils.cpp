@@ -312,11 +312,27 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     // Update branch in the predecessor.
     PredBB_BI->setSuccessor(FallThruPath, NewSucc);
   } else {
+#if INTEL_CUSTOMIZATION
+    // Preserve the predecessor's loop MD before we merge it.
+    // Deleting an unconditional branch should still preserve the loop's
+    // properties.
+    MDNode *MD = PredBB->getTerminator()->getMetadata("llvm.loop");
+    const DebugLoc Loc = PredBB->getTerminator()->getDebugLoc();
+#endif // INTEL_CUSTOMIZATION
+
     // Delete the unconditional branch from the predecessor.
     PredBB->getInstList().pop_back();
 
     // Move terminator instruction.
     PredBB->getInstList().splice(PredBB->end(), BB->getInstList());
+
+#if INTEL_CUSTOMIZATION
+    auto *NewTerm = PredBB->getTerminator();
+    if (MD && isa<BranchInst>(NewTerm))
+      NewTerm->setMetadata("llvm.loop", MD);
+    if (!NewTerm->getDebugLoc())
+      NewTerm->setDebugLoc(Loc);
+#endif // INTEL_CUSTOMIZATION
 
     // Terminator may be a memory accessing instruction too.
     if (MSSAU)

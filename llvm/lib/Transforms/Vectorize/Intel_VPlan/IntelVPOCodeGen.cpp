@@ -1797,44 +1797,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     Type *ElementType = Priv->getAllocatedType();
     if (Priv->isSOALayout()) {
 
-      assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
-             "Expected widened alloca for SOA last private.");
-      Value *Res = LoopPrivateVPWidenMap[Priv];
-
-      // In case of SOA layout we need to extract array elements one by one from
-      // the each vector and then store it to the original array. To do so we
-      // create a fixed trip count loop.
-      BasicBlock *BBLoop =
-          SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT,
-                     LI, nullptr, "array.last.private.loop");
-      BasicBlock *BBExit = SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI,
-                                      nullptr, "array.last.private.loop.exit");
-      Builder.SetInsertPoint(BBLoop->getTerminator());
-
-      // Creating phi node to count loop iterations.
-      PHINode *Phi =
-          Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
-      Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
-
-      // Loop body. Copying element in VF - 1 position from each vector.
-      Value *Ptr = Builder.CreateGEP(getSOAType(ElementType, VF), Res,
-          {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
-      Value *Val =
-          Builder.CreateLoad(
-            cast<GetElementPtrInst>(Ptr)->getResultElementType(), Ptr);
-      Value *Target =
-          Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
-      Builder.CreateStore(Val, Target);
-
-      // Increment of loop variable.
-      Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
-      Phi->addIncoming(Index, BBLoop);
-      Value *Cond = Builder.CreateICmpULT(
-          Index,
-          Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
-
-      Builder.CreateCondBr(Cond, BBLoop, BBExit);
-      BBLoop->getTerminator()->eraseFromParent();
+      BasicBlock *BBExit =
+          processSOALayout(Priv, Orig, ElementType, Builder.getInt64(VF - 1));
 
       State->CFG.PrevBB = BBExit;
 
@@ -1852,6 +1816,40 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     return;
   }
+
+  case VPInstruction::PrivateFinalArrayMasked: {
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
+
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    Value *VecMask = getVectorValue(VPInst->getOperand(2));
+    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTLZ =
+        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
+    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    if (Priv->isSOALayout()) {
+      BasicBlock *BBExit = processSOALayout(Priv, Orig, ElementType, Lane);
+
+      State->CFG.PrevBB = BBExit;
+    } else {
+      Value *VecExit = getVectorValue(VPInst->getOperand(0));
+      Value *PrivExtract =
+          Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
+
+      const DataLayout &DL =
+          OrigLoop->getHeader()->getModule()->getDataLayout();
+      Builder.CreateMemCpy(Orig, DL.getPrefTypeAlign(Orig->getType()),
+                           PrivExtract, Priv->getOrigAlignment(),
+                           DL.getTypeAllocSize(ElementType));
+    }
+    return;
+  }
+
   case VPInstruction::PrivateLastValueNonPOD: {
     // We need to copy private from last private allocated memory into the
     // original private location.
@@ -2043,6 +2041,47 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
 Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
   return getScalarValue(VPInst->getOperand(0), VF - 1);
+}
+
+BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
+                                         Type *ElementType,
+                                         Value *ElementPosition) {
+  assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
+         "Expected widened alloca for SOA last private.");
+  Value *Res = LoopPrivateVPWidenMap[Priv];
+
+  // In case of SOA layout we need to extract array elements one by one from
+  // the each vector and then store it to the original array. To do so we
+  // create a fixed trip count loop.
+  BasicBlock *BBLoop =
+      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
+                 nullptr, "array.last.private.loop");
+  BasicBlock *BBExit = SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI,
+                                  nullptr, "array.last.private.loop.exit");
+  Builder.SetInsertPoint(BBLoop->getTerminator());
+
+  // Creating phi node to count loop iterations.
+  PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
+  Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
+
+  // Loop body. Copying element in ElementPosition position from each vector.
+  Value *Ptr = Builder.CreateGEP(getSOAType(ElementType, VF), Res,
+                                 {Builder.getInt64(0), Phi, ElementPosition});
+  Value *Val = Builder.CreateLoad(
+      cast<GetElementPtrInst>(Ptr)->getResultElementType(), Ptr);
+  Value *Target =
+      Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
+  Builder.CreateStore(Val, Target);
+
+  // Increment of loop variable.
+  Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
+  Phi->addIncoming(Index, BBLoop);
+  Value *Cond = Builder.CreateICmpULT(
+      Index, Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
+
+  Builder.CreateCondBr(Cond, BBLoop, BBExit);
+  BBLoop->getTerminator()->eraseFromParent();
+  return BBExit;
 }
 
 Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
