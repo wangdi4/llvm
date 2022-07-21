@@ -30,7 +30,6 @@
 libomptarget_say("Building offloading runtime library libomptarget.")
 
 # INTEL_CUSTOMIZATION
-# Keep the comment since community re-landed this change.
 # Revert dc52712a063241bd "[Libomptarget] Make libomptarget an LLVM library"
 # temporarily and wait for code owner to resolve this conflict.
 # end INTEL_CUSTOMIZATION
