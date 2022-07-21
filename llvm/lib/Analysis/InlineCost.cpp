@@ -219,6 +219,13 @@ static cl::opt<bool> DisableGEPConstOperand(
     "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
     cl::desc("Disables evaluation of GetElementPtr with constant operands"));
 
+// Options to vary heuristics for SYCL Compilations
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> IsSYCLHost("sycl-host", cl::Hidden, cl::init(false),
+    cl::desc("Indicates this is a SYCL host compilation"));
+#endif //INTEL_CUSTOMIZATION
+
 namespace llvm {
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
   Attribute Attr = CB.getFnAttr(AttrKind);
@@ -1330,6 +1337,7 @@ private:
                                          /*PrepareForLTO*/ false,
                                          /*LinkForLTO*/ false,
                                          /*InlineOptLevel*/ {},
+                                         /*SYCLOptimizationMode*/ false,
 #endif // INTEL_CUSTOMIZATION
                                          /*LocallyHotCallSiteThreshold*/ {},
                                          /*ColdCallSiteThreshold*/ {},
@@ -2186,7 +2194,8 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
        F.hasOneLiveUse() && &F == Call.getCalledFunction()
 #if INTEL_FEATURE_SW_ADVANCED
        && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.getValueOr(false),
-           Params.LinkForLTO.getValueOr(false))
+           Params.LinkForLTO.getValueOr(false), IsSYCLHost,
+           Params.SYCLOptimizationMode.getValueOr(false))
 #endif // INTEL_FEATURE_SW_ADVANCED
        ;
 #endif // INTEL_CUSTOMIZATION
@@ -3160,6 +3169,7 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*PrepareForLTO*/ false,
                                /*LinkForLTO*/ false,
                                /*InlineOptLevel*/ {},
+                               /*SYCLOptimizationMode*/ false,
 #endif // INTEL_CUSTOMIZATION
                                /*LocallyHotCallSiteThreshold*/ {},
                                /*ColdCallSiteThreshold*/ {},
@@ -3565,7 +3575,8 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
 // and LinkForLTO flags in "InlineParams" based on "PrepareForLTO" and
 // "LinkForLTO".
 InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                                   bool PrepareForLTO, bool LinkForLTO) {
+                                   bool PrepareForLTO, bool LinkForLTO,
+                                   bool SYCLOptimizationMode) {
   InlineParams InlParams;
   assert((!PrepareForLTO || !LinkForLTO) && "Inconsistent LTO inline opts");
   //
@@ -3578,6 +3589,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO || EnablePreLTOInlineCost;
   InlParams.LinkForLTO = LinkForLTO || EnableLTOInlineCost;
+  InlParams.LinkForLTO = SYCLOptimizationMode;
   //
   // Note that the InlineOptLevel is not being set to the OptLevel in all
   // cases right now in the inliner, only when this version of getInlineParams

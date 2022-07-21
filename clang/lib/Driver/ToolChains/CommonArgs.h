@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -106,15 +106,16 @@ void SplitDebugInfo(const ToolChain &TC, Compilation &C, const Tool &T,
                     const JobAction &JA, const llvm::opt::ArgList &Args,
                     const InputInfo &Output, const char *OutFile);
 
+#if INTEL_CUSTOMIZATION
 void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
                    llvm::opt::ArgStringList &CmdArgs, const InputInfo &Output,
-                   const InputInfo &Input, bool IsThinLTO);
+                   const InputInfo &Input, bool IsThinLTO, const JobAction &JA);
 
-#if INTEL_CUSTOMIZATION
 void addIntelOptimizationArgs(const ToolChain &TC,
                               const llvm::opt::ArgList &Args,
                               llvm::opt::ArgStringList &CmdArgs,
-                              const InputInfo &Input, bool IsLink);
+                              const InputInfo &Input, bool IsLink,
+                              const JobAction &JA);
 #endif // INTEL_CUSTOMIZATION
 
 std::tuple<llvm::Reloc::Model, unsigned, bool>
