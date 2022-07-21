@@ -691,15 +691,18 @@ static void computeIFuncSummary(ModuleSummaryIndex &Index,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static void
-computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
-                    DenseSet<GlobalValue::GUID> &CantBePromoted) {
+static void computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
+                                DenseSet<GlobalValue::GUID> &CantBePromoted) {
+  // Skip summary for indirect function aliases as summary for aliasee will not
+  // be emitted.
+  const GlobalObject *Aliasee = A.getAliaseeObject();
+  if (isa<GlobalIFunc>(Aliasee))
+    return;
   bool NonRenamableLocal = isNonRenamableLocal(A);
   GlobalValueSummary::GVFlags Flags(
       A.getLinkage(), A.getVisibility(), NonRenamableLocal,
       /* Live = */ false, A.isDSOLocal(), A.canBeOmittedFromSymbolTable());
   auto AS = std::make_unique<AliasSummary>(Flags);
-  auto *Aliasee = A.getAliaseeObject();
   auto AliaseeVI = Index.getValueInfo(Aliasee->getGUID());
   assert(AliaseeVI && "Alias expects aliasee summary to be available");
   assert(AliaseeVI.getSummaryList().size() == 1 &&
@@ -861,6 +864,13 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
   // index.
   for (const GlobalAlias &A : M.aliases())
     computeAliasSummary(Index, A, CantBePromoted);
+
+  // Iterate through ifuncs, set their resolvers all alive.
+  for (const GlobalIFunc &I : M.ifuncs()) {
+    I.applyAlongResolverPath([&Index](const GlobalValue &GV) {
+      Index.getGlobalValueSummary(GV)->setLive(true);
+    });
+  }
 
   for (auto *V : LocalsUsed) {
     auto *Summary = Index.getGlobalValueSummary(*V);
