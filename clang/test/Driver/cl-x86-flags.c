@@ -4,10 +4,8 @@
 
 // We support -m32 and -m64.  We support all x86 CPU feature flags in gcc's -m
 // flag space.
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cl /Zs /WX -Wno-deprecated -m32 -m64 -msse3 -msse4.1 -mavx -mno-avx \
+// RUN: %clang_cl /Zs /WX -m32 -m64 -msse3 -msse4.1 -mavx -mno-avx \
 // RUN:     --target=i386-pc-win32 -### -- 2>&1 %s | FileCheck -check-prefix=MFLAGS %s
-// end INTEL_CUSTOMIZATION
 // MFLAGS-NOT: invalid /arch: argument
 //
 

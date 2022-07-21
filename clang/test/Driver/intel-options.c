@@ -172,7 +172,7 @@
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
 // and the true functionality is tested in cl-x86-arch.c
-// RUN: %clang_cl /Zs /WX -Wno-deprecated /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \
+// RUN: %clang_cl /Zs /WX /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \
 // RUN: | FileCheck -check-prefix=MFLAGS %s
 // MFLAGS-NOT: argument unused during compilation
 
