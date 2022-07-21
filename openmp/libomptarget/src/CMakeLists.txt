@@ -29,11 +29,14 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Revert dc52712a063241bd "[Libomptarget] Make libomptarget an LLVM library"
 # temporarily and wait for code owner to resolve this conflict.
 # end INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> b5b20164d215070d303de2a17d5936d1ff856a8f
 set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
@@ -43,6 +46,7 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/LegacyAPI.cpp
 )
+<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   list(APPEND LIBOMPTARGET_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/xpti_registry.cpp)
   if(SYCL_ENABLE_XPTI_TRACING)
@@ -136,3 +140,28 @@ if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
 endif()
 # end INTEL_CUSTOMIZATION
 # end INTEL_COLLAB
+=======
+
+set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
+
+# Build libomptarget library with libdl dependency.
+add_library(omptarget SHARED ${LIBOMPTARGET_SRC_FILES})
+set_target_properties(omptarget PROPERTIES INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN")
+if (OPENMP_ENABLE_LIBOMPTARGET_PROFILING)
+  # Add LLVMSupport dependency if profiling is enabled.
+  # Linking with LLVM component libraries also requires
+  # aligning the compile flags.
+  llvm_update_compile_flags(omptarget)
+  target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+  target_link_libraries(omptarget PRIVATE LLVMSupport)
+endif()
+target_include_directories(omptarget PRIVATE
+  ${LIBOMPTARGET_INCLUDE_DIR})
+target_link_libraries(omptarget PRIVATE
+  ${CMAKE_DL_LIBS}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+
+# Install libomptarget under the lib destination folder.
+install(TARGETS omptarget LIBRARY COMPONENT omptarget
+  DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+>>>>>>> b5b20164d215070d303de2a17d5936d1ff856a8f
