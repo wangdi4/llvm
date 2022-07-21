@@ -70,13 +70,9 @@
 
 ; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
-; RUN:   -verify-machineinstrs=0 \
-=======
->>>>>>> 1b246fb8a98bfab7975f153d6668fd9ca3d72a6b
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \

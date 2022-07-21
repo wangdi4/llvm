@@ -24,16 +24,11 @@
 ; Hybrid WPD
 ; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
-<<<<<<< HEAD
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-lto2 run %t.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
-; RUN:   -verify-machineinstrs=0 \
-=======
-; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
->>>>>>> 1b246fb8a98bfab7975f153d6668fd9ca3d72a6b
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \

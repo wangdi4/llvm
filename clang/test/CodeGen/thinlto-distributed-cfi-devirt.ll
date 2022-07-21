@@ -6,11 +6,6 @@
 
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 
-<<<<<<< HEAD
-; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
-
-=======
->>>>>>> 1b246fb8a98bfab7975f153d6668fd9ca3d72a6b
 ; RUN: llvm-lto2 run -thinlto-distributed-indexes -disable-thinlto-funcattrs=0 %t.o \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
