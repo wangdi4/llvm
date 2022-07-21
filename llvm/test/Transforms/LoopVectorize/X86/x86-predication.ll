@@ -238,22 +238,6 @@ for.end:
 ; This test ensures that a load, which would have been widened otherwise is
 ; instead scalarized if Cost-Model so decided as part of its
 ; sink-scalar-operands optimization for predicated instructions.
-<<<<<<< HEAD
-;
-; SINK-GATHER-LABEL: @scalarize_and_sink_gather
-; SINK-GATHER:      vector.body:
-; INTEL_CUSTOMIZATION
-; SINK-GATHER:        [[T0:%.+]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %{{.*}}, i32 4, <8 x i1> %{{.*}}, <8 x i32> undef)
-; SINK-GATHER-LABEL: pred.udiv.if:                                     ; preds = %vector.body
-; SINK-GATHER-NEXT:   [[EXT:%.+]] = extractelement <8 x i32> [[T0]], i32 0
-; SINK-GATHER-NEXT:   [[UDIV:%.+]] = udiv i32 [[EXT]], %x
-; SINK-GATHER-NEXT:   [[INS:%.+]] = insertelement <8 x i32> poison, i32 [[UDIV]], i32 0
-; SINK-GATHER-NEXT:   br label %pred.udiv.continue
-; SINK-GATHER:      pred.udiv.continue:
-; SINK-GATHER-NEXT:   phi <8 x i32> [ poison, %vector.body ], [ [[INS]], %pred.udiv.if ]
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> be25f52fec1a6e7a659c47799706759ce35d39dd
 define i32 @scalarize_and_sink_gather(i32* %a, i1 %c, i32 %x, i64 %n) {
 ; CHECK-LABEL: @scalarize_and_sink_gather(
 ; CHECK-NEXT:  entry:
