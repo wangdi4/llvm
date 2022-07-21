@@ -53,6 +53,7 @@ enum ClangFlags {
   FC1Option = (1 << 15),
   FlangOnlyOption = (1 << 16),
   DXCOption = (1 << 17),
+<<<<<<< HEAD
   Ignored = (1 << 18),
   Deprecated = (1 << 19),
 #if INTEL_CUSTOMIZATION
@@ -60,6 +61,11 @@ enum ClangFlags {
   DpcppHidden = (1 << 21),
   DpcppOption = (1 << 22)
 #endif // INTEL_CUSTOMIZATION
+=======
+  CLDXCOption = (1 << 18),
+  Ignored = (1 << 19),
+  Deprecated = (1 << 20),
+>>>>>>> 7c5d8fd97d8296ce9acaf8e36fdd685b307c725e
 };
 
 enum ID {
