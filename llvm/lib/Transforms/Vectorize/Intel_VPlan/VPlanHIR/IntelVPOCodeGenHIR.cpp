@@ -4312,6 +4312,53 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateFinalArrayMasked: {
+    HLContainerTy PrivFinalArrayInsts;
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
+    const DataLayout &DL = DDRefUtilities.getDataLayout();
+
+    // We need to copy array from last private allocated memory into the
+    // original array location.
+    RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    auto *OrigAddr = DDRefUtilities.createSelfAddressOfRef(
+        ElementType, Orig->getSelfBlobIndex(), Orig->getDefinedAtLevel());
+    OrigAddr->setAlignment(DL.getPrefTypeAlign(Orig->getSrcType()).value());
+
+    // TODO: Add support for SOA layout in HIR (CMPLRLLVM-9193).
+    assert(!Priv->isSOALayout() && "SOA layout is not supported for HIR.");
+
+    // In case of non-SOA layout it will be enough to copy memory from last
+    // private into the original array.
+    RegDDRef *VecMask = widenRef(VPInst->getOperand(2), getVF());
+    HLInst *BsfCall = createCTZCall(VecMask->clone(), Intrinsic::ctlz, true,
+                                    &PrivFinalArrayInsts);
+    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
+
+    HLInst *SubInst = HLNodeUtilities.createSub(
+        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
+        BsfLhs->clone(), "ext.lane");
+    SubInst->getLvalDDRef()->makeSelfBlob();
+    PrivFinalArrayInsts.push_back(*SubInst);
+
+    RegDDRef *ResAddr = getOrCreateScalarRef(Priv, 0);
+    auto IndexRef = SubInst->getLvalDDRef()->clone();
+    ResAddr->addDimension(IndexRef->getSingleCanonExpr());
+    ResAddr->setAlignment(Priv->getOrigAlignment().value());
+    SmallVector<const RegDDRef *, 1> AuxRefs = {IndexRef};
+    // Invoke makeConsitent() because dimensions of RegDDRef are modified.
+    ResAddr->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
+
+    Type *SizeTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+    RegDDRef *Size = DDRefUtilities.createConstDDRef(
+        SizeTy, DL.getTypeAllocSize(ElementType));
+
+    auto *PrivMemcpy = HLNodeUtilities.createMemcpy(OrigAddr, ResAddr, Size);
+    PrivFinalArrayInsts.push_back(*PrivMemcpy);
+    addInst(&PrivFinalArrayInsts);
+    return;
+  }
+
   case VPInstruction::PrivateLastValueNonPOD: {
     RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
@@ -4768,6 +4815,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalMasked:
   case VPInstruction::PrivateFinalArray:
+  case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
     widenLoopEntityInst(VPInst);
