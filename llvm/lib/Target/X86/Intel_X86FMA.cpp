@@ -807,6 +807,21 @@ private:
   std::unique_ptr<FMABasicBlock>
   parseBasicBlock(MachineBasicBlock &MBB) override;
 
+  /// Make sure the virtual register class is legal. If the register class
+  /// of operand is the sub-class of the legal register class, insert a
+  /// COPY. For example:
+  /// Before:
+  ///  %1331:vr128 = nofpexcept VFMADD213PDr %1204:vr128(tied-def 0),
+  ///                %71:fr64, killed %1534:vr128, implicit $mxcsr
+  /// After:
+  ///    %1529:vr128 = COPY %71:fr64
+  ///    %1331:vr128 = nofpexcept VFMADD213PDr %1204:vr128(tied-def 0),
+  ///                  %1529:vr128, killed %1526:vr128, implicit $mxcsr
+  Register getRegister(MachineBasicBlock &MBB, MachineInstr *InsertPos,
+                       const DebugLoc &DL, const MCInstrDesc &MCID,
+                       const TargetRegisterInfo *TRI, const MachineOperand &MO,
+                       unsigned MoPos);
+
   /// Generates a machine instruction and returns a reference to it.
   /// The parameters:
   /// \p Opcode - specifies the opcode of the new instruction.
@@ -815,11 +830,13 @@ private:
   /// \p DL - Debug location that should be used for the new instruction.
   MachineInstr *genInstruction(unsigned Opcode, unsigned DstReg,
                                const SmallVectorImpl<MachineOperand> &MOs,
-                               const DebugLoc &DL);
+                               const DebugLoc &DL, MachineBasicBlock &MBB,
+                               MachineInstr* MI);
 
   MachineInstr *genInstruction(unsigned Opcode,
                                const SmallVectorImpl<MachineOperand> &MOs,
-                               const DebugLoc &DL);
+                               const DebugLoc &DL, MachineBasicBlock &MBB,
+                               MachineInstr* MI);
 
   /// Generates a machine operand for the given FMA term \p Term.
   /// The parameter \p InsertPointMI gives the insertion point for any
@@ -1207,31 +1224,68 @@ X86GlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   return FMABB;
 }
 
+Register X86GlobalFMA::getRegister(MachineBasicBlock &MBB,
+                                   MachineInstr *InsertPos, const DebugLoc &DL,
+                                   const MCInstrDesc &MCID,
+                                   const TargetRegisterInfo *TRI,
+                                   const MachineOperand &MO, unsigned MoPos) {
+  if (MO.isReg() && Register::isVirtualRegister(MO.getReg())) {
+    const TargetRegisterClass *RC = MRI->getRegClassOrNull(MO.getReg());
+    if (RC) {
+      const TargetRegisterClass *ORC = TII->getRegClass(MCID, MoPos, TRI, *MF);
+      if (RC->hasSubClass(ORC)) {
+        Register NewReg = MRI->createVirtualRegister(ORC);
+        BuildMI(MBB, *InsertPos, DL, TII->get(TargetOpcode::COPY), NewReg)
+            .addReg(MO.getReg());
+        return NewReg;
+      }
+    }
+  }
+  return Register();
+}
+
 MachineInstr *
 X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
                              const SmallVectorImpl<MachineOperand> &MOs,
-                             const DebugLoc &DL) {
+                             const DebugLoc &DL,
+                             MachineBasicBlock &MBB,
+                             MachineInstr* MI) {
   const MCInstrDesc &MCID = TII->get(Opcode);
   MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
   MachineInstrBuilder MIB(*MF, NewMI);
 
   MIB.add(MachineOperand::CreateReg(DstReg, true));
-  for (auto &MO : MOs)
-    MIB.add(MO);
-
+  const TargetRegisterInfo *TRI = ST->getRegisterInfo();
+  for (unsigned I = 0, E = MOs.size(); I != E; ++I) {
+    auto &MO = MOs[I];
+    Register NewReg = getRegister(MBB, MI, DL, MCID, TRI, MO, I);
+    if (NewReg.isValid())
+      MIB.addReg(NewReg);
+    else
+      MIB.add(MO);
+  }
   return NewMI;
 }
 
 MachineInstr *
 X86GlobalFMA::genInstruction(unsigned Opcode,
                              const SmallVectorImpl<MachineOperand> &MOs,
-                             const DebugLoc &DL) {
+                             const DebugLoc &DL,
+                             MachineBasicBlock &MBB,
+                             MachineInstr* MI) {
   const MCInstrDesc &MCID = TII->get(Opcode);
   MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
   MachineInstrBuilder MIB(*MF, NewMI);
 
-  for (auto &MO : MOs)
-    MIB.add(MO);
+  const TargetRegisterInfo *TRI = ST->getRegisterInfo();
+  for (unsigned I = 0, E = MOs.size(); I != E; ++I) {
+    auto &MO = MOs[I];
+    Register NewReg = getRegister(MBB, MI, DL, MCID, TRI, MO, I);
+    if (NewReg.isValid())
+      MIB.addReg(NewReg);
+    else
+      MIB.add(MO);
+  }
 
   return NewMI;
 }
@@ -1261,7 +1315,8 @@ X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
     const TargetRegisterClass *RC = MRI->getRegClass(Reg);
     Reg = MRI->createVirtualRegister(RC);
 
-    MachineInstr *NewMI = genInstruction(ZeroOpcode, Reg, MOs, DL);
+    MachineInstr *NewMI = genInstruction(ZeroOpcode, Reg, MOs, DL, *MBB,
+                                         InsertPointMI);
     MBB->insert(InsertPointMI, NewMI);
     // Store the register to the term, so the instruction generated for this
     // special term can be re-used the next time.
@@ -1438,7 +1493,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
     unsigned DstReg = (NodeInd == 0 && !NegateResult)
         ? MI->getOperand(0).getReg()
         : MRI->createVirtualRegister(RC);
-    MachineInstr *NewMI = genInstruction(Opcode, DstReg, MOs, DL);
+    MachineInstr *NewMI = genInstruction(Opcode, DstReg, MOs, DL, MBB, MI);
     NewMI->setFlag(MachineInstr::MIFlag::NoFPExcept);
 
     for (auto *T : FMAOpnds)
@@ -1459,7 +1514,8 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       MOs[0] = generateMachineOperandForFMATerm(Term, MI);
       MOs[1] = MachineOperand::CreateReg(NewMI->getOperand(0).getReg(), false);
 
-      NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL);
+      NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL,
+                             MBB, MI);
       Term->setLastUseMI(NewMI);
       MBB.insert(MI, NewMI);
       LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW INSTRUCTION:\n    "
@@ -1480,7 +1536,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       MOs.push_back(Noreg);
       for (unsigned i = 1; i < MI->getNumOperands(); i++)
         MOs.push_back(MI->getOperand(i));
-      MachineInstr *NewMI = genInstruction(MI->getOpcode(), MOs, DL);
+      MachineInstr *NewMI = genInstruction(MI->getOpcode(), MOs, DL, MBB, MI);
       // FIXME: This DBG_VALUE should actually be set to noreg in the pass
       // which do the optimization.
       MI->getParent()->insert(MI, NewMI);
