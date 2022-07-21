@@ -152,7 +152,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                             << Inst << "\n");
           return false;
         }
-      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst) &&
+                 !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
         LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");

@@ -516,6 +516,8 @@ public:
   struct IncrementInfoTy {
     VPInstruction *VPInst;
     int64_t Stride;
+    VPValue *Init = nullptr;
+    VPInstruction *LiveOut = nullptr;
   };
 
   VPCompressExpandIdiom(const SmallVectorImpl<IncrementInfoTy> &Increments,
@@ -1516,10 +1518,10 @@ public:
   void checkParentVPLoop(const VPLoop *Loop) const {}
 
   /// Return true if not all data is completed.
-  bool isIncomplete() const { return false; }
+  bool isIncomplete() const { return !Increments.empty(); }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop) {}
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);

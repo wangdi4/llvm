@@ -128,7 +128,6 @@ class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
 class VPlanMasked;
 class VPlanScalarPeel;
-class VPRegionLiveOut;
 
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 

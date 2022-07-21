@@ -106,6 +106,8 @@ private:
   // Maps compress/expand idiom Nodes/Refs to VPValues.
   SmallDenseMap<HIRVecIdiom, VPValue *> CEIdiomToVPValue;
 
+  SmallVector<std::unique_ptr<VPTemporaryUser>, 4> TempUsers;
+
   // Maps Load RegDDRef to the generated load instruction that corresponds
   // to VConflict idiom.
   SmallDenseMap<DDRef *, VPInstruction *> RefToVPLoadConflict;
@@ -331,8 +333,31 @@ public:
   VPValue *getVPValueForNode(const loopopt::HLNode *Node);
 
   VPValue *getVPValueForCEIdiom(const HIRVecIdiom &Idiom) {
-    assert(CEIdiomToVPValue.find(Idiom) != CEIdiomToVPValue.end());
-    return CEIdiomToVPValue[Idiom];
+    assert(CEIdiomToVPValue.find(Idiom) != CEIdiomToVPValue.end() &&
+           "Expected existing idiom map");
+    VPValue *Ret = CEIdiomToVPValue[Idiom];
+    if (auto *FU = dyn_cast<VPTemporaryUser>(Ret)) {
+      assert(FU->getNumOperands() == 1 && "Expected only one operand");
+      Ret = FU->getOperand(0);
+    }
+    return Ret;
+  }
+
+  void tryAddVPValueForCEIdiom(const HIRVecIdiom &Idiom, VPValue *VPVal) {
+    if (!Idioms->isCEIdiom(Idiom))
+      return;
+    assert(CEIdiomToVPValue.find(Idiom) == CEIdiomToVPValue.end() &&
+           "Unexpected existing idiom map");
+    if (auto *VPPhi = dyn_cast<VPPHINode>(VPVal)) {
+      // VPPHINodes can be replaced during adjustment by other instructions,
+      // e.g. by their operand if they have only one operand. To keep track of
+      // those changes we create a ProxyUser. Those ProxyUsers will be deleted
+      // after decomposition so there will be no interleaving with the VPlan.
+      auto *TempUser = new VPTemporaryUser(VPVal);
+      TempUsers.emplace_back(TempUser);
+      VPVal = TempUser;
+    }
+    CEIdiomToVPValue[Idiom] = VPVal;
   }
 
   /// Return requested VPConstant, for components that don't have VPlan
