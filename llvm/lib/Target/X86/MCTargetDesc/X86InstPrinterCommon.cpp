@@ -300,6 +300,21 @@ void X86InstPrinterCommon::printCMPMnemonic(const MCInst *MI, bool IsVCmp,
   case X86::VCMPSHZrm_Intk: case X86::VCMPSHZrr_Intk:
     OS << "sh\t";
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  case X86::VCMPNEPBF16Z128rmi:  case X86::VCMPNEPBF16Z128rri:
+  case X86::VCMPNEPBF16Z256rmi:  case X86::VCMPNEPBF16Z256rri:
+  case X86::VCMPNEPBF16Zrmi:     case X86::VCMPNEPBF16Zrri:
+  case X86::VCMPNEPBF16Z128rmik: case X86::VCMPNEPBF16Z128rrik:
+  case X86::VCMPNEPBF16Z256rmik: case X86::VCMPNEPBF16Z256rrik:
+  case X86::VCMPNEPBF16Zrmik:    case X86::VCMPNEPBF16Zrrik:
+  case X86::VCMPNEPBF16Z128rmbi: case X86::VCMPNEPBF16Z128rmbik:
+  case X86::VCMPNEPBF16Z256rmbi: case X86::VCMPNEPBF16Z256rmbik:
+  case X86::VCMPNEPBF16Zrmbi:    case X86::VCMPNEPBF16Zrmbik:
+    OS << "nepbf16\t";
+    break;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

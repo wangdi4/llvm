@@ -900,6 +900,10 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F;
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+static constexpr FeatureBitset ImpliedFeaturesAVX512BF16NE =
+    FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;
 constexpr FeatureBitset ImpliedFeaturesWIDEKL = FeatureKL;

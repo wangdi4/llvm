@@ -163,6 +163,19 @@ bool X86IntelInstPrinter::printVecCompareInstr(const MCInst *MI, raw_ostream &OS
   case X86::VCMPPHZrmbi:    case X86::VCMPPHZrmbik:
   case X86::VCMPPHZrrib:    case X86::VCMPPHZrribk:
   case X86::VCMPSHZrrb_Int: case X86::VCMPSHZrrb_Intk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  case X86::VCMPNEPBF16Z128rmi:  case X86::VCMPNEPBF16Z128rri:
+  case X86::VCMPNEPBF16Z256rmi:  case X86::VCMPNEPBF16Z256rri:
+  case X86::VCMPNEPBF16Zrmi:     case X86::VCMPNEPBF16Zrri:
+  case X86::VCMPNEPBF16Z128rmik: case X86::VCMPNEPBF16Z128rrik:
+  case X86::VCMPNEPBF16Z256rmik: case X86::VCMPNEPBF16Z256rrik:
+  case X86::VCMPNEPBF16Zrmik:    case X86::VCMPNEPBF16Zrrik:
+  case X86::VCMPNEPBF16Z128rmbi: case X86::VCMPNEPBF16Z128rmbik:
+  case X86::VCMPNEPBF16Z256rmbi: case X86::VCMPNEPBF16Z256rmbik:
+  case X86::VCMPNEPBF16Zrmbi:    case X86::VCMPNEPBF16Zrmbik:
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     if (Imm >= 0 && Imm <= 31) {
       OS << '\t';
       printCMPMnemonic(MI, /*IsVCMP*/true, OS);
@@ -212,9 +225,16 @@ bool X86IntelInstPrinter::printVecCompareInstr(const MCInst *MI, raw_ostream &OS
               printwordmem(MI, CurOp++, OS);
             else
               printdwordmem(MI, CurOp++, OS);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+          } else if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::XD &&
+                     (Desc.TSFlags & X86II::OpMapMask) != X86II::TA) {
+#else // INTEL_FEATURE_ISA_AVX512_BF16_NE
           } else if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::XD) {
             assert((Desc.TSFlags & X86II::OpMapMask) != X86II::TA &&
                    "Unexpected op map!");
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
             printqwordmem(MI, CurOp++, OS);
           } else if (Desc.TSFlags & X86II::EVEX_L2) {
             printzmmwordmem(MI, CurOp++, OS);

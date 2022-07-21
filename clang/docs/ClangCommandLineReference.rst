@@ -3887,6 +3887,12 @@ X86
 
 .. option:: -mavx512bf16, -mno-avx512bf16
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX512_BF16_NE
+.. option:: -mavx512bf16ne, -mno-avx512bf16ne
+.. end INTEL_FEATURE_ISA_AVX512_BF16_NE
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mavx512bitalg, -mno-avx512bitalg
 
 .. option:: -mavx512bw, -mno-avx512bw

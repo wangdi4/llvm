@@ -1208,4 +1208,84 @@ define <8 x bfloat> @regression1(<8 x bfloat> %a, <8 x bfloat> %b) {
   %res = shufflevector <8 x bfloat> %a, <8 x bfloat> %b, <8 x i32> <i32 0, i32 7, i32 0, i32 1, i32 2, i32 3, i32 7, i32 5>
   ret <8 x bfloat> %res
 }
+
+declare void @llvm.masked.store.v8bf16.p0v8bf16(<8 x bfloat>, <8 x bfloat>*, i32, <8 x i1>)
+declare <8 x bfloat> @llvm.masked.load.v8bf16.p0v8bf16(<8 x bfloat>*, i32,  <8 x i1>, <8 x bfloat>)
+
+define void @storeu8bf16mask(<8 x i1> %mask, <8 x bfloat>* %addr, <8 x bfloat> %val) {
+; AVX512FP16-X64-LABEL: storeu8bf16mask:
+; AVX512FP16-X64:       # %bb.0:
+; AVX512FP16-X64-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X64-NEXT:    vmovdqu16 %xmm1, (%rdi) {%k1}
+; AVX512FP16-X64-NEXT:    retq
+;
+; AVX512FP16-X86-LABEL: storeu8bf16mask:
+; AVX512FP16-X86:       # %bb.0:
+; AVX512FP16-X86-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; AVX512FP16-X86-NEXT:    vmovdqu16 %xmm1, (%eax) {%k1}
+; AVX512FP16-X86-NEXT:    retl
+  call void @llvm.masked.store.v8bf16.p0v8bf16(<8 x bfloat> %val, <8 x bfloat>* %addr, i32 4, <8 x i1>%mask)
+  ret void
+}
+
+define <8 x bfloat> @maskloadu8bf16(<8 x bfloat>* %addr, <8 x bfloat> %val, <8 x i1> %mask) {
+; AVX512FP16-X64-LABEL: maskloadu8bf16:
+; AVX512FP16-X64:       # %bb.0:
+; AVX512FP16-X64-NEXT:    vpsllw $15, %xmm1, %xmm1
+; AVX512FP16-X64-NEXT:    vpmovw2m %xmm1, %k1
+; AVX512FP16-X64-NEXT:    vmovdqu16 (%rdi), %xmm0 {%k1}
+; AVX512FP16-X64-NEXT:    retq
+;
+; AVX512FP16-X86-LABEL: maskloadu8bf16:
+; AVX512FP16-X86:       # %bb.0:
+; AVX512FP16-X86-NEXT:    vpsllw $15, %xmm1, %xmm1
+; AVX512FP16-X86-NEXT:    vpmovw2m %xmm1, %k1
+; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; AVX512FP16-X86-NEXT:    vmovdqu16 (%eax), %xmm0 {%k1}
+; AVX512FP16-X86-NEXT:    retl
+  %res = call <8 x bfloat> @llvm.masked.load.v8bf16.p0v8bf16(<8 x bfloat>* %addr, i32 4, <8 x i1> %mask, <8 x bfloat> %val)
+  ret <8 x bfloat> %res
+}
+
+define <8 x bfloat> @maskuloadu8bf16(<8 x bfloat>* %addr, <8 x i1> %mask) {
+; AVX512FP16-X64-LABEL: maskuloadu8bf16:
+; AVX512FP16-X64:       # %bb.0:
+; AVX512FP16-X64-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X64-NEXT:    vmovdqu16 (%rdi), %xmm0 {%k1} {z}
+; AVX512FP16-X64-NEXT:    retq
+;
+; AVX512FP16-X86-LABEL: maskuloadu8bf16:
+; AVX512FP16-X86:       # %bb.0:
+; AVX512FP16-X86-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; AVX512FP16-X86-NEXT:    vmovdqu16 (%eax), %xmm0 {%k1} {z}
+; AVX512FP16-X86-NEXT:    retl
+  %res = call <8 x bfloat> @llvm.masked.load.v8bf16.p0v8bf16(<8 x bfloat>* %addr, i32 4, <8 x i1> %mask, <8 x bfloat> undef)
+  ret <8 x bfloat> %res
+}
+
+define <8 x bfloat> @maskzloadu8bf16(<8 x bfloat>* %addr, <8 x i1> %mask) {
+; AVX512FP16-X64-LABEL: maskzloadu8bf16:
+; AVX512FP16-X64:       # %bb.0:
+; AVX512FP16-X64-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X64-NEXT:    vmovdqu16 (%rdi), %xmm0 {%k1} {z}
+; AVX512FP16-X64-NEXT:    retq
+;
+; AVX512FP16-X86-LABEL: maskzloadu8bf16:
+; AVX512FP16-X86:       # %bb.0:
+; AVX512FP16-X86-NEXT:    vpsllw $15, %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpmovw2m %xmm0, %k1
+; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; AVX512FP16-X86-NEXT:    vmovdqu16 (%eax), %xmm0 {%k1} {z}
+; AVX512FP16-X86-NEXT:    retl
+  %res = call <8 x bfloat> @llvm.masked.load.v8bf16.p0v8bf16(<8 x bfloat>* %addr, i32 4, <8 x i1> %mask, <8 x bfloat> zeroinitializer)
+  ret <8 x bfloat> %res
+}
+
 ; end INTEL_FEATURE_ISA_BF16_BASE
