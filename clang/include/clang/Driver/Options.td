@@ -5350,6 +5350,10 @@ def mno_avx512f : Flag<["-"], "mno-avx512f">, Group<m_x86_Features_Group>;
 def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;
 def mno_avx512bf16 : Flag<["-"], "mno-avx512bf16">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def mavx512bf16ne : Flag<["-"], "mavx512bf16ne">, Group<m_x86_Features_Group>;
+def mno_avx512bf16ne : Flag<["-"], "mno-avx512bf16ne">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def mavx512convert : Flag<["-"], "mavx512convert">, Group<m_x86_Features_Group>;
 def mno_avx512convert : Flag<["-"], "mno-avx512convert">, Group<m_x86_Features_Group>;

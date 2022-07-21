@@ -296,6 +296,11 @@ namespace llvm {
     // AVX-512 reciprocal approximations with a little more precision.
     RSQRT14,
     RSQRT14S,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    SQRT14,
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     RCP14,
     RCP14S,
 
@@ -403,6 +408,11 @@ namespace llvm {
     CMPM,
     // Vector mask comparison generating mask bits for FP values.
     CMPMM,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    CMPM_Int,
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     // Vector mask comparison with SAE for FP values.
     CMPMM_SAE,
 
