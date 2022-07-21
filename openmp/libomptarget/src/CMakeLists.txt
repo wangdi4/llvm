@@ -29,6 +29,7 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
+<<<<<<< HEAD
 set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
@@ -131,3 +132,32 @@ if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
 endif()
 # end INTEL_CUSTOMIZATION
 # end INTEL_COLLAB
+=======
+add_llvm_library(omptarget
+  SHARED
+
+  api.cpp
+  device.cpp
+  interface.cpp
+  interop.cpp
+  omptarget.cpp
+  rtl.cpp
+  LegacyAPI.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${LIBOMPTARGET_INCLUDE_DIR}
+
+  LINK_COMPONENTS
+  Support
+  Object
+
+  LINK_LIBS
+  ${CMAKE_DL_LIBS}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
+)
+
+target_include_directories(omptarget PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
+
+# Also install plugin under the standard lib destination folder.
+install(TARGETS omptarget LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+>>>>>>> 643dfd97d52e7b0c0dfbe7fd6046de9d43b3daa6
