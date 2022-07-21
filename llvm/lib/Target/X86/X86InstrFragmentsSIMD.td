@@ -246,6 +246,16 @@ def X86CmpMaskCC :
       SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
                        SDTCisVec<1>, SDTCisSameAs<2, 1>,
                        SDTCisSameNumEltsAs<0, 1>, SDTCisVT<3, i8>]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86CmpMaskCC_Int :
+      SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
+                       SDTCisVec<1>, SDTCisSameAs<2, 1>,
+                       SDTCisSameNumEltsAs<0, 1>, SDTCisVT<3, i32>]>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
+
 def X86MaskCmpMaskCC :
       SDTypeProfile<1, 4, [SDTCisVec<0>, SDTCVecEltisVT<0, i1>,
                        SDTCisVec<1>, SDTCisSameAs<2, 1>,
@@ -262,6 +272,11 @@ def X86any_cmpm    : PatFrags<(ops node:$src1, node:$src2, node:$src3),
                                 (X86cmpm node:$src1, node:$src2, node:$src3)]>;
 def X86cmpmmSAE : SDNode<"X86ISD::CMPMM_SAE", X86MaskCmpMaskCC>;
 def X86cmpms    : SDNode<"X86ISD::FSETCCM",   X86CmpMaskCCScalar>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86cmpm_int    : SDNode<"X86ISD::CMPM_Int",   X86CmpMaskCC_Int>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
 def X86cmpmsSAE : SDNode<"X86ISD::FSETCCM_SAE",   X86CmpMaskCCScalar>;
 
 def X86phminpos: SDNode<"X86ISD::PHMINPOS", 
@@ -631,6 +646,11 @@ def x86vfcmulcShRnd  : SDNode<"X86ISD::VFCMULCSH_RND", SDTFPBinOpRound>;
 
 def X86rsqrt14   : SDNode<"X86ISD::RSQRT14",  SDTFPUnaryOp>;
 def X86rcp14     : SDNode<"X86ISD::RCP14",    SDTFPUnaryOp>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86sqrt14     : SDNode<"X86ISD::SQRT14",  SDTFPUnaryOp>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
 
 // VNNI
 def SDTVnni : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0,1>,
@@ -1172,6 +1192,12 @@ def X86vcvttps2iubsMaskSAE
 def X86vcvttps2iubsMaskzSAE
     : SDNode<"X86ISD::VCVTTPS2IUBSMaskZ_SAE", SDTAVX512SATCVT_PS2I_MASKZ_SAE>;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+def X86vcmpnepbf16 : SDNode<"X86ISD::VCMPNEPBF16",
+                            SDTypeProfile<1, 4, [SDTCVecEltisVT<0, i1>, SDTCisSameAs<0, 1>, SDTCisVec<0>,
+                                            SDTCisSameAs<0, 3>, SDTCisSameAs<0, 4>, SDTCVecEltisVT<2, i1>,
+                                            SDTCisSameNumEltsAs<0, 2>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

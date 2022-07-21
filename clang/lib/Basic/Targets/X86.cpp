@@ -297,6 +297,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512ER = true;
     } else if (Feature == "+avx512fp16") {
       HasAVX512FP16 = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    } else if (Feature == "+avx512bf16ne") {
+      HasAVX512BF16NE = true;
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avx512pf") {
       HasAVX512PF = true;
     } else if (Feature == "+avx512dq") {
@@ -1034,6 +1040,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512VNNI__");
   if (HasAVX512BF16)
     Builder.defineMacro("__AVX512BF16__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  if (HasAVX512BF16NE)
+    Builder.defineMacro("__AVX512BF16NE__");
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   if (HasAVX512ER)
     Builder.defineMacro("__AVX512ER__");
   if (HasAVX512FP16)
@@ -1613,6 +1625,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vnni", true)
       .Case("avx512bf16", true)
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+      .Case("avx512bf16ne", true)
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #if INTEL_FEATURE_ISA_AVX_BF16
       .Case("avxbf16", true)
 #endif // INTEL_FEATURE_ISA_AVX_BF16
@@ -1916,6 +1931,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vpopcntdq", HasAVX512VPOPCNTDQ)
       .Case("avx512vnni", HasAVX512VNNI)
       .Case("avx512bf16", HasAVX512BF16)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+      .Case("avx512bf16ne", HasAVX512BF16NE)
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512er", HasAVX512ER)
       .Case("avx512fp16", HasAVX512FP16)
       .Case("avx512pf", HasAVX512PF)

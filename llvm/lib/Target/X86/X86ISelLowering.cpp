@@ -28075,6 +28075,27 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     }
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+    case CMP_MASK_CC_INT: {
+      SDValue Src1 = Op.getOperand(1);
+      SDValue Src2 = Op.getOperand(2);
+      SDValue CC = Op.getOperand(3);
+      SDValue Mask = Op.getOperand(4);
+
+      MVT Src1VecTy = Src1.getSimpleValueType();
+      int NumElts = Src1VecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+
+      SDValue Cmp = DAG.getNode(IntrData->Opc0, dl, MaskVT, Src1, Src2, CC);
+
+      SDValue And = DAG.getNode(ISD::AND, dl, MaskVT, VMask, Cmp);
+
+      return DAG.getBitcast(Op.getSimpleValueType(), And);
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
     default:
       break;
     }
@@ -34902,6 +34923,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(UCOMI)
   NODE_NAME_CASE(CMPM)
   NODE_NAME_CASE(CMPMM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  NODE_NAME_CASE(CMPM_Int)
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(STRICT_CMPM)
   NODE_NAME_CASE(CMPMM_SAE)
   NODE_NAME_CASE(SETCC)
@@ -35156,6 +35182,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(EXPAND)
   NODE_NAME_CASE(SELECTS)
   NODE_NAME_CASE(ADDSUB)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+  NODE_NAME_CASE(SQRT14)
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(RCP14)
   NODE_NAME_CASE(RCP14S)
   NODE_NAME_CASE(RCP28)

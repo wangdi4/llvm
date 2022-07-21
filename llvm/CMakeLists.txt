@@ -1380,6 +1380,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_REDUCTION)
 # end INTEL_FEATURE_ISA_AVX512_REDUCTION
+# INTEL_FEATURE_ISA_AVX512_BF16_NE
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_BF16_NE)
+# end INTEL_FEATURE_ISA_AVX512_BF16_NE
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
