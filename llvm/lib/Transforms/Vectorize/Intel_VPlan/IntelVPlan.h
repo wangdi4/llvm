@@ -599,6 +599,8 @@ public:
     InductionFinal,
     ReductionInit,
     ReductionFinal,
+    ReductionFinalUdr, // Custom finalization of UDR. Lowered as sequence of
+                       // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
     Subscript,
@@ -2802,6 +2804,40 @@ private:
   bool IsLinearIndex;
 };
 
+/// Concrete class to represent last value calculation for user-defined
+/// reductions in VPlan.
+class VPReductionFinalUDR : public VPInstruction {
+public:
+  /// Create finalization instruction with its BaseType, operands and UDR object
+  /// combiner function pointer.
+  VPReductionFinalUDR(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                      Function *Combiner)
+      : VPInstruction(VPInstruction::ReductionFinalUdr, BaseTy, Operands),
+        Combiner(Combiner) {
+    assert(Combiner && "Unexpected null Combiner for UDR.");
+  }
+
+  /// Return the combiner function stored by this instruction
+  Function *getCombiner() const { return Combiner; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ReductionFinalUdr;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPReductionFinalUDR(getType(), Ops, getCombiner());
+  }
+
+private:
+  Function *Combiner = nullptr;
+};
 
 /// Complicated finalization of inscan reduction is not required,
 /// in fact, the final value resides in the last vector lane.

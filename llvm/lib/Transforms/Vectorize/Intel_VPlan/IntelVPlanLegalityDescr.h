@@ -375,7 +375,7 @@ public:
   RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
-        Combiner(Combiner), Initializer(Initializer) {}
+        Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
 
   // Move constructor
   RedDescrUDR(RedDescrUDR &&Other) = default;

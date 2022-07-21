@@ -1720,12 +1720,6 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
         LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
         return false;
       }
-
-      // Temporary bailout until entities lowering and codegen support is
-      // implemented for UDRs.
-      LLVM_DEBUG(
-          dbgs() << "LVP: UDR lowering and codegen not implemented yet.\n");
-      return false;
     }
   }
 

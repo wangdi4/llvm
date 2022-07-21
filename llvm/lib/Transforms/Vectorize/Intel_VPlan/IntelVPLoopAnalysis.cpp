@@ -113,6 +113,16 @@ void VPInscanReduction::dump(raw_ostream &OS) const {
   OS << '\n';
 }
 
+void VPUserDefinedReduction::dump(raw_ostream &OS) const {
+  VPReduction::dump(OS);
+  OS << " udr ";
+  OS << "Combiner: " << Combiner->getName();
+  OS << ", Initializer: " << (Initializer ? Initializer->getName() : "none");
+  OS << ", Ctor: " << (Ctor ? Ctor->getName() : "none");
+  OS << ", Dtor: " << (Dtor ? Dtor->getName() : "none");
+  OS << "}\n";
+}
+
 void VPInduction::dump(raw_ostream &OS) const {
   switch (getKind()) {
   default:
@@ -407,6 +417,20 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 
   return Red;
 }
+
+VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
+    Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
+    VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed, VPValue *AI,
+    bool ValidMemOnly) {
+  // Create a new VPEntity to represent UDR.
+  VPUserDefinedReduction *Red =
+      new VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor, Incoming,
+                                 FMF, RedTy, Signed, ValidMemOnly);
+  ReductionList.emplace_back(Red);
+  createMemDescFor(Red, AI);
+  return Red;
+}
+
 VPInduction *VPLoopEntityList::addInduction(
     VPInstruction *Start, VPValue *Incoming, InductionKind Kind, VPValue *Step,
     VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
@@ -964,6 +988,24 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   }
 }
 
+// Helper method to create custom function VPCalls with given args. Currently
+// used to emit ctor/dtor/initializer calls for non-POD privates and UDRs.
+static void createCustomFunctionCall(Function *F, ArrayRef<VPValue *> Args,
+                                     VPBuilder &Builder, VPlanVector &Plan) {
+  assert(
+      F->arg_size() == Args.size() && Args.size() >= 1 &&
+      "Number of input arguments should match number of Function arguments.");
+
+  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
+         "All of input args are expected to be non-null.");
+
+  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
+
+  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
+
+  Builder.insert(VPCall);
+}
+
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
@@ -1134,6 +1176,60 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   ProcessedReductions.insert(Reduction);
 }
 
+// Transform VPlan to explicitly perform initialization/finalization of UDRs.
+// Pseudo VPlan-IR for example -
+//
+// Preheader:
+//   %udr.vec = allocate-private %UDRType
+//   call @udr.ctor(%udr.vec)
+//   call @udr.initializer(%udr.vec, %udr.orig)
+//
+// Loop:
+//   * updates to %udr.vec *
+//
+// PostExit:
+//   reduction-final-udr %udr.vec, %udr.orig, Combiner: @udr.combiner
+//   call @udr.dtor(%udr.vec)
+//
+void VPLoopEntityList::insertUDRVPInstructions(
+    VPUserDefinedReduction *UDR, VPBuilder &Builder, VPBasicBlock *PostExit,
+    VPBasicBlock *Preheader,
+    SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
+
+  VPValue *AI = nullptr;
+  VPValue *PrivateMem = createPrivateMemory(*UDR, Builder, AI, Preheader);
+  assert(PrivateMem && "Private memory is expected for UDR.");
+  // Replace all uses of original UDR variable with private memory.
+  AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Initialize UDR by calling constructor (if present) and initializer.
+  if (auto *CtorFn = UDR->getCtor())
+    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+
+  if (auto *InitFn = UDR->getInitializer())
+    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+
+  // Finalize UDR by emitting a reduction-final-udr instruction and call to
+  // destructor (if present).
+  Builder.setInsertPoint(PostExit);
+  Builder.setCurrentDebugLocation(
+      PostExit->getTerminator()->getDebugLocation());
+  Builder.create<VPReductionFinalUDR>(
+      ".red.final.udr", Type::getVoidTy(*Plan.getLLVMContext()),
+      ArrayRef<VPValue *>{PrivateMem, AI}, UDR->getCombiner());
+
+  if (auto *DtorFn = UDR->getDtor())
+    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+
+  ProcessedReductions.insert(UDR);
+}
+
 // Insert VPInstructions related to VPReductions.
 void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
                                                      VPBasicBlock *Preheader,
@@ -1170,10 +1266,15 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     if (auto InscanReduction = dyn_cast<VPInscanReduction>(Reduction))
       InscanReductions.push_back(InscanReduction);
 
-    for (auto *Reduction : reverse(WorkList))
-      insertOneReductionVPInstructions(
-        Reduction, Builder, PostExit, Preheader, RedExitMap,
-        ProcessedReductions);
+    for (auto *Reduction : reverse(WorkList)) {
+      if (auto *UDR = dyn_cast<VPUserDefinedReduction>(Reduction))
+        insertUDRVPInstructions(UDR, Builder, PostExit, Preheader,
+                                ProcessedReductions);
+      else
+        insertOneReductionVPInstructions(
+          Reduction, Builder, PostExit, Preheader, RedExitMap,
+          ProcessedReductions);
+    }
   }
 
   insertRunningInscanReductionInstrs(InscanReductions, Builder);
@@ -1406,25 +1507,6 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
                            Intrinsic::lifetime_end);
     }
   }
-}
-
-// Helper method to create ctor/dtor VPCalls for given non-POD private memory.
-static void createNonPODPrivateCtorDtorCalls(Function *F,
-                                             ArrayRef<VPValue *> Args,
-                                             VPBuilder &Builder,
-                                             VPlanVector &Plan) {
-  assert(
-      F->arg_size() == Args.size() && Args.size() >= 1 &&
-      "Number of input arguments should match number of Function arguments.");
-
-  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
-         "All of input args are expected to be non-null.");
-
-  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
-
-  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
-
-  Builder.insert(VPCall);
 }
 
 const VPInduction *
@@ -1671,10 +1753,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
       if (auto *CtorFn = PrivateNonPOD->getCtor()) {
         if (PrivateNonPOD->isF90NonPod())
-          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem, AI}, Builder,
-                                           Plan);
+          createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
         else
-          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem}, Builder, Plan);
+          createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
       }
 
       if (PrivateNonPOD->isLast()) {
@@ -1705,7 +1786,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         // of Builder accordingly.
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(PostExit);
-        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
+        createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
       }
 
     } else if (Private->isLast()) {
@@ -2450,10 +2531,15 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
       }
   }
 
-  if (LinkPhi == nullptr)
+  if (isUDR()) {
+    assert(Exit == nullptr && "UDR not expected to have an Exit instruction.");
+    VPRed = LE->addUserDefinedReduction(Combiner, Initializer, Ctor, Dtor,
+                                        Start, RedFMF, RT, Signed, AllocaInst,
+                                        ValidMemOnly);
+  } else if (LinkPhi == nullptr) {
     VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
                              InscanRedKind, AllocaInst, ValidMemOnly);
-  else {
+  } else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
     bool ForLast = LE->isMinMaxLastItem(*Parent);
