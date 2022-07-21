@@ -32,9 +32,9 @@ int y;
 // CHECK-NEXT:    store ptr [[X:%.*]], ptr [[X_ADDR]], align 8
 // CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB]], align 4
 // CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[X_ADDR]] to i64
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[X_ADDR]], align 8
 // CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP1]], i64 0, i64 2
+// CHECK-NEXT:    [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[X_ADDR]] to i64
 // CHECK-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
 // CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr [[X_ADDR]], align 8
 // CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP2]], i64 0, i64 6

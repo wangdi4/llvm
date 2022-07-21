@@ -498,17 +498,39 @@ void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V,
 
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
                                 bool NeedsTypedElements,
-                                llvm::Type *ElementType) {
+                                llvm::Type *ElementType,
+                                bool ArraySecUsesBase) {
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+
+    // Array sections can be emitted in two typed forms.
+    // If ArraySecUsesBase is true, then it is emitted as:
+    // section-base, type specifier, number of elements, offset in elements.
+    // If ArraySecUsesBase is false, then it is emiitted as:
+    // address of first element of section, type specifier, number of elements.
+
     ArraySectionTy AS;
-    llvm::Value *V = emitOMPArraySectionExpr(E, &AS).getPointer();
-    if (IsRef) {
-      auto *LI = dyn_cast<llvm::LoadInst>(V);
-      assert(LI && "expected load instruction for reference type");
-      V = LI->getPointerOperand();
+    llvm::Value *BaseAddr = nullptr;
+    if (ArraySecUsesBase) {
+      BaseAddr = emitOMPArraySectionExpr(E, &AS).getPointer();
+      if (IsRef) {
+        auto *LI = dyn_cast<llvm::LoadInst>(BaseAddr);
+        assert(LI && "expected load instruction for reference type");
+        BaseAddr = LI->getPointerOperand();
+      }
+      addArg(BaseAddr, /*Handled=*/true);
     }
-    addArg(V, /*Handled=*/true);
+
+    LValue LowerBound;
+    if (IsTyped) {
+      if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()))
+        LowerBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/true);
+      else
+        LowerBound = CGF.EmitLValue(E);
+    }
+
+    if (!ArraySecUsesBase)
+      addArg(LowerBound.getPointer(CGF), /*Handled=*/true);
 
     if (IsTyped) {
       const Expr *Base = getArraySectionBase(E);
@@ -519,14 +541,15 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
       addArg(llvm::Constant::getNullValue(
           ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
-      llvm::Value *BaseCast =
-          CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "sec.base.cast");
+      llvm::Value *BaseCast = nullptr;
+      if (ArraySecUsesBase)
+        BaseCast =
+            CGF.Builder.CreatePtrToInt(BaseAddr, CGF.PtrDiffTy, "sec.base.cast");
 
       llvm::Value *NumElements;
       llvm::Value *OffsetInElements;
 
       if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
-        LValue LowerBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/true);
         llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
             LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
 
@@ -541,25 +564,35 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
             NumElements, llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1),
             "sec.number_of_elements");
 
-        llvm::Value *OffsetInChars = CGF.Builder.CreateSub(LowerCast, BaseCast);
-        OffsetInElements = ElementSize.isOne() ? OffsetInChars :
-          CGF.Builder.CreateExactSDiv(OffsetInChars, Size, "sec.offset_in_elements");
+        if (ArraySecUsesBase) {
+          llvm::Value *OffsetInChars =
+              CGF.Builder.CreateSub(LowerCast, BaseCast);
+          OffsetInElements =
+              ElementSize.isOne()
+                  ? OffsetInChars
+                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                "sec.offset_in_elements");
+        }
       } else {
         assert(isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) &&
                "expected subscript expression");
 
         NumElements = llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1);
-
-        LValue LowerBound = CGF.EmitLValue(E);
-        llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
-            LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
-
-        llvm::Value *OffsetInChars = CGF.Builder.CreateSub(LowerCast, BaseCast);
-        OffsetInElements = ElementSize.isOne() ? OffsetInChars :
-          CGF.Builder.CreateExactSDiv(OffsetInChars, Size, "sec.offset_in_elements");
+        if (ArraySecUsesBase) {
+          llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
+              LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
+          llvm::Value *OffsetInChars =
+              CGF.Builder.CreateSub(LowerCast, BaseCast);
+          OffsetInElements =
+              ElementSize.isOne()
+                  ? OffsetInChars
+                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                "sec.offset_in_elements");
+        }
       }
       addArg(NumElements);
-      addArg(OffsetInElements);
+      if (ArraySecUsesBase)
+        addArg(OffsetInElements);
     } else {
       addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
       for (auto &V : AS) {
