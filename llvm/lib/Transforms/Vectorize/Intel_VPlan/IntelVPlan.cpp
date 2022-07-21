@@ -413,6 +413,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-c-mem";
   case VPInstruction::PrivateFinalArray:
     return "private-final-array";
+  case VPInstruction::PrivateFinalArrayMasked:
+    return "private-final-array-masked";
   case VPInstruction::GeneralMemOptConflict:
     return "vp-general-mem-opt-conflict";
   case VPInstruction::TreeConflict:

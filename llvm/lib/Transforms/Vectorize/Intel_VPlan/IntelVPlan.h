@@ -648,6 +648,7 @@ public:
                            // extract of the item correspnding MSB set in the
                            // mask.
     PrivateFinalArray,
+    PrivateFinalArrayMasked,
     PrivateLastValueNonPOD,
     CompressStore, // generate llvm.masked.compressstore intrinsic, for
                    // unit stride stores

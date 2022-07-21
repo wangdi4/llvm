@@ -445,6 +445,14 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalArrayMasked: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
+    return true;
+  }
+
   case VPInstruction::PrivateLastValueNonPOD: {
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
@@ -979,6 +987,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
   case VPInstruction::PrivateFinalArray:
+  case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
   case VPInstruction::VLSLoad:

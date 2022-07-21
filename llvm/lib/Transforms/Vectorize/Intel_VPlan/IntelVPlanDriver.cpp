@@ -229,10 +229,6 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     // Cloning of VPRegion is not implemented yet, hence we can't support masked
     // variants for CFGs containing them.
     case VPInstruction::GeneralMemOptConflict:
-    // We need special processing for those instructions in masked mode,
-    // as we need to extract last value not from (VF-1)th lane but from
-    // the lane defined by the execution mask.
-    case VPInstruction::PrivateFinalArray:
       return false;
     case VPInstruction::PrivateFinalUncond:
     case VPInstruction::PrivateFinalUncondMem:
@@ -292,7 +288,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMasked ||
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem ||
                    VPInst.getOpcode() ==
-                       VPInstruction::PrivateLastValueNonPODMasked;
+                       VPInstruction::PrivateLastValueNonPODMasked ||
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalArrayMasked;
           }),
       [](VPInstruction &VPInst) { return &VPInst; });
 
@@ -321,9 +318,14 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
       // assertion checks before VPBBFalse can be generated.
       LLVM_FALLTHROUGH;
     }
-    case VPInstruction::PrivateLastValueNonPODMasked:
+    case VPInstruction::PrivateLastValueNonPODMasked: {
       VPBBFalse = VPBlockUtils::splitBlock(
           VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
+      break;
+    }
+    case VPInstruction::PrivateFinalArrayMasked:
+      VPBBFalse = VPBlockUtils::splitBlock(
+          VPBBTrue, NextInst->getIterator(), VPLI, DT, PDT);
       break;
     default: {
       VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
@@ -345,7 +347,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
         VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(1));
     } else if (VPInst->getOpcode() ==
-               VPInstruction::PrivateLastValueNonPODMasked) {
+                   VPInstruction::PrivateLastValueNonPODMasked ||
+               VPInst->getOpcode() == VPInstruction::PrivateFinalArrayMasked) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(2));
     } else {
       // The index operand of the VPPrivateFinalCond is initialized with -1,
