@@ -29,6 +29,7 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Keep the comment since community re-landed this change.
 # Revert dc52712a063241bd "[Libomptarget] Make libomptarget an LLVM library"
@@ -51,9 +52,23 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND LIBOMPTARGET_SRC_FILES ${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/src/xpti_proxy.cpp)
   endif()
 endif(INTEL_CUSTOMIZATION)
+=======
+add_llvm_library(omptarget
+  SHARED
 
-set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
+  api.cpp
+  device.cpp
+  interface.cpp
+  interop.cpp
+  omptarget.cpp
+  rtl.cpp
+  LegacyAPI.cpp
+>>>>>>> dc52712a063241bd0d3a0473b4e7ed870e41921f
 
+  ADDITIONAL_HEADER_DIRS
+  ${LIBOMPTARGET_INCLUDE_DIR}
+
+<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
 endif(INTEL_CUSTOMIZATION)
@@ -137,3 +152,20 @@ if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
 endif()
 # end INTEL_CUSTOMIZATION
 # end INTEL_COLLAB
+=======
+  LINK_COMPONENTS
+  Support
+  Object
+
+  LINK_LIBS
+  ${CMAKE_DL_LIBS}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
+  NO_INSTALL_RPATH
+)
+target_include_directories(omptarget PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
+
+# libomptarget.so needs to be aware of where the plugins live as they
+# are now separated in the build directory.
+set_target_properties(omptarget PROPERTIES INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
+install(TARGETS omptarget LIBRARY COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+>>>>>>> dc52712a063241bd0d3a0473b4e7ed870e41921f
