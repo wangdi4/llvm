@@ -12684,18 +12684,14 @@ ScalarEvolution::isLoopBackedgeGuardedByCond(const Loop *L,
 bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                                      ICmpInst::Predicate Pred,
                                                      const SCEV *LHS,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                                      const SCEV *RHS,
                                                      ICmpInst *PredContext,
                                                      const SCEV **ExprToSimplify) {
 #endif // INTEL_CUSTOMIZATION
-=======
-                                                     const SCEV *RHS) {
   // Do not bother proving facts for unreachable code.
   if (!DT.isReachableFromEntry(BB))
     return true;
->>>>>>> e0ccd190ae8b3a7e8d79258218703a6ecadbc883
   if (VerifyIR)
     assert(!verifyFunction(*BB->getParent(), &dbgs()) &&
            "This cannot be done on broken IR!");
