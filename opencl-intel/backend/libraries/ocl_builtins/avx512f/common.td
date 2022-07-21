@@ -1,25 +1,14 @@
-// clamp on floating
-OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
-  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout, 0, clamp_f_code>;
-
-// max
-OclBuiltinImpl max_fgeneric = OclBuiltinImpl<max,
-  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout, 0, max_f_code>;
-
-// min
-OclBuiltinImpl min_fgeneric = OclBuiltinImpl<min,
-  ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout, 0, min_f_code>;
-
-list<OclType> common_types_v32_to_v64 = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [32, 64]>.Tout;
-
-// clamp_s
-OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, common_types_v32_to_v64, 0, clamp_s_impl>;
-
-// max_s
-OclBuiltinImpl max_s_generic = OclBuiltinImpl<max_s, common_types_v32_to_v64, 0, max_s_impl>;
-
-// min_s
-OclBuiltinImpl min_s_generic = OclBuiltinImpl<min_s, common_types_v32_to_v64, 0, min_s_impl>;
+// Copyright (C) 2016-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // step
 OclBuiltinImpl step_v16f32 = OclBuiltinImpl<step, [v16f32] , 0, [{
