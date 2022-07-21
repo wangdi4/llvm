@@ -1,5 +1,20 @@
-/*===---- avx2intrin.h - AVX2 intrinsics -----------------------------------===
+/*===---- avx2intrin.h - AVX2 intrinsics -----------------------------------=== */
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2022 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -13,6 +28,17 @@
 
 #ifndef __AVX2INTRIN_H
 #define __AVX2INTRIN_H
+
+/* INTEL_CUSTOMIZATION */
+/* Constants for index scale (vgather/vscatter). */
+typedef enum
+{
+  _MM_SCALE_1 = 1,
+  _MM_SCALE_2 = 2,
+  _MM_SCALE_4 = 4,
+  _MM_SCALE_8 = 8
+} _MM_INDEX_SCALE_ENUM;
+/* end INTEL_CUSTOMIZATION */
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS256 __attribute__((__always_inline__, __nodebug__, __target__("avx2"), __min_vector_width__(256)))
