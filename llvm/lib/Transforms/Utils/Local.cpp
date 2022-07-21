@@ -479,6 +479,9 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
     return true;
   }
 
+  if (isAllocationFn(I, TLI) && isAllocRemovable(cast<CallBase>(I), TLI))
+    return true;
+
   if (!I->willReturn())
     return false;
 
@@ -528,9 +531,6 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
       return *ExBehavior != fp::ebStrict;
     }
   }
-
-  if (isAllocationFn(I, TLI) && isAllocRemovable(cast<CallBase>(I), TLI))
-    return true;
 
   if (CallInst *CI = isFreeCall(I, TLI))
     if (Constant *C = dyn_cast<Constant>(CI->getArgOperand(0)))
