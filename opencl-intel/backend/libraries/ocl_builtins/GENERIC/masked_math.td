@@ -411,15 +411,3 @@ OclBuiltinImpl upsample_mask_svml = OclBuiltinImpl<upsample_mask, sub_int_types,
     $ReturnType ret = $Func($Arg0VarName, $Arg1VarName);
     return ret & $Arg2VarName;
   }]>;
-
-// Common builtins
-OclBuiltinImpl clamp_mask_svml = OclBuiltinImpl<clamp_mask, all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl max_mask_svml = OclBuiltinImpl<max_mask, all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-OclBuiltinImpl min_mask_svml = OclBuiltinImpl<min_mask, all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-
-OclBuiltinImpl degrees_mask_svml = OclBuiltinImpl<degrees_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl mix_mask_svml = OclBuiltinImpl<mix_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
-OclBuiltinImpl radians_mask_svml = OclBuiltinImpl<radians_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl step_mask_svml = OclBuiltinImpl<step_mask, math_all_types, 0, masked_impl_code_G_G2_M, [["$DEF0", "1"], ["$DEF1", "0"]]>;
-OclBuiltinImpl smoothstep_mask_svml = OclBuiltinImpl<smoothstep_mask, math_all_types, 0, masked_impl_code_G_G3_M, [["$DEF0", "1"], ["$DEF1", "2"], ["$DEF2", "0"]]>;
-OclBuiltinImpl sign_mask_svml = OclBuiltinImpl<sign_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
