@@ -81,8 +81,8 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    store ptr [[TMP1]], ptr addrspace(4) [[G_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    store ptr addrspace(4) [[TMP2]], ptr addrspace(4) [[CP_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP4:%.*]] = load ptr, ptr addrspace(4) [[G_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP5:%.*]] = addrspacecast ptr [[TMP4]] to ptr addrspace(4)
-// TARG-NEXT:    [[TMP6:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(ptr addrspace(4) [[TMP5]])
+// TARG-NEXT:    [[TMP5:%.*]] =  ptrtoint ptr [[TMP4]] to i64
+// TARG-NEXT:    [[TMP6:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(i64 [[TMP5]])
 // TARG-NEXT:    [[TMP7:%.*]] = addrspacecast ptr addrspace(4) [[TMP6]] to ptr
 // TARG-NEXT:    [[TMP8:%.*]] = call ptr addrspace(4) [[TMP7]](float 3.000000e+00, ptr addrspace(4) [[CP_MAP_PTR_TMP_ASCAST]])
 // TARG-NEXT:    store ptr addrspace(4) [[TMP8]], ptr addrspace(4) [[RETPCP_MAP_PTR_TMP_ASCAST]], align 8
@@ -91,8 +91,8 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5), "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[TMP9]], ptr [[TMP9]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
 // TARG-NEXT:    store ptr [[TMP9]], ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP11:%.*]] = load ptr, ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP12:%.*]] = addrspacecast ptr [[TMP11]] to ptr addrspace(4)
-// TARG-NEXT:    [[TMP13:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(ptr addrspace(4) [[TMP12]])
+// TARG-NEXT:    [[TMP12:%.*]] = ptrtoint ptr [[TMP11]] to i64
+// TARG-NEXT:    [[TMP13:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(i64 [[TMP12]])
 // TARG-NEXT:    [[TMP14:%.*]] = addrspacecast ptr addrspace(4) [[TMP13]] to ptr
 // TARG-NEXT:    [[TMP15:%.*]] = call i32 [[TMP14]](i32 1, i32 2)
 // TARG-NEXT:    call void @llvm.directive.region.exit(token [[TMP10]]) [ "DIR.OMP.END.TARGET"() ]
@@ -105,8 +105,8 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6), "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[TMP18]], ptr [[TMP18]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
 // TARG-NEXT:    store ptr [[TMP18]], ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP20:%.*]] = load ptr, ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP21:%.*]] = addrspacecast ptr [[TMP20]] to ptr addrspace(4)
-// TARG-NEXT:    [[TMP22:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(ptr addrspace(4) [[TMP21]])
+// TARG-NEXT:    [[TMP21:%.*]] = ptrtoint ptr [[TMP20]] to i64
+// TARG-NEXT:    [[TMP22:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(i64 [[TMP21]])
 // TARG-NEXT:    [[TMP23:%.*]] = addrspacecast ptr addrspace(4) [[TMP22]] to ptr
 // TARG-NEXT:    [[TMP24:%.*]] = call i32 [[TMP23]](i32 1)
 // TARG-NEXT:    call void @llvm.directive.region.exit(token [[TMP19]]) [ "DIR.OMP.END.TARGET"() ]
@@ -162,8 +162,8 @@ struct C {
 // TARG-NEXT:    br label [[MEMPTR_END]]
 // TARG:       memptr.end:
 // TARG-NEXT:    [[TMP8:%.*]] = phi ptr [ [[MEMPTR_VIRTUALFN]], [[MEMPTR_VIRTUAL]] ], [ [[MEMPTR_NONVIRTUALFN]], [[MEMPTR_NONVIRTUAL]] ]
-// TARG-NEXT:    [[TMP9:%.*]] = addrspacecast ptr [[TMP8]] to ptr addrspace(4)
-// TARG-NEXT:    [[TMP10:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(ptr addrspace(4) [[TMP9]])
+// TARG-NEXT:    [[TMP9:%.*]] = ptrtoint ptr [[TMP8]] to i64
+// TARG-NEXT:    [[TMP10:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(i64 [[TMP9]])
 // TARG-NEXT:    [[TMP11:%.*]] = addrspacecast ptr addrspace(4) [[TMP10]] to ptr
 // TARG-NEXT:    call void [[TMP11]](ptr addrspace(4) [[THIS_ADJUSTED]])
 // TARG-NEXT:    ret void

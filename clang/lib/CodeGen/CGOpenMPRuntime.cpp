@@ -14103,8 +14103,8 @@ RValue CodeGenFunction::EmitOMPIndirectCall(
   llvm::FunctionCallee Fn =
       CGM.getOpenMPRuntime().getOMPBuilder().getOrCreateRuntimeFunction(
           CGM.getModule(), OMPRTL___kmpc_target_translate_fptr);
-  llvm::Value *CI = Builder.CreateCall(
-      Fn, Builder.CreatePointerBitCastOrAddrSpaceCast(FnPtr, TargetInt8PtrTy));
+  llvm::Value *CI =
+      Builder.CreateCall(Fn, Builder.CreatePtrToInt(FnPtr, Int64Ty));
   llvm::Value *Call =
       Builder.CreatePointerBitCastOrAddrSpaceCast(CI, FnPtr->getType());
   SmallVector<llvm::OperandBundleDef, 1> BundleList =
