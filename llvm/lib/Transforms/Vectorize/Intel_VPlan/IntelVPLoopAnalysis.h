@@ -62,6 +62,7 @@ public:
     Reduction,
     IndexReduction,
     InscanReduction,
+    UserDefinedReduction,
     Induction,
     Private,
     PrivateNonPOD,
@@ -145,6 +146,41 @@ public:
   virtual void dump(raw_ostream &OS) const override;
 #endif
   static unsigned getReductionOpcode(RecurKind K);
+};
+
+/// Descriptor for user-defined reduction.
+class VPUserDefinedReduction : public VPReduction {
+public:
+  VPUserDefinedReduction(Function *Combiner, Function *Initializer,
+                         Function *Ctor, Function *Dtor, VPValue *Start,
+                         FastMathFlags FMF, Type *RT, bool Signed,
+                         bool IsMemOnly = false)
+      : VPReduction(Start, nullptr /*Exit*/, RecurKind::Udr, FMF, RT, Signed,
+                    IsMemOnly, UserDefinedReduction),
+        Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
+
+  Function *getCombiner() const { return Combiner; }
+  Function *getInitializer() const { return Initializer; }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+
+  virtual StringRef getNameSuffix() const override { return "udr"; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == UserDefinedReduction;
+  }
+
+private:
+  // Functions for initialization/finalization of UDRs.
+  Function *Combiner;
+  Function *Initializer;
+  Function *Ctor;
+  Function *Dtor;
 };
 
 /// Descriptor for inscan reduction.
@@ -580,6 +616,7 @@ public:
                             FastMathFlags FMF, Type *RT, bool Signed,
                             Optional<InscanReductionKind> InscanRedKind,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
+
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
   /// exiting instruction \p Exit, \p Signed data type \p RT, and
@@ -591,6 +628,15 @@ public:
                                       Type *RT, bool Signed, bool ForLast,
                                       bool IsLinNdx, VPValue *AI = nullptr,
                                       bool ValidMemOnly = false);
+
+  /// Add user-defined reduction described by \p Combiner, \p Initializer, \p
+  /// RedTy and \p Signed, with incoming value \p Incoming and
+  /// alloca-instruction \p AI.
+  VPUserDefinedReduction *
+  addUserDefinedReduction(Function *Combiner, Function *Initializer,
+                          Function *Ctor, Function *Dtor, VPValue *Incoming,
+                          FastMathFlags FMF, Type *RedTy, bool Signed,
+                          VPValue *AI, bool ValidMemOnly);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionOp, starting instruction \pStart, incoming value
@@ -828,6 +874,8 @@ public:
       linkValue(ReductionMap, Red, Val);
     else if (auto Red = dyn_cast<VPInscanReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPUserDefinedReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -1017,6 +1065,14 @@ private:
       // and is used to obtain parent reduction values needed for
       // the index part of min/max+index last value code generation.
       DenseMap<const VPReduction *, VPInstruction *> &RedExitMap,
+      SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
+  // Insert VPInstructions to initialize/finalize user-defined reduction \p UDR
+  // and inserting the reduction into list of processed reductions \p
+  // ProcessedReductions.
+  void insertUDRVPInstructions(
+      VPUserDefinedReduction *UDR, VPBuilder &Builder, VPBasicBlock *PostExit,
+      VPBasicBlock *Preheader,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
 
   // Insert inscan-related reduction instructions and process

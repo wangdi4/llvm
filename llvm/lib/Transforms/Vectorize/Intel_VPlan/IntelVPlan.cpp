@@ -347,6 +347,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "reduction-init";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
+  case VPInstruction::ReductionFinalUdr:
+    return "reduction-final-udr";
   case VPInstruction::ReductionFinalInscan:
     return "reduction-final-inscan";
   case VPInstruction::AllocatePrivate:
@@ -787,6 +789,11 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       auto *Self = cast<VPInductionFinal>(this);
       if (Self->isLastValPreIncrement())
         O << ", LastValPreInc = 1";
+      break;
+    }
+    case VPInstruction::ReductionFinalUdr: {
+      auto *Self = cast<VPReductionFinalUDR>(this);
+      O << ", Combiner: " << Self->getCombiner()->getName();
       break;
     }
     case VPInstruction::VLSLoad: {

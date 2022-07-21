@@ -4010,6 +4010,23 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::ReductionFinalUdr: {
+    // Call combiner for each pointer in private memory and accumulate the
+    // results in original DDRef corresponding to the UDR.
+    auto *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    auto *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Function *CombinerFn = cast<VPReductionFinalUDR>(VPInst)->getCombiner();
+
+    for (unsigned Lane = 0; Lane < getVF(); Lane++) {
+      auto *LanePvtPtr = getOrCreateScalarRef(Priv, Lane);
+      auto *CombinerCall =
+          HLNodeUtilities.createCall(CombinerFn, {Orig->clone(), LanePvtPtr});
+      addInstUnmasked(CombinerCall);
+    }
+
+    return;
+  }
+
   case VPInstruction::InductionInitStep: {
     // The only expected induction currently is for the implicit IV.
     auto *ConstStep = cast<VPConstant>(VPInst->getOperand(0));
@@ -4739,6 +4756,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
+  case VPInstruction::ReductionFinalUdr:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
