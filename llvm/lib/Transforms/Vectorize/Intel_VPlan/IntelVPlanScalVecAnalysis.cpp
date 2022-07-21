@@ -398,6 +398,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReductionFinalUdr: {
+    // We make VF number of calls to Combiner to finalize UDRs, hence
+    // instruction is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::ReductionFinalInscan: {
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
     // The instruction itself is vectorized, although it produces a scalar
@@ -944,6 +953,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
+  case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalInscan:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
