@@ -1180,9 +1180,7 @@ static int getTargetID(StringRef TargetName) {
 }
 
 /// OclBuiltinDB
-OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
-: m_Records(R)
-{
+OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R), m_Record(nullptr) {
   // OclType
   {
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions("OclType");
