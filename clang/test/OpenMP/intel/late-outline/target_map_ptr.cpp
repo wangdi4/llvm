@@ -21,4 +21,24 @@ void foo(double *f_local) {
     }
 }
 
+// CHECK-LABEL: zoo
+void zoo() {
+   int n = 2;
+  int tmp[2];
+  tmp[0] = 10;
+// CHECK: "DIR.OMP.TARGET"()
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TMP:%tmp]]
+#pragma omp target
+  {
+// CHECK: "DIR.OMP.PARALLEL"()
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TMP]]
+#pragma omp parallel private(tmp)
+    {
+      tmp[0]++;
+    }
+// CHECK: "DIR.OMP.END.PARALLEL"
+  }
+// CHECK: "DIR.OMP.END.TARGET"
+}
+
 // end INTEL_COLLAB
