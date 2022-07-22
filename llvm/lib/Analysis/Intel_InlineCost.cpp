@@ -1156,8 +1156,9 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
   if (F->getName().contains("realloc"))
     return true;
   for (auto &I : instructions(F))
-    if (isReallocLikeFn(&I, TLI))
-      return true;
+    if (const auto *const CB = dyn_cast<CallBase>(&I))
+      if (getReallocatedOperand(CB, TLI))
+        return true;
   return false;
 }
 
