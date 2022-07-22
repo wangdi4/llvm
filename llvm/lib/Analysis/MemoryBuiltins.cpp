@@ -299,6 +299,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -320,16 +321,44 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
     [&LF](std::pair<LibFunc, AllocFnsTy> Elem) { return Elem.first == LF; });
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+static AllocFnKind getAllocFnKind(const Value *V) {
+  if (const auto *CB = dyn_cast<CallBase>(V)) {
+    Attribute Attr = CB->getFnAttr(Attribute::AllocKind);
+    if (Attr.isValid())
+      return AllocFnKind(Attr.getValueAsInt());
+  }
+  return AllocFnKind::Unknown;
+}
+
+static AllocFnKind getAllocFnKind(const Function *F) {
+  Attribute Attr = F->getFnAttribute(Attribute::AllocKind);
+  if (Attr.isValid())
+    return AllocFnKind(Attr.getValueAsInt());
+  return AllocFnKind::Unknown;
+}
+
+static bool checkFnAllocKind(const Value *V, AllocFnKind Wanted) {
+  return (getAllocFnKind(V) & Wanted) != AllocFnKind::Unknown;
+}
+
+static bool checkFnAllocKind(const Function *F, AllocFnKind Wanted) {
+  return (getAllocFnKind(F) & Wanted) != AllocFnKind::Unknown;
+}
+>>>>>>> 5a3e3675f6be3c49fb1a305202888cce4d916ba6
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
 bool llvm::isAllocationFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AnyAlloc, TLI).has_value();
+  return getAllocationData(V, AnyAlloc, TLI).has_value() ||
+         checkFnAllocKind(V, AllocFnKind::Alloc | AllocFnKind::Realloc);
 }
 bool llvm::isAllocationFn(
-    const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
-  return getAllocationData(V, AnyAlloc, GetTLI).has_value();
+    const Value *V,
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
+  return getAllocationData(V, AnyAlloc, GetTLI).has_value() ||
+         checkFnAllocKind(V, AllocFnKind::Alloc | AllocFnKind::Realloc);
 }
 
 /// Tests if a value is a call or invoke to a library function that
@@ -433,13 +462,15 @@ bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory (either malloc, calloc, or strdup like).
 bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AllocLike, TLI).has_value();
+  return getAllocationData(V, AllocLike, TLI).has_value() ||
+         checkFnAllocKind(V, AllocFnKind::Alloc);
 }
 
 /// Tests if a functions is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, ReallocLike, TLI).has_value();
+  return getAllocationDataForFunction(F, ReallocLike, TLI).has_value() ||
+         checkFnAllocKind(F, AllocFnKind::Realloc);
 }
 
 Value *llvm::getReallocatedOperand(const CallBase *CB,
@@ -448,6 +479,8 @@ Value *llvm::getReallocatedOperand(const CallBase *CB,
     // All currently supported realloc functions reallocate the first argument.
     return CB->getArgOperand(0);
   }
+  if (checkFnAllocKind(CB, AllocFnKind::Realloc))
+    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
   return nullptr;
 }
 
@@ -564,6 +597,12 @@ Constant *llvm::getInitialValueOfAllocation(const Value *V,
   if (isCallocLikeFn(Alloc, TLI))
     return Constant::getNullValue(Ty);
 
+  AllocFnKind AK = getAllocFnKind(Alloc);
+  if ((AK & AllocFnKind::Uninitialized) != AllocFnKind::Unknown)
+    return UndefValue::get(Ty);
+  if ((AK & AllocFnKind::Zeroed) != AllocFnKind::Unknown)
+    return Constant::getNullValue(Ty);
+
   return nullptr;
 }
 
@@ -640,6 +679,12 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
   const auto FreeData = getFreeFunctionDataForFunction(Callee, TLIFn);
   if (FreeData)
     return mangledNameForMallocFamily(FreeData.value().Family);
+  if (checkFnAllocKind(I, AllocFnKind::Free | AllocFnKind::Alloc |
+                              AllocFnKind::Realloc)) {
+    Attribute Attr = cast<CallBase>(I)->getFnAttr("alloc-family");
+    if (Attr.isValid())
+      return Attr.getValueAsString();
+  }
   return None;
 }
 
@@ -653,7 +698,7 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
   if (!FnData)
-    return false;
+    return checkFnAllocKind(F, AllocFnKind::Free);
 
   // Check free prototype.
   // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
@@ -724,6 +769,9 @@ Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
     // All currently supported free functions free the first argument.
     return CB->getArgOperand(0);
   }
+
+  if (checkFnAllocKind(CB, AllocFnKind::Free))
+    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
 
   return nullptr;
 }
