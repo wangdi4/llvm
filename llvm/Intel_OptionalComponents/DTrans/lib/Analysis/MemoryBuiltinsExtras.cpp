@@ -170,7 +170,7 @@ void collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
 }
 
 bool isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
-  return isFreeCall(Call, &TLI, false);
+  return getFreedOperand(Call, &TLI, false);
 }
 
 bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
