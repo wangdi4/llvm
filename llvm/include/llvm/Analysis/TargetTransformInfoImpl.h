@@ -180,7 +180,7 @@ public:
   bool preferPredicateOverEpilogue(Loop *L, LoopInfo *LI, ScalarEvolution &SE,
                                    AssumptionCache &AC, TargetLibraryInfo *TLI,
                                    DominatorTree *DT,
-                                   const LoopAccessInfo *LAI) const {
+                                   LoopVectorizationLegality *LVL) const {
     return false;
   }
 
