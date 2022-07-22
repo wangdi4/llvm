@@ -84,8 +84,8 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // We do not want to inline hot callsites for SamplePGO module-summary build
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
-    auto Params =
-        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel, false, false);
+    auto Params = getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
+                                  false, false, /*SYCLOptimizationMode=*/false);
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }

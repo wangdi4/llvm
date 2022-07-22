@@ -1211,9 +1211,10 @@ void PassBuilder::addPGOInstrPassesForO0(ModulePassManager &MPM,
 static InlineParams getInlineParamsFromOptLevel(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
                                                 bool PrepareForLTO,
-                                                bool LinkForLTO) {
+                                                bool LinkForLTO,
+                                                bool SYCLOptimizationMode) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel(),
-                         PrepareForLTO, LinkForLTO);
+                         PrepareForLTO, LinkForLTO, SYCLOptimizationMode);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1227,7 +1228,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
-      LinkForLTO);
+      LinkForLTO, SYCLOptimizationMode);
 #endif // INTEL_CUSTOMIZATION
   // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
   // disable hot callsite inline (as much as possible [1]) because it makes
@@ -1367,7 +1368,7 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
-     LinkForLTO);
+     LinkForLTO, SYCLOptimizationMode);
 #endif // INTEL_CUSTOMIZATION
   // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
   // disable hot callsite inline (as much as possible [1]) because it makes
@@ -1424,7 +1425,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
-      LinkForLTO);
+      LinkForLTO, SYCLOptimizationMode);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -3084,8 +3085,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // invoke or a call.
   // Run the inliner now.
   MPM.addPass(ModuleInlinerWrapperPass(
-      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO), // INTEL
-      /* MandatoryFirst */ true,
+      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
+      SYCLOptimizationMode), /* MandatoryFirst */ true,
       InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
                           InlinePass::CGSCCInliner}));
 

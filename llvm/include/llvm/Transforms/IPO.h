@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -127,9 +127,12 @@ ModulePass *createGVExtractionPass(std::vector<GlobalValue*>& GVs, bool
 Pass *createFunctionInliningPass();
 Pass *createFunctionInliningPass(int Threshold);
 Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel,
-                                 bool DisableInlineHotCallSite, // INTEL
-                                 bool PrepareForLTO = false,    // INTEL
-                                 bool LinkForLTO = false);      // INTEL
+#if INTEL_CUSTOMIZATION
+                                 bool DisableInlineHotCallSite,
+                                 bool PrepareForLTO = false,
+                                 bool LinkForLTO = false,
+                                 bool SYCLOptimizationMode = false);
+#endif // INTEL_CUSTOMIZATION
 Pass *createFunctionInliningPass(InlineParams &Params);
 
 //===----------------------------------------------------------------------===//
