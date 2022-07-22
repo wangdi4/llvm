@@ -708,22 +708,13 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-/// isFreeCall - Returns non-null if the value is a call to the builtin free()
-/// INTEL: Also returns true for any free-like function.
-const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                                 bool CheckNoBuiltin) { // INTEL
+/// INTEL: Returns true for any free-like function.
+bool llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                      bool CheckNoBuiltin) { // INTEL
   bool IsNoBuiltinCall;
   const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
   if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
-    return nullptr;
-=======
-bool llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
-  bool IsNoBuiltinCall;
-  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
-  if (Callee == nullptr || IsNoBuiltinCall)
     return false;
->>>>>>> c81dff3c306dd1a26e5f6377a040f811c325ba76
 
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
@@ -732,7 +723,13 @@ bool llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
   return isLibFreeFunction(Callee, TLIFn);
 }
 
-<<<<<<< HEAD
+Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI) {
+  // All currently supported free functions free the first argument.
+  if (isFreeCall(CB, TLI))
+    return CB->getArgOperand(0);
+  return nullptr;
+}
+
 #if INTEL_CUSTOMIZATION
 /// isDeleteCall - Returns non-null if the value is a call to the builtin
 /// delete(). Must be in the delete "family".
@@ -751,14 +748,6 @@ const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
   return isLibDeleteFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
-Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI) {
-  // All currently supported free functions free the first argument.
-  if (isFreeCall(CB, TLI))
-    return CB->getArgOperand(0);
-  return nullptr;
-}
->>>>>>> c81dff3c306dd1a26e5f6377a040f811c325ba76
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
