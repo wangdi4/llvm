@@ -1546,11 +1546,6 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   return elf_check_machine(Image, /* EM_CUDA */ 190);
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-=======
 int32_t __tgt_rtl_is_valid_binary_info(__tgt_device_image *image,
                                        __tgt_image_info *info) {
   if (!__tgt_rtl_is_valid_binary(image))
@@ -1588,7 +1583,9 @@ int32_t __tgt_rtl_is_valid_binary_info(__tgt_device_image *image,
   return true;
 }
 
->>>>>>> e01ce4e88a8443993afb19f64b2811d50dca65aa
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return DeviceRTL.getNumOfDevices(); }
 
 #if INTEL_COLLAB
