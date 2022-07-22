@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -8787,7 +8787,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
-  addIntelOptimizationArgs(TC, Args, CmdArgs, Input, false);
+  addIntelOptimizationArgs(TC, Args, CmdArgs, Input, false, JA);
 #endif // INTEL_CUSTOMIZATION
   // Add the output path to the object file for CodeView debug infos.
   if (EmitCodeView && Output.isFilename())

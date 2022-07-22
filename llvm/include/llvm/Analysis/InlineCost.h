@@ -489,6 +489,9 @@ struct InlineParams {
   // Opt Level used for selection of inlining heuristics, not for setting
   // inlining thresholds.
   Optional<unsigned> InlineOptLevel;
+
+  // Indicates whether this is a SYCL device compilation
+  Optional<bool> SYCLOptimizationMode;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function
@@ -534,7 +537,8 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 /// PrepareForLTO and InlineOptLevel flags in InlineParams based on
 /// \p PrepareForLTO and \p InlineOptLevel.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                             bool PrepareForLTO, bool InlineOptLevel);
+                             bool PrepareForLTO, bool InlineOptLevel,
+                             bool SYCLOptimizationMode);
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the cost associated with a callsite, including parameter passing

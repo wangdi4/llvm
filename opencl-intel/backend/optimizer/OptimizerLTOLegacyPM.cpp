@@ -85,7 +85,13 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
     auto Params =
+<<<<<<< HEAD
         getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel, false, false);
+=======
+        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
+                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO,
+                        /*SYCLOptimizationMode=*/false);
+>>>>>>> eb236f94b1410dca2ab906b5831d080a29758b13
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }
