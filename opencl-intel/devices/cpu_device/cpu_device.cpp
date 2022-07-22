@@ -442,12 +442,12 @@ static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores) {
   for (unsigned s = 0; s < numNodes; ++s) {
     std::vector<cl_uint> index;
     bool res = Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(s, index);
-    // TODO replace with assert once GetProcessorIndexFromNumaNode supports
-    // windows.
-    if (!res)
-      return processorMap;
-    assert(index.size() == numCoresPerNode &&
-           "invalid number of processors in node");
+    // TODO replace res check with assert once GetProcessorIndexFromNumaNode
+    // supports windows.
+    // numCoresPerNode could be smaller than index size if custom CPU affinity
+    // mask is set, e.g. by sched_setaffinity.
+    if (!res || index.size() != numCoresPerNode)
+      break;
     if (hyperThreadEnabled) {
       for (unsigned i = 0; i < numCoresPerNode; ++i)
         processorMap[s * numCoresPerNode + i] =
