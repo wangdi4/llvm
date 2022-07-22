@@ -84,7 +84,7 @@ AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI) {
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
   if (isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (isReallocLikeFn(Call, &TLI))
+  if (getReallocatedOperand(Call, &TLI))
     return AK_Realloc;
   return AK_NotAlloc;
 }

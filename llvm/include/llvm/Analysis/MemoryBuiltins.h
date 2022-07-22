@@ -125,7 +125,9 @@ bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 /// reallocates memory (e.g., realloc).
 bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
-<<<<<<< HEAD
+/// If this is a call to a realloc function, return the reallocated operand.
+Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
+
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -137,10 +139,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 /// within MemoryBuiltins.cpp as 'AllocationFnData'.
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
-=======
-/// If this is a call to a realloc function, return the reallocated operand.
-Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
->>>>>>> 1f69503107f2103106b8f7561d4fe7a7efa51b9f
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
