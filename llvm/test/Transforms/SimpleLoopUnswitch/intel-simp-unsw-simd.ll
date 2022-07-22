@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt -passes="default<O3>" -S -loopopt %s | FileCheck %s
+; RUN: opt -passes="default<O3>" -S -loopopt -vplan-force-vf=4 %s | FileCheck %s
 
 ; This code was asserting in HIR because SimpleUnswitcher disturbed the
 ; SIMD loopnest. SimpleUnswitcher is only run inside the new PM pipeline.

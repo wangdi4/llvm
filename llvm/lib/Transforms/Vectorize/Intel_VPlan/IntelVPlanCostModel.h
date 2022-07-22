@@ -101,6 +101,9 @@ public:
   /// method can freely be used even for widening of the \p VPInst.
   Align getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
 
+  /// \Returns True iff \p VPInst is Uniform load or store.
+  bool isUniformLoadStore(const VPLoadStoreInst *LoadStore) const;
+
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
   /// negative (-1 in number of elements) or to false otherwise.
