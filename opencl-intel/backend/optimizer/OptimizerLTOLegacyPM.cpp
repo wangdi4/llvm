@@ -88,7 +88,8 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // want the IR of the hot path to match the profile.
     auto Params =
         getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
-                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO);
+                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO,
+                        /*SYCLOptimizationMode=*/false);
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }

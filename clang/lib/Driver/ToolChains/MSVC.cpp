@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -549,7 +549,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                         options::OPT__SLASH_Qx))
       addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
 
-    addIntelOptimizationArgs(TC, Args, CmdArgs, Inputs[0], true);
+    addIntelOptimizationArgs(TC, Args, CmdArgs, Inputs[0], true, JA);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))

@@ -824,6 +824,33 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
+  // Check if "F" is simple wrapper and return actual callee.
+  //
+  // define internal fastcc i32 @al_sprintf(i8* %0, i8* %1, %struct.v %2) {
+  //   %4 = tail call i32 @vsprintf(i8* %0, i8* %1, %struct.v %2)
+  //   ret i32 %4
+  // }
+  auto GetActualCalledFunction = [&](Function *F) -> Function* {
+    if (!F || F->isDeclaration() || F->size() != 1)
+      return nullptr;
+    BasicBlock &EntryBlock = F->getEntryBlock();
+    Instruction *FirstInst = EntryBlock.getFirstNonPHIOrDbg();
+    Instruction *LastI = EntryBlock.getTerminator();
+    if (LastI->getPrevNonDebugInstruction() != FirstInst)
+      return nullptr;
+    auto *Ret = dyn_cast<ReturnInst>(LastI);
+    if (!Ret || Ret->getReturnValue() != FirstInst)
+      return nullptr;
+    auto *CB = dyn_cast<CallBase>(FirstInst);
+    if (!CB || CB->arg_size() != F->arg_size())
+      return nullptr;
+    unsigned NumArg = CB->arg_size();
+    for (unsigned AI = 0; AI < NumArg; ++AI)
+      if (CB->getArgOperand(AI) != F->getArg(AI))
+        return nullptr;
+    return CB->getCalledFunction();
+  };
+
   // Returns true if "F" is a wrapper to the "vsprintf" function.
   // This routine mainly checks that 1st and vararg arguments of "F"
   // are passed only "vsprintf" call and no other uses to the arguments.
@@ -839,7 +866,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   //   ...
   //   call void @llvm.va_end(i8* nonnull %3)
   //   ...
-  auto IsVSPrintfWrapper = [&](Function *F) {
+  auto IsVSPrintfWrapper = [&, GetActualCalledFunction](Function *F) {
     if (F->size() != 1 || !F->getFunctionType()->isVarArg())
       return false;
     if (F->arg_size() != 1)
@@ -851,8 +878,15 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
     if (!CB || CB->arg_size() != 3 || CB->getArgOperand(1) != Arg0)
       return false;
     Function *Callee = CB->getCalledFunction();
+    Function *ParentF = F;
+    // Check if Callee is simple wrapper to another to another function.
+    Function *ActualCallee = GetActualCalledFunction(Callee);
+    if (ActualCallee) {
+      ParentF = Callee;
+      Callee = ActualCallee;
+    }
     LibFunc LibF;
-    auto &TLI = GetTLI(*F);
+    auto &TLI = GetTLI(*ParentF);
     if (!Callee || !TLI.getLibFunc(Callee->getName(), LibF) || !TLI.has(LibF) ||
         LibF != LibFunc_vsprintf)
       return false;

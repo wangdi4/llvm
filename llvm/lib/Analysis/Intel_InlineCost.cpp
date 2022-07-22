@@ -588,10 +588,12 @@ extern bool forgivableCondition(const Instruction *TI) {
 //
 extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
                            const TargetTransformInfo &TTI, bool PrepareForLTO,
-                           bool LinkForLTO) {
+                           bool LinkForLTO, bool IsSYCLHost,
+                           bool IsSYCLDevice) {
   if (!InlineForXmain)
     return false;
-  if (F->hasLinkOnceODRLinkage() && !PrepareForLTO && !LinkForLTO &&
+  if (F->hasLinkOnceODRLinkage() &&
+      !PrepareForLTO && !LinkForLTO && !IsSYCLHost && !IsSYCLDevice &&
       F->size() > HugeODRFunctionBasicBlockCount)
     return true;
   if (!DTransInlineHeuristics)

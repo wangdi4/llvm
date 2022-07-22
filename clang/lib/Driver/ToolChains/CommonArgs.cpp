@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -532,9 +532,12 @@ bool tools::isUseSeparateSections(const Driver &D,
   return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
 }
 
+#if INTEL_CUSTOMIZATION
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           ArgStringList &CmdArgs, const InputInfo &Output,
-                          const InputInfo &Input, bool IsThinLTO) {
+                          const InputInfo &Input, bool IsThinLTO,
+                          const JobAction &JA) {
+#endif // INTEL_CUSTOMIZATION
   const char *Linker = Args.MakeArgString(ToolChain.GetLinkerPath());
   const Driver &D = ToolChain.getDriver();
   if (llvm::sys::path::filename(Linker) != "ld.lld" &&
@@ -730,7 +733,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
-  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, Input, true);
+  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, Input, true, JA);
   // All -mllvm flags as provided by the user will be passed through.
   for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
@@ -835,7 +838,8 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
-                                     const InputInfo &Input, bool IsLink) {
+                                     const InputInfo &Input, bool IsLink,
+                                     const JobAction &JA) {
   auto addllvmOption = [&](const char *Opt) {
     AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
@@ -1018,6 +1022,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
           << A->getOption().getName();
   }
+
+  // Add designator that we are doing host compilation for SYCL offload.
+  if (JA.isOffloading(Action::OFK_SYCL) &&
+      !JA.isDeviceOffloading(Action::OFK_SYCL))
+    addllvmOption("-sycl-host");
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
