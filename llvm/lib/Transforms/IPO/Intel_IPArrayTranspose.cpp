@@ -430,7 +430,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
         if (isa<ICmpInst>(Ptr))
           continue;
         if (auto CI = dyn_cast<CallInst>(Ptr)) {
-          if (isFreeCall(CI, &GetTLI(*CI->getFunction()))) {
+          if (getFreedOperand(CI, &GetTLI(*CI->getFunction()))) {
             FreeCalls.insert(CI);
             continue;
           }
@@ -580,7 +580,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
   // call-sites.
   for (auto PI : ProcessedInsts) {
     auto CI = dyn_cast<CallInst>(PI);
-    if (!CI || isFreeCall(CI, &GetTLI(*CI->getFunction())))
+    if (!CI || getFreedOperand(CI, &GetTLI(*CI->getFunction())))
       continue;
     Function *Callee = CI->getCalledFunction();
     assert(Callee && "Unexpected indirect call");
@@ -647,7 +647,7 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
 
         case Instruction::Call: {
           auto CI = cast<CallInst>(I);
-          if (!isFreeCall(CI, &GetTLI(*CI->getFunction())))
+          if (!getFreedOperand(CI, &GetTLI(*CI->getFunction())))
             return false;
           break;
         }

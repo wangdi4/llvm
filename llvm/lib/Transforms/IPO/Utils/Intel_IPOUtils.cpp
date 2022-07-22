@@ -160,7 +160,7 @@ bool AllocFreeAnalyzer::hasFreeCall(BasicBlock &BB,
     Instruction *I = &*BI++;
     if (auto *Call = dyn_cast<CallBase>(I)) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-      if (isFreeCall(Call, &TLI, false)) {
+      if (getFreedOperand(Call, &TLI, false)) {
         Result = true;
         InstVec.push_back(Call); // save the CallBase*
       }
