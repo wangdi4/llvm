@@ -708,20 +708,26 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// isFreeCall - Returns non-null if the value is a call to the builtin free()
-/// INTEL: Also returns true for any free-like function.
-const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                                 bool CheckNoBuiltin) { // INTEL
+/// INTEL: Returns true for any free-like function.
+bool llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                      bool CheckNoBuiltin) { // INTEL
   bool IsNoBuiltinCall;
   const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
   if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
-    return nullptr;
+    return false;
 
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
-    return nullptr;
+    return false;
 
-  return isLibFreeFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
+  return isLibFreeFunction(Callee, TLIFn);
+}
+
+Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI) {
+  // All currently supported free functions free the first argument.
+  if (isFreeCall(CB, TLI))
+    return CB->getArgOperand(0);
+  return nullptr;
 }
 
 #if INTEL_CUSTOMIZATION
