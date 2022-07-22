@@ -1,8 +1,6 @@
 /*===---- cpuid.h - X86 cpu model detection --------------------------------=== */
 /* INTEL_CUSTOMIZATION */
 /*
- * INTEL CONFIDENTIAL
- *
  * Modifications, Copyright (C) 2022 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
