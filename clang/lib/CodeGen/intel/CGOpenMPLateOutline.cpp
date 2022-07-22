@@ -1037,6 +1037,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
           VD->hasGlobalStorage() &&
           CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap)
         emitImplicit(VD, ICK_livein);
+      else if (Directive.getDirectiveKind() == OMPD_target &&
+               (!VD->getType()->isScalarType() ||
+                VD->getType()->isPointerType()))
+        // Other not captured variables in target region should
+        // be private.
+        emitImplicit(VD, ICK_private);
       else
         emitImplicit(VD, ICK_firstprivate);
 #if INTEL_CUSTOMIZATION
