@@ -263,7 +263,10 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       // If whole archive was specified then we need to add all the objects
       if (inWholeArchive) {
         for (const auto &p : getArchiveMembers(currArchive)) {
-            files.push_back(createObjectFile(p.first, path, p.second));
+          if (isBitcode(p.first))
+            files.push_back(make<BitcodeFile>(p.first, path, p.second, false));
+          else
+            files.push_back(createObjFile(p.first, path));
         }
         return true;
       }
@@ -279,7 +282,10 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         // Archive member is bitcode or ELF
         if (magic == file_magic::bitcode ||
             magic == file_magic::elf_relocatable) {
-          auto *lazyFile = createLazyFile(p.first, path, p.second);
+          auto *lazyFile =
+              (magic == file_magic::elf_relocatable)
+                  ? (InputFile *)createObjFile(p.first, path, true)
+                  : make<BitcodeFile>(p.first, path, p.second, true);
           if (lazyFile->isGNULTOFile)
             ctx->lazyGNULTOFiles.push_back(lazyFile);
           else
@@ -324,14 +330,18 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     InputFile::isInGroup = true;
     for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
       auto magic = identify_magic(p.first.getBuffer());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (magic == file_magic::bitcode || magic == file_magic::elf_relocatable) {
-        // The following line is community code. It was commented out and
+        // The following lines are community code. They were commented out and
         // replaced with the code below since we need to catch when an
         // object has GNU LTO information.
-        // files.push_back(createLazyFile(p.first, path, p.second));
-        auto *lazyFile = createLazyFile(p.first, path, p.second);
+        // if (magic == file_magic::elf_relocatable)
+        //   files.push_back(createObjFile(p.first, path, true));
+        // else if (magic == file_magic::bitcode)
+        //   files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
+        auto *lazyFile = (magic == file_magic::elf_relocatable)
+                             ? (InputFile*)createObjFile(p.first, path, true)
+                             : make<BitcodeFile>(p.first, path, p.second, true);
         if (lazyFile->isGNULTOFile)
           ctx->lazyGNULTOFiles.push_back(lazyFile);
         else
@@ -342,13 +352,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       else if (ParseNestedArchive(p.first)) {
         continue;
       } else {
-=======
-      if (magic == file_magic::elf_relocatable)
-        files.push_back(createObjFile(p.first, path, true));
-      else if (magic == file_magic::bitcode)
-        files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
-      else
->>>>>>> 242316bc2719126ec76ac8535b4db0f24b7c500c
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
              "' is neither ET_REL nor LLVM bitcode");
       }
@@ -378,34 +381,19 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     files.push_back(make<BitcodeFile>(mbref, "", 0, inLib));
     break;
   case file_magic::elf_relocatable:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The following line is community code. It was commented out and
     // replaced with the code below since we need to catch when an
     // object has GNU LTO information.
-    // if (inLib)
-    //   files.push_back(createLazyFile(mbref, "", 0));
-    // else
-    //   files.push_back(createObjectFile(mbref));
-
-    if (inLib) {
-      auto *lazyFile = createLazyFile(mbref, "", 0);
-      if (lazyFile->isGNULTOFile)
-        ctx->lazyGNULTOFiles.push_back(lazyFile);
-      else
-        files.push_back(lazyFile);
-    }
-    else {
-      auto *objFile = createObjectFile(mbref);
+    // files.push_back(createObjFile(mbref, "", inLib));
+    {
+      auto *objFile = createObjFile(mbref, "", inLib);
       if (objFile->isGNULTOFile)
         ctx->gnuLTOFiles.push_back(objFile);
       else
         files.push_back(objFile);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    files.push_back(createObjFile(mbref, "", inLib));
->>>>>>> 242316bc2719126ec76ac8535b4db0f24b7c500c
     break;
   default:
     error(path + ": unknown file type");
@@ -2069,10 +2057,7 @@ void LinkerDriver::doGNULTOLinking(
   // If the GNU LTO objects are in an archive (lazyGNULTOFiles), then we need
   // to add the new ELF object as a lazy object. Else, just add it as a regular
   // object file.
-  if (isLazyFile)
-    files.push_back(createLazyFile(mbref, "", 0));
-  else
-    files.push_back(createObjectFile(mbref));
+  files.push_back(createObjFile(mbref, "", isLazyFile));
 
   // Remove temporary files
   for (auto tempFile : tempsVector) {
