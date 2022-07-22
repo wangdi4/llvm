@@ -66,7 +66,9 @@ if(INTEL_CUSTOMIZATION)
 
   target_link_libraries(omptarget PRIVATE
       ${CMAKE_DL_LIBS}
-      ${LIBOMP_LIB_FILE})
+      ${LIBOMP_LIB_FILE}
+      LLVMSupport
+      LLVMObject)
   if(WIN32)
     libomptarget_add_resource_file(omptarget)
   else(WIN32)
