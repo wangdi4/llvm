@@ -159,6 +159,12 @@ Align VPlanTTICostModel::getMemInstAlignment(
   return DL->getABITypeAlign(LoadStore->getValueType());
 }
 
+bool VPlanTTICostModel::isUniformLoadStore(
+  const VPLoadStoreInst *LoadStore) const {
+  assert (Plan->getVPlanDA() && "DA is not established.");
+  return Plan->getVPlanDA()->isAlwaysUniform(*LoadStore->getPointerOperand());
+}
+
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
   assert (Plan->getVPlanDA() && "DA is not established.");
@@ -317,6 +323,24 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
 
   unsigned Opcode = LoadStore->getOpcode();
   unsigned AddrSpace = LoadStore->getPointerAddressSpace();
+
+  // Special case uniform loads/stores as we issue scalar load/store
+  // instructions for them plus broadcast for loads.
+  if (VF > 1 && isVectorizableTy(OpTy) && isUniformLoadStore(LoadStore)) {
+    VPInstructionCost Cost = IsMasked ?
+      TTI.getMaskedMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace) :
+      getMemoryOpCost(Opcode, OpTy, Alignment, AddrSpace);
+
+    // TODO:
+    // Once SVA is checked during CM the cost of vector->scalar and
+    // scalar->vector conversions is expected to be accounted for each
+    // instructions and the code below should be removed.
+    Cost += (Opcode == Instruction::Load) ?
+      TTI.getShuffleCost(TTI::SK_Broadcast, cast<VectorType>(VecTy)) :
+      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy, VF - 1);
+
+    return Cost;
+  }
 
   // Call get[Masked]MemoryOpCost() for the following cases.
   // 1. VF = 1 VPlan even for vector OpTy.
