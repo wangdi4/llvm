@@ -3437,9 +3437,7 @@ static Instruction *tryToMoveFreeBeforeNullTest(CallInst &FI,
   return &FI;
 }
 
-Instruction *InstCombinerImpl::visitFree(CallInst &FI) {
-  Value *Op = FI.getArgOperand(0);
-
+Instruction *InstCombinerImpl::visitFree(CallInst &FI, Value *Op) {
   // free undef -> unreachable.
 #if INTEL_CUSTOMIZATION
   // Only single-argument (with NumOperands == 2) free functions have

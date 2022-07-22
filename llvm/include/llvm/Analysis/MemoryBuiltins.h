@@ -148,6 +148,7 @@ bool isAllocationLibFunc(LibFunc LF);
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// isLibDeleteFunction - Returns true if the function is a builtin delete()
 bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
@@ -175,6 +176,13 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
       isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+/// Returns true if the value is a call to a free function.
+bool isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
+
+/// If this if a call to a free function, return the freed operand.
+Value *getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
+>>>>>>> c81dff3c306dd1a26e5f6377a040f811c325ba76
 
 //===----------------------------------------------------------------------===//
 //  Properties of allocation functions
