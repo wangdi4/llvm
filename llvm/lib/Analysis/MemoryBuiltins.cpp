@@ -299,7 +299,6 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -321,7 +320,7 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
     [&LF](std::pair<LibFunc, AllocFnsTy> Elem) { return Elem.first == LF; });
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static AllocFnKind getAllocFnKind(const Value *V) {
   if (const auto *CB = dyn_cast<CallBase>(V)) {
     Attribute Attr = CB->getFnAttr(Attribute::AllocKind);
@@ -345,7 +344,6 @@ static bool checkFnAllocKind(const Value *V, AllocFnKind Wanted) {
 static bool checkFnAllocKind(const Function *F, AllocFnKind Wanted) {
   return (getAllocFnKind(F) & Wanted) != AllocFnKind::Unknown;
 }
->>>>>>> 5a3e3675f6be3c49fb1a305202888cce4d916ba6
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
