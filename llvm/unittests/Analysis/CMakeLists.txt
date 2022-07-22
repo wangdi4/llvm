@@ -42,6 +42,7 @@ add_llvm_unittest_with_input_files(AnalysisTests
   LoopInfoTest.cpp
   LoopNestTest.cpp
   MemoryBuiltinsTest.cpp
+  MemoryProfileInfoTest.cpp
   MemorySSATest.cpp
   MLModelRunnerTest.cpp
   PhiValuesTest.cpp
