@@ -296,8 +296,12 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
 #endif // INTEL_CUSTOMIZATION
 
     if (inWholeArchive) {
-      for (const auto &p : getArchiveMembers(mbref))
-        files.push_back(createObjectFile(p.first, path, p.second));
+      for (const auto &p : getArchiveMembers(mbref)) {
+        if (isBitcode(p.first))
+          files.push_back(make<BitcodeFile>(p.first, path, p.second, false));
+        else
+          files.push_back(createObjFile(p.first, path));
+      }
       return;
     }
 
@@ -320,6 +324,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     InputFile::isInGroup = true;
     for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
       auto magic = identify_magic(p.first.getBuffer());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (magic == file_magic::bitcode || magic == file_magic::elf_relocatable) {
         // The following line is community code. It was commented out and
@@ -337,6 +342,13 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       else if (ParseNestedArchive(p.first)) {
         continue;
       } else {
+=======
+      if (magic == file_magic::elf_relocatable)
+        files.push_back(createObjFile(p.first, path, true));
+      else if (magic == file_magic::bitcode)
+        files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
+      else
+>>>>>>> 242316bc2719126ec76ac8535b4db0f24b7c500c
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
              "' is neither ET_REL nor LLVM bitcode");
       }
@@ -363,7 +375,10 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         make<SharedFile>(mbref, withLOption ? path::filename(path) : path));
     return;
   case file_magic::bitcode:
+    files.push_back(make<BitcodeFile>(mbref, "", 0, inLib));
+    break;
   case file_magic::elf_relocatable:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The following line is community code. It was commented out and
     // replaced with the code below since we need to catch when an
@@ -388,6 +403,9 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         files.push_back(objFile);
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+    files.push_back(createObjFile(mbref, "", inLib));
+>>>>>>> 242316bc2719126ec76ac8535b4db0f24b7c500c
     break;
   default:
     error(path + ": unknown file type");
@@ -1756,7 +1774,7 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
       break;
     case OPT_just_symbols:
       if (Optional<MemoryBufferRef> mb = readFile(arg->getValue())) {
-        files.push_back(createObjectFile(*mb));
+        files.push_back(createObjFile(*mb));
         files.back()->justSymbols = true;
       }
       break;
