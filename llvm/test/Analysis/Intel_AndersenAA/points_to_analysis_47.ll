@@ -1,6 +1,7 @@
 ; This test verifies that t_printf routine is treated as wrapper to
 ; vsprintf by checking <universal> is NOT in points-to set of GVar<mem>.
-
+; This is same points_to_analysis_44.ll except vsprintf function
+; is called through "al_sprintf" simple wrapper function.
 
 ; RUN: opt < %s -passes='require<anders-aa>' -disable-output -print-anders-points-to 2>&1 | FileCheck %s
 
@@ -17,6 +18,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.37 = private unnamed_addr constant [11 x i8] c">> START!\0A\00", align 1
 @GVar = internal global i8* zeroinitializer, align 16
 
+define internal fastcc i32 @al_sprintf(i8* nocapture noundef %0, i8* nocapture noundef readonly %1, %struct.__va_list_tag* noundef %2) {
+  %4 = tail call i32 @vsprintf(i8* noundef %0, i8* noundef %1, %struct.__va_list_tag* noundef %2)
+  ret i32 %4
+}
+
 ; Function Attrs: nounwind uwtable
 define internal void @t_printf(i8* nocapture noundef readonly %0, ...) #0 {
   %2 = alloca [1 x %struct.__va_list_tag], align 16
@@ -24,7 +30,7 @@ define internal void @t_printf(i8* nocapture noundef readonly %0, ...) #0 {
   call void @llvm.lifetime.start.p0i8(i64 24, i8* nonnull %3) #28
   %4 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %2, i64 0, i64 0
   call void @llvm.va_start(i8* nonnull %3)
-  %5 = call i32 @vsprintf(i8* noundef getelementptr inbounds ([1024 x i8], [1024 x i8]* @pf_buf, i64 0, i64 0), i8* noundef %0, %struct.__va_list_tag* noundef nonnull %4) #28
+  %5 = call i32 @al_sprintf(i8* noundef getelementptr inbounds ([1024 x i8], [1024 x i8]* @pf_buf, i64 0, i64 0), i8* noundef %0, %struct.__va_list_tag* noundef nonnull %4) #28
   %6 = call i32 @xlate_nl_inplace(i8* noundef getelementptr inbounds ([1024 x i8], [1024 x i8]* @pf_buf, i64 0, i64 0)) #28
   call void @llvm.va_end(i8* nonnull %3)
   call void @llvm.lifetime.end.p0i8(i64 24, i8* nonnull %3) #28
