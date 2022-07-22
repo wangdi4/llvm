@@ -906,7 +906,7 @@ EXTERN void ompx_nbarrier_signal(
 /// for the device. If \p FnPtr does not match an address
 /// of any host function, then the API returns \p FnPtr
 /// unchanged.
-EXTERN void *__kmpc_target_translate_fptr(void *FnPtr);
+EXTERN void *__kmpc_target_translate_fptr(ulong FnPtr);
 
 ///
 /// Device runtime initialization
