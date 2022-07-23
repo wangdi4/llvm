@@ -23,50 +23,49 @@
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP6]], i64 [[VP5]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:       Compress/expand idiom list
+; CHECK-NEXT:    Phi: i32 [[VP8:%.*]] = phi  [ i32 [[K_0340]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP9:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:    LiveIn: i32 [[K_0340]]
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP8:%.*]] i32 3
-; CHECK-NEXT:        Stride: 3
-; CHECK-NEXT:        Init: i32 [[K_0340]]
+; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP8]] i32 3 (Stride = 3)
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[D20]] i64 [[VP9:%.*]]
+; CHECK-NEXT:      i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[D20]] i64 [[VP10:%.*]]
 ; CHECK-NEXT:    Indices:
-; CHECK-NEXT:      i32 [[VP7]] = add i32 [[VP8]] i32 3
+; CHECK-NEXT:      i64 [[VP10]] = sext i32 [[VP7]] to i64
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP8]], i32 [[K_0340]], i32* [[VP_SUBSCRIPT]],
-
-; CHECK:         [[BB1:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    Linked values: i32 [[VP8]], i32 [[K_0340]], i32 [[VP7]], i32* [[VP_SUBSCRIPT]], i64 [[VP10]],
+; CHECK:         [[BB3:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP2:%.*]] i64 1
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB3]]
+; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP2:%.*]] i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[K_0340]], [[BB2]] ],  [ i32 [[VP11:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP5]], [[BB3]] ]
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[K_0340]], [[BB1]] ],  [ i32 [[VP9]], [[BB2]] ]
+; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 0
-; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i32 [[VP7]] = add i32 [[VP8]] i32 3
-; CHECK-NEXT:       i64 [[VP9]] = sext i32 [[VP7]] to i64
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[D20]] i64 [[VP9]]
+; CHECK-NEXT:       i64 [[VP10]] = sext i32 [[VP7]] to i64
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[D20]] i64 [[VP10]]
 ; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[V20:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:       store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:       br [[BB3]]
+; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP11]] = phi  [ i32 [[VP7]], [[BB4]] ],  [ i32 [[VP8]], [[BB0]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
+; CHECK-NEXT:     i32 [[VP9]] = phi  [ i32 [[VP7]], [[BB4]] ],  [ i32 [[VP8]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 [[VP10]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 [[VP11]]
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB0]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
