@@ -343,9 +343,7 @@ public:
     return Ret;
   }
 
-  void tryAddVPValueForCEIdiom(const HIRVecIdiom &Idiom, VPValue *VPVal) {
-    if (!Idioms->isCEIdiom(Idiom))
-      return;
+  void addVPValueForCEIdiom(const HIRVecIdiom &Idiom, VPValue *VPVal) {
     assert(CEIdiomToVPValue.find(Idiom) == CEIdiomToVPValue.end() &&
            "Unexpected existing idiom map");
     if (auto *VPPhi = dyn_cast<VPPHINode>(VPVal)) {

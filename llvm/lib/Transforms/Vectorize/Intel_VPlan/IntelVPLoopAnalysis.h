@@ -516,15 +516,16 @@ public:
   struct IncrementInfoTy {
     VPInstruction *VPInst;
     int64_t Stride;
-    VPValue *Init = nullptr;
-    VPInstruction *LiveOut = nullptr;
   };
 
-  VPCompressExpandIdiom(const SmallVectorImpl<IncrementInfoTy> &Increments,
+  VPCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
+                        VPInstruction *LiveOut,
+                        const SmallVectorImpl<IncrementInfoTy> &Increments,
                         const SmallVectorImpl<VPInstruction *> &Stores,
                         const SmallVectorImpl<VPInstruction *> &Loads,
                         const SmallVectorImpl<VPValue *> &Indices)
-      : VPLoopEntity(CompressExpand, false),
+      : VPLoopEntity(CompressExpand, false), RecurrentPhi(RecurrentPhi),
+        LiveIn(LiveIn), LiveOut(LiveOut),
         Increments(Increments.begin(), Increments.end()),
         Stores(Stores.begin(), Stores.end()), Loads(Loads.begin(), Loads.end()),
         Indices(Indices.begin(), Indices.end()) {}
@@ -545,6 +546,10 @@ public:
   }
 
 private:
+  VPPHINode *RecurrentPhi;
+  VPValue *LiveIn;
+  VPInstruction *LiveOut;
+
   SmallVector<IncrementInfoTy, 4> Increments;
   SmallVector<VPInstruction *, 4> Stores;
   SmallVector<VPInstruction *, 4> Loads;
@@ -608,6 +613,7 @@ public:
     Reduction,
     Induction,
     Private,
+    ComressExpand,
   };
 
   /// Add reduction described by \p K, \p MK, and \p Signed,
@@ -675,7 +681,9 @@ public:
                                     VPValue *AI = nullptr);
 
   VPCompressExpandIdiom *
-  addCompressExpandIdiom(const SmallVectorImpl<IncrementInfoTy> &Increments,
+  addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
+                         VPInstruction *LiveOut,
+                         const SmallVectorImpl<IncrementInfoTy> &Increments,
                          const SmallVectorImpl<VPInstruction *> &Stores,
                          const SmallVectorImpl<VPInstruction *> &Loads,
                          const SmallVectorImpl<VPValue *> &Indices);
@@ -861,8 +869,8 @@ public:
     return false;
   }
 
-  void setImportingError(ImportError ErrC) { ImportErr = ErrC;}
-  ImportError getImportingError() const { return ImportErr;}
+  void setImportingError(ImportError ErrC) { ImportErr = ErrC; }
+  ImportError getImportingError() const { return ImportErr; }
 
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
@@ -953,7 +961,7 @@ private:
     if (Val && !isa<VPConstant>(Val)) {
       auto Iter = Map.find(Val); (void)Iter;
       assert((Iter == Map.end() || Iter->second == Descr) &&
-             "Inconsistensy in VPValue->Descriptor mapping");
+             "Inconsistency in VPValue->Descriptor mapping");
       Map[Val] = Descr;
       Descr->addLinkedVPValue(Val);
     }
@@ -1505,6 +1513,12 @@ class CompressExpandIdiomDescr : public VPEntityImportDescr {
   SmallVector<VPInstruction *, 4> Loads;
   SmallVector<VPValue *, 4> Indices;
 
+  VPPHINode *RecurrentPhi = nullptr;
+  VPValue *LiveIn = nullptr;
+  VPInstruction *LiveOut = nullptr;
+
+  bool IsIncomplete = true;
+
 public:
   void addIncrement(VPInstruction *VPInst, int64_t Stride) {
     Increments.push_back({VPInst, Stride});
@@ -1518,10 +1532,10 @@ public:
   void checkParentVPLoop(const VPLoop *Loop) const {}
 
   /// Return true if not all data is completed.
-  bool isIncomplete() const { return !Increments.empty(); }
+  bool isIncomplete() const { return IsIncomplete; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
