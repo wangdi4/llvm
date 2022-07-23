@@ -20,29 +20,121 @@
 
 #include "Intel_DTrans/Transforms/MemManageTransOP.h"
 
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
 
 #define DTRANS_MEMMANAGETRANSOP "dtrans-memmanagetransop"
 
 using namespace llvm;
+using namespace dtransOP;
 
 namespace {
 
 class MemManageTransImpl {
-public:
-  MemManageTransImpl(llvm::dtransOP::MemManageTransOPPass::MemTLITy GetTLI)
-      : GetTLI(GetTLI){};
 
-  bool run();
+  constexpr static int MaxNumCandidates = 1;
+
+public:
+  MemManageTransImpl(DTransTypeManager &TM, TypeMetadataReader &MDReader,
+                     llvm::dtransOP::MemManageTransOPPass::MemTLITy GetTLI)
+      : TM(TM), MDReader(MDReader), GetTLI(GetTLI){};
+
+  ~MemManageTransImpl() {
+    for (auto *CInfo : Candidates)
+      delete CInfo;
+  }
+
+  // Returns current processing candidate.
+  MemManageCandidateInfo *getCurrentCandidate() {
+    // For now, only one candidate is allowed.
+    assert(Candidates.size() == 1 && "Unexpected number of candidates");
+    auto Cand = *Candidates.begin();
+    return Cand;
+  }
+
+  bool run(Module &M);
 
 private:
+  DTransTypeManager &TM;
+  TypeMetadataReader &MDReader;
   llvm::dtransOP::MemManageTransOPPass::MemTLITy GetTLI;
+
+  // List of candidates. For now, only one candidate is allowed.
+  SmallVector<MemManageCandidateInfo *, MaxNumCandidates> Candidates;
+
+  bool gatherCandidates(Module &M, FunctionTypeResolver &TypeResolver);
 };
 
-bool MemManageTransImpl::run() {
+// Collect candidates.
+bool MemManageTransImpl::gatherCandidates(Module &M,
+                                          FunctionTypeResolver &TypeResolver) {
+  for (auto *Str : M.getIdentifiedStructTypes()) {
+    if (!Str->hasName())
+      continue;
+
+    DTransStructType *StrType = TM.getStructType(Str->getName());
+    if (!StrType)
+      continue;
+
+    std::unique_ptr<MemManageCandidateInfo> CInfo(
+        new MemManageCandidateInfo(M));
+
+    if (!CInfo->isCandidateType(StrType))
+      continue;
+
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "  Considering candidate: ";
+      Str->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+
+    if (!CInfo->collectMemberFunctions(TypeResolver, true)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      { dbgs() << "  Failed: member function collection.\n"; });
+      continue;
+    }
+    if (Candidates.size() >= MaxNumCandidates) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+        dbgs() << "  Failed: Exceeding maximum candidate limit.\n";
+      });
+      return false;
+    }
+    Candidates.push_back(CInfo.release());
+  }
+
+  if (Candidates.empty()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    { dbgs() << "  Failed: No candidates found.\n"; });
+    return false;
+  }
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "  Possible candidate structs: \n";
+    for (auto CInfo : Candidates) {
+      DTransStructType *St = CInfo->getStringAllocatorType();
+      dbgs() << "      " << St->getName() << "\n";
+    }
+  });
+
+  return true;
+}
+
+bool MemManageTransImpl::run(Module &M) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                  dbgs() << "MemManageTransOP transformation: \n";);
+                  { dbgs() << "MemManageTransOP transformation: \n"; });
+
+  // Collect candidates.
+  DTransLibraryInfo DTransLibInfo(TM, GetTLI);
+  DTransLibInfo.initialize(M);
+  FunctionTypeResolver TypeResolver(MDReader, DTransLibInfo);
+  if (!gatherCandidates(M, TypeResolver))
+    return false;
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    if (MemManageCandidateInfo *Cand = getCurrentCandidate())
+      Cand->dump();
+  });
 
   // TODO: Implement the pass.
   return false;
@@ -71,8 +163,13 @@ bool MemManageTransOPPass::runImpl(Module &M, WholeProgramInfo &WPInfo,
     return false;
   }
 
-  MemManageTransImpl MemManageTransI(GetTLI);
-  return MemManageTransI.run();
+  DTransTypeManager TM(M.getContext());
+  TypeMetadataReader MDReader(TM);
+  if (!MDReader.initialize(M))
+    return false;
+
+  MemManageTransImpl MemManageTransI(TM, MDReader, GetTLI);
+  return MemManageTransI.run(M);
 }
 
 PreservedAnalyses MemManageTransOPPass::run(Module &M,
