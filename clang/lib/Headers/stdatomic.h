@@ -44,8 +44,8 @@
  * to the clang resource header until that is fully supported.
  */
 /* INTEL_CUSTOMIZATION */
-#if  !__USE_CLANG_CATOMICS &&  \
-     __STDC_HOSTED__ && __has_include_next(<stdatomic.h>) && !defined(_MSC_VER)
+#if !__USE_CLANG_CATOMICS && __STDC_HOSTED__ &&                                \
+    __has_include_next(<stdatomic.h>) && !(defined(_MSC_VER) && !defined(__cplusplus))
 /* end INTEL_CUSTOMIZATION */
 # include_next <stdatomic.h>
 #else
