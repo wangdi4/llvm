@@ -781,6 +781,7 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
 
   auto *Ret = Builder.create<VPAllocatePrivate>(
     AI->getName(), AI->getType(), E.getAllocatedType(), OrigAlignment);
+  Ret->setEntityKind(E.getID());
   // We do not set debug location on allocates.
   Ret->setDebugLocation({});
   linkValue(&E, Ret);
