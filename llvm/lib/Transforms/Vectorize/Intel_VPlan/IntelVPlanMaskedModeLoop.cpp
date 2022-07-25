@@ -149,6 +149,8 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   NewLoopLatch->setName("new_latch");
 
   // Find first non phi instruction in Header.
+  // We also need to bypass the initalizer store
+  // for alloca for inscan reduction.
   auto NonVPPhiIt = find_if(
       *Header, [](const VPInstruction &Inst) { return !isa<VPPHINode>(Inst); });
   // Split header before first non phi instruction.
@@ -159,6 +161,25 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   NewHeaderCond->replaceUsesOfWith(VPIndIncrement, VPIndInstVPPhi, true);
   Header->appendInstruction(NewHeaderCond);
   Header->setTerminator(HeaderSucc, NewLoopLatch, NewHeaderCond);
+
+  // Move the stores related to inscan reductions out of the if condition.
+  // Each inscan reduction has one such store. The store has been inserted
+  // by Enity framework after the phi, so it always met before stores coming
+  // from the user code.
+  SmallPtrSet<const VPAllocatePrivate*, 2> ProcessedAllocas;
+  for (auto &VPInst : make_early_inc_range(*HeaderSucc)) {
+    if (VPInst.getOpcode() != Instruction::Store)
+      continue;
+    auto *Ptr = cast<VPLoadStoreInst>(&VPInst)->getPointerOperand();
+    if (auto *AllocPriv = dyn_cast<VPAllocatePrivate>(Ptr)) {
+      if (ProcessedAllocas.contains(AllocPriv))
+        continue;
+      if (AllocPriv->getEntityKind() == VPLoopEntity::InscanReduction) {
+        VPInst.moveBefore(NewHeaderCond);
+        ProcessedAllocas.insert(AllocPriv);
+      }
+    }
+  }
 
   // Create phi nodes in new latch for the values that are live-outs of the
   // loop and live-outs through backedge.

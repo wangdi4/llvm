@@ -3574,11 +3574,14 @@ private:
 // is not supposed to vectorize alloca instructions that appear inside the loop
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
+  // VPLoopEntityList is allowed to set EntityKind.
+  friend class VPLoopEntityList;
+
 public:
   VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
       : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
         AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment) {}
+        OrigAlignment(OrigAlignment), EntityKind(0) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3615,6 +3618,8 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
+  unsigned getEntityKind() const { return EntityKind; }
+
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
@@ -3624,14 +3629,20 @@ protected:
       Ret->setSOASafe();
     if (isSOAProfitable())
       Ret->setSOAProfitable();
+    Ret->setEntityKind(getEntityKind());
     return Ret;
   }
+
+private:
+  /// Set the opcode of the Entity related to this Alloca.
+  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
 
 private:
   Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
+  unsigned EntityKind;
 };
 
 /// Return index of some active lane. Currently we use the first one but users
