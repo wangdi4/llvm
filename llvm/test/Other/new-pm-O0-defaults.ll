@@ -35,9 +35,6 @@
 ; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
-; CHECK-DIS-NEXT: Running pass: VecClonePass ;INTEL
-; CHECK-DIS-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
-; CHECK-DIS-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-DEFAULT: Running analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: InlineListsPass ;INTEL
@@ -45,13 +42,9 @@
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
-; CHECK-DEFAULT-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
-; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-CORO-NEXT: Running pass: CoroConditionalWrapper
 ; CHECK-PRE-LINK: Running pass: CanonicalizeAliasesPass
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
-; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
 ; CHECK-THINLTO: Running pass: Annotation2MetadataPass
 ; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
