@@ -60,6 +60,9 @@ else()
   return()
 endif()
 
+# INTEL_CUSTOMIZATION
+# Community commit e82e07d74a7d9 will cause build fail, revert it temporarily
+# and wait for code owner to resolve this issue.
 # TODO: This part needs to be refined when libomptarget is going to support
 # Windows!
 # TODO: This part can also be removed if we can change the clang driver to make
@@ -74,6 +77,7 @@ else()
   libomptarget_say("Not building DeviceRTL: unknown host arch: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
   return()
 endif()
+# end INTEL_CUSTOMIZATION
 
 set(devicertl_base_directory ${CMAKE_CURRENT_SOURCE_DIR})
 set(include_directory ${devicertl_base_directory}/include)
@@ -107,7 +111,6 @@ set(amdgpu_mcpus gfx700 gfx701 gfx801 gfx803 gfx900 gfx902 gfx906 gfx908 gfx90a 
 if (DEFINED LIBOMPTARGET_AMDGCN_GFXLIST)
   set(amdgpu_mcpus ${LIBOMPTARGET_AMDGCN_GFXLIST})
 endif()
-
 
 # Activate RTL message dumps if requested by the user.
 set(LIBOMPTARGET_DEVICE_DEBUG FALSE CACHE BOOL
@@ -146,6 +149,8 @@ set(link_opt_flags  -O3        -openmp-opt-disable)
 set (LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL "${LIBOMPTARGET_LLVM_INCLUDE_DIRS}")
 list(TRANSFORM LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL PREPEND "-I")
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
 # Set flags for LLVM Bitcode compilation.
 set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
               ${clang_opt_flags}
@@ -156,6 +161,7 @@ set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
              -I${devicertl_base_directory}/../include
              ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL}
 )
+# end INTEL_CUSTOMIZATION
 
 if(${LIBOMPTARGET_DEVICE_DEBUG})
   list(APPEND bc_flags -DOMPTARGET_DEBUG=-1)
@@ -176,6 +182,8 @@ function(compileDeviceRTLLibrary target_cpu target_name)
     get_filename_component(outfile ${src} NAME)
     set(outfile "${outfile}-${target_cpu}.bc")
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
     add_custom_command(OUTPUT ${outfile}
       COMMAND ${CLANG_TOOL}
       ${bc_flags}
@@ -187,6 +195,7 @@ function(compileDeviceRTLLibrary target_cpu target_name)
       COMMENT "Building LLVM bitcode ${outfile}"
       VERBATIM
     )
+#end INTEL_CUSTOMIZATION
     if("${CLANG_TOOL}" STREQUAL "$<TARGET_FILE:clang>")
       # Add a file-level dependency to ensure that clang is up-to-date.
       # By default, add_custom_command only builds clang if the
@@ -247,6 +256,8 @@ function(compileDeviceRTLLibrary target_cpu target_name)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${bclib_name} DESTINATION "${OPENMP_INSTALL_LIBDIR}")
 endfunction()
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
 # Generate a Bitcode library for all the compute capabilities the user requested
 add_custom_target(omptarget.devicertl.nvptx)
 foreach(sm ${nvptx_sm_list})
@@ -257,6 +268,7 @@ add_custom_target(omptarget.devicertl.amdgpu)
 foreach(mcpu ${amdgpu_mcpus})
   compileDeviceRTLLibrary(${mcpu} amdgpu -target amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
 endforeach()
+# end INTEL_CUSTOMIZATION
 
 # Set the flags to build the device runtime from clang.
 set(clang_lib_flags -fopenmp -fopenmp-cuda-mode -foffload-lto -fvisibility=hidden -Xopenmp-target=nvptx64-nvidia-cuda --cuda-feature=+ptx61 -nocudalib -nogpulib -nostdinc ${clang_opt_flags})
