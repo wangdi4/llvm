@@ -63,7 +63,7 @@ EXTERN void *__kmpc_target_translate_fptr(ulong fn_ptr) {
   // already holds a device address.
   if (fn_ptr < __omp_offloading_fptr_map_p[left].host_ptr ||
       fn_ptr > __omp_offloading_fptr_map_p[right].host_ptr)
-    return fn_ptr;
+    return (void *)fn_ptr;
 
   while (left < right) {
     ulong middle = (left + right) / 2;
