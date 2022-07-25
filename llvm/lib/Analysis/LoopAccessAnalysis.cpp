@@ -917,8 +917,6 @@ findForkedSCEVs(ScalarEvolution *SE, const Loop *L, Value *Ptr,
         std::make_pair(Scev, !isGuaranteedNotToBeUndefOrPoison(Ptr)));
     break;
   }
-
-  return;
 }
 
 static SmallVector<std::pair<const SCEV *, bool>>

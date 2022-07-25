@@ -55,7 +55,7 @@
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm> // std::sort
+#include <algorithm>
 
 using namespace clang;
 using namespace CodeGen;
