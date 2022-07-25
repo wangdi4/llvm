@@ -13578,13 +13578,9 @@ Syntax:
 
 ::
 
-<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
-      declare void @llvm.prefetch(i8* <address>, i32 <rws>, i32 <locality>, i32 <cache type>)
+      declare void @llvm.prefetch(ptr <address>, i32 <rws>, i32 <locality>, i32 <cache type>)
 .. END INTEL_CUSTOMIZATION
-=======
-      declare void @llvm.prefetch(ptr <address>, i32 <rw>, i32 <locality>, i32 <cache type>)
->>>>>>> 7ac7ec820296684cfa25699afe0a7aba25a8b926
 
 Overview:
 """""""""
