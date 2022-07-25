@@ -413,6 +413,14 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // Skip doing Andersens Analysis if it finds unexpected Insts.
   bool SkipAndersensAnalysis = false;
 
+  // Flag to indicate whether all CallBacks are handled.
+  // This is used to treat target functions in callbacks as non-address
+  // taken functions.
+  bool HandledAllCallBacks = true;
+
+  // Set of vsprintf's user wrapper functions.
+  SmallPtrSet<Function *, 4> VSPrintfWrappers;
+
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
   SmallPtrSet<const Value *, 16> NonEscapeStaticVars;
@@ -575,6 +583,7 @@ private:
 
   void AddConstraintsForNonInternalLinkage(Function *F);
   void AddConstraintsForCall(CallBase *CB, Function *F);
+  bool addConstraintsForAbstractCall(CallBase *CB);
   bool AddConstraintsForExternalCall(CallBase *CB, Function *F);
   void AddConstraintsForDirectCall(CallBase *CB, Function *F);
   void AddConstraintsForInitActualsToUniversalSet(CallBase *CB);
