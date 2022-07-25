@@ -66,7 +66,6 @@ class InstCombiner;
 class OptimizationRemarkEmitter;
 class IntrinsicInst;
 class LoadInst;
-class LoopAccessInfo;
 class Loop;
 class LoopInfo;
 class LoopVectorizationLegality;

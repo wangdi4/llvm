@@ -38,8 +38,6 @@
 namespace llvm {
 
 struct InlineParams;
-class StringRef;
-class ModuleSummaryIndex;
 class ModulePass;
 class Pass;
 class BasicBlock;
