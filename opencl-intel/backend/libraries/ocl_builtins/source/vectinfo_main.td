@@ -10,27 +10,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-// Used for extending OclBuiltinImpl fields
-// Usage:
-//   def : OclBuiltinImpl<...>, SSE;
-// so that the field `Target` is merged into the OclBuiltinImpl record.
+// This file is used for migration purpose only.
+// TODO: remove this file when all VectInfo defs are migrated into source/main.td
 
-class OclImplTarget<string name> {
-  string Name = name;
-}
-
-def _SHARED_TARGET : OclImplTarget<"shared">;
-def _SSE_TARGET : OclImplTarget<"sse">;
-def _AVX512_TARGET : OclImplTarget<"avx512">;
-
-class SHARED {
-  OclImplTarget Target = _SHARED_TARGET;
-}
-
-class SSE {
-  OclImplTarget Target = _SSE_TARGET;
-}
-
-class AVX512 {
-  OclImplTarget Target = _AVX512_TARGET;
-}
+// Include all files that contain VectInfo defs
+include "source/main.td"
+include "GENERIC/opencl-v1.2.td"
+include "GENERIC/opencl-v2.0.td"
+include "GENERIC/opencl-v2.0WG.td"
+include "GENERIC/sub_group_builtin.td"

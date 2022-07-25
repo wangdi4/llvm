@@ -1171,6 +1171,7 @@ void OclBuiltinDB::processAliasMap(){
 
 static int getTargetID(StringRef TargetName) {
   return StringSwitch<int>(TargetName)
+      .CaseLower("shared", 0)
       .CasesLower("sse", "sse42", 1)
       .CaseLower("avx", 2)
       .CaseLower("avx2", 3)
@@ -1179,8 +1180,30 @@ static int getTargetID(StringRef TargetName) {
       .Default(-1);
 }
 
+static bool shouldSkipImpl(int RecordTargetID) {
+  const static int SharedTargetID = getTargetID("shared");
+  int CurrentTargetID = getTargetID(EmitTargetName);
+  assert(CurrentTargetID != -1 &&
+         "Invalid target name! Please refer to source/core/targets.td for "
+         "available target names.");
+
+  // The `Target` field of the record indicates a higher ISA than the emit
+  // target.
+  if (RecordTargetID > CurrentTargetID)
+    return true;
+
+  // For targets other than "shared", we don't want to inherit the shared
+  // implementation, as all shared implementations are placed in a separate RTL:
+  // clbltfnshared.rtl
+  if (CurrentTargetID != SharedTargetID && RecordTargetID == SharedTargetID)
+    return true;
+
+  return false;
+}
+
 /// OclBuiltinDB
-OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R), m_Record(nullptr) {
+OclBuiltinDB::OclBuiltinDB(RecordKeeper &R, bool CollectImplDefs)
+    : m_Records(R), m_Record(nullptr) {
   // OclType
   {
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions("OclType");
@@ -1208,6 +1231,9 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R), m_Record(nullptr) {
   processAliasMap();
 
   // OclBuiltinImpl
+  if (!CollectImplDefs)
+    return;
+
   if (!HandleImplTargetInheritance) {
     const char*const GENERIC = "Generic";
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions(GENERIC);
@@ -1306,12 +1332,6 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R), m_Record(nullptr) {
       }
     }
   } else {
-    // Map current target name to id.
-    int CurrentTargetID = getTargetID(EmitTargetName);
-    assert(CurrentTargetID != -1 &&
-           "Invalid target name! Please refer to source/core/targets.td for "
-           "available target names.");
-
     LLVM_DEBUG(dbgs() << "Collecting impls with `Target' field\n");
     std::vector<Record *> Impls =
         m_Records.getAllDerivedDefinitions("OclBuiltinImpl");
@@ -1320,8 +1340,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper &R) : m_Records(R), m_Record(nullptr) {
       assert(TargetDef && "Target def is not found");
       int TargetID = getTargetID(TargetDef->getValueAsString("Name"));
 
-      // Don't collect this impl if it's for a higher ISA than the current one.
-      if (TargetID > CurrentTargetID)
+      if (shouldSkipImpl(TargetID))
         continue;
 
       const OclBuiltin *Proto =

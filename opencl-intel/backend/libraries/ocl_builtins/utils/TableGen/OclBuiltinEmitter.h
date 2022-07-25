@@ -305,7 +305,7 @@ protected:
 /// OclBuiltinDB
 class OclBuiltinDB {
 public:
-  explicit OclBuiltinDB(RecordKeeper&);
+  explicit OclBuiltinDB(RecordKeeper &, bool CollectImplDefs = true);
   virtual ~OclBuiltinDB();
 
   std::string rewritePattern(const OclBuiltin*, const OclType*, const std::string&,

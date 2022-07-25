@@ -144,7 +144,7 @@ std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
 }
 
 VectInfoGenerator::VectInfoGenerator(RecordKeeper &keeper)
-    : m_RecordKeeper(keeper), m_DB(keeper) {}
+    : m_RecordKeeper(keeper), m_DB(keeper, /*CollectImplDefs*/ false) {}
 
 void VectInfoGenerator::decodeParamKind(StringRef scalarName,
                                         StringRef v4FuncName) {

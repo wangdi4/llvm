@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
@@ -7,14 +19,16 @@ add_custom_command(
   OUTPUT ${VECTORIZATION_INFO_GEN}
   COMMAND ocl-tblgen -gen-vectorization-info
   -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/vectinfo_main.td
   -o ${OCL_BINARY_DIR}/include/VectInfo.gen
   DEPENDS ocl-tblgen
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/sub_group_builtin.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/vectinfo_main.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/main.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/subgroup.td
   COMMENT "Generating built-in vectorization info ..."
   VERBATIM
 )

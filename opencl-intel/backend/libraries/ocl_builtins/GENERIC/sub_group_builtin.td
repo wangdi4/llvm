@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 defvar khr_shuffle_gentype = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 
 defvar intel_shuffle_gentype = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64, v1i8, v1u8, v1i16, v1u16,
@@ -345,42 +357,6 @@ Attrs = [OVERLOADABLE] in {
   foreach vf = [4, 8, 16, 32, 64] in {
     def intel_sub_group_block_read_us16_#vf : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_"#vf, (outs !cast<OclType>("gentype"#!mul(16, vf)):$ret),(ins cgpgentype:$p, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
     def intel_sub_group_block_write_us16_#vf : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_"#vf, (outs void:$ret), (ins gpgentype:$p, !cast<OclType>("gentype"#!mul(16, vf)):$data, !cast<OclType>("v"#vf#"u32"):$vec_mask), [v1u8], [], 1, 0>;
-  }
-
-  // cl_khr_subgroup_ballot
-  // https://www.khronos.org/registry/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroup_ballot
-  //
-  // For the sub_group_non_uniform_broadcast and sub_group_broadcast_first
-  // functions, the generic type name gentype may be one of the supported
-  // built-in scalar data types char, uchar, short, ushort, int, uint, long,
-  // ulong, float, double (if double precision is supported), or half (if half
-  // precision is supported).
-  //
-  // For the sub_group_non_uniform_broadcast function, the generic type name
-  // gentype may additionally be one of the supported built-in vector data
-  // types charn, ucharn, shortn, ushortn, intn, uintn, longn, ulongn, floatn,
-  // doublen (if double precision is supported), or halfn (if half precision is
-  // supported).
-  //
-  // TODO: implement
-  // sub_group_non_uniform_broadcast
-  // sub_group_broadcast_first
-  // sub_group_inverse_ballot
-  // sub_group_ballot_bit_extract
-  // sub_group_ballot_bit_count
-  // sub_group_ballot_inclusive_scan
-  // sub_group_ballot_exclusive_scan
-  // sub_group_ballot_find_lsb
-  // sub_group_ballot_find_msb
-  // get_sub_group_eq_mask
-  // get_sub_group_ge_mask
-  // get_sub_group_gt_mask
-  // get_sub_group_le_mask
-  // get_sub_group_lt_mask
-  def sub_group_ballot : OclBuiltin<"sub_group_ballot", (outs v4u32:$ret), (ins gentype:$predicate), [v1i32]>;
-  foreach vf = [4, 8, 16, 32, 64] in {
-    defvar mask_type = !cast<OclType>("v" # vf # "u32");
-    def sub_group_ballot_vf # vf : OclBuiltin<"sub_group_ballot", (outs WidenType<v4u32, vf>.Tout:$ret), (ins gentype:$predicate, mask_type:$vec_mask), [WidenType<v1i32, vf>.Tout]>;
   }
 }
 
@@ -867,7 +843,3 @@ def intel_sub_group_ballot_vect_info : VectInfo<[], intel_sub_group_ballot, inte
 }
 def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512>;
 def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512>;
-
-let Types = [v1i32] in {
-def : VectInfo<[], sub_group_ballot, sub_group_ballot_vf4, sub_group_ballot_vf8, sub_group_ballot_vf16, sub_group_ballot_vf32, sub_group_ballot_vf64>;
-}

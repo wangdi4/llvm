@@ -285,7 +285,7 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
         DEPENDS ${OCL_TBLGEN} ${TD_SOURCES}
         COMMENT "Generating ${OFN}"
         )
-    set(${OUTPUT_VAR} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
+    set(${OUTPUT_VAR} ${${OUTPUT_VAR}} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
 endfunction(tblgenoclblt)
 
 function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
@@ -339,7 +339,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     --gen-ocl-bi
   )
   # The newly added builtins are implemented in souce/main.td
-  tblgenoclblt(OCL_TABLEGEN_SOURCE_NEW
+  tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     source
     main.td
@@ -347,7 +347,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     # args for ocl-tblgen
     --gen-ocl-bi --handle-impl-target-inheritance --emit-target-name=${TARGET_DIR}
   )
-  list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE} ${OCL_TABLEGEN_SOURCE_NEW})
+  list (APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
