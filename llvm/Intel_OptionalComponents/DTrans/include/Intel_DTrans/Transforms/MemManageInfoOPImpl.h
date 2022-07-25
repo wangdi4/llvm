@@ -51,7 +51,8 @@ private:
   DTransLibraryInfo &DTransLibInfo;
 };
 
-DTransFunctionType *FunctionTypeResolver::getFunctionType(const Function *F) const {
+DTransFunctionType *
+FunctionTypeResolver::getFunctionType(const Function *F) const {
   auto *DFnTy =
       dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
   if (DFnTy)
@@ -154,9 +155,50 @@ public:
   MemManageCandidateInfo(Module &M) : M(M){};
 
   inline bool isCandidateType(DTransType *Ty);
-  inline bool collectMemberFunctions(FunctionTypeResolver &TypeResolver, bool AtLTO);
+  inline bool collectMemberFunctions(FunctionTypeResolver &TypeResolver,
+                                     bool AtLTO);
   inline bool collectInlineNoInlineMethods(std::set<Function *> *,
                                            SmallSet<Function *, 16> *) const;
+
+  // Returns StringAllocatorType.
+  DTransStructType *getStringAllocatorType() { return StringAllocatorType; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(llvm::dbgs()); }
+
+  void print(raw_ostream &OS) const {
+    OS << "MemManageCandidateInfo:\n";
+    OS << "  StringAllocatorType        : " << *StringAllocatorType << "\n";
+    OS << "  MemInterfaceType           : " << *MemInterfaceType << "\n";
+    OS << "  StringObjectType           : " << *StringObjectType << "\n";
+    OS << "  ReusableAreanaAllocatorType: " << *ReusableArenaAllocatorType
+       << "\n";
+    OS << "    ArenaAllocatorObjectIndex = " << ArenaAllocatorObjectIndex
+       << "\n";
+    OS << "    DestroyBlockFlagIndex     = " << DestroyBlockFlagIndex << "\n";
+    OS << "  ArenaAllocatorType         : " << *ArenaAllocatorType << "\n";
+    OS << "    ListObjectIndex           = " << ListObjectIndex << "\n";
+    OS << "    AllocatorBlockSizeIndex   = " << AllocatorBlockSizeIndex << "\n";
+    OS << "  ListNodeType               : " << *ListNodeType << "\n";
+    OS << "    ReusableArenaBlockIndex   = " << ReusableArenaBlockIndex << "\n";
+    OS << "    NodePrevIndex             = " << NodePrevIndex << "\n";
+    OS << "    NodeNextIndex             = " << NodeNextIndex << "\n";
+    OS << "  ReusableArenaBlockType     : " << *ReusableArenaBlockType << "\n";
+    OS << "    BlockBaseObjIndex         = " << BlockBaseObjIndex << "\n";
+    OS << "    FirstFreeBlockIndex       = " << FirstFreeBlockIndex << "\n";
+    OS << "    NextFreeBlockIndex        = " << NextFreeBlockIndex << "\n";
+    OS << "  BlockBaseType              : " << *BlockBaseType << "\n";
+    OS << "    BasicAllocatorIndex       = " << BasicAllocatorIndex << "\n";
+    OS << "    BlockObjectCountIndex     = " << BlockObjectCountIndex << "\n";
+    OS << "    BlockBlockSizeIndex       = " << BlockBlockSizeIndex << "\n";
+    OS << "    StringObjectIndex         = " << StringObjectIndex << "\n";
+    OS << "  ListType                   : " << *ListType << "\n";
+    OS << "    ListMemManagerIndex       = " << ListMemManagerIndex << "\n";
+    OS << "    ListHeadIndex             = " << ListHeadIndex << "\n";
+    OS << "    ListFreeHeadIndex         = " << ListFreeHeadIndex << "\n";
+    OS << "\n";
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   Module &M;
@@ -744,7 +786,7 @@ bool MemManageCandidateInfo::isCandidateType(DTransType *Ty) {
 bool MemManageCandidateInfo::collectMemberFunctions(
     FunctionTypeResolver &TypeResolver, bool AtLTO) {
 
-  std::function<bool(Function * F, bool AtLTO,
+  std::function<bool(Function *, bool AtLTO,
                      SmallPtrSet<Function *, 32> &ProcessedFuncs)>
       CollectMemberFunctions;
 

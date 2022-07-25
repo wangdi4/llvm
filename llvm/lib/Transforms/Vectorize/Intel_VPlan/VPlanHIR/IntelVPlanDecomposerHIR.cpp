@@ -378,6 +378,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 
   // If the canon expression is invariant once we ignore IV at the vectorization
   // level, we do not need to decompose blobs.
+  BlobDDRef *IdiomRef = nullptr;
   if (!InvariantWithoutIV)
     // Decompose blobs.
     for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
@@ -392,7 +393,9 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
       DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                     Instruction::Add);
 
-      tryAddVPValueForCEIdiom(RDDR->getBlobDDRef(BlobIdx), DecompBlob);
+      BlobDDRef *BlobRef = RDDR->getBlobDDRef(BlobIdx);
+      if (Idioms->isCEIdiom(BlobRef))
+        IdiomRef = BlobRef;
     }
 
   // Decompose IV expression. If the canon expression is invariant without
@@ -403,6 +406,9 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     if (IVConstCoeff != 0 &&
         (!InvariantWithoutIV ||
          CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
+      assert((!IdiomRef ||
+              CE->getLevel(IVIt) != OutermostHLp->getNestingLevel()) &&
+             "Unexpected IV in compress/expand index");
       VPValue *DecompIV =
           decomposeIV(RDDR, CE, CE->getLevel(IVIt), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompIV, CE->getSrcType(),
@@ -427,6 +433,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // Decompose denominator.
   int64_t Denominator = CE->getDenominator();
   if (Denominator != 1) {
+    assert(!IdiomRef && "Unexpected denominator in compress/expand index");
     VPValue *DecompDenom = decomposeCoeff(Denominator, CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompDenom, CE->getSrcType(),
                                   CE->isUnsignedDiv() ? Instruction::UDiv
@@ -437,6 +444,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   DecompDef = decomposeCanonExprConv(CE, DecompDef);
 
   assert(DecompDef && "CanonExpr has not been decomposed");
+  if (IdiomRef)
+    addVPValueForCEIdiom(IdiomRef, DecompDef);
   return DecompDef;
 }
 
@@ -600,7 +609,8 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                                                 ->getPointerAddressSpace()));
   }
 
-  tryAddVPValueForCEIdiom(Ref, MemOpVPI);
+  if (Idioms->isCEIdiom(Ref))
+    addVPValueForCEIdiom(Ref, MemOpVPI);
 
   // If memory reference is AddressOf type, return the last generated
   // VPInstruction
@@ -953,7 +963,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
       NewVPInst->HIR().setOperandDDR(RvalDDR);
 
-    tryAddVPValueForCEIdiom(HInst, NewVPInst);
+    if (Idioms->isCEIdiom(HInst))
+      addVPValueForCEIdiom(HInst, NewVPInst);
 
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.

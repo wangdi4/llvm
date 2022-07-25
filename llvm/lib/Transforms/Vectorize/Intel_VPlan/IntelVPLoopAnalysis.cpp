@@ -210,6 +210,13 @@ void VPPrivate::dump(raw_ostream &OS) const {
 
 void VPCompressExpandIdiom::dump(raw_ostream &OS) const {
 
+  if (RecurrentPhi)
+    OS << "  Phi: " << *RecurrentPhi << "\n";
+  if (LiveIn)
+    OS << "  LiveIn: " << *LiveIn << "\n";
+  if (LiveOut)
+    OS << "  LiveOut: " << *LiveOut << "\n";
+
   auto DumpList = [&](const auto &Name, const auto &List, auto &&PrintFn) {
     if (List.empty())
       return;
@@ -223,12 +230,7 @@ void VPCompressExpandIdiom::dump(raw_ostream &OS) const {
 
   DumpList("Increments", Increments,
            [](const IncrementInfoTy &Info, raw_ostream &OS) {
-             OS << *Info.VPInst;
-             OS << "\n      Stride: " << Info.Stride;
-             if (Info.Init)
-               OS << "\n      Init: " << *Info.Init;
-             if (Info.LiveOut)
-               OS << "\n      LiveOut: " << *Info.LiveOut;
+             OS << *Info.VPInst << " (Stride = " << Info.Stride << ')';
            });
 
   auto PrintVPVal = [](VPValue *VPVal, raw_ostream &OS) { VPVal->print(OS); };
@@ -492,27 +494,22 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
 }
 
 VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
+    VPPHINode *RecurrentPhi, VPValue *LiveIn, VPInstruction *LiveOut,
     const SmallVectorImpl<IncrementInfoTy> &Increments,
     const SmallVectorImpl<VPInstruction *> &Stores,
     const SmallVectorImpl<VPInstruction *> &Loads,
     const SmallVectorImpl<VPValue *> &Indices) {
 
-  VPCompressExpandIdiom *CEIdiom =
-      new VPCompressExpandIdiom(Increments, Stores, Loads, Indices);
+  VPCompressExpandIdiom *CEIdiom = new VPCompressExpandIdiom(
+      RecurrentPhi, LiveIn, LiveOut, Increments, Stores, Loads, Indices);
   ComressExpandIdiomList.emplace_back(CEIdiom);
 
-  for (auto &Info : Increments) {
+  linkValue(ComressExpandIdiomMap, CEIdiom, RecurrentPhi);
+  linkValue(ComressExpandIdiomMap, CEIdiom, LiveIn);
+  linkValue(ComressExpandIdiomMap, CEIdiom, LiveOut);
+
+  for (const IncrementInfoTy &Info : Increments)
     linkValue(ComressExpandIdiomMap, CEIdiom, Info.VPInst);
-    assert(Info.VPInst->getOpcode() == Instruction::Add &&
-           "Add instruction is expected.");
-    for (VPValue *Op : Info.VPInst->operands())
-      if (isa<VPPHINode>(Op))
-        linkValue(ComressExpandIdiomMap, CEIdiom, Op);
-    if (Info.Init)
-      linkValue(ComressExpandIdiomMap, CEIdiom, Info.Init);
-    if (Info.LiveOut)
-      linkValue(ComressExpandIdiomMap, CEIdiom, Info.LiveOut);
-  }
 
   for (VPInstruction *VPInst : Stores)
     linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
@@ -3158,36 +3155,68 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   }
 }
 
-void CompressExpandIdiomDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                                     const VPLoop *Loop) {
+  assert(!Increments.empty() &&
+         "At least one increment instruction is expected.");
+  assert((!Loads.empty() || !Stores.empty()) &&
+         "At least one load or store instruction is expected.");
+  assert(!Indices.empty() && "At least one index is expected.");
 
-  std::function<void(VPValue *, IncrementInfoTy &)> TryUpdateIncrement =
-      [&](VPValue *V, IncrementInfoTy &Info) {
-        VPInstruction *I = dyn_cast<VPInstruction>(V);
-        if (!I)
-          return;
+  std::function<bool(VPValue *)> GatherIdiomInfo = [&](VPValue *V) {
+    VPInstruction *I = dyn_cast<VPInstruction>(V);
+    if (!I)
+      return true;
 
-        if (I->getOpcode() == Instruction::Add)
-          for (VPValue *Op : I->operands())
-            TryUpdateIncrement(Op, Info);
-        else if (auto *VPPhi = dyn_cast<VPPHINode>(I))
-          for (VPValue *VPVal : VPPhi->incoming_values()) {
+    if (I->getOpcode() == Instruction::Add) {
 
-            if (Loop->isDefOutside(VPVal))
-              Info.Init = VPVal;
+      for (VPValue *Op : I->operands())
+        if (!GatherIdiomInfo(Op))
+          return false;
 
-            if (VPInstruction *Inst = dyn_cast<VPInstruction>(VPVal))
-              if (Loop->isLiveOut(Inst))
-                Info.LiveOut = Inst;
+    } else if (auto *VPPhi = dyn_cast<VPPHINode>(I)) {
+
+      if (VPPhi->getParent() == Loop->getHeader()) {
+        if (RecurrentPhi && RecurrentPhi != VPPhi)
+          return false;
+        RecurrentPhi = VPPhi;
+      }
+
+      for (VPValue *VPVal : VPPhi->incoming_values()) {
+
+        if (Loop->isDefOutside(VPVal)) {
+          if (LiveIn && LiveIn != VPVal)
+            return false;
+          LiveIn = VPVal;
+        }
+
+        if (VPInstruction *Inst = dyn_cast<VPInstruction>(VPVal))
+          if (Loop->isLiveOut(Inst)) {
+            if (LiveOut && LiveOut != Inst)
+              return false;
+            LiveOut = Inst;
           }
-      };
+      }
+    }
 
-  for (auto &Info : Increments)
-    TryUpdateIncrement(Info.VPInst, Info);
+    return true;
+  };
+
+  for (IncrementInfoTy &Info : Increments)
+    if (!GatherIdiomInfo(Info.VPInst)) {
+      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+      LE->setImportingError(VPLoopEntityList::ImportError::ComressExpand);
+      return;
+    }
+
+  IsIncomplete = false;
 }
 
-void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
-
+void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan,
+                                           const VPLoop *Loop) {
+  if (IsIncomplete)
+    return;
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  LE->addCompressExpandIdiom(Increments, Stores, Loads, Indices);
+  LE->addCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, Increments, Stores,
+                             Loads, Indices);
 }

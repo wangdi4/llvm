@@ -618,6 +618,7 @@ VPInstructionCost HeuristicGatherScatter::operator()(
 
   bool NegativeStride;
   if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
+      !CM->isUniformLoadStore(LoadStore) &&
       !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
     return CM->getLoadStoreCost(LoadStore, VF);
 
