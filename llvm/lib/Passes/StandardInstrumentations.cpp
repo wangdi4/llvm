@@ -1387,19 +1387,12 @@ void InLineChangePrinter::handleFunctionCompare(
 }
 
 void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintChanged == ChangePrinter::PrintChangedDiffVerbose ||
-      PrintChanged == ChangePrinter::PrintChangedDiffQuiet ||
-      PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
-      PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet)
-=======
   if (PrintChanged == ChangePrinter::DiffVerbose ||
       PrintChanged == ChangePrinter::DiffQuiet ||
       PrintChanged == ChangePrinter::ColourDiffVerbose ||
       PrintChanged == ChangePrinter::ColourDiffQuiet)
->>>>>>> 89357f0cb9c20095c8a81604dbf3720321555ebd
     TextChangeReporter<IRDataT<EmptyData>>::registerRequiredCallbacks(PIC);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
@@ -2255,35 +2248,24 @@ void DotCfgChangeReporter::registerCallbacks(
 StandardInstrumentations::StandardInstrumentations(
     bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
     : PrintPass(DebugLogging, PrintPassOpts), OptNone(DebugLogging),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The Intel customization here is only to exclude the IR printing
     // in release builds. The upstream code in the "!defined(NDEBUG)"
     // block should be accepted when it changes.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      PrintChangedIR(PrintChanged == ChangePrinter::PrintChangedVerbose),
-      PrintChangedDiff(
-          PrintChanged == ChangePrinter::PrintChangedDiffVerbose ||
-              PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose,
-          PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
-              PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet),
-#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      PrintChangedIR(false),
-      PrintChangedDiff(false, false),
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      WebsiteChangeReporter(PrintChanged ==
-                            ChangePrinter::PrintChangedDotCfgVerbose),
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#endif // INTEL_CUSTOMIZATION
-=======
       PrintChangedIR(PrintChanged == ChangePrinter::Verbose),
       PrintChangedDiff(PrintChanged == ChangePrinter::DiffVerbose ||
                            PrintChanged == ChangePrinter::ColourDiffVerbose,
                        PrintChanged == ChangePrinter::ColourDiffVerbose ||
                            PrintChanged == ChangePrinter::ColourDiffQuiet),
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      PrintChangedIR(false),
+      PrintChangedDiff(false, false),
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       WebsiteChangeReporter(PrintChanged == ChangePrinter::DotCfgVerbose),
->>>>>>> 89357f0cb9c20095c8a81604dbf3720321555ebd
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
