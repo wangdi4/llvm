@@ -6219,7 +6219,7 @@ bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *D
       PN.moveBefore(InsertPt);
       // Also, add a dummy incoming value for the original BB itself,
       // so that the PHI is well-formed until we drop said predecessor.
-      PN.addIncoming(UndefValue::get(PN.getType()), BB);
+      PN.addIncoming(PoisonValue::get(PN.getType()), BB);
     }
   }
 
