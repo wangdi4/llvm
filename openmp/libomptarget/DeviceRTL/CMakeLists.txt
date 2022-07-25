@@ -60,6 +60,25 @@ else()
   return()
 endif()
 
+# INTEL_CUSTOMIZATION
+# Community commit e82e07d74a7d9 will cause build fail, revert it temporarily
+# and wait for code owner to resolve this issue.
+# TODO: This part needs to be refined when libomptarget is going to support
+# Windows!
+# TODO: This part can also be removed if we can change the clang driver to make
+# it support device only compilation.
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64")
+  set(aux_triple x86_64-unknown-linux-gnu)
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ppc64le")
+  set(aux_triple powerpc64le-unknown-linux-gnu)
+elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
+  set(aux_triple aarch64-unknown-linux-gnu)
+else()
+  libomptarget_say("Not building DeviceRTL: unknown host arch: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+  return()
+endif()
+# end INTEL_CUSTOMIZATION
+
 set(devicertl_base_directory ${CMAKE_CURRENT_SOURCE_DIR})
 set(include_directory ${devicertl_base_directory}/include)
 set(source_directory ${devicertl_base_directory}/src)
@@ -130,15 +149,19 @@ set(link_opt_flags  -O3        -openmp-opt-disable)
 set (LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL "${LIBOMPTARGET_LLVM_INCLUDE_DIRS}")
 list(TRANSFORM LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL PREPEND "-I")
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
 # Set flags for LLVM Bitcode compilation.
-set(bc_flags -c -emit-llvm -std=c++17 -fvisibility=hidden
-              ${clang_opt_flags} --offload-device-only
-             -nocudalib -nogpulib -nostdinc
-             -fopenmp -fopenmp-cuda-mode
+set(bc_flags -S -x c++ -std=c++17 -fvisibility=hidden
+              ${clang_opt_flags}
+             -Xclang -emit-llvm-bc
+             -Xclang -aux-triple -Xclang ${aux_triple}
+             -fopenmp -fopenmp-cuda-mode -Xclang -fopenmp-is-device
              -I${include_directory}
              -I${devicertl_base_directory}/../include
              ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL}
 )
+# end INTEL_CUSTOMIZATION
 
 if(${LIBOMPTARGET_DEVICE_DEBUG})
   list(APPEND bc_flags -DOMPTARGET_DEBUG=-1)
@@ -159,10 +182,12 @@ function(compileDeviceRTLLibrary target_cpu target_name)
     get_filename_component(outfile ${src} NAME)
     set(outfile "${outfile}-${target_cpu}.bc")
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
     add_custom_command(OUTPUT ${outfile}
       COMMAND ${CLANG_TOOL}
       ${bc_flags}
-      --offload-arch=${target_cpu}
+      -Xclang -target-cpu -Xclang ${target_cpu}
       ${target_bc_flags}
       ${infile} -o ${outfile}
       DEPENDS ${infile} ${include_files}
@@ -170,6 +195,7 @@ function(compileDeviceRTLLibrary target_cpu target_name)
       COMMENT "Building LLVM bitcode ${outfile}"
       VERBATIM
     )
+#end INTEL_CUSTOMIZATION
     if("${CLANG_TOOL}" STREQUAL "$<TARGET_FILE:clang>")
       # Add a file-level dependency to ensure that clang is up-to-date.
       # By default, add_custom_command only builds clang if the
@@ -230,16 +256,19 @@ function(compileDeviceRTLLibrary target_cpu target_name)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${bclib_name} DESTINATION "${OPENMP_INSTALL_LIBDIR}")
 endfunction()
 
+# INTEL_CUSTOMIZATION
+# Reverted e82e07d74a7d9 temporarily.
 # Generate a Bitcode library for all the compute capabilities the user requested
 add_custom_target(omptarget.devicertl.nvptx)
 foreach(sm ${nvptx_sm_list})
-  compileDeviceRTLLibrary(sm_${sm} nvptx -fopenmp-targets=nvptx64-nvidia-cuda -DLIBOMPTARGET_BC_TARGET --cuda-feature=+ptx61)
+  compileDeviceRTLLibrary(sm_${sm} nvptx -target nvptx64-nvidia-cuda -DLIBOMPTARGET_BC_TARGET -Xclang -target-feature -Xclang +ptx61 "-D__CUDA_ARCH__=${sm}0")
 endforeach()
 
 add_custom_target(omptarget.devicertl.amdgpu)
 foreach(mcpu ${amdgpu_mcpus})
-  compileDeviceRTLLibrary(${mcpu} amdgpu -fopenmp-targets=amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
+  compileDeviceRTLLibrary(${mcpu} amdgpu -target amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
 endforeach()
+# end INTEL_CUSTOMIZATION
 
 # Set the flags to build the device runtime from clang.
 set(clang_lib_flags -fopenmp -fopenmp-cuda-mode -foffload-lto -fvisibility=hidden -Xopenmp-target=nvptx64-nvidia-cuda --cuda-feature=+ptx61 -nocudalib -nogpulib -nostdinc ${clang_opt_flags})
