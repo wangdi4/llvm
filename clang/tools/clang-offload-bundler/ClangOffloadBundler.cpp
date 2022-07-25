@@ -1,4 +1,21 @@
 //===-- clang-offload-bundler/ClangOffloadBundler.cpp ---------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -159,6 +176,13 @@ static cl::opt<bool> HipOpenmpCompatible(
     cl::desc("Treat hip and hipv4 offload kinds as "
              "compatible with openmp kind, and vice versa.\n"),
     cl::init(false), cl::cat(ClangOffloadBundlerCategory));
+#if INTEL_CUSTOMIZATION
+static cl::opt<std::string>
+    BaseTempDir("base-temp-dir",
+                cl::desc("Base directory for storing temporary files"),
+                cl::value_desc("Directory"), cl::init(""),
+                cl::cat(ClangOffloadBundlerCategory));
+#endif // INTEL_CUSTOMIZATION
 
 /// Magic string that marks the existence of offloading data.
 #define OFFLOAD_BUNDLER_MAGIC_STR "__CLANG_OFFLOAD_BUNDLE__"
@@ -594,9 +618,24 @@ public:
   // Creates temporary file with given contents.
   Expected<StringRef> Create(Optional<ArrayRef<char>> Contents) {
     SmallString<128u> File;
+#if INTEL_CUSTOMIZATION
+    std::error_code EC;
+    if (BaseTempDir.size()) {
+      SmallString<128> BaseAndPrefix(BaseTempDir);
+      llvm::sys::path::append(BaseAndPrefix, "clang-offload-bundler");
+      EC = llvm::sys::fs::createUniqueFile(
+          Twine(BaseAndPrefix) + Twine("-%%%%%%.") + "tmp", File,
+          llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
+    } else
+      EC = llvm::sys::fs::createTemporaryFile("clang-offload-bundler", "tmp",
+                                              File);
+    if (EC)
+      return createFileError(File, EC);
+#else  // INTEL_CUSTOMIZATION
     if (std::error_code EC =
             sys::fs::createTemporaryFile("clang-offload-bundler", "tmp", File))
       return createFileError(File, EC);
+#endif // INTEL_CUSTOMIZATION
     Files.push_front(File);
 
     if (Contents) {
@@ -1202,8 +1241,16 @@ public:
             StringRef Ext("o");
             if (FilesType == "aocr" || FilesType == "aocx")
               Ext = FilesType;
+#if INTEL_CUSTOMIZATION
+            SmallString<128> BaseAndPrefix(BaseTempDir);
+            llvm::sys::path::append(BaseAndPrefix, TempFileNameBase);
+            auto EC = llvm::sys::fs::createUniqueFile(
+                Twine(BaseAndPrefix) + Twine("-%%%%%%.") + Ext, ChildFileName,
+                llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
+#else  // INTEL_CUSTOMIZATION
             auto EC = sys::fs::createTemporaryFile(TempFileNameBase, Ext,
                                                    ChildFileName);
+#endif // INTEL_CUSTOMIZATION                                          
             if (EC)
               return createFileError(ChildFileName, EC);
 
@@ -1441,7 +1488,6 @@ static Error UnbundleFiles() {
 
   // Seed temporary filename generation with the stem of the input file.
   FH->SetTempFileNameBase(llvm::sys::path::stem(InputFileNames.front()));
-
   // Read the header of the bundled file.
   if (Error Err = FH->ReadHeader(Input))
     return Err;
@@ -1583,7 +1629,6 @@ static Expected<bool> CheckBundledSection() {
 
   // Seed temporary filename generation with the stem of the input file.
   FH->SetTempFileNameBase(llvm::sys::path::stem(InputFileNames.front()));
-
   // Read the header of the bundled file.
   if (Error Err = FH->ReadHeader(Input))
     return std::move(Err);
