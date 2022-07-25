@@ -15,14 +15,24 @@ set (TARGET_DIR ${SHARED_RTL_NAME})
 # intermediate directory for OpenCL compilation/link
 set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-list(APPEND CMD_ARGS -gen-ocl-bi )
 # generate OCL builtin implementation
+# TODO: remove this tblgenoclblt invocation when we migrate all builtins to
+# source/main.td
 tblgenoclblt(OCL_TABLEGEN_SOURCE
   ${INTERMEDIATE_OUTPUT_DIR}
   ${TARGET_DIR}
   target-${SHARED_RTL_NAME}.td
   target-${SHARED_RTL_NAME}.cl
-  ${CMD_ARGS}
+  --gen-ocl-bi
+)
+# The newly added builtins are implemented in souce/main.td
+tblgenoclblt(OCL_TABLEGEN_SOURCE
+  ${INTERMEDIATE_OUTPUT_DIR}
+  source
+  main.td
+  target-${SHARED_RTL_NAME}-new.cl
+  # args for ocl-tblgen
+  --gen-ocl-bi --handle-impl-target-inheritance --emit-target-name=${SHARED_RTL_NAME}
 )
 
 # generate shared LL builtin implementations

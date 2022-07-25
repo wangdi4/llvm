@@ -1776,7 +1776,6 @@
 ; CHECK-NEXT: _Z16get_image_height26ocl_image2d_array_depth_ro
 ; CHECK-NEXT: _Z16get_image_height26ocl_image2d_array_depth_rw
 ; CHECK-NEXT: _Z16get_image_height26ocl_image2d_array_depth_wo
-; CHECK-NEXT: _Z16get_sub_group_idv
 ; CHECK-NEXT: _Z16isfinite_v1widenDv32_d
 ; CHECK-NEXT: _Z16isfinite_v1widenDv32_dDv32_l
 ; CHECK-NEXT: _Z16isfinite_v1widenDv32_f
@@ -2005,8 +2004,6 @@
 ; CHECK-NEXT: _Z17soa8_read_imageui14ocl_image2d_roDv8_iS0_PDv8_jS3_S3_S3_
 ; CHECK-NEXT: _Z17soa8_read_imageui14ocl_image2d_rw11ocl_samplerDv8_iS1_PDv8_jS4_S4_S4_
 ; CHECK-NEXT: _Z17soa8_read_imageui14ocl_image2d_rwDv8_iS0_PDv8_jS3_S3_S3_
-; CHECK-NEXT: _Z17sub_group_barrierj
-; CHECK-NEXT: _Z17sub_group_barrierj12memory_scope
 ; CHECK-NEXT: _Z17sub_group_shuffleDv16_cDv16_jS0_
 ; CHECK-NEXT: _Z17sub_group_shuffleDv16_dDv16_jS0_
 ; CHECK-NEXT: _Z17sub_group_shuffleDv16_fDv16_jS0_
@@ -2265,8 +2262,6 @@
 ; CHECK-NEXT: _Z18convert_ulong8_rtzDv8_d
 ; CHECK-NEXT: _Z18convert_ulong8_satDv8_d
 ; CHECK-NEXT: _Z18convert_ulong8_satDv8_f
-; CHECK-NEXT: _Z18get_num_sub_groupsv
-; CHECK-NEXT: _Z18get_sub_group_sizev
 ; CHECK-NEXT: _Z18mask_write_imageuii14ocl_image2d_rwDv2_iDv4_j
 ; CHECK-NEXT: _Z18mask_write_imageuii14ocl_image2d_woDv2_iDv4_j
 ; CHECK-NEXT: _Z18soa16_read_imageui14ocl_image2d_ro11ocl_samplerDv16_iS1_PDv16_jS4_S4_S4_
@@ -4788,8 +4783,6 @@
 ; CHECK-NEXT: _Z22convert_ulong8_sat_rtpDv8_f
 ; CHECK-NEXT: _Z22convert_ulong8_sat_rtzDv8_d
 ; CHECK-NEXT: _Z22convert_ulong8_sat_rtzDv8_f
-; CHECK-NEXT: _Z22get_max_sub_group_sizev
-; CHECK-NEXT: _Z22get_sub_group_local_idv
 ; CHECK-NEXT: _Z22intel_sub_group_ballotDv16_iDv16_j
 ; CHECK-NEXT: _Z22intel_sub_group_ballotDv4_iDv4_j
 ; CHECK-NEXT: _Z22intel_sub_group_ballotDv8_iDv8_j
@@ -6097,7 +6090,6 @@
 ; CHECK-NEXT: _Z26work_group_logical_or_utilDv64_iS_
 ; CHECK-NEXT: _Z26work_group_logical_or_utilDv8_iS_
 ; CHECK-NEXT: _Z26work_group_logical_or_utilii
-; CHECK-NEXT: _Z27get_enqueued_num_sub_groupsv
 ; CHECK-NEXT: _Z27get_image_channel_data_type14ocl_image1d_ro
 ; CHECK-NEXT: _Z27get_image_channel_data_type14ocl_image1d_rw
 ; CHECK-NEXT: _Z27get_image_channel_data_type14ocl_image1d_wo

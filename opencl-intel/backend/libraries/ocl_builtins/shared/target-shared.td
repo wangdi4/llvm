@@ -38,7 +38,6 @@ include "shared/conversion_impl.td"
 include "shared/math_impl.td"
 include "shared/relational_impl.td"
 include "shared/spirv_impl.td"
-include "shared/subgroup_impl.td"
 } // defset shared_impls
 
 class Shared : Generic {

@@ -2772,6 +2772,7 @@
 ; CHECK-NEXT: _Z16convert_ushort64Dv64_m
 ; CHECK-NEXT: _Z16convert_ushort64Dv64_s
 ; CHECK-NEXT: _Z16convert_ushort64Dv64_t
+; CHECK-NEXT: _Z16get_sub_group_idv
 ; CHECK-NEXT: _Z16isfinite_v1widenDv16_d
 ; CHECK-NEXT: _Z16isfinite_v1widenDv16_dDv16_l
 ; CHECK-NEXT: _Z16isfinite_v1widenDv16_f
@@ -3948,6 +3949,8 @@
 ; CHECK-NEXT: _Z17isordered_v1widenDv8_dS_Dv8_l
 ; CHECK-NEXT: _Z17isordered_v1widenDv8_fS_
 ; CHECK-NEXT: _Z17isordered_v1widenDv8_fS_Dv8_i
+; CHECK-NEXT: _Z17sub_group_barrierj
+; CHECK-NEXT: _Z17sub_group_barrierj12memory_scope
 ; CHECK-NEXT: _Z18convert_char16_rteDv16_Dh
 ; CHECK-NEXT: _Z18convert_char16_rteDv16_c
 ; CHECK-NEXT: _Z18convert_char16_rteDv16_d
@@ -5273,6 +5276,8 @@
 ; CHECK-NEXT: _Z18convert_ushort_satm
 ; CHECK-NEXT: _Z18convert_ushort_sats
 ; CHECK-NEXT: _Z18convert_ushort_satt
+; CHECK-NEXT: _Z18get_num_sub_groupsv
+; CHECK-NEXT: _Z18get_sub_group_sizev
 ; CHECK-NEXT: _Z18soa_fast_distance1Dv16_fS_
 ; CHECK-NEXT: _Z18soa_fast_distance1Dv4_fS_
 ; CHECK-NEXT: _Z18soa_fast_distance1Dv8_fS_
@@ -8332,6 +8337,8 @@
 ; CHECK-NEXT: _Z22convert_ushort_sat_rtzm
 ; CHECK-NEXT: _Z22convert_ushort_sat_rtzs
 ; CHECK-NEXT: _Z22convert_ushort_sat_rtzt
+; CHECK-NEXT: _Z22get_max_sub_group_sizev
+; CHECK-NEXT: _Z22get_sub_group_local_idv
 ; CHECK-NEXT: _Z23convert_double2_sat_rteDv2_Dh
 ; CHECK-NEXT: _Z23convert_double2_sat_rteDv2_c
 ; CHECK-NEXT: _Z23convert_double2_sat_rteDv2_d
@@ -8966,6 +8973,7 @@
 ; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv4_f
 ; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELDv8_f
 ; CHECK-NEXT: _Z27__spirv_ConvertFToBF16INTELf
+; CHECK-NEXT: _Z27get_enqueued_num_sub_groupsv
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_14ocl_image2d_roDv8_iDv4_j
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_14ocl_image2d_rwDv8_iDv4_j
 ; CHECK-NEXT: _Z29intel_sub_group_block_read1_4Dv4_PU3AS1KjDv4_j
