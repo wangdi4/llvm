@@ -207,11 +207,7 @@ void initializeEarlyTailDuplicatePass(PassRegistry&);
 void initializeEdgeBundlesPass(PassRegistry&);
 void initializeEHContGuardCatchretPass(PassRegistry &);
 void initializeEliminateAvailableExternallyLegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeEntryExitInstrumenterPass(PassRegistry&);
 void initializeExpandComplexPass(PassRegistry&); // INTEL
-=======
->>>>>>> 7225213c0a0c2ec98d2490b1c426b14065e3cd9d
 void initializeExpandMemCmpPassPass(PassRegistry&);
 void initializeExpandPostRAPass(PassRegistry&);
 void initializeExpandReductionsPass(PassRegistry&);

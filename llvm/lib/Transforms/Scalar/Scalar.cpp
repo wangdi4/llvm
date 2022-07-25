@@ -166,12 +166,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopLoadEliminationPass(Registry);
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeLoopVersioningLegacyPassPass(Registry);
-<<<<<<< HEAD
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL
-=======
->>>>>>> 7225213c0a0c2ec98d2490b1c426b14065e3cd9d
 }
 
 void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
