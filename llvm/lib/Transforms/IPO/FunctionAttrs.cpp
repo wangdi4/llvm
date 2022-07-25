@@ -975,11 +975,7 @@ static void addArgumentAttrs(const SCCNodeSet &SCCNodes,
       bool HasNonLocalUses = false;
       if (!A.hasNoCaptureAttr()) {
         ArgumentUsesTracker Tracker(SCCNodes);
-<<<<<<< HEAD
-        PointerMayBeCaptured(&*A, &Tracker, MaxUsesToExplore); // INTEL
-=======
-        PointerMayBeCaptured(&A, &Tracker);
->>>>>>> 8ac2d06195bdd6010780e98ae6bddf50cd152fb5
+        PointerMayBeCaptured(&A, &Tracker, MaxUsesToExplore); // INTEL
         if (!Tracker.Captured) {
           if (Tracker.Uses.empty()) {
             // If it's trivially not captured, mark it nocapture now.
