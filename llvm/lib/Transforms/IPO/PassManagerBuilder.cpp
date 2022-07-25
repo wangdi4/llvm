@@ -1324,7 +1324,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
-      if (RunVecClone) {
+      if (RunVecClone && RunVPOVecopt) {
         MPM.add(createVecClonePass());
       }
       #endif // INTEL_CUSTOMIZATION
