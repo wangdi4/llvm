@@ -176,7 +176,7 @@ XorOpnd::XorOpnd(Value *V) {
 /// Instruction::isAssociative() because it includes operations like fsub.
 /// (This routine is only intended to be called for floating-point operations.)
 static bool hasFPAssociativeFlags(Instruction *I) {
-  assert(I && I->getType()->isFPOrFPVectorTy() && "Should only check FP ops");
+  assert(I && isa<FPMathOperator>(I) && "Should only check FP ops");
   return I->hasAllowReassoc() && I->hasNoSignedZeros();
 }
 
@@ -807,7 +807,7 @@ void ReassociatePass::RewriteExprTree(BinaryOperator *I,
       Constant *Undef = UndefValue::get(I->getType());
       NewOp = BinaryOperator::Create(Instruction::BinaryOps(Opcode),
                                      Undef, Undef, "", I);
-      if (NewOp->getType()->isFPOrFPVectorTy())
+      if (isa<FPMathOperator>(NewOp))
         NewOp->setFastMathFlags(I->getFastMathFlags());
     } else {
       NewOp = NodesToRewrite.pop_back_val();
@@ -2270,7 +2270,7 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
 
   // Don't optimize floating-point instructions unless they have the
   // appropriate FastMathFlags for reassociation enabled.
-  if (I->getType()->isFPOrFPVectorTy() && !hasFPAssociativeFlags(I))
+  if (isa<FPMathOperator>(I) && !hasFPAssociativeFlags(I))
     return;
 
   // Do not reassociate boolean (i1) expressions.  We want to preserve the
