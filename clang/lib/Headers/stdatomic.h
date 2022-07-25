@@ -43,15 +43,10 @@
  * explicitly disallows `stdatomic.h` in the C mode via an `#error`.  Fallback
  * to the clang resource header until that is fully supported.
  */
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if  !__USE_CLANG_CATOMICS &&  \
-     __STDC_HOSTED__ && __has_include_next(<stdatomic.h>) && !defined(_MSC_VER)
-/* end INTEL_CUSTOMIZATION */
-=======
-#if __STDC_HOSTED__ &&                                                         \
+#if !__USE_CLANG_CATOMICS && __STDC_HOSTED__ &&                                \
     __has_include_next(<stdatomic.h>) && !(defined(_MSC_VER) && !defined(__cplusplus))
->>>>>>> ba49d39b20cc5358da28af2ac82bd336028780bc
+/* end INTEL_CUSTOMIZATION */
 # include_next <stdatomic.h>
 #else
 
