@@ -3437,7 +3437,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 #if INTEL_COLLAB
   if (RunVPOOpt) {
 #if INTEL_CUSTOMIZATION
-    if (RunVecClone)
+    if (RunVecClone && RunVPOVecopt)
       MPM.addPass(VecClonePass());
 #endif // INTEL_CUSTOMIZATION
     // Add VPO transform and vec passes.

@@ -47,39 +47,19 @@
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
-;            Running pass: InlineListsPass on [module]
-;            Running pass: AlwaysInlinerPass on [module]
-;            Running analysis: ProfileSummaryAnalysis on [module]
-;            Running pass: VecClonePass on [module]
-;            Running analysis: OptReportOptionsAnalysis on [module]
-;            Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}>
-;CHECK:      Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ; end INTEL_CUSTOMIZATION
+;CHECK-NEXT: Running pass: InlineListsPass on [module]
+;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
+;CHECK-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
-;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
-;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
-;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
-;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
-;CHECK-DAG:  Running analysis: TargetIRAnalysis on foo
-;CHECK:      Running analysis: AAManager on foo
-;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on foo
-;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}> on foo
-;CHECK-NEXT: Running analysis: ScopedNoAliasAA on foo
-;CHECK-NEXT: Running analysis: TypeBasedAA on foo
-;CHECK-NEXT: Running analysis: StdContainerAA on foo
-;CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: BasicAA on foo
 ;CHECK-NEXT: Invalidating analysis: AAManager on foo
+;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
@@ -87,6 +67,9 @@
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
+; INTEL_CUSTOMIZATION
+;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
+; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo

@@ -3562,10 +3562,17 @@ static bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   const char *Targets =
       C.getArgs().MakeArgString(Twine("-targets=sycl-") + TT.str());
   const char *Inputs = C.getArgs().MakeArgString(Twine("-input=") + Object);
+
   // Always use -type=ao for aocx/aocr bundle checking.  The 'bundles' are
   // actually archives.
   SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler", "-type=ao",
                                            Targets, Inputs, "-check-section"};
+#if INTEL_CUSTOMIZATION
+  const char *TmpDir =
+      C.getArgs().MakeArgString(Twine("-base-temp-dir=") +
+                                C.getDriver().BaseTempDir);
+  BundlerArgs.push_back(TmpDir);
+#endif // INTEL_CUSTOMIZATION
   return runBundler(BundlerArgs, C);
 }
 
@@ -3590,6 +3597,12 @@ static bool hasSYCLDefaultSection(Compilation &C, const StringRef &File) {
   SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler",
                                            IsArchive ? "-type=ao" : "-type=o",
                                            Targets, Inputs, "-check-section"};
+#if INTEL_CUSTOMIZATION
+  const char *TmpDir =
+      C.getArgs().MakeArgString(Twine("-base-temp-dir=") +
+                                C.getDriver().BaseTempDir);
+  BundlerArgs.push_back(TmpDir);
+#endif // INTEL_CUSTOMIZATION
   return runBundler(BundlerArgs, C);
 }
 
@@ -3610,6 +3623,11 @@ static bool hasOffloadSections(Compilation &C, const StringRef &Archive,
   // actually archives.
   SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler", "-type=ao",
                                            Targets, Inputs, "-check-section"};
+#if INTEL_CUSTOMIZATION
+  const char *TmpDir = 
+      Args.MakeArgString(Twine("-base-temp-dir=") + C.getDriver().BaseTempDir);
+  BundlerArgs.push_back(TmpDir);
+#endif // INTEL_CUSTOMIZATION
   return runBundler(BundlerArgs, C);
 }
 
