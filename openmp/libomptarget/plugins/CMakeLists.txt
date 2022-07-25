@@ -50,24 +50,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       add_llvm_library("omptarget.rtl.${tmachine_libname}"
         SHARED
 
-<<<<<<< HEAD
-      if(INTEL_CUSTOMIZATION)
-        add_library(ffi-stub SHARED
-          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
-        target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
-        target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
-        set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
-      endif(INTEL_CUSTOMIZATION)
-
-      # Install plugin under the lib destination folder.
-      install(TARGETS "omptarget.rtl.${tmachine_libname}"
-# INTEL_CUSTOMIZATION
-        COMPONENT llvm-${tmachine_libname}-ompplugin
-# end INTEL_CUSTOMIZATION
-        LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-=======
         ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
->>>>>>> a3804a3145536b773f734d37d72ac5725ed0a9b3
 
         ADDITIONAL_HEADER_DIRS
         ${LIBOMPTARGET_INCLUDE_DIR}
@@ -86,8 +69,19 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         NO_INSTALL_RPATH
       )
 
+      if(INTEL_CUSTOMIZATION)
+        add_library(ffi-stub SHARED
+          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
+        target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
+        target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
+        set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
+      endif(INTEL_CUSTOMIZATION)
+
       # Install plugin under the lib destination folder.
       install(TARGETS "omptarget.rtl.${tmachine_libname}"
+# INTEL_CUSTOMIZATION
+        COMPONENT llvm-${tmachine_libname}-ompplugin
+# end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
       set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES 
         INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
