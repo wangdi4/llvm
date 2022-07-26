@@ -152,6 +152,9 @@ class MemManageCandidateInfo {
   constexpr static int MaxPreLTOInnerFuncTotalInlSize = 375;
 
 public:
+  using InterfaceSetTy = SmallPtrSet<Function *, 8>;
+  using InnerCallSetTy = std::set<const CallBase *>;
+
   MemManageCandidateInfo(Module &M) : M(M){};
 
   inline bool isCandidateType(DTransType *Ty);
@@ -159,6 +162,30 @@ public:
                                      bool AtLTO);
   inline bool collectInlineNoInlineMethods(std::set<Function *> *,
                                            SmallSet<Function *, 16> *) const;
+
+  // Iterator for AllocatorInterfaceFunctions
+  typedef InterfaceSetTy::const_iterator m_const_iterator;
+  inline iterator_range<m_const_iterator> interface_functions() {
+    return make_range(AllocatorInterfaceFunctions.begin(),
+                      AllocatorInterfaceFunctions.end());
+  }
+
+  // Iterator for AllocatorInnerCalls
+  typedef InnerCallSetTy::const_iterator f_const_iterator;
+  inline iterator_range<f_const_iterator> inner_function_calls() {
+    return make_range(AllocatorInnerCalls.begin(), AllocatorInnerCalls.end());
+  }
+
+  // Returns true if "F" is either StrAllocator or interface function.
+  bool isStrAllocatorOrInterfaceFunction(Function *F) {
+    return (AllocatorInterfaceFunctions.count(F) ||
+            StringAllocatorFunctions.count(F));
+  }
+
+  // Returns true if "F" is an interface function.
+  bool isInterfaceFunction(Function *F) {
+    return (AllocatorInterfaceFunctions.count(F));
+  }
 
   // Returns StringAllocatorType.
   DTransStructType *getStringAllocatorType() { return StringAllocatorType; }

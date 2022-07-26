@@ -183,7 +183,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         getToolChain().CheckAddIntelLib("libirc", Args))
       CmdArgs.push_back("-defaultlib:libircmt");
     if (getToolChain().CheckAddIntelLib("libsvml", Args))
-      CmdArgs.push_back("-defaultlib:svml_dispmt");
+      if (Args.hasArg(options::OPT_fsycl))
+        CmdArgs.push_back("-defaultlib:svml_dispmd");
+      else
+        CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
   }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
