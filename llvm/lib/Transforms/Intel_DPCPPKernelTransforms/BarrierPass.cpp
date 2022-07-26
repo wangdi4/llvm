@@ -488,8 +488,11 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
   Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
   DISubprogram *SP = F.getSubprogram();
   DebugLoc DB;
-  if (SP) 
-     DB = DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);  
+  auto File = DIB.createFile("CPU_DEVICE_RT", "/");
+  if (SP) {
+    auto Scope = DIB.createLexicalBlockFile(SP, File, 0);
+    DB = DILocation::get(SP->getContext(), 0, 0, Scope);
+  }
   // Reset containers for the current function.
   SyncPerBB.clear();
   SyncBBSuccessors.clear();
