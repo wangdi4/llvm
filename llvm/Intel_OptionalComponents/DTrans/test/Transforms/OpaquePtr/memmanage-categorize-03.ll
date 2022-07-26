@@ -13,11 +13,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:   Considering candidate: %XStringCachedAllocator
 ; CHECK:   Possible candidate structs:
 ; CHECK:       XStringCachedAllocator
+; CHECK:   Analyzing Candidate ...
+; CHECK:   No issues found with candidate
 
 ; TODO: The following CHECK lines will be enabled as more functionality
 ; of the pass is implemented.
 
-; TODO-CHECK:   Analyzing Candidate ...
 ; TODO-CHECK:    Categorize Interface Functions
 ; TODO-CHECK:      StringObjectTy: XStringCached
 ; TODO-CHECK:      ReusableArenaAllocatorTy: ReusableArenaAllocator

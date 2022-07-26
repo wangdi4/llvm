@@ -311,6 +311,64 @@ static bool cloneFunctions(Module &M,
   if (!Changed)
     return false;
 
+  // Multiversion GlobalAliases aliasing multiversioned functions.
+  SmallVector<GlobalAlias*> GlobalAliasWorklist;
+  for (GlobalAlias &GA : M.aliases()) {
+
+    GlobalValue *Fn = GA.getAliaseeObject();
+    if (Orig2MultiFuncs.count(Fn) == 0)
+      continue;
+
+    GlobalAliasWorklist.push_back(&GA);
+  }
+
+  for (auto It : GlobalAliasWorklist) {
+
+    GlobalAlias &GA = *It;
+    std::string Name = GA.getName().str();
+
+    // Set GA's name to indicate that it aliases the generic version of Fn.
+    GA.setName(Name + ".A");
+
+    // Make a clone of GA aliasing the dispatcher.
+    GlobalValue *Fn = GA.getAliaseeObject();
+    GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Fn]);
+    GlobalAlias *DispatcherGA =
+      GlobalAlias::create(GA.getValueType(), GA.getType()->getPointerAddressSpace(),
+                          GA.getLinkage(), Name, &M);
+    DispatcherGA->copyAttributesFrom(&GA);
+    ValueToValueMapTy VMap;
+    VMap[Fn] = Dispatcher;
+    if (const Constant *C = GA.getAliasee())
+      DispatcherGA->setAliasee(MapValue(C, VMap));
+
+    // Make clones of GA each aliasing a version of Fn.
+    std::map<std::string, GlobalValue *> GAClones;
+    std::map<std::string, GlobalValue *> &FnClones = std::get<2>(Orig2MultiFuncs[Fn]);
+    for (auto& I : FnClones) {
+      const StringRef TargetCpu = I.first;
+
+      // Get llvm/Support/X86TargetParser.def friendly target name.
+      const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
+
+      auto *NewGA =
+        GlobalAlias::create(GA.getValueType(),
+                            GA.getType()->getPointerAddressSpace(), GA.getLinkage(),
+                            Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
+
+      ValueToValueMapTy VMap;
+      VMap[Fn] = I.second;
+      if (const Constant *C = GA.getAliasee())
+        NewGA->setAliasee(MapValue(C, VMap));
+      NewGA->copyAttributesFrom(&GA);
+
+      MultiFunc2TargetExt[NewGA] = I.first;
+      GAClones[I.first] = NewGA;
+    }
+
+    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, std::move(GAClones)};
+  }
+
   // Update uses of the original functions.
   // At this point all functions(except resolvers) use original functions (those
   // with .A suffix). The loop below iterates over all the functions that we
@@ -387,6 +445,29 @@ static bool cloneFunctions(Module &M,
       }
 
       llvm_unreachable("Unhandled case!");
+    }
+  }
+
+  // Iterate over GlobalAliases once more.
+  // Earlier call to replaceUsesWithIf() caused generic versions
+  // of GlobalAlias clones to incorrectly alias dispatchers functions.
+  // Make generic versions of GlobalAlias clones, alias the generic
+  // versions of function clones instead.
+  for (auto It : GlobalAliasWorklist) {
+
+    GlobalAlias &GA = *It;
+    assert(GA.getName().endswith(".A") && "GlobalAlias name criteria mismatch");
+    GlobalIFunc *GIF = dyn_cast<GlobalIFunc>(GA.getAliaseeObject());
+    if (!GIF)
+      continue;
+
+    Function *Fn = M.getFunction(GIF->getName().str() + ".A");
+    assert(Fn && "Aliasee must exist");
+    if (Fn->hasMetadata("llvm.acd.clone")) {
+      ValueToValueMapTy VMap;
+      VMap[GIF] = Fn;
+      if (const Constant *C = GA.getAliasee())
+        GA.setAliasee(MapValue(C, VMap));
     }
   }
 

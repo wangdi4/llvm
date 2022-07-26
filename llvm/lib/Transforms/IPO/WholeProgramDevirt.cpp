@@ -106,6 +106,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
 #include "llvm/InitializePasses.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
@@ -2146,6 +2151,7 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
       {ConstantDataArray::get(M.getContext(), B.Before.Bytes),
        B.GV->getInitializer(),
        ConstantDataArray::get(M.getContext(), B.After.Bytes)});
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Changed under INTEL_CUSTOMIZATION to not create an unnamed global variable
@@ -2169,6 +2175,14 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
   // Copy the original vtable's metadata to the anonymous global, adjusting
   // offsets as required.
   NewGV->copyMetadata(B.GV, B.Before.Bytes.size());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Create intel_dtrans_type metadata and attach it to  NewGV.
+  dtransOP::DTransTypeMetadataPropagator::setDevirtVarDTransMetadata(
+      B.GV, NewGV, B.Before.Bytes.size(), B.After.Bytes.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Build an alias named after the original global, pointing at the second
   // element (the original initializer).

@@ -310,5 +310,43 @@ void DTransTypeMetadataPropagator::copyDTransMetadata(Value *DestValue,
     DTransTypeMetadataBuilder::addDTransMDNode(*DestValue, MD);
 }
 
+// Create new intel_dtrans_type metadata for NewGV which is created by
+// WholeProgramDevirt.
+// Type of NewGV: { [i8 x B.Before.Bytes], Type of OldGV, [i8 x AfterBytesSize]
+// }
+void DTransTypeMetadataPropagator::setDevirtVarDTransMetadata(
+    GlobalVariable *OldGV, GlobalVariable *NewGV, uint64_t BeforeBytesSize,
+    uint64_t AfterBytesSize) {
+  MDNode *MMD = dtransOP::TypeMetadataReader::getDTransMDNode(*OldGV);
+  if (!MMD)
+    return;
+  LLVMContext &Ctx = OldGV->getType()->getContext();
+  auto CharMD = llvm::MDNode::get(
+      Ctx, {llvm::ConstantAsMetadata::get(
+                llvm::Constant::getNullValue(llvm::Type::getInt8Ty(Ctx))),
+            llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 0))});
+
+  llvm::SmallVector<llvm::Metadata *> NewMD;
+  auto Arr1MD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                  ConstantAsMetadata::get(ConstantInt::get(
+                                      Type::getInt32Ty(Ctx), BeforeBytesSize)),
+                                  CharMD});
+  NewMD.push_back(Arr1MD);
+  if (auto *RefMD = dyn_cast<MDNode>(MMD->getOperand(0)))
+    MMD = RefMD;
+  NewMD.push_back(MMD);
+
+  auto Arr2MD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                  ConstantAsMetadata::get(ConstantInt::get(
+                                      Type::getInt32Ty(Ctx), AfterBytesSize)),
+                                  CharMD});
+  NewMD.push_back(Arr2MD);
+  MDTuple *LiteralMD =
+      DTransTypeMetadataBuilder::createLiteralStructMetadata(Ctx, NewMD);
+  NewGV->setMetadata(MDDTransTypeTag, nullptr);
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, LiteralMD);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm
