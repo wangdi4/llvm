@@ -13,12 +13,12 @@
 // CHECK-DPCPP-SYCL2-NOT: "-fsycl-unnamed-lambda"
 
 // --dpcpp implies -fveclib=SVML
-// RUN: %clang -### -c --dpcpp %s 2>&1 \
+// RUN: %clang -### -c -fsycl --dpcpp %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK-DPCPP-DEFAULTS %s
-// RUN: %clang_cl -### -c --dpcpp %s 2>&1 \
+// RUN: %clang_cl -### -c -fsycl --dpcpp %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHECK-DPCPP-DEFAULTS,CHECK-DPCPP-DEFAULTS-WIN %s
 // CHECK-DPCPP-DEFAULTS: "-fveclib=SVML"
-// CHECK-DPCPP-DEFAULTS-WIN: "--dependent-lib=svml_dispmt"
+// CHECK-DPCPP-DEFAULTS-WIN: "--dependent-lib=svml_dispmd"
 
 // --dpcpp link defaults
 // RUN: touch %t.o
