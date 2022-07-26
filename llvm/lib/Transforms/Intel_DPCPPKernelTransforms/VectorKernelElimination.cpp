@@ -15,6 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorKernelElimination.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -27,6 +29,25 @@ using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
 static constexpr float ScalarCostMultiplier = .98f;
+
+static int
+getCalleeCost(Function *F,
+              function_ref<InstCountResult &(Function &F)> GetInstCountResult) {
+  int Cost = 0;
+  for (auto &I : instructions(F)) {
+    auto *CI = dyn_cast<CallInst>(&I);
+    if (!CI)
+      continue;
+    Function *Callee = CI->getCalledFunction();
+    if (Callee && !Callee->isDeclaration()) {
+      int CalleeCost = GetInstCountResult(*Callee).getWeight();
+      LLVM_DEBUG(dbgs().indent(4) << "callee " << Callee->getName()
+                                  << " cost: " << CalleeCost << "\n");
+      Cost += CalleeCost;
+    }
+  }
+  return Cost;
+}
 
 bool runImpl(Module &M,
              function_ref<InstCountResult &(Function &F)> GetInstCountResult) {
@@ -59,9 +80,12 @@ bool runImpl(Module &M,
     unsigned VF = VKIMD.VectorizedWidth.get();
     LLVM_DEBUG(dbgs() << "  Vectorized kernel: " << VecF->getName() << "\n");
 
-    int ScalarCost = GetInstCountResult(*F).getWeight();
+    int ScalarCost = GetInstCountResult(*F).getWeight() +
+                     getCalleeCost(F, GetInstCountResult);
     assert(VF != 0 && "Kernel vectorized_width metadata must not be zero!");
-    int VectorCost = GetInstCountResult(*VecF).getWeight() / VF;
+    int VectorCost = (GetInstCountResult(*VecF).getWeight() +
+                      getCalleeCost(VecF, GetInstCountResult)) /
+                     VF;
     LLVM_DEBUG(dbgs() << "  ScalarCost: " << ScalarCost
                       << "  VectorCost: " << VectorCost << '\n');
     if (ScalarCost * ScalarCostMultiplier <= VectorCost) {
