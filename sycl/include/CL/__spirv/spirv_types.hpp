@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include <CL/sycl/detail/defines_elementary.hpp>
+#include <sycl/detail/defines_elementary.hpp>
 
 #include <cstddef>
 #include <cstdint>

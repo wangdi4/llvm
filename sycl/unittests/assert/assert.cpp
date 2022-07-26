@@ -23,8 +23,8 @@
 #define __SYCL_INTERNAL_API
 // Enable fallback assert
 #define SYCL_ENABLE_FALLBACK_ASSERT 1
-#include <CL/sycl.hpp>
-#include <CL/sycl/backend/opencl.hpp>
+#include <sycl/backend/opencl.hpp>
+#include <sycl/sycl.hpp>
 
 #include <helpers/CommonRedefinitions.hpp>
 #include <helpers/PiImage.hpp>

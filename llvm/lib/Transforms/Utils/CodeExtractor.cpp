@@ -1310,6 +1310,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::AlwaysInline:
       case Attribute::Cold:
       case Attribute::DisableSanitizerInstrumentation:
+      case Attribute::FnRetThunkExtern:
       case Attribute::Hot:
       case Attribute::NoRecurse:
       case Attribute::InlineHint:
@@ -2503,7 +2504,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     auto Count = BFI->getProfileCountFromFreq(EntryFreq.getFrequency());
     if (Count)
       newFunction->setEntryCount(
-          ProfileCount(Count.getValue(), Function::PCT_Real)); // FIXME
+          ProfileCount(Count.value(), Function::PCT_Real)); // FIXME
     BFI->setBlockFreq(codeReplacer, EntryFreq.getFrequency());
   }
 

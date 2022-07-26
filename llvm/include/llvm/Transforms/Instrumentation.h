@@ -101,8 +101,6 @@ ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
                                    GCOVOptions::getDefault());
 #endif // INTEL_CUSTOMIZATION
 
-ModulePass *createCGProfileLegacyPass();
-
 #if INTEL_CUSTOMIZATION
 // PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
 // instrumentation.
@@ -161,11 +159,6 @@ struct InstrProfOptions {
 
   InstrProfOptions() = default;
 };
-
-/// Insert frontend instrumentation based profiling. Parameter IsCS indicates if
-// this is the context sensitive instrumentation.
-ModulePass *createInstrProfilingLegacyPass(
-    const InstrProfOptions &Options = InstrProfOptions(), bool IsCS = false);
 
 ModulePass *createInstrOrderFilePass();
 

@@ -1541,10 +1541,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
     if (I1->isTerminator())
       goto HoistTerminator;
 
-    // Hoisting token-returning instructions would obscure the origin.
-    if (I1->getType()->isTokenTy())
-      return Changed;
-
     // If we're going to hoist a call, make sure that the two instructions we're
     // commoning/hoisting are both marked with musttail, or neither of them is
     // marked as such. Otherwise, we might end up in a situation where we hoist
@@ -7674,6 +7670,23 @@ ShouldBuildLookupTable(SwitchInst *SI, uint64_t TableSize,
   return isSwitchDense(SI->getNumCases(), TableSize);
 }
 
+static bool ShouldUseSwitchConditionAsTableIndex(
+    ConstantInt &MinCaseVal, const ConstantInt &MaxCaseVal,
+    bool HasDefaultResults, const SmallDenseMap<PHINode *, Type *> &ResultTypes,
+    const DataLayout &DL, const TargetTransformInfo &TTI) {
+  if (MinCaseVal.isNullValue())
+    return true;
+  if (MinCaseVal.isNegative() ||
+      MaxCaseVal.getLimitedValue() == std::numeric_limits<uint64_t>::max() ||
+      !HasDefaultResults)
+    return false;
+  return all_of(ResultTypes, [&](const auto &KV) {
+    return SwitchLookupTable::WouldFitInRegister(
+        DL, MaxCaseVal.getLimitedValue() + 1 /* TableSize */,
+        KV.second /* ResultType */);
+  });
+}
+
 /// Try to reuse the switch table index compare. Following pattern:
 /// \code
 ///     if (idx < tablesize)
@@ -7829,9 +7842,6 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   }
 
   uint64_t NumResults = ResultLists[PHIs[0]].size();
-  APInt RangeSpread = MaxCaseVal->getValue() - MinCaseVal->getValue();
-  uint64_t TableSize = RangeSpread.getLimitedValue() + 1;
-  bool TableHasHoles = (NumResults < TableSize);
 
   // If the table has holes, we need a constant result for the default case
   // or a bitmask that fits in a register.
@@ -7840,6 +7850,22 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
       getCaseResults(SI, nullptr, SI->getDefaultDest(), &CommonDest,
                      DefaultResultsList, DL, TTI);
 
+  for (const auto &I : DefaultResultsList) {
+    PHINode *PHI = I.first;
+    Constant *Result = I.second;
+    DefaultResults[PHI] = Result;
+  }
+
+  bool UseSwitchConditionAsTableIndex = ShouldUseSwitchConditionAsTableIndex(
+      *MinCaseVal, *MaxCaseVal, HasDefaultResults, ResultTypes, DL, TTI);
+  uint64_t TableSize;
+  if (UseSwitchConditionAsTableIndex)
+    TableSize = MaxCaseVal->getLimitedValue() + 1;
+  else
+    TableSize =
+        (MaxCaseVal->getValue() - MinCaseVal->getValue()).getLimitedValue() + 1;
+
+  bool TableHasHoles = (NumResults < TableSize);
   bool NeedMask = (TableHasHoles && !HasDefaultResults);
   if (NeedMask) {
     // As an extra penalty for the validity test we require more cases.
@@ -7847,12 +7873,6 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
       return false;
     if (!DL.fitsInLegalInteger(TableSize))
       return false;
-  }
-
-  for (const auto &I : DefaultResultsList) {
-    PHINode *PHI = I.first;
-    Constant *Result = I.second;
-    DefaultResults[PHI] = Result;
   }
 
   if (!ShouldBuildLookupTable(SI, TableSize, TTI, DL, ResultTypes))
@@ -7868,11 +7888,15 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   // Compute the table index value.
   Builder.SetInsertPoint(SI);
   Value *TableIndex;
-  if (MinCaseVal->isNullValue())
+  ConstantInt *TableIndexOffset;
+  if (UseSwitchConditionAsTableIndex) {
+    TableIndexOffset = ConstantInt::get(MaxCaseVal->getType(), 0);
     TableIndex = SI->getCondition();
-  else
-    TableIndex = Builder.CreateSub(SI->getCondition(), MinCaseVal,
-                                   "switch.tableidx");
+  } else {
+    TableIndexOffset = MinCaseVal;
+    TableIndex =
+        Builder.CreateSub(SI->getCondition(), TableIndexOffset, "switch.tableidx");
+  }
 
   // Compute the maximum table size representable by the integer type we are
   // switching upon.
@@ -7924,7 +7948,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     // Build bitmask; fill in a 1 bit for every case.
     const ResultListTy &ResultList = ResultLists[PHIs[0]];
     for (size_t I = 0, E = ResultList.size(); I != E; ++I) {
-      uint64_t Idx = (ResultList[I].first->getValue() - MinCaseVal->getValue())
+      uint64_t Idx = (ResultList[I].first->getValue() - TableIndexOffset->getValue())
                          .getLimitedValue();
       MaskInt |= One << Idx;
     }
@@ -7963,8 +7987,8 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     // If using a bitmask, use any value to fill the lookup table holes.
     Constant *DV = NeedMask ? ResultLists[PHI][0].second : DefaultResults[PHI];
     StringRef FuncName = Fn->getName();
-    SwitchLookupTable Table(Mod, TableSize, MinCaseVal, ResultList, DV, DL,
-                            FuncName);
+    SwitchLookupTable Table(Mod, TableSize, TableIndexOffset, ResultList, DV,
+                            DL, FuncName);
 
     Value *Result = Table.BuildLookup(TableIndex, Builder);
 

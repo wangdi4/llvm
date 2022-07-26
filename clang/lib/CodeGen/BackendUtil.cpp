@@ -302,19 +302,6 @@ getSancovOptsFromCGOpts(const CodeGenOptions &CGOpts) {
   return Opts;
 }
 
-#if INTEL_CUSTOMIZATION
-static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
-                                     legacy::PassManagerBase &PM) {
-  const PassManagerBuilderWrapper &BuilderWrapper =
-      static_cast<const PassManagerBuilderWrapper &>(Builder);
-  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
-  auto Opts = getSancovOptsFromCGOpts(CGOpts);
-  PM.add(createModuleSanitizerCoverageLegacyPassPass(
-      Opts, CGOpts.SanitizeCoverageAllowlistFiles,
-      CGOpts.SanitizeCoverageIgnorelistFiles));
-}
-#endif // INTEL_CUSTOMIZATION
-
 // Check if ASan should use GC-friendly instrumentation for globals.
 // First of all, there is no point if -fdata-sections is off (expect for MachO,
 // where this is not a factor). Also, on ELF this feature requires an assembler
@@ -794,13 +781,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                            addBoundsCheckingPass);
   }
 
-  if (CodeGenOpts.hasSanitizeCoverage()) {
-    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                           addSanitizerCoveragePass);
-    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                           addSanitizerCoveragePass);
-  }
-
   if (LangOpts.Sanitize.has(SanitizerKind::Memory)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addMemorySanitizerPass);
@@ -860,10 +840,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     if (CodeGenOpts.getDebugInfo() == codegenoptions::NoDebugInfo)
       MPM.add(createStripSymbolsPass(true));
   }
-
-  if (Optional<InstrProfOptions> Options =
-          getInstrProfOptions(CodeGenOpts, LangOpts))
-    MPM.add(createInstrProfilingLegacyPass(*Options, false));
 
   bool hasIRInstr = false;
   if (CodeGenOpts.hasProfileIRInstr()) {

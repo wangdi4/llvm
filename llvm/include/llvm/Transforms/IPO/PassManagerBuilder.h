@@ -253,8 +253,10 @@ private:
   void addExtensionsToPM(ExtensionPointTy ETy,
                          legacy::PassManagerBase &PM) const;
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
+#if INTEL_CUSTOMIZATION
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
+#endif // INTEL_CUSTOMIZATION
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
   void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);

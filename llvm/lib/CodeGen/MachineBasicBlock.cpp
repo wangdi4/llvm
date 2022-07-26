@@ -468,7 +468,7 @@ void MachineBasicBlock::print(raw_ostream &OS, ModuleSlotTracker &MST,
   if (IrrLoopHeaderWeight && IsStandalone) {
     if (Indexes) OS << '\t';
     OS.indent(2) << "; Irreducible loop header weight: "
-                 << IrrLoopHeaderWeight.getValue() << '\n';
+                 << IrrLoopHeaderWeight.value() << '\n';
   }
 }
 
@@ -1517,7 +1517,7 @@ MachineBasicBlock::getSuccProbability(const_succ_iterator Succ) const {
     // ditribute the complemental of the sum to each unknown probability.
     unsigned KnownProbNum = 0;
     auto Sum = BranchProbability::getZero();
-    for (auto &P : Probs) {
+    for (const auto &P : Probs) {
       if (!P.isUnknown()) {
         Sum += P;
         KnownProbNum++;

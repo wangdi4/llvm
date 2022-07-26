@@ -760,7 +760,6 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     Options.DoCounterPromotion = true;
     Options.UseBFIInPromotion = IsCS;
     MPM.add(createLoopRotatePass());
-    MPM.add(createInstrProfilingLegacyPass(Options, IsCS));
   }
   if (!PGOInstrUse.empty())
     MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse, IsCS));
@@ -1006,10 +1005,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Clean up after everything.
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
-
-  if (EnableCHR && OptLevel >= 3 &&
-      (!PGOInstrUse.empty() || !PGOSampleUse.empty() || EnablePGOCSInstrGen))
-    MPM.add(createControlHeightReductionLegacyPass());
 
 #if INTEL_CUSTOMIZATION
   // Transform calls to sin and cos to calls to sinpi, cospi or
@@ -1268,15 +1263,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
 #endif // INTEL_CUSTOMIZATION
-
-  if (!PGOSampleUse.empty()) {
-    MPM.add(createPruneEHPass());
-    // In ThinLTO mode, when flattened profile is used, all the available
-    // profile information will be annotated in PreLink phase so there is
-    // no need to load the profile again in PostLink.
-    if (!(FlattenedProfileUsed && PerformThinLTO))
-      MPM.add(createSampleProfileLoaderPass(PGOSampleUse));
-  }
 
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
@@ -1676,10 +1662,6 @@ void PassManagerBuilder::populateModulePassManager(
   if (MergeFunctions)
     MPM.add(createMergeFunctionsPass());
 
-  // Add Module flag "CG Profile" based on Branch Frequency Information.
-  if (CallGraphProfile)
-    MPM.add(createCGProfileLegacyPass());
-
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
   // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
@@ -1738,14 +1720,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createInlineReportSetupPass(getMDInlineReport()));
   }
 
-#endif // INTEL_CUSTOMIZATION
-  // Load sample profile before running the LTO optimization pipeline.
-  if (!PGOSampleUse.empty()) {
-    PM.add(createPruneEHPass());
-    PM.add(createSampleProfileLoaderPass(PGOSampleUse));
-  }
-
-#if INTEL_CUSTOMIZATION
   PM.add(createXmainOptLevelWrapperPass(OptLevel));
   // Whole Program Analysis
   if (EnableWPA) {

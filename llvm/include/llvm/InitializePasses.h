@@ -154,7 +154,6 @@ void initializeCFIFixupPass(PassRegistry&);
 void initializeCFIInstrInserterPass(PassRegistry&);
 void initializeCFLAndersAAWrapperPassPass(PassRegistry&);
 void initializeCFLSteensAAWrapperPassPass(PassRegistry&);
-void initializeCGProfileLegacyPassPass(PassRegistry &);
 void initializeCallGraphDOTPrinterPass(PassRegistry&);
 void initializeCallGraphPrinterLegacyPassPass(PassRegistry&);
 void initializeCallGraphViewerPass(PassRegistry&);
@@ -166,7 +165,6 @@ void initializeCodeGenPreparePass(PassRegistry&);
 void initializeConstantHoistingLegacyPassPass(PassRegistry&);
 void initializeConstantMergeLegacyPassPass(PassRegistry&);
 void initializeConstraintEliminationPass(PassRegistry &);
-void initializeControlHeightReductionLegacyPassPass(PassRegistry&);
 void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeGCOVProfilerLegacyPassPass(PassRegistry&); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
@@ -276,7 +274,6 @@ void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCountLegacyPassPass(PassRegistry &);
 void initializeInstNamerPass(PassRegistry&);
 void initializeInstSimplifyLegacyPassPass(PassRegistry &);
-void initializeInstrProfilingLegacyPassPass(PassRegistry&);
 void initializeInstrOrderFileLegacyPassPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstructionSelectPass(PassRegistry&);
@@ -491,9 +488,7 @@ void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
-void initializeSampleProfileLoaderLegacyPassPass(PassRegistry&);
 void initializeSelectOptimizePass(PassRegistry &);
-void initializeModuleSanitizerCoverageLegacyPassPass(PassRegistry &);
 void initializeScalarEvolutionWrapperPassPass(PassRegistry&);
 void initializeScalarizeMaskedMemIntrinLegacyPassPass(PassRegistry &);
 void initializeScalarizerLegacyPassPass(PassRegistry&);

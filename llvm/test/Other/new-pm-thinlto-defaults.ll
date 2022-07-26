@@ -203,7 +203,10 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
+; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
+; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
+; CHECK-O-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass

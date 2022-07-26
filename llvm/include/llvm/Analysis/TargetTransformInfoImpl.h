@@ -184,8 +184,8 @@ public:
     return false;
   }
 
-  bool emitGetActiveLaneMask() const {
-    return false;
+  PredicationStyle emitGetActiveLaneMask() const {
+    return PredicationStyle::None;
   }
 
   Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,

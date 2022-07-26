@@ -118,7 +118,8 @@ void DTransTypeMetadataBuilder::copyDTransFuncMetadata(Function *SrcF,
   }
 
   // Prepare the !intel.dtrans.func.type metadata
-  SmallVector<Metadata *, 8> MDTypeList(MD->operands());
+  SmallVector<Metadata *, 8> MDTypeList(
+      iterator_range<const MDOperand *>{MD->operands()});
   auto *MDTypes = MDTuple::getDistinct(DstF->getContext(), MDTypeList);
   DstF->addMetadata(DTransFuncTypeMDTag, *MDTypes);
 }

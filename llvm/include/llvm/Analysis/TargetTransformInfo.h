@@ -178,6 +178,8 @@ public:
   bool skipScalarizationCost() const { return ScalarizationCost.isValid(); }
 };
 
+enum class PredicationStyle { None, Data, DataAndControlFlow };
+
 class TargetTransformInfo;
 typedef TargetTransformInfo TTI;
 
@@ -557,8 +559,12 @@ public:
                                    const LoopAccessInfo *LAI) const;
 
   /// Query the target whether lowering of the llvm.get.active.lane.mask
-  /// intrinsic is supported.
-  bool emitGetActiveLaneMask() const;
+  /// intrinsic is supported and how the mask should be used. A return value
+  /// of PredicationStyle::Data indicates the mask is used as data only,
+  /// whereas PredicationStyle::DataAndControlFlow indicates we should also use
+  /// the mask for control flow in the loop. If unsupported the return value is
+  /// PredicationStyle::None.
+  PredicationStyle emitGetActiveLaneMask() const;
 
   // Parameters that control the loop peeling transformation
   struct PeelingPreferences {
@@ -1683,7 +1689,7 @@ public:
   preferPredicateOverEpilogue(Loop *L, LoopInfo *LI, ScalarEvolution &SE,
                               AssumptionCache &AC, TargetLibraryInfo *TLI,
                               DominatorTree *DT, const LoopAccessInfo *LAI) = 0;
-  virtual bool emitGetActiveLaneMask() = 0;
+  virtual PredicationStyle emitGetActiveLaneMask() = 0;
   virtual Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
                                                        IntrinsicInst &II) = 0;
   virtual Optional<Value *>
@@ -2109,7 +2115,7 @@ public:
                                    const LoopAccessInfo *LAI) override {
     return Impl.preferPredicateOverEpilogue(L, LI, SE, AC, TLI, DT, LAI);
   }
-  bool emitGetActiveLaneMask() override {
+  PredicationStyle emitGetActiveLaneMask() override {
     return Impl.emitGetActiveLaneMask();
   }
   Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,

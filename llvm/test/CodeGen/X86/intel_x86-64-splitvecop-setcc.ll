@@ -5,27 +5,34 @@
 define <2 x i16> @foo(<2 x half>%a) #0 {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpextrw $0, %xmm1, %eax
-; CHECK-NEXT:    vpextrw $0, %xmm0, %ecx
-; CHECK-NEXT:    movzwl %cx, %ecx
-; CHECK-NEXT:    vmovd %ecx, %xmm0
-; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vucomiss %xmm1, %xmm0
-; CHECK-NEXT:    setnp %cl
-; CHECK-NEXT:    sete %dl
-; CHECK-NEXT:    andb %cl, %dl
-; CHECK-NEXT:    andl $1, %edx
-; CHECK-NEXT:    kmovw %edx, %k0
+; CHECK-NEXT:    vpextrw $0, %xmm0, %eax
+; CHECK-NEXT:    movzwl %ax, %eax
+; CHECK-NEXT:    vmovd %eax, %xmm1
+; CHECK-NEXT:    vcvtph2ps %xmm1, %xmm1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vucomiss %xmm2, %xmm1
+; CHECK-NEXT:    setnp %al
+; CHECK-NEXT:    sete %cl
+; CHECK-NEXT:    testb %al, %cl
+; CHECK-NEXT:    setne %al
+; CHECK-NEXT:    andl $1, %eax
+; CHECK-NEXT:    kmovw %eax, %k0
+; CHECK-NEXT:    movw $-3, %ax
+; CHECK-NEXT:    kmovd %eax, %k1
+; CHECK-NEXT:    kandw %k1, %k0, %k0
+; CHECK-NEXT:    vpsrld $16, %xmm0, %xmm0
+; CHECK-NEXT:    vpextrw $0, %xmm0, %eax
 ; CHECK-NEXT:    movzwl %ax, %eax
 ; CHECK-NEXT:    vmovd %eax, %xmm0
 ; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
 ; CHECK-NEXT:    vucomiss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; CHECK-NEXT:    setnp %al
 ; CHECK-NEXT:    sete %cl
-; CHECK-NEXT:    andb %al, %cl
-; CHECK-NEXT:    kmovd %ecx, %k1
-; CHECK-NEXT:    kshiftlw $1, %k1, %k1
+; CHECK-NEXT:    testb %al, %cl
+; CHECK-NEXT:    setne %al
+; CHECK-NEXT:    kmovd %eax, %k1
+; CHECK-NEXT:    kshiftlw $15, %k1, %k1
+; CHECK-NEXT:    kshiftrw $14, %k1, %k1
 ; CHECK-NEXT:    korw %k1, %k0, %k0
 ; CHECK-NEXT:    vpmovm2w %k0, %xmm0
 ; CHECK-NEXT:    retq

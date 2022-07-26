@@ -91,9 +91,6 @@ bool RecurrenceDescriptor::isFloatingPointRecurrenceKind(RecurKind Kind) {
 
 #if INTEL_CUSTOMIZATION
 bool RecurrenceDescriptorData::isArithmeticRecurrenceKind(RecurKind Kind) {
-#else
-bool RecurrenceDescriptor::isArithmeticRecurrenceKind(RecurKind Kind) {
-#endif
   switch (Kind) {
   default:
     break;
@@ -106,6 +103,7 @@ bool RecurrenceDescriptor::isArithmeticRecurrenceKind(RecurKind Kind) {
   }
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Determines if Phi may have been type-promoted. If Phi has a single user
 /// that ANDs the Phi with a type mask, return the user. RT is updated to
@@ -1212,7 +1210,7 @@ RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
     ExpectedUses = 2;
 
   auto getNextInstruction = [&](Instruction *Cur) -> Instruction * {
-    for (auto User : Cur->users()) {
+    for (auto *User : Cur->users()) {
       Instruction *UI = cast<Instruction>(User);
       if (isa<PHINode>(UI))
         continue;

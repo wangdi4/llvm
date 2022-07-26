@@ -406,12 +406,6 @@ ModulePass *createArgNoAliasPropPass(void);
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
-//===----------------------------------------------------------------------===//
-// SampleProfilePass - Loads sample profile data from disk and generates
-// IR metadata to reflect the profile.
-ModulePass *createSampleProfileLoaderPass();
-ModulePass *createSampleProfileLoaderPass(StringRef Name);
-
 /// Write ThinLTO-ready bitcode to Str.
 ModulePass *createWriteThinLTOBitcodePass(raw_ostream &Str,
                                           raw_ostream *ThinLinkOS = nullptr);

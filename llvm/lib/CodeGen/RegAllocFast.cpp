@@ -1498,7 +1498,7 @@ bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
   RegUnitStates.assign(TRI->getNumRegUnits(), regFree);
   assert(LiveVirtRegs.empty() && "Mapping not cleared from last block?");
 
-  for (auto &LiveReg : MBB.liveouts())
+  for (const auto &LiveReg : MBB.liveouts())
     setPhysRegState(LiveReg.PhysReg, regPreAssigned);
 
   Coalesced.clear();
@@ -1604,8 +1604,7 @@ FunctionPass *llvm::createFastRegisterAllocator() {
   return new RegAllocFast();
 }
 
-FunctionPass *llvm::createFastRegisterAllocator(
-  std::function<bool(const TargetRegisterInfo &TRI,
-                     const TargetRegisterClass &RC)> Ftor, bool ClearVirtRegs) {
+FunctionPass *llvm::createFastRegisterAllocator(RegClassFilterFunc Ftor,
+                                                bool ClearVirtRegs) {
   return new RegAllocFast(Ftor, ClearVirtRegs);
 }
