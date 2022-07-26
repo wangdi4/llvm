@@ -3347,6 +3347,9 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
     return Kind == OMPD_master;
+
+  case OMPD_masked_taskloop:
+    return Kind == OMPD_masked;
   
   case OMPD_parallel_masked:
   case OMPD_parallel_master:
@@ -3405,6 +3408,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_masked_taskloop:
   case OMPD_parallel_masked:
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
@@ -3694,6 +3698,17 @@ nextDirectiveKind(const OMPExecutableDirective &Directive,
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
+  case OMPD_masked_taskloop:
+    // OMPD_masked -> OMPD_taskgroup -> OMPD_taskloop
+    // OMPD_masked -> OMPD_taskloop
+    if (CurrDirKind == OMPD_masked)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop;
+    if (CurrDirKind == OMPD_taskgroup)
+      return OMPD_taskloop;
+    return OMPD_unknown;
+
   case OMPD_parallel_masked:
     // OMPD_parallel -> OMPD_masked
     if (CurrDirKind == OMPD_parallel)
@@ -3975,6 +3990,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_loop:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_masked_taskloop:
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
