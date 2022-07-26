@@ -149,12 +149,12 @@ HeteroArchOpt::scanLoopCandidates(Loop *L,
         std::max(scanLoopCandidates(SubLoop, LoopCandidates), MaxHeight);
   MaxHeight++;
 
+  LoopCand LC(L, MaxHeight);
   for (BasicBlock *BB : L->blocks()) {
     // Skip BB belonging to subloops.
     if (LI->getLoopFor(BB) != L)
       continue;
 
-    LoopCand LC(L, MaxHeight);
     for (Instruction &I : *BB) {
       IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
       if (II && II->getIntrinsicID() == Intrinsic::masked_gather &&
