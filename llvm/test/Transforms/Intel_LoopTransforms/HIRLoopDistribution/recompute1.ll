@@ -16,19 +16,20 @@
 ;      B1[i] -= i;
 ;      ...  etc
 ;   ==>
-;         + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;         |  + DO i2 = 0, (-1 * i1 + sext.i32.i64(%n) + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;         |  |   %min = (-1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 <= 63) ? -1 * i1 + -64 * i2 + sext.i32.i64(%n)  + -1 : 63;
-;         |   |
-;         |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-;         |   |   |   (@C1)[0][i1 + 64 * i2 + i3] = 1.000000e+00;
-;         |   |   |   %conv13 = sitofp.i32.double(i1 + 64 * i2 + i3);
-;         |   |   |   (%.TempArray)[0][i3] = %conv13;
-;         |   |   END LOOP
-;         |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-;         |   |   |   %conv13 = (%.TempArray)[0][i3];
-;         |   |   |   %sub60 = (@B7)[0][i1 + 64 * i2 + i3]  -  %conv13;
+;         + DO i1 = 0, sext.i32.i64(%n) + -1, 1
+;         |   + DO i2 = 0, -1 * i1 + sext.i32.i64(%n) + -1, 1
+;         |   |   %conv = sitofp.i32.float(2 * i1 + i2);
+;         |   |   %add4 = (@A1)[0][i1 + i2]  +  %conv;
+;         |   |   (@A1)[0][i1 + i2] = %add4;
+;         |   |   %conv5 = sitofp.i32.float(i2);
+;                 ...
+;         |   + DO i2 = 0, -1 * i1 + sext.i32.i64(%n) + -1, 1
+;         |   |   %conv13 = sitofp.i32.double(i1 + i2);
+;         |   |   (@C1)[0][i1 + i2] = 1.000000e+00;
+;                 ...
 ;  Note: just verify for key HIRs
+; In this case we are not scalar expanding using temp arrays, instead
+; we just recompute the temps needed in the later loop.
 ; CHECK: BEGIN REGION
 ; CHECK-NEXT:  DO i1 = 0, sext.i32.i64(%n) + -1, 1
 ; CHECK:           DO i2 = 0, -1 * i1 + sext.i32.i64(%n) + -1
