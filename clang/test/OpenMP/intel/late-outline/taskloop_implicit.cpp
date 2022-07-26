@@ -106,5 +106,23 @@ void foo(int x, int y)
   // CHECK: DIR.OMP.END.PARALLEL
   #pragma omp parallel master taskloop simd  nogroup
   for (int i = 0; i < 10; ++i);
+  
+  // CHECK: DIR.OMP.MASKED
+  // CHECK-NOT: DIR.OMP.TASKGROUP
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.NOGROUP
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.MASKED
+  #pragma omp masked taskloop nogroup
+  for (int i = 0; i < 10; ++i);
+  
+  // CHECK: DIR.OMP.MASKED
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  // CHECK: DIR.OMP.END.MASKED
+  #pragma omp masked taskloop
+  for (int i = 0; i < 10; ++i);
 }
 // end INTEL_COLLAB

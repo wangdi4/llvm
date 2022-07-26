@@ -11910,9 +11910,14 @@ void OMPClauseReader::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
 }
 
 void OMPClauseReader::VisitOMPDataClause(OMPDataClause *C) {
-  for (unsigned I = 0, E = C->getNumDataClauseVals(); I < E; ++I) {
-    C->setDataInfo(I, Record.readSubExpr());
-  }
+  C->setLParenLoc(Record.readSourceLocation());
+  C->setHint(Record.readSubExpr());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

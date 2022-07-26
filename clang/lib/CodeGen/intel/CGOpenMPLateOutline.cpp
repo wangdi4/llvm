@@ -2606,35 +2606,7 @@ void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *Cl) {
   addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
-void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
-  // Arguments to prefetch are in groups of three values:
-  //   Address:Hint:Num-Elements
-  // which correspond to individual data clauses.
-  for (unsigned I = 0; I < C->getNumDataClauseVals(); I += 3) {
-    ClauseEmissionHelper CEH(*this, OMPC_data, "QUAL.OMP.DATA");
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    auto *Addr = C->getDataInfo(I);
-    auto *Hint = C->getDataInfo(I+1);
-    auto *NumElems = C->getDataInfo(I+2);
-    QualType AddrTy = Addr->getType();
-    assert(AddrTy->isPointerType());
-    // Assign (base) address to temp and pass it to prefetch.
-    Address Tmp = CGF.CreateMemTemp(AddrTy, /*Name*/ ".tmp.prefetch");
-    RValue RV = RValue::get(CGF.EmitScalarExpr(Addr, /*Ignore*/ false));
-    LValue LV = CGF.MakeAddrLValue(Tmp, AddrTy);
-    CGF.EmitStoreThroughLValue(RV, LV);
-    if (UseTypedClauses)
-      CSB.setTyped();
-    addArg(CSB.getString());
-    addNoElementTypedArg(Tmp.getPointer(), Tmp.getElementType());
-    addArg(CGF.EmitScalarExpr(Hint));
-    llvm::Value *NumElemsVal = CGF.EmitScalarExpr(NumElems);
-    NumElemsVal =
-        CGF.Builder.CreateIntCast(NumElemsVal, CGF.CGM.SizeTy,
-                                  /*isSigned=*/false);
-    addArg(NumElemsVal);
-  }
-}
+void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {}
 
 void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
   for (auto *E : Cl->varlists()) {
@@ -3375,6 +3347,9 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
     return Kind == OMPD_master;
+
+  case OMPD_masked_taskloop:
+    return Kind == OMPD_masked;
   
   case OMPD_parallel_masked:
   case OMPD_parallel_master:
@@ -3433,6 +3408,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_taskloop_simd:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_masked_taskloop:
   case OMPD_parallel_masked:
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
@@ -3722,6 +3698,17 @@ nextDirectiveKind(const OMPExecutableDirective &Directive,
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
+  case OMPD_masked_taskloop:
+    // OMPD_masked -> OMPD_taskgroup -> OMPD_taskloop
+    // OMPD_masked -> OMPD_taskloop
+    if (CurrDirKind == OMPD_masked)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop;
+    if (CurrDirKind == OMPD_taskgroup)
+      return OMPD_taskloop;
+    return OMPD_unknown;
+
   case OMPD_parallel_masked:
     // OMPD_parallel -> OMPD_masked
     if (CurrDirKind == OMPD_parallel)
@@ -4003,6 +3990,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_loop:
   case OMPD_master_taskloop:
   case OMPD_master_taskloop_simd:
+  case OMPD_masked_taskloop:
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:

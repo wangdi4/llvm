@@ -497,8 +497,9 @@ void OMPClauseProfiler::VisitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *C) {
 }
 
 void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
-  for (auto *E : C->val_exprs())
-    Profiler->VisitStmt(E);
+  if (Expr *Hint = C->getHint())
+    Profiler->VisitStmt(Hint);
+  VisitOMPClauseList(C);
 }
 #endif // INTEL_COLLAB
 

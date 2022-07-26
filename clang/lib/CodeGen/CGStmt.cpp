@@ -146,6 +146,11 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_master);
     }
+    // Combined masked/taskloop directives
+    if (S->getStmtClass() == Stmt::OMPMaskedTaskLoopDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_masked);
+    }
     // Combined parallel/master/master_taskloop/masked directives
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==

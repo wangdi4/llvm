@@ -73,6 +73,8 @@ using namespace llvm::vpo;
 // Major internal options. Some of these are used in InlineCost.cpp.
 //
 
+// These options are primarily used for LIT tests.
+
 cl::opt<bool> InlineForXmain("inline-for-xmain", cl::Hidden, cl::init(true),
                              cl::desc("Xmain customization of inlining"));
 
@@ -85,8 +87,13 @@ cl::opt<bool> DTransInlineHeuristics(
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 
 cl::opt<bool> EnableLTOInlineCost("lto-inline-cost", cl::Hidden,
-                                   cl::init(false),
-                                   cl::desc("Enable LTO inline cost"));
+                                  cl::init(false),
+                                  cl::desc("Enable LTO inline cost"));
+
+cl::opt<bool>
+    EnableSYCLOptimizationMode("sycl-optimization-mode", cl::Hidden,
+                               cl::init(false),
+                               cl::desc("Enable SYCL Optimization Mode"));
 
 namespace llvm {
 

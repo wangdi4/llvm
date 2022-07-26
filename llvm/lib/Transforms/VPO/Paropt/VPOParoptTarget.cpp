@@ -1702,6 +1702,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInOmpClauseGeneric(W, W->getDevice());
   resetValueInSubdeviceClause(W);
   resetValueInPrivateClause(W);
+  resetValueInLiveinClause(W);
   resetValueInMapClause(W);
 
   renameDuplicateBasesInMapClauses(W);

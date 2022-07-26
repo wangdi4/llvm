@@ -2389,12 +2389,11 @@ public:
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildOMPDataClause(ArrayRef<Expr *> Addrs,
-                                  ArrayRef<Expr *> Hints,
-                                  ArrayRef<Expr *> NumElements,
+  OMPClause *RebuildOMPDataClause(Expr *Hint, ArrayRef<Expr *> VarList,
                                   SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
                                   SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPDataClause(Addrs, Hints, NumElements, StartLoc,
+    return getSema().ActOnOpenMPDataClause(Hint, VarList, StartLoc, LParenLoc,
                                            EndLoc);
   }
 #endif // INTEL_COLLAB
@@ -9648,25 +9647,23 @@ TreeTransform<Derived>::TransformOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPDataClause(OMPDataClause *C) {
-  llvm::SmallVector<Expr *> Addrs;
-  llvm::SmallVector<Expr *> Hints;
-  llvm::SmallVector<Expr *> NumElements;
-  for (unsigned I = 0; I < C->getNumDataClauseVals(); I += 3) {
-    ExprResult E = getDerived().TransformExpr(C->getDataInfo(I));
-    if (E.isInvalid())
+  Expr *Hint = C->getHint();
+  if (Hint) {
+    ExprResult HintRes = getDerived().TransformExpr(Hint);
+    if (HintRes.isInvalid())
       return nullptr;
-    Addrs.push_back(E.get());
-    E = getDerived().TransformExpr(C->getDataInfo(I+1));
-    if (E.isInvalid())
-      return nullptr;
-    Hints.push_back(E.get());
-    E = getDerived().TransformExpr(C->getDataInfo(I+2));
-    if (E.isInvalid())
-      return nullptr;
-    NumElements.push_back(E.get());
+    Hint = HintRes.get();
   }
-  return getDerived().RebuildOMPDataClause(
-      Addrs, Hints, NumElements, C->getBeginLoc(), C->getEndLoc());
+  llvm::SmallVector<Expr *, 16> VarList;
+  VarList.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    VarList.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPDataClause(Hint, VarList, C->getBeginLoc(),
+                                           C->getLParenLoc(), C->getEndLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

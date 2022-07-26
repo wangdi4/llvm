@@ -111,10 +111,6 @@ void Str::member()
 void test2()
 {
   //CHECK: [[REF_TMP:%ref.tmp.*]] = alloca [[STR]], align 1
-  //CHECK: [[FOOV:%foov.*]] = alloca [10 x i32], align 16
-  //CHECK: [[D:%d.*]] = alloca double, align 8
-  //CHECK: [[TP1:%.tmp.prefetch.*]] = alloca ptr, align 8
-  //CHECK: [[TP2:%.tmp.prefetch.*]] = alloca ptr, align 8
 
   //CHECK: "DIR.OMP.PARALLEL"()
   //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[REF_TMP]], [[STR]] zeroinitializer, i32 1)
@@ -123,13 +119,6 @@ void test2()
     Str V0;
     Str V (V0 * 1);
   }
-
-  int foov[10];
-  double d;
-  #pragma ompx prefetch data(&foov:1:5) data(&d:1:1)
-  //CHECK: "DIR.OMP.PREFETCH"()
-  //CHECK-SAME: "QUAL.OMP.DATA:TYPED"(ptr [[TP1]], ptr null, i32 1, i64 5)
-  //CHECK-SAME: "QUAL.OMP.DATA:TYPED"(ptr [[TP2]], ptr null, i32 1, i64 1) ]
 }
 
 //CHECK: define {{.*}}test_fixed_array

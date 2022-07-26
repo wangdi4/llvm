@@ -2,15 +2,19 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -opaque-pointers -passes=inline -inline-threshold=0 -inline-report=0xf867 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-CL
 ; RUN: opt -opaque-pointers -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -S -inline-report=0xf867 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-BG
-; RUN: opt -opaque-pointers -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -sycl-opt -S -inline-report=0xf867 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-CL
+; RUN: opt -opaque-pointers -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -sycl-optimization-mode -S -inline-report=0xf867 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-CL
+; RUN: opt -opaque-pointers -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -S -inline-report=0xf867 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-CL
+; RUN: opt -opaque-pointers -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-optimization-mode -S -inline-report=0xf867 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-CL
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8e6 < %s -S | opt -passes=inline -inline-threshold=0 -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-MD
 ; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0xf8e6 < %s -S | opt -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -S -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefix=CHECK-BG
-; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0xf8e6 < %s -S | opt -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -sycl-opt -S -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-MD
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0xf8e6 < %s -S | opt -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -sycl-optimization-mode -S -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-MD
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0xf8e6 < %s -S | opt -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-host -S -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-MD
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0xf8e6 < %s -S | opt -passes=inline -inlining-huge-odr-bb-count=0 -inline-threshold=0 -sycl-optimization-mode -S -inline-report=0xf8e6 -S | opt -passes=inlinereportemitter -inline-report=0xf8e6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-SM,CHECK-SM-MD
 
 ; Check that without -inlining-huge-odr-bb-count=0 -inline-threshold=0
 ; that single callsite link once ODR functions get inlined regardless of size.
-; Also check that adding -sycl-host and -sycl-opt has the same effect, even
-; if -inlining-huge-odr-bb-count=0 -inline-threshold=0 are passed.
+; Also check that adding -sycl-host and/or -sycl-optimization-mode has the same
+; effect, even if -inlining-huge-odr-bb-count=0 -inline-threshold=0 are passed.
 
 ; CHECK-SM-CL-NOT: call {{.*}} @_ZN11xercesc_2_713ValueVectorOfIPNS_8IC_FieldEED2Ev
 ; CHECK-SM-CL-NOT: call {{.*}} @_ZN11xercesc_2_713ValueVectorOfIPNS_17DatatypeValidatorEED2Ev
