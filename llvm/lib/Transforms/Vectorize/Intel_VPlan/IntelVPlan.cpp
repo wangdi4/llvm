@@ -443,8 +443,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "compress-expand-index-final";
   case VPInstruction::CompressExpandIndex:
     return "compress-expand-index";
-  case VPInstruction::CompressExpandIndexUnit:
-    return "compress-expand-index-unit";
   case VPInstruction::CompressExpandIndexInc:
     return "compress-expand-index-inc";
   case VPInstruction::RunningInclusiveReduction:

@@ -667,8 +667,6 @@ public:
 
     CompressExpandIndex,     // calculate vector of indexes for non-unit stride
                              // compress/expand
-    CompressExpandIndexUnit, // calculate scalar index for unit stride
-                             // compress/expand
 
     CompressExpandIndexInc, // compress/expand index increment
                             // operands: index, stride, mask
