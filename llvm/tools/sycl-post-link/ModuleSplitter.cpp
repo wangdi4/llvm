@@ -260,8 +260,30 @@ EntryPointGroupVec groupEntryPointsByScope(const Module &M,
   return EntryPointGroups;
 }
 
+#if INTEL_COLLAB
+void collectFunctionsToExtract(SetVector<const GlobalValue *> &GVs,
+                               const EntryPointGroup &ModuleEntryPoints,
+                               const Module *M = nullptr) {
+  const bool isESIMD = ModuleEntryPoints.isEsimd();
+
+  // It is conservatively assumed that any address-taken function can be invoked
+  // or otherwise used by any function in any module split from the initial one.
+  // So such functions along with the call graphs they start are always
+  // extracted (and duplicated in each split module).
+  // TODO: try to determine which split modules really use address-taken
+  // functions and only duplicate the functions in such modules. Note that usage
+  // may include e.g. function address comparison w/o actual invocation.
+  if (M) {
+    for (const auto& F : *M) {
+      if (F.hasAddressTaken() && (isESIMDFunction(F) == isESIMD)) {
+        GVs.insert(&F);
+      }
+    }
+  }
+#else
 void collectFunctionsToExtract(SetVector<const GlobalValue *> &GVs,
                                const EntryPointGroup &ModuleEntryPoints) {
+#endif // INTEL_COLLAB
   for (const auto *F : ModuleEntryPoints.Functions)
     GVs.insert(F);
 
@@ -330,7 +352,11 @@ void cleanupSplitModule(Module &SplitM) {
 ModuleDesc extractCallGraph(const Module &M,
                             EntryPointGroup &&ModuleEntryPoints) {
   SetVector<const GlobalValue *> GVs;
+#if INTEL_COLLAB
+  collectFunctionsToExtract(GVs, ModuleEntryPoints, &M);
+#else
   collectFunctionsToExtract(GVs, ModuleEntryPoints);
+#endif // INTEL_COLLAB
   collectGlobalVarsToExtract(GVs, M);
 
   ModuleDesc SplitM = extractSubModule(M, GVs, std::move(ModuleEntryPoints));
