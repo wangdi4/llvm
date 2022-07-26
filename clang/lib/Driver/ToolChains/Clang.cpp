@@ -10513,13 +10513,16 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_arithmetic_fence"
+        ",+SPV_INTEL_global_variable_decorations"
         ",+SPV_INTEL_task_sequence"; // INTEL
+
 #if INTEL_CUSTOMIZATION
     if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd)) {
       // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
+
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
@@ -10786,6 +10789,9 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"-spec-const=rt"});
   else
     addArgs(CmdArgs, TCArgs, {"-spec-const=default"});
+
+  // Process device-globals.
+  addArgs(CmdArgs, TCArgs, {"-device-globals"});
 
   // Make ESIMD accessors use stateless memory accesses.
   if (TCArgs.hasFlag(options::OPT_fsycl_esimd_force_stateless_mem,
