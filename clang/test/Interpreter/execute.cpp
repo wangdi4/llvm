@@ -5,13 +5,10 @@
 // UNSUPPORTED: system-aix
 // CHECK-DRIVER: i = 10
 // RUN: cat %s | clang-repl | FileCheck %s
-<<<<<<< HEAD
+// RUN: cat %s | clang-repl -Xcc -O2 | FileCheck %s
 
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 
-=======
-// RUN: cat %s | clang-repl -Xcc -O2 | FileCheck %s
->>>>>>> 58c94808450d0ec73bed38d1661314c1a3d56e2f
 extern "C" int printf(const char *, ...);
 int i = 42;
 auto r1 = printf("i = %d\n", i);
