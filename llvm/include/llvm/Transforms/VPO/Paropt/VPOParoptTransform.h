@@ -1150,6 +1150,9 @@ private:
   /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
 
+  /// Reset the expression value in livein clause to be empty.
+  void resetValueInLiveinClause(WRegionNode *W);
+
   /// Reset the expression value in Subdevice clause to be empty.
   void resetValueInSubdeviceClause(WRegionNode* W);
 

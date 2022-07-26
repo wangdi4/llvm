@@ -12499,6 +12499,21 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
   }
 }
 
+// Set the values in the livein clause to be empty.
+void VPOParoptTransform::resetValueInLiveinClause(WRegionNode *W) {
+
+  if (!W->canHaveLivein())
+    return;
+
+  LiveinClause &LvClause = W->getLivein();
+  if (LvClause.empty())
+    return;
+
+  for (auto *I : LvClause.items()) {
+    resetValueInOmpClauseGeneric(W, I->getOrig());
+  }
+}
+
 // Set the the operands V of OpenMP clauses in W to be empty.
 void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
                                                         Value *V) {
