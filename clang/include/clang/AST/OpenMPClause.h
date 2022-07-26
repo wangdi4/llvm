@@ -968,103 +968,76 @@ public:
   }
 };
 
-/// This represents a 'data' clause for the '#pragma omp prefetch'
+/// This represents a 'data' clause for the '#pragma ompx prefetch'
 /// directive.
 ///
 /// \code
-/// #pragma omp prefetch data(addr:1:10)
+/// #pragma ompx prefetch data(2 : A[1:4])
 /// \endcode
-/// In this example directive '#pragma omp prefetch' has a single 'data'
-/// clause with three arguments, each separated by a ':'.
+/// In this example directive '#pragma ompx prefetch' has a single array
+/// section, with a hint of '2'.
+
+/// The hint value, an unsigned integer with a value ranging from 0 to 6,
+/// inclusive.
 ///
-/// Parameter one is an address expression representing the base address of the
-/// data to be prefetched.
-/// Parameter two is the hint value, an unsigned integer with a value
-/// ranging from 1...4
-/// Parameter three is the number of elements to prefetch, and is an
-/// unsigned integer value greater than 0.
-///
-/// NOTE: Within a single data clause, multiple 'addr:hint:num-elements'
-/// triples can be specified, separated by commas. For example:
-///     #pragma omp prefetch data(&v1:1:10, &v2:2:100)
-/// is also a valid data clause. There can also be an arbitrary number of
-/// explicit data clauses.
 class OMPDataClause final
-    : public OMPClause,
+    : public OMPVarListClause<OMPDataClause>,
       private llvm::TrailingObjects<OMPDataClause, Expr *> {
   friend class OMPClauseReader;
+  friend OMPVarListClause;
   friend TrailingObjects;
 
-  /// Number of colon separated values within a single data clause
-  /// specification (see above).
-  unsigned NumDataClauseVals = 0;
+  /// Hint expression.
+  Expr *Hint = nullptr;
 
-  /// Build clause with number of (colon separated) values \a NumDataClauseVals.
+  /// Build clause with number of array sections \a N.
   ///
   /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of the '('
   /// \param EndLoc Ending location of the clause.
-  /// \param NumDataClauseVals Number of individual colon separated values
-  ///        within a single data clause.
-  OMPDataClause(SourceLocation StartLoc, SourceLocation EndLoc,
-                unsigned NumDataClauseVals)
-      : OMPClause(llvm::omp::OMPC_data, StartLoc, EndLoc),
-                  NumDataClauseVals(NumDataClauseVals) {}
+  /// \param Hint Unsigned integral hint expression.
+  /// \param N Number of array sections in the clause.
+  OMPDataClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                SourceLocation EndLoc, Expr *Hint, unsigned N)
+      : OMPVarListClause<OMPDataClause>(llvm::omp::OMPC_data, StartLoc,
+                                        LParenLoc, EndLoc, N),
+        Hint(Hint) {}
 
   /// Build an empty clause.
   ///
-  /// \param NumDataClauseVals Number of individual colon separated values
-  ///        within a single data clause.
-  explicit OMPDataClause(unsigned NumDataClauseVals)
-      : OMPClause(llvm::omp::OMPC_data, SourceLocation(), SourceLocation()),
-        NumDataClauseVals(NumDataClauseVals) {}
-
-  /// Fetches list of values associated with this data clause.
-  MutableArrayRef<Expr *> getDataClauseValues() {
-    return MutableArrayRef<Expr *>(getTrailingObjects<Expr *>(),
-        NumDataClauseVals);
+  /// \param N Number of array sections in the clause.
+  explicit OMPDataClause(unsigned N)
+      : OMPVarListClause<OMPDataClause>(llvm::omp::OMPC_data, SourceLocation(),
+                                        SourceLocation(), SourceLocation(), N) {
   }
 
+  /// Set the Hint expression.
+  void setHint(Expr *H) { Hint = H; }
+
 public:
-  /// Creates clause with list of data clause values \a LV.
+  /// Creates clause with list of array section values \a LV.
   ///
   /// \param C AST context.
   /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  /// \param LV List of all values for data clause.
+  /// \param Hint The hint expression.
+  /// \param LV List of array sections values for data clause.
   static OMPDataClause *Create(const ASTContext &C, SourceLocation StartLoc,
-                               SourceLocation EndLoc, ArrayRef<Expr *> LV);
+                               SourceLocation LParenLoc, SourceLocation EndLoc,
+                               Expr *Hint, ArrayRef<Expr *> LV);
 
-  /// Creates an empty clause with \a NumDataClauseVals data clause values.
+  /// Creates an empty clause with \a N data clause values.
   ///
   /// \param C AST context.
-  /// \param NumDataClauseVals Number of colon separated values to be emitted
-  /// in data clauses.
-  static OMPDataClause *CreateEmpty(const ASTContext &C,
-      unsigned NumDataClauseVals);
+  /// \param N Number of array section values
+  static OMPDataClause *CreateEmpty(const ASTContext &C, unsigned N);
 
-  /// Get number of data clause values.
-  unsigned getNumDataClauseVals() const { return NumDataClauseVals; }
+  Expr *getHint() const { return Hint; }
 
-  /// Set an individual data clause value.
-  void setDataInfo(unsigned NumDataClause, Expr *E);
-
-  /// Get an individual data clause value.
-  Expr *getDataInfo(unsigned NumDataClause);
-  const Expr *getDataInfo(unsigned NumDataClause) const;
-
-  using exprlist_iterator = MutableArrayRef<Expr *>::iterator;
-  using exprlist_const_iterator = ArrayRef<const Expr *>::iterator;
-
-  exprlist_iterator exprlist_begin() { return getDataClauseValues().begin(); }
-  exprlist_iterator exprlist_end() { return getDataClauseValues().end(); }
-
-  using values_iterator = MutableArrayRef<Expr *>::iterator;
-  using values_const_iterator = ArrayRef<const Expr *>::iterator;
-  using values_range = llvm::iterator_range<values_iterator>;
-  using values_const_range = llvm::iterator_range<values_const_iterator>;
   child_range children() {
-    return child_range(reinterpret_cast<Stmt **>(exprlist_begin()),
-                       reinterpret_cast<Stmt **>(exprlist_end()));
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
   }
 
   const_child_range children() const {
@@ -1079,14 +1052,6 @@ public:
     return const_child_range(const_child_iterator(), const_child_iterator());
   }
 
-  values_range val_exprs() {
-    return values_range(getTrailingObjects<Expr *>(),
-                        getTrailingObjects<Expr *>() + NumDataClauseVals);
-  }
-  values_const_range val_exprs() const {
-    return values_const_range(getTrailingObjects<Expr *>(),
-                              getTrailingObjects<Expr *>() + NumDataClauseVals);
-  }
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_data;
   }

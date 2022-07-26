@@ -6275,9 +6275,11 @@ void OMPClauseWriter::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
 }
 
 void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
-  Record.push_back(C->getNumDataClauseVals());
-  for (auto *E : C->val_exprs())
-    Record.AddStmt(E);
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddStmt(C->getHint());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

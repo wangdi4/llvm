@@ -19388,6 +19388,12 @@ OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
   case OMPC_exclusive:
     Res = ActOnOpenMPExclusiveClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
+#if INTEL_COLLAB
+  case OMPC_data:
+    Res = ActOnOpenMPDataClause(Data.DepModOrTailExpr, VarList, StartLoc,
+                                LParenLoc, EndLoc);
+    break;
+#endif // INTEL_COLLAB
   case OMPC_affinity:
     Res = ActOnOpenMPAffinityClause(StartLoc, LParenLoc, ColonLoc, EndLoc,
                                     Data.DepModOrTailExpr, VarList);
@@ -25224,13 +25230,13 @@ OMPClause *Sema::ActOnOpenMPOmpxPlacesClause(
 }
 
 /// Verify data clause address expression.
-static ExprResult verifyDataClauseAddrExpr(Sema &S, Expr *E) {
+static ExprResult verifyDataClauseExpr(Sema &S, Expr *E) {
   if (E->isValueDependent() || E->isTypeDependent() ||
       E->isInstantiationDependent() || E->containsUnexpandedParameterPack())
     return E;
-  if (!E->getType()->isPointerType()) {
-    S.Diag(E->getExprLoc(),
-        diag::err_prefetch_invalid_argument) << "ompx prefetch data";
+
+  if (!isa<ArraySubscriptExpr, OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
+    S.Diag(E->getExprLoc(), diag::err_ompx_bad_data_expression);
     return ExprError();
   }
   return E;
@@ -25245,46 +25251,34 @@ static ExprResult verifyDataClauseHintExpr(Sema &S, Expr *E) {
   ExprResult Val =
       S.VerifyIntegerConstantExpression(E, &Result, /*Fold=*/false);
   if (Val.isInvalid()) {
-    S.Diag(E->getExprLoc(), diag::err_prefetch_invalid_argument) <<
-        "ompx prefetch data";
+    S.Diag(E->getExprLoc(), diag::err_ompx_data_hint_not_constant) << 0 << 6;
     return ExprError();
   }
-  if (Result.getExtValue() <= 0 || Result.getExtValue() > 4) {
-    S.Diag(E->getExprLoc(), diag::err_prefetch_hint_out_of_range) <<
-        (signed)Result.getExtValue() << 1 << 4;
+  if (Result.getExtValue() < 0 || Result.getExtValue() > 6) {
+    S.Diag(E->getExprLoc(), diag::err_prefetch_hint_out_of_range)
+        << (signed)Result.getExtValue() << 0 << 6;
     return ExprError();
   }
   return Val;
 }
 
-OMPClause *Sema::ActOnOpenMPDataClause(ArrayRef<Expr *> Addrs,
-                                       ArrayRef<Expr *> Hints,
-                                       ArrayRef<Expr *> NumElements,
+OMPClause *Sema::ActOnOpenMPDataClause(Expr *Hint, ArrayRef<Expr *> VarList,
                                        SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
                                        SourceLocation EndLoc) {
-  SmallVector<Expr *> PrefetchArgs;
-  // Check data clause values, accumulate them into list of arguments to
-  // current data clause for prefetch directive.
-  for (unsigned I = 0, E = Addrs.size(); I < E; ++I) {
-    ExprResult Val;
-    Val = verifyDataClauseAddrExpr(*this, Addrs[I]);
-    if (Val.isInvalid())
+  if (Hint) {
+    ExprResult HintRes = verifyDataClauseHintExpr(*this, Hint);
+    if (HintRes.isInvalid())
       return nullptr;
-    PrefetchArgs.push_back(Val.get());
-
-    Val = verifyDataClauseHintExpr(*this, Hints[I]);
-    if (Val.isInvalid())
-      return nullptr;
-    PrefetchArgs.push_back(Val.get());
-
-    // The number of elements must be greater than zero.
-    Val = VerifyPositiveIntegerConstantInClause(NumElements[I], OMPC_data);
-    if (Val.isInvalid())
-      return nullptr;
-    PrefetchArgs.push_back(Val.get());
   }
-  return OMPDataClause::Create(Context, StartLoc, EndLoc,
-                               PrefetchArgs);
+  for (auto *E : VarList) {
+    ExprResult Val;
+    Val = verifyDataClauseExpr(*this, E);
+    if (Val.isInvalid())
+      return nullptr;
+  }
+  return OMPDataClause::Create(Context, StartLoc, LParenLoc, EndLoc, Hint,
+                               VarList);
 }
 
 StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,

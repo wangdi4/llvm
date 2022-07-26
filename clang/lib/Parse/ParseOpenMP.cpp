@@ -3663,11 +3663,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 
     Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
     break;
-#if INTEL_COLLAB
-    case OMPC_data:
-      Clause = ParseOpenMPDataClause(WrongDirective);
-      break;
-#endif // INTEL_COLLAB
   case OMPC_device:
   case OMPC_schedule:
   case OMPC_dist_schedule:
@@ -3756,6 +3751,9 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_map:
   case OMPC_to:
   case OMPC_from:
+#if INTEL_COLLAB
+  case OMPC_data:
+#endif // INTEL_COLLAB
   case OMPC_use_device_ptr:
   case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
@@ -4928,6 +4926,18 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
     } else if (ParseOpenMPAllocateModifiers(DKind, Kind, Data,
                                             T.getOpenLocation()))
       return true;
+  } else if (Kind == OMPC_data) {
+    // Handle the optional 'hint'.
+    ColonProtectionRAIIObject ColonRAII(*this);
+    TentativeParsingAction TPA(*this);
+    ExprResult Val = ParseConstantExpression();
+    if (Val.isInvalid() || !Tok.is(tok::colon)) {
+      TPA.Revert();
+    } else {
+      Data.DepModOrTailExpr = Val.get();
+      ConsumeToken(); // consume the ':'.
+      TPA.Commit();
+    }
 #endif // INTEL_COLLAB
   } else if (Kind == OMPC_adjust_args) {
     // Handle adjust-op for adjust_args clause.
@@ -5314,98 +5324,6 @@ OMPClause *Parser::ParseOpenMPOmpxPlacesClause(bool ParseOnly) {
   return Actions.ActOnOpenMPOmpxPlacesClause(Modifier, Start.get(),
                                              Length.get(), Stride.get(),
                                              Loc, RLoc);
-}
-
-OMPClause *Parser::ParseOpenMPDataClause(bool ParseOnly) {
-  bool IsError = false;
-  SmallVector<Expr *> Addrs;
-  SmallVector<Expr *> Hints;
-  SmallVector<Expr *> NumElements;
-  SourceLocation LLoc = ConsumeToken();
-
-  // Parse '('.
-  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
-  if (T.expectAndConsume(diag::err_expected_lparen_after,
-                         getOpenMPClauseName(OMPC_data).data()))
-    return nullptr;
-
-  // Parse a data clause specification:
-  //   <address> ':' <hint> ':' <num_elements> ')'
-  // where both <hint> and <num_elements> must be unsigned integer constants.
-  //
-  // Note that multiple data clause specifications can be in a single data
-  // clause by separating them with a comma.
-  while (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end)) {
-    ColonProtectionRAIIObject ColonRAII(*this);
-    SourceLocation Loc = Tok.getLocation();
-    ExprResult LHS(ParseCastExpression(AnyCastExpr, false, NotTypeCast));
-    ExprResult Val = ParseRHSOfBinaryExpression(LHS, prec::Conditional);
-    Val = Actions.ActOnFinishFullExpr(Val.get(), Loc, /*DiscardedValue*/ false);
-    // Diagnose a bad address expression now, if we can. Otherwise, type
-    // dependent address expressions will get caught later after instantiation.
-    if (Val.isInvalid()) {
-      Diag(Loc, diag::err_prefetch_invalid_argument) << "prefetch data";
-      SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                StopBeforeMatch);
-      IsError = true;
-    }
-    Addrs.push_back(Val.get());
-    if (Tok.is(tok::colon)) {
-      // Parse <hint>
-      ConsumeToken();
-      Val = ParseConstantExpression();
-      if (!Val.isInvalid())
-        Hints.push_back(Val.get());
-      else {
-        IsError = true;
-        // Diagnostic will be emitted above when evaluating expression.
-        SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                  StopBeforeMatch);
-      }
-
-      if (Tok.is(tok::colon)) {
-        // Parse <num_elements>
-        ConsumeToken();
-        Val = ParseConstantExpression();
-        if (!Val.isInvalid())
-          NumElements.push_back(Val.get());
-        else {
-          IsError = true;
-          // Diagnostic will be emitted above when evaluating expression.
-          SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                    StopBeforeMatch);
-        }
-      } else {
-        IsError = true;
-        Diag(Tok, diag::err_expected) << tok::colon;
-        SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                  StopBeforeMatch);
-      }
-    } else if (Tok.isNot(tok::annot_pragma_openmp_end))  {
-      IsError = true;
-      Diag(Tok, diag::err_expected) << tok::colon;
-      SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                StopBeforeMatch);
-    }
-    if (Tok.is(tok::comma))
-      ConsumeToken();
-    else if (Tok.isNot(tok::annot_pragma_openmp_end) &&
-             Tok.isNot(tok::r_paren)) {
-      Diag(Tok, diag::err_pragma_omp_expected_comma) << "data";
-      SkipUntil(tok::r_paren, tok::annot_pragma_openmp_end, StopBeforeMatch);
-    }
-  }
-  // If unable to parse any one of the clause values.
-  IsError |=
-      (Addrs.size() == 0 ||
-      (Addrs.size() != Hints.size() || (Hints.size() != NumElements.size())));
-
-  SourceLocation RLoc = Tok.getLocation();
-  if (!T.consumeClose())
-    RLoc = T.getCloseLocation();
-  if (IsError || ParseOnly)
-    return nullptr;
-  return Actions.ActOnOpenMPDataClause(Addrs, Hints, NumElements, LLoc, RLoc);
 }
 
 /// Parses modifiers for allocate clause.
