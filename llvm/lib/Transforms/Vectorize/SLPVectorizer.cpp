@@ -2848,25 +2848,11 @@ private:
         Leaves.resize(OpIdx + 1);
         Leaves[OpIdx].resize(NumLanes);
 
-        // It is possible the original operands have been reordered,
-        // so we need to find out the actual operand number.
-        // TODO: since we then do reordering again across the entire
-        // MultiNode it is not clear if it really makes any profit. We
-        // probably can turn it off with no issues.
-        auto &&FindOperandNum = [&EI](const Instruction *I,
-                                      const Value *Op) -> int {
-          assert(isa<BinaryOperator>(I) && "Expected a binary Op");
-          // When instructoion is non-commutative reordering isn't legal.
-          // Or if both operands are same then no reason for reordering.
-          // We take data from EI in these cases.
-          if (!I->isCommutative() || I->getOperand(0) == I->getOperand(1))
-            return EI.EdgeIdx;
-          return I->getOperand(0) == Op ? 0 : 1;
-        };
-
         for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
           auto *Frontier = cast<Instruction>(EI.UserTE->Scalars[Lane]);
-          int OpNum = FindOperandNum(Frontier, OpVL[Lane]);
+          int OpNum = EI.EdgeIdx;
+          assert(Frontier->getOperand(OpNum) == OpVL[Lane] &&
+                 "Adding reordered operands to MultiNode?");
           Leaves[OpIdx][Lane] = {OpVL[Lane], Frontier, OpNum, EI.APOs[Lane]};
         }
       }
@@ -6116,7 +6102,6 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // only checks the immediate predecessors.
 
   VLOperands Ops(VL, *DL, *SE, *this);
-  Ops.reorder();
   unsigned OpNum = cast<Instruction>(VL[0])->getNumOperands();
   // We need to set the operands of the TE, otherwise the scheduler fails to
   // schedule VL.
