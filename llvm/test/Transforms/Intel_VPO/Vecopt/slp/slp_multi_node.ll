@@ -13,8 +13,8 @@ define void @simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
@@ -103,8 +103,8 @@ define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
