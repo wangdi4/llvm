@@ -2786,15 +2786,10 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
            // Don't insert type test assumes if we are forcing public
            // visibility.
            !CGM.AlwaysHasLTOVisibilityPublic(RD)) {
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-    llvm::Metadata *MD =
-        CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
-=======
     QualType Ty = QualType(RD->getTypeForDecl(), 0);
     llvm::Metadata *MD = CGM.CreateMetadataIdentifierForType(Ty);
->>>>>>> 2eade1dba4a8d6e1c6867e9127bcd88cf4e55976
     llvm::Value *TypeId =
         llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
