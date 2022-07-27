@@ -1158,6 +1158,8 @@ Error LTO::runRegularLTO(AddStreamFn AddStream) {
   updateVCallVisibilityInModule(*RegularLTO.CombinedModule,
                                 Conf.HasWholeProgramVisibility,
                                 DynamicExportSymbols);
+  updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
+                            Conf.HasWholeProgramVisibility);
 
   if (Conf.PreOptModuleHook &&
       !Conf.PreOptModuleHook(0, *RegularLTO.CombinedModule))
@@ -1537,6 +1539,8 @@ Error LTO::runThinLTO(AddStreamFn AddStream, FileCache Cache,
 
   std::set<GlobalValue::GUID> ExportedGUIDs;
 
+  if (hasWholeProgramVisibility(Conf.HasWholeProgramVisibility))
+    ThinLTO.CombinedIndex.setWithWholeProgramVisibility();
   // If allowed, upgrade public vcall visibility to linkage unit visibility in
   // the summaries before whole program devirtualization below.
   updateVCallVisibilityInIndex(ThinLTO.CombinedIndex,

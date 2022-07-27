@@ -505,6 +505,10 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
                      bool Freestanding, unsigned OptLevel, unsigned count,
                      bool UseNewPM, // INTEL
                      bool DebugPassManager) {
+  // See comment at call to updateVCallVisibilityInIndex() for why
+  // WholeProgramVisibilityEnabledInLTO is false.
+  updatePublicTypeTestCalls(TheModule,
+                            /* WholeProgramVisibilityEnabledInLTO */ false);
 
   // "Benchmark"-like optimization: single-source case
   bool SingleModule = (ModuleMap.size() == 1);
@@ -1111,6 +1115,8 @@ void ThinLTOCodeGenerator::run() {
   // Currently there is no support for enabling whole program visibility via a
   // linker option in the old LTO API, but this call allows it to be specified
   // via the internal option. Must be done before WPD below.
+  if (hasWholeProgramVisibility(/* WholeProgramVisibilityEnabledInLTO */ false))
+    Index->setWithWholeProgramVisibility();
   updateVCallVisibilityInIndex(*Index,
                                /* WholeProgramVisibilityEnabledInLTO */ false,
                                // FIXME: This needs linker information via a

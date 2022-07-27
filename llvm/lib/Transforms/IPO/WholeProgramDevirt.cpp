@@ -889,9 +889,10 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 #endif // INTEL_CUSTOMIZATION
 }
 
+namespace llvm {
 // Enable whole program visibility if enabled by client (e.g. linker) or
 // internal option, and not force disabled.
-static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
+bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
@@ -905,8 +906,6 @@ static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
          !DisableWholeProgramVisibility;
 }
 
-namespace llvm {
-
 /// If whole program visibility asserted, then upgrade all public vcall
 /// visibility metadata on vtable definitions to linkage unit visibility in
 /// Module IR (for regular or hybrid LTO).
@@ -915,7 +914,7 @@ void updateVCallVisibilityInModule(
     const DenseSet<GlobalValue::GUID> &DynamicExportSymbols) {
   if (!hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO))
     return;
-  for (GlobalVariable &GV : M.globals())
+  for (GlobalVariable &GV : M.globals()) {
     // Add linkage unit visibility to any variable with type metadata, which are
     // the vtable definitions. We won't have an existing vcall_visibility
     // metadata on vtable definitions with public visibility.
@@ -925,6 +924,34 @@ void updateVCallVisibilityInModule(
         // linker, as we have no information on their eventual use.
         !DynamicExportSymbols.count(GV.getGUID()))
       GV.setVCallVisibilityMetadata(GlobalObject::VCallVisibilityLinkageUnit);
+  }
+}
+
+void updatePublicTypeTestCalls(Module &M,
+                               bool WholeProgramVisibilityEnabledInLTO) {
+  Function *PublicTypeTestFunc =
+      M.getFunction(Intrinsic::getName(Intrinsic::public_type_test));
+  if (!PublicTypeTestFunc)
+    return;
+  if (hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO)) {
+    Function *TypeTestFunc =
+        Intrinsic::getDeclaration(&M, Intrinsic::type_test);
+    for (Use &U : make_early_inc_range(PublicTypeTestFunc->uses())) {
+      auto *CI = cast<CallInst>(U.getUser());
+      auto *NewCI = CallInst::Create(
+          TypeTestFunc, {CI->getArgOperand(0), CI->getArgOperand(1)}, None, "",
+          CI);
+      CI->replaceAllUsesWith(NewCI);
+      CI->eraseFromParent();
+    }
+  } else {
+    auto *True = ConstantInt::getTrue(M.getContext());
+    for (Use &U : make_early_inc_range(PublicTypeTestFunc->uses())) {
+      auto *CI = cast<CallInst>(U.getUser());
+      CI->replaceAllUsesWith(True);
+      CI->eraseFromParent();
+    }
+  }
 }
 
 /// If whole program visibility asserted, then upgrade all public vcall
