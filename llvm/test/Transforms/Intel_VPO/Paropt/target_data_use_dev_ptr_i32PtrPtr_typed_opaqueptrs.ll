@@ -23,6 +23,25 @@
 ;   } // end target data
 ; }
 
+; This test is a version of target_data_use_dev_ptr_i32PtrPtr.ll that uses a typed
+; clause for use_device_ptr.
+
+; Check that the map created for %array_device has the correct map-type (64)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
+
+; Check that there is a new copy of %array_device created.
+; CHECK: %array_device.new = alloca ptr
+
+; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
+; CHECK: call void @__tgt_target_data_begin({{.+}})
+
+; Check that %array_device.new is initialized using the updated value of %array_device
+; CHECK: %array_device.updated.val = load ptr, ptr [[GEP]]
+; CHECK: store ptr %array_device.updated.val, ptr %array_device.new
+
+; Check that call to outlined function for target data uses %array_device.new
+; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(ptr %array_device.new)
+
 source_filename = "target_data_use_dev_ptr.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -42,23 +61,7 @@ entry:
   %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx1)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
-    "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(ptr %array_device) ]
-
-; Check that the map created for %array_device has the correct map-type (64)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
-
-; Check that there is a new copy of %array_device created.
-; CHECK: %array_device.new = alloca ptr
-
-; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
-; CHECK: call void @__tgt_target_data_begin({{.+}})
-
-; Check that %array_device.new is initialized using the updated value of %array_device
-; CHECK: %array_device.updated.val = load ptr, ptr [[GEP]]
-; CHECK: store ptr %array_device.updated.val, ptr %array_device.new
-
-; Check that call to outlined function for target data uses %array_device.new
-; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(ptr %array_device.new)
+    "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR.TYPED"(ptr %array_device, i32 0, i64 1) ]
 
   %2 = load ptr, ptr %array_device, align 8
   %arrayidx2 = getelementptr inbounds i32, ptr %2, i64 0
