@@ -50,7 +50,6 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 /// VarAnnotIntrinsic - This is the common base class for var.annotation
@@ -71,7 +70,7 @@ bool VarAnnotIntrinsic::hasRegisterAttributeSet() const{
   return false;
 }
 #endif  //INTEL_CUSTOMIZATION
-=======
+
 bool IntrinsicInst::mayLowerToFunctionCall(Intrinsic::ID IID) {
   switch (IID) {
   case Intrinsic::objc_autorelease:
@@ -104,7 +103,6 @@ bool IntrinsicInst::mayLowerToFunctionCall(Intrinsic::ID IID) {
     return false;
   }
 }
->>>>>>> 1e308204838b5edc5ffbd775896a004edb08c60a
 
 //===----------------------------------------------------------------------===//
 /// DbgVariableIntrinsic - This is the common base class for debug info

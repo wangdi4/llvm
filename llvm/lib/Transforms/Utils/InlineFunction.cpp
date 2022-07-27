@@ -881,7 +881,11 @@ static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
 
 /// Bundle operands of the inlined function must be added to inlined call sites.
 static void PropagateOperandBundles(Function::iterator InlinedBB,
-                                    Instruction *CallSiteEHPad) {
+                                    Instruction *CallSiteEHPad,
+#if INTEL_CUSTOMIZATION
+                                    InlineReport *IR,
+                                    InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   for (Instruction &II : llvm::make_early_inc_range(*InlinedBB)) {
     CallBase *I = dyn_cast<CallBase>(&II);
     if (!I)
@@ -902,6 +906,12 @@ static void PropagateOperandBundles(Function::iterator InlinedBB,
     OpBundles.emplace_back("funclet", CallSiteEHPad);
 
     Instruction *NewInst = CallBase::Create(I, OpBundles, I);
+#if INTEL_CUSTOMIZATION
+    if (IR && IR->isClassicIREnabled())
+      IR->updateActiveCallSiteTarget(I, NewInst);
+    if (MDIR && MDIR->isMDIREnabled())
+      MDIR->updateActiveCallSiteTarget(I, NewInst);
+#endif // INTEL_CUSTOMIZATION
     NewInst->takeName(I);
     I->replaceAllUsesWith(NewInst);
     I->eraseFromParent();
@@ -2938,44 +2948,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     for (Function::iterator BB = FirstNewBlock->getIterator(),
                             E = Caller->end();
          BB != E; ++BB) {
-<<<<<<< HEAD
-      // Add bundle operands to any top-level call sites.
-      SmallVector<OperandBundleDef, 1> OpBundles;
-      for (Instruction &II : llvm::make_early_inc_range(*BB)) {
-        CallBase *I = dyn_cast<CallBase>(&II);
-        if (!I)
-          continue;
-
-        // Skip call sites which are nounwind intrinsics.
-        auto *CalledFn =
-            dyn_cast<Function>(I->getCalledOperand()->stripPointerCasts());
-        if (CalledFn && CalledFn->isIntrinsic() && I->doesNotThrow())
-          continue;
-
-        // Skip call sites which already have a "funclet" bundle.
-        if (I->getOperandBundle(LLVMContext::OB_funclet))
-          continue;
-
-        I->getOperandBundlesAsDefs(OpBundles);
-        OpBundles.emplace_back("funclet", CallSiteEHPad);
-
-        Instruction *NewInst = CallBase::Create(I, OpBundles, I);
-#if INTEL_CUSTOMIZATION
-        if (IR && IR->isClassicIREnabled())
-          IR->updateActiveCallSiteTarget(I, NewInst);
-        if (MDIR && MDIR->isMDIREnabled())
-          MDIR->updateActiveCallSiteTarget(I, NewInst);
-#endif // INTEL_CUSTOMIZATION
-        NewInst->takeName(I);
-        I->replaceAllUsesWith(NewInst);
-        I->eraseFromParent();
-
-        OpBundles.clear();
-      }
-=======
       // Add bundle operands to inlined call sites.
-      PropagateOperandBundles(BB, CallSiteEHPad);
->>>>>>> 1e308204838b5edc5ffbd775896a004edb08c60a
+#if INTEL_CUSTOMIZATION
+      PropagateOperandBundles(BB, CallSiteEHPad, IR, MDIR);
+#endif // INTEL_CUSTOMIZATION
 
       // It is problematic if the inlinee has a cleanupret which unwinds to
       // caller and we inline it into a call site which doesn't unwind but into
