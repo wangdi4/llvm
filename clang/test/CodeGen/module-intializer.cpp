@@ -2,32 +2,32 @@
 // RUN: split-file %s %t
 // RUN: cd %t
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 N.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 N.cpp \
 // RUN:    -emit-module-interface -o N.pcm
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 N.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 N.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-N
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 O.cpp \
 // RUN:    -emit-module-interface -o O.pcm
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 O.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 O.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-O
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M-part.cpp \
 // RUN:    -emit-module-interface -o M-part.pcm
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-part.pcm -S \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M-part.pcm -S \
 // RUN: -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-P
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M.cpp \
 // RUN: -fmodule-file=N.pcm -fmodule-file=O.pcm -fmodule-file=M-part.pcm \
 // RUN:    -emit-module-interface -o M.pcm
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M.pcm -S -emit-llvm \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M.pcm -S -emit-llvm \
 // RUN:  -o - | FileCheck %s --check-prefix=CHECK-M
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 useM.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 useM.cpp \
 // RUN: -fmodule-file=M.pcm -S -emit-llvm  -o - \
 // RUN: | FileCheck %s --check-prefix=CHECK-USE
 
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 M-impl.cpp \
+// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 M-impl.cpp \
 // RUN: -fmodule-file=M.pcm -S -emit-llvm  -o - \
 // RUN: | FileCheck %s --check-prefix=CHECK-IMPL
 
