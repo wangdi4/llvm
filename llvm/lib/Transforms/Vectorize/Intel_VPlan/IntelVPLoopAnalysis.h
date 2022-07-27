@@ -521,9 +521,9 @@ public:
   VPCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
                         VPInstruction *LiveOut,
                         const SmallVectorImpl<IncrementInfoTy> &Increments,
-                        const SmallVectorImpl<VPInstruction *> &Stores,
-                        const SmallVectorImpl<VPInstruction *> &Loads,
-                        const SmallVectorImpl<VPValue *> &Indices)
+                        const SmallVectorImpl<VPLoadStoreInst *> &Stores,
+                        const SmallVectorImpl<VPLoadStoreInst *> &Loads,
+                        const SmallVectorImpl<VPInstruction *> &Indices)
       : VPLoopEntity(CompressExpand, false), RecurrentPhi(RecurrentPhi),
         LiveIn(LiveIn), LiveOut(LiveOut),
         Increments(Increments.begin(), Increments.end()),
@@ -551,9 +551,9 @@ private:
   VPInstruction *LiveOut;
 
   SmallVector<IncrementInfoTy, 4> Increments;
-  SmallVector<VPInstruction *, 4> Stores;
-  SmallVector<VPInstruction *, 4> Loads;
-  SmallVector<VPValue *, 4> Indices;
+  SmallVector<VPLoadStoreInst *, 4> Stores;
+  SmallVector<VPLoadStoreInst *, 4> Loads;
+  SmallVector<VPInstruction *, 4> Indices;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -684,9 +684,9 @@ public:
   addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
                          VPInstruction *LiveOut,
                          const SmallVectorImpl<IncrementInfoTy> &Increments,
-                         const SmallVectorImpl<VPInstruction *> &Stores,
-                         const SmallVectorImpl<VPInstruction *> &Loads,
-                         const SmallVectorImpl<VPValue *> &Indices);
+                         const SmallVectorImpl<VPLoadStoreInst *> &Stores,
+                         const SmallVectorImpl<VPLoadStoreInst *> &Loads,
+                         const SmallVectorImpl<VPInstruction *> &Indices);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
   /// and check/create links to VPInstructions.
@@ -775,6 +775,14 @@ public:
   inline decltype(auto) vpinductions() const {
     return map_range(make_range(InductionList.begin(), InductionList.end()),
                      getRawPointer<VPInduction>);
+  }
+
+  // Return the iterator-range to the list of compress/expand idiom
+  // loop-entities.
+  inline decltype(auto) vpceidioms() const {
+    return map_range(make_range(ComressExpandIdiomList.begin(),
+                                ComressExpandIdiomList.end()),
+                     getRawPointer<VPCompressExpandIdiom>);
   }
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) const {
@@ -1037,6 +1045,11 @@ private:
   // Insert VPInstructions related to VPPrivates.
   void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader,
                                    VPBasicBlock *PostExit);
+
+  // Insert VPInstructions related to VPCompressExpandIdioms.
+  void insertCompressExpandVPInstructions(VPBuilder &Builder,
+                                          VPBasicBlock *Preheader,
+                                          VPBasicBlock *PostExit);
 
   // Each update/store in the chain from the outer vectorized loop header to
   // liveout instruction is accompanied by the assignment/store of the loop
@@ -1509,9 +1522,9 @@ class CompressExpandIdiomDescr : public VPEntityImportDescr {
   using IncrementInfoTy = VPCompressExpandIdiom::IncrementInfoTy;
 
   SmallVector<IncrementInfoTy> Increments;
-  SmallVector<VPInstruction *, 4> Stores;
-  SmallVector<VPInstruction *, 4> Loads;
-  SmallVector<VPValue *, 4> Indices;
+  SmallVector<VPLoadStoreInst *, 4> Stores;
+  SmallVector<VPLoadStoreInst *, 4> Loads;
+  SmallVector<VPInstruction *, 4> Indices;
 
   VPPHINode *RecurrentPhi = nullptr;
   VPValue *LiveIn = nullptr;
@@ -1523,9 +1536,9 @@ public:
   void addIncrement(VPInstruction *VPInst, int64_t Stride) {
     Increments.push_back({VPInst, Stride});
   }
-  void addStore(VPInstruction *VPInst) { Stores.push_back(VPInst); }
-  void addLoad(VPInstruction *VPInst) { Loads.push_back(VPInst); }
-  void addIndex(VPValue *VPVal) { Indices.push_back(VPVal); }
+  void addStore(VPLoadStoreInst *VPInst) { Stores.push_back(VPInst); }
+  void addLoad(VPLoadStoreInst *VPInst) { Loads.push_back(VPInst); }
+  void addIndex(VPInstruction *VPVal) { Indices.push_back(VPVal); }
 
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.

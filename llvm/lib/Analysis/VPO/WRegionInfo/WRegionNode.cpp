@@ -989,13 +989,30 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
 
     if (IsTyped) {
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
-              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED) &&
+              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED ||
+              ClauseID == QUAL_OMP_USE_DEVICE_PTR ||
+              ClauseID == QUAL_OMP_USE_DEVICE_ADDR) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");
       C.setClauseID(ClauseID);
       C.back()->setIsTyped(true);
-      C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+      Type *Arg1Ty = Args[1]->getType();
+      if (IsPointerToPointer) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        C.back()->setOrigItemElementTypeFromIR(PointerType::get(Arg1Ty, AS));
+        C.back()->setPointeeElementTypeFromIR(Arg1Ty);
+      } else {
+        C.back()->setOrigItemElementTypeFromIR(Arg1Ty);
+      }
+#if INTEL_CUSTOMIZATION
+      if (ClauseInfo.getIsF90DopeVector()) {
+        C.back()->setPointeeElementTypeFromIR(Args[2]->getType());
+        C.back()->setNumElements(
+            ConstantInt::get(Type::getInt32Ty(Args[2]->getContext()), 1));
+      } else
+#endif // INTEL_CUSTOMIZATION
       C.back()->setNumElements(Args[2]);
       break;
     }

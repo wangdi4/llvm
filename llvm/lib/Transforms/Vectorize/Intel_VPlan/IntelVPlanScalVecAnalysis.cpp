@@ -685,6 +685,53 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::CompressStore: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressStoreNonu: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    return true;
+  }
+  case VPInstruction::ExpandLoad: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::ExpandLoadNonu: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexInit: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexFinal: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndex: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+  case VPInstruction::CompressExpandIndexInc: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -1003,6 +1050,14 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ExtractLastVectorLane:
   case VPInstruction::RunningInclusiveReduction:
   case VPInstruction::RunningExclusiveReduction:
+  case VPInstruction::CompressStore:
+  case VPInstruction::CompressStoreNonu:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::ExpandLoadNonu:
+  case VPInstruction::CompressExpandIndexInit:
+  case VPInstruction::CompressExpandIndexFinal:
+  case VPInstruction::CompressExpandIndex:
+  case VPInstruction::CompressExpandIndexInc:
     return true;
   default:
     return false;

@@ -387,6 +387,10 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
     return true;
 }
 
+std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
+  return std::map<int, int>{};
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the ID of the CPU the current thread is running on
 ////////////////////////////////////////////////////////////////////

@@ -211,6 +211,14 @@ public:
   bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
+  PointerType *getDefaultPointerType() {
+        assert(F && "Function cannot be null.");
+        const Module *M = F->getParent();
+        assert(M && "Function is not in a module?");
+        unsigned AS = M ? WRegionUtils::getDefaultAS(M) : 0;
+        return PointerType::get(M->getContext(), AS);
+  }
+
 #if INTEL_CUSTOMIZATION
   /// Interfaces for data sharing optimization.
   bool optimizeDataSharingForPrivateItems(
@@ -1149,6 +1157,9 @@ private:
 
   /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
+
+  /// Reset the expression value in livein clause to be empty.
+  void resetValueInLiveinClause(WRegionNode *W);
 
   /// Reset the expression value in Subdevice clause to be empty.
   void resetValueInSubdeviceClause(WRegionNode* W);

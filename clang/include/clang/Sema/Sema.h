@@ -12001,10 +12001,9 @@ public:
       SourceLocation StartLoc,
       SourceLocation EndLoc);
   /// Called on well-formed 'data' clause.
-  OMPClause *ActOnOpenMPDataClause(ArrayRef<Expr *> Vars,
-                                   ArrayRef<Expr *> Hints,
-                                   ArrayRef<Expr *> NumElements,
+  OMPClause *ActOnOpenMPDataClause(Expr *Hint, ArrayRef<Expr *> VarList,
                                    SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
                                    SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

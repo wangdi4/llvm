@@ -496,9 +496,9 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
 VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
     VPPHINode *RecurrentPhi, VPValue *LiveIn, VPInstruction *LiveOut,
     const SmallVectorImpl<IncrementInfoTy> &Increments,
-    const SmallVectorImpl<VPInstruction *> &Stores,
-    const SmallVectorImpl<VPInstruction *> &Loads,
-    const SmallVectorImpl<VPValue *> &Indices) {
+    const SmallVectorImpl<VPLoadStoreInst *> &Stores,
+    const SmallVectorImpl<VPLoadStoreInst *> &Loads,
+    const SmallVectorImpl<VPInstruction *> &Indices) {
 
   VPCompressExpandIdiom *CEIdiom = new VPCompressExpandIdiom(
       RecurrentPhi, LiveIn, LiveOut, Increments, Stores, Loads, Indices);
@@ -511,13 +511,13 @@ VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
   for (const IncrementInfoTy &Info : Increments)
     linkValue(ComressExpandIdiomMap, CEIdiom, Info.VPInst);
 
-  for (VPInstruction *VPInst : Stores)
+  for (VPLoadStoreInst *VPInst : Stores)
     linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
 
-  for (VPInstruction *VPInst : Loads)
+  for (VPLoadStoreInst *VPInst : Loads)
     linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
 
-  for (VPValue *VPVal : Indices)
+  for (VPInstruction *VPVal : Indices)
     linkValue(ComressExpandIdiomMap, CEIdiom, VPVal);
 
   return CEIdiom;
@@ -1872,6 +1872,116 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   LLVM_DEBUG(Preheader->dump());
 }
 
+// Insert VPInstructions related to VPCompressExpandIdioms.
+void VPLoopEntityList::insertCompressExpandVPInstructions(
+    VPBuilder &Builder, VPBasicBlock *Preheader, VPBasicBlock *PostExit) {
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+  for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
+
+    Builder.setInsertPoint(Preheader);
+
+    assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
+    VPInstruction *Init =
+        Builder.createNaryOp(VPInstruction::CompressExpandIndexInit,
+                             CEIdiom->LiveIn->getType(), CEIdiom->LiveIn);
+
+    assert(CEIdiom->RecurrentPhi && "Expected a valid recurrent phi value.");
+    CEIdiom->RecurrentPhi->replaceUsesOfWith(CEIdiom->LiveIn, Init);
+
+    VPValue *Exit = CEIdiom->LiveOut;
+    for (auto It = CEIdiom->RecurrentPhi->op_begin();
+         (!Exit || Exit == Init) && It != CEIdiom->RecurrentPhi->op_end(); It++)
+      Exit = *It;
+    Builder.setInsertPoint(PostExit);
+    VPInstruction *Final = Builder.createNaryOp(
+        VPInstruction::CompressExpandIndexFinal, Exit->getType(), {});
+    if (CEIdiom->LiveOut)
+      CEIdiom->LiveOut->replaceAllUsesWith(Final);
+    Final->addOperand(Exit);
+
+    int64_t StrideTotal = 0;
+    for (IncrementInfoTy &Info : CEIdiom->Increments)
+      StrideTotal += Info.Stride;
+    assert(StrideTotal > 0 && "Expected a non-zero total stride.");
+
+    for (VPLoadStoreInst *Store : CEIdiom->Stores) {
+      Builder.setInsertPoint(Store);
+      Builder.create<VPLoadStoreInst>(
+          "",
+          StrideTotal == 1 ? VPInstruction::CompressStore
+                           : VPInstruction::CompressStoreNonu,
+          Store->getType(),
+          ArrayRef<VPValue *>(Store->op_begin(), Store->op_end()));
+      Store->getParent()->eraseInstruction(Store);
+    }
+    CEIdiom->Stores.clear();
+
+    for (VPLoadStoreInst *Load : CEIdiom->Loads) {
+      Builder.setInsertPoint(Load);
+      VPLoadStoreInst *ExpandLoad = Builder.create<VPLoadStoreInst>(
+          "",
+          StrideTotal == 1 ? VPInstruction::ExpandLoad
+                           : VPInstruction::ExpandLoadNonu,
+          Load->getType(), Load->getPointerOperand());
+      Load->replaceAllUsesWith(ExpandLoad);
+      Load->getParent()->eraseInstruction(Load);
+    }
+    CEIdiom->Loads.clear();
+
+    if (StrideTotal != 1)
+      for (VPInstruction *Index : CEIdiom->Indices) {
+        VPConstant *Stride =
+            Plan.getVPConstant(ConstantInt::get(Index->getType(), StrideTotal));
+        Builder.setInsertPoint(Index->getParent(),
+                               std::next(Index->getIterator()));
+        VPInstruction *CEIndex = Builder.createNaryOp(
+            VPInstruction::CompressExpandIndex, Index->getType(), {});
+        Index->replaceAllUsesWith(CEIndex);
+        CEIndex->addOperand(Index);
+        CEIndex->addOperand(Stride);
+      }
+    CEIdiom->Indices.clear();
+
+    std::function<VPValue *(VPInstruction *)> FindOrigIndex =
+        [&](VPInstruction *I) -> VPValue * {
+      for (auto *Op : I->operands()) {
+        if (Op == CEIdiom->RecurrentPhi)
+          return Op;
+        // Can be replaced already.
+        if (VPInstruction *VPInst = dyn_cast<VPInstruction>(Op))
+          if (VPInst->getOpcode() == VPInstruction::CompressExpandIndexInc)
+            return Op;
+        // Find if it is not replaced yet.
+        for (IncrementInfoTy &Incr : CEIdiom->Increments)
+          if (Op == Incr.VPInst)
+            return Op;
+      }
+      if (I->getOpcode() == Instruction::Add)
+        for (auto *Op : I->operands())
+          if (VPInstruction *Inst = dyn_cast<VPInstruction>(Op))
+            if (VPValue *Val = FindOrigIndex(Inst))
+              return Val;
+      return nullptr;
+    };
+
+    for (IncrementInfoTy &Info : CEIdiom->Increments) {
+      VPValue *OrigIndex = FindOrigIndex(Info.VPInst);
+      assert(OrigIndex && "Original index was unexpectedly not found");
+
+      Builder.setInsertPoint(Info.VPInst);
+      VPConstant *Stride = Plan.getVPConstant(
+          ConstantInt::get(Info.VPInst->getType(), Info.Stride));
+      VPInstruction *CEIndexInc =
+          Builder.createNaryOp(VPInstruction::CompressExpandIndexInc,
+                               Info.VPInst->getType(), {OrigIndex, Stride});
+      Info.VPInst->replaceAllUsesWith(CEIndexInc);
+      Info.VPInst->getParent()->eraseInstruction(Info.VPInst);
+    }
+    CEIdiom->Increments.clear();
+  }
+}
+
 // Check whether last private phi has correct users. The correct user is
 // either phi or select instructions, or hir-copy, or \p ExitI. Other uses mean
 // that we have a dependency between loop iterations and thus we can't vectorize
@@ -2099,6 +2209,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
   // Insert VPInstructions related to VPPrivates.
   insertPrivateVPInstructions(Builder, Preheader, PostExit);
+
+  // Insert VPInstructions related to VPCompressExpandIdioms.
+  insertCompressExpandVPInstructions(Builder, Preheader, PostExit);
 }
 
 // Create close-form calculation for induction.
@@ -3164,16 +3277,13 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
          "At least one load or store instruction is expected.");
   assert(!Indices.empty() && "At least one index is expected.");
 
-  std::function<bool(VPValue *)> GatherIdiomInfo = [&](VPValue *V) {
-    VPInstruction *I = dyn_cast<VPInstruction>(V);
-    if (!I)
-      return true;
-
+  std::function<bool(VPInstruction *)> GatherIdiomInfo = [&](VPInstruction *I) {
     if (I->getOpcode() == Instruction::Add) {
 
       for (VPValue *Op : I->operands())
-        if (!GatherIdiomInfo(Op))
-          return false;
+        if (auto *Inst = dyn_cast<VPInstruction>(Op))
+          if (!GatherIdiomInfo(Inst))
+            return false;
 
     } else if (auto *VPPhi = dyn_cast<VPPHINode>(I)) {
 

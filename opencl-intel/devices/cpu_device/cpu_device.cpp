@@ -428,16 +428,15 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 ///   GetProcessorIndexFromNumaNode returns
 ///     node0 [0,1,...,27,56,67,...,83] and node1 [28,29,...,55,84,85,...,111]
 ///   This function returns [0,56,1,67,...,27,83,  28,84,29,85,...,55,111]
-static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores) {
+static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores,
+                                                  bool HTEnabled) {
   std::vector<unsigned> processorMap(numCores);
   std::iota(processorMap.begin(), processorMap.end(), 0);
 
-  const unsigned numNodes = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  const unsigned numNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
   if (numNodes <= 1)
     return processorMap;
 
-  const bool hyperThreadEnabled =
-      Intel::OpenCL::Utils::IsHyperThreadingEnabled();
   const unsigned numCoresPerNode = numCores / numNodes;
   for (unsigned s = 0; s < numNodes; ++s) {
     std::vector<cl_uint> index;
@@ -448,7 +447,7 @@ static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores) {
     // mask is set, e.g. by sched_setaffinity.
     if (!res || index.size() != numCoresPerNode)
       break;
-    if (hyperThreadEnabled) {
+    if (HTEnabled) {
       for (unsigned i = 0; i < numCoresPerNode; ++i)
         processorMap[s * numCoresPerNode + i] =
             index[(i / 2) + (i % 2) * (numCoresPerNode / 2)];
@@ -461,143 +460,166 @@ static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores) {
   return processorMap;
 }
 
-void CPUDevice::calculateComputeUnitMap()
-{
-    // default mapping
-    for (unsigned int i = 0; i < m_numCores; i++)
-        m_pComputeUnitMap[i] = i;
+void CPUDevice::calculateComputeUnitMap() {
+  // default mapping
+  for (unsigned int i = 0; i < m_numCores; i++)
+    m_pComputeUnitMap[i] = i;
 
 #ifndef WIN32
-    //For Linux, respect the process affinity mask in determining which cores to run on
-    affinityMask_t myParentMask;
-    threadid_t     myParentId = clMyParentThreadId();
-    clGetThreadAffinityMask(&myParentMask, myParentId);
-    clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
+  // For Linux, respect the process affinity mask in determining which cores to
+  // run on
+  affinityMask_t myParentMask;
+  threadid_t myParentId = clMyParentThreadId();
+  clGetThreadAffinityMask(&myParentMask, myParentId);
+  clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
 
-    const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  const unsigned numNumaNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
 
-    // Prevent divide by 0.
-    if (m_numCores <= 1 || numSockets == 0)
-      return;
+  // Prevent divide by 0.
+  if (m_numCores <= 1 || numSockets == 0 || numNumaNodes == 0)
+    return;
 
-    // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
-    // affinity, similar to OMP_PROC_BIND in OpenMP.
-    // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
-    std::string env_dpcpp_affinity;
-    if (!Intel::OpenCL::Utils::getEnvVar(env_dpcpp_affinity,
-                                         "DPCPP_CPU_CU_AFFINITY"))
-      return;
+  // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
+  // affinity, similar to OMP_PROC_BIND in OpenMP.
+  // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
+  std::string envAffinity;
+  if (!Intel::OpenCL::Utils::getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY"))
+    return;
 
-    CPU_CU_AFFINITY affinity;
-    if ("close" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_CLOSE;
-    else if ("spread" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_SPREAD;
-    else if ("master" == env_dpcpp_affinity)
-        affinity = CPU_CU_AFFINITY_MASTER;
-    else
+  envAffinity = StringRef(envAffinity).lower();
+  CPU_CU_AFFINITY affinity;
+  if ("close" == envAffinity)
+    affinity = CPU_CU_AFFINITY_CLOSE;
+  else if ("spread" == envAffinity)
+    affinity = CPU_CU_AFFINITY_SPREAD;
+  else if ("master" == envAffinity)
+    affinity = CPU_CU_AFFINITY_MASTER;
+  else
+    return;
+
+  // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
+  // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
+  // set correctly.
+  m_pinMaster = true;
+
+  // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
+  // which place to set affinity, analogous to OMP_PLACES in OpenMP.
+  // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
+  // Default value is cores.
+  // If value is numa_domains, TBB NUMA API will be used.
+  std::string places = "cores";
+  (void)Intel::OpenCL::Utils::getEnvVar(places, "DPCPP_CPU_PLACES");
+  places = StringRef(places).lower();
+  if ("sockets" != places && "numa_domains" != places && "cores" != places &&
+      "threads" != places)
+    return;
+
+  // Assume we have a system of 2 sockets, 1 numa node per socket, 4 physical
+  // cores per numa node.
+  // Case 1: HT is enabled (2 HT threads per core).
+  //
+  // If DPCPP_CPU_NUM_CUS=16,
+  // DPCPP_CPU_PLACES=sockets,
+  //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  // DPCPP_CPU_PLACES=cores,
+  //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
+  //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  // DPCPP_CPU_PLACES=threads,
+  //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+  //
+  // If DPCPP_CPU_NUM_CUS=8,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
+  //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
+  //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
+  // S is socket, T is tbb thread, and - denotes unused core.
+  //
+  // Case 2: HT is disabled.
+  //
+  // If DPCPP_CPU_NUM_CUS=8,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+  //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
+  //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+  //
+  // If DPCPP_CPU_NUM_CUS=4,
+  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
+  //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
+  //   master: S0:[T0 T1 T2 T3]     S1:[]
+
+  const bool HTEnabled = Intel::OpenCL::Utils::IsHyperThreadingEnabled();
+  std::vector<unsigned> processorMap =
+      getProcessorIndexMap(m_numCores, HTEnabled);
+
+  const unsigned numCoresPerSocket = m_numCores / numSockets;
+  std::vector<std::vector<int>> coresPerSocket(numSockets);
+  if (HTEnabled && "sockets" == places) {
+    std::map<int, int> coreToSocket =
+        Intel::OpenCL::Utils::GetProcessorToSocketMap();
+    for (unsigned i = 0; i < m_numCores; ++i)
+      coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
+    for (auto &C : coresPerSocket)
+      if (C.size() < numCoresPerSocket)
         return;
+  }
 
-    // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
-    // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
-    // set correctly.
-    m_pinMaster = true;
+  const size_t numTbbThreads =
+      TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
+  const unsigned numCoresPerNumaNode = m_numCores / numNumaNodes;
+  const unsigned numCoresHalf = m_numCores / 2;
 
-    // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
-    // which place to set affinity, analogous to OMP_PLACES in OpenMP.
-    // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
-    // Default value is cores.
-    // If value is numa_domains, TBB NUMA API will be used.
-    std::string places = "cores";
-    (void)Intel::OpenCL::Utils::getEnvVar(places, "DPCPP_CPU_PLACES");
+  std::vector<unsigned> dpcppAffinityMap(m_numCores);
 
-    // Assume we have a 2 sockets, 4 physical cores per socket
-    // Case 1: HT is enabled (2 HT threads per core).
-    //
-    // If DPCPP_CPU_NUM_CUS=16,
-    // DPCPP_CPU_PLACES=sockets,
-    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    // DPCPP_CPU_PLACES=cores,
-    //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
-    //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    // DPCPP_CPU_PLACES=threads,
-    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-    //
-    // If DPCPP_CPU_NUM_CUS=8,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
-    //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
-    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
-    // S is socket, T is tbb thread, and - denotes unused core.
-    //
-    // Case 2: HT is disabled.
-    //
-    // If DPCPP_CPU_NUM_CUS=8,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
-    //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
-    //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
-    //
-    // If DPCPP_CPU_NUM_CUS=4,
-    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
-    //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
-    //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
-    //   master: S0:[T0 T1 T2 T3]     S1:[]
-
-    const size_t numTbbThreads =
-        TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
-    const unsigned int numCoresPerSocket = m_numCores / numSockets;
-    const unsigned int numCoresHalf = m_numCores / 2;
-
-    std::vector<unsigned int> dpcppAffinityMap(m_numCores);
-
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        unsigned int j = i;
-        if (CPU_CU_AFFINITY_CLOSE == affinity) {
-            if (numTbbThreads <= numCoresHalf)
-                j = i * 2;
-            else if ("cores" == places)
-                j = (i % numCoresHalf) * 2 + (i / numCoresHalf);
-        }
-        if (CPU_CU_AFFINITY_SPREAD == affinity) {
-            j = (i % numSockets) * numCoresPerSocket;
-            if (numTbbThreads <= numCoresHalf)
-                j += (i / numSockets) * 2;
-            else {
-                if (Intel::OpenCL::Utils::IsHyperThreadingEnabled() &&
-                    "cores" == places) {
-                    j += ((i - (i % numSockets)) % numCoresHalf) /
-                             numSockets * 2 +
-                         (i / numCoresHalf);
-                } else
-                    j += i / numSockets;
-            }
-        }
-        dpcppAffinityMap[i] = j;
+  for (unsigned i = 0; i < m_numCores; i++) {
+    unsigned j = i;
+    if (CPU_CU_AFFINITY_CLOSE == affinity) {
+      if (numTbbThreads <= numCoresHalf)
+        j = i * 2;
+      else if ("cores" == places)
+        j = (i % numCoresHalf) * 2 + (i / numCoresHalf);
     }
-
-    // Apply mapping.
-    // dpcppAffinityMap's values can be out of range if number of cores in
-    // myParentMask is larger than numTbbThreads when numTbbThreads is set by
-    // DPCPP_CPU_NUM_CUS.
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        if (dpcppAffinityMap[i] < m_numCores)
-            dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+    if (CPU_CU_AFFINITY_SPREAD == affinity) {
+      j = (i % numNumaNodes) * numCoresPerNumaNode;
+      if (numTbbThreads <= numCoresHalf) {
+        if (HTEnabled && "sockets" == places)
+          j = coresPerSocket[i % numSockets][std::min((i / numSockets) * 2,
+                                                      numCoresPerSocket - 1)];
+        else
+          j += (i / numNumaNodes) * 2;
+      } else {
+        if (HTEnabled && "cores" == places)
+          j += ((i - (i % numNumaNodes)) % numCoresHalf) / numNumaNodes * 2 +
+               (i / numCoresHalf);
+        else if (HTEnabled && "sockets" == places)
+          j = coresPerSocket[i % numSockets][i / numSockets];
+        else
+          j += i / numNumaNodes;
+      }
     }
-    for (unsigned int i = 0; i < m_numCores; i++) {
-        if (dpcppAffinityMap[i] < m_numCores)
-            m_pComputeUnitMap[i] = dpcppAffinityMap[i];
-    }
+    dpcppAffinityMap[i] = j;
+  }
 
-    std::vector<unsigned> processorMap = getProcessorIndexMap(m_numCores);
-    for (unsigned int i = 0; i < m_numCores; i++)
-        m_pComputeUnitMap[i] = processorMap[m_pComputeUnitMap[i]];
+  // Apply mapping.
+  // dpcppAffinityMap's values can be out of range if number of cores in
+  // myParentMask is larger than numTbbThreads when numTbbThreads is set by
+  // DPCPP_CPU_NUM_CUS.
+  for (unsigned int i = 0; i < m_numCores; i++)
+    if (dpcppAffinityMap[i] < m_numCores)
+      dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+  for (unsigned int i = 0; i < m_numCores; i++)
+    if (dpcppAffinityMap[i] < m_numCores)
+      m_pComputeUnitMap[i] = dpcppAffinityMap[i];
+
+  for (unsigned int i = 0; i < m_numCores; i++)
+    m_pComputeUnitMap[i] = processorMap[m_pComputeUnitMap[i]];
 }
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)

@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
 
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, 14, 1   <DO_LOOP>
@@ -22,65 +22,70 @@
 ; CHECK-DAG:    CELoad: ([[B0:%.*]])[%k.013]
 ; CHECK-DAG:      CELdStIndex: [[K_0130]]
 
+; CHECK-LABEL: VPlan after importing plain CFG:
 ; CHECK:       Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 14 BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 14 BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 1
+; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]],
 ; CHECK:       Compress/expand idiom list
-; CHECK-NEXT:    Phi: i32 [[VP7:%.*]] = phi  [ i32 [[K_0130]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP8:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:    Phi: i32 [[VP6:%.*]] = phi  [ i32 [[K_0130]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP7:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[K_0130]]
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP6:%.*]] = add i32 [[VP7]] i32 1 (Stride = 1)
+; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP6]] i32 1 (Stride = 1)
 ; CHECK-NEXT:    Stores:
 ; CHECK-NEXT:      store float [[VP9:%.*]] float* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP10:%.*]]
-; CHECK-NEXT:      float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[B0]] i64 [[VP11:%.*]]
+; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CHECK-NEXT:    Indices:
-; CHECK-NEXT:      i64 [[VP10]] = zext i32 [[VP7]] to i64
-; CHECK-NEXT:      i64 [[VP11]] = zext i32 [[VP7]] to i64
-; CHECK-NEXT:      i64 [[VP12:%.*]] = zext i32 [[VP7]] to i64
+; CHECK-NEXT:      i64 [[VP10:%.*]] = zext i32 [[VP6]] to i64
+; CHECK-NEXT:      i64 [[VP11:%.*]] = zext i32 [[VP6]] to i64
+; CHECK-NEXT:      i64 [[VP12:%.*]] = zext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[K_0130]], i32 [[VP6]], void [[VP_STORE:%.*]], float* [[VP_SUBSCRIPT_1]], float* [[VP_SUBSCRIPT_2]], i64 [[VP10]], i64 [[VP11]], i64 [[VP12]],
+; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[K_0130]], i32 [[VP8]], void [[VP_STORE:%.*]], float [[VP_LOAD]], float [[VP_LOAD_1]], i64 [[VP10]], i64 [[VP11]], i64 [[VP12]],
+
+; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB3]]
-; CHECK-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     i32 [[VP15:%.*]] = compress-expand-index-init i32 [[K_0130]]
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[K_0130]], [[BB1]] ],  [ i32 [[VP8]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP15]], [[BB1]] ],  [ i32 [[VP7]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP_LOAD]] i32 0
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP_LOAD_2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64 [[VP10]] = zext i32 [[VP7]] to i64
+; CHECK-NEXT:       i64 [[VP10]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1]] = subscript inbounds float* [[A0]] i64 [[VP10]]
-; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i64 [[VP11]] = zext i32 [[VP7]] to i64
+; CHECK-NEXT:       float [[VP16:%.*]] = expand-load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       i64 [[VP11]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP11]]
-; CHECK-NEXT:       float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:       float [[VP9]] = fadd float [[VP_LOAD_1]] float [[VP_LOAD_2]]
-; CHECK-NEXT:       i64 [[VP12]] = zext i32 [[VP7]] to i64
+; CHECK-NEXT:       float [[VP17:%.*]] = expand-load float* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       float [[VP9]] = fadd float [[VP16]] float [[VP17]]
+; CHECK-NEXT:       i64 [[VP12]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP12]]
-; CHECK-NEXT:       store float [[VP9]] float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP6]] = add i32 [[VP7]] i32 1
+; CHECK-NEXT:       compress-store float [[VP9]] float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       i32 [[VP18:%.*]] = compress-expand-index-inc i32 [[VP6]] i32 1
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP6]], [[BB4]] ],  [ i32 [[VP7]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP18]], [[BB4]] ],  [ i32 [[VP6]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP4]] i64 15
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB0]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:     i64 [[VP__IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     i32 [[VP19:%.*]] = compress-expand-index-final i32 [[VP7]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

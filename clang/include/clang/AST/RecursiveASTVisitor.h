@@ -3305,9 +3305,8 @@ RecursiveASTVisitor<Derived>::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
 template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
-  for (auto *E : C->val_exprs()) {
-    TRY_TO(TraverseStmt(E));
-  }
+  TRY_TO(TraverseStmt(C->getHint()));
+  TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 

@@ -2359,8 +2359,8 @@ void OMPClauseEnqueue::VisitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *C) {
 }
 
 void OMPClauseEnqueue::VisitOMPDataClause(const OMPDataClause *C) {
-  for (auto *E : C->val_exprs())
-    Visitor->AddStmt(E);
+  VisitOMPClauseList(C);
+  Visitor->AddStmt(C->getHint());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

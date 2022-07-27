@@ -4088,7 +4088,10 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    OldV = Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+    OldV = (OldV->getType()->isOpaquePointerTy())
+               ? Builder.CreateLoad(getDefaultPointerType(), OldV)
+               : Builder.CreateLoad(
+                     OldV->getType()->getNonOpaquePointerElementType(), OldV);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
@@ -5010,7 +5013,10 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
       // For by-refs, do a pointer dereference to reach the actual operand.
       if (RedI->getIsByRef())
         OldV =
-            Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+            (OldV->getType()->isOpaquePointerTy())
+                ? Builder.CreateLoad(getDefaultPointerType(), OldV)
+                : Builder.CreateLoad(
+                      OldV->getType()->getNonOpaquePointerElementType(), OldV);
     }
   }
 
@@ -5607,7 +5613,10 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    Dst = Builder.CreateLoad(Dst->getType()->getPointerElementType(), Dst);
+    Dst = (Dst->getType()->isOpaquePointerTy())
+              ? Dst = Builder.CreateLoad(getDefaultPointerType(), Dst)
+              : Dst = Builder.CreateLoad(
+                    Dst->getType()->getNonOpaquePointerElementType(), Dst);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
@@ -12496,6 +12505,21 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
     // function to have an argument for them.
     if (!I->getInMap())
       resetValueInOmpClauseGeneric(W, I->getOrig());
+  }
+}
+
+// Set the values in the livein clause to be empty.
+void VPOParoptTransform::resetValueInLiveinClause(WRegionNode *W) {
+
+  if (!W->canHaveLivein())
+    return;
+
+  LiveinClause &LvClause = W->getLivein();
+  if (LvClause.empty())
+    return;
+
+  for (auto *I : LvClause.items()) {
+    resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 

@@ -11233,6 +11233,10 @@ def err_omp_depend_type_unsupported_taskwait : Error<
   "'in', 'out', or 'inout'">;
 def err_omp_ordered_unsupported_in_target : Error<
   "'ordered' is unsupported in target region">;
+def err_ompx_bad_data_expression : Error<
+  "expected array section or array subscript in 'data' clause">;
+def err_ompx_data_hint_not_constant : Error<
+  "hint value must be a constant integer expression between %0 and %1, inclusive">;
 #endif // INTEL_COLLAB
 def err_omp_instantiation_not_supported
     : Error<"instantiation of '%0' not supported yet">;

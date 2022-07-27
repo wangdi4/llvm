@@ -30,10 +30,22 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:         [[DOTVEC0:%.*]] = alloca <2 x float>, align 8
 ; CHECK:         br label [[DIR_OMP_SIMD_10:%.*]]
 ; CHECK-EMPTY:
-; CHECK:        VPlannedBB20:
-; CHECK-NEXT:    [[UNI_PHI210:%.*]] = phi i64 [ [[UNI_PHI170:%.*]], [[VPLANNEDBB190:%.*]] ], [ [[TMP32:%.*]], [[NEW_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI220:%.*]] = phi <2 x i64> [ [[TMP21:%.*]], [[VPLANNEDBB190]] ], [ [[TMP31:%.*]], [[NEW_LATCH0]] ]
-; CHECK-NEXT:    [[VEC_PHI230:%.*]] = phi <2 x float> [ [[RED_INIT_INSERT0:%.*]], [[VPLANNEDBB190]] ], [ [[PREDBLEND0:%.*]], [[NEW_LATCH0]] ]
+; CHECK:        VPlannedBB19:
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x float>* [[DOTVEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP18]])
+; CHECK-NEXT:    [[TMP19:%.*]] = load float, float* [[X_RED0]], align 1
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT400:%.*]] = insertelement <2 x float> poison, float [[TMP19]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT410:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT400]], <2 x float> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP20:%.*]] = load float, float* [[X_RED0]], align 1
+; CHECK-NEXT:    [[UNI_PHI17IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[UNI_PHI170:%.*]], i32 0
+; CHECK-NEXT:    [[UNI_PHI17IND_START_BCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[UNI_PHI17IND_START_BCAST_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP21:%.*]] = add <2 x i64> [[UNI_PHI17IND_START_BCAST_SPLAT0]], <i64 0, i64 1>
+; CHECK-NEXT:    br label [[VPLANNEDBB200:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        VPlannedBB20:
+; CHECK-NEXT:    [[UNI_PHI210:%.*]] = phi i64 [ [[UNI_PHI170]], [[VPLANNEDBB190:%.*]] ], [ [[TMP32:%.*]], [[NEW_LATCH0:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI220:%.*]] = phi <2 x i64> [ [[TMP21]], [[VPLANNEDBB190]] ], [ [[TMP31:%.*]], [[NEW_LATCH0]] ]
+; CHECK-NEXT:    [[VEC_PHI230:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT410]], [[VPLANNEDBB190]] ], [ [[PREDBLEND0:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float>* [[DOTVEC0]], align 1
 ; CHECK-NEXT:    [[TMP22:%.*]] = icmp ult i64 [[UNI_PHI210]], 1024
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult <2 x i64> [[VEC_PHI220]], <i64 1024, i64 1024>
