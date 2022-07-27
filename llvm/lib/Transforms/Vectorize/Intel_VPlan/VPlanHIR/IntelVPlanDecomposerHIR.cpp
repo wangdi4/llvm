@@ -609,9 +609,6 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                                                 ->getPointerAddressSpace()));
   }
 
-  if (Idioms->isCEIdiom(Ref))
-    addVPValueForCEIdiom(Ref, MemOpVPI);
-
   // If memory reference is AddressOf type, return the last generated
   // VPInstruction
   if (Ref->isAddressOf())
@@ -655,6 +652,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
              dbgs() << "\n");
+
+  if (Idioms->isCEIdiom(Ref))
+    addVPValueForCEIdiom(Ref, MemOpVPI);
 
   return MemOpVPI;
 }

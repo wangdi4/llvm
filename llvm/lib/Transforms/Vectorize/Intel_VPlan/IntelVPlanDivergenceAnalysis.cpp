@@ -1617,6 +1617,22 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::CompressStore)
+    NewShape = computeVectorShapeForStoreInst(I);
+  else if (Opcode == VPInstruction::CompressStoreNonu)
+    NewShape = computeVectorShapeForStoreInst(I);
+  else if (Opcode == VPInstruction::ExpandLoad)
+    NewShape = computeVectorShapeForLoadInst(I);
+  else if (Opcode == VPInstruction::ExpandLoadNonu)
+    NewShape = computeVectorShapeForLoadInst(I);
+  else if (Opcode == VPInstruction::CompressExpandIndexInit)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndexFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndex)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandIndexInc)
+    NewShape = getUniformVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();

@@ -1712,14 +1712,15 @@ public:
           }
           case HIRVectorIdioms::CEStore:
             Desc.addStore(
-                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
+                cast<VPLoadStoreInst>(Decomposer.getVPValueForCEIdiom(Idiom)));
             break;
           case HIRVectorIdioms::CELoad:
             Desc.addLoad(
-                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
+                cast<VPLoadStoreInst>(Decomposer.getVPValueForCEIdiom(Idiom)));
             break;
           case HIRVectorIdioms::CELdStIndex:
-            Desc.addIndex(Decomposer.getVPValueForCEIdiom(Idiom));
+            Desc.addIndex(
+                cast<VPInstruction>(Decomposer.getVPValueForCEIdiom(Idiom)));
             break;
           default:
             llvm_unreachable("Unexpected CE idiom id.");
