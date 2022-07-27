@@ -165,6 +165,15 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_dunder_strndup,                    {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}},
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-39199: Temporarily add these LibFuncs back into the table
+    // until we can converge to the new community methodology
+    {LibFunc_malloc,                            {MallocLike,       1,  0, -1, -1, MallocFamily::Malloc}},
+    {LibFunc_valloc,                            {MallocLike,       1,  0, -1, -1, MallocFamily::Malloc}},
+    {LibFunc_aligned_alloc,                     {AlignedAllocLike, 2,  1, -1,  0, MallocFamily::Malloc}},
+    {LibFunc_calloc,                            {CallocLike,       2,  0,  1, -1, MallocFamily::Malloc}},
+    {LibFunc_realloc,                           {ReallocLike,      2,  1, -1, -1, MallocFamily::Malloc}},
+#endif // INTEL_CUSTOMIZATION
 };
 // clang-format on
 
@@ -636,6 +645,11 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
     {LibFunc_ZdlPvmSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned long, align_val_t)
     {LibFunc_ZdaPvjSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned int, align_val_t)
     {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned long, align_val_t)
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-39199: Temporarily add these LibFuncs back into the table
+    // until we can converge to the new community methodology
+    {LibFunc_free,                               {1, MallocFamily::Malloc}},
+#endif // INTEL_CUSTOMIZATION
 };
 // clang-format on
 
