@@ -6905,6 +6905,30 @@ void VPOParoptUtils::getItemInfoFromValue(Value *OrigValue,
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
+// Return the Module the item I belongs to. The information is extracted
+// using the Orig field of the item. Returns null if the information
+// cannot be obtained (for example if Orig is null, or it has already been
+// erased from the IR).
+// The logic is similar to that used in `getModuleFromVal` in AsmWriter.
+static Module *getModuleFromItem(const Item *I) {
+  Value *V = I->getOrig();
+  if (!V)
+    return nullptr;
+
+  if (auto *MA = dyn_cast<Argument>(V))
+    return MA->getParent() ? MA->getParent()->getParent() : nullptr;
+
+  if (auto *I = dyn_cast<Instruction>(V)) {
+    Function *F = I->getParent() ? I->getParent()->getParent() : nullptr;
+    return F ? F->getParent() : nullptr;
+  }
+
+  if (auto *GV = dyn_cast<GlobalValue>(V))
+    return GV->getParent();
+
+  return nullptr;
+}
+
 // Extract the type and size of local Alloca to be created to privatize I.
 std::tuple<Type *, Value *, unsigned>
 VPOParoptUtils::getItemInfo(const Item *I) {
@@ -6915,6 +6939,13 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
+
+  auto getDefaultPointerType = [&]() {
+    const Module *M = getModuleFromItem(I);
+    assert(M && "Cannot find module that the item belongs to");
+    unsigned AS = M ? WRegionUtils::getDefaultAS(M) : 0;
+    return PointerType::get(Orig->getContext(), AS);
+  };
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
                                     &AddrSpace]() -> bool {
@@ -6946,7 +6977,43 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return true;
   };
 
-  if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
+  auto getItemInfoIfOpaquePtrToPtr = [&]() -> bool {
+    if (!I->getIsPointerToPointer() || !Orig->getType()->isOpaquePointerTy())
+      return false;
+
+    // A PTR_TO_PTR clause operand's pointee type is a pointer. e.g.
+    //   i32* for "USE_DEVICE_PTR:PTR_TO_PTR"(i32** %p)
+    //   ptr  for "USE_DEVICE_PTR:PTR_TO_PTR"(ptr %p)
+    ElementType = getDefaultPointerType();
+    NumElements = nullptr;
+    AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
+    return true;
+  };
+
+#if INTEL_CUSTOMIZATION
+  auto getItemInfoIfOpaqueCPtr = [&]() -> bool {
+    if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
+      return false;
+
+    // A PTR_TO_PTR clause operand's pointee type is a named struct with one
+    // integer that's the same size as the size of a pointer.
+    //   %cptr = type {i64} ; for x86_64 architecture
+    //   "USE_DEVICE_PTR:CPTR"(i32** %p)
+    //
+    // So, if type information for a CPTR operand is not available (e.g. via a
+    // typed clause) we can use a "pointer type" as its element type.
+    ElementType = getDefaultPointerType();
+    NumElements = nullptr;
+    AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
+    return true;
+  };
+#endif // INTEL_CUSTOMIZATION`
+
+  if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
+#if INTEL_CUSTOMIZATION
+      !getItemInfoIfOpaqueCPtr() &&
+#endif // INTEL_CUSTOMIZATION
+      !getItemInfoIfArraySection()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -6964,6 +7031,9 @@ VPOParoptUtils::getItemInfo(const Item *I) {
       ElementType = ElementType->getNonOpaquePointerElementType();
     }
   }
+  // FIXME: Add an assert here once typed clauses are enabled by default.
+  // Currently, element type can be null for array sections before the
+  // information has been computed.
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
              Orig->printAsOperand(dbgs()); dbgs() << "' ";
              if (I->getIsTyped()) dbgs() << "(Typed)"; dbgs() << ":: Type: ";

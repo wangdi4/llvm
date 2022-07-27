@@ -384,6 +384,7 @@ class Item
       case IK_Linear:
       case IK_Shared:
       case IK_Uniform:
+      case IK_UseDevicePtr:
         return true;
       default:
         return false;
@@ -1396,6 +1397,10 @@ public:
   MapItem *getInMap() const { return InMap; }
   bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    Item::print(OS, PrintType);
+    printIfTyped(OS, PrintType);
+  }
 };
 
 // Parent class for inclusive/exclusive clause items

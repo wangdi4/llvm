@@ -282,8 +282,8 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
         LLVM_DEBUG(dbgs() << "Original argument 0 of printf: " << *FnArgs[0]
                           << "\n");
         auto V = FnArgs[0];
-        assert(isa<ConstantExpr>(V) && "Only constant format string in argument"
-                                       " 0 is supported!\n");
+        assert(isa<Constant>(V) && "Only constant format string in argument"
+                                   " 0 is supported!\n");
         SmallVector<Value *, 2> Indices;
         // Skip the constant expressions
         while (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
@@ -2644,10 +2644,11 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     Value *UDP = UDPI->getOrig();
     Value *MappedVal = UDP;
     if (UDPI->getIsPointerToPointer()) {
-      // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
-      MappedVal = LoadBuilder.CreateLoad(
-          UDP->getType()->getPointerElementType(), UDP,
-          UDP->getName() + ".load");
+      Type *UDPLoadTy = nullptr;
+      std::tie(UDPLoadTy, std::ignore, std::ignore) =
+          VPOParoptUtils::getItemInfo(UDPI);
+      MappedVal =
+          LoadBuilder.CreateLoad(UDPLoadTy, UDP, UDP->getName() + ".load");
 #if INTEL_CUSTOMIZATION
     } else if (UDPI->getIsF90DopeVector()) {
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
@@ -3021,8 +3022,6 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     return false;
 
   StringRef MapClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
-  StringRef FPrivateClauseName =
-      VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
   StringRef PrivateClauseName =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
   using ClauseBundleTy = SmallVector<Value *, 4>;
@@ -3050,6 +3049,8 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
                           ClauseBundleTy({V, V, MapSize, MapTypeVal})});
   };
 #if INTEL_CUSTOMIZATION
+  StringRef FPrivateClauseName =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
   auto addFirstprivateForValue = [&](Value *V) {
     FirstprivateC.add(new FirstprivateItem(V));
     // TODO: OPAQUEPOINTER: We can remove this, since FFE is now emitting
@@ -3187,10 +3188,10 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     if (!IDPI->getIsPointerToPointer()) // Already handled above
       continue;
 
-    // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
-    Changed |= addMapAndPrivateForIDP(
-        IDPI, IDP->getType()->getPointerElementType(), IDP,
-        IDP);
+    Type *IDPLoadTy = nullptr;
+    std::tie(IDPLoadTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(IDPI);
+    Changed |= addMapAndPrivateForIDP(IDPI, IDPLoadTy, IDP, IDP);
   }
 
   return UpdateIRIfChanged();

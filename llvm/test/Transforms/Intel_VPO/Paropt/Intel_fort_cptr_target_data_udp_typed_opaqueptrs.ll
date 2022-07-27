@@ -34,12 +34,15 @@
 ; !       end subroutine
 ;   end program
 
+; This test is a version of Intel_fort_cptr_target_data_udp.ll with a
+; TYPED USE_DEVICE_PTR clause.
+
 ; Check that the map-type the use_device_ptr operand is 64 (TGT_RETURN_PARAM):
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 3, i64 64]
 
-; Check for the local copy of %"main_$A_CPTR". Since the input clause is untyped,
-; the type used is "ptr" for the CPTR clause operand.
-; CHECK: [[NEWV:[^ ]+.new"]] = alloca ptr, align 8
+; Check for the local copy of %"main_$A_CPTR". The type is obtained from the
+; TYPED clause.
+; CHECK: [[NEWV:[^ ]+.new"]] = alloca %"ISO_C_BINDING$.btC_PTR", align 8
 
 ; Check that the map we emit is for "load i8*, (bitcast %a_cptr to i8**)"
 ; CHECK: [[VAL:%[^ ]+]] = load ptr, ptr %"main_$A_CPTR", align 8
@@ -75,7 +78,7 @@ alloca_0:
 
 bb12:                                             ; preds = %alloca_0
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
-    "QUAL.OMP.USE_DEVICE_PTR:CPTR"(ptr %"main_$A_CPTR"),
+    "QUAL.OMP.USE_DEVICE_PTR:CPTR.TYPED"(ptr %"main_$A_CPTR", %"ISO_C_BINDING$.btC_PTR" zeroinitializer, i64 1),
     "QUAL.OMP.MAP.TOFROM"(ptr %"main_$A", ptr %"main_$A", i64 4, i64 3, ptr null, ptr null) ]
 
   call void @foo_.t0p(ptr %"main_$A_CPTR")

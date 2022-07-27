@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Check that the local copy of %array_device created for the use_device_ptr
@@ -25,7 +25,9 @@
 ;   } // end target data
 ; }
 
-source_filename = "par_target_data_use_dev_ptr.c"
+; Check that only %array_device is passed into the outlined function for DIR.OMP.PARALLEL
+; CHECK:  call void {{.+}} @__kmpc_fork_call(ptr {{.+}}, i32 1, ptr @main.DIR.OMP.PARALLEL{{.+}}, ptr %array_device)
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64"
@@ -36,23 +38,23 @@ target device_triples = "x86_64"
 define dso_local i32 @main() #0 {
 entry:
   %a = alloca [10 x i32], align 16
-  %array_device = alloca i32*, align 8
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
-  store i32* %arrayidx, i32** %array_device, align 8
-  %0 = load i32*, i32** %array_device, align 8
-  %arrayidx1 = getelementptr inbounds i32, i32* %0, i64 0
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
+  %array_device = alloca ptr, align 8
+  %arrayidx = getelementptr inbounds [10 x i32], ptr %a, i64 0, i64 0
+  store ptr %arrayidx, ptr %array_device, align 8
+  %0 = load ptr, ptr %array_device, align 8
+  %arrayidx1 = getelementptr inbounds i32, ptr %0, i64 0
+  %call = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx1)
 
-; Check that only %array_device is passed into the outlined function for DIR.OMP.PARALLEL
-; CHECK:  call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 1, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i32**)* @main.DIR.OMP.PARALLEL{{.+}} to void (i32*, i32*, ...)*), i32** %array_device)
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.NUM_THREADS"(i32 1),
+    "QUAL.OMP.SHARED"(ptr %array_device) ]
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.SHARED"(i32** %array_device) ]
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
+    "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(ptr %array_device) ]
 
-  %3 = load i32*, i32** %array_device, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %3, i64 0
-
-  %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx2) #2
+  %3 = load ptr, ptr %array_device, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %3, i64 0
+  %call3 = call i32 (ptr, ...) @printf(ptr @.str, ptr %arrayidx2) #2
 
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET.DATA"() ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
@@ -60,7 +62,7 @@ entry:
   ret i32 0
 }
 
-declare dso_local i32 @printf(i8*, ...) #1
+declare dso_local i32 @printf(ptr, ...) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -73,7 +75,5 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 10.0.0"}
