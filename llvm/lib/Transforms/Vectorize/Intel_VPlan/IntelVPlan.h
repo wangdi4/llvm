@@ -2620,9 +2620,11 @@ protected:
   // Clones VPReductionInit.
   virtual VPReductionInit *cloneImpl() const final {
     if (getNumOperands() == 1)
-      return new VPReductionInit(getIdentityOperand(), UsesStartValue);
+      return new VPReductionInit(getIdentityOperand(), UsesStartValue,
+                                 isScalar());
     else if (getNumOperands() == 2)
-      return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
+      return new VPReductionInit(getIdentityOperand(), getStartValueOperand(),
+                                 isScalar());
     else
       llvm_unreachable("Too many operands.");
   }
