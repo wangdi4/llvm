@@ -187,6 +187,20 @@ public:
     return (AllocatorInterfaceFunctions.count(F));
   }
 
+  // Returns StringObjectType.
+  DTransStructType *getStringObjectType() { return StringObjectType; }
+
+  // Returns ReusableArenaAllocatorType.
+  DTransStructType *getReusableArenaAllocatorType() {
+    return ReusableArenaAllocatorType;
+  }
+
+  // Returns ArenaAllocatorType.
+  DTransStructType *getArenaAllocatorType() { return ArenaAllocatorType; }
+
+  // Returns MemInterfaceType.
+  DTransStructType *getMemInterfaceType() { return MemInterfaceType; }
+
   // Returns StringAllocatorType.
   DTransStructType *getStringAllocatorType() { return StringAllocatorType; }
 
