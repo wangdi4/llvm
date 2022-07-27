@@ -15,22 +15,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       XStringCachedAllocator
 ; CHECK:   Analyzing Candidate ...
 ; CHECK:   No issues found with candidate
-
-; TODO: The following CHECK lines will be enabled as more functionality
-; of the pass is implemented.
-
-; TODO-CHECK:    Categorize Interface Functions
-; TODO-CHECK:      StringObjectTy: XStringCached
-; TODO-CHECK:      ReusableArenaAllocatorTy: ReusableArenaAllocator
-; TODO-CHECK:      ArenaAllocatorTy: ArenaAllocator
-; TODO-CHECK:      MemInterfaceType: MemoryManager
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb: Constructor
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev: Destructor
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv: AllocateBlock
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv: GetMemManager
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_: CommitAllocation
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_: DestroyObject
-; TODO-CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv: Reset
+; CHECK:    Categorize Interface Functions
+; CHECK:      StringObjectTy: XStringCached
+; CHECK:      ReusableArenaAllocatorTy: ReusableArenaAllocator
+; CHECK:      ArenaAllocatorTy: ArenaAllocator
+; CHECK:      MemInterfaceType: MemoryManager
+; CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb: Constructor
+; CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev: Destructor
+; CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv: AllocateBlock
+; CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv: GetMemManager
+; CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_: CommitAllocation
+; CHECK-DAG:    _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_: DestroyObject
+; CHECK-DAG:    _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv: Reset
 
 %"XStringCachedAllocator" = type { %"ReusableArenaAllocator" }
 %"ReusableArenaAllocator" = type <{ %"ArenaAllocator", i8, [7 x i8] }>

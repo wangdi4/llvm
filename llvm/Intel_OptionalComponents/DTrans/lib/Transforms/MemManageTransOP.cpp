@@ -31,6 +31,50 @@ using namespace llvm;
 using namespace dtransOP;
 
 namespace {
+// Member functions are classified based on functionality.
+enum MemManageFKind : unsigned {
+  Constructor = 0,  // Constructor
+  Destructor,       // Destructor
+  AllocateBlock,    // Allocate Block
+  CommitAllocation, // Commit Allocation
+  DestroyObject,    // Destroy Object
+  Reset,            // Reset
+  GetMemManager,    // Get Memory Manager
+  UnKnown           // Unknown functionality.
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Dumper for MemManageFKind.
+inline raw_ostream &operator<<(raw_ostream &OS, MemManageFKind FKind) {
+  switch (FKind) {
+  case Constructor:
+    OS << "Constructor";
+    break;
+  case Destructor:
+    OS << "Destructor";
+    break;
+  case AllocateBlock:
+    OS << "AllocateBlock";
+    break;
+  case CommitAllocation:
+    OS << "CommitAllocation";
+    break;
+  case DestroyObject:
+    OS << "DestroyObject";
+    break;
+  case Reset:
+    OS << "Reset";
+    break;
+  case GetMemManager:
+    OS << "GetMemManager";
+    break;
+  case UnKnown:
+    OS << "Unknown";
+    break;
+  }
+  return OS;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 class MemManageTransImpl {
 
@@ -65,11 +109,16 @@ private:
   // List of candidates. For now, only one candidate is allowed.
   SmallVector<MemManageCandidateInfo *, MaxNumCandidates> Candidates;
 
+  // Map of MemManageFKind to Function. Only one function is allowed
+  // for each MemManageFKind.
+  DenseMap<unsigned, Function *> FunctionalityMap;
+
   // Set of Interface functions and their users.
   SmallPtrSet<Function *, 32> RelatedFunctions;
 
   bool gatherCandidates(Module &M, FunctionTypeResolver &TypeResolver);
   bool analyzeCandidates(Module &M);
+  bool categorizeFunctions();
 
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions();
@@ -289,6 +338,195 @@ bool MemManageTransImpl::analyzeCandidates(Module &M) {
   return true;
 }
 
+// Categorize interface functions (AllocatorInterfaceFunctions) using
+// return type and signature.
+// ReusableArenaAllocatorType or ArenaAllocatorType is considered as
+// allocator class type.
+// StringObjectType is considered as Object type that is created/destroyed
+// by the allocator. MemInterfaceType is the one that is used for
+// memory allocation/deallocation.
+//
+// Class Type:
+//  Constructor:
+//     Return type: None
+//     Args (4): Class Type (1), MemInterfaceType (1), Integer types (2)
+//
+//  AllocateBlock:
+//     Return type: StringObjectType
+//     Args (1): Class Type (1)
+//
+//  CommitAllocation:
+//     Return type: None
+//     Args (2): Class Type (1), StringObjectType(1)
+//
+//  DestroyObject:
+//     Return type: Integer
+//     Args (2): Class Type (1), StringObjectType(1)
+//
+//  GetMemManager:
+//     Return type: MemInterfaceType
+//     Args (1): Class Type (1)
+//
+//  Destructor or Reset:
+//     Return type: None
+//     Args (1): Class Type (1)
+//     Heuristic is used to distinguish between Destructor and Reset.
+//
+bool MemManageTransImpl::categorizeFunctions() {
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                  { dbgs() << "   Categorize Interface Functions\n"; });
+
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  DTransStructType *StringObjectType = Cand->getStringObjectType();
+  DTransStructType *ReusableArenaAllocatorType =
+      Cand->getReusableArenaAllocatorType();
+  DTransStructType *ArenaAllocatorType = Cand->getArenaAllocatorType();
+  DTransStructType *MemInterfaceType = Cand->getMemInterfaceType();
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "     StringObjectTy: " << StringObjectType->getName() << "\n";
+    dbgs() << "     ReusableArenaAllocatorTy: "
+           << ReusableArenaAllocatorType->getName() << "\n";
+    dbgs() << "     ArenaAllocatorTy: " << ArenaAllocatorType->getName()
+           << "\n";
+    dbgs() << "     MemInterfaceType: " << MemInterfaceType->getName() << "\n";
+  });
+
+  // Returns true if "F" is called from any interface functions.
+  auto IsCalledFromInterfaceFunction = [&](Function *F) -> bool {
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        continue;
+      Function *CalledF = CB->getFunction();
+      if (Cand->isInterfaceFunction(CalledF))
+        return true;
+    }
+    return false;
+  };
+
+  // Categorize "F" using return type and signature.
+  auto CategorizeFunctionUsingSignature =
+      [&, IsCalledFromInterfaceFunction](Function *F) -> MemManageFKind {
+    bool NoReturn = false;
+    bool ClassReturn = false;
+    bool MemManagerReturn = false;
+    bool StrObjReturn = false;
+    bool IntReturn = false;
+    int32_t MemInterfaceArgs = 0;
+    int32_t ClassArgs = 0;
+    int32_t IntArgs = 0;
+    int32_t StrObjArgs = 0;
+
+    auto *DFnTy =
+        dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
+    if (!DFnTy)
+      return UnKnown;
+
+    // Analyze return type here.
+    DTransType *RTy = DFnTy->getReturnType();
+    switch (RTy->getLLVMType()->getTypeID()) {
+    default:
+      return UnKnown;
+
+    case Type::VoidTyID:
+      NoReturn = true;
+      break;
+
+    case Type::PointerTyID: {
+      auto *PTy = cast<DTransPointerType>(RTy)->getPointerElementType();
+      if (PTy == ReusableArenaAllocatorType || PTy == ArenaAllocatorType)
+        ClassReturn = true;
+      else if (PTy == StringObjectType)
+        StrObjReturn = true;
+      else if (PTy == MemInterfaceType)
+        MemManagerReturn = true;
+      else
+        return UnKnown;
+    } break;
+
+    case Type::IntegerTyID:
+      IntReturn = true;
+      break;
+    }
+
+    // Analyze type of each argument.
+    unsigned NumArgs = DFnTy->getNumArgs();
+    for (unsigned Idx = 0; Idx < NumArgs; ++Idx) {
+      DTransType *ArgTy = DFnTy->getArgType(Idx);
+      switch (ArgTy->getLLVMType()->getTypeID()) {
+      default:
+        return UnKnown;
+
+      case Type::PointerTyID: {
+        auto *PTy = cast<DTransPointerType>(ArgTy)->getPointerElementType();
+        if (PTy == ReusableArenaAllocatorType || PTy == ArenaAllocatorType)
+          ClassArgs++;
+        else if (PTy == MemInterfaceType)
+          MemInterfaceArgs++;
+        else if (PTy == StringObjectType)
+          StrObjArgs++;
+        else
+          return UnKnown;
+        break;
+      }
+
+      case Type::IntegerTyID:
+        IntArgs++;
+        break;
+      }
+    }
+
+    // Categorize function based on return and argument types.
+    auto ArgsSize = F->arg_size();
+    if ((NoReturn || ClassReturn) && MemInterfaceArgs == 1 && ClassArgs == 1 &&
+        IntArgs == 2 && ArgsSize == 4)
+      return Constructor;
+    else if (NoReturn && ClassArgs == 1 && StrObjArgs == 1 && ArgsSize == 2)
+      return CommitAllocation;
+    else if (IntReturn && ClassArgs == 1 && StrObjArgs == 1 && ArgsSize == 2)
+      return DestroyObject;
+    else if (StrObjReturn && ClassArgs == 1 && ArgsSize == 1)
+      return AllocateBlock;
+    else if (MemManagerReturn && ClassArgs == 1 && ArgsSize == 1)
+      return GetMemManager;
+    else if (NoReturn && ClassArgs == 1 && ArgsSize == 1) {
+      // A heuristic is used to distinguish between Reset and Destructor.
+      // Destructor is not expected to be called from interface functions.
+      if (IsCalledFromInterfaceFunction(F))
+        return Reset;
+      else
+        return Destructor;
+    }
+    return UnKnown;
+  };
+
+  // Detect MemManageFKind for each interface function.
+  unsigned NumInterfacefunctions = 0;
+  for (auto F : Cand->interface_functions()) {
+    NumInterfacefunctions++;
+    MemManageFKind FKind = CategorizeFunctionUsingSignature(F);
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "   " << F->getName() << ": " << FKind << "\n";
+    });
+    if (FKind == UnKnown) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      { dbgs() << "   Failed: Unknown functionality\n"; });
+      return false;
+    }
+    if (FunctionalityMap[FKind]) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      { dbgs() << "   Failed: Multiple functionality\n"; });
+      return false;
+    }
+    FunctionalityMap[FKind] = F;
+  }
+  assert(FunctionalityMap.size() == NumInterfacefunctions &&
+         "Unexpected functionality");
+  return true;
+}
+
 bool MemManageTransImpl::run(Module &M) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                   { dbgs() << "MemManageTransOP transformation: \n"; });
@@ -307,6 +545,10 @@ bool MemManageTransImpl::run(Module &M) {
 
   DTAC.populateAllocDeallocTable(M);
   if (!analyzeCandidates(M))
+    return false;
+
+  // Categorize functions based on signatures.
+  if (!categorizeFunctions())
     return false;
 
   // TODO: Implement the pass.
