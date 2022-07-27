@@ -2650,9 +2650,6 @@ private:
 
   bool isAcceptableSlow(const NamedDecl *D, AcceptableKind Kind);
 
-  // Determine whether the module M belongs to the  current TU.
-  bool isModuleUnitOfCurrentTU(const Module *M) const;
-
 public:
   /// Get the module unit whose scope we are currently within.
   Module *getCurrentModule() const {
@@ -2672,6 +2669,9 @@ public:
   bool isModuleDirectlyImported(const Module *M) {
     return DirectModuleImports.contains(M);
   }
+
+  // Determine whether the module M belongs to the  current TU.
+  bool isModuleUnitOfCurrentTU(const Module *M) const;
 
   /// Make a merged definition of an existing hidden definition \p ND
   /// visible at the specified location.
