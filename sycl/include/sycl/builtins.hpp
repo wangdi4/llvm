@@ -1895,12 +1895,10 @@ extern SYCL_EXTERNAL double __imf_uint2double_rn(unsigned int x);
 extern SYCL_EXTERNAL double __imf_uint2double_ru(unsigned int x);
 extern SYCL_EXTERNAL double __imf_uint2double_rz(unsigned int x);
 extern SYCL_EXTERNAL double __imf_hiloint2double(int hi, int lo);
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 extern SYCL_EXTERNAL float __imf_erfinvf(float x);
 extern SYCL_EXTERNAL double __imf_erfinv(double x);
 /* end INTEL_CUSTOMIZATION */
-=======
 
 extern SYCL_EXTERNAL unsigned int __imf_vabs2(unsigned int x);
 extern SYCL_EXTERNAL unsigned int __imf_vabs4(unsigned int x);
@@ -2020,7 +2018,6 @@ extern SYCL_EXTERNAL unsigned int __imf_vsads2(unsigned int x, unsigned int y);
 extern SYCL_EXTERNAL unsigned int __imf_vsads4(unsigned int x, unsigned int y);
 extern SYCL_EXTERNAL unsigned int __imf_vsadu2(unsigned int x, unsigned int y);
 extern SYCL_EXTERNAL unsigned int __imf_vsadu4(unsigned int x, unsigned int y);
->>>>>>> 6f0bb256cd00febdfcf7ad29bd43842c97860d43
 }
 #ifdef __GLIBC__
 extern "C" {

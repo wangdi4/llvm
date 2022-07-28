@@ -274,11 +274,9 @@ SYCLDeviceLibFuncMap SDLMap = {
     {"__devicelib_imf_fmaxf16", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_fminf16", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_copysignf16", DeviceLibExt::cl_intel_devicelib_imf},
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
     {"__devicelib_imf_erfinv", DeviceLibExt::cl_intel_devicelib_imf_fp64},
 #endif
-=======
     {"__devicelib_imf_vabs2", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_vabs4", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_vabsss2", DeviceLibExt::cl_intel_devicelib_imf},
@@ -361,7 +359,6 @@ SYCLDeviceLibFuncMap SDLMap = {
     {"__devicelib_imf_vsads4", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_vsadu2", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_vsadu4", DeviceLibExt::cl_intel_devicelib_imf},
->>>>>>> 6f0bb256cd00febdfcf7ad29bd43842c97860d43
     {"__devicelib_imf_fma", DeviceLibExt::cl_intel_devicelib_imf_fp64},
     {"__devicelib_imf_floor", DeviceLibExt::cl_intel_devicelib_imf_fp64},
     {"__devicelib_imf_ceil", DeviceLibExt::cl_intel_devicelib_imf_fp64},
