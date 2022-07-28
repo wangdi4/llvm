@@ -1395,6 +1395,9 @@ public:
   llvm::GlobalVariable *addDTransInfoToGlobal(const VarDecl *VD,
                                               llvm::GlobalVariable *GV,
                                               llvm::Type *LLVMType);
+  llvm::GlobalVariable *addDTransInfoToGlobal(QualType Ty, const Expr *Init,
+                                              llvm::GlobalVariable *GV,
+                                              llvm::Type *LLVMType);
   llvm::GlobalVariable *addDTransVTableInfo(llvm::GlobalVariable *GV,
                                             const VTableLayout &Layout);
   llvm::GlobalVariable *

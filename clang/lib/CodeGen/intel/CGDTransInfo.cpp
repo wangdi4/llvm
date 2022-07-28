@@ -337,18 +337,24 @@ Address CodeGenModule::addDTransInfoToMemTemp(QualType Ty, Address Addr) {
 
 llvm::GlobalVariable *CodeGenModule::addDTransInfoToGlobal(
     const VarDecl *VD, llvm::GlobalVariable *GV, llvm::Type *LLVMType) {
+  return addDTransInfoToGlobal(VD->getType(), VD->getAnyInitializer(), GV,
+                               LLVMType);
+}
+
+llvm::GlobalVariable *
+CodeGenModule::addDTransInfoToGlobal(QualType Ty, const Expr *Init,
+                                     llvm::GlobalVariable *GV,
+                                     llvm::Type *LLVMType) {
   if (!getCodeGenOpts().EmitDTransInfo)
     return GV;
 
-  QualType Ty = VD->getType();
   if (!Ty->isPointerType() && !Ty->isReferenceType() && !Ty->isArrayType())
     return GV;
 
   llvm::LLVMContext &Ctx = TheModule.getContext();
   DTransInfoGenerator Generator(Ctx, *this);
-  GV->setMetadata(
-      "intel_dtrans_type",
-      Generator.AddFieldInfo(Ty, LLVMType, VD->getAnyInitializer()));
+  GV->setMetadata("intel_dtrans_type",
+                  Generator.AddFieldInfo(Ty, LLVMType, Init));
   return GV;
 }
 

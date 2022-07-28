@@ -1797,6 +1797,48 @@ void CodeGenModule::AddGlobalDtor(llvm::Function *Dtor, int Priority,
   GlobalDtors.push_back(Structor(Priority, Dtor, nullptr));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static QualType getDTransCtorListType(ASTContext &Ctx, const char *GlobalName,
+                                      unsigned NumElts) {
+
+  // The type of this is fixed as an array of {i32, void()*, i8*}, so just
+  // create a 'fake' type so the DTrans codegen emits the right thing.
+  RecordDecl *RD = Ctx.buildImplicitRecord(GlobalName);
+  RD->startDefinition();
+  FieldDecl *Priority = FieldDecl::Create(
+      Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+      Ctx.getIntTypeForBitwidth(32, 0), /*TInfo*/ nullptr, /*Bitwidth*/ nullptr,
+      /*mutable*/ false, ICIS_NoInit);
+  Priority->setAccess(AS_public);
+
+  QualType FuncTy = Ctx.getFunctionType(Ctx.VoidTy, ArrayRef<QualType>{},
+                                        FunctionProtoType::ExtProtoInfo{});
+
+  FieldDecl *FPTR = FieldDecl::Create(
+      Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+      Ctx.getPointerType(FuncTy), /*TInfo*/ nullptr, /*Bitwidth*/ nullptr,
+      /*mutable*/ false, ICIS_NoInit);
+  FPTR->setAccess(AS_public);
+
+  FieldDecl *AsscData = FieldDecl::Create(
+      Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+      Ctx.getPointerType(Ctx.getIntTypeForBitwidth(8, 0)), /*TInfo*/ nullptr,
+      /*Bitwidth*/ nullptr,
+      /*mutable*/ false, ICIS_NoInit);
+  AsscData->setAccess(AS_public);
+
+  RD->addDecl(Priority);
+  RD->addDecl(FPTR);
+  RD->addDecl(AsscData);
+  RD->completeDefinition();
+  QualType StructTy = Ctx.getRecordType(RD);
+  return Ctx.getConstantArrayType(StructTy, llvm::APInt{64, NumElts}, nullptr,
+                                  ArrayType::Normal, 0);
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   if (Fns.empty()) return;
 
@@ -1836,6 +1878,15 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
     ctors.finishAndCreateGlobal(GlobalName, getPointerAlign(),
                                 /*constant*/ false,
                                 llvm::GlobalValue::AppendingLinkage);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (getCodeGenOpts().EmitDTransInfo) {
+    QualType ArrTy =
+        getDTransCtorListType(getContext(), GlobalName, Fns.size());
+    addDTransInfoToGlobal(ArrTy, nullptr, list, list->getValueType());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // The LTO linker doesn't seem to like it when we set an alignment
   // on appending variables.  Take it off as a workaround.
@@ -2985,6 +3036,21 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
       llvm::ConstantArray::get(ATy, UsedArray), Name);
 
   GV->setSection("llvm.metadata");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    // DTrans metadata doesn't contain the address space of types, so we don't
+    // have to worry about the above SYCL case and can just create a pointer
+    // type.
+    QualType EltTy = Ctx.getPointerType(Ctx.CharTy);
+    QualType ArrTy =
+        Ctx.getConstantArrayType(EltTy, llvm::APInt{64, UsedArray.size()},
+                                 nullptr, ArrayType::Normal, 0);
+    CGM.addDTransInfoToGlobal(ArrTy, nullptr, GV, GV->getValueType());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenModule::emitLLVMUsed() {
@@ -4797,7 +4863,11 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  if (!ForVTable || IsForDefinition)
+  // Unless this is an incomplete function type, we can generate the DTrans
+  // metadata for it.  If it IS incomplete, the type we are generating for it is
+  // nonsense anyway, so there is likely no valid information to generate for it
+  // anyway.
+  if (!IsIncompleteFunction)
     F = addDTransInfoToFunc(GD, MangledName, FTy, F);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION

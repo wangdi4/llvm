@@ -3470,6 +3470,16 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   Name);
 #endif // INTEL_COLLAB
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    // Type is always a i8*, so emit it as a void ptr.
+    CGM.addDTransInfoToGlobal(
+        CGM.getContext().getPointerType(CGM.getContext().VoidTy), nullptr, GV,
+        GV->getValueType());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
     const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
     CGM.setGVProperties(GV, RD);
     // Import the typeinfo symbol when all non-inline virtual methods are
@@ -3880,6 +3890,19 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #endif  // INTEL_COLLAB
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (auto *GlobVTable =
+          dyn_cast<llvm::GlobalVariable>(VTable->stripPointerCasts())) {
+    // Type is either a i8* or an alias of unknown type, so emit it as a void
+    // ptr.
+    CGM.addDTransInfoToGlobal(
+        CGM.getContext().getPointerType(CGM.getContext().VoidTy), nullptr,
+        GlobVTable, GlobVTable->getValueType());
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   llvm::Type *PtrDiffTy =
       CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
