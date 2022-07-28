@@ -2606,7 +2606,30 @@ void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *Cl) {
   addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
-void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {}
+void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
+  for (auto *E : C->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_data, "QUAL.OMP.DATA");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+
+    llvm::Type *ElemTy = nullptr;
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
+      QualType BaseTy = getArraySectionBase(E)->getType();
+      if (BaseTy->isPointerType())
+        ElemTy = CGF.ConvertTypeForMem(BaseTy->getPointeeType());
+    }
+
+    addArg(CSB.getString());
+    addArg(E, /*IsRef=*/false, /*IsTyped=*/true, /*NeedsTypedElements=*/true,
+           ElemTy, /*ArraySecUsesBase=*/false);
+
+    if (const Expr *Hint = C->getHint())
+      addArg(CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(Hint), CGF.Int32Ty,
+                                       /*isSigned=*/false));
+    else
+      addArg(CGF.Builder.getInt32(0));
+  }
+}
 
 void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
   for (auto *E : Cl->varlists()) {
