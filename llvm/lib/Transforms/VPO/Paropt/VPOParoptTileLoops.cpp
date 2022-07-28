@@ -475,6 +475,7 @@ Stripminer::addFloorLoopIVBounds(Instruction *InsertPos) {
   // Currently no-optimization, just load from memory
   // Can be replaced with value stored to NormUB bar
   auto *OrigUB = WLoopInfo.getNormUB(LoopDepthIndex);
+  assert(OrigUB && "Missing Normalized upper bound!");
 
   LLVM_DEBUG(dbgs() << "OrigUB: "; OrigUB->dump());
 
