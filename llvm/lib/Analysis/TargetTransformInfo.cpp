@@ -757,6 +757,10 @@ bool TargetTransformInfo::enableWritePrefetching() const {
   return TTIImpl->enableWritePrefetching();
 }
 
+bool TargetTransformInfo::shouldPrefetchAddressSpace(unsigned AS) const {
+  return TTIImpl->shouldPrefetchAddressSpace(AS);
+}
+
 unsigned TargetTransformInfo::getMaxInterleaveFactor(unsigned VF) const {
   return TTIImpl->getMaxInterleaveFactor(VF);
 }
