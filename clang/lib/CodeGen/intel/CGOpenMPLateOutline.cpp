@@ -3356,6 +3356,7 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
+  case OMPD_parallel_masked_taskloop:
   case OMPD_parallel_loop:
     return Kind == OMPD_parallel;
 
@@ -3415,6 +3416,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
+  case OMPD_parallel_masked_taskloop:
   case OMPD_parallel_loop:
     return true;
   case OMPD_cancel:
@@ -3761,6 +3763,19 @@ nextDirectiveKind(const OMPExecutableDirective &Directive,
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
+  case OMPD_parallel_masked_taskloop:
+    // OMPD_parallel -> OMPD_masked -> OMPD_taskgroup ->OMPD_taskloop
+    // OMPD_parallel -> OMPD_masked -> OMPD_taskloop
+    if (CurrDirKind == OMPD_parallel)
+      return OMPD_masked;
+    if (CurrDirKind == OMPD_masked)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop;
+    if (CurrDirKind == OMPD_taskgroup)
+      return OMPD_taskloop;
+    return OMPD_unknown;
+
   default:
     llvm_unreachable("Unhandled combined directive.");
   }
@@ -4008,6 +4023,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
+  case OMPD_parallel_masked_taskloop:
   case OMPD_parallel_loop:
   default:
     llvm_unreachable("Combined directives not handled here");
