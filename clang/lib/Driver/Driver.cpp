@@ -322,12 +322,8 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
     // Check for -i_allow-all-opts.
     bool AllowAllOpts = false;
     for (StringRef Opt : ArgStrings) {
-      // TODO: Once the dpcpp wrapper is updated to use -i_allow-all-opts
-      // clean up usage of /Q_allow-linux.
       if (Opt == getOpts().getOption(
-              options::OPT_i_allow_all_opts).getPrefixedName() ||
-          Opt == getOpts().getOption(
-              options::OPT__SLASH_Q_allow_linux).getPrefixedName()) {
+              options::OPT_i_allow_all_opts).getPrefixedName()) {
         AllowAllOpts = true;
         break;
       }

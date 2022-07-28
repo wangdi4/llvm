@@ -36,11 +36,6 @@
 // RUN:   | FileCheck -check-prefix=DPCPP_CL_DEFAULT %s
 // DPCPP_CL_DEFAULT: unknown argument ignored in clang-cl '-qopenmp'
 // DPCPP_CL_DEFAULT-NOT: "-fopenmp"
-/// Check for allowing Linux options
-// RUN: %clang_cl --dpcpp /Q_allow-linux -### -qopenmp -c %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=DPCPP_CL_ALLOW_LINUX %s
-// DPCPP_CL_ALLOW_LINUX-NOT: unknown argument ignored in clang-cl '-qopenmp'
-// DPCPP_CL_ALLOW_LINUX: "-fopenmp"
 
 /// --dpcpp with -i_allow-all-opts will allow for all Windows and Linux options
 /// to be enabled.
