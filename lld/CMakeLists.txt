@@ -173,8 +173,10 @@ if(LLD_BUILT_STANDALONE)
   endif()
 endif() # standalone
 
-set(LLD_TOOLS_INSTALL_DIR "${CMAKE_INSTALL_BINDIR}" CACHE PATH
-    "Path for binary subdirectory (defaults to '${CMAKE_INSTALL_BINDIR}')")
+# INTEL_CUSTOMIZATION
+set(LLD_TOOLS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE PATH
+    "Path for binary subdirectory (defaults to '${LLVM_TOOLS_INSTALL_DIR}')")
+# end INTEL_CUSTOMIZATION
 mark_as_advanced(LLD_TOOLS_INSTALL_DIR)
 
 set(LLD_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
