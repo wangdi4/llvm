@@ -8158,7 +8158,7 @@ public:
 
 #if INTEL_COLLAB
     bool HasVTPtr = false;
-    if (auto *RT = dyn_cast<RecordType>(AssocExpr->getType()))
+    if (auto *RT = AssocExpr->getType()->getAs<RecordType>())
       if (auto *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
         if (ClassDecl->isDynamicClass() &&
             !CGF.getVTablePointers(ClassDecl).empty())
