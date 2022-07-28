@@ -3358,12 +3358,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
                                               Type *ElementType, int Index,
                                               unsigned IdxBcastFactor) {
-  assert(PtrRef->isSelfBlob() && "Expected self blob DDRef");
+  assert((PtrRef->isSelfBlob() || PtrRef->isStandAloneUndefBlob()) &&
+         "Expected self blob DDRef or undef");
   auto &HIRF = HLNodeUtilities.getHIRFramework();
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   auto Is64Bit = TargetTriple.isArch64Bit();
-  RegDDRef *MemRef = DDRefUtilities.createMemRef(
-      ElementType, PtrRef->getSelfBlobIndex(), PtrRef->getDefinedAtLevel());
+  unsigned BlobIndex = PtrRef->isSelfBlob()
+                           ? PtrRef->getSelfBlobIndex()
+                           : PtrRef->getSingleCanonExpr()->getSingleBlobIndex();
+  RegDDRef *MemRef = DDRefUtilities.createMemRef(ElementType, BlobIndex,
+                                                 PtrRef->getDefinedAtLevel());
   auto Int32Ty = Type::getInt32Ty(HLNodeUtilities.getContext());
   auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
   auto IndexCE =

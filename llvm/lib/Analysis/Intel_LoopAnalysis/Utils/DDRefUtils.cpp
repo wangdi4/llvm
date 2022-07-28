@@ -66,7 +66,10 @@ RegDDRef *DDRefUtils::createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlo
   Ref->setBaseCE(BaseCE);
   Ref->setBasePtrElementType(BasePtrElementType);
   Ref->setInBounds(IsInBounds);
-  Ref->addBlobDDRef(BasePtrBlobIndex, Level);
+
+  // Avoid adding blob ref for the case where BaseCE is undef
+  if (!BaseCE->isStandAloneUndefBlob())
+    Ref->addBlobDDRef(BasePtrBlobIndex, Level);
 
   if (!IsMemRef) {
     Ref->setAddressOf(true);
