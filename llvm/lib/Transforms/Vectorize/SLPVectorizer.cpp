@@ -2284,6 +2284,19 @@ public:
     DeletedInstructions.insert(I);
   }
 
+#if INTEL_CUSTOMIZATION
+  /// \returns size of \p BB basic block taking into account number of
+  /// postponed instructions to be erased from the block.
+  unsigned getBlockSize(const BasicBlock *BB) {
+    unsigned NumErasedInsts =
+        count_if(DeletedInstructions,
+                 [BB](const Instruction *I) { return I->getParent() == BB; });
+    assert(BB->size() >= NumErasedInsts &&
+           "Erased more instructions than block holds?");
+    return BB->size() - NumErasedInsts;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Checks if the instruction was already analyzed for being possible
   /// reduction root.
   bool isAnalyzedReductionRoot(Instruction *I) const {
@@ -2977,6 +2990,9 @@ private:
     /// The indices of the TreeEntries that make up a Multi-Node.
     SmallVector<int, 8> MultiNodeTEs;
 
+    /// The Root of the MultiNode.
+    const TreeEntry *RootTE = nullptr;
+
     /// The number of lanes for the whole Multi-Node. We do not
     /// allow any changes in the vector length within the Multi-Node.
     /// NOTE: We cannot safely deduce this from Leaves, because Leaves contains
@@ -3037,7 +3053,7 @@ private:
         for (User *U : I->users()) {
           if (const TreeEntry *TE = R.getTreeEntry(U))
             return cast<Instruction>(TE->Scalars[0]);
-          assert(R.getTreeEntry(I)->Idx == getRoot() &&
+          assert(R.getTreeEntry(I) == getRoot() &&
                  "If no users found, 'I' must be the root of the MultiNode");
         }
         // Return null if 'I' is at the root of the MultiNode.
@@ -3049,8 +3065,8 @@ private:
       // instruction if an operand is the second one.
       Instruction *I = getData(BestOp, 0).getFrontier();
       Value *Operand = I->getOperand(getData(BestOp, 0).getOperandNum());
-      Value *Root0 = R.VectorizableTree[getRoot()]->Scalars[0];
-      while (Operand != Root0 && I) {
+      Value *VL0 = getRoot()->Scalars[0];
+      while (Operand != VL0 && I) {
         assert(Operand != I && "Self referencing instruction?");
         if (GetOperandIndex(I, Operand) == 1)
           SteeringData.insert(I);
@@ -3104,8 +3120,6 @@ private:
 
     unsigned getNumLanes() const { return NumLanes; }
     unsigned getNumOperands() const { return Operands.getNumOperands(); }
-    bool empty() const { return Operands.empty(); }
-    void setNumLanes(unsigned Lanes) { NumLanes = Lanes; }
 
     using LeafData = MNOperands::LeafData;
 
@@ -3117,7 +3131,7 @@ private:
     }
 
     void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
-      assert((empty() || NumLanes == OpVL.size()) &&
+      assert((Operands.empty() || NumLanes == OpVL.size()) &&
              "Must keep same num of lanes");
       Operands.appendOperand(OpVL, EI);
     }
@@ -3199,7 +3213,7 @@ private:
       // When reordering we collect operands scores.
       // That will help to steer SLP through the multi-node.
       SmallVector<int> OperandScores(getNumOperands(), 0);
-      bool DoCodeGen = Operands.reorder(getRoot(), OperandScores);
+      bool DoCodeGen = Operands.reorder(getRoot()->Idx, OperandScores);
 
       if (EnablePathSteering) {
         // Find the highest non-zero score operand and steer SLP vectorizer
@@ -3235,16 +3249,90 @@ private:
       auto it = std::find(MultiNodeTEs.begin(), MultiNodeTEs.end(), Idx);
       return it != MultiNodeTEs.end();
     }
-    /// \returns the TreeEntry index of the root.
-    int getRoot() const {
-      assert(!MultiNodeTEs.empty() && "Can't get root of empty Multi-Node");
-      return MultiNodeTEs[0];
+    /// \returns the root TreeEntry.
+    const TreeEntry *getRoot() const {
+      assert(RootTE && !MultiNodeTEs.empty() &&
+             MultiNodeTEs[0] == RootTE->Idx &&
+             "getRoot() : an empty or inconsistent Multi-Node");
+      return RootTE;
     }
+
+    /// Begin formation of a new MultiNode object with \p Root as
+    /// the MultiNode root tree entry.
+    void init(TreeEntry *Root) {
+      const ValueList &VL = Root->Scalars;
+      RootTE = Root;
+      NumLanes = VL.size();
+    }
+    /// \returns True if set of scalars \p VL can be used to extend
+    /// MultiNode trunk.
+    // Note: due to legacy restriction it is not guaranteed that
+    // the MultiNode will be eligible for reordering even though
+    // the result returned is True. Please see hack comments for
+    // specific details.
+    bool canExtendTowards(ArrayRef<Value *> VL) const {
+      auto &&HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
+        assert((!R.getTreeEntry(VL[0]) || R.getTreeEntry(VL[0])->Idx != 0) &&
+               "This VL is at the root!");
+
+        for (Value *Scalar : VL) {
+          if (any_of(Scalar->users(), [this](User *U) {
+                // If a user is not in a vectorizable tree, it is definitely not
+                // in the Multi-Node. If a user is not in current MultiNode,
+                // then it is an external user.
+                const TreeEntry *TE = R.getTreeEntry(U);
+                return !TE || !containsTrunk(TE->Idx);
+              }))
+            return true;
+        }
+        return false;
+      };
+
+      assert(numOfTrunks() >= 0 && "Extending MultiNode without root?");
+
+      // We can't extend the MultiNode if we reached the maximum size
+      // or vector-length does not hold
+      // or scalars have incompatible opcodes.
+      if (numOfTrunks() >= MultiNodeSizeLimit || VL.size() != getNumLanes() ||
+          !hasCompatibleOpcodes(VL))
+        return false;
+
+      // HACK: This condition must be the more strict "hasOneUse" check as
+      // the only MultiNode root can have more uses. This is a legality check.
+      // But erroneously until we discovered the flaw we allowed to build a
+      // "broken" MultiNode and merely were lucky that reordering did not
+      // happen. Since path steering is tightened to MultiNode staff we were
+      // benefiting from it. For this reason we continue to use "relaxed" check
+      // but make sure to check one-use and disable reordering explicitly if we
+      // proceed to extend the MultiNode.
+      if (HasExternalUsesToMultiNode(VL))
+        return false;
+
+      // Should not cross BB
+      // At this point we do expect that (1) the MultiNode root node scalars
+      // are all within same block and (2) those scalars currently being
+      // evaluated are also all within same block. We do only need to check
+      // that those two are the same.
+      assert(allSameBlock(RootTE->Scalars) &&
+             "MN root instructions must be in same block?");
+      assert(allSameBlock(VL) && "VL instructions must be in same block?");
+
+      const BasicBlock *RootBB =
+          cast<Instruction>(RootTE->Scalars[0])->getParent();
+      return RootBB == cast<Instruction>(VL[0])->getParent();
+    }
+
     /// Append \p Idx to the Multi-Node indices.
-    void appendTrunk(int Idx) { MultiNodeTEs.push_back(Idx); }
+    void appendTrunk(int Idx) {
+      assert(RootTE && "Multi-Node was not initialized.");
+      MultiNodeTEs.push_back(Idx);
+    }
     /// \returns the number of trunk nodes in this Multi-Node.
-    size_t numOfTrunks() const { return MultiNodeTEs.size(); }
-    void clearTrunks() { MultiNodeTEs.clear(); }
+    unsigned numOfTrunks() const { return MultiNodeTEs.size(); }
+    void clearTrunks() {
+      RootTE = nullptr;
+      MultiNodeTEs.clear();
+    }
     const SmallVectorImpl<int> &getTrunks() const { return MultiNodeTEs; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void dump() const;
@@ -3526,9 +3614,6 @@ private:
     int Idx = -1;
 
 #if INTEL_CUSTOMIZATION
-    /// global Index for debugging
-    int GlobalIdx = -1;
-
     /// The vectorization cost.
     InstructionCost Cost = 0;
 
@@ -3847,10 +3932,6 @@ private:
     VectorizableTree.push_back(std::make_unique<TreeEntry>(VectorizableTree));
     TreeEntry *Last = VectorizableTree.back().get();
     Last->Idx = VectorizableTree.size() - 1;
-#if INTEL_CUSTOMIZATION
-    static int GlobalIdxStatic = 0;
-    Last->GlobalIdx = GlobalIdxStatic++;
-#endif // INTEL_CUSTOMIZATION
     Last->State = EntryState;
     Last->ReuseShuffleIndices.append(ReuseShuffleIndices.begin(),
                                      ReuseShuffleIndices.end());
@@ -5838,7 +5919,7 @@ void BoUpSLP::clearVTreeAfterMultiNode(const MultiNode *MN) {
   int TreeSize = VectorizableTree.size();
   // 1. Clear entries from ScalarToTreeEntry/MustGather
   for (const TreeEntry *TE :
-       map_range(seq(MN->getRoot(), TreeSize),
+       map_range(seq(MN->getRoot()->Idx, TreeSize),
                  [this](int I) { return VectorizableTree[I].get(); })) {
     if (TE->State == TreeEntry::NeedToGather)
       for (Value *V : TE->Scalars)
@@ -5848,7 +5929,7 @@ void BoUpSLP::clearVTreeAfterMultiNode(const MultiNode *MN) {
         ScalarToTreeEntry.erase(V);
   }
   // 2. Remove entries from VectorizableTree[]
-  VectorizableTree.pop_back_n(TreeSize - MN->getRoot());
+  VectorizableTree.pop_back_n(TreeSize - MN->getRoot()->Idx);
 }
 
 Optional<BoUpSLP::ScheduleData *>
@@ -5869,7 +5950,7 @@ BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
   Optional<ScheduleData *> Bundle = {None};
 
   for (const TreeEntry *TE :
-       map_range(seq_inclusive(0, MN->getRoot()),
+       map_range(seq_inclusive(0, MN->getRoot()->Idx),
                  [this](int I) { return VectorizableTree[I].get(); })) {
     if (TE->State == TreeEntry::NeedToGather)
       continue;
@@ -5904,7 +5985,7 @@ BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
 void BoUpSLP::scheduleMultiNodeInstrs() {
   if (CurrentMultiNode->numOfTrunks() <= 1)
     return;
-  const TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
+  const TreeEntry *RootTE = CurrentMultiNode->getRoot();
   int Lanes = RootTE->Scalars.size();
 
   // The 'Destination' holds the destination position where the scheduled
@@ -5957,8 +6038,6 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
 
 void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
   DenseMap<Value *, Value *> RemapMap;
-  assert(!CurrentMultiNode->empty() && "Broken CurrentMultiNode.");
-
   for (int OpI : seq<int>(0, CurrentMultiNode->getNumOperands())) {
     for (int Lane : seq<int>(0, CurrentMultiNode->getNumLanes())) {
 
@@ -6030,6 +6109,7 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
 
 // Perform the operand reordering according to 'BestGroups'.
 void BoUpSLP::applyMultiNodeOrder(ScheduleData *Bundle) {
+  assert(CurrentMultiNode->getNumOperands() > 1 && "Nothing to reorder.");
   LLVM_DEBUG(CurrentMultiNode->dump());
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DotMultiNode)
@@ -6065,7 +6145,7 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
   }
 
   // Update VL to be the root of the Multi-Node.
-  VL = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars;
+  VL = CurrentMultiNode->getRoot()->Scalars;
 
 #ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
@@ -6079,23 +6159,17 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
                                      ArrayRef<Value *> VL,
                                      int NextDepth, const EdgeInfo &UserTreeIdx,
                                      ArrayRef<int> ReuseShuffleIndices) {
-  unsigned NumLanes = VL.size();
-
-  // Build the Multi-Node tree entry.
-  int NewTEIdx = VectorizableTree.size();
-  CurrentMultiNode->appendTrunk(NewTEIdx);
+  TreeEntry *NewTE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndices);
+  assert(NewTE && "Invalid MultiNode trunk TE");
 
   // Initialize current Multi-Node if this is the root.
-  if (CurrentMultiNode->numOfTrunks() == 1)
-    CurrentMultiNode->setNumLanes(NumLanes);
+  if (CurrentMultiNode->numOfTrunks() == 0)
+    CurrentMultiNode->init(NewTE);
 
-  // If this VL looks OK for the Multi-Node, proceed with adding a new entry.
-  auto *NewTE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndices);
+  CurrentMultiNode->appendTrunk(NewTE->Idx);
 
-  int LastTEIdx = VectorizableTree.size() - 1;
-
-  // Point to the root of the Multi-Node.
-  VectorizableTree[LastTEIdx]->MultiNodeRoot = CurrentMultiNode->getRoot();
+  // Point to the root of the MultiNode.
+  NewTE->MultiNodeRoot = CurrentMultiNode->getRoot()->Idx;
 
   // Now we can continue the buildTree_rec()  recursion.
   // Reorder operands (if possible) based on the default shallow reordering that
@@ -6126,7 +6200,7 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
     struct EdgeInfo EI(NewTE, OpIdx);
     Ops.getAPOVec(EI.APOs, OpIdx);
 
-    if (CurrentMultiNode->getRoot() != LastTEIdx) {
+    if (CurrentMultiNode->getRoot() != NewTE) {
       unsigned NumLanes = VL.size();
       assert(UserTreeIdx.APOs.size() == NumLanes && "APOs out of sync");
 
@@ -6759,71 +6833,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
 #if INTEL_CUSTOMIZATION
   if (EnableMultiNodeSLP) {
-    // Check and return true if we can further grow current Multi-Node.
-    auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions](
-                                  ArrayRef<Value *> VL) {
-      auto WithinSameBB = [](ArrayRef<Value *> VL,
-                             const TreeEntry *RootTE) {
-        // At this point we do expect that (1) the MultiNode root node scalars
-        // are all within same block and (2) those scalars currently being
-        // evaluated are also all within same block. We do only need to check
-        // that those two are the same.
-        assert(allSameBlock(RootTE->Scalars) &&
-               "MN root instructions must be in same block?");
-        assert(allSameBlock(VL) && "VL instructions must be in same block?");
-
-        auto *RootI0 = cast<Instruction>(RootTE->Scalars[0]);
-        auto *I0 = cast<Instruction>(VL[0]);
-        return I0->getParent() == RootI0->getParent();
-      };
-
-      auto HasExternalUsesToMultiNode = [this](ArrayRef<Value *> VL) {
-        assert((!getTreeEntry(VL[0]) || getTreeEntry(VL[0])->Idx != 0) &&
-               "This VL is at the root!");
-
-        for (Value *Scalar : VL) {
-          if (llvm::any_of(Scalar->users(), [this](User *U) {
-                // If a user is not in ScalarToTreeEntry, then it is not even in
-                // the SLP-tree, so definitely not in the Multi-Node.
-                // If the user is not in current MultiNode, then it is
-                // an external user.
-                return !ScalarToTreeEntry.count(U) ||
-                       !CurrentMultiNode->containsTrunk(
-                           ScalarToTreeEntry[U]->Idx);
-              }))
-            return true;
-        }
-        return false;
-      };
-
-      if (CurrentMultiNode->numOfTrunks() >= MultiNodeSizeLimit ||
-          !MultiNodeCompatibleInstructions)
-        return false;
-
-      // Empty Multi-Node may always grow.
-      if (CurrentMultiNode->numOfTrunks() == 0)
-        return true;
-
-      /// MultiNode reorder can't happen if its effect is effectively
-      /// "multiplied" by being used multiple times. HACK: Path steering is
-      /// still OK though.
-      if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
-        CurrentMultiNode->disableReorder();
-
-      // We have to keep the vector-length constant across the Multi-Node.
-      return VL.size() == CurrentMultiNode->getNumLanes() &&
-             // Only the root can have external uses.
-             // HACK: This condition is covered by hasOneUse check above for
-             // reordering, but we need it for path steering as well.
-             !HasExternalUsesToMultiNode(VL) &&
-             // Should not cross BB
-             // TODO: we should remove this restriction in the future.
-             // Note that we likely want to take BB size into account once the
-             // restriction is removed.
-             WithinSameBB(VL,
-                          VectorizableTree[CurrentMultiNode->getRoot()].get());
-    };
-
     // If we are already building a Multi-Node.
     // Try to continue the buildTree recursion in order to grow the Multi-Node.
     if (BuildingMultiNode) {
@@ -6833,12 +6842,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         return;
       }
       // Check if we should stop growing the Multi-Node
-      if (!CanExtendMultiNode(VL)) {
+      if (!CurrentMultiNode->canExtendTowards(VL)) {
         // VL may probably be a leaf node.
         (void)addMultiNodeLeafIfLegal(VL, UserTreeIdx);
         BS.cancelScheduling(VL, VL0);
         return;
       }
+      // HACK: MultiNode reorder can't happen if its effect is effectively
+      // "multiplied" by being used multiple times. Path steering is
+      // still OK though.
+      if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
+        CurrentMultiNode->disableReorder();
+
       // The early checks show that we can grow the Multi-Node, so proceed.
       // NOTE: The checks in buildTree_rec() may also prohibit the growth of the
       // Multi-Node. Therefore there is a second point in newTreeEntr() where
@@ -6848,18 +6863,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
 
-    auto &&GetBlockSize = [this](const Instruction *I0) {
-      auto *BB = I0->getParent();
-      return BB->size() -
-             count_if(DeletedInstructions, [BB](const Instruction *I) {
-               return I->getParent() == BB;
-             });
-    };
-
     // No Multi-Node is being built, try to see if we can build one.
     bool CanBeginNewMultiNode =
         MultiNodeCompatibleInstructions &&
-        GetBlockSize(cast<Instruction>(VL[0])) <= MaxBBSizeForMultiNodeSLP &&
+        getBlockSize(VL0->getParent()) <= MaxBBSizeForMultiNodeSLP &&
         // Disable overlapping Multi-Nodes
         llvm::none_of(
             VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
@@ -6920,13 +6927,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // Fall-thru if we are finished with the Multi-Node and need to
       // continue in buildTree_rec() as usual.
 
-      // If no Multi-Node was created, de-allocate the space.
-      if (CurrentMultiNode->empty()) {
-        MultiNodes.pop_back_n(1);
-        CurrentMultiNode = nullptr;
-      } else {
+      if (CurrentMultiNode->getNumOperands() > 0) {
         // Cleanup
         CurrentMultiNode->clearTrunks();
+      } else {
+        // No reorderable operands, de-allocate the space.
+        MultiNodes.pop_back_n(1);
+        CurrentMultiNode = nullptr;
       }
     }
   }
@@ -12242,7 +12249,7 @@ void BoUpSLP::computeMinimumValueSizes() {
 
 // Debug print of the Multi-node operands.
 LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
-  if (empty()) {
+  if (Operands.empty()) {
     dbgs() << "Empty\n";
     return;
   }
@@ -12258,7 +12265,7 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
 
 // Debug print of the Multi-node operands.
 LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
-  if (empty()) {
+  if (Operands.empty()) {
     dbgs() << "Empty\n";
     return;
   }
