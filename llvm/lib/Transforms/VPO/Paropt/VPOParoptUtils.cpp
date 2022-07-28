@@ -6998,7 +6998,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     // A PTR_TO_PTR clause operand's pointee type is a named struct with one
     // integer that's the same size as the size of a pointer.
     //   %cptr = type {i64} ; for x86_64 architecture
-    //   "USE_DEVICE_PTR:CPTR"(i32** %p)
+    //   "USE_DEVICE_PTR:CPTR"(%cptr* %p)
     //
     // So, if type information for a CPTR operand is not available (e.g. via a
     // typed clause) we can use a "pointer type" as its element type.

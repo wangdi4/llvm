@@ -5380,6 +5380,27 @@ void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
          "number of need_device_ptr operands cannot exceed number of fn args");
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+#if INTEL_CUSTOMIZATION
+
+  // Extract the struct type from StructTyName, and use that to populate the
+  // type fields in the item UDPI.
+  auto AddF90DVDVInfoToUDPIUsingStructName = [&](UseDevicePtrItem *UDPI,
+                                                 StringRef StructTyName) {
+    assert(UDPI && "Null use_device_ptr item.");
+    LLVMContext &C = F->getContext();
+
+    auto *DVTy = StructType::getTypeByName(C, StructTyName);
+    if (!DVTy)
+      llvm_unreachable("Couldn't find type of F90_DV need_device_ptr operand.");
+
+    UDPI->setIsF90DopeVector(true);
+    UDPI->setIsTyped(true);
+    UDPI->setOrigItemElementTypeFromIR(DVTy);
+    UDPI->setNumElements(ConstantInt::get(Type::getInt32Ty(C), 1));
+    // Pointee element type is not needed for use_device_ptr codegen.
+    UDPI->setPointeeElementTypeFromIR(nullptr);
+  };
+#endif // INTEL_CUSTOMIZATION
 
   for (unsigned I = 0; I < Substr.size(); ++I) {
     auto Arg = FnArgs[I];
@@ -5398,6 +5419,8 @@ void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
 #if INTEL_CUSTOMIZATION
     else if (Substr[I] == "F90_DV")
       UDPC.back()->setIsF90DopeVector(true);
+    else if (Substr[I].consume_front("F90_DV."))
+      AddF90DVDVInfoToUDPIUsingStructName(UDPC.back(), Substr[I]);
     else if (Substr[I] == "CPTR")
       UDPC.back()->setIsCptr(true);
 #endif // INTEL_CUSTOMIZATION
