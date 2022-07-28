@@ -483,12 +483,31 @@ public:
       sys::fs::remove(File);
   }
 
+#if INTEL_CUSTOMIZATION
+  TempFileHandlerRAII(const OffloadBundlerConfig &BC) : BundlerConfig(BC) {}
+#endif  // INTEL_CUSTOMIZATION
+
   // Creates temporary file with given contents.
   Expected<StringRef> Create(Optional<ArrayRef<char>> Contents) {
     SmallString<128u> File;
+#if INTEL_CUSTOMIZATION
+    std::error_code EC;
+    if (BundlerConfig.BaseTempDir.size()) {
+      SmallString<128> BaseAndPrefix(BundlerConfig.BaseTempDir);
+      llvm::sys::path::append(BaseAndPrefix, "clang-offload-bundler");
+      EC = llvm::sys::fs::createUniqueFile(
+          Twine(BaseAndPrefix) + Twine("-%%%%%%.") + "tmp", File,
+          llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
+    } else
+      EC = llvm::sys::fs::createTemporaryFile("clang-offload-bundler", "tmp",
+                                              File);
+    if (EC)
+      return createFileError(File, EC);
+#else  // INTEL_CUSTOMIZATION
     if (std::error_code EC =
             sys::fs::createTemporaryFile("clang-offload-bundler", "tmp", File))
       return createFileError(File, EC);
+#endif // INTEL_CUSTOMIZATION
     Files.push_front(File);
 
     if (Contents) {
@@ -503,6 +522,11 @@ public:
 
 private:
   std::forward_list<SmallString<128u>> Files;
+
+#if INTEL_CUSTOMIZATION
+  const OffloadBundlerConfig &BundlerConfig;
+#endif  // INTEL_CUSTOMIZATION
+
 };
 
 } // end anonymous namespace
@@ -758,7 +782,11 @@ public:
     OS.close();
 
     // Temporary files that need to be removed.
+#if INTEL_CUSTOMIZATION
+    TempFileHandlerRAII TempFiles(BundlerConfig);
+#else  //  INTEL_CUSTOMIZATION
     TempFileHandlerRAII TempFiles;
+#endif  // INTEL_CUSTOMIZATION
 
     // Compose llvm-objcopy command line for add target objects' sections with
     // appropriate flags.
@@ -1104,8 +1132,16 @@ public:
             if (BundlerConfig.FilesType == "aocr" ||
                 BundlerConfig.FilesType == "aocx")
               Ext = BundlerConfig.FilesType;
+#if INTEL_CUSTOMIZATION
+            SmallString<128> BaseAndPrefix(BundlerConfig.BaseTempDir);
+            llvm::sys::path::append(BaseAndPrefix, TempFileNameBase);
+            auto EC = llvm::sys::fs::createUniqueFile(
+                Twine(BaseAndPrefix) + Twine("-%%%%%%.") + Ext, ChildFileName,
+                llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
+#else  // INTEL_CUSTOMIZATION
             auto EC = sys::fs::createTemporaryFile(TempFileNameBase, Ext,
                                                    ChildFileName);
+#endif // INTEL_CUSTOMIZATION
             if (EC)
               return createFileError(ChildFileName, EC);
 

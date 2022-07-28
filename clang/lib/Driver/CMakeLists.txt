@@ -34,6 +34,9 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
   BitWriter
+# INTEL_CUSTOMIZATION
+  Core
+# end INTEL_CUSTOMIZATION
   IRReader
   MC
   Object

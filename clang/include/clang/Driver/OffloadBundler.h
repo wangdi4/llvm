@@ -36,6 +36,7 @@ public:
   unsigned BundleAlignment = 1;
   unsigned HostInputIndex = ~0u;
 
+  std::string BaseTempDir;
   std::string FilesType;
   std::string ObjcopyPath;
 
