@@ -174,5 +174,34 @@ void foo(int x, int y)
   // CHECK: DIR.OMP.END.PARALLEL
   #pragma omp parallel masked taskloop nogroup
   for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.PARALLEL
+  // CHECK-SAME: QUAL.OMP.REDUCTION.ADD
+  // CHECK: DIR.OMP.MASKED
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK-SAME: QUAL.OMP.REDUCTION.ADD
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.INREDUCTION.ADD
+  // CHECK: DIR.OMP.SIMD
+  // CHECK-SAME: QUAL.OMP.REDUCTION.ADD
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  // CHECK: DIR.OMP.END.MASKED
+  // CHECK: DIR.OMP.END.PARALLEL
+  #pragma omp parallel masked taskloop simd reduction(+: res)
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.PARALLEL
+  // CHECK: DIR.OMP.MASKED
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK: DIR.OMP.SIMD
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.MASKED
+  // CHECK: DIR.OMP.END.PARALLEL
+  #pragma omp parallel masked taskloop simd  nogroup
+  for (int i = 0; i < 10; ++i);
 }
 // end INTEL_COLLAB
