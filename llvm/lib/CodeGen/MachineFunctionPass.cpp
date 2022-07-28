@@ -90,6 +90,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
   if (ShouldEmitSizeRemarks)
     CountBefore = MF.getInstructionCount();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   // For --print-changed, if the function name is a candidate, save the
   // serialized MF to be compared later.
   // TODO Implement --filter-passes.
@@ -100,6 +101,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
     raw_svector_ostream OS(BeforeStr);
     MF.print(OS);
   }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   bool RV = runOnMachineFunction(MF);
 
@@ -129,6 +131,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
   MFProps.set(SetProperties);
   MFProps.reset(ClearedProperties);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   // For --print-changed, print if the serialized MF has changed. Modes other
   // than quiet/verbose are unimplemented and treated the same as 'quiet'.
   if (ShouldPrintChanged) {
@@ -145,6 +148,7 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
                  " omitted because no change ***\n");
     }
   }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return RV;
 }
 
