@@ -299,7 +299,10 @@ public:
                                         unsigned NumStridedMemAccesses,
                                         unsigned NumPrefetches,
                                         bool HasCall) const;
-<<<<<<< HEAD
+
+  /// \return if target want to issue a prefetch in address space \p AS.
+  virtual bool shouldPrefetchAddressSpace(unsigned AS) const;
+
 #if INTEL_CUSTOMIZATION
   /// Return True if support DSB
   virtual bool hasDSB() const {
@@ -321,11 +324,6 @@ public:
     return 0;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  /// \return if target want to issue a prefetch in address space \p AS.
-  virtual bool shouldPrefetchAddressSpace(unsigned AS) const;
->>>>>>> 0562cf442f128e2665ecddc68ca9511a6a4a479b
 };
 
 } // end namespace llvm
