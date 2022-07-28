@@ -284,7 +284,10 @@ class Item
                "F90_DV and PTR_TO_PTR can't be on the same case.");
         if (getIsF90DopeVector()) {
           OS << ", POINTEE_TYPE: ";
-          getPointeeElementTypeFromIR()->print(OS);
+          if (auto *PointeeTy = getPointeeElementTypeFromIR())
+            PointeeTy->print(OS);
+          else
+            OS << "UNSPECIFIED";
         }
 #endif // INTEL_CUSTOMIZATION
         if (getIsPointerToPointer()) {
