@@ -294,7 +294,12 @@ public:
                                           const TargetOptions &Opts)
       : WindowsTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts) {
     LongWidth = LongAlign = 32;
+    DoubleAlign = LongLongAlign = 64;
+    IntMaxType = SignedLongLong;
+    Int64Type = SignedLongLong;
     SizeType = UnsignedLongLong;
+    PtrDiffType = SignedLongLong;
+    IntPtrType = SignedLongLong;
     WCharType = SignedInt; // To match cllib's rule: wchar_size = 4 in SPIR
   }
 
