@@ -3214,7 +3214,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
   bool Changed = false;
 
-<<<<<<< HEAD
   // This could be a multiple entry PHI node. Try to fold each pair of entries
   // that leads to an "if condition".  Traverse through the predecessor list of
   // BB (where each predecessor corresponds to an entry in the PN) to look for
@@ -3251,7 +3250,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // from the block that we know is predictably not entered.
     if (!DomBI->getMetadata(LLVMContext::MD_unpredictable)) {
       uint64_t TWeight, FWeight;
-      if (extractBranchWeights(*DomBI, TWeight, FWeight) &&
+      if (DomBI->extractProfMetadata(TWeight, FWeight) &&
           (TWeight + FWeight) != 0) {
         BranchProbability BITrueProb =
             BranchProbability::getBranchProbability(TWeight, TWeight + FWeight);
@@ -3266,38 +3265,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
           if (BITrueProb >= Likely || BIFalseProb >= Likely)
             continue;
         }
-=======
-  BasicBlock *DomBlock = DomBI->getParent();
-  SmallVector<BasicBlock *, 2> IfBlocks;
-  llvm::copy_if(
-      PN->blocks(), std::back_inserter(IfBlocks), [](BasicBlock *IfBlock) {
-        return cast<BranchInst>(IfBlock->getTerminator())->isUnconditional();
-      });
-  assert((IfBlocks.size() == 1 || IfBlocks.size() == 2) &&
-         "Will have either one or two blocks to speculate.");
-
-  // If the branch is non-unpredictable, see if we either predictably jump to
-  // the merge bb (if we have only a single 'then' block), or if we predictably
-  // jump to one specific 'then' block (if we have two of them).
-  // It isn't beneficial to speculatively execute the code
-  // from the block that we know is predictably not entered.
-  if (!DomBI->getMetadata(LLVMContext::MD_unpredictable)) {
-    uint64_t TWeight, FWeight;
-    if (DomBI->extractProfMetadata(TWeight, FWeight) &&
-        (TWeight + FWeight) != 0) {
-      BranchProbability BITrueProb =
-          BranchProbability::getBranchProbability(TWeight, TWeight + FWeight);
-      BranchProbability Likely = TTI.getPredictableBranchThreshold();
-      BranchProbability BIFalseProb = BITrueProb.getCompl();
-      if (IfBlocks.size() == 1) {
-        BranchProbability BIBBProb =
-            DomBI->getSuccessor(0) == BB ? BITrueProb : BIFalseProb;
-        if (BIBBProb >= Likely)
-          return false;
-      } else {
-        if (BITrueProb >= Likely || BIFalseProb >= Likely)
-          return false;
->>>>>>> 6e9bab71b626183211625f150cc25fa22cb0973c
       }
     }
     // Don't try to fold an unreachable block. For example, the phi node itself
@@ -7308,7 +7275,7 @@ static bool EliminateRedundantCases(SwitchInst *SI, DomTreeUpdater *DTU) {
   DenseMap<ConstantInt *, uint64_t> OrigValueToWeight;
   uint64_t DefaultExecWeight = 0;
   bool ProfileUpdateNeeded = false;
-  if (!CasesToBeRemoved.empty() && hasBranchWeightMD(*SI)) {
+  if (!CasesToBeRemoved.empty() && HasBranchWeights(SI)) {
     SmallVector<uint64_t, 8> Weights;
     GetBranchWeights(SI, Weights);
 
