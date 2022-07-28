@@ -583,13 +583,13 @@ void HIRLoopFusion::sortHLNodes(const FuseGraph &FG) {
 
   auto MoveNode = [&](HLNode *SortedNode) {
     if (NeedNextPtr) {
-      PtrNode = &*std::next(PtrNode->getIterator());
+      PtrNode = PtrNode->getNextNode();
       NeedNextPtr = false;
     }
 
     if (PtrNode == SortedNode) {
       NeedNextPtr = true;
-    } else {
+    } else if (PtrNode) {
       HLNodeUtils::moveBefore(PtrNode, SortedNode);
     }
   };
