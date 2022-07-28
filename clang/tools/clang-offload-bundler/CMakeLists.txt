@@ -28,7 +28,10 @@ set(LLVM_LINK_COMPONENTS
 
 add_clang_tool(clang-offload-bundler
   ClangOffloadBundler.cpp
+<<<<<<< HEAD
   CUSTOM_WIN_VER
+=======
+>>>>>>> 96f730774ac4a22946fb11461256a60708c7f2c3
 
   DEPENDS
   intrinsics_gen
@@ -36,6 +39,7 @@ add_clang_tool(clang-offload-bundler
 
 set(CLANG_OFFLOAD_BUNDLER_LIB_DEPS
   clangBasic
+  clangDriver
   )
 
 add_dependencies(clang clang-offload-bundler)
