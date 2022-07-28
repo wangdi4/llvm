@@ -34,8 +34,12 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
   BitWriter
+# INTEL_CUSTOMIZATION
+  Core
+# end INTEL_CUSTOMIZATION
   IRReader
   MC
+  Object
   Option
   ProfileData
   Support
@@ -55,6 +59,7 @@ add_clang_library(clangDriver
   DriverOptions.cpp
   Job.cpp
   Multilib.cpp
+  OffloadBundler.cpp
   OptionUtils.cpp
   Phases.cpp
   SanitizerArgs.cpp
