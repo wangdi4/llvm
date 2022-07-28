@@ -145,10 +145,14 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/integer_misc.cpp
                            imf_utils/float_convert.cpp
                            imf_utils/half_convert.cpp
+<<<<<<< HEAD
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp32.hpp
                            imf/intel/erfinv_s_ha.cpp
                            # end INTEL_CUSTOMIZATION
+=======
+                           imf_utils/simd_emulate.cpp
+>>>>>>> 6f0bb256cd00febdfcf7ad29bd43842c97860d43
                            imf/imf_inline_fp32.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
