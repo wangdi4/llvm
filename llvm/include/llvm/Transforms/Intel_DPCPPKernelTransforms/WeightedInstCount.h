@@ -60,6 +60,9 @@ public:
   // truncate it to int here.
   float getWeight() const;
 
+  /// Returns the probability of a basic block being executed.
+  float getBBProb(const BasicBlock *BB) const;
+
   /// FIXME this is only used in volcano vectorizer.
   /// For statistical purposes only, calculate the heuristic results per
   /// block and output as counters. Called after both runs (before and after

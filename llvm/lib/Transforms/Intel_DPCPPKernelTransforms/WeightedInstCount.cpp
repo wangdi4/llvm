@@ -97,6 +97,9 @@ public:
   // Returns the computed total weight.
   float getWeight() const { return TotalWeight; }
 
+  // Returns the probability of a basic block being executed.
+  float getBBProb(const BasicBlock *BB) const { return ProbMap.lookup(BB); }
+
   /// Calculate the heuristic results per basic block and output as counts.
   void countPerBlockHeuristics(std::map<BasicBlock *, int> *PreCosts,
                                int PacketWidth);
@@ -192,6 +195,9 @@ private:
 
   // A map of costs for the load/store transpose functions
   StringMap<int> TransCosts;
+
+  // The probability of each basic block being executed.
+  DenseMap<BasicBlock *, float> ProbMap;
 };
 } // namespace llvm
 
@@ -302,7 +308,6 @@ void InstCountResultImpl::analyze() {
 
   // Now compute some estimation of the probability of each basic block
   // being executed in a run.
-  DenseMap<BasicBlock *, float> ProbMap;
   estimateProbability(F, ProbMap);
 
   // Ok, start counting with 0
@@ -1452,6 +1457,10 @@ void InstCountResult::print(raw_ostream &OS) { return Impl->print(OS); }
 unsigned InstCountResult::getDesiredVF() const { return Impl->getDesiredVF(); }
 
 float InstCountResult::getWeight() const { return Impl->getWeight(); }
+
+float InstCountResult::getBBProb(const BasicBlock *BB) const {
+  return Impl->getBBProb(BB);
+}
 
 void InstCountResult::countPerBlockHeuristics(
     std::map<BasicBlock *, int> *PreCosts, int PacketWidth) {

@@ -40,6 +40,10 @@ private:
     BI_REL_IS_GREATER_EQUAL,
     BI_REL_IS_EQUAL,
     BI_REL_IS_NOT_EQUAL,
+    BI_UDIV,
+    BI_SDIV,
+    BI_UREM,
+    BI_SREM,
     BI_NOT_SUPPORTED
   };
 
@@ -64,6 +68,9 @@ private:
   /// \param RelationalTy type of the called relational built-in.
   void handleRelationalCalls(CallInst *RelationalCall,
                              BuiltinType RelationalTy);
+
+  /// Handle scalar integer div/rem calls.
+  void handleDivRemCalls(CallInst *CI, BuiltinType DivRemTy);
 
   /// A vector holding all supported built-in calls with their type.
   std::vector<std::pair<CallInst *, BuiltinType>> BuiltinCalls;
