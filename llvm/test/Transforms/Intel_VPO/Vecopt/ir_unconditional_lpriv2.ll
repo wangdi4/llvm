@@ -112,7 +112,7 @@ entry:
   br label %DIR.OMP.SIMD.3
 
 DIR.OMP.SIMD.3:                                   ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(i32* %private) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(i32* %private, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.3, %omp.inner.for.body

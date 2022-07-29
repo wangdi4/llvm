@@ -18,7 +18,7 @@ entry:
   %0 = alloca i32, align 4
   br label %region
 region:
-  %1 = call token @llvm.directive.region.entry() #1 [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %0, i32 1), "QUAL.OMP.SIMDLEN"(i32 4) ]
+  %1 = call token @llvm.directive.region.entry() #1 [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %0, i32 0, i32 1, i32 1), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %body
 
 body:

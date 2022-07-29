@@ -102,7 +102,7 @@ entry:
 
 for.body.preheader:                               ; preds = %entry
   %wide.trip.count = sext i32 %N to i64
-  %tok = call token @llvm.directive.region.entry()[ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %red) ]
+  %tok = call token @llvm.directive.region.entry()[ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %red, float zeroinitializer, i32 1) ]
   %start = load float, float* %red, align 4
   br label %for.body
 

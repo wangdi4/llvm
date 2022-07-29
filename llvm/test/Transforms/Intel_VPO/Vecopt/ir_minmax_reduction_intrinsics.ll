@@ -54,7 +54,7 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX"(float* %red) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %red, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
