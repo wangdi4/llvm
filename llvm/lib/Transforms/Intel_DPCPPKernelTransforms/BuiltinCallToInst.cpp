@@ -122,6 +122,12 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
     case BI_REL_IS_NOT_EQUAL:
       handleRelationalCalls(BuiltinCall, BuiltinTy);
       break;
+    case BI_UDIV:
+    case BI_SDIV:
+    case BI_UREM:
+    case BI_SREM:
+      handleDivRemCalls(BuiltinCall, BuiltinTy);
+      break;
     default:
       llvm_unreachable("Need to handle new supported built-in");
     }
@@ -317,6 +323,42 @@ void BuiltinCallToInstPass::handleRelationalCalls(CallInst *RelationalCall,
   RelationalCall->eraseFromParent();
 }
 
+void BuiltinCallToInstPass::handleDivRemCalls(CallInst *CI,
+                                              BuiltinType DivRemTy) {
+  Value *Op1 = CI->getOperand(0);
+  Value *Op2 = CI->getOperand(1);
+  // Don't handle vector types.
+  if (Op1->getType()->isVectorTy())
+    return;
+  assert(Op1->getType() == Op2->getType() && Op1->getType()->isIntegerTy() &&
+         "udiv/sdiv/urem/srem assumed to take integer types");
+
+  Instruction::BinaryOps Op;
+  switch (DivRemTy) {
+  case BI_UDIV:
+    Op = Instruction::UDiv;
+    break;
+  case BI_SDIV:
+    Op = Instruction::SDiv;
+    break;
+  case BI_UREM:
+    Op = Instruction::URem;
+    break;
+  case BI_SREM:
+    Op = Instruction::SRem;
+    break;
+  default:
+    llvm_unreachable("Unhandled integer div/rem builtin type");
+  }
+
+  IRBuilder<> Builder(CI);
+  Value *NewV = Builder.CreateBinOp(Op, Op1, Op2);
+
+  LLVM_DEBUG(dbgs() << "Replace " << *CI << " with " << *NewV << "\n");
+  CI->replaceAllUsesWith(NewV);
+  CI->eraseFromParent();
+}
+
 BuiltinCallToInstPass::BuiltinType
 BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
   Value *CalledOp = CI->getCalledOperand();
@@ -345,5 +387,9 @@ BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
       .Case("isgreaterequal", BI_REL_IS_GREATER_EQUAL)
       .Case("isequal", BI_REL_IS_EQUAL)
       .Case("isnotequal", BI_REL_IS_NOT_EQUAL)
+      .Case("udiv", BI_UDIV)
+      .Case("idiv", BI_SDIV)
+      .Case("urem", BI_UREM)
+      .Case("irem", BI_SREM)
       .Default(BI_NOT_SUPPORTED);
 }
