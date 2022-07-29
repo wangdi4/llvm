@@ -19,8 +19,8 @@ target device_triples = "spir64"
 
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
 
-; PCL: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
-; NOPCL-NOT: private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
+; PCL: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [50 x i8] c";/path/to/file/pushCodeLocationTest/jj.c;foo;3;4;;"
+; NOPCL-NOT: private unnamed_addr constant [50 x i8] c";/path/to/file/pushCodeLocationTest/jj.c;foo;3;4;;"
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo(i32* %p) #0 !dbg !8 {
@@ -35,7 +35,7 @@ entry:
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32* %0, i32* %arrayidx, i64 80), "QUAL.OMP.PRIVATE"(i32** %p.map.ptr.tmp) ], !dbg !15
 
 ; Check that we are generating __tgt_push_code_location only when -vpo-paropt-enable-push-code-location=true
-; PCL: call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8], [18 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
+; PCL: call void @__tgt_push_code_location(i8* getelementptr inbounds ([50 x i8], [50 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
 ; NOPCL-NOT: call void @__tgt_push_code_location
 ; ALL: call i32 @__tgt_target({{.*}})
 
