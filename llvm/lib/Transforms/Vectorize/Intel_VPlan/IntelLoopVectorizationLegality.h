@@ -416,6 +416,11 @@ public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
+  struct ExplicitReductionDescr {
+    RecurrenceDescriptor RD;
+    Value *RedVarPtr;
+    Optional<InscanReductionKind> InscanRedKind;
+  };
   struct InMemoryReductionDescr {
     RecurKind Kind;
     Optional<InscanReductionKind> InscanRedKind;
@@ -439,8 +444,7 @@ public:
   using ReductionList = MapVector<PHINode *, RecurrenceDescriptor>;
 
   /// The list of explicit reduction variables.
-  using ExplicitReductionList =
-      MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
+  using ExplicitReductionList = MapVector<PHINode *, ExplicitReductionDescr>;
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
   using InMemoryReductionList = MapVector<Value *, InMemoryReductionDescr>;
@@ -486,14 +490,14 @@ public:
   /// (For explicit reduction variables)
   RecurrenceDescriptor &getRecurrenceDescrByPhi(PHINode *Phi) {
     assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
-    return ExplicitReductions[Phi].first;
+    return ExplicitReductions[Phi].RD;
   }
 
   /// Return a pointer to reduction var using the \p Phi node.
   /// (Explicit only)
   Value *getReductionPtrByPhi(PHINode *Phi) {
     assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
-    return ExplicitReductions[Phi].second;
+    return ExplicitReductions[Phi].RedVarPtr;
   }
 
   /// Returns True if V is an induction variable in this loop.
@@ -617,7 +621,8 @@ public:
   // are of 'Pointer Type'.
   inline decltype(auto) explicitReductionVals() const {
     return make_filter_range(
-        make_second_range(make_second_range(ExplicitReductions)),
+        map_range(make_second_range(ExplicitReductions),
+                  [](auto &Descr) { return Descr.RedVarPtr; }),
         [](auto *Val) { return Val->getType()->isPointerTy(); });
   }
 

@@ -2684,7 +2684,8 @@ public:
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ReductionFinal;
+    return V->getOpcode() == VPInstruction::ReductionFinal ||
+           V->getOpcode() == VPInstruction::ReductionFinalInscan;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.

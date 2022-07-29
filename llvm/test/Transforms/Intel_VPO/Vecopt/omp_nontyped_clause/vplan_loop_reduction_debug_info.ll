@@ -89,19 +89,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE:         [[BB1]]: # preds: [[BB0]]
-; CHECKVPE-NEXT:     i32* [[VP_S_RED:%.*]] = allocate-priv i32*, OrigAlign = 4
-; CHECKVPE-NEXT:      DbgLoc:
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[S_RED_PROMOTED0:%.*]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -150,15 +138,6 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE:         [[BB3]]: # preds: [[BB2]]
 ; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD1]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0:%.*]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
-; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

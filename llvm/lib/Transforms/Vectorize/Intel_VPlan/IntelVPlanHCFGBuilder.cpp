@@ -275,7 +275,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurValue) {
     Descriptor.clear();
-    const RecurrenceDescriptor &RD = CurValue.second.first;
+    const RecurrenceDescriptor &RD = CurValue.second.RD;
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
@@ -287,10 +287,11 @@ public:
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
-    assertIsSingleElementAlloca(CurValue.second.second);
+    assertIsSingleElementAlloca(CurValue.second.RedVarPtr);
     Descriptor.setAllocaInst(
-        Builder.getOrCreateVPOperand(CurValue.second.second));
+        Builder.getOrCreateVPOperand(CurValue.second.RedVarPtr));
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
   }
 };
 // Conversion functor for in-memory reductions

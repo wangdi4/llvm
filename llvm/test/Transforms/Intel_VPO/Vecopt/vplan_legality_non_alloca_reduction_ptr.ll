@@ -11,8 +11,8 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   signed (+) Start: i32 [[ZII_RED_CAST_PROMOTED0:%.*]] Exit: i32 [[VP_ADD4:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32* [[VP_ZII_RED_CAST:%.*]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i32* [[ZII_RED_CAST0:%.*]]
+; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
+; CHECK-EMPTY:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 1025 BinOp: i32 [[VP_INDVARS_IV_NEXT:%.*]] = add i32 [[VP_INDVARS_IV:%.*]] i32 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
@@ -21,9 +21,7 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_ZII_RED_CAST]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP_ZII_RED_CAST_RED_INIT]] = reduction-init i32 0 i32 [[ZII_RED_CAST_PROMOTED0]]
-; CHECK-NEXT:     store i32 [[VP_ZII_RED_CAST_RED_INIT]] i32* [[VP_ZII_RED_CAST]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -38,7 +36,6 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i32 [[VP_ZII_RED_CAST_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD4]]
-; CHECK-NEXT:     store i32 [[VP_ZII_RED_CAST_RED_FINAL]] i32* [[ZII_RED_CAST0]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:

@@ -2584,6 +2584,12 @@ void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
     RT = Exit ? Exit->getType()
               : (StartPhi ? StartPhi->getType() : Start->getType());
   }
+  // Don't generate alloca for reduction variable if memory is registerized and
+  // has no users in loop. The extra allocas + stores affects CM accuracy.
+  if (AllocaInst && Importing && !hasRealUserInLoop(AllocaInst, Loop)) {
+    AllocaInst = nullptr;
+    ValidMemOnly = false;
+  }
   if (Exit && Start) {
     // Compare symbases of incoming and outgoing values.
     auto *ExtDef = dyn_cast<VPExternalDef>(Start);
