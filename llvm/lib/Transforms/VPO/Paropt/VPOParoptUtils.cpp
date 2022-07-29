@@ -113,10 +113,11 @@ static cl::opt<bool> SPIRImplicitMultipleTeams(
 
 // Control the level of detail of the source location info passed to OpenMP
 // via the kmp_ident_t* argument of most kmp calls.
-static cl::opt<uint32_t> ParallelSourceInfoMode(
-    "parallel-source-info", cl::Hidden, cl::init(1),
-    cl::desc("Control source location info in OpenMP code.  0 = none; "
-             "1 (default) = function + line; 2 = path + function + line."));
+static cl::opt<int32_t> ParallelSourceInfoMode(
+    "parallel-source-info", cl::Hidden, cl::init(-1),
+    cl::desc("Control source location info in OpenMP code. 0 = none; "
+             "1 = function + line (default without debug compilation); "
+             "2 = path + function + line (default with debug compilation)."));
 
 // Enable target compilation mode expliclty, e.g. for LIT tests.
 // This option is currently not used by any driver.
@@ -1245,7 +1246,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   return Call;
 }
 
-VPOParoptUtils::SrcLocMode getSrcLocMode() {
+VPOParoptUtils::SrcLocMode getSrcLocMode(Function *F) {
   switch (ParallelSourceInfoMode) {
   case 0:
     return VPOParoptUtils::SRC_LOC_NONE;
@@ -1253,7 +1254,11 @@ VPOParoptUtils::SrcLocMode getSrcLocMode() {
     return VPOParoptUtils::SRC_LOC_FUNC;
   case 2:
     return VPOParoptUtils::SRC_LOC_PATH;
+  case -1:
+    LLVM_FALLTHROUGH;
   default:
+    if (F->getParent()->getNamedMetadata("llvm.dbg.cu"))
+      return VPOParoptUtils::SRC_LOC_PATH;
     return VPOParoptUtils::SRC_LOC_FUNC;
   }
 }
@@ -1273,7 +1278,7 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
 
   DILocation *Loc1 = Location->getDebugLoc();
   DILocation *Loc2 = nullptr;
-  SrcLocMode Mode = getSrcLocMode();
+  SrcLocMode Mode = getSrcLocMode(F);
 
   GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
@@ -3014,7 +3019,7 @@ Constant *VPOParoptUtils::genKmpcLocfromDebugLoc(StructType *IdentTy,
   Instruction *EInst = dyn_cast<Instruction>(BE->begin());
   DILocation *Loc2 = EInst ? EInst->getDebugLoc() : nullptr;
 
-  SrcLocMode Mode = getSrcLocMode();
+  SrcLocMode Mode = getSrcLocMode(F);
 
   GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
