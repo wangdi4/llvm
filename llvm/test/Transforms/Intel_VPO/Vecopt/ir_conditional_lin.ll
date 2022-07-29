@@ -65,7 +65,7 @@ entry:
   br label %reg.entry
 
 reg.entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i64* %k, i64 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(i64* %k, i64 0, i64 1, i64 1) ]
   br label %for.body.lr.ph
 
 for.body.lr.ph:
