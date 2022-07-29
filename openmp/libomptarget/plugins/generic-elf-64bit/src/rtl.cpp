@@ -422,6 +422,11 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
      Ret ? "requires" : "does not require");
   return Ret;
 }
+
+int32_t __tgt_rtl_set_function_ptr_map(
+    int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs) {
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

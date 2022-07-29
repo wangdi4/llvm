@@ -1187,6 +1187,12 @@ int targetDataUpdate(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                      void **ArgsBase, void **Args, int64_t *ArgSizes,
                      int64_t *ArgTypes, map_var_info_t *ArgNames,
                      void **ArgMappers, AsyncInfoTy &AsyncInfo, bool) {
+#if INTEL_COLLAB
+  if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
+    REPORT("Failed to begin command batching at %s\n", __func__);
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
@@ -1232,6 +1238,12 @@ int targetDataUpdate(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     if (Ret == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
   }
+#if INTEL_COLLAB
+  if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
+    REPORT("Failed to end command batching at %s\n", __func__);
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
   return OFFLOAD_SUCCESS;
 }
 

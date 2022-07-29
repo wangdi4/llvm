@@ -88,32 +88,6 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
   }
 }
 
-static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
-  auto *CombinerInst = dyn_cast<Instruction>(CombinerV);
-  if (!CombinerInst)
-    return false;
-  unsigned Opcode = CombinerInst->getOpcode();
-  switch (Kind) {
-  case RecurKind::FAdd:
-    return Opcode == Instruction::FAdd || Opcode == Instruction::FSub;
-  case RecurKind::Add:
-    return Opcode == Instruction::Add || Opcode == Instruction::Sub;
-  case RecurKind::Mul:
-    return Opcode == Instruction::Mul;
-  case RecurKind::FMul:
-    return Opcode == Instruction::FMul;
-  case RecurKind::And:
-    return Opcode == Instruction::And;
-  case RecurKind::Or:
-    return Opcode == Instruction::Or;
-  case RecurKind::Xor:
-    return Opcode == Instruction::Xor;
-  default:
-    break;
-  }
-  return false;
-}
-
 /// Return \p true if \p Ty or any of the member-type of \p Ty is a scalable
 /// type.
 static bool isOrHasScalableTy(Type *InTy) {
@@ -557,7 +531,8 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
                             nullptr /*IntermediateStore*/, Kind, FMF, nullptr,
                             StartV->getType(), true /*Signed*/,
                             false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
+    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
+                                             None /*InscanReductionKind*/};
   } else if (isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse))
     InMemoryReductions[RedVarPtr] =
       {Kind, None /*InscanReductionKind*/, ReductionUse};
@@ -603,19 +578,20 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Value *CombinerV = (ReductionPhi->getIncomingValue(0) == StartV)
                            ? ReductionPhi->getIncomingValue(1)
                            : ReductionPhi->getIncomingValue(0);
-    if (!checkCombinerOp(CombinerV, Kind)) {
-      LLVM_DEBUG(dbgs() << "LV: Combiner op does not match reduction type ");
-      return;
-    }
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    // TODO: make this assert to be a proper bailout in prod.
-    assert(!InscanRedKind && "Registerized inscan reduction is not supported!");
+    if (InscanRedKind) {
+      UseMemory = isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse);
+      // TODO: make this assert to be a proper bailout in prod.
+      assert(UseMemory &&
+             "Fully registerized inscan reduction is not supported!");
+      (void)UseMemory;
+    }
     RecurrenceDescriptor RD(StartV, Combiner, nullptr /*IntermediateStore*/,
                             Kind, FMF, nullptr, ReductionPhi->getType(),
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
+    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
   } else if ((UseMemory =
                   isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse)))
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
@@ -630,6 +606,7 @@ void VPOVectorizationLegality::addReduction(
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
+  // TODO: Support min/max scan reductions as well.
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
 
