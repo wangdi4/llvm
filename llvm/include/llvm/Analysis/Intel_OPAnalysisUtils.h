@@ -21,10 +21,10 @@
 namespace llvm {
 
 //
-// If the type of 'Arg' is a pointer type, infer and return its pointer element
+// If the type of 'V' is a pointer type, infer and return its pointer element
 // type, or return 'nullptr'.
 //
-extern Type *inferPtrElementType(Argument &Arg);
+extern Type *inferPtrElementType(Value &V);
 
 } // namespace llvm
 
