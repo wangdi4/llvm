@@ -55,7 +55,7 @@ static int getDevicePreference(const device &Device) {
     return Score;
 
   // Strongly prefer devices with available images.
-  auto &program_manager = cl::sycl::detail::ProgramManager::getInstance();
+  auto &program_manager = sycl::detail::ProgramManager::getInstance();
   if (program_manager.hasCompatibleImage(Device))
     Score += 1000;
 
@@ -120,6 +120,7 @@ device device_selector::select_device() const {
     return *res;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   throw cl::sycl::runtime_error(
       "No device of requested type available. Please check "
@@ -127,6 +128,10 @@ device device_selector::select_device() const {
       "intel-oneapi-dpcpp-system-requirements.html",
       PI_ERROR_DEVICE_NOT_FOUND);
 #endif // INTEL_CUSTOMIZATION
+=======
+  throw sycl::runtime_error("No device of requested type available.",
+                            PI_ERROR_DEVICE_NOT_FOUND);
+>>>>>>> 7cb8726597f7f4a5bfbad74f1718300a49046f40
 }
 
 /// Devices of different kinds are prioritized in the following order:
