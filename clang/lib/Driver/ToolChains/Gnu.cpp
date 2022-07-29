@@ -1139,12 +1139,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
       }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      if (WantPthread && !isAndroid) {
-        if (Args.hasArg(options::OPT_fortlib))
-          CmdArgs.push_back("--as-needed");
-=======
       // LLVM support for atomics on 32-bit SPARC V8+ is incomplete, so
       // forcibly link with libatomic as a workaround.
       // TODO: Issue #41880 and D118021.
@@ -1155,8 +1149,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("--pop-state");
       }
 
-      if (WantPthread && !isAndroid)
->>>>>>> e4a35ecaf47866cfbc02b0825e601e57cf490912
+#if INTEL_CUSTOMIZATION
+      if (WantPthread && !isAndroid) {
+        if (Args.hasArg(options::OPT_fortlib))
+          CmdArgs.push_back("--as-needed");
         CmdArgs.push_back("-lpthread");
         if (Args.hasArg(options::OPT_fortlib))
           CmdArgs.push_back("--no-as-needed");
