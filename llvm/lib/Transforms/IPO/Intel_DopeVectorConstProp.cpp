@@ -12,6 +12,7 @@
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -107,16 +108,18 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     Type *VTy = V->getType();
     if (!VTy->isPointerTy())
       return false;
-    VTy = VTy->getNonOpaquePointerElementType();
-    if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType))
-      return false;
-
-    // NOTE: This needs to be updated when opaque pointers support is
-    // enabled.
-    if (VTy->getContext().supportsTypedPointers())
+    if (VTy->getContext().supportsTypedPointers()) {
+      VTy = VTy->getNonOpaquePointerElementType();
+      if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType))
+        return false;
       assert(ElemType &&
              "Pointer address not collected when checking for constants");
-
+    }
+    else {
+      VTy = inferPtrElementType(*V);
+      if (!VTy || !isDopeVectorType(VTy, DL, &ArRank, &ElemType))
+        return false;
+    }
     if (ArRank != ArrayRank || ElemType != ElementType)
       return false;
     // Use the dope analyzer to get the value of the dope vector constants.
@@ -265,10 +268,11 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     // 'CF' is a contained function. Its 0th argument will be a pointer
     // to a structure, each field of which points to an uplevel variable.
     assert(CF->arg_size() != 0 && "Expecting at least one arg");
-    assert(CF->getArg(0)->getType()->isPointerTy() &&
-        isUplevelVarType(
-        CF->getArg(0)->getType()->getNonOpaquePointerElementType()) &&
-        "Expecting pointer to uplevel type");
+    if (CF->getContext().supportsTypedPointers())
+      assert(CF->getArg(0)->getType()->isPointerTy() &&
+          isUplevelVarType(
+          CF->getArg(0)->getType()->getNonOpaquePointerElementType()) &&
+          "Expecting pointer to uplevel type");
     // Identify GEPs that refer to the dope vector uplevel variable.
     Argument *Arg = CF->getArg(0);
     for (User *V : Arg->users()) {
@@ -516,15 +520,6 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
     return false;
   }
 
-  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
-  // will be turned back on once the FE supplies a mechanism to collect the
-  // type of the pointers.
-  if (!M.getContext().supportsTypedPointers()) {
-    LLVM_DEBUG(dbgs() << "OPAQUE POINTERS ENABLED\n");
-    LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
-    return false;
-  }
-
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
 
@@ -550,9 +545,16 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
         Type *Ty = Arg.getType();
         if (!Ty->isPointerTy())
           continue;
-        Ty = Ty->getNonOpaquePointerElementType();
-        if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
-          continue;
+        if (Ty->getContext().supportsTypedPointers()) {
+          Ty = Ty->getNonOpaquePointerElementType();
+          if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
+             continue;
+        } else {
+          Ty = inferPtrElementType(Arg);
+          if (!Ty || !isDopeVectorType(Ty, DL, &ArRank, &ElemType))
+            continue;
+        }
+
         LLVM_DEBUG({
           // NOTE: This needs to be updated when opaque pointers support is
           // enabled.
@@ -562,7 +564,10 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
 
           dbgs() << "DV FOUND: ARG #" << Arg.getArgNo() << " "
                  << F.getName() << " " << ArRank << " x ";
-          ElemType->dump();
+          if (ElemType)
+            ElemType->dump();
+          else
+            dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
         });
         DopeVectorAnalyzer DVAFormal(&Arg);
         DVAFormal.analyze(false);
@@ -633,7 +638,10 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
 
         dbgs() << "  LOCAL DV FOUND: " << *AllocI
                << "\n    RANK: " << ArRank << "\n    TYPE: ";
-        ElemType->dump();
+        if (ElemType)
+          ElemType->dump();
+        else
+          dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
       });
 
       DopeVectorAnalyzer DVALocal(AllocI, &GetTLI);

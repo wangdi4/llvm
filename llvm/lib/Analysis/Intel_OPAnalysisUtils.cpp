@@ -32,6 +32,8 @@ static Type *inferPtrElementTypeX(Value *V) {
   };
 
   Type *STy = nullptr;
+  if (auto AI = dyn_cast<AllocaInst>(V))
+    return AI->getAllocatedType();
   for (User *U : V->users()) {
     Type *NTy = nullptr;
     if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
@@ -39,8 +41,9 @@ static Type *inferPtrElementTypeX(Value *V) {
     } else if (auto LI = dyn_cast<LoadInst>(U)) {
       NTy = ResultType(STy, LI->getType());
     } else if (auto SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getPointerOperand() == V)
-        NTy = ResultType(STy, SI->getValueOperand()->getType());
+      if (SI->getPointerOperand() != V)
+        continue;
+      NTy = ResultType(STy, SI->getValueOperand()->getType());
     } else if (auto SuI = dyn_cast<SubscriptInst>(U)) {
       if (SuI->getPointerOperand() == V)
         if (Type *LSTy = inferPtrElementTypeX(SuI))
@@ -63,11 +66,11 @@ static Type *inferPtrElementTypeX(Value *V) {
 //   Arg.getType()->getPointerElementType()
 // which will be removed when the community moves to opaque pointers.
 //
-Type *inferPtrElementType(Argument &Arg) {
-  llvm::Type *Ty = Arg.getType();
+Type *inferPtrElementType(Value &V) {
+  llvm::Type *Ty = V.getType();
   if (!Ty->isPointerTy())
     return nullptr;
-  return inferPtrElementTypeX(&Arg);
+  return inferPtrElementTypeX(&V);
 }
 
 } // namespace llvm

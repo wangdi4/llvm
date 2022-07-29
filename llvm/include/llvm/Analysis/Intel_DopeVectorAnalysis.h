@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
@@ -338,23 +339,28 @@ public:
   DopeVectorAnalyzer(Value *DVObject,
     std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
     DVObject(DVObject), GetTLI(GetTLI) {
-    assert(
+    Type* DVTy = nullptr;
+    if (DVObject->getContext().supportsTypedPointers()) {
+      assert(
         DVObject->getType()->isPointerTy() &&
         DVObject->getType()->getPointerElementType()->isStructTy() &&
         DVObject->getType()->getPointerElementType()->getStructNumElements() ==
-            7 &&
+              7 &&
         DVObject->getType()
             ->getPointerElementType()
             ->getContainedType(6)
             ->isArrayTy() &&
         "Invalid type for dope vector object");
+      DVTy = DVObject->getType()->getPointerElementType();
+    } else {
+      DVTy = inferPtrElementType(*DVObject);
+      assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
+          DVTy->getContainedType(6)->isArrayTy() && "Invalid type for dope vector object");
+    }
 
     // The rank of the dope vector can be determined by the array length of
     // array that is the last field of the dope vector.
-    Rank = DVObject->getType()
-        ->getPointerElementType()
-        ->getContainedType(6)
-        ->getArrayNumElements();
+    Rank = DVTy->getContainedType(6)->getArrayNumElements();
 
     // Set as invalid, until analyzed.
     IsValid = false;

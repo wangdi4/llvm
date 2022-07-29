@@ -98,12 +98,13 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
 
   *ArrayRank = ArRank;
 
-  // NOTE: Collecting the type for the pointer address is only available
-  // for typed pointers. This needs to be updated for opaque pointers.
+  // TODO: Collecting the type for the pointer address is only available
+  // for typed pointers. This needs to be updated for opaque pointers, if the
+  // information is required.
   if (ElementType) {
-    assert(Ty->getContext().supportsTypedPointers() &&
-           "Trying to collect pointer address' type for opaque pointers");
-    *ElementType = FirstType->getNonOpaquePointerElementType();
+    *ElementType = nullptr;
+    if (Ty->getContext().supportsTypedPointers())
+      *ElementType = FirstType->getNonOpaquePointerElementType();
   }
 
   return true;
@@ -189,8 +190,7 @@ static bool isFieldInUplevelTypeVar(Value *V) {
   auto *GEP = dyn_cast<GetElementPtrInst>(V);
   if (!GEP)
     return false;
-  return isUplevelVarType(
-      GEP->getPointerOperand()->getType()->getNonOpaquePointerElementType());
+  return isUplevelVarType(GEP->getSourceElementType());
 }
 
 Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
@@ -1027,18 +1027,6 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   bool AllocSiteFound = false;
   bool PtrAddressInitFound = false;
   for (auto *DVUser : DVObject->users()) {
-    // CMPLRLLVM-3747: DVCP analysis is disabled for opaque pointers. This
-    // will be turned back on once the FE supplies a mechanism to collect the
-    // type of the pointers.
-    if (auto *Inst = dyn_cast<Instruction>(DVUser)) {
-      auto *Func = Inst->getFunction();
-      if (!Func->getParent()->getContext().supportsTypedPointers()) {
-        LLVM_DEBUG(dbgs() << "  Opaque pointers not supported\n");
-        setInvalid();
-        return;
-      }
-    }
-
     LLVM_DEBUG(dbgs() << "  DV user: " << *DVUser << "\n");
     if (auto *GEP = dyn_cast<GetElementPtrInst>(DVUser)) {
       // Find which of the fields this GEP is the address of.
