@@ -4158,20 +4158,6 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   for (const GlobalVariable &G : M.globals())
     writeModuleLevelReferences(G, NameVals, FSModRefsAbbrev,
                                FSModVTableRefsAbbrev);
-#if INTEL_CUSTOMIZATION
-  // This change and related changes could be ported back to the community
-  // to fix CMPLRLLVM-26177.
-  for (const GlobalIFunc &GIF : M.ifuncs()) {
-    NameVals.push_back(VE.getValueID(&GIF));
-    auto *Summary = Index->getGlobalValueSummary(GIF);
-    AliasSummary *AS = cast<AliasSummary>(Summary);
-    NameVals.push_back(getEncodedGVSummaryFlags(AS->flags()));
-    auto RF = GIF.getResolverFunction();
-    NameVals.push_back(VE.getValueID(RF));
-    Stream.EmitRecord(bitc::FS_ALIAS, NameVals, FSAliasAbbrev);
-    NameVals.clear();
-  }
-#endif // INTEL_CUSTOMIZATION
 
   for (const GlobalAlias &A : M.aliases()) {
     auto *Aliasee = A.getAliaseeObject();

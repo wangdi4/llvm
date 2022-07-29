@@ -670,27 +670,6 @@ static void computeVariableSummary(ModuleSummaryIndex &Index,
     GVarSummary->setVTableFuncs(VTableFuncs);
   Index.addGlobalValueSummary(V, std::move(GVarSummary));
 }
-#if INTEL_CUSTOMIZATION
-// This change and related changes could be ported back to the community
-// to fix CMPLRLLVM-26177.
-static void computeIFuncSummary(ModuleSummaryIndex &Index,
-                                const GlobalIFunc &GIF) {
-  GlobalValueSummary::GVFlags Flags(GIF.getLinkage(), GIF.getVisibility(),
-                                    /*NonRenamableLocal=*/false,
-                                    /*Live=*/false, GIF.isDSOLocal(),
-                                    GIF.hasLinkOnceODRLinkage() &&
-                                        GIF.hasGlobalUnnamedAddr());
-
-  auto AS = std::make_unique<AliasSummary>(Flags);
-  auto *RF = GIF.getResolverFunction();
-  auto ResolverVI = Index.getValueInfo(RF->getGUID());
-  assert(ResolverVI && "Expects resolver GUID to be available");
-  assert(ResolverVI.getSummaryList().size() == 1 &&
-         "Expected a single entry per ifunc in per-module index");
-  AS->setAliasee(ResolverVI, ResolverVI.getSummaryList()[0].get());
-  Index.addGlobalValueSummary(GIF, std::move(AS));
-}
-#endif // INTEL_CUSTOMIZATION
 
 static void computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
                                 DenseSet<GlobalValue::GUID> &CantBePromoted) {
@@ -855,12 +834,6 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
     computeVariableSummary(Index, G, CantBePromoted, M, Types);
   }
 
-#if INTEL_CUSTOMIZATION
-// This change and related changes could be ported back to the community
-// to fix CMPLRLLVM-26177.
-  for (const GlobalIFunc &GIF : M.ifuncs())
-    computeIFuncSummary(Index, GIF);
-#endif // INTEL_CUSTOMIZATION
   // Compute summaries for all aliases defined in module, and save in the
   // index.
   for (const GlobalAlias &A : M.aliases())
