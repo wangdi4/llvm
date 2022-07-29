@@ -5466,16 +5466,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #else // INTEL_COLLAB
         Address Addr = CreateMemTempWithoutCast(
             I->Ty, ArgInfo.getIndirectAlign(), "indirect-arg-temp");
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
 
-        llvm::Value *Val = Addr.getPointer();
-        if (ArgHasMaybeUndefAttr)
-          Val = Builder.CreateFreeze(Addr.getPointer());
-        IRCallArgs[FirstIRArg] = Val;
-=======
         IRCallArgs[FirstIRArg] = Addr.getPointer();
->>>>>>> 4e1fe968c9de73507a1bf0c8aa57e06be457816e
 
         I->copyInto(*this, Addr);
       } else {
@@ -5562,13 +5555,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
 
-          llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
-=======
           IRCallArgs[FirstIRArg] = getTargetHooks().performAddrSpaceCast(
->>>>>>> 4e1fe968c9de73507a1bf0c8aa57e06be457816e
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
               true);
         }
