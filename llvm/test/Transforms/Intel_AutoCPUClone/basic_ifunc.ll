@@ -5,6 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:      @__intel_cpu_feature_indicator_x = external global [2 x i64]
+; CHECK-NEXT: @llvm.compiler.used = appending global [2 x i8*] [i8* bitcast (i32 (i32)* @baz to i8*), i8* bitcast (i32 (i32)* @foo to i8*)], section "llvm.metadata"
 ; CHECK-EMPTY:
 ; CHECK-NEXT: @baz = ifunc i32 (i32), i32 (i32)* ()* @baz.resolver
 ; CHECK-NEXT: @foo = ifunc i32 (i32), i32 (i32)* ()* @foo.resolver
