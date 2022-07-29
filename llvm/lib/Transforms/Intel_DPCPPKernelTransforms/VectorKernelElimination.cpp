@@ -28,7 +28,7 @@
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
-static constexpr float ScalarCostMultiplier = .98f;
+static constexpr float ScalarCostMultiplier = .92f;
 
 static int
 getCalleeCost(Function *F,
@@ -40,9 +40,12 @@ getCalleeCost(Function *F,
       continue;
     Function *Callee = CI->getCalledFunction();
     if (Callee && !Callee->isDeclaration()) {
-      int CalleeCost = GetInstCountResult(*Callee).getWeight();
-      LLVM_DEBUG(dbgs().indent(4) << "callee " << Callee->getName()
-                                  << " cost: " << CalleeCost << "\n");
+      float Prob = GetInstCountResult(*F).getBBProb(CI->getParent());
+      // TODO consider multiplying TripCount as well?
+      int CalleeCost = GetInstCountResult(*Callee).getWeight() * Prob;
+      LLVM_DEBUG(dbgs().indent(4)
+                 << "callee " << Callee->getName() << " cost: " << CalleeCost
+                 << ", BB Prob: " << Prob << "\n");
       Cost += CalleeCost;
     }
   }
