@@ -678,6 +678,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         case llvm::Triple::IntelFPGA:
           return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
         default:
+          if (IsFPGASubArch)
+            return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
           return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
         }
 #endif // INTEL_CUSTOMIZATION
