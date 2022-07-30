@@ -2369,6 +2369,11 @@ void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
     Visitor->AddStmt(E);
   }
 }
+void OMPClauseEnqueue::VisitOMPOmpxMonotonicClause(
+    const OMPOmpxMonotonicClause *C) {
+  VisitOMPClauseList(C);
+  Visitor->AddStmt(C->getStep());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

@@ -12012,6 +12012,12 @@ public:
                                    SourceLocation StartLoc,
                                    SourceLocation LParenLoc,
                                    SourceLocation EndLoc);
+  /// Called on well-formed 'ompx_monotonic' clause.
+  OMPClause *ActOnOpenMPOmpxMonotonicClause(ArrayRef<Expr *> VarList,
+                                            Expr *Step, SourceLocation StartLoc,
+                                            SourceLocation LParenLoc,
+                                            SourceLocation ColonLoc,
+                                            SourceLocation EndLoc);
 #if INTEL_FEATURE_CSA
   /// Called on well-formed 'dataflow' clause.
   OMPClause *ActOnOpenMPDataflowClause(Expr *StaticSize,

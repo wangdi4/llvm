@@ -1699,6 +1699,18 @@ public:
                                   SourceLocation EndLoc) {
     return getSema().ActOnOpenMPTileClause(Sizes, StartLoc, LParenLoc, EndLoc);
   }
+  /// Build a new OpenMP 'ompx_monotonic' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPOmpxMonotonicClause(ArrayRef<Expr *> VarList, Expr *Step,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation ColonLoc,
+                                           SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPOmpxMonotonicClause(
+        VarList, Step, StartLoc, LParenLoc, ColonLoc, EndLoc);
+  }
 #if INTEL_FEATURE_CSA
   /// Build a new OpenMP 'dataflow' clause.
   ///
@@ -6650,6 +6662,24 @@ QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
   NewTL.setKWLoc(TL.getKWLoc());
 
   return Result;
+}
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPOmpxMonotonicClause(
+    OMPOmpxMonotonicClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  ExprResult Step = getDerived().TransformExpr(C->getStep());
+  if (Step.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPOmpxMonotonicClause(
+      Vars, Step.get(), C->getBeginLoc(), C->getLParenLoc(),
+      C->getColonLoc(), C->getEndLoc());
 }
 #endif // INTEL_CUSTOMIZATION
 

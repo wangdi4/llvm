@@ -1271,6 +1271,107 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_tile;
   }
 };
+
+/// This represents clause 'ompx_monotonic' in the '#pragma omp ordered'
+/// directive.
+///
+/// \code
+/// #pragma omp ordered simd ompx_monotonic(a, b:10)
+/// In this example directive '#pragma omp ordered simd' has clause
+/// 'ompx_monotonic' with variables 'a' and 'b' and monotonic-step '10'
+class OMPOmpxMonotonicClause final
+    : public OMPVarListClause<OMPOmpxMonotonicClause>,
+      private llvm::TrailingObjects<OMPOmpxMonotonicClause, Expr *> {
+  friend class OMPClauseReader;
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Location of ':'.
+  SourceLocation ColonLoc;
+
+  /// Sets the step for clause.
+  void setStep(Expr *Step) { *varlist_end() = Step; }
+
+  /// Build 'Monotonic' clause with given number of variables \a NumVars.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param ColonLoc Location of ':'.
+  /// \param EndLoc Ending location of the clause.
+  /// \param NumVars Number of variables.
+  OMPOmpxMonotonicClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                         SourceLocation ColonLoc, SourceLocation EndLoc,
+                         unsigned NumVars)
+      : OMPVarListClause<OMPOmpxMonotonicClause>(llvm::omp::OMPC_ompx_monotonic,
+                                                 StartLoc, LParenLoc, EndLoc,
+                                                 NumVars),
+        ColonLoc(ColonLoc) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param NumVars Number of variables.
+  explicit OMPOmpxMonotonicClause(unsigned NumVars)
+      : OMPVarListClause<OMPOmpxMonotonicClause>(
+            llvm::omp::OMPC_ompx_monotonic, SourceLocation(), SourceLocation(),
+            SourceLocation(), NumVars) {}
+
+public:
+  /// Creates clause with a list of variables \a VL and monotonic-step
+  /// \a Step.
+  ///
+  /// \param C AST Context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param ColonLoc Location of ':'.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  /// \param Step The monotonic step.
+  static OMPOmpxMonotonicClause *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
+         SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
+         Expr *Step);
+
+  /// Creates an empty clause with the place for \a NumVars variables.
+  ///
+  /// \param C AST context.
+  /// \param NumVars Number of variables.
+  static OMPOmpxMonotonicClause *CreateEmpty(const ASTContext &C,
+                                             unsigned NumVars);
+
+  /// Sets the location of ':'.
+  void setColonLoc(SourceLocation Loc) { ColonLoc = Loc; }
+
+  /// Returns the location of ':'.
+  SourceLocation getColonLoc() const { return ColonLoc; }
+
+  /// Returns Step.
+  Expr *getStep() { return *varlist_end(); }
+
+  /// Returns Step.
+  const Expr *getStep() const { return *varlist_end(); }
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPOmpxMonotonicClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_monotonic;
+  }
+};
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This represents 'safelen' clause in the '#pragma omp ...'

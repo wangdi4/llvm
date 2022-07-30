@@ -1588,6 +1588,25 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
   assert(NumLoop < NumLoops && "too many loops.");
   return getTrailingObjects<Expr *>()[NumLoop];
 }
+
+OMPOmpxMonotonicClause *
+OMPOmpxMonotonicClause::Create(const ASTContext &C, SourceLocation StartLoc,
+                               SourceLocation LParenLoc,
+                               SourceLocation ColonLoc, SourceLocation EndLoc,
+                               ArrayRef<Expr *> VL, Expr *Step) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size() + 1));
+  OMPOmpxMonotonicClause *Clause = new (Mem)
+      OMPOmpxMonotonicClause(StartLoc, LParenLoc, ColonLoc, EndLoc, VL.size());
+  Clause->setVarRefs(VL);
+  Clause->setStep(Step);
+  return Clause;
+}
+
+OMPOmpxMonotonicClause *OMPOmpxMonotonicClause::CreateEmpty(const ASTContext &C,
+                                                            unsigned NumVars) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumVars + 1));
+  return new (Mem) OMPOmpxMonotonicClause(NumVars);
+}
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -1849,6 +1868,16 @@ void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
       OS << ", ";
     E->printPretty(OS, nullptr, Policy);
     PrintComma = true;
+  }
+  OS << ")";
+}
+void OMPClausePrinter::VisitOMPOmpxMonotonicClause(
+    OMPOmpxMonotonicClause *Node) {
+  OS << "ompx_monotonic";
+  VisitOMPClauseList(Node, '(');
+  if (Node->getStep() != nullptr) {
+    OS << ": ";
+    Node->getStep()->printPretty(OS, nullptr, Policy, 0);
   }
   OS << ")";
 }

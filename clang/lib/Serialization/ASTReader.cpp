@@ -11581,6 +11581,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_tile:
     C = OMPTileClause::CreateEmpty(Context, Record.readInt());
     break;
+  case llvm::omp::OMPC_ompx_monotonic:
+    C = OMPOmpxMonotonicClause::CreateEmpty(Context, Record.readInt());
+    break;
 #if INTEL_FEATURE_CSA
   case llvm::omp::OMPC_dataflow:
     C = new (Context) OMPDataflowClause();
@@ -11952,6 +11955,17 @@ void OMPClauseReader::VisitOMPTileClause(OMPTileClause *C) {
     C->setTile(I, Record.readSubExpr());
   }
   C->setLParenLoc(Record.readSourceLocation());
+}
+void OMPClauseReader::VisitOMPOmpxMonotonicClause(OMPOmpxMonotonicClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  C->setColonLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned I = 0; I != NumVars; ++I)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+  C->setStep(Record.readSubExpr());
 }
 #if INTEL_FEATURE_CSA
 void OMPClauseReader::VisitOMPDataflowClause(OMPDataflowClause *C) {
