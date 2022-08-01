@@ -19,13 +19,6 @@ foreach name = ["isnan", "isordered", "isunordered", "signbit", "any", "all"] in
   def name # _expand_avx512f_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, expand_code>;
 }
 
-foreach name = ["bitselect"] in {
-  defvar builtin = !cast<OclBuiltin>(name);
-  defvar f_types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [32, 64]>.Tout;
-  defvar f_code =  bitselect_f_code;
-  def name # _f_impl: OclBuiltinImpl<builtin, f_types, 0, f_code>;
-}
-
 foreach name = ["isfinite", "isinf", "isnormal"] in {
   defvar builtin = !cast<OclBuiltin>(name);
   defvar f32_code = !cond(!eq(name, "isfinite"): isfinite_f32_code,
@@ -36,14 +29,6 @@ foreach name = ["isfinite", "isinf", "isnormal"] in {
                           !eq(name, "isnormal"): isnormal_f64_code);
   def name # _f32_impl: OclBuiltinImpl<builtin, [v32f32, v64f32], 0, f32_code>;
   def name # _f64_impl: OclBuiltinImpl<builtin, [v32f64, v64f64], 0, f64_code>;
-}
-
-foreach name = ["bitselect"] in {
-  defvar builtin = !cast<OclBuiltin>(name);
-  defvar i_types = ExpandTypesByVFAndFlatten<
-    [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [32, 64]>.Tout;
-  defvar i_code = bitselect_i_code;
-  def name # _i_impl: OclBuiltinImpl<builtin, i_types, 0, i_code>;
 }
 
 // Widened
@@ -71,12 +56,4 @@ foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunorde
 
   defvar builtin_v1widen = !cast<OclBuiltin>(name # "_v1widen_mask");
   def name # _v1widen_mask_impl: OclBuiltinImpl<builtin_v1widen, [v32f32, v64f32, v32f64, v64f64], 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"]]>;
-}
-
-foreach name = ["bitselect", "iselect", "uselect"] in {
-  defvar builtin = !cast<OclBuiltin>(name # "_mask");
-  defvar types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [32, 64]>.Tout;
-  defvar mask_code = !cond(!eq(name, "bitselect"): masked_impl_code_G_G3_M_select,
-                           true: masked_impl_code_G_G2_IG_M);
-  def name # _mask_impl : OclBuiltinImpl<builtin, types, 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"], ["$DEF2", "0"]]>;
 }

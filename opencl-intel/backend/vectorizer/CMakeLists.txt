@@ -28,6 +28,7 @@ add_custom_command(
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/sub_group_builtin.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/vectinfo_main.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/main.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/relational.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/subgroup.td
   COMMENT "Generating built-in vectorization info ..."
   VERBATIM

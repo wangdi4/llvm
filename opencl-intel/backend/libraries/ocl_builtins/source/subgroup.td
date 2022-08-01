@@ -10,10 +10,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-include "GENERIC/code_helpers.td"
-include "GENERIC/opencl-builtin.td"
-include "source/core/targets.td"
-
 // --- Dummy subgroup builtins ---
 //
 // ResolveSubGroupWICall doesn't resolve these builtin when they are contained

@@ -10,4 +10,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+// Include core features
+include "GENERIC/code_helpers.td"
+include "GENERIC/opencl-builtin.td"
+include "source/core/targets.td"
+
+include "source/relational.td"
 include "source/subgroup.td"
