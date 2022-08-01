@@ -16,7 +16,7 @@
 // is somehow changed so it's no longer possible to run this test reliable
 // it can be removed.
 
-namespace s = cl::sycl;
+namespace s = sycl;
 
 int main(int argc, char *argv[]) {
   s::queue q;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     s::stream out(1024, 80, h);
 
     h.parallel_for<class linear_id>(s::range<2>(rng), [=](s::item<2> item) {
-      out << item.get_linear_id() << cl::sycl::endl;
+      out << item.get_linear_id() << sycl::endl;
     });
   });
   q.wait();

@@ -57,7 +57,7 @@ class OsUtilsTest : public ::testing::Test {
 // INTEL_CUSTOMIZATION - temporary disable the test to avoid its failure
 // in xmain nightly on Windows
 TEST_F(OsUtilsTest, DISABLED_getCurrentDSODir) {
-  std::string DSODir = cl::sycl::detail::OSUtil::getCurrentDSODir();
+  std::string DSODir = sycl::detail::OSUtil::getCurrentDSODir();
   ASSERT_TRUE(isSameDir(DSODir.c_str(), SYCL_LIB_DIR)) <<
       "expected: " << SYCL_LIB_DIR << ", got: " << DSODir;
 }
