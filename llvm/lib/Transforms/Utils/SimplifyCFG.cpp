@@ -1599,26 +1599,17 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
       if (I1->getType()->isTokenTy())
         return Changed;
 
-<<<<<<< HEAD
-    if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
-      return Changed;
-
 #if INTEL_COLLAB
     // Do not hoist llvm.directive.region.entry/exit intrinsics.
     if (IntrinsicUtils::isDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
 
-    // If any of the two call sites has nomerge attribute, stop hoisting.
-    if (const auto *CB1 = dyn_cast<CallBase>(I1))
-      if (CB1->cannotMerge())
-=======
       // Even if the instructions are identical, it may not be safe to hoist
       // them if we have skipped over instructions with side effects or their
       // operands weren't hoisted.
       if (!isSafeToHoistInstr(I1, ForceNoReadMemOrSideEffectsBB1, ForceNoSpeculationBB1) ||
           !isSafeToHoistInstr(I2, ForceNoReadMemOrSideEffectsBB2, ForceNoSpeculationBB2))
->>>>>>> 7b0f6378e211e881c574748090a86beeab264ab3
         return Changed;
 
       // If we're going to hoist a call, make sure that the two instructions
