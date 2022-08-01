@@ -1453,14 +1453,6 @@ bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
 // Get a printable name for the ModRef result.
 static const char *getModRefResultStr(ModRefInfo R) {
   switch (R) {
-  case ModRefInfo::Must:
-    return "Must";
-  case ModRefInfo::MustRef:
-    return "MustRef";
-  case ModRefInfo::MustMod:
-    return "MustMod";
-  case ModRefInfo::MustModRef:
-    return "MustModRef";
   case ModRefInfo::NoModRef:
     return "NoModRef";
   case ModRefInfo::Ref:
