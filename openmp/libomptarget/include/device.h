@@ -459,22 +459,22 @@ struct DeviceTy {
                         uint64_t LoopTripCount, AsyncInfoTy &AsyncInfo);
 
 #if INTEL_COLLAB
-  int32_t manifest_data_for_region(void *TgtEntryPtr);
-  char *get_device_name(char *Buffer, size_t BufferMaxSize);
-  void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
-  int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                             int32_t NumTeams, int32_t ThreadLimit,
-                             void *TgtNDLoopDesc);
-  void *get_context_handle();
-  void *data_alloc_managed(int64_t Size);
+  int32_t manifestDataForRegion(void *TgtEntryPtr);
+  char *getDeviceName(char *Buffer, size_t BufferMaxSize);
+  void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
+  int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                          ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                          int32_t NumTeams, int32_t ThreadLimit,
+                          void *TgtNDLoopDesc);
+  void *getContextHandle();
+  void *dataAllocManaged(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
-  int32_t managed_memory_supported();
+  int32_t managedMemorySupported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
   bool registerHostPointer(void *ptr, size_t Size);
   bool unregisterHostPointer(void *ptr);
-  int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
+  int32_t getDataAllocInfo(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
   int32_t getNumSubDevices(int32_t Level);

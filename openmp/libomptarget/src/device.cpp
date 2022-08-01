@@ -294,7 +294,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
       IsHostPtr = true;
     TargetPointer = HstPtrBegin;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-             !HasCloseModifier && !managed_memory_supported()) {
+             !HasCloseModifier && !managedMemorySupported()) {
 #else // INTEL_COLLAB
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier) {
@@ -313,29 +313,17 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
       TargetPointer = HstPtrBegin;
     }
   } else if (HasPresentModifier) {
-#if INTEL_COLLAB
     DP("Mapping required by 'present' map type modifier does not exist for "
        "HstPtrBegin=" DPxMOD ", Size=%" PRId64 "\n",
        DPxPTR(HstPtrBegin), Size);
-#else // INTEL_COLLAB
-    DP("Mapping required by 'present' map type modifier does not exist for "
-       "HstPtrBegin=" DPxMOD ", Size=%" PRId64 "\n",
-       DPxPTR(HstPtrBegin), Size);
-#endif // INTEL_COLLAB
-#if INTEL_COLLAB
     MESSAGE("device mapping required by 'present' map type modifier does not "
             "exist for host address " DPxMOD " (%" PRId64 " bytes)",
             DPxPTR(HstPtrBegin), Size);
-#else // INTEL_COLLAB
-    MESSAGE("device mapping required by 'present' map type modifier does not "
-            "exist for host address " DPxMOD " (%" PRId64 " bytes)",
-            DPxPTR(HstPtrBegin), Size);
-#endif // INTEL_COLLAB
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     IsNew = true;
 #if INTEL_COLLAB
-    uintptr_t Ptr = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+    uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase);
 #else // INTEL_COLLAB
     uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
 #endif // INTEL_COLLAB
@@ -481,7 +469,7 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
       IsHostPtr = true;
     TargetPointer = HstPtrBegin;
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
-             !managed_memory_supported()) {
+             !managedMemorySupported()) {
 #else // INTEL_COLLAB
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
@@ -702,15 +690,15 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                             AsyncInfoTy &AsyncInfo) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
-  int32_t ret;
+  int32_t Ret;
   if (!RTL->run_region || !RTL->synchronize)
-    ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+    Ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                           TgtVarsSize);
   else
-    ret = RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+    Ret = RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
-  return ret;
+  return Ret;
 #else // INTEL_CUSTOMIZATION
   if (!RTL->run_region || !RTL->synchronize)
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
@@ -736,17 +724,17 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                 AsyncInfoTy &AsyncInfo) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t ret;
+  int32_t Ret;
   if (!RTL->run_team_region_async || !RTL->synchronize)
-    ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
-                                LoopTripCount);
+    Ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+                               TgtVarsSize, NumTeams, ThreadLimit,
+                               LoopTripCount);
   else
-    ret = RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                      TgtOffsets, TgtVarsSize, NumTeams,
-                                      ThreadLimit, LoopTripCount, AsyncInfo);
+    Ret = RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                     TgtOffsets, TgtVarsSize, NumTeams,
+                                     ThreadLimit, LoopTripCount, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return ret;
+  return Ret;
 #else // INTEL_CUSTOMIZATION
   if (!RTL->run_team_region_async || !RTL->synchronize)
     return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
@@ -759,7 +747,7 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
 }
 
 #if INTEL_COLLAB
-int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
+int32_t DeviceTy::manifestDataForRegion(void *TgtEntryPtr) {
   if (!RTL->manifest_data_for_region)
     return OFFLOAD_SUCCESS;
 
@@ -846,7 +834,7 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   return RC;
 }
 
-char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
+char *DeviceTy::getDeviceName(char *Buffer, size_t BufferMaxSize) {
   assert(Buffer && "Buffer cannot be nullptr.");
   assert(BufferMaxSize > 0 && "BufferMaxSize cannot be zero.");
   if (RTL->get_device_name)
@@ -857,33 +845,33 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
   return Buffer;
 }
 
-void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
-                                void *HstPtrBase) {
+void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
+                              void *HstPtrBase) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
 #endif // INTEL_CUSTOMIZATION
-  void *ret =
+  void *Ret =
       RTL->data_alloc_base
           ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
           : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
                             TARGET_ALLOC_DEFAULT);
 #if INTEL_CUSTOMIZATION
-  XPTIRegistry->traceMemAllocEnd((uintptr_t)ret, Size, 0 /* GuardZone */,
+  XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
                                  CorrID);
-  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
 #endif // INTEL_CUSTOMIZATION
-  return ret;
+  return Ret;
 }
 
-int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                     int32_t NumTeams, int32_t ThreadLimit,
-                                     void *TgtNDLoopDesc) {
+int32_t DeviceTy::runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                  int32_t NumTeams, int32_t ThreadLimit,
+                                  void *TgtNDLoopDesc) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
 #endif // INTEL_CUSTOMIZATION
-  int32_t ret = RTL->run_team_nd_region
+  int32_t Ret = RTL->run_team_nd_region
       ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 TgtNDLoopDesc)
@@ -891,16 +879,16 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
 #endif // INTEL_CUSTOMIZATION
-  return ret;
+  return Ret;
 }
 
-void *DeviceTy::get_context_handle() {
+void *DeviceTy::getContextHandle() {
   if (!RTL->get_context_handle)
     return nullptr;
   return RTL->get_context_handle(RTLDeviceID);
 }
 
-void *DeviceTy::data_alloc_managed(int64_t Size) {
+void *DeviceTy::dataAllocManaged(int64_t Size) {
   if (RTL->data_alloc_managed)
     return RTL->data_alloc_managed(RTLDeviceID, Size);
   else
@@ -914,7 +902,7 @@ int32_t DeviceTy::requiresMapping(void *Ptr, int64_t Size) {
     return 1;
 }
 
-int32_t DeviceTy::managed_memory_supported() {
+int32_t DeviceTy::managedMemorySupported() {
   return RTL->data_alloc_managed != nullptr;
 }
 
@@ -946,7 +934,7 @@ bool DeviceTy::unregisterHostPointer(void *Ptr) {
     return false;
 }
 
-int32_t DeviceTy::get_data_alloc_info(
+int32_t DeviceTy::getDataAllocInfo(
     int32_t NumPtrs, void *TgtPtrs, void *Infos) {
   if (RTL->get_data_alloc_info)
     return RTL->get_data_alloc_info(RTLDeviceID, NumPtrs, TgtPtrs, Infos);

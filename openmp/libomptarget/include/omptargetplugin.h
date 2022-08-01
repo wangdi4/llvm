@@ -221,15 +221,13 @@ int32_t __tgt_rtl_synchronize(int32_t ID, __tgt_async_info *AsyncInfo);
 // Manifest target pointers, which are not passed as arguments,
 // to the offloaded entry represented by TgtEntryPtr. The target pointers
 // are passed in TgtPtrs array consisting of NumPtrs pointers.
-EXTERN
-int32_t __tgt_rtl_manifest_data_for_region(int32_t ID, void *TgtEntryPtr,
-                                           void **TgtPtrs, size_t NumPtrs);
+EXTERN int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t ID, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs);
 
 // Similar to __tgt_rtl_data_alloc, but additionally specify the base host ptr
 // in case the plugin needs this information.
-EXTERN
-void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
-                                void *HostBase);
+EXTERN void *__tgt_rtl_data_alloc_base(
+    int32_t ID, int64_t Size, void *HostPtr, void *HostBase);
 
 // Entry for supporting realloc
 EXTERN void *__tgt_rtl_data_realloc(
@@ -256,12 +254,9 @@ EXTERN char *__tgt_rtl_get_device_name(
 
 // Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
 // multi-dimensional loop is passed to this function.
-EXTERN
-int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
-                                            void **Args, ptrdiff_t *Offsets,
-                                            int32_t NumArgs, int32_t NumTeams,
-                                            int32_t ThreadLimit,
-                                            void *LoopDesc);
+EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
+    int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
+    int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc);
 
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
@@ -300,8 +295,7 @@ EXTERN void __tgt_rtl_deinit(void);
 #if INTEL_CUSTOMIZATION
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
-    int32_t ID, int32_t InteropContext, int32_t NumPrefers,
-    int32_t *PreferIDs);
+    int32_t ID, int32_t InteropContext, int32_t NumPrefers, int32_t *PreferIDs);
 
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);

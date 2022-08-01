@@ -372,76 +372,78 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   return Rc;
 }
 #if INTEL_COLLAB
-EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
-  DP("Call to omp_get_mapped_ptr with host_ptr " DPxMOD ", "
-      "device_num %d\n", DPxPTR(host_ptr), device_num);
+EXTERN void *omp_get_mapped_ptr(void *HostPtr, int DeviceNum) {
+  DP("Call to omp_get_mapped_ptr with host pointer " DPxMOD
+     ", device number %d\n", DPxPTR(HostPtr), DeviceNum);
 
-  if (!host_ptr) {
-    DP("Call to omp_get_mapped_ptr with invalid host_ptr\n");
+  if (!HostPtr) {
+    DP("Call to omp_get_mapped_ptr with invalid host pointer\n");
     return NULL;
   }
 
-  if (device_num == omp_get_initial_device()) {
-    DP("omp_get_mapped_ptr : Mapped pointer is same as hsot\n");
-    return host_ptr;
+  if (DeviceNum == omp_get_initial_device()) {
+    DP("omp_get_mapped_ptr: Mapped pointer is same as host\n");
+    return HostPtr;
   }
 
-  if (!deviceIsReady(device_num)) {
-    DP("omp_get_mapped_ptr :  returns NULL\n");
+  if (!deviceIsReady(DeviceNum)) {
+    DP("omp_get_mapped_ptr: returns NULL\n");
     return NULL;
   }
-  CHECK_DEVICE_AND_CTORS_RET(device_num, NULL);
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, NULL);
 
-  DeviceTy& Device = *PM->Devices[device_num];
+  DeviceTy& Device = *PM->Devices[DeviceNum];
   bool IsLast, IsHostPtr;
-  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr).TargetPointer;
-  if (rc == NULL)
-     DP("omp_get_mapped_ptr : cannot find device pointer\n");
-  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
-  return rc;
+  TargetPointerResultTy TPR = Device.getTgtPtrBegin(HostPtr, 1, IsLast, false,
+                                                    false, IsHostPtr);
+  void *TgtPtr = TPR.TargetPointer;
+  if (TgtPtr == NULL)
+    DP("omp_get_mapped_ptr: cannot find device pointer\n");
+  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(TgtPtr));
+  return TgtPtr;
 }
 
-EXTERN int omp_target_is_accessible(const void *ptr, size_t size,
-                                    int device_num) {
+EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
+                                    int DeviceNum) {
   TIMESCOPE();
   DP("Call to omp_target_is_accessible with ptr " DPxMOD ", size %zu, "
-     "device_num %" PRId32 "\n", DPxPTR(ptr), size, device_num);
+     "device number %" PRId32 "\n", DPxPTR(Ptr), Size, DeviceNum);
 
-  if (!ptr) {
-    DP("Call to omp_target_is_accessible with invalid ptr returns 0\n");
+  if (!Ptr) {
+    DP("Call to omp_target_is_accessible with invalid pointer returns 0\n");
     return 0;
   }
 
-  if (size == 0) {
+  if (Size == 0) {
     DP("Call to omp_target_is_accessible with size 0 returns 0\n");
     return 0;
   }
 
-  if (device_num == omp_get_initial_device()) {
+  if (DeviceNum == omp_get_initial_device()) {
     DP("Call to omp_target_is_accessible with initial device returns 1\n");
     return 1;
   }
 
-  if (!deviceIsReady(device_num)) {
+  if (!deviceIsReady(DeviceNum)) {
     REPORT("omp_target_is_accessible returns 0 due to device failure\n");
     return 0;
   }
 
-  DeviceTy &Device = *PM->Devices[device_num];
-  int Ret = Device.isAccessibleAddrRange(ptr, size);
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  int Ret = Device.isAccessibleAddrRange(Ptr, Size);
   DP("omp_target_is_accessible returns %" PRId32 "\n", Ret);
   return Ret;
 }
 
 #if INTEL_CUSTOMIZATION
-static int32_t checkInteropCall(const omp_interop_t interop,
+static int32_t checkInteropCall(const omp_interop_t Interop,
                                 const char *FnName) {
-  if (!interop) {
+  if (!Interop) {
     DP("Call to %s with invalid interop\n", FnName);
     return omp_irc_empty;
   }
 
-  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  int64_t DeviceNum = static_cast<__tgt_interop *>(Interop)->DeviceNum;
 
   if (!deviceIsReady(DeviceNum)) {
     DP("Device %" PRId64 " is not ready in %s\n", DeviceNum, FnName);
@@ -451,14 +453,14 @@ static int32_t checkInteropCall(const omp_interop_t interop,
   return omp_irc_success;
 }
 
-EXTERN int omp_get_num_interop_properties(const omp_interop_t interop) {
-  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+EXTERN int omp_get_num_interop_properties(const omp_interop_t Interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(Interop));
 
-  int32_t Rc = checkInteropCall(interop, __func__);
+  int32_t Rc = checkInteropCall(Interop, __func__);
   if (Rc != omp_irc_success)
     return 0;
 
-  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  int64_t DeviceNum = static_cast<__tgt_interop *>(Interop)->DeviceNum;
   DeviceTy &Device = *PM->Devices[DeviceNum];
   return Device.getNumInteropProperties();
 }
@@ -521,110 +523,113 @@ static int32_t getInteropValue(const omp_interop_t Interop, int32_t Ipr,
   return Rc;
 }
 
-EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code) {
-  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
-     DPxPTR(interop), property_id);
+EXTERN omp_intptr_t omp_get_interop_int(
+    const omp_interop_t Interop, omp_interop_property_t PropertyId,
+    int *RetCode) {
+  DP("Call to %s with interop " DPxMOD ", property ID %" PRId32 "\n", __func__,
+     DPxPTR(Interop), PropertyId);
 
   omp_intptr_t Ret = 0;
-  int32_t Rc = checkInteropCall(interop, __func__);
+  int32_t Rc = checkInteropCall(Interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_INT,
+    Rc = getInteropValue(Interop, (int32_t)PropertyId, OMP_IPR_VALUE_INT,
                          sizeof(Ret), &Ret);
-  if (ret_code)
-    *ret_code = Rc;
+  if (RetCode)
+    *RetCode = Rc;
 
   return Ret;
 }
 
-EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code) {
-  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
-     DPxPTR(interop), property_id);
+EXTERN void *omp_get_interop_ptr(
+    const omp_interop_t Interop, omp_interop_property_t PropertyId,
+    int *RetCode) {
+  DP("Call to %s with interop " DPxMOD ", property ID %" PRId32 "\n", __func__,
+     DPxPTR(Interop), PropertyId);
 
   void *Ret = NULL;
-  int32_t Rc = checkInteropCall(interop, __func__);
+  int32_t Rc = checkInteropCall(Interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_PTR,
+    Rc = getInteropValue(Interop, (int32_t)PropertyId, OMP_IPR_VALUE_PTR,
                          sizeof(Ret), &Ret);
-  if (ret_code)
-    *ret_code = Rc;
+  if (RetCode)
+    *RetCode = Rc;
 
   return Ret;
 }
 
-EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code) {
-  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
-     DPxPTR(interop), property_id);
+EXTERN const char *omp_get_interop_str(
+    const omp_interop_t Interop, omp_interop_property_t PropertyId,
+    int *RetCode) {
+  DP("Call to %s with interop " DPxMOD ", property ID %" PRId32 "\n", __func__,
+     DPxPTR(Interop), PropertyId);
 
   const char *Ret = NULL;
-  int32_t Rc = checkInteropCall(interop, __func__);
+  int32_t Rc = checkInteropCall(Interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_STR,
+    Rc = getInteropValue(Interop, (int32_t)PropertyId, OMP_IPR_VALUE_STR,
                          sizeof(Ret), &Ret);
-  if (ret_code)
-    *ret_code = Rc;
+  if (RetCode)
+    *RetCode = Rc;
 
   return Ret;
 }
 
-EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
-    omp_interop_property_t property_id) {
-  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
-     DPxPTR(interop), property_id);
+EXTERN const char *omp_get_interop_name(
+    const omp_interop_t Interop, omp_interop_property_t PropertyId) {
+  DP("Call to %s with interop " DPxMOD ", property ID %" PRId32 "\n", __func__,
+     DPxPTR(Interop), PropertyId);
 
-  if (checkInteropCall(interop, __func__) != omp_irc_success)
+  if (checkInteropCall(Interop, __func__) != omp_irc_success)
     return NULL;
 
-  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  int64_t DeviceNum = static_cast<__tgt_interop *>(Interop)->DeviceNum;
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_NAME);
+  return Device.getInteropPropertyInfo(PropertyId, OMP_IPR_INFO_NAME);
 }
 
-EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
-    omp_interop_property_t property_id) {
-  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
-     DPxPTR(interop), property_id);
+EXTERN const char *omp_get_interop_type_desc(
+    const omp_interop_t Interop, omp_interop_property_t PropertyId) {
+  DP("Call to %s with interop " DPxMOD ", property ID %" PRId32 "\n", __func__,
+     DPxPTR(Interop), PropertyId);
 
-  if (checkInteropCall(interop, __func__) != omp_irc_success)
+  if (checkInteropCall(Interop, __func__) != omp_irc_success)
     return NULL;
 
-  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  int64_t DeviceNum = static_cast<__tgt_interop *>(Interop)->DeviceNum;
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_TYPE_DESC);
+  return Device.getInteropPropertyInfo(PropertyId, OMP_IPR_INFO_TYPE_DESC);
 }
 
-EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
-    omp_interop_rc_t ret_code) {
-  DP("Call to %s with interop " DPxMOD ", ret_code %" PRId32 "\n", __func__,
-     DPxPTR(interop), ret_code);
+EXTERN const char *omp_get_interop_rc_desc(
+    const omp_interop_t Interop, omp_interop_rc_t RetCode) {
+  DP("Call to %s with interop " DPxMOD ", return code %" PRId32 "\n", __func__,
+     DPxPTR(Interop), RetCode);
 
-  if (checkInteropCall(interop, __func__) != omp_irc_success)
+  if (checkInteropCall(Interop, __func__) != omp_irc_success)
     return NULL;
 
-  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  int64_t DeviceNum = static_cast<__tgt_interop *>(Interop)->DeviceNum;
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-  return Device.getInteropRcDesc(ret_code);
+  return Device.getInteropRcDesc(RetCode);
 }
 #endif // INTEL_CUSTOMIZATION
 
-EXTERN void *omp_target_alloc_device(size_t size, int device_num) {
-  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+EXTERN void *omp_target_alloc_device(size_t Size, int DeviceNum) {
+  return targetAllocExplicit(Size, DeviceNum, TARGET_ALLOC_DEVICE, __func__);
 }
 
-EXTERN void *omp_target_alloc_host(size_t size, int device_num) {
-  return targetAllocExplicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+EXTERN void *omp_target_alloc_host(size_t Size, int DeviceNum) {
+  return targetAllocExplicit(Size, DeviceNum, TARGET_ALLOC_HOST, __func__);
 }
 
-EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
-  return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
+EXTERN void *omp_target_alloc_shared(size_t Size, int DeviceNum) {
+  return targetAllocExplicit(Size, DeviceNum, TARGET_ALLOC_SHARED, __func__);
 }
 
 static void *targetRealloc(void *Ptr, size_t Size, int DeviceNum, int Kind,
@@ -732,154 +737,156 @@ EXTERN void *ompx_target_aligned_alloc_shared(
                             __func__);
 }
 
-EXTERN int ompx_target_register_host_pointer(void * HostPtr, size_t Size,
-             int DeviceNum) {
-  DP("Call to %s for device %d requesting registering " DPxMOD " of %zu bytes\n",
-     __func__, DeviceNum, DPxPTR(HostPtr),  Size);
+EXTERN int ompx_target_register_host_pointer(void *HostPtr, size_t Size,
+                                             int DeviceNum) {
+  DP("Call to %s for device %d requesting registering " DPxMOD
+     " of %zu bytes\n", __func__, DeviceNum, DPxPTR(HostPtr),  Size);
 
   if (Size <= 0) {
     DP("Call to %s with non-positive length\n", __func__);
-    return false;
+    return 0;
   }
 
   if (DeviceNum == omp_get_initial_device()) {
-    DP("Cannot register host pointer " DPxMOD " with host device\n",DPxPTR(HostPtr));
-    return false;
+    DP("Cannot register host pointer " DPxMOD " with host device\n",
+       DPxPTR(HostPtr));
+    return 0;
   }
 
   if (!deviceIsReady(DeviceNum)) {
-    DP("Cannot register host pointer as Device not ready\n");
-    return false;
+    DP("Cannot register host pointer as device is not ready\n");
+    return 0;
   }
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-  int retval = Device.registerHostPointer(HostPtr, Size);
-  if (!retval)
+  int Ret = Device.registerHostPointer(HostPtr, Size);
+  if (!Ret)
     DP("Register host pointer failed\n");
-  return retval;
+  return Ret;
 }
 
-EXTERN void ompx_target_unregister_host_pointer(void * HostPtr, int DeviceNum) {
+EXTERN void ompx_target_unregister_host_pointer(void *HostPtr, int DeviceNum) {
   DP("Call to %s for device %d requesting unregistering " DPxMOD " \n",
-       __func__, DeviceNum, DPxPTR(HostPtr));
+     __func__, DeviceNum, DPxPTR(HostPtr));
   DeviceTy &Device = *PM->Devices[DeviceNum];
 
-  bool retval = Device.unregisterHostPointer(HostPtr);
-  if (!retval)
+  bool Ret = Device.unregisterHostPointer(HostPtr);
+  if (!Ret)
     DP("UnRegister host pointer failed\n");
 }
 
-EXTERN void *omp_target_get_context(int device_num) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN void *omp_target_get_context(int DeviceNum) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s returns null for the host device\n", __func__);
     return nullptr;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s returns null for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s returns null for device %d\n", __func__, DeviceNum);
+    return nullptr;
   }
 
-  void *context = PM->Devices[device_num]->get_context_handle();
-  DP("%s returns " DPxMOD " for device %d\n", __func__, DPxPTR(context),
-     device_num);
-  return context;
+  void *Context = PM->Devices[DeviceNum]->getContextHandle();
+  DP("%s returns " DPxMOD " for device %d\n", __func__, DPxPTR(Context),
+     DeviceNum);
+  return Context;
 }
 
-EXTERN int omp_set_sub_device(int device_num, int level) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN int omp_set_sub_device(int DeviceNum, int Level) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s returns 0 for the host device\n", __func__);
     return 0;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s returns 0 for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s returns 0 for device %d\n", __func__, DeviceNum);
     return 0;
   }
 
-  return PM->Devices[device_num]->setSubDevice(level);
+  return PM->Devices[DeviceNum]->setSubDevice(Level);
 }
 
-EXTERN void omp_unset_sub_device(int device_num) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN void omp_unset_sub_device(int DeviceNum) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s does nothing for the host device\n", __func__);
     return;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s does nothing for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s does nothing for device %d\n", __func__, DeviceNum);
     return;
   }
 
-  PM->Devices[device_num]->unsetSubDevice();
+  PM->Devices[DeviceNum]->unsetSubDevice();
 }
 
-EXTERN int ompx_get_num_subdevices(int device_num, int level) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN int ompx_get_num_subdevices(int DeviceNum, int Level) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s returns 0 for the host device\n", __func__);
     return 0;
   }
 
-  if (level < 0 || level > 1) {
-    REPORT("%s returns 0 for invalid level %" PRId32 "\n", __func__, level);
+  if (Level < 0 || Level > 1) {
+    REPORT("%s returns 0 for invalid level %" PRId32 "\n", __func__, Level);
     return 0;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s returns 0 for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s returns 0 for device %d\n", __func__, DeviceNum);
     return 0;
   }
 
   // We return 1 if the device does not support subdevice (Ret == 0)
-  int Ret = PM->Devices[device_num]->getNumSubDevices(level);
+  int Ret = PM->Devices[DeviceNum]->getNumSubDevices(Level);
   if (Ret > 1)
     return Ret;
   else
     return 1;
 }
 
-EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN void ompx_kernel_batch_begin(int DeviceNum, uint32_t MaxKernels) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s does nothing for the host device\n", __func__);
     return;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s does nothing for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s does nothing for device %d\n", __func__, DeviceNum);
     return;
   }
 
-  PM->Devices[device_num]->kernelBatchBegin(max_kernels);
+  PM->Devices[DeviceNum]->kernelBatchBegin(MaxKernels);
 }
 
-EXTERN void ompx_kernel_batch_end(int device_num) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN void ompx_kernel_batch_end(int DeviceNum) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s does nothing for the host device\n", __func__);
     return;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s does nothing for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s does nothing for device %d\n", __func__, DeviceNum);
     return;
   }
 
-  PM->Devices[device_num]->kernelBatchEnd();
+  PM->Devices[DeviceNum]->kernelBatchEnd();
 }
 
-EXTERN int ompx_get_device_info(int device_num, int info_id, size_t info_size,
-                                void *info_value, size_t *info_size_ret) {
-  if (device_num == omp_get_initial_device()) {
+EXTERN int ompx_get_device_info(int DeviceNum, int InfoId, size_t InfoSize,
+                                void *InfoValue, size_t *InfoSizeRet) {
+  if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s does nothing for the host device\n", __func__);
     return OFFLOAD_FAIL;
   }
 
-  if (!deviceIsReady(device_num)) {
-    REPORT("%s does nothing for device %d\n", __func__, device_num);
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("%s does nothing for device %d\n", __func__, DeviceNum);
     return OFFLOAD_FAIL;
   }
 
-  return PM->Devices[device_num]->getDeviceInfo(info_id, info_size, info_value,
-                                                info_size_ret);
+  return PM->Devices[DeviceNum]->getDeviceInfo(InfoId, InfoSize, InfoValue,
+                                               InfoSizeRet);
 }
 #endif  // INTEL_COLLAB
 

@@ -6602,7 +6602,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
         std::min<uint64_t>(Size, static_cast<uint64_t>(DebugLevel) * 5);
     for (uint64_t I = 0; I < PrintEntriesNum; ++I) {
       DP("\t{ " DPxMOD ", " DPxMOD " }\n",
-         DPxPTR(FnPtrs[I].host_ptr), DPxPTR(FnPtrs[I].tgt_ptr));
+         DPxPTR(FnPtrs[I].HostPtr), DPxPTR(FnPtrs[I].TargetPtr));
     }
     if (PrintEntriesNum < Size)
       DP("\t... increase LIBOMPTARGET_DEBUG to see more entries ...\n");

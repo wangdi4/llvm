@@ -156,12 +156,12 @@ static_assert(sizeof(__tgt_kernel_arguments) == 64 ||
 
 #if INTEL_COLLAB
 struct __tgt_interop_obj {
-  int64_t device_id; // OpenMP device id
-  int64_t device_code; // Encoded device id
-  int32_t is_async; // Whether it is for asynchronous operation
-  void *async_obj; // Pointer to the asynchronous object
-  void (*async_handler)(void *); // Callback function for asynchronous operation
-  int32_t plugin_interface; // Plugin selector
+  int64_t DeviceId; // OpenMP device id
+  int64_t DeviceCode; // Encoded device id
+  int32_t IsAsync; // Whether it is for asynchronous operation
+  void *AsyncObj; // Pointer to the asynchronous object
+  void (*AsyncHandler)(void *); // Callback function for asynchronous operation
+  int32_t PlugInType; // Plugin selector
 };
 #if INTEL_CUSTOMIZATION
 ///
@@ -241,7 +241,7 @@ struct __tgt_interop {
   // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
   // they will be removed.  Simpler to add here then add it in RTLProperty which
   // require changes in plugin apis which will have to be obsoleted later.
-  __tgt_interop_obj *intel_tmp_ext;
+  __tgt_interop_obj *IntelTmpExt;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -257,7 +257,7 @@ enum InteropPropertyTy : int32_t {
   INTEROP_OFFLOAD_QUEUE,
   INTEROP_PLATFORM_HANDLE,
   INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
-  INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DRIVER_HANDLE = INTEROP_PLATFORM_HANDLE,
   INTEROP_DEVICE_HANDLE,
   INTEROP_PLUGIN_INTERFACE,
   INTEROP_CONTEXT_HANDLE
@@ -317,8 +317,8 @@ struct __tgt_target_table {
 
 #if INTEL_COLLAB
 typedef struct __omp_offloading_fptr_map_t {
-  uint64_t host_ptr; // key
-  uint64_t tgt_ptr;  // value
+  uint64_t HostPtr; // key
+  uint64_t TargetPtr; // value
 } __omp_offloading_fptr_map_t;
 
 #ifdef __cplusplus
@@ -447,63 +447,61 @@ EXTERN
 int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum);
 
 #if INTEL_COLLAB
-EXTERN
-void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+EXTERN void * omp_get_mapped_ptr(void *HostPtr, int DeviceNum);
 
-EXTERN
-int omp_target_is_accessible(const void *ptr, size_t size, int device_num);
+EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
+                                    int DeviceNum);
 
 /// Explicit target memory allocators
 /// Are we OK with omp_ prefix?
-EXTERN void *omp_target_alloc_device(size_t size, int device_num);
-EXTERN void *omp_target_alloc_host(size_t size, int device_num);
-EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
+EXTERN void *omp_target_alloc_device(size_t Size, int DeviceNum);
+EXTERN void *omp_target_alloc_host(size_t Size, int DeviceNum);
+EXTERN void *omp_target_alloc_shared(size_t Size, int DeviceNum);
 
 /// Get target device context
-EXTERN void *omp_target_get_context(int device_num);
+EXTERN void *omp_target_get_context(int DeviceNum);
 
 /// Set sub-device mode to map OpenMP device ID to sub-device ID at the
 /// specified level. Returns number of sub-devices if the requested mode is
 /// supported and the operation is successful, 0 otherwise.
 /// Calling this routine not from "sequential part" of the OpenMP program
 /// results in undefined behavior.
-EXTERN int omp_set_sub_device(int device_num, int level);
+EXTERN int omp_set_sub_device(int DeviceNum, int Level);
 
 /// Unset sub-device mode.
-EXTERN void omp_unset_sub_device(int device_num);
+EXTERN void omp_unset_sub_device(int DeviceNum);
 
 /// Target memory realloc extension
-EXTERN void *ompx_target_realloc(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_device(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_host(void *ptr, size_t size, int device_num);
-EXTERN void *ompx_target_realloc_shared(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_device(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_host(void *Ptr, size_t Size, int DeviceNum);
+EXTERN void *ompx_target_realloc_shared(void *Ptr, size_t Size, int DeviceNum);
 
 /// Target memory aligned alloc extension
-EXTERN void *ompx_target_aligned_alloc(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_device(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_host(
-    size_t align, size_t size, int device_num);
-EXTERN void *ompx_target_aligned_alloc_shared(
-    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc(size_t Align, size_t Size,
+                                       int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_device(size_t Align, size_t Size,
+                                              int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_host(size_t Align, size_t Size,
+                                            int DeviceNum);
+EXTERN void *ompx_target_aligned_alloc_shared(size_t Align, size_t Size,
+                                              int DeviceNum);
 /// Register/unregister Host Pointer
-EXTERN int ompx_target_register_host_pointer(
-    void *ptr, size_t size, int device_num);
-EXTERN void ompx_target_unregister_host_pointer(
-    void *ptr, int device_num);
+EXTERN int ompx_target_register_host_pointer(void *Ptr, size_t Size,
+                                             int DeviceNum);
+EXTERN void ompx_target_unregister_host_pointer(void *Ptr,
+                                                int DeviceNum);
 
 /// Get number of subdevices supported by the given device ID at the specified
 /// level
-EXTERN int ompx_get_num_subdevices(int device_num, int level);
+EXTERN int ompx_get_num_subdevices(int DeviceNum, int Level);
 
-EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels);
-EXTERN void ompx_kernel_batch_end(int device_num);
+EXTERN void ompx_kernel_batch_begin(int DeviceNum, uint32_t MaxKernels);
+EXTERN void ompx_kernel_batch_end(int DeviceNum);
 
 /// Return OMP device information
-EXTERN int ompx_get_device_info(int device_num, int info_id,
-                                size_t info_size, void *info_value,
-                                size_t *info_size_ret);
+EXTERN int ompx_get_device_info(int DeviceNum, int InfoId, size_t InfoSize,
+                                void *InfoVAlue, size_t *InfoSizeRet);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
@@ -673,15 +671,14 @@ int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                void *NoAliasDepList);
 
 #if INTEL_COLLAB
-EXTERN
-int32_t __tgt_is_device_available(int64_t device_num, void *device_type);
+EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,
 // returns a '\0' terminated C string (pointer to Buffer).
 EXTERN char *__tgt_get_device_name(
-    int64_t device_num, char *buffer, size_t buffer_max_size);
+    int64_t DeviceNum, char *Buffer, size_t BufferMaxSize);
 
 // Returns implementation defined RTL name corresponding to the given
 // device number, using provided Buffer. Buffer must be able to hold
@@ -689,40 +686,40 @@ EXTERN char *__tgt_get_device_name(
 // Returns nullptr, if RTL name cannot be acquired, otherwise,
 // returns a '\0' terminated C string (pointer to Buffer).
 EXTERN char *__tgt_get_device_rtl_name(
-    int64_t device_num, char *buffer, size_t buffer_max_size);
+    int64_t DeviceNum, char *Buffer, size_t BufferMaxSize);
 
 // Callback function for asynchronous offloading
-EXTERN void __tgt_offload_proxy_task_complete_ooo(void *);
+EXTERN void __tgt_offload_proxy_task_complete_ooo(void *InteropObj);
 
 // Creates an interop object.
 EXTERN void * __tgt_create_interop_obj(
-    int64_t device_id, bool is_async, void *async_obj);
+    int64_t DeviceId, bool IsAsync, void *AsyncObj);
 
 // Releases an interop object.
-EXTERN int __tgt_release_interop_obj(void *interop_obj);
+EXTERN int __tgt_release_interop_obj(void *InteropObj);
 
 // Create an OpenMP 5.1 interop object.
 EXTERN omp_interop_t __tgt_create_interop(
-    int64_t device_id, int32_t interop_type, int32_t num_prefers,
-    int32_t *prefer_ids);
+    int64_t DeviceId, int32_t InteropType, int32_t NumPrefers,
+    int32_t *PreferIds);
 
 // Release an OpenMP 5.1 interop object.
-EXTERN int __tgt_release_interop(omp_interop_t interop);
+EXTERN int __tgt_release_interop(omp_interop_t Interop);
 
 // Change OpenMP 5.1 interop object to usable state ("use" clause)
-EXTERN int __tgt_use_interop(omp_interop_t interop);
+EXTERN int __tgt_use_interop(omp_interop_t Interop);
 
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(
-    void *interop_obj, int32_t property_id, void **property_value);
+    void *InteropObj, int32_t PropertyId, void **PropertyValue);
 
 // Update the interop object's property with given property_value.
 EXTERN int __tgt_set_interop_property(
-    void *interop_obj, int32_t property_id, void *property_value);
+    void *InteropObj, int32_t PropertyId, void *PropertyValue);
 
 #if INTEL_CUSTOMIZATION
 // Set code location information
-EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
+EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA);
 #endif // INTEL_CUSTOMIZATION
 
 // Return number of devices
@@ -730,24 +727,24 @@ EXTERN int __tgt_get_num_devices(void);
 
 // Return target memory information
 EXTERN int __tgt_get_target_memory_info(
-    void *interop_obj, int32_t num_ptrs, void *ptrs, void *ptr_info);
+    void *InteropObj, int32_t NumPtrs, void *Ptrs, void *PtrInfo);
 
 // Pass target code build options to plugins.
 // This should be called after __tgt_register_lib().
 // TODO: remove this if we choose to modify device image description.
 EXTERN void __tgt_add_build_options(
-    const char *compile_options, const char *link_options);
+    const char *CompileOptions, const char *LinkOptions);
 
 // Check if reduction scratch is supported
-EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t device_id);
+EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t DeviceId);
 
 // Allocate per-hw-thread reducion scratch
 EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
-    int64_t device_id, size_t obj_size, int32_t alloc_kind);
+    int64_t DeviceId, size_t ObjSize, int32_t AllocKind);
 
 // Free per-hw-thread reduction scratch
 EXTERN void __tgt_target_free_per_hw_thread_scratch(
-    int64_t device_id, void *ptr);
+    int64_t DeviceId, void *Ptr);
 #endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
