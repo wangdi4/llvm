@@ -582,6 +582,19 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
       return nullptr;
     }
 
+    // It happend at 526.blender with opaque pointers
+    // on Windows from truncation.
+    // if (i1 + 1 == 0)
+    //   <RVAL-REG> LINEAR trunc.i64.i32(i1 + 1) {sb:2}
+    //   RHS's 0 is i32 type.
+    // Can be extended to see if the const value in the larger bit size
+    // can fit within the smaller bit size (using getSignedMin/MaxValue)
+    // and then compute sadd_ov in the smaller bit size.
+    if (RHSType->getPrimitiveSizeInBits() !=
+        LHSType->getPrimitiveSizeInBits()) {
+      return nullptr;
+    }
+
     bool Overflow;
     APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
     APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
