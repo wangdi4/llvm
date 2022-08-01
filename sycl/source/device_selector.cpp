@@ -120,18 +120,13 @@ device device_selector::select_device() const {
     return *res;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  throw cl::sycl::runtime_error(
+  throw sycl::runtime_error(
       "No device of requested type available. Please check "
       "https://software.intel.com/content/www/us/en/develop/articles/"
       "intel-oneapi-dpcpp-system-requirements.html",
       PI_ERROR_DEVICE_NOT_FOUND);
 #endif // INTEL_CUSTOMIZATION
-=======
-  throw sycl::runtime_error("No device of requested type available.",
-                            PI_ERROR_DEVICE_NOT_FOUND);
->>>>>>> 7cb8726597f7f4a5bfbad74f1718300a49046f40
 }
 
 /// Devices of different kinds are prioritized in the following order:

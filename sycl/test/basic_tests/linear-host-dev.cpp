@@ -35,17 +35,7 @@ int main(int argc, char *argv[]) {
     s::stream out(1024, 80, h);
 
     h.parallel_for<class linear_id>(s::range<2>(rng), [=](s::item<2> item) {
-<<<<<<< HEAD
-      out << item.get_linear_id() << cl::sycl::endl;
-=======
-      // CHECK: 0
-      // CHECK-NEXT: 1
-      // CHECK-NEXT: 2
-      // CHECK-NEXT: 3
-      // CHECK-NEXT: 4
-      // CHECK-NEXT: 5
       out << item.get_linear_id() << sycl::endl;
->>>>>>> 7cb8726597f7f4a5bfbad74f1718300a49046f40
     });
   });
   q.wait();
