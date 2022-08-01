@@ -4027,7 +4027,13 @@ static int32_t runTargetTeamRegion(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
   assert(TgtEntryPtr && "Invalid kernel");
-  assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
+  // Libomptarget can pass negative NumTeams and ThreadLimit now after
+  // introducing __tgt_target_kernel. This happens only when we have valid
+  // LoopDesc and the region is not a teams region.
+  if (NumTeams < 0)
+    NumTeams = 0;
+  if (ThreadLimit < 0)
+    ThreadLimit = 0;
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
   int32_t RootId = DeviceId;
