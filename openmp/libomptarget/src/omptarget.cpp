@@ -419,7 +419,7 @@ void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
 #if INTEL_COLLAB
   if (Kind == TARGET_ALLOC_DEFAULT &&
       PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-    Rc = Device.data_alloc_managed(Size);
+    Rc = Device.dataAllocManaged(Size);
     DP("%s returns managed ptr " DPxMOD "\n", Name, DPxPTR(Rc));
     return Rc;
   }
@@ -479,13 +479,13 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                     void **ArgMappers, AsyncInfoTy &AsyncInfo,
                     bool FromMapper) {
 #if INTEL_COLLAB
-  int32_t gtid = __kmpc_global_thread_num(nullptr);
+  int32_t GTID = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
-  if (Device.UsedPtrs.count(gtid) == 0)
-    Device.UsedPtrs.emplace(gtid, UsedPtrsTy());
-  auto &usedPtrs = Device.UsedPtrs[gtid];
+  if (Device.UsedPtrs.count(GTID) == 0)
+    Device.UsedPtrs.emplace(GTID, UsedPtrsTy());
+  auto &UsedPtrs = Device.UsedPtrs[GTID];
   Device.UsedPtrsMtx.unlock();
-  usedPtrs.emplace_back(std::set<void *>());
+  UsedPtrs.emplace_back(std::set<void *>());
   // Begin data batching
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
@@ -630,7 +630,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       ArgsBase[I] = TgtPtrBase;
 
 #if INTEL_COLLAB
-      usedPtrs.back().insert(TgtPtrBase);
+      UsedPtrs.back().insert(TgtPtrBase);
 #endif // INTEL_COLLAB
 
     }
@@ -683,10 +683,10 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
-	DeviceTy::HDTTMapAccessorTy HDTTMap =
+        DeviceTy::HDTTMapAccessorTy HDTTMap =
             Device.HostDataToTargetMap.getExclusiveAccessor();
-	auto PtrLookup =
-	    Device.lookupMapping(HDTTMap, PointerHstPtrBegin, sizeof(void *));
+        auto PtrLookup =
+	          Device.lookupMapping(HDTTMap, PointerHstPtrBegin, sizeof(void *));
         HDTTMap.destroy();
         if (PtrLookup.Entry) {
           size_t PtrOffset = (size_t)((uint64_t)PointerHstPtrBegin -
@@ -756,9 +756,10 @@ static void applyToShadowMapEntries(DeviceTy &Device, CBTy CB, void *Begin,
   // pointers, no need to do any checking.
 #if INTEL_COLLAB
   // Addressing CMPLRLLVM-37085.
-  // Seems like the getMayContainAttachedPointers access a field which has been freed.
-  // Disabling this check as 1) upstream version has changed the shadow pointer implementation
-  // 2)  This optimization is recent and does not make a significant improvement.
+  // Seems like the getMayContainAttachedPointers access a field which has been
+  // freed. Disabling this check as 1) upstream version has changed the shadow
+  // pointer implementation 2) This optimization is recent and does not make a
+  // significant improvement.
 #else // INTEL_COLLAB
   if (!TPR.Entry || !TPR.Entry->getMayContainAttachedPointers())
     return;
@@ -886,15 +887,9 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
         // program can guarantee that data is present at the beginning of an
         // "omp target" region so that there's no error there, that data is also
         // guaranteed to be present at the end.
-#if INTEL_COLLAB
         MESSAGE("device mapping required by 'present' map type modifier does "
                 "not exist for host address " DPxMOD " (%" PRId64 " bytes)",
                 DPxPTR(HstPtrBegin), DataSize);
-#else // INTEL_COLLAB
-        MESSAGE("device mapping required by 'present' map type modifier does "
-                "not exist for host address " DPxMOD " (%" PRId64 " bytes)",
-                DPxPTR(HstPtrBegin), DataSize);
-#endif // INTEL_COLLAB
         return OFFLOAD_FAIL;
       }
     } else {
@@ -1051,10 +1046,10 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     }
   }
 #if INTEL_COLLAB
-  int32_t gtid = __kmpc_global_thread_num(nullptr);
+  int32_t GTID = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
-  if (!Device.UsedPtrs[gtid].empty())
-    Device.UsedPtrs[gtid].pop_back();
+  if (!Device.UsedPtrs[GTID].empty())
+    Device.UsedPtrs[GTID].pop_back();
   Device.UsedPtrsMtx.unlock();
 #endif // INTEL_COLLAB
 
@@ -1416,8 +1411,8 @@ public:
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate ||
         AllocImmediately) {
 #if INTEL_COLLAB
-      TgtPtr = Device.data_alloc_base(ArgSize, HstPtr,
-                                      (void *)((intptr_t)HstPtr + ArgOffset));
+      TgtPtr = Device.dataAllocBase(ArgSize, HstPtr,
+                                    (void *)((intptr_t)HstPtr + ArgOffset));
 #else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
 #endif // INTEL_COLLAB
@@ -1623,9 +1618,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         // object. For partially mapped objects we need to calculate their bases
         // and update the device copy of the lambda struct with the result.
         ptrdiff_t ObjDelta = (intptr_t) HstPtrVal - // begin address of object
-            (intptr_t) (*(void **)HstPtrBegin); // base address of object
-        PointerTgtPtrBegin =
-            (void *) ((intptr_t) PointerTgtPtrBegin - ObjDelta);
+            (intptr_t)(*(void **)HstPtrBegin); // base address of object
+        PointerTgtPtrBegin = (void *)((intptr_t)PointerTgtPtrBegin - ObjDelta);
 #endif // INTEL_COLLAB
         DP("Update lambda reference (" DPxMOD ") -> [" DPxMOD "]\n",
            DPxPTR(PointerTgtPtrBegin), DPxPTR(TgtPtrBegin));
@@ -1649,9 +1643,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     map_var_info_t HstPtrName = (!ArgNames) ? nullptr : ArgNames[I];
     ptrdiff_t TgtBaseOffset;
     bool IsLast, IsHostPtr; // unused.
-#ifndef INTEL_COLLAB
     TargetPointerResultTy TPR;
-#endif // INTEL_COLLAB
     if (ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) {
       DP("Forwarding first-private value " DPxMOD " to the target construct\n",
          DPxPTR(HstPtrBase));
@@ -1709,12 +1701,16 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     } else {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr).TargetPointer;
+        TPR = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast,
+                                    /*UpdateRefCount=*/false,
+                                    /*UseHoldRefCount=*/false, IsHostPtr);
+        TgtPtrBegin = TPR.TargetPointer;
         TgtBaseOffset = 0;
       } else {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
-                                            /*UpdateRefCount=*/false,
-                                            /*UseHoldRefCount=*/false, IsHostPtr).TargetPointer;
+        TPR = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
+                                    /*UpdateRefCount=*/false,
+                                    /*UseHoldRefCount=*/false, IsHostPtr);
+        TgtPtrBegin = TPR.TargetPointer;
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       }
       if (!TgtPtrBegin) {
@@ -1891,31 +1887,31 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
      TargetTable->EntriesBegin[TM->Index].name, DPxPTR(TgtEntryPtr), TM->Index);
 
 #if INTEL_COLLAB
-  Ret = Device.manifest_data_for_region(TgtEntryPtr);
+  Ret = Device.manifestDataForRegion(TgtEntryPtr);
 
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Data manifestation failed.\n");
     return OFFLOAD_FAIL;
   }
 
-  void **argsPtr = nullptr;
+  void **ArgsPtr = nullptr;
   if (!TgtArgs.empty())
-    argsPtr = (void **)&(TgtArgs.data()[0]);
-  ptrdiff_t *offsetsPtr = nullptr;
+    ArgsPtr = (void **)&(TgtArgs.data()[0]);
+  ptrdiff_t *OffsetsPtr = nullptr;
   if (!TgtOffsets.empty())
-    offsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
+    OffsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
 
   if (TgtNDLoopDesc)
     // If NDRange is specified, use it.
-    Ret = Device.run_team_nd_region(TgtEntryPtr, argsPtr, offsetsPtr,
-                                    TgtArgs.size(), TeamNum, ThreadLimit,
-                                    TgtNDLoopDesc);
+    Ret = Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr,
+                                 TgtArgs.size(), TeamNum, ThreadLimit,
+                                 TgtNDLoopDesc);
   else if (IsTeamConstruct)
-    Ret = Device.runTeamRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
+    Ret = Device.runTeamRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
                                TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
                                AsyncInfo);
   else
-    Ret = Device.runRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
+    Ret = Device.runRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
                            AsyncInfo);
 #else // INTEL_COLLAB
   {

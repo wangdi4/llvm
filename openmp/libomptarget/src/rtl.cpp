@@ -236,31 +236,31 @@ void RTLsTy::loadRTLs() {
   // Only check a single plugin if specified by user
   std::vector<const char *> RTLChecked;
   if (char *envStr = getenv("LIBOMPTARGET_PLUGIN")) {
-    std::string pluginName(envStr);
-    if (pluginName == "OPENCL" || pluginName == "opencl") {
+    std::string PlugInName(envStr);
+    if (PlugInName == "OPENCL" || PlugInName == "opencl") {
 #if _WIN32
       RTLChecked.push_back("omptarget.rtl.opencl.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.opencl.so");
 #endif
 #if INTEL_CUSTOMIZATION
-    } else if (pluginName == "LEVEL0" || pluginName == "level0" ||
-               pluginName == "LEVEL_ZERO" || pluginName == "level_zero") {
+    } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
+               PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
 #if _WIN32
       RTLChecked.push_back("omptarget.rtl.level0.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.level0.so");
 #endif
 #endif // INTEL_CUSTOMIZATION
-    } else if (pluginName == "CUDA" || pluginName == "cuda") {
+    } else if (PlugInName == "CUDA" || PlugInName == "cuda") {
       RTLChecked.push_back("libomptarget.rtl.cuda.so");
-    } else if (pluginName == "X86_64" || pluginName == "x86_64") {
+    } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
 #if _WIN32
       RTLChecked.push_back("omptarget.rtl.x86_64.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.x86_64.so");
 #endif
-    } else if (pluginName == "NIOS2" || pluginName == "nios2") {
+    } else if (PlugInName == "NIOS2" || PlugInName == "nios2") {
       RTLChecked.push_back("libomptarget.rtl.nios2.so");
     // TODO: any other plugins to be listed here?
     } else {
@@ -397,7 +397,7 @@ void RTLsTy::loadRTLs() {
 #if INTEL_COLLAB
     #define SET_OPTIONAL_INTERFACE(entry, name)                                \
       do {                                                                     \
-        if ((*((void **)&R.entry) = dlsym(DynlibHandle, "__tgt_rtl_" #name))) \
+        if ((*((void **)&R.entry) = dlsym(DynlibHandle, "__tgt_rtl_" #name)))  \
           DP("Optional interface: __tgt_rtl_" #name "\n");                     \
       } while (0)
     #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
