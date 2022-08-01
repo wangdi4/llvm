@@ -1,7 +1,13 @@
 // Test that the use of thread local variables would be wrapped by @llvm.threadlocal.address intrinsics.
+<<<<<<< HEAD
 // RUN: %clang_cc1 -opaque-pointers -std=c++11 -emit-llvm -triple %itanium_abi_triple -o - %s -disable-llvm-passes | FileCheck %s
 // RUN: %clang_cc1 -opaque-pointers -std=c++11 -emit-llvm -triple %itanium_abi_triple -o - -O1 %s | FileCheck %s -check-prefix=CHECK-O1
 // RUN: %clang_cc1 -opaque-pointers -std=c++11 -no-opaque-pointers -emit-llvm -triple %itanium_abi_triple -o - %s -disable-llvm-passes | FileCheck %s -check-prefix=CHECK-NOOPAQUE
+=======
+// RUN: %clang_cc1 -std=c++11 -emit-llvm -triple x86_64 -o - %s -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1 -std=c++11 -emit-llvm -triple aarch64 -o - -O1 %s | FileCheck %s -check-prefix=CHECK-O1
+// RUN: %clang_cc1 -std=c++11 -no-opaque-pointers -emit-llvm -triple x86_64 -o - %s -disable-llvm-passes | FileCheck %s -check-prefix=CHECK-NOOPAQUE
+>>>>>>> dc900eeaf2af0d459c69224b2d023d8d2287944a
 thread_local int i;
 int g() {
   i++;
