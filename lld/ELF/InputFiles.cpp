@@ -275,7 +275,6 @@ StringRef InputFile::getNameForScript() const {
   return nameForScriptCache;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Return the "gnu.linkonce.T." section associated with the input symbol name
 InputSectionBase*
@@ -325,7 +324,7 @@ InputFile::getGNULinkOnceSectionForSymbol(StringRef symbolName) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // An ELF object file may contain a `.deplibs` section. If it exists, the
 // section contains a list of library specifiers such as `m` for libm. This
 // function resolves a given name by finding the first matching library checking
@@ -384,7 +383,6 @@ static void handleSectionGroup(ArrayRef<InputSectionBase *> sections,
   if (prev)
     prev->nextInSectionGroup = head;
 }
->>>>>>> d6d4f631aca8ce5eb2dbefd87d6b8c88392a57b1
 
 template <class ELFT> DWARFCache *ObjFile<ELFT>::getDwarf() {
   llvm::call_once(initDwarf, [this]() {
