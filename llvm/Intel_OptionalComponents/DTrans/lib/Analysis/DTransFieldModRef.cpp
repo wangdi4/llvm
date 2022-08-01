@@ -67,14 +67,6 @@ static const char *ModRefInfoToString(ModRefInfo &Info) {
     return "Ref";
   case ModRefInfo::ModRef:
     return "ModRef";
-  case ModRefInfo::Must:
-    return "Must";
-  case ModRefInfo::MustMod:
-    return "MustMod";
-  case ModRefInfo::MustRef:
-    return "MustRef";
-  case ModRefInfo::MustModRef:
-    return "MustModRef";
   }
   llvm_unreachable("Fall-through from fully covered switch");
 }
