@@ -498,10 +498,26 @@ private:
   /// Loops over every item of every clause. If any item is a VLA or a variable
   /// length array section, it creates an empty entry block and sets the VLA
   /// alloca insertPt to the terminator of this newly created entry block.
+#if INTEL_CUSTOMIZATION
+  /// If \p OnlyCountReductionF90DVsAsVLAs is \b true, F90_DVs in other clause
+  /// items like private, firstprivate, etc., won't be considered for the
+  /// purpose of this function.
+  bool setInsertionPtForVlaAllocas(WRegionNode *W,
+                                   bool OnlyCountReductionF90DVsAsVLAs = true);
+#else
   bool setInsertionPtForVlaAllocas(WRegionNode *W);
+#endif
 
   /// returns true if the input item is either a Vla or a Vla Section.
+#if INTEL_CUSTOMIZATION
+  /// If \p OnlyCountReductionF90DVsAsVLAs is \b true, F90_DVs in other clause
+  /// items like private, firstprivate, etc., won't be considered for the
+  /// purpose of this function.
+  static bool getIsVlaOrVlaSection(Item *I,
+                                   bool OnlyCountReductionF90DVsAsVLAs = true);
+#else
   static bool getIsVlaOrVlaSection(Item *I);
+#endif
 
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W,

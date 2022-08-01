@@ -19318,6 +19318,12 @@ OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
     Res = ActOnOpenMPAlignedClause(VarList, Data.DepModOrTailExpr, StartLoc,
                                    LParenLoc, ColonLoc, EndLoc);
     break;
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_monotonic:
+    Res = ActOnOpenMPOmpxMonotonicClause(VarList, Data.DepModOrTailExpr,
+                                         StartLoc, LParenLoc, ColonLoc, EndLoc);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case OMPC_copyin:
     Res = ActOnOpenMPCopyinClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
@@ -21780,6 +21786,60 @@ OMPClause *Sema::ActOnOpenMPAlignedClause(
   return OMPAlignedClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
                                   EndLoc, Vars, Alignment);
 }
+
+#if INTEL_CUSTOMIZATION
+OMPClause *Sema::ActOnOpenMPOmpxMonotonicClause(
+    ArrayRef<Expr *> VarList, Expr *Step, SourceLocation StartLoc,
+    SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation EndLoc) {
+  SmallVector<Expr *, 8> Vars;
+  for (Expr *RefExpr : VarList) {
+    assert(RefExpr && "NULL expr in OpenMP ompx_monotonic clause.");
+    SourceLocation ELoc;
+    SourceRange ERange;
+    Expr *SimpleRefExpr = RefExpr;
+    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
+    if (Res.second)
+      Vars.push_back(RefExpr);
+    ValueDecl *D = Res.first;
+    if (!D)
+      continue;
+    QualType QType = D->getType();
+    QType = QType.getNonReferenceType().getUnqualifiedType().getCanonicalType();
+    const Type *Ty = QType.getTypePtrOrNull();
+    auto *VD = dyn_cast<VarDecl>(D);
+    if (!Ty || (!Ty->isDependentType() && !Ty->isIntegralType(Context) &&
+                !Ty->isPointerType())) {
+      Diag(ELoc, diag::err_ompx_monotonic_expected_integral_or_ptr)
+          << QType << getLangOpts().CPlusPlus << ERange;
+      bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
+                               VarDecl::DeclarationOnly;
+      Diag(D->getLocation(),
+           IsDecl ? diag::note_previous_decl : diag::note_defined_here)
+          << D;
+      continue;
+    }
+
+    DeclRefExpr *Ref = nullptr;
+    if (!VD && isOpenMPCapturedDecl(D))
+      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
+    Vars.push_back(DefaultFunctionArrayConversion(
+                       (VD || !Ref) ? RefExpr->IgnoreParens() : Ref)
+                       .get());
+  }
+  if (Step) {
+    ExprResult StepResult =
+        VerifyPositiveIntegerConstantInClause(Step, OMPC_ompx_monotonic);
+    if (StepResult.isInvalid())
+      return nullptr;
+    Step = StepResult.get();
+  }
+  if (Vars.empty())
+    return nullptr;
+
+  return OMPOmpxMonotonicClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
+                                        EndLoc, Vars, Step);
+}
+#endif // INTEL_CUSTOMIZATION
 
 OMPClause *Sema::ActOnOpenMPCopyinClause(ArrayRef<Expr *> VarList,
                                          SourceLocation StartLoc,

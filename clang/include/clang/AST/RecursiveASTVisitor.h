@@ -3320,6 +3320,14 @@ RecursiveASTVisitor<Derived>::VisitOMPTileClause(OMPTileClause *C) {
   }
   return true;
 }
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPOmpxMonotonicClause(
+    OMPOmpxMonotonicClause *C) {
+  TRY_TO(TraverseStmt(C->getStep()));
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
 #if INTEL_FEATURE_CSA
 template <typename Derived>
 bool

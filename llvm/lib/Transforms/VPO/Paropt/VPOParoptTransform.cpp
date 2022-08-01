@@ -2127,6 +2127,8 @@ bool VPOParoptTransform::paroptTransforms() {
           // genLaunderIntrinIfPrivatizedInAncestor because
           // outlining algorithm stores the global variables in the kmpc_struct
           // as it should.
+          Changed |= setInsertionPtForVlaAllocas(
+              W, /* OnlyCountReductionF90DVsAsVLAs */ false);
           Changed |= genTaskInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                      LastIterGep);
           Changed |= genPrivatizationCode(W);
@@ -2163,6 +2165,8 @@ bool VPOParoptTransform::paroptTransforms() {
           // outlining algorithm stores the global variables in the kmpc_struct
           // as it should.
           Changed |= addFirstprivateForNormalizedUB(W);
+          Changed |= setInsertionPtForVlaAllocas(
+              W, /* OnlyCountReductionF90DVsAsVLAs */ false);
           Changed |=
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
@@ -9452,12 +9456,17 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
 
 // returns true if the input item is either a Vla or a variable size array
 // section.
-bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
 #if INTEL_CUSTOMIZATION
+bool VPOParoptTransform::getIsVlaOrVlaSection(
+    Item *I, bool OnlyCountReductionF90DVsAsVLAs) {
+  if (!OnlyCountReductionF90DVsAsVLAs && I->getIsF90DopeVector())
+    return true;
   if (auto *RedI = dyn_cast<ReductionItem>(I)) {
     if (RedI->getIsF90DopeVector())
       return true;
   }
+#else
+bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
 #endif // INTEL_CUSTOMIZATION
   if (I->getIsTyped()) {
     Value *NumElements = I->getNumElements();
@@ -9483,9 +9492,21 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
 // Loops over every item of every clause. if any item is a Vla or a Vla
 // Section, it creates an empty entry block and sets the Vla alloca insertPt
 // to the terminator of this newly created entry block.
+#if INTEL_CUSTOMIZATION
+// If OnlyCountReductionF90DVsAsVLAs is true, F90_VDs in other clause items like
+// private, firstprivate, won't be considered as VLAs for the purpose of this
+// function.
+bool VPOParoptTransform::setInsertionPtForVlaAllocas(
+    WRegionNode *W, bool OnlyCountReductionF90DVsAsVLAs) {
+#else
 bool VPOParoptTransform::setInsertionPtForVlaAllocas(WRegionNode *W) {
-  auto checkIfVla = [](Item *I) -> bool {
+#endif // INTEL_CUSTOMIZATION
+  auto checkIfVla = [&](Item *I) -> bool {
+#if INTEL_CUSTOMIZATION
+    if (!getIsVlaOrVlaSection(I, OnlyCountReductionF90DVsAsVLAs))
+#else
     if (!getIsVlaOrVlaSection(I))
+#endif // INTEL_CUSTOMIZATION
       return false;
     LLVM_DEBUG(dbgs() << "checkIfVLA: '" << *I->getOrig()
                       << "' is a VLA clause operand.\n");

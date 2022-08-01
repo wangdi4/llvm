@@ -508,6 +508,12 @@ void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes())
     Profiler->VisitStmt(E);
 }
+void OMPClauseProfiler::VisitOMPOmpxMonotonicClause(
+    const OMPOmpxMonotonicClause *C) {
+  VisitOMPClauseList(C);
+  if (C->getStep())
+    Profiler->VisitStmt(C->getStep());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VistOMPClauseWithPreInit(C);

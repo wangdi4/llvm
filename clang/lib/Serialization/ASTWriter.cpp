@@ -6292,6 +6292,14 @@ void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {
     Record.AddStmt(C->getTileData(I));
   Record.AddSourceLocation(C->getLParenLoc());
 }
+void OMPClauseWriter::VisitOMPOmpxMonotonicClause(OMPOmpxMonotonicClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getColonLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+  Record.AddStmt(C->getStep());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseWriter::VisitOMPDataflowClause(OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

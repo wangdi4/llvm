@@ -3201,6 +3201,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     ParseScope OMPDirectiveScope(this, ScopeFlags);
     Actions.StartOpenMPDSABlock(DKind, DirName, Actions.getCurScope(), Loc);
 
+#if INTEL_CUSTOMIZATION
+    bool HasSimd = false;
+    bool HasOmpxMonotonic = false;
+#endif // INTEL_CUSTOMIZATION
     while (Tok.isNot(tok::annot_pragma_openmp_end)) {
       // If we are parsing for a directive within a metadirective, the directive
       // ends with a ')'.
@@ -3221,6 +3225,11 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       OpenMPClauseKind CKind = Tok.isAnnotation()
                                    ? OMPC_unknown
                                    : getOpenMPClauseKind(PP.getSpelling(Tok));
+#if INTEL_CUSTOMIZATION
+      // ompx_monotonic only support in intel  -fiopenmp/iopenmp-simd
+      if (!getLangOpts().OpenMPLateOutline && CKind == OMPC_ompx_monotonic)
+        CKind = OMPC_unknown;
+#endif //INTEL_CUSTOMIZATION
       if (HasImplicitClause) {
         assert(CKind == OMPC_unknown && "Must be unknown implicit clause.");
         if (DKind == OMPD_flush) {
@@ -3247,10 +3256,18 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       if (Tok.is(tok::comma))
         ConsumeToken();
       Actions.EndOpenMPClause();
+#if INTEL_CUSTOMIZATION
+      HasOmpxMonotonic = HasOmpxMonotonic || CKind == OMPC_ompx_monotonic;
+      HasSimd = HasSimd || CKind == OMPC_simd;
+#endif //INTEL_CUSTOMIZATION
     }
     // End location of the directive.
     EndLoc = Tok.getLocation();
 #if INTEL_CUSTOMIZATION
+    if (HasOmpxMonotonic && !HasSimd)
+      Diag(Loc, diag::err_omp_expected_simd)
+        << getOpenMPDirectiveName(DKind) << 1
+        << getOpenMPClauseName(OMPC_ompx_monotonic);
     if (HasAssociatedStatement)
       skipUnsupportedTargetDirectives();
 #endif // INTEL_CUSTOMIZATION
@@ -3534,6 +3551,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     WrongDirective = true;
   }
 
+
 #if INTEL_COLLAB
   // Not yet implemented with FE outlining. BE outlining only.
   if (!getLangOpts().OpenMPLateOutline) {
@@ -3744,6 +3762,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_in_reduction:
   case OMPC_linear:
   case OMPC_aligned:
+  case OMPC_ompx_monotonic: // INTEL
   case OMPC_copyin:
   case OMPC_copyprivate:
   case OMPC_flush:
@@ -4966,7 +4985,10 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
       (Kind == OMPC_depend && Data.ExtraModifier != OMPC_DEPEND_unknown) ||
       (Kind == OMPC_adjust_args &&
        Data.ExtraModifier != OMPC_ADJUST_ARGS_unknown);
-  const bool MayHaveTail = (Kind == OMPC_linear || Kind == OMPC_aligned);
+#if INTEL_CUSTOMIZATION
+  const bool MayHaveTail = (Kind == OMPC_linear || Kind == OMPC_aligned ||
+                            Kind == OMPC_ompx_monotonic);
+#endif  // INTEL_CUSTOMIZATION
   while (IsComma || (Tok.isNot(tok::r_paren) && Tok.isNot(tok::colon) &&
                      Tok.isNot(tok::annot_pragma_openmp_end))) {
     ParseScope OMPListScope(this, Scope::OpenMPDirectiveScope);
@@ -5043,6 +5065,8 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 ///    lastprivate-clause:
 #if INTEL_CUSTOMIZATION
 ///       'lastprivate' '(' [ conditional ':' ] list ')'
+///    ompx_monotonic-clause
+///       'ompx_monotonic' '(' list [ ':' monotonic-step ] ')'
 #endif // INTEL_CUSTOMIZATION
 ///    shared-clause:
 ///       'shared' '(' list ')'

@@ -171,7 +171,7 @@ public:
 
   /// Return the ith level of loop in a loop nest. This utility is valid
   /// only if all the loops inside the loop nest up to depth I contains only
-  /// one child loop. Return nullptr if the nested loop is optimized away
+  /// one child loop. Return nullptr if the nested loop is optimized away.
   Loop *getLoop(unsigned I = 0) const {
     // When I==0, allow Lp to be nullptr (do not assert)
     if (I == 0)
