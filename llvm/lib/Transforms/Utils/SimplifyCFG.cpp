@@ -1552,23 +1552,14 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
       if (C1->isMustTailCall() != C2->isMustTailCall())
         return Changed;
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // Do not hoist llvm.directive.region.entry/exit intrinsics.
     if (IntrinsicUtils::isDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
 
-      // Even if the instructions are identical, it may not be safe to hoist
-      // them if we have skipped over instructions with side effects or their
-      // operands weren't hoisted.
-      if (!isSafeToHoistInstr(I1, ForceNoReadMemOrSideEffectsBB1, ForceNoSpeculationBB1) ||
-          !isSafeToHoistInstr(I2, ForceNoReadMemOrSideEffectsBB2, ForceNoSpeculationBB2))
-        return Changed;
-=======
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
->>>>>>> 7314ad7a0661579e19eeec20c91e49f51f8c8d5e
 
     // If any of the two call sites has nomerge attribute, stop hoisting.
     if (const auto *CB1 = dyn_cast<CallBase>(I1))
