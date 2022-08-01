@@ -563,7 +563,7 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
   Module *M = BB->getParent()->getParent();
   Function *FnFakeLoad =
       Intrinsic::getDeclaration(M, Intrinsic::intel_fakeload, Types);
-  Instruction *Ret = createCallHelper(FnFakeLoad, Ops, this);
+  Instruction *Ret = createCallHelper(FnFakeLoad, Ops);
   cast<CallInst>(Ret)->setDoesNotThrow();
   return Ret;
 }
@@ -603,7 +603,7 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
                                         : Intrinsic::intel_subscript_nonexact,
                                 Types);
 
-  Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
+  Instruction *Ret = createCallHelper(FnSubscript, Ops);
 
   SubscriptInst *Call = cast<SubscriptInst>(Ret);
 
