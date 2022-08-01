@@ -34,7 +34,7 @@ void D::h() { }
 void af(A *a) {
   // CHECK-BOTH: [[N:%[0-9]+]] = call {{.*}}llvm.intel.wholeprogramsafe
   // CHECK-BOTH: br i1 [[N]], label
-  // CHECK-BOTH: call {{.*}}llvm.type.test
+  // CHECK-BOTH: call {{.*}}llvm.{{.*}}type.test
   // CHECK-BOTH: call {{.*}}llvm.assume
   // CHECK-BOTH: br label
   a->f();
