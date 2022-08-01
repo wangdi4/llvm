@@ -78,12 +78,7 @@ EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
   TIMESCOPE_WITH_IDENT(Loc);
   __tgt_kernel_arguments KernelArgs{
       1, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames, ArgMappers, -1};
-#if INTEL_CUSTOMIZATION
-  // Explicitly set NumTeams to one to keep the legacy behavior.
-  return __tgt_target_kernel(Loc, DeviceId, 1, 0, HostPtr, &KernelArgs);
-#else  // INTEL_CUSTOMIZATION
   return __tgt_target_kernel(Loc, DeviceId, -1, -1, HostPtr, &KernelArgs);
-#endif // INTEL_CUSTOMIZATION
 }
 
 EXTERN int __tgt_target(int64_t DeviceId, void *HostPtr, int32_t ArgNum,

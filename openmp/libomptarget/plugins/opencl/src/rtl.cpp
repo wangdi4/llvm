@@ -2676,6 +2676,14 @@ static inline int32_t runTargetTeamNDRegion(
     return OFFLOAD_FAIL;
   }
 
+  // Libomptarget can pass negative NumTeams and ThreadLimit now after
+  // introducing __tgt_target_kernel. This happens only when we have valid
+  // LoopDesc and the region is not a teams region.
+  if (NumTeams < 0)
+    NumTeams = 0;
+  if (ThreadLimit < 0)
+    ThreadLimit = 0;
+
 #if INTEL_INTERNAL_BUILD
   // TODO: kernels using to much SLM may limit the number of
   //       work groups running simultaneously on a sub slice.
