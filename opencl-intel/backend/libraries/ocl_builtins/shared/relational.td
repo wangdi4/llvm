@@ -46,7 +46,6 @@ OclBuiltinImpl all_expand4           =  OclBuiltinImpl  <all,  [v8i8],          
 OclBuiltinImpl all_expand5           =  OclBuiltinImpl  <all,  [v4i16],                                                    0,Expand_4i16 >;
 OclBuiltinImpl all_expand6           =  OclBuiltinImpl  <all,  [v2i32],                                                    0,Expand_2i32 >;
 OclBuiltinImpl all_expand7           =  OclBuiltinImpl  <all,  [v3i32],                                                    0,Expand_3i32 >;
-OclBuiltinImpl bitselect_promote     =  OclBuiltinImpl  <bitselect,  [v3f32, v3i32, v3u32, v3i8, v3u8, v3i16, v3u16],      0, Promote3>;
 
 OclBuiltinImpl isnan_v4f32_v2f64 = OclBuiltinImpl<isnan, [v4f32, v2f64, v1f32, v1f64], 0, [{
     return as_$ReturnType($Arg0VarName != $Arg0VarName);
@@ -186,43 +185,6 @@ OclBuiltinImpl all__scalar16 = OclBuiltinImpl<all, [v1i16], 0, any_all_scalar16>
 OclBuiltinImpl all__scalar32 = OclBuiltinImpl<all, [v1i32], 0, any_all_scalar32>;
 
 OclBuiltinImpl all__scalar64 = OclBuiltinImpl<all, [v1i64], 0, any_all_scalar64>;
-
-
-OclBuiltinImpl bitselect__scalarf = OclBuiltinImpl<bitselect, [v1f64,v1f32], 0, [{
-    $Arg0igentype inA = as_$Arg0igentype($Arg0VarName);
-    $Arg0igentype inB = as_$Arg0igentype($Arg1VarName);
-    $Arg0igentype inC = as_$Arg0igentype($Arg2VarName);
-
-    inB = (inB & inC);
-    inC = (~inC & inA);
-    inC = (inC | inB);
-    return as_$ReturnType(inC);
-  }]>;
-
-OclBuiltinImpl bitselect__scalar = OclBuiltinImpl<bitselect, [v1i8, v1i16, v1i32, v1i64, v1u8, v1u16, v1u32, v1u64], 0, [{
-    return ($Arg0VarName & ~$Arg2VarName) | ($Arg1VarName & $Arg2VarName);
-  }]>;
-
-// Scalar select()
-defvar select_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64];
-defvar select_scalar_code = [{
-  return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-}];
-OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, select_scalar_types, 0, select_scalar_code>;
-OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, select_scalar_types, 0, select_scalar_code>;
-
-// Vector select()
-defvar select_vector_types = ExpandTypesByVFAndFlatten<select_scalar_types, [2, 3, 4, 8, 16, 32, 64]>.Tout;
-defvar select_vector_code = [{
-  $Arg0igentype mask = 0;
-  // Compare signed $Arg2VarName with 0.
-  mask = (mask > __builtin_astype($Arg2VarName, $Arg0igentype));
-  $Arg0igentype masked_a = ~mask & __builtin_astype($Arg0VarName, $Arg0igentype);
-  $Arg1igentype masked_b = mask & __builtin_astype($Arg1VarName, $Arg1igentype);
-  return __builtin_astype(masked_a | masked_b, $ReturnType);
-}];
-OclBuiltinImpl iselect_vector = OclBuiltinImpl<iselect, select_vector_types, 0, select_vector_code>;
-OclBuiltinImpl uselect_vector = OclBuiltinImpl<uselect, select_vector_types, 0, select_vector_code>;
 
 //======v4f32 and v2f64 implementation===============================
 

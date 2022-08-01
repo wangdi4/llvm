@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 include "ssse3/code_relational.td"
 
 //==============================================================
@@ -25,8 +37,6 @@ OclBuiltinImpl signbit_expand         =  OclBuiltinImpl  <signbit,  [v8f32, v4f6
 
 OclBuiltinImpl any_expand2           =  OclBuiltinImpl  <any,  [v8i32, v4i64],  0, Expand_any>;
 OclBuiltinImpl all_expand2           =  OclBuiltinImpl  <all,  [v8i32, v4i64],  0, Expand_all>;
-
-OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v3f64, v3i64, v3u64], 0, Expand3>;
 
  //===============any & all==============
 

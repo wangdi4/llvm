@@ -770,12 +770,17 @@ let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 
 def any : OclBuiltin<"any", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def all : OclBuiltin<"all", (outs si32gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
+
+// Already migrated to source/relational.td
+// These OclBuiltin records are kept here to emit forward declarations for
+// other builtins depending on these builtins.
+// TODO: Remove after we migrate all dependent builtins.
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1  in {
-def bitselect   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
-def iselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
-def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c), [], [], 0, 0>;
+def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c), [], [], 0, 0>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
@@ -803,13 +808,6 @@ def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs i
 def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
 def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
-let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1  in {
-def bitselect_mask   : OclBuiltin<"bitselect", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, i32gentype:$mask), [], [], 0, 1>;
-def iselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c, i32gentype:$mask), [], [], 0, 1>;
-def uselect_mask     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c, i32gentype:$mask), [], [], 0, 1>;
-}
 
 // VectInfo for OclVecClone
 let Types = [v1f32, v1f64],
@@ -820,13 +818,6 @@ let Types = [v1f32, v1f64],
                        !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
     def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
                      !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-  }
-}
-let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
-  foreach bi = ["bitselect", "iselect", "uselect"] in {
-    def bi # _vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    def bi # _mask_vect_info : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"),
-                                            !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
   }
 }
 

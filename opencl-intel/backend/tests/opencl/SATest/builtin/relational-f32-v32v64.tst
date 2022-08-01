@@ -11,8 +11,8 @@
 ; CHECK32: call <32 x i32> @_Z19isunordered_v1widenDv32_fS_(<32 x float> {{.*}}, <32 x float> {{.*}})
 ; CHECK32: call <32 x i32> @_Z15signbit_v1widenDv32_f(<32 x float> {{.*}})
 ; CHECK32: call <32 x float> @_Z9bitselectDv32_fS_S_(<32 x float> {{.*}}, <32 x float> {{.*}}, <32 x float> {{.*}})
-; CHECK32: call <32 x float> @_Z6selectDv32_fS_Dv32_i(<32 x float> {{.*}}, <32 x float> {{.*}}, <32 x i32> {{.*}})
-; CHECK32: call <32 x float> @_Z6selectDv32_fS_Dv32_j(<32 x float> {{.*}}, <32 x float> {{.*}}, <32 x i32> {{.*}})
+; CHECK32: call <32 x float> @_Z14select_v1widenDv32_fS_Dv32_i(<32 x float> {{.*}}, <32 x float> {{.*}}, <32 x i32> {{.*}})
+; CHECK32: call <32 x float> @_Z14select_v1widenDv32_fS_Dv32_j(<32 x float> {{.*}}, <32 x float> {{.*}}, <32 x i32> {{.*}})
 
 ; CHECK64: call <64 x i32> @_Z16isfinite_v1widenDv64_f(<64 x float> {{.*}})
 ; CHECK64: call <64 x i32> @_Z13isinf_v1widenDv64_f(<64 x float> {{.*}})
@@ -22,5 +22,5 @@
 ; CHECK64: call <64 x i32> @_Z19isunordered_v1widenDv64_fS_(<64 x float> {{.*}}, <64 x float> {{.*}})
 ; CHECK64: call <64 x i32> @_Z15signbit_v1widenDv64_f(<64 x float> {{.*}})
 ; CHECK64: call <64 x float> @_Z9bitselectDv64_fS_S_(<64 x float> {{.*}}, <64 x float> {{.*}}, <64 x float> {{.*}})
-; CHECK64: call <64 x float> @_Z6selectDv64_fS_Dv64_i(<64 x float> {{.*}}, <64 x float> {{.*}}, <64 x i32> {{.*}})
-; CHECK64: call <64 x float> @_Z6selectDv64_fS_Dv64_j(<64 x float> {{.*}}, <64 x float> {{.*}}, <64 x i32> {{.*}})
+; CHECK64: call <64 x float> @_Z14select_v1widenDv64_fS_Dv64_i(<64 x float> {{.*}}, <64 x float> {{.*}}, <64 x i32> {{.*}})
+; CHECK64: call <64 x float> @_Z14select_v1widenDv64_fS_Dv64_j(<64 x float> {{.*}}, <64 x float> {{.*}}, <64 x i32> {{.*}})

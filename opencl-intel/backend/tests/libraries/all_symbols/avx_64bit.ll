@@ -13541,9 +13541,6 @@
 ; CHECK-NEXT: _Z9atomic_orPU3AS1Vjj
 ; CHECK-NEXT: _Z9atomic_orPU3AS3Vii
 ; CHECK-NEXT: _Z9atomic_orPU3AS3Vjj
-; CHECK-NEXT: _Z9bitselectDv3_dS_S_
-; CHECK-NEXT: _Z9bitselectDv3_lS_S_
-; CHECK-NEXT: _Z9bitselectDv3_mS_S_
 ; CHECK-NEXT: _Z9divide_rmDv16_fS_
 ; CHECK-NEXT: _Z9get_fencePKv
 ; CHECK-NEXT: _Z9get_fencePU3AS1Kv
