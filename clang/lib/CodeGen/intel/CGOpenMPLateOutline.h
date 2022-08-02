@@ -217,8 +217,6 @@ class OpenMPLateOutliner {
     ICK_inreduction,
     ICK_normalized_iv,
     ICK_normalized_ub,
-    // A firstprivate specified with an implicit OMPFirstprivateClause.
-    ICK_specified_firstprivate,
     ICK_livein,
     ICK_unknown
   };
@@ -285,7 +283,8 @@ class OpenMPLateOutliner {
 
   void addFenceCalls(bool IsBegin);
   bool isAllowedClauseForDirectiveFull(OpenMPDirectiveKind DKind,
-                                       OpenMPClauseKind CK);
+                                       OpenMPClauseKind CK,
+                                       ImplicitClauseKind ICK);
   void getApplicableDirectives(OpenMPClauseKind CK,
                                ImplicitClauseKind ICK,
                                SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
@@ -445,7 +444,7 @@ class OpenMPLateOutliner {
     }
   };
   std::set<const VarDecl *, VarCompareTy> VarRefs;
-  llvm::DenseSet<const VarDecl *> FirstPrivateVars;
+  llvm::DenseSet<const VarDecl *> DispatchExplicitVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
@@ -549,7 +548,12 @@ public:
                     ImplicitClauseKind K, bool Handled = false);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
-  void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
+  void addDispatchExplicitVar(const VarDecl *VD) {
+    DispatchExplicitVars.insert(VD);
+  }
+  bool isDispatchExplicitVar(const VarDecl *VD) {
+    return DispatchExplicitVars.find(VD) != DispatchExplicitVars.end();
+  }
   void addValueDef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
     DefinedValues.push_back({VH, ElemTy});
@@ -705,8 +709,8 @@ public:
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);
   }
-  void recordFirstPrivateVars(const VarDecl *VD) override {
-    Outliner.addFirstPrivateVars(VD);
+  void recordDispatchExplicitVar(const VarDecl *VD) override {
+    Outliner.addDispatchExplicitVar(VD);
   }
   bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
