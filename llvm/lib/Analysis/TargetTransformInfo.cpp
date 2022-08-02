@@ -1038,6 +1038,14 @@ TargetTransformInfo::getCallInstrCost(Function *F, Type *RetTy,
   return Cost;
 }
 
+#if INTEL_CUSTOMIZATION
+InstructionCost
+TargetTransformInfo::getSerializationCost(Type *EltTy, unsigned NumElts,
+                                          InstructionCost BuildVecCost) const {
+  return TTIImpl->getSerializationCost(EltTy, NumElts, BuildVecCost);
+}
+#endif // INTEL_CUSTOMIZATION
+
 unsigned TargetTransformInfo::getNumberOfParts(Type *Tp) const {
   return TTIImpl->getNumberOfParts(Tp);
 }

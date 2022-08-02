@@ -9566,6 +9566,18 @@ InstructionCost BoUpSLP::getGatherCost(FixedVectorType *Ty,
                                     /*Extract*/ false);
   if (NeedToShuffle)
     Cost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, Ty);
+
+#if INTEL_CUSTOMIZATION
+  // A long string of serialized inserts and shuffles can cause the
+  // dependence height of the vectorized code to be much greater than
+  // that of the scalar code.  Introduce a small penalty beyond the
+  // cost of the individual instructions to heuristically account for this.
+  // We include the cost of shuffles because they are also serialized
+  // with the inserts, and at least one will appear if we have any
+  // duplicated elements.  [CMPLRLLVM-38655]
+  Cost += TTI->getSerializationCost(Ty->getElementType(),
+                                    Ty->getNumElements(), Cost);
+#endif // INTEL_CUSTOMIZATION
   return Cost;
 }
 
