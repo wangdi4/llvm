@@ -6299,6 +6299,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     }
     // Mark taskgroup task_reduction descriptors as implicitly firstprivate.
     for (OMPClause *C : Clauses) {
+#if INTEL_COLLAB
+      // Late-outlining does not use the .task_red. variables.
+      if (!LangOpts.OpenMPLateOutline)
+#endif // INTEL_COLLAB
       if (auto *IRC = dyn_cast<OMPInReductionClause>(C)) {
         for (Expr *E : IRC->taskgroup_descriptors())
           if (E)

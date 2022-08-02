@@ -709,40 +709,8 @@ void OpenMPLateOutliner::getApplicableDirectives(
       Dirs.push_back(&D);
       continue;
     }
-
-    switch (CK) {
-    case OMPC_reduction:
-      if (CodeGenFunction::requiresImplicitTaskgroup(Directive)) {
-        // Processing a directive with an implicit taskgroup, implement special
-        // rules.
-        if (D.DKind == OMPD_taskgroup) {
-          if (ICK == ICK_reduction)
-            Dirs.push_back(&D);
-          break;
-        }
-        if (D.DKind == OMPD_taskloop) {
-          if (ICK == ICK_inreduction)
-            Dirs.push_back(&D);
-          break;
-        }
-      }
-      // Prevent reduction on target which is being allowed by
-      // isAllowedClauseForDirective.
-      if (D.DKind != OMPD_target &&
-          isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
-        Dirs.push_back(&D);
-      break;
-    case OMPC_if:
-      if (isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP)) {
-        const OMPIfClause *IC = dyn_cast_or_null<OMPIfClause>(CurrentClause);
-        if (checkIfModifier(D.DKind, IC))
-          Dirs.push_back(&D);
-      }
-      break;
-    default:
-      if (isAllowedClauseForDirectiveFull(D.DKind, CK))
-        Dirs.push_back(&D);
-    }
+    if (isAllowedClauseForDirectiveFull(D.DKind, CK, ICK))
+      Dirs.push_back(&D);
   }
 }
 
@@ -786,7 +754,6 @@ void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
   case ICK_linear_private:
     CSB.add("QUAL.OMP.PRIVATE");
     break;
-  case ICK_specified_firstprivate:
   case ICK_firstprivate:
     CSB.add("QUAL.OMP.FIRSTPRIVATE");
     break;
@@ -836,7 +803,6 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_linear_private:
     CSB.add("QUAL.OMP.PRIVATE");
     break;
-  case ICK_specified_firstprivate:
   case ICK_firstprivate:
     CSB.add("QUAL.OMP.FIRSTPRIVATE");
     break;
@@ -864,8 +830,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   if (UseTypedClauses)
     CSB.setTyped();
   bool IsRef = false;
-  if (K == ICK_shared ||
-      (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate)) {
+  if (K == ICK_shared) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in implicit clause");
     IsRef = VD->getType()->isReferenceType();
@@ -949,25 +914,45 @@ bool OpenMPLateOutliner::isImplicit(const VarDecl *V) {
 /// This is a wrapper around the general isAllowedClauseForDirective for cases
 /// that require seeing the full directive to decide.
 bool OpenMPLateOutliner::isAllowedClauseForDirectiveFull(
-    OpenMPDirectiveKind DKind, OpenMPClauseKind CK) {
-
-  if (DKind == Directive.getDirectiveKind()) {
-    // Not a combined directive, regular rules apply.
-    return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
+    OpenMPDirectiveKind DKind, OpenMPClauseKind CK, ImplicitClauseKind ICK) {
+  if (CK == OMPC_reduction) {
+    if (CodeGenFunction::requiresImplicitTaskgroup(Directive)) {
+      // Processing a directive with an implicit taskgroup, implement special
+      // rules.
+      if (DKind == OMPD_taskgroup && ICK == ICK_reduction)
+        return true;
+      if (DKind == OMPD_taskloop && ICK == ICK_inreduction)
+        return true;
+    }
+    if (DKind == OMPD_target) {
+      // Prevent reduction on target which is being allowed by
+      // isAllowedClauseForDirective.
+      return false;
+    }
+  } else if (CK == OMPC_firstprivate) {
+    if (CK == OMPC_firstprivate && DKind == OMPD_teams &&
+        isOpenMPDistributeDirective(Directive.getDirectiveKind())) {
+      // The effect of the firstprivate clause is as if it is applied to one or
+      // more leaf constructs as follows:
+      //   To the distribute construct if it is among the constituent
+      //   constructs; To the teams construct if it is among the constituent
+      //   constructs and the distribute construct is not.
+      // So if this is 'teams' within a distribute construct, don't place the
+      // clause.
+      return false;
+    }
+    if (DKind == OMPD_dispatch) {
+      // The 'firstprivate' clause will appear only on the implicit task.
+      return false;
+    }
+  } else if (CK == OMPC_if) {
+    if (isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP)) {
+      const OMPIfClause *IC = dyn_cast_or_null<OMPIfClause>(CurrentClause);
+      if (checkIfModifier(DKind, IC))
+        return true;
+    }
+    return false;
   }
-
-  // The effect of the firstprivate clause is as if it is applied to one or more
-  // leaf constructs as follows:
-  //   To the distribute construct if it is among the constituent constructs;
-  //   To the teams construct if it is among the constituent constructs and the
-  //   distribute construct is not
-  if (CK == OMPC_firstprivate && DKind == OMPD_teams &&
-      isOpenMPDistributeDirective(Directive.getDirectiveKind()))
-    return false;
-
-  if (CK == OMPC_reduction && DKind == OMPD_target)
-    return false;
-
   return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
 }
 
@@ -988,7 +973,7 @@ bool OpenMPLateOutliner::isExplicitForDirective(const VarDecl *V,
   const auto CIt = std::find_if(
       ExplicitKinds.begin(), ExplicitKinds.end(),
       [this, DKind](OpenMPClauseKind CK) {
-        return isAllowedClauseForDirectiveFull(DKind, CK);
+        return isAllowedClauseForDirectiveFull(DKind, CK, ICK_unknown);
       });
   return CIt != ExplicitKinds.end();
 }
@@ -1058,8 +1043,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
       // 3> Variable with is_dev_ptr is firstprivate in implicit task.
       // 4> Variable with firstprivate is firstprivate in implicit task.
       if (Directive.getDirectiveKind() == OMPD_dispatch &&
-          !isa<OMPCapturedExprDecl>(VD) &&
-          FirstPrivateVars.find(VD) == FirstPrivateVars.end())
+          !isa<OMPCapturedExprDecl>(VD) && !isDispatchExplicitVar(VD))
         emitImplicit(VD, ICK_shared);
       else
         emitImplicit(VD, ICK_firstprivate);
@@ -1139,7 +1123,7 @@ void OpenMPLateOutliner::addRefsToOuter() {
       if (CurrentDirectiveKind == OMPD_dispatch) {
         for (const auto &CK : It.second)
           if (CK == OMPC_is_device_ptr || CK == OMPC_firstprivate) {
-            CGF.CapturedStmtInfo->recordFirstPrivateVars(It.first);
+            CGF.CapturedStmtInfo->recordDispatchExplicitVar(It.first);
             break;
           }
       }
@@ -1586,23 +1570,6 @@ void OpenMPLateOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
 
 void OpenMPLateOutliner::emitOMPFirstprivateClause(
     const OMPFirstprivateClause *Cl) {
-  if (Cl->isImplicit()) {
-    if (CurrentDirectiveKind == OMPD_target ||
-        CurrentDirectiveKind == OMPD_task) {
-      // Only insert this on topmost part of combined directives.
-      for (const auto *E : Cl->varlists()) {
-        if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
-          ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
-                                            ICK_specified_firstprivate));
-          addFirstPrivateVars(cast<VarDecl>(DRE->getDecl()));
-        }
-      }
-    }
-    return;
-  }
-  // FirstPrivate in dispatch directive only add to implicit task clause.
-  if (CurrentDirectiveKind == OMPD_dispatch)
-    return;
   // Firstprivate clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
@@ -1614,19 +1581,23 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *VD = getExplicitVarDecl(E);
-    if (CurrentDirectiveKind == OMPD_target &&
-        VD->getType()->isAnyPointerType() &&
-        VD->getType()->getPointeeType()->isFunctionType()) {
-      if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
-        // Add variable with function ptr type to ImplicitMap, if var is
-        // getting mapped, the firstprivate clause will not be emitted
-        // when emitting Implicit clause at end.
-        ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
-                                          ICK_specified_firstprivate));
-        addFirstPrivateVars(cast<VarDecl>(DRE->getDecl()));
+
+    // Handle implicit firstprivates added to target directives.
+    if (Cl->isImplicit() &&
+        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind())) {
+      if (CurrentDirectiveKind == OMPD_target) {
+        // The toplevel target can be added to the implicit list and handled
+        // during normal implicit clause handling.
+        ImplicitMap.insert(std::make_pair(VD, ICK_firstprivate));
         continue;
       }
+      // For non-target parts of the directive an implicit firstprivate must be
+      // ignored unless it is from a default(firstprivate).
+      const auto *DC = Directive.getSingleClause<OMPDefaultClause>();
+      if (!DC || DC->getDefaultKind() != OMP_DEFAULT_firstprivate)
+        continue;
     }
+
     ClauseEmissionHelper CEH(*this, OMPC_firstprivate, "QUAL.OMP.FIRSTPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     assert(VD && "expected VarDecl in firstprivate clause");
@@ -1634,7 +1605,6 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
     bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
-    addFirstPrivateVars(VD);
     if (!IsPODType)
       CSB.setNonPod();
     if (IsRef)
