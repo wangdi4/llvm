@@ -1205,6 +1205,28 @@ def COPY_TO_REGCLASS : StandardPseudoInstruction {
   let hasSideEffects = false;
   let isAsCheapAsAMove = true;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+def PSEUDO_LOOP_HEADER : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_LOOP_HEADER";
+  let hasSideEffects = true;
+}
+def PSEUDO_FUNCTION_PROLOG : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_FUNCTION_PROLOG";
+  let hasSideEffects = true;
+}
+def PSEUDO_FUNCTION_EPILOG : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins);
+  let AsmString = "PSEUDO_FUNCTION_EPILOG";
+  let hasSideEffects = true;
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 def DBG_VALUE : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);

@@ -2639,6 +2639,18 @@ def STD : I<0xFD, RawFrm, (outs), (ins), "std", []>;
 let Uses = [AL,EBX], Defs = [AL], hasSideEffects = 0, mayLoad = 1 in
 def XLAT : I<0xD7, RawFrm, (outs), (ins), "xlatb", []>, Sched<[WriteLoad]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+// Marker Count
+let hasNoSchedulingInfo = 1, hasSideEffects = 0 in {
+def MARKER_COUNT_LOOP_HEADER: I<0x37, RawFrm, (outs), (ins), "markercount_loopheader", []>,
+        Requires<[In64BitMode]>;
+def MARKER_COUNT_FUNCTION: I<0x0e, RawFrm, (outs), (ins), "markercount_function", []>,
+        Requires<[In64BitMode]>;
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 let SchedRW = [WriteMicrocoded] in {
 // ASCII Adjust After Addition
 let Uses = [AL,EFLAGS], Defs = [AX,EFLAGS], hasSideEffects = 0 in

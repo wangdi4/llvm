@@ -28,6 +28,9 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_FoldLoadsToGather.cpp
   Intel_MIRMatcher.cpp
   Intel_MachineOptReportEmitter.cpp
+# INTEL_FEATURE_MARKERCOUNT
+  Intel_PseudoMarkerCountInserter.cpp
+# end INTEL_FEATURE_MARKERCOUNT
   Intel_RAReportEmitter.cpp
   Intel_HeteroArchOpt.cpp
   )

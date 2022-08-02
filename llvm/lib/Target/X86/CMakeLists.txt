@@ -44,20 +44,25 @@ endif()
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
-  Intel_X86AvoidMemoryRenamingBlocks.cpp     # INTEL
-  Intel_X86SplitVectorValueType.cpp     # INTEL
-  Intel_X86CiscizationHelper.cpp        # INTEL
-  Intel_X86FMA.cpp        # INTEL
-  Intel_X86FeatureInitCall.cpp        # INTEL
-  Intel_X86GenerateLEA.cpp        # INTEL
-  Intel_X86PRAExpandPseudo.cpp    # INTEL
-  Intel_X86Gather2LoadPermute.cpp # INTEL
-  Intel_X86InstCombine.cpp # INTEL
-  Intel_X86LowerMatrixIntrinsics.cpp # INTEL
-  Intel_X86CFMA.cpp      # INTEL
-  Intel_X86VecSpill.cpp  # INTEL
-  Intel_X86SplitLongBlock.cpp  # INTEL
-  Intel_X86PreISelIntrinsicLowering.cpp  # INTEL
+# INTEL_CUSTOMIZATION
+  Intel_X86AvoidMemoryRenamingBlocks.cpp
+  Intel_X86SplitVectorValueType.cpp
+  Intel_X86CiscizationHelper.cpp
+  Intel_X86FMA.cpp
+  Intel_X86FeatureInitCall.cpp
+  Intel_X86GenerateLEA.cpp
+  Intel_X86PRAExpandPseudo.cpp
+  Intel_X86Gather2LoadPermute.cpp
+  Intel_X86InstCombine.cpp
+  Intel_X86LowerMatrixIntrinsics.cpp
+  Intel_X86CFMA.cpp
+  Intel_X86VecSpill.cpp
+  Intel_X86SplitLongBlock.cpp
+  Intel_X86PreISelIntrinsicLowering.cpp
+# INTEL_FEATURE_MARKERCOUNT
+  Intel_X86MarkerCount.cpp
+# end INTEL_FEATURE_MARKERCOUNT
+# end INTEL_CUSTOMIZATION
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp

@@ -2546,6 +2546,16 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
       OutStreamer->AddComment("EVEX TO VEX Compression ", false);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Add comments for markercount_function to distinguish prolog from epilog
+  if (MI->getAsmPrinterFlags() & X86::AC_PROLOG)
+    OutStreamer->AddComment("PROLOG", false);
+  else if (MI->getAsmPrinterFlags() & X86::AC_EPILOG)
+    OutStreamer->AddComment("EPILOG", false);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   // Add comments for values loaded from constant pool.
   if (OutStreamer->isVerboseAsm())
     addConstantComments(MI, *OutStreamer);
