@@ -1335,16 +1335,12 @@ class PrivateArgumentManagerTy {
   };
 
   /// A vector of target pointers for all private arguments
-<<<<<<< HEAD
-  std::vector<void *> TgtPtrs;
+  SmallVector<void *> TgtPtrs;
 #if INTEL_COLLAB
   /// A vector of host pointers allocated for privatee arguments
   /// that are passed to the plugins in the host memory.
-  std::vector<void *> HstPtrs;
+  SmallVector<void *> HstPtrs;
 #endif // INTEL_COLLAB
-=======
-  SmallVector<void *> TgtPtrs;
->>>>>>> 51bda3a0e7ac0285cf116b5cfd1393a3340974b5
 
   /// A vector of information of all first-private arguments to be packed
   SmallVector<FirstPrivateArgInfoTy> FirstPrivateArgInfo;
