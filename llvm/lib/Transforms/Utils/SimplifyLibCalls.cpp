@@ -106,10 +106,12 @@ static Value *convertStrToInt(CallInst *CI, StringRef &Str, Value *EndPtr,
       // Fail for an invalid base (required by POSIX).
       return nullptr;
 
+  // Current offset into the original string to reflect in EndPtr.
+  size_t Offset = 0;
   // Strip leading whitespace.
-  for (unsigned i = 0; i != Str.size(); ++i)
-    if (!isSpace((unsigned char)Str[i])) {
-      Str = Str.substr(i);
+  for ( ; Offset != Str.size(); ++Offset)
+    if (!isSpace((unsigned char)Str[Offset])) {
+      Str = Str.substr(Offset);
       break;
     }
 
@@ -125,6 +127,7 @@ static Value *convertStrToInt(CallInst *CI, StringRef &Str, Value *EndPtr,
     if (Str.empty())
       // Fail for a sign with nothing after it.
       return nullptr;
+    ++Offset;
   }
 
   // Set Max to the absolute value of the minimum (for signed), or
@@ -144,6 +147,7 @@ static Value *convertStrToInt(CallInst *CI, StringRef &Str, Value *EndPtr,
           return nullptr;
 
         Str = Str.drop_front(2);
+        Offset += 2;
         Base = 16;
       }
       else if (Base == 0)
@@ -184,7 +188,7 @@ static Value *convertStrToInt(CallInst *CI, StringRef &Str, Value *EndPtr,
 
   if (EndPtr) {
     // Store the pointer to the end.
-    Value *Off = B.getInt64(Str.size());
+    Value *Off = B.getInt64(Offset + Str.size());
     Value *StrBeg = CI->getArgOperand(0);
     Value *StrEnd = B.CreateInBoundsGEP(B.getInt8Ty(), StrBeg, Off, "endptr");
     B.CreateStore(StrEnd, EndPtr);
