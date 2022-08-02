@@ -233,7 +233,6 @@ constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
 // FIXME: Need to add AVX512-BF16-NE
-// FIXME: Need to add PBNDKB
 constexpr FeatureBitset FeaturesCommonAVX256 =
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256

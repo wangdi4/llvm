@@ -450,6 +450,13 @@ def WRMSR : I<0x30, RawFrm, (outs), (ins), "wrmsr", []>, TB;
 let Defs = [EAX, EDX], Uses = [ECX] in
 def RDMSR : I<0x32, RawFrm, (outs), (ins), "rdmsr", []>, TB;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PBNDKB
+let Uses = [RAX, RBX, RCX], Predicates = [In64BitMode] in
+def PBNDKB : I<0x01, MRM_C7, (outs), (ins), "pbndkb", []>, PS;
+#endif // INTEL_FEATURE_ISA_PBNDKB
+#endif // INTEL_CUSTOMIZATION
+
 let Defs = [RAX, RDX], Uses = [ECX] in
 def RDPMC : I<0x33, RawFrm, (outs), (ins), "rdpmc", []>, TB;
 

@@ -1363,7 +1363,6 @@ def ProcessorFeatures {
 #define ENABLE_ISA_AVX256
   list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
 // FIXME: Need to add AVX512-BF16-NE
-// FIXME: Need to add PBNDKB
 #endif // INTEL_FEATURE_ISA_AVX256
 #ifdef ENABLE_ISA_AVX256
 #if INTEL_FEATURE_ISA_AMX_FP16
