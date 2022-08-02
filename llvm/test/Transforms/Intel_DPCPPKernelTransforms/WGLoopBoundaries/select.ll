@@ -68,7 +68,7 @@ if.end:
   ret void
 }
 
-; CHECK-LABEL: @WG.boundaries.test_and
+; CHECK-LABEL: define dso_local [7 x i64] @WG.boundaries.test_and
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:  %local.size0 = call i64 @_Z14get_local_sizej(i32 0)
 ; CHECK-NEXT:  %base.gid0 = call i64 @get_base_global_id.(i32 0)
@@ -107,7 +107,7 @@ if.end:
 ; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %zext_cast, 0
 ; CHECK-NEXT:  ret [7 x i64]
 
-; CHECK-LABEL: @WG.boundaries.test_or
+; CHECK-LABEL: define dso_local [7 x i64] @WG.boundaries.test_or
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %local.size0 = call i64 @_Z14get_local_sizej(i32 0)
 ; CHECK-NEXT:   %base.gid0 = call i64 @get_base_global_id.(i32 0)
