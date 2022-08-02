@@ -202,6 +202,7 @@ bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 std::string llvm::doSystemDiff(StringRef Before, StringRef After,
                                StringRef OldLineFormat, StringRef NewLineFormat,
                                StringRef UnchangedLineFormat) {
@@ -264,3 +265,4 @@ std::string llvm::doSystemDiff(StringRef Before, StringRef After,
   }
   return Diff;
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
