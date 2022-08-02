@@ -582,8 +582,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
       return nullptr;
     }
 
-    // It happend at 526.blender with opaque pointers
-    // on Windows from truncation.
+    // sadd_ov can not handle different type sizes, so we bailout, e.g.
     // if (i1 + 1 == 0)
     //   <RVAL-REG> LINEAR trunc.i64.i32(i1 + 1) {sb:2}
     //   RHS's 0 is i32 type.
