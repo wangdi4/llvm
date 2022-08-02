@@ -565,6 +565,13 @@ namespace llvm {
   /// This pass inserts pseudo probe annotation for callsite profiling.
   FunctionPass *createPseudoProbeInserter();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  /// This pass inserts pseudo markercount.
+  FunctionPass *createPseudoMarkerCountInserter();
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   /// Create IR Type Promotion pass. \see TypePromotion.cpp
   FunctionPass *createTypePromotionPass();
 

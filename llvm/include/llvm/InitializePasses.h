@@ -457,6 +457,11 @@ void initializePromoteLegacyPassPass(PassRegistry&);
 void initializePruneEHPass(PassRegistry&);
 void initializeRABasicPass(PassRegistry&);
 void initializePseudoProbeInserterPass(PassRegistry &);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void initializePseudoMarkerCountInserterPass(PassRegistry &);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 void initializeRAGreedyPass(PassRegistry&);
 void initializeReachingDefAnalysisPass(PassRegistry&);
 void initializeReassociateLegacyPassPass(PassRegistry&);

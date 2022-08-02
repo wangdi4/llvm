@@ -115,6 +115,11 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializePostRASchedulerPass(Registry);
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeProcessImplicitDefsPass(Registry);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  initializePseudoMarkerCountInserterPass(Registry);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
   initializeRABasicPass(Registry);
   initializeRAGreedyPass(Registry);
   initializeRegAllocFastPass(Registry);

@@ -122,6 +122,11 @@ private:
   bool Stopped = false;
   bool AddingMachinePasses = false;
   bool DebugifyIsSafe = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  bool InsertPseudoMarkerCount = false;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   /// Set the StartAfter, StartBefore and StopAfter passes to allow running only
   /// a portion of the normal code-gen pass sequence.
@@ -332,6 +337,13 @@ public:
 
   /// Add a pass to check synthesized debug info for MIR.
   void addCheckDebugPass();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  /// Add a pass to insert pseudo markercount to the MIR.
+  void addInsertPseudoMarkerCountPass();
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   /// Add standard passes before a pass that's about to be added. For example,
   /// the DebugifyMachineModulePass if it is enabled.
