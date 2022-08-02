@@ -32,11 +32,11 @@
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
 ; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
+; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass

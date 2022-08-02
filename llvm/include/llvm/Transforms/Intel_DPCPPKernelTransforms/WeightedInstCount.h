@@ -33,6 +33,7 @@ class InstCountResultImpl;
 class LoopInfo;
 class PostDominatorTree;
 class ScalarEvolution;
+class TargetTransformInfo;
 
 /// InstCountResult computes weighted instruction count that is used for
 /// heuristic decisions.
@@ -40,9 +41,9 @@ class InstCountResult {
   std::unique_ptr<InstCountResultImpl> Impl;
 
 public:
-  InstCountResult(Function &F, PostDominatorTree &DT, LoopInfo &LI,
-                  ScalarEvolution &SE, VectorVariant::ISAClass ISA,
-                  bool PreVec);
+  InstCountResult(Function &F, TargetTransformInfo &TTI, PostDominatorTree &DT,
+                  LoopInfo &LI, ScalarEvolution &SE,
+                  VectorVariant::ISAClass ISA, bool PreVec);
 
   InstCountResult(InstCountResult &&Other);
 
