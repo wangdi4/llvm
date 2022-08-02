@@ -43,6 +43,10 @@
 #include <string>
 #include <thread>
 
+#ifdef INTEL_CUSTOMIZATION
+using llvm::SmallVector;
+#endif // INTEL_CUSTOMIZATION
+
 int HostDataToTargetTy::addEventIfNecessary(DeviceTy &Device,
                                             AsyncInfoTy &AsyncInfo) const {
   // First, check if the user disabled atomic map transfer/malloc/dealloc.
@@ -759,7 +763,7 @@ int32_t DeviceTy::manifestDataForRegion(void *TgtEntryPtr) {
   // and are not necessarily passed as arguments are the following:
   //   1. Pointers to global variables.
   //   2. Shadow pointers mapped as PTR_AND_OBJ.
-  std::vector<void *> ObjectPtrs;
+  SmallVector<void *> ObjectPtrs;
 
   HDTTMapAccessorTy HDTTMap = HostDataToTargetMap.getExclusiveAccessor();
 
@@ -1063,7 +1067,7 @@ void DeviceTy::addLambdaPtr(void *TgtPtr) {
   int32_t GTID = __kmpc_global_thread_num(nullptr);
   std::lock_guard<std::mutex> Lock(LambdaPtrsMtx);
   if (LambdaPtrs.count(GTID) == 0)
-    LambdaPtrs.emplace(GTID, std::vector<void *>{});
+    LambdaPtrs.emplace(GTID, SmallVector<void *>{});
   LambdaPtrs.at(GTID).push_back(TgtPtr);
 }
 
@@ -1120,7 +1124,7 @@ int32_t DeviceTy::setFunctionPtrMap() {
     return OFFLOAD_SUCCESS;
   if (!RTL->set_function_ptr_map)
     return OFFLOAD_FAIL;
-  std::vector<__omp_offloading_fptr_map_t> FnPtrs;
+  SmallVector<__omp_offloading_fptr_map_t> FnPtrs;
   for (auto &FnPtr : FnPtrMap)
     FnPtrs.push_back({FnPtr.first, FnPtr.second});
   return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
