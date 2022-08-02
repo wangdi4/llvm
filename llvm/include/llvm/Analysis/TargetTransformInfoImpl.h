@@ -730,6 +730,13 @@ public:
     return 1;
   }
 
+#if INTEL_CUSTOMIZATION
+  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
+                                       InstructionCost BuildVecCost) const {
+    return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Assume that we have a register of the right size for the type.
   unsigned getNumberOfParts(Type *Tp) const { return 1; }
 

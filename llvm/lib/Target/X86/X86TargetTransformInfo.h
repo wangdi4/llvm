@@ -263,6 +263,10 @@ public:
   InstructionCost getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
                                       const APInt &Imm, Type *Ty,
                                       TTI::TargetCostKind CostKind);
+#if INTEL_CUSTOMIZATION
+  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
+                                       InstructionCost BuildVecCost) const;
+#endif
   bool isLSRCostLess(const TargetTransformInfo::LSRCost &C1,
                      const TargetTransformInfo::LSRCost &C2);
   bool canMacroFuseCmp();

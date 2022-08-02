@@ -4539,6 +4539,30 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
   return Cost + LT.first;
 }
 
+#if INTEL_CUSTOMIZATION
+InstructionCost
+X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
+                                 InstructionCost BuildVecCost) const {
+  // A vector may be built from a long chain of inserts and shuffles
+  // that cannot be parallelized.  For superscalar processors there can
+  // be cost in serialization that isn't accounted for by the individual
+  // instruction costs.  For X86, we only generate chains of inserts up
+  // to 128 bits, after which larger vectors are combined more efficiently
+  // from the smaller ones.  Therefore long chains will only occur with
+  // byte and word elements.  [CMPLRLLVM-38655]
+  constexpr int SerializeWidthThreshold = 8;
+  constexpr int SerializeCostThreshold = 6;
+  constexpr int SerializeTypeWidthMax = 16;
+  constexpr int SerializePenalty = 1;
+  if (NumElts >= SerializeWidthThreshold
+      && BuildVecCost >= SerializeCostThreshold
+      && DL.getTypeSizeInBits(EltTy) <= SerializeTypeWidthMax)
+    return SerializePenalty;
+
+  return 0;
+}
+#endif // INTEL_CUSTOMIZATION
+
 InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,
                                                       ScalarEvolution *SE,
                                                       const SCEV *Ptr) {

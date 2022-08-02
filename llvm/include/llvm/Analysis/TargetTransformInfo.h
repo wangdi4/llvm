@@ -1366,6 +1366,17 @@ public:
       Function *F, Type *RetTy, ArrayRef<Type *> Tys,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) const;
 
+#if INTEL_CUSTOMIZATION
+  /// \returns Heuristic cost to be added when a vector of type \p EltTy
+  /// and \p NumElts elements is constructed at cost \p BuildVecCost.
+  // A vector may be built from a long chain of inserts and shuffles
+  // that cannot be parallelized.  For superscalar processors there can
+  // be cost in serialization that isn't accounted for by the individual
+  // instruction costs.
+  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
+                                       InstructionCost BuildVecCost) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// \returns The number of pieces into which the provided type must be
   /// split during legalization. Zero is returned when the answer is unknown.
   unsigned getNumberOfParts(Type *Tp) const;
@@ -1952,6 +1963,11 @@ public:
   virtual InstructionCost getCallInstrCost(Function *F, Type *RetTy,
                                            ArrayRef<Type *> Tys,
                                            TTI::TargetCostKind CostKind) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual InstructionCost
+  getSerializationCost(Type *EltTy, unsigned NumElts,
+                       InstructionCost BuildVecCost) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
   virtual InstructionCost
   getAddressComputationCost(Type *Ty, ScalarEvolution *SE, const SCEV *Ptr) = 0;
@@ -2596,6 +2612,12 @@ public:
                                    TTI::TargetCostKind CostKind) override {
     return Impl.getCallInstrCost(F, RetTy, Tys, CostKind);
   }
+#if INTEL_CUSTOMIZATION
+  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
+                                       InstructionCost BuildVecCost) override {
+    return Impl.getSerializationCost(EltTy, NumElts, BuildVecCost);
+  }
+#endif // INTEL_CUSTOMIZATION
   unsigned getNumberOfParts(Type *Tp) override {
     return Impl.getNumberOfParts(Tp);
   }
