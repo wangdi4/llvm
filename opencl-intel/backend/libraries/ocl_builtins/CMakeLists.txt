@@ -102,9 +102,6 @@ else (WIN32)
   set (CLANG_CL_CBK_COMPILER_FLAGS ${CLANG_CL_COMMON_COMPILER_FLAGS} -stack-protector 2)
 endif (WIN32)
 
-# llvm-opt
-set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
-
 #------------------- Utility functions ---------------------------
 
 #
@@ -117,19 +114,26 @@ set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 #   PROC            - target CPU
 #   INPUT_FILE      - full path to input file
 #   OUTPUT_DIR      - directory for output file
+#   DISABLE_LLVM_PASSES - whether to add '--disable-llvm-passes' option to clang
 #
 
-function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
+function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR DISABLE_LLVM_PASSES )
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
 
+  # Provide an option to explicitly disable llvm optimization pipeline when we
+  # compile OpenCL sources, especially when the output bitcode will later be
+  # optimized by `opt -O3`, avoiding running duplication optimizations.
+  if (${DISABLE_LLVM_PASSES})
+    set(COMPILE_OPTIONS ${COMPILE_OPTIONS} -disable-llvm-passes)
+  endif (${DISABLE_LLVM_PASSES})
+
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
-    COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} process-intrin-headers
+    DEPENDS ${HEADER_FILES} ${CLANG} process-intrin-headers
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -175,13 +179,13 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 
   foreach (FILE ${ARGN})
-    compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+    compile( "${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
   if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
     foreach (FILE ${C_FILES})
-      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
+      compile( "${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
       list (APPEND TMP_FILES ${TMP_RTL})
     endforeach (FILE)
   endif()
@@ -230,9 +234,10 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   else()
     # link OpenCL library (adding also BI IR for vectorizer)
     add_custom_command (OUTPUT ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
-      COMMENT "Linking ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      COMMENT "Linking and optimizing ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_link ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link -O3 -disable-intel-proprietary-opts -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+      DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM
       )
   endif()

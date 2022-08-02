@@ -166,7 +166,7 @@
 ; CHECK-NEXT: Running pass: JumpThreadingPass
 
 ; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Invalidating analysis: VFAnalysis
+
 ; CHECK:      Running pass: IndirectCallLowering
 
 ; CHECK:      Running pass: DCEPass

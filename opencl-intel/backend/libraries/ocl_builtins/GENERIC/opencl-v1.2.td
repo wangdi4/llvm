@@ -626,6 +626,7 @@ def rotate_mask    : OclBuiltin<"rotate",    (outs gentype:$ret), (ins gentype:$
 def sub_sat_mask   : OclBuiltin<"sub_sat",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
 def upsample_mask  : OclBuiltin<"upsample",  (outs up_gentype:$ret), (ins gentype:$hi, ugentype:$lo, up_gentype:$mask), [], [], 0, 0>,
                 Except<[v2i64, v3i64, v4i64, v8i64, v16i64, v2u64, v3u64, v4u64, v8u64, v16u64]>;
+def popcount_mask  : OclBuiltin<"popcount",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 }
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
@@ -638,7 +639,7 @@ def min_mask     : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, gen
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
   foreach bi = ["abs", "abs_diff", "add_sat", "hadd", "rhadd",
                 "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
-                "sub_sat"] in {
+                "sub_sat", "popcount"] in {
     def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
     // masked version

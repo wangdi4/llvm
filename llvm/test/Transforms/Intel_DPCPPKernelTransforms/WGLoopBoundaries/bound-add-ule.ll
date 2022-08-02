@@ -28,7 +28,7 @@ if.then:
 ; CHECK-LABEL: entry
 ; CHECK: %new_lb = add i32 %lb, %conv
 ; CHECK: %right_lt_left = icmp sle i32 %ub, %lb
-; CHECK: define [7 x i64] @WG.boundaries.constant_kernel(i32 addrspace(1)* %0, i32 %1, i32 %2)
+; CHECK: define [7 x i64] @WG.boundaries.constant_kernel(i32 addrspace(1)* noalias %{{.*}}, i32 %{{.*}}, i32 %{{.*}})
 
 if.end:
   ret void

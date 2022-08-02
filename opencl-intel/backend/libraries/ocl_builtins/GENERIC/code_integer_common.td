@@ -78,6 +78,21 @@ defvar sub_sat_unsigned_code = [{
     return ($Arg0VarName < r) ? ($Arg0BaseType)0 : r;
   }];
 
+// masked
+
+// ugentype = f(gentype, mask)
+defvar masked_impl_code_UG_G_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
+    return $Func(m$Arg0VarName);
+  }];
+
+// ugentype = f(gentype, gentype, mask)
+defvar masked_impl_code_UG_G2_M = [{
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
+    $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF0), $Arg1VarName, $Arg2VarName);
+    return $Func(m$Arg0VarName, m$Arg1VarName);
+  }];
+
 /// Common functions
 defvar clamp_f_code = [{
     return fmax(fmin($Arg0VarName, $Arg2VarName), $Arg1VarName);
