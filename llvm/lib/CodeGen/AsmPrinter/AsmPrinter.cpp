@@ -1582,7 +1582,12 @@ static void emitNotifyAnnotation(AsmPrinter *Asm,
                      I->getOpcode() == TargetOpcode::NOTIFY_LABEL &&
                      I->getOperand(0).getImm() == IdxNotifyNZC;
 
+    // To make following loop easy to handle last MI in MBB, we
+    // iterate to next MI in the loop beginning.
+    --I;
+
     do {
+      ++I;
       assert(Num < MBB.size() && "MI is in the MBB, loop count overflow");
 
       // Find the end of probe and create the probe end 'label'
@@ -1601,7 +1606,6 @@ static void emitNotifyAnnotation(AsmPrinter *Asm,
       if (!MI.isMetaInstruction())
         InstSizeEstm++;
 
-      ++I;
       ++Num;
     } while(I != MBB.end());
 
