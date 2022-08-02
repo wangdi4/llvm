@@ -10916,7 +10916,7 @@ Syntax:
 ::
 
       <result> = getelementptr <ty>, ptr <ptrval>{, [inrange] <ty> <idx>}*
-      <result> = getelementptr inbounds ptr <ptrval>{, [inrange] <ty> <idx>}*
+      <result> = getelementptr inbounds <ty>, ptr <ptrval>{, [inrange] <ty> <idx>}*
       <result> = getelementptr <ty>, <N x ptr> <ptrval>, [inrange] <vector index type> <idx>
 
 Overview:
