@@ -148,6 +148,54 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp32.hpp
                            imf/intel/erfinv_s_ha.cpp
+                           imf/intel/cos_s_ha.cpp
+                           imf/intel/cbrt_s_la.cpp
+                           imf/intel/atan_s_ha.cpp
+                           imf/intel/atanh_s_la.cpp
+                           imf/intel/atan2_s_la.cpp
+                           imf/intel/asin_s_la.cpp
+                           imf/intel/asinh_s_la.cpp
+                           imf/intel/acos_s_ha.cpp
+                           imf/intel/acosh_s_la.cpp
+                           imf/intel/erf_s_ha.cpp
+                           imf/intel/cospi_s_ha.cpp
+                           imf/intel/cosh_s_la.cpp
+                           imf/intel/frexp_s_xa.cpp
+                           imf/intel/fmod_s_xa.cpp
+                           imf/intel/fdim_s_ha.cpp
+                           imf/intel/exp_s_la.cpp
+                           imf/intel/expm1_s_ha.cpp
+                           imf/intel/exp2_s_la.cpp
+                           imf/intel/exp10_s_la.cpp
+                           imf/intel/erfc_s_la.cpp
+                           imf/intel/erfcinv_s_la.cpp
+                           imf/intel/norm3d_s_la.cpp
+                           imf/intel/nextafter_s_xa.cpp
+                           imf/intel/modf_s_xa.cpp
+                           imf/intel/logb_s_xa.cpp
+                           imf/intel/log2_s_ha.cpp
+                           imf/intel/log1p_s_ha.cpp
+                           imf/intel/log10_s_la.cpp
+                           imf/intel/ln_s_ha.cpp
+                           imf/intel/lgamma_s_ep.cpp
+                           imf/intel/ldexp_s_xa.cpp
+                           imf/intel/invcbrt_s_ha.cpp
+                           imf/intel/ilogb_s_xa.cpp
+                           imf/intel/tan_s_la.cpp
+                           imf/intel/sin_s_ha.cpp
+                           imf/intel/sinpi_s_ha.cpp
+                           imf/intel/sinh_s_la.cpp
+                           imf/intel/sincos_s_ha.cpp
+                           imf/intel/round_s_xa.cpp
+                           imf/intel/rnorm4d_s_la.cpp
+                           imf/intel/rnorm3d_s_la.cpp
+                           imf/intel/rhypot_s_la.cpp
+                           imf/intel/remquo_s_xa.cpp
+                           imf/intel/remainder_s_xa.cpp
+                           imf/intel/pow_s_la.cpp
+                           imf/intel/norm4d_s_la.cpp
+                           imf/intel/tgamma_s_la.cpp
+                           imf/intel/tanh_s_ha.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp32.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
