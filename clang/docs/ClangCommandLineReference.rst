@@ -3879,6 +3879,12 @@ X86
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx2, -mno-avx2
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX256P
+.. option:: -mavx256p, -mno-avx256p
+.. end INTEL_FEATURE_ISA_AVX256P
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mavx512bf16, -mno-avx512bf16
 
 .. INTEL_CUSTOMIZATION

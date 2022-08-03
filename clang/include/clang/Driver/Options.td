@@ -5374,6 +5374,12 @@ def mavx : Flag<["-"], "mavx">, Group<m_x86_Features_Group>;
 def mno_avx : Flag<["-"], "mno-avx">, Group<m_x86_Features_Group>;
 def mavx2 : Flag<["-"], "mavx2">, Group<m_x86_Features_Group>;
 def mno_avx2 : Flag<["-"], "mno-avx2">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+def mavx256p : Flag<["-"], "mavx256p">, Group<m_x86_Features_Group>;
+def mno_avx256p : Flag<["-"], "mno-avx256p">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def mavx512f : Flag<["-"], "mavx512f">, Group<m_x86_Features_Group>;
 def mno_avx512f : Flag<["-"], "mno-avx512f">, Group<m_x86_Features_Group>;
 def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;

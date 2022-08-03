@@ -148,6 +148,11 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   HasEVEX_K = Rec->getValueAsBit("hasEVEX_K");
   HasEVEX_KZ = Rec->getValueAsBit("hasEVEX_Z");
   HasEVEX_B = Rec->getValueAsBit("hasEVEX_B");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  HasEVEX_P10 = Rec->getValueAsBit("hasEVEX_P10");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
   ForceDisassemble = Rec->getValueAsBit("ForceDisassemble");
@@ -217,6 +222,13 @@ void RecognizableInstr::processInstr(DisassemblerTables &tables,
                     (HasEVEX_KZ ? n##_KZ : \
                     (HasEVEX_K? n##_K : (HasEVEX_B ? n##_B : n)))))
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#define EVEX_KB_P10(n) (HasEVEX_KZ ? n##_KZ_B_P10 : \
+                        (HasEVEX_K ? n##_K_B_P10 : n##_B_P10))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+
 InstructionContext RecognizableInstr::insnContext() const {
   InstructionContext insnContext;
 
@@ -225,6 +237,32 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Don't support VEX.L if EVEX_L2 is enabled: " << Name << "\n";
       llvm_unreachable("Don't support VEX.L if EVEX_L2 is enabled");
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    // AVX256P RC
+    if (EncodeRC && !HasEVEX_P10) {
+      if (HasVEX_W) {
+        if (OpPrefix == X86Local::PD)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_OPSIZE);
+        else if (OpPrefix == X86Local::XS)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_XS);
+        else if (OpPrefix == X86Local::XD)
+          insnContext = EVEX_KB_P10(IC_EVEX_W_XD);
+        else if (OpPrefix == X86Local::PS)
+          insnContext = EVEX_KB_P10(IC_EVEX_W);
+      } else {
+        if (OpPrefix == X86Local::PD)
+          insnContext = EVEX_KB_P10(IC_EVEX_OPSIZE);
+        else if (OpPrefix == X86Local::XS)
+          insnContext = EVEX_KB_P10(IC_EVEX_XS);
+        else if (OpPrefix == X86Local::XD)
+          insnContext = EVEX_KB_P10(IC_EVEX_XD);
+        else if (OpPrefix == X86Local::PS)
+          insnContext = EVEX_KB_P10(IC_EVEX);
+      }
+    } else
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // VEX_L & VEX_W
     if (!EncodeRC && HasVEX_L && HasVEX_W) {
       if (OpPrefix == X86Local::PD)

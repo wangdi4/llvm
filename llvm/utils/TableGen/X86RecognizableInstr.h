@@ -245,6 +245,10 @@ struct RecognizableInstrBase {
   /// Whether the instruction has the predicate "InXuCCMode"
   bool IsXuCCMode;
 #endif // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_ISA_AVX256P
+  /// The HasEVEX_P10 field from the record
+  bool HasEVEX_P10;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
   /// \param insn The CodeGenInstruction to extract information from.
