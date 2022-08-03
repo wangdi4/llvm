@@ -3322,6 +3322,16 @@ private:
       return RootBB == cast<Instruction>(VL[0])->getParent();
     }
 
+    /// \returns True if a set of scalars \p VL can be legally added
+    /// as reorderable MultiNode operand.
+    // Note that actual reordering may only take place if not disabled
+    // explicitly (for legality reasons related to trunk nodes).
+    bool isLegalOperandToReorder(ArrayRef<Value *> VL) const {
+      // Vector length has to be consistent along MultiNode and
+      // Leaves should not be in any of the vectorization tree nodes.
+      return VL.size() == getNumLanes() && !R.alreadyInTrunk(VL);
+    }
+
     /// Append \p Idx to the Multi-Node indices.
     void appendTrunk(int Idx) {
       assert(RootTE && "Multi-Node was not initialized.");
@@ -3860,26 +3870,6 @@ private:
 #endif
   };
 
-#if INTEL_CUSTOMIZATION
-  // Add VL as a leaf node of the Multi-Node currently under construction.
-  // When it is not legal to do return false.
-  bool addMultiNodeLeafIfLegal(ArrayRef<Value *> VL, const EdgeInfo &EI) {
-    // Vector length has to be consistent along MultiNode
-    if (VL.size() != CurrentMultiNode->getNumLanes() ||
-        // The Leaves should not match any of the Trunk nodes.
-        alreadyInTrunk(VL) ||
-        // No frontier can be a MultiNode leaf at the same time
-        llvm::any_of(EI.UserTE->Scalars, [this](Value *V) -> bool {
-          return AllMultiNodeLeaves.count(V);
-        }))
-      return false;
-
-    CurrentMultiNode->appendOperand(VL, EI);
-    AllMultiNodeLeaves.insert(VL.begin(), VL.end());
-    return true;
-  }
-#endif // INTEL_CUSTOMIZATION
-
 #ifndef NDEBUG
   void dumpTreeCosts(const TreeEntry *E, InstructionCost ReuseShuffleCost,
                      InstructionCost VecCost,
@@ -3919,13 +3909,12 @@ private:
 #if INTEL_CUSTOMIZATION
     // If we cannot proceed in adding a new tree entry, then add the leaf nodes
     // to the Multi-Node and return.
+    // FIXME: this should not be inside newTreeEntry.
     if (EnableMultiNodeSLP && BuildingMultiNode &&
         EntryState == TreeEntry::NeedToGather &&
-        addMultiNodeLeafIfLegal(VL, UserTreeIdx)) {
-      // FIXME: we need to coordinate newTreeEntry with addMultiNodeLeafIfLegal.
-      // Either at the call places or making newTreeEntry void. At the moment,
-      // the newTreeEntry()'s return value is not used anywhere so it's safe to
-      // use nullptr.
+        CurrentMultiNode->isLegalOperandToReorder(VL)) {
+      CurrentMultiNode->appendOperand(VL, UserTreeIdx);
+      AllMultiNodeLeaves.insert(VL.begin(), VL.end());
       return nullptr;
     }
 #endif // INTEL_CUSTOMIZATION
@@ -6846,7 +6835,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // Check if we should stop growing the Multi-Node
       if (!CurrentMultiNode->canExtendTowards(VL)) {
         // VL may probably be a leaf node.
-        (void)addMultiNodeLeafIfLegal(VL, UserTreeIdx);
+        if (CurrentMultiNode->isLegalOperandToReorder(VL)) {
+          CurrentMultiNode->appendOperand(VL, UserTreeIdx);
+          AllMultiNodeLeaves.insert(VL.begin(), VL.end());
+        }
+
         BS.cancelScheduling(VL, VL0);
         return;
       }
@@ -6856,10 +6849,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
         CurrentMultiNode->disableReorder();
 
-      // The early checks show that we can grow the Multi-Node, so proceed.
-      // NOTE: The checks in buildTree_rec() may also prohibit the growth of the
-      // Multi-Node. Therefore there is a second point in newTreeEntr() where
-      // addMultiNodeLeafIfLegal() is called.
       buildTreeMultiNode_rec(S, Bundle, VL, Depth + 1, UserTreeIdx,
                              ReuseShuffleIndicies);
       return;
