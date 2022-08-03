@@ -19,17 +19,9 @@ add_custom_command(
   OUTPUT ${VECTORIZATION_INFO_GEN}
   COMMAND ocl-tblgen -gen-vectorization-info
   -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/vectinfo_main.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/misc_main.td
   -o ${OCL_BINARY_DIR}/include/VectInfo.gen
-  DEPENDS ocl-tblgen
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/sub_group_builtin.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/vectinfo_main.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/main.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/relational.td
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/subgroup.td
+  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
   COMMENT "Generating built-in vectorization info ..."
   VERBATIM
 )
