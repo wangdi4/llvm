@@ -454,7 +454,6 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
   if (auto *TTy = dyn_cast<RecordType>(Ty)) {
     assert(CGM && "Module is null!"); // INTEL
     const RecordDecl *RD = TTy->getDecl()->getDefinition();
-    const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD); // INTEL
     const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
     using TBAAStructField = llvm::MDBuilder::TBAAStructField;
     SmallVector<TBAAStructField, 4> Fields;
@@ -499,6 +498,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
 #if INTEL_CUSTOMIZATION
       if (CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAABF) &&
           Field->isBitField() && Field->getBitWidthValue(Context) > 0) {
+        const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD);
         const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
         FieldQTy = Context.getIntTypeForBitwidth(Info.StorageSize, 0);
         if (FieldQTy.isNull())
