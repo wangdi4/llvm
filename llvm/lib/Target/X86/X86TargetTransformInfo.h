@@ -313,6 +313,8 @@ public:
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
   bool hasVLX() const;
+  bool has2KDSB() const;
+  bool has4KDSB() const;
   bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
   bool isLegalAltInstr(VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
