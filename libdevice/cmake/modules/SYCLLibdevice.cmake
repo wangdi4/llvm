@@ -148,10 +148,6 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/simd_emulate.cpp
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp32.hpp
-<<<<<<< HEAD
-                           imf/imf_inline_fp32.cpp
-                           imf/intel/erfinv_s_ha.cpp)
-=======
                            imf/intel/erfinv_s_ha.cpp
                            imf/intel/cos_s_ha.cpp
                            imf/intel/cbrt_s_la.cpp
@@ -201,8 +197,8 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/norm4d_s_la.cpp
                            imf/intel/tgamma_s_la.cpp
                            imf/intel/tanh_s_ha.cpp
->>>>>>> a56c17d74cf42b8a4782b6e18eafbd5f159a7822
                            # end INTEL_CUSTOMIZATION
+                           imf/imf_inline_fp32.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
                            # INTEL_CUSTOMIZATION
