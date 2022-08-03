@@ -128,8 +128,8 @@ constexpr void run_tests() {
     test(std::ranges::remove_copy_if, in, out, unary_pred);
     test(std::ranges::replace, in, x, x);
     test(std::ranges::replace_if, in, unary_pred, x);
-    //test(std::ranges::replace_copy, in, out, x, x);
-    //test(std::ranges::replace_copy_if, in, out, unary_pred, x);
+    test(std::ranges::replace_copy, in, out, x, x);
+    test(std::ranges::replace_copy_if, in, out, unary_pred, x);
   }
   test(std::ranges::swap_ranges, in, in2);
   if constexpr (std::copyable<T>) {
@@ -150,8 +150,10 @@ constexpr void run_tests() {
   //test_mid(std::ranges::rotate, in, mid);
   if (!std::is_constant_evaluated()) // `shuffle` isn't `constexpr`.
     test(std::ranges::shuffle, in, rand_gen());
-  //if (!std::is_constant_evaluated())
-  //  test(std::ranges::sample, in, out, count, rand_gen());
+  if (!std::is_constant_evaluated()) {
+    if constexpr (std::copyable<T>)
+      test(std::ranges::sample, in, out, count, rand_gen());
+  }
   test(std::ranges::unique, in);
   test(std::ranges::partition, in, unary_pred);
   // TODO(ranges): `stable_partition` requires `ranges::rotate` to be implemented.
