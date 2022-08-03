@@ -18,12 +18,6 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/IPO/GlobalOpt.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
-#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
-#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
-#include "llvm/Transforms/Scalar/JumpThreading.h"
-#include "llvm/Transforms/Vectorize/VectorCombine.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
@@ -34,15 +28,21 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
+#include "llvm/Transforms/IPO/GlobalOpt.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
+#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
+#include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 #include "SPIRVLowerConstExpr.h"
 
@@ -237,6 +238,11 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         FPM.addPass(BuiltinCallToInstPass());
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        // Adding IPSCCPPass to the beginning to propogate constant. Otherwise
+        // the opportunity may disappear when EarlyCSE pass is run first.
+        if (Level != OptimizationLevel::O0)
+          MPM.addPass(IPSCCPPass());
       });
 }
 

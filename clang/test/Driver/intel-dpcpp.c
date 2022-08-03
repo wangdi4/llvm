@@ -51,3 +51,8 @@
 // DPCPP_ALLOW_WIN-NOT: unknown argument
 // DPCPP_ALLOW_WIN: "-fopenmp"
 // DPCPP_ALLOW_WIN-SAME: "-fexceptions"
+
+/// Use of -Zi with 'dpcpp' should trigger debug information
+// RUN: %clangxx --dpcpp -i_allow-all-opts -### /Zi -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DPCPP_ZI_WIN %s
+// DPCPP_ZI_WIN: "-debug-info-kind=limited"
