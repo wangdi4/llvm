@@ -1454,6 +1454,10 @@ public:
   // Indicate whether target has vector length extension instruction.
   bool hasVLX() const;
 
+  // Indicate wheter target has 2K or 4K size DSB
+  bool has2KDSB() const;
+  bool has4KDSB() const;
+
   // Returns true if the target supports folding a constant displacement into
   // its load instruction.
   bool displacementFoldable() const;
@@ -1973,6 +1977,8 @@ public:
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
   virtual bool hasVLX() const = 0;
+  virtual bool has2KDSB() const = 0;
+  virtual bool has4KDSB() const = 0;
   virtual bool displacementFoldable() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *
@@ -2655,6 +2661,9 @@ public:
   }
 
   bool hasVLX() const override { return Impl.hasVLX(); }
+
+  bool has2KDSB() const override { return Impl.has2KDSB(); }
+  bool has4KDSB() const override { return Impl.has4KDSB(); }
 
   bool displacementFoldable() const override {
     return Impl.displacementFoldable();

@@ -812,6 +812,10 @@ public:
 
   bool hasVLX() const { return false; }
 
+  bool has2KDSB() const { return false; }
+
+  bool has4KDSB() const { return false; }
+
   bool displacementFoldable() const { return false; }
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,

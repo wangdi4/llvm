@@ -1155,6 +1155,10 @@ bool TargetTransformInfo::hasCDI() const {
 
 bool TargetTransformInfo::hasVLX() const { return TTIImpl->hasVLX(); }
 
+bool TargetTransformInfo::has2KDSB() const {return TTIImpl->has2KDSB();}
+
+bool TargetTransformInfo::has4KDSB() const {return TTIImpl->has4KDSB();}
+
 bool TargetTransformInfo::displacementFoldable() const {
   return TTIImpl->displacementFoldable();
 }

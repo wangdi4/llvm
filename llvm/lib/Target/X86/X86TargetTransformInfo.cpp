@@ -1316,6 +1316,14 @@ bool X86TTIImpl::displacementFoldable() const {
   return true;
 }
 
+bool X86TTIImpl::has2KDSB() const {
+  return ST->has2KDSB();
+}
+
+bool X86TTIImpl::has4KDSB() const {
+  return ST->has4KDSB();
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
