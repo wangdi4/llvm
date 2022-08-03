@@ -36,6 +36,7 @@
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
+; CHECK-NEXT: Running pass: IPSCCPPass
 
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK:      Running pass: ReassociatePass
