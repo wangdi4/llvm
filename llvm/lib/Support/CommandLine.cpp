@@ -2577,12 +2577,8 @@ struct CommandLineCommonOptions {
       cl::Hidden,
       cl::init(false),
       cl::cat(GenericCategory),
-<<<<<<< HEAD
-      cl::sub(*AllSubCommands)};
-#endif // !INTEL_PRODUCT_RELEASE
-=======
       cl::sub(SubCommand::getAll())};
->>>>>>> f7872cdce1102a5c12633dad462a1d9763a578d3
+#endif // !INTEL_PRODUCT_RELEASE
 
   VersionPrinterTy OverrideVersionPrinter = nullptr;
 
