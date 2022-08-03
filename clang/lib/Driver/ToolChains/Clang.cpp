@@ -4493,7 +4493,10 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
       SplitDWARFInlining = false;
     }
   }
-  if (const Arg *A = Args.getLastArg(options::OPT_g_Group)) {
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A =
+          Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7)) {
+#endif // INTEL_CUSTOMIZATION
     DebugInfoKind = codegenoptions::DebugInfoConstructor;
 
     // If the last option explicitly specified a debug-info level, use it.
