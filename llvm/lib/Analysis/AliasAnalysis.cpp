@@ -312,14 +312,14 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
   // If Loc is a constant memory location, the call definitely could not
   // modify the memory location.
   if (isModSet(Result) && pointsToConstantMemory(Loc, /*OrLocal*/ false))
-    Result = clearMod(Result);
+    Result = ModRefInfo::Ref;
 
   // Separately handle special intrinsic calls.
   if (auto *II = dyn_cast<IntrinsicInst>(Call))
     if (II->getIntrinsicID() == Intrinsic::masked_scatter)
       // Need to return early here because the following analysis will treat
       // this intrinsic as ordinary function call and return MRI_NoModRef.
-      return intersectModRef(Result, getModRefInfoForMaskedScatter(II, Loc));
+      return Result & getModRefInfoForMaskedScatter(II, Loc);
 #endif // INTEL_CUSTOMIZATION
 
   // Try to refine the mod-ref info further using other API entry points to the
@@ -360,12 +360,8 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
   // If Loc is a constant memory location, the call definitely could not
   // modify the memory location.
   if (isModSet(Result) && pointsToConstantMemory(Loc, AAQI, /*OrLocal*/ false))
-<<<<<<< HEAD
-    Result = clearMod(Result);
-#endif // INTEL_CUSTOMIZATION
-=======
     Result &= ModRefInfo::Ref;
->>>>>>> b128e057c191a441e3778ffc872ffca943b2e5b1
+#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
