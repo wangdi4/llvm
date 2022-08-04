@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2525,6 +2525,34 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     // are chosen to be exported.
     maybeExportMinGWSymbols(args);
   }
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-39204: The information stored in the StringRef fields of the
+  // structure Export is getting deteled after the LTO process in some cases.
+  // We are going to make sure that the memory space is allocated, the string
+  // is copied to the new space, and that the pointer to the string points to
+  // to it. The function saver will return an llvm::StringSaver object, which
+  // will take care of handling the string.
+#if INTEL_FEATURE_SW_ADVANCED
+  // NOTE: This is a workaround, we still need to investigate why LTO process
+  // is modifying the fields of the exported symbols. Also, the issue only
+  // happens when building Arnold-core.
+#endif // INTEL_FEATURE_SW_ADVANCED
+  for (Export& e : config->exports) {
+    if (!e.name.empty())
+      e.name = saver().save(e.name);
+    if (!e.extName.empty())
+      e.extName = saver().save(e.extName);
+    if (!e.aliasTarget.empty())
+      e.aliasTarget = saver().save(e.aliasTarget);
+    if (!e.forwardTo.empty())
+      e.forwardTo = saver().save(e.forwardTo);
+    if (!e.symbolName.empty())
+      e.symbolName = saver().save(e.symbolName);
+    if (!e.exportName.empty())
+      e.exportName = saver().save(e.exportName);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we
