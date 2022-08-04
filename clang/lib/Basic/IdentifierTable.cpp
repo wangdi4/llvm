@@ -98,7 +98,12 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
+<<<<<<< HEAD
   enum {
+=======
+
+  enum TokenKey : unsigned {
+>>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
     KEYC99        = 0x1,
     KEYCXX        = 0x2,
     KEYCXX11      = 0x4,
@@ -115,6 +120,7 @@ namespace {
     WCHARSUPPORT  = 0x2000,
     HALFSUPPORT   = 0x4000,
     CHAR8SUPPORT  = 0x8000,
+<<<<<<< HEAD
     KEYCONCEPTS   = 0x10000,
     KEYOBJC       = 0x20000,
     KEYZVECTOR    = 0x40000,
@@ -125,6 +131,18 @@ namespace {
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
     KEYCUDA       = 0x2000000,
+=======
+    KEYOBJC       = 0x10000,
+    KEYZVECTOR    = 0x20000,
+    KEYCOROUTINES = 0x40000,
+    KEYMODULES    = 0x80000,
+    KEYCXX20      = 0x100000,
+    KEYOPENCLCXX  = 0x200000,
+    KEYMSCOMPAT   = 0x400000,
+    KEYSYCL       = 0x800000,
+    KEYCUDA       = 0x1000000,
+    KEYMAX        = KEYCUDA, // The maximum key
+>>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
     KEYFLOAT128 = 0x4000000,
@@ -142,20 +160,110 @@ namespace {
     KEYNOINTELALL = KEYALL & ~KEYINTELALL, // INTEL
   };
 
-  /// How a keyword is treated in the selected standard.
+  /// How a keyword is treated in the selected standard. This enum is ordered
+  /// intentionally so that the value that 'wins' is the most 'permissive'.
   enum KeywordStatus {
+    KS_Unknown,     // Not yet calculated. Used when figuring out the status.
     KS_Disabled,    // Disabled
+    KS_Future,      // Is a keyword in future standard
     KS_Extension,   // Is an extension
     KS_Enabled,     // Enabled
-    KS_Future       // Is a keyword in future standard
   };
 
 } // namespace
+
+// This works on a single TokenKey flag and checks the LangOpts to get the
+// KeywordStatus based exclusively on this flag, so that it can be merged in
+// getKeywordStatus. Most should be enabled/disabled, but some might imply
+// 'future' versions, or extensions. Returns 'unknown' unless this is KNOWN to
+// be disabled, and the calling function makes it 'disabled' if no other flag
+// changes it. This is necessary for the KEYNOCXX and KEYNOOPENCL flags.
+static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
+                                            TokenKey Flag) {
+  // Flag is a single bit version of TokenKey (that is, not
+  // KEYALL/KEYALLCXX/etc), so we can check with == throughout this function.
+  assert((Flag & ~(Flag - 1)) == Flag && "Multiple bits set?");
+
+  switch (Flag) {
+  case KEYC99:
+    // FIXME: This should have KS_Future logic here, but that can only happen if
+    // getFutureCompatDiagKind ALSO gets updated. This is safe, since C mode is
+    // ALWAYS implied.
+    return LangOpts.C99 ? KS_Enabled : KS_Unknown;
+  case KEYC11:
+    // FIXME: This should have KS_Future logic here, but that can only happen if
+    // getFutureCompatDiagKind ALSO gets updated. This is safe, since C mode is
+    // ALWAYS implied.
+    return LangOpts.C11 ? KS_Enabled : KS_Unknown;
+  case KEYCXX:
+    return LangOpts.CPlusPlus ? KS_Enabled : KS_Unknown;
+  case KEYCXX11:
+    if (LangOpts.CPlusPlus11)
+      return KS_Enabled;
+    return LangOpts.CPlusPlus ? KS_Future : KS_Unknown;
+  case KEYCXX20:
+    if (LangOpts.CPlusPlus20)
+      return KS_Enabled;
+    return LangOpts.CPlusPlus ? KS_Future : KS_Unknown;
+  case KEYGNU:
+    return LangOpts.GNUKeywords ? KS_Extension : KS_Unknown;
+  case KEYMS:
+    return LangOpts.MicrosoftExt ? KS_Extension : KS_Unknown;
+  case BOOLSUPPORT:
+    return LangOpts.Bool ? KS_Enabled : KS_Unknown;
+  case KEYALTIVEC:
+    return LangOpts.AltiVec ? KS_Enabled : KS_Unknown;
+  case KEYBORLAND:
+    return LangOpts.Borland ? KS_Extension : KS_Unknown;
+  case KEYOPENCLC:
+    return LangOpts.OpenCL && !LangOpts.OpenCLCPlusPlus ? KS_Enabled
+                                                        : KS_Unknown;
+  case WCHARSUPPORT:
+    return LangOpts.WChar ? KS_Enabled : KS_Unknown;
+  case HALFSUPPORT:
+    return LangOpts.Half ? KS_Enabled : KS_Unknown;
+  case CHAR8SUPPORT:
+    if (LangOpts.Char8) return KS_Enabled;
+    if (LangOpts.CPlusPlus20) return KS_Unknown;
+    return KS_Future;
+  case KEYOBJC:
+    // We treat bridge casts as objective-C keywords so we can warn on them
+    // in non-arc mode.
+    return LangOpts.ObjC ? KS_Enabled : KS_Unknown;
+  case KEYZVECTOR:
+    return LangOpts.ZVector ? KS_Enabled : KS_Unknown;
+  case KEYCOROUTINES:
+    return LangOpts.Coroutines ? KS_Enabled : KS_Unknown;
+  case KEYMODULES:
+    return LangOpts.ModulesTS ? KS_Enabled : KS_Unknown;
+  case KEYOPENCLCXX:
+    return LangOpts.OpenCLCPlusPlus ? KS_Enabled : KS_Unknown;
+  case KEYMSCOMPAT:
+    return LangOpts.MSVCCompat ? KS_Enabled : KS_Unknown;
+  case KEYSYCL:
+    return LangOpts.isSYCL() || LangOpts.SYCLIsDevice ? KS_Enabled : KS_Unknown;
+  case KEYCUDA:
+    return LangOpts.CUDA ? KS_Enabled : KS_Unknown;
+  case KEYNOCXX:
+    // This is enabled in all non-C++ modes, but might be enabled for other
+    // reasons as well.
+    return LangOpts.CPlusPlus ? KS_Unknown : KS_Enabled;
+  case KEYNOOPENCL:
+    // The disable behavior for this is handled in getKeywordStatus.
+    return KS_Unknown;
+  case KEYNOMS18:
+    // The disable behavior for this is handled in getKeywordStatus.
+    return KS_Unknown;
+  default:
+    llvm_unreachable("Unknown KeywordStatus flag");
+  }
+}
 
 /// Translates flags as specified in TokenKinds.def into keyword status
 /// in the given language standard.
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Flags == static_cast<unsigned>(KEYALL))
      return KS_Enabled;
@@ -216,6 +324,30 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.CUDA && (Flags & KEYCUDA))
     return KS_Enabled;
   return KS_Disabled;
+=======
+  // KEYALL means always enabled, so special case this one.
+  if (Flags == KEYALL) return KS_Enabled;
+  // These are tests that need to 'always win', as they are special in that they
+  // disable based on certain conditions.
+  if (LangOpts.OpenCL && (Flags & KEYNOOPENCL)) return KS_Disabled;
+  if (LangOpts.MSVCCompat && (Flags & KEYNOMS18) &&
+      !LangOpts.isCompatibleWithMSVC(LangOptions::MSVC2015))
+    return KS_Disabled;
+
+  KeywordStatus CurStatus = KS_Unknown;
+
+  while (Flags != 0) {
+    unsigned CurFlag = Flags & ~(Flags - 1);
+    Flags = Flags & ~CurFlag;
+    CurStatus = std::max(
+        CurStatus,
+        getKeywordStatusHelper(LangOpts, static_cast<TokenKey>(CurFlag)));
+  }
+
+  if (CurStatus == KS_Unknown)
+    return KS_Disabled;
+  return CurStatus;
+>>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
 }
 
 /// AddKeyword - This method is used to associate a token ID with specific
@@ -225,15 +357,6 @@ static void AddKeyword(StringRef Keyword,
                        tok::TokenKind TokenCode, unsigned Flags,
                        const LangOptions &LangOpts, IdentifierTable &Table) {
   KeywordStatus AddResult = getKeywordStatus(LangOpts, Flags);
-
-  // Don't add this keyword under MSVCCompat.
-  if (LangOpts.MSVCCompat && (Flags & KEYNOMS18) &&
-      !LangOpts.isCompatibleWithMSVC(LangOptions::MSVC2015))
-    return;
-
-  // Don't add this keyword under OpenCL.
-  if (LangOpts.OpenCL && (Flags & KEYNOOPENCL))
-    return;
 
   // Don't add this keyword if disabled in this language.
   if (AddResult == KS_Disabled) return;
