@@ -2363,6 +2363,9 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
 }
 #endif // INTEL_COLLAB
 bool Sema::isOpenMPRebuildMemberExpr(ValueDecl *D) {
+  // Only rebuild for Field.
+  if (!dyn_cast<FieldDecl>(D))
+    return false;
   DSAStackTy::DSAVarData DVarPrivate = DSAStack->hasDSA(
       D,
       [](OpenMPClauseKind C, bool AppliedToPointee,
