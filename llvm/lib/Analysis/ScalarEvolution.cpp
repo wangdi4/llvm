@@ -8324,33 +8324,12 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
           Ops.push_back(BO->LHS);
           break;
         }
-<<<<<<< HEAD
-        BO = NewBO;
-      } while (true);
-      return nullptr;
-    }
-
-    case Instruction::Mul: {
-      do {
-        if (BO->Op) {
-#if INTEL_CUSTOMIZATION // HIR parsing
-          auto Inst = dyn_cast<Instruction>(BO->Op);
-          if (BO->Op != V && Inst &&
-              getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
-            Ops.push_back(BO->Op);
-            break;
-          }
-#endif // INTEL_CUSTOMIZATION
-          if (BO->Op != V && getExistingSCEV(BO->Op)) {
-            Ops.push_back(BO->Op);
-=======
         // CreateSCEV calls getNoWrapFlagsFromUB, which under certain conditions
         // requires a SCEV for the LHS.
         if (NewBO->Op && (NewBO->IsNSW || NewBO->IsNUW)) {
           if (auto *I = dyn_cast<Instruction>(NewBO->Op);
               I && programUndefinedIfPoison(I)) {
             Ops.push_back(BO->LHS);
->>>>>>> 7ae5d00afaf39fae78e411cb44f665e1dc52b356
             break;
           }
         }
