@@ -62,14 +62,26 @@ AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
   return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
+// M1 and M2 are MDNodes with integer operand lists.
+// Return true if any integer in M1 is present in M2 (so they share an alias
+// set)
 bool StdContainerAAResult::mayAliasInStdContainer(MDNode *M1, MDNode *M2) {
   if (!M1 || !M2)
     return true;
-  for (unsigned I = 0; I < M1->getNumOperands(); I++)
-    for (unsigned J = 0; J < M2->getNumOperands(); J++)
-      if (mdconst::extract<ConstantInt>(M1->getOperand(I)) ==
-          mdconst::extract<ConstantInt>(M2->getOperand(J)))
-        return true;
+
+  // The node lists can get very large (>200), extract the integers from M2
+  // into a set.
+  DenseSet<unsigned> M2Set;
+  for (const auto &Op : M2->operands())
+    M2Set.insert(mdconst::extract<ConstantInt>(Op)->getZExtValue());
+
+  // Then test if any M1 operands are in the M2 set.
+  for (unsigned I = 0; I < M1->getNumOperands(); I++) {
+    unsigned Val =
+        mdconst::extract<ConstantInt>(M1->getOperand(I))->getZExtValue();
+    if (M2Set.contains(Val))
+      return true;
+  }
   return false;
 }
 
