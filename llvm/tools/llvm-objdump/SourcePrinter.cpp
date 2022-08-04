@@ -1,4 +1,21 @@
 //===-- SourcePrinter.cpp -  source interleaving utilities ----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -437,7 +454,15 @@ void SourcePrinter::printLines(formatted_raw_ostream &OS,
   if (LineInfo.FileName != DILineInfo::BadString && LineInfo.Line != 0 &&
       (OldLineInfo.Line != LineInfo.Line ||
        OldLineInfo.FileName != LineInfo.FileName || PrintFunctionName)) {
-    OS << Delimiter << LineInfo.FileName << ":" << LineInfo.Line;
+#if INTEL_CUSTOMIZATION
+    std::string FileName = LineInfo.FileName;
+    if (PrintLinesStrip) {
+      const auto Pos = FileName.find_last_of("/\\");
+      FileName =
+          (Pos == std::string::npos) ? FileName : FileName.substr(Pos + 1);
+    }
+    OS << Delimiter << FileName << ":" << LineInfo.Line;
+#endif // INTEL_CUSTOMIZATION
     LVP.printBetweenInsts(OS, true);
   }
 }

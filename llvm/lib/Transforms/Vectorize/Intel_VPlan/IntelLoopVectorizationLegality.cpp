@@ -308,7 +308,7 @@ bool VPOVectorizationLegality::doesReductionUsePhiNodes(
   return (StartV && LoopHeaderPhiNode);
 }
 
-bool VPOVectorizationLegality::isReductionVarUpdatedInTheLoop(
+bool VPOVectorizationLegality::isInMemoryReductionPattern(
     Value *RedVarPtr, Instruction *&CallOrStore) {
   SmallVector<Value *, 4> Users;
   CallOrStore = nullptr;
@@ -533,7 +533,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
                             false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
                                              None /*InscanReductionKind*/};
-  } else if (isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse))
+  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
     InMemoryReductions[RedVarPtr] =
       {Kind, None /*InscanReductionKind*/, ReductionUse};
 }
@@ -582,7 +582,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     if (InscanRedKind) {
-      UseMemory = isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse);
+      UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse);
       // TODO: make this assert to be a proper bailout in prod.
       assert(UseMemory &&
              "Fully registerized inscan reduction is not supported!");
@@ -592,8 +592,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
                             Kind, FMF, nullptr, ReductionPhi->getType(),
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
-  } else if ((UseMemory =
-                  isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse)))
+  } else if ((UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse)))
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 
   if (!UsePhi && !UseMemory)
@@ -607,10 +606,12 @@ void VPOVectorizationLegality::addReduction(
          "Expected reduction variable to be a pointer type");
 
   // TODO: Support min/max scan reductions as well.
-  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
-    return parseMinMaxReduction(RedVarPtr, Kind);
+  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
+    parseMinMaxReduction(RedVarPtr, Kind);
+    return;
+  }
 
-  return parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
+  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {

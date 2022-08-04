@@ -122,6 +122,10 @@ def line_numbers : Flag<["--"], "line-numbers">,
 def : Flag<["-"], "l">,
   Alias<line_numbers>,
   HelpText<"Alias for --line-numbers">;
+#if INTEL_CUSTOMIZATION
+def line_numbers_strip : Flag<["--"], "line-numbers-strip">,
+  HelpText<"Strip out directories for --line-numbers">;
+#endif // INTEL_CUSTOMIZATION
 
 def macho : Flag<["--"], "macho">,
   HelpText<"Use MachO specific object file parser">;

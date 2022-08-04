@@ -51,6 +51,7 @@ extern int DbgIndent;
 extern DebugVarsFormat DbgVariables;
 extern bool Demangle;
 extern bool TraceBack; // INTEL
+extern bool PrintLinesStrip; // INTEL
 extern bool Disassemble;
 extern bool DisassembleAll;
 extern DIDumpType DwarfDumpType;

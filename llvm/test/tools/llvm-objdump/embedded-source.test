@@ -1,4 +1,7 @@
 ; RUN: llvm-objdump -d --line-numbers %p/Inputs/embedded-source | FileCheck --check-prefix=LINE %s
+; INTEL_CUSTOMIZATION
+; RUN: llvm-objdump -d --line-numbers --line-numbers-strip %p/Inputs/embedded-source | FileCheck --check-prefix=STRIP %s
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-objdump -d --source       %p/Inputs/embedded-source | FileCheck --check-prefix=SOURCE %s
 ; REQUIRES: x86-registered-target
 
@@ -22,6 +25,19 @@
 ; LINE: addl $1
 ; LINE: ; {{.*}}embedded-source.c:4
 ; LINE: retq
+
+; INTEL_CUSTOMIZATION
+; STRIP: <main>:
+; STRIP-NEXT: ; main():
+; STRIP-NEXT: ; embedded-source.c:1
+; STRIP-NEXT: pushq %rbp
+; STRIP: ; embedded-source.c:2
+; STRIP-NEXT: movl $2
+; STRIP: ; embedded-source.c:3
+; STRIP: addl $1
+; STRIP: ; embedded-source.c:4
+; STRIP: retq
+; end INTEL_CUSTOMIZATION
 
 ; SOURCE: <main>:
 ; SOURCE-NEXT: ; int main(int argc, char *argv[]) {

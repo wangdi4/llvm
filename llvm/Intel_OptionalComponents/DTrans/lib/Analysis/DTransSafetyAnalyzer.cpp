@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransRelatedTypesUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -5242,18 +5243,18 @@ public:
     if (dtrans::isValueEqualToSize(SetSize, ElementSize))
       return true;
 
-    dtrans::MemfuncRegion RegionDesc;
-    llvm::StructType *CurrLLVMTy = cast<StructType>(StrLLVMTy);
-    while (CurrLLVMTy) {
-      if (analyzePartialStructUse(DL, CurrLLVMTy, /*FieldNum =*/ 0,
-                                  /*PrePadBytes = */ 0, SetSize,
-                                  &RegionDesc))
+    MFTypeRegionVec RegionDescVec;
+    while (DTStruct) {
+      if (analyzePartialStructUse(DL, DTStruct, /*FieldNum =*/0,
+                                  /*PrePadBytes = */0, SetSize,
+                                  /*AllowRecuse=*/false,
+                                  RegionDescVec))
         return true;
 
-      if (CurrLLVMTy->getNumElements() == 0)
+      if (DTStruct->getNumFields() == 0)
         return false;
 
-      CurrLLVMTy = dyn_cast<StructType>(CurrLLVMTy->getElementType(0));
+      DTStruct = dyn_cast<DTransStructType>(DTStruct->getFieldType(0));
     }
 
     return false;
@@ -5319,11 +5320,12 @@ public:
                                   &PrePadBytes)) {
 
         // Check the structure, and mark any safety flags needed.
-        dtrans::MemfuncRegion RegionDesc;
+        MFTypeRegionVec RegionDescVec;
         if (analyzeMemfuncStructureMemberParam(
-                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc,
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDescVec,
                 IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
-          createMemsetCallInfo(I, StructTy, RegionDesc);
+          for (auto RegionDesc : RegionDescVec)
+            createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
 
         return;
       }
@@ -5429,13 +5431,14 @@ public:
     // Check for the case where a portion of a structure is being set, starting
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (analyzeMemfuncStructureMemberParam(
               I, StructTy, /*FieldNum=*/0,
-              /*PrePadBytes=*/0, SetSize, RegionDesc,
+              /*PrePadBytes=*/0, SetSize, RegionDescVec,
               IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
-        createMemsetCallInfo(I, StructTy, RegionDesc);
+        for (auto RegionDesc : RegionDescVec)
+          createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
         return;
       }
     }
@@ -5700,10 +5703,11 @@ public:
       }
 
       // Identify the set of fields affected.
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                               DstPrePadBytes, SetSize,
-                                              RegionDesc, FWT_ExistingValue)) {
+                                              RegionDescVec,
+                                              FWT_ExistingValue)) {
         SetSafetyDataOnElementPointees(
             DstInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - unsupport array, or invalid offset/size", &I);
@@ -5712,21 +5716,23 @@ public:
       }
 
       // The call is safe for the ElementPointee.
-      createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind,
-                                    /*RegionDescDest=*/RegionDesc,
-                                    /*RegionDescSrc=*/RegionDesc);
+      for (auto RegionDesc : RegionDescVec) {
+        createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
+                                      /*RegionDescDest=*/RegionDesc.second,
+                                      /*RegionDescSrc=*/RegionDesc.second);
 
-      // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
-      // FieldInfo objects. This is to allow for field deletion to identify the
-      // field as potentially unneeded. However, we need to add the function to
-      // the "Readers" list in the FieldInfo to record that the field may be
-      // referenced for the FieldModRef analysis.
-      assert(SrcStructTy->isStructTy() && "Source should be structure");
-      auto *SI =
-          cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(SrcStructTy));
-      assert(SI && "visitModule() should create all TypeInfo objects");
-      markStructFieldReaders(SI, RegionDesc.FirstField, RegionDesc.LastField,
-                             I.getFunction());
+        // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
+        // FieldInfo objects. This is to allow for field deletion to identify
+        // the field as potentially unneeded. However, we need to add the
+        // function to the "Readers" list in the FieldInfo to record that the
+        // field may be referenced for the FieldModRef analysis.
+        assert(RegionDesc.first->isStructTy() && "Source should be structure");
+        dtrans::TypeInfo *TyInfo = DTInfo.getTypeInfo(RegionDesc.first);
+        auto *SI = cast_or_null<dtrans::StructInfo>(TyInfo);
+        assert(SI && "visitModule() should create all TypeInfo objects");
+        markStructFieldReaders(SI, RegionDesc.second.FirstField,
+                               RegionDesc.second.LastField, I.getFunction());
+      }
       return;
     }
 
@@ -5862,27 +5868,30 @@ public:
     // Check for the case where a portion of a structure is being set, starting
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
-      dtrans::MemfuncRegion RegionDesc;
+      MFTypeRegionVec RegionDescVec;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc, FWT_ExistingValue)) {
+                                             RegionDescVec,
+                                             FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
-        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
-                                      /*RegionDescDest=*/RegionDesc,
-                                      /*RegionDescSrc=*/RegionDesc);
+        for (auto RegionDesc : RegionDescVec) {
+          createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
+                                        /*RegionDescDest=*/RegionDesc.second,
+                                        /*RegionDescSrc=*/RegionDesc.second);
 
-        auto *SrcPointeeType = SrcParentTy->getPointerElementType();
-        if (SrcPointeeType->isStructTy()) {
-          // For ModRef information of the field, we add the function to the
-          // "Readers" list in the FieldInfo to record that the field may be
-          // referenced.
-          auto *SI = cast_or_null<dtrans::StructInfo>(
-              DTInfo.getTypeInfo(SrcPointeeType));
-          assert(SI && "visitModule() should create all TypeInfo objects");
-          markStructFieldReaders(SI, RegionDesc.FirstField,
-                                 RegionDesc.LastField, I.getFunction());
+          auto *SrcPointeeType = RegionDesc.first;
+          if (SrcPointeeType->isStructTy()) {
+            // For ModRef information of the field, we add the function to the
+            // "Readers" list in the FieldInfo to record that the field may be
+            // referenced.
+            auto *SI = cast_or_null<dtrans::StructInfo>(
+                DTInfo.getTypeInfo(SrcPointeeType));
+            assert(SI && "visitModule() should create all TypeInfo objects");
+            markStructFieldReaders(SI, RegionDesc.second.FirstField,
+                                   RegionDesc.second.LastField,
+                                   I.getFunction());
+          }
         }
-
         return;
       }
     }
@@ -6010,25 +6019,23 @@ public:
                                           DTransStructType *StructTy,
                                           size_t FieldNum, uint64_t PrePadBytes,
                                           Value *SetSize,
-                                          dtrans::MemfuncRegion &RegionDesc,
+                                          MFTypeRegionVec &RegionDescVec,
                                           FieldWriteType WriteType) {
-    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(StructTy);
-    assert(ParentTI && "visitModule() should create all TypeInfo objects");
-    llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
-
     // Try to determine if a set of fields in a structure is being written.
-    if (analyzePartialStructUse(DL, LLVMTy, FieldNum, PrePadBytes, SetSize,
-                                &RegionDesc)) {
-      // If not all members of the structure were set, mark it as a partial
-      // write.
-      if (!RegionDesc.IsCompleteAggregate) {
-        setBaseTypeInfoSafetyData(
-            StructTy, dtrans::MemFuncPartialWrite,
-            "size covers subset of fields of the structures", &I);
+    if (analyzePartialStructUse(DL, StructTy, FieldNum, PrePadBytes, SetSize,
+                                /*AllowRecurse=*/false, RegionDescVec)) {
+      for (auto RegionDesc : RegionDescVec) {
+        // If not all members of the structure were set, mark it as a partial
+        // write.
+        if (!RegionDesc.second.IsCompleteAggregate) {
+          setBaseTypeInfoSafetyData(
+              RegionDesc.first, dtrans::MemFuncPartialWrite,
+              "size covers subset of fields of the structures", &I);
+        }
+        dtrans::TypeInfo *LParentTI = DTInfo.getTypeInfo(RegionDesc.first);
+        markStructFieldsWritten(LParentTI, RegionDesc.second.FirstField,
+                                RegionDesc.second.LastField, I, WriteType);
       }
-
-      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I, WriteType);
       return true;
     }
 

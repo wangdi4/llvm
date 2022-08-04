@@ -203,6 +203,7 @@ bool objdump::Demangle;
 bool objdump::Disassemble;
 #if INTEL_CUSTOMIZATION
 bool objdump::TraceBack;
+bool objdump::PrintLinesStrip;
 #endif // INTEL_CUSTOMIZATION
 bool objdump::DisassembleAll;
 bool objdump::SymbolDescription;
@@ -2849,7 +2850,10 @@ static void parseObjdumpOptions(const llvm::opt::InputArgList &InputArgs) {
   ArchName = InputArgs.getLastArgValue(OBJDUMP_arch_name_EQ).str();
   ArchiveHeaders = InputArgs.hasArg(OBJDUMP_archive_headers);
   Demangle = InputArgs.hasArg(OBJDUMP_demangle);
+#if INTEL_CUSTOMIZATION
   TraceBack = InputArgs.hasArg(OBJDUMP_traceback);
+  PrintLinesStrip = InputArgs.hasArg(OBJDUMP_line_numbers_strip);
+#endif // INTEL_CUSTOMIZATION
   Disassemble = InputArgs.hasArg(OBJDUMP_disassemble);
   DisassembleAll = InputArgs.hasArg(OBJDUMP_disassemble_all);
   SymbolDescription = InputArgs.hasArg(OBJDUMP_symbol_description);

@@ -694,12 +694,12 @@ private:
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,
                                 Value *&StartV);
 
-  /// Return true if the reduction variable \p RedVarPtr is stored inside the
-  /// loop or used by a call. The found store or call instruction is captured in
-  /// \p CallOrStore. A store is preferred, so if there are both store and call,
-  /// the store is returned.
-  bool isReductionVarUpdatedInTheLoop(Value *RedVarPtr,
-                                      Instruction *&CallOrStore);
+  /// Return true if the reduction variable \p RedVarPtr is updated via
+  /// in-memory reduction pattern. This is identified by checking if variable is
+  /// stored inside the loop or used by a call. The found store or call
+  /// instruction is captured in \p CallOrStore. A store is preferred, so if
+  /// there are both store and call, the store is returned.
+  bool isInMemoryReductionPattern(Value *RedVarPtr, Instruction *&CallOrStore);
 
   /// Check whether \p I is liveout.
   bool isLiveOut(const Instruction *I) const;
