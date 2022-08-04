@@ -1,6 +1,7 @@
 ; REQUIRES: intel_feature_markercount
 ; RUN: llc < %s -mark-prolog-epilog -mtriple=x86_64-- -stop-after=tailduplication -filtered-markercount-file=%S/../../Inputs/intel-filtered-markercount-file.txt | FileCheck --check-prefix=TAIL %s
 ; RUN: llc < %s -mark-prolog-epilog -mtriple=x86_64-- -filtered-markercount-file=%S/../../Inputs/intel-filtered-markercount-file.txt | FileCheck %s
+; RUN: llc < %s -mark-prolog-epilog -mtriple=x86_64-- -filtered-markercount-file=%S/../../Inputs/fake-file.txt 2>&1 | FileCheck --check-prefix=FAKE %s
 
 ; TAIL: kernel_a
 ; TAIL: PSEUDO_FUNCTION_PROLOG
@@ -16,6 +17,15 @@
 
 ; CHECK: kernel_b
 ; CHECK-NOT: markercount_function
+
+; FAKE: pseudo-markercount-inserter: failed to read file {{.*}}
+; FAKE: kernel_a
+; FAKE: markercount_function                    # PROLOG
+; FAKE: markercount_function                    # EPILOG
+
+; FAKE: kernel_b
+; FAKE: markercount_function                    # PROLOG
+; FAKE: markercount_function                    # EPILOG
 define i32 @kernel_a(i32 %x) {
 entry:
   %x.addr = alloca i32, align 4

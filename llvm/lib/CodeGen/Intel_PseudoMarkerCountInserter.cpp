@@ -47,8 +47,9 @@ public:
       ErrorOr<std::unique_ptr<MemoryBuffer>> Buffer =
           llvm::MemoryBuffer::getFile(FilterMarkerCountFile, true);
       if (!Buffer) {
-        errs() << DEBUG_TYPE << ": failed to read file" << FilterMarkerCountFile
+        errs() << DEBUG_TYPE << ": failed to read file " << FilterMarkerCountFile
                << ": " << Buffer.getError().message() << "\n";
+        return;
       }
       for (line_iterator LI(*Buffer.get()); LI != line_iterator(); ++LI) {
         std::string Function = LI->trim().str();

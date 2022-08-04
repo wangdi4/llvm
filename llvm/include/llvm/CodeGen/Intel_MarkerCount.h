@@ -19,7 +19,7 @@
 // been compiled with different ISAs.
 //
 // It can be performance-friendly and location-accurate at the same time and
-// currentlt it inserted at
+// currently it inserted at
 //    1. Prolog/Epilog of the function
 //    2. Loop header
 //
