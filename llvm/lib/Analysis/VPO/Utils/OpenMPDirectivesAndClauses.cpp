@@ -289,8 +289,11 @@ int VPOAnalysisUtils::getDirectiveID(const Instruction *I) {
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
-  if (Directives::ClauseIDs.count(ClauseFullName))
-    return Directives::ClauseIDs[ClauseFullName];
+  size_t SeparatorPos = ClauseFullName.find(getClauseSeparator());
+  StringRef BaseName = ClauseFullName.take_front(SeparatorPos);
+
+  if (Directives::ClauseIDs.count(BaseName))
+    return Directives::ClauseIDs[BaseName];
   return -1;
 }
 

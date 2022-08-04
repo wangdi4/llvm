@@ -91,16 +91,17 @@ enum attributeBits {
   ATTR_EVEXKZ = 0x1 << 11,
   ATTR_EVEXB  = 0x1 << 12,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
   // FIXME: This will greatly increase the size of llvm-mc. Is there any way
   // we can avoid this?
   ATTR_XUCCPD = 0x1 << 13,
   ATTR_XUCCXS = 0x1 << 14,
   ATTR_XUCCXD = 0x1 << 15,
-  ATTR_max    = 0x1 << 16,
-#else // INTEL_FEATURE_XUCC
+  ATTR_EVEXP10= 0x1 << 16,
+  ATTR_max    = 0x1 << 17,
+#else // INTEL_FEATURE_XISA_COMMON
   ATTR_max    = 0x1 << 13,
-#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -110,8 +111,8 @@ enum attributeBits {
 
 //           Class name           Rank  Rationale for rank assignment
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-#define INSTRUCTION_XUCC_CONTEXTS                                              \
+#if INTEL_FEATURE_XISA_COMMON
+#define INSTRUCTION_XISA_CONTEXTS                                              \
   ENUM_ENTRY(IC,                    0,  "says nothing about the instruction")  \
   ENUM_ENTRY(IC_64BIT,              1,  "says the instruction applies in "     \
                                         "64-bit mode but no more")             \
@@ -320,8 +321,32 @@ enum attributeBits {
   ENUM_ENTRY(IC_XUCCPD_XS,           1,  "requires XuCCPD and XS prefix") \
   ENUM_ENTRY(IC_XUCCPD_XD,           1,  "requires XuCCPD and XD prefix") \
   ENUM_ENTRY(IC_XUCCXS_PD,           1,  "requires XuCCXS and PD prefix") \
-  ENUM_ENTRY(IC_XUCCXD_PD,           1,  "requires XuCCXD and PD prefix")
-#else // INTEL_FEATURE_XUCC
+  ENUM_ENTRY(IC_XUCCXD_PD,           1,  "requires XuCCXD and PD prefix") \
+  ENUM_ENTRY(IC_EVEX_B_P10,          2,  "requires EVEX_B and P10 prefix")                \
+  ENUM_ENTRY(IC_EVEX_XS_B_P10,       3,  "requires EVEX_B, XS and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_B_P10,       3,  "requires EVEX_B, XD and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_B_P10,   3,  "requires EVEX_B, OpSize and P10 prefix") \
+  ENUM_ENTRY(IC_EVEX_W_B_P10,        4,  "requires EVEX_B, W, and P10 prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_B_P10,     5,  "requires EVEX_B, W, XS, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_B_P10,     5,  "requires EVEX_B, W, XD, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_B_P10, 5,  "requires EVEX_B, W, OpSize and P10 prefix")       \
+  ENUM_ENTRY(IC_EVEX_K_B_P10,        2,  "requires EVEX_B, EVEX_K and P10 prefix")        \
+  ENUM_ENTRY(IC_EVEX_XS_K_B_P10,     3,  "requires EVEX_B, EVEX_K, XS and the P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_K_B_P10,     3,  "requires EVEX_B, EVEX_K, XD and the P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_K_B_P10, 3,  "requires EVEX_B, EVEX_K, OpSize and the P10 prefix") \
+  ENUM_ENTRY(IC_EVEX_W_K_B_P10,      4,  "requires EVEX_B, EVEX_K, W,  and the P10 prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_K_B_P10,   5,  "requires EVEX_B, EVEX_K, W, XS, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_K_B_P10,   5,  "requires EVEX_B, EVEX_K, W, XD, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_K_B_P10, 5, "requires EVEX_B, EVEX_K, W, OpSize, and P10 prefix")        \
+  ENUM_ENTRY(IC_EVEX_KZ_B_P10,       2,  "requires EVEX_B, EVEX_KZ and P10 prefix")       \
+  ENUM_ENTRY(IC_EVEX_XS_KZ_B_P10,    3,  "requires EVEX_B, EVEX_KZ, XS, and the P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_KZ_B_P10,    3,  "requires EVEX_B, EVEX_KZ, XD, and the P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_KZ_B_P10,3,  "requires EVEX_B, EVEX_KZ, OpSize and P10 prefix") \
+  ENUM_ENTRY(IC_EVEX_W_KZ_B_P10,     4,  "requires EVEX_B, EVEX_KZ, W and the P10 prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_KZ_B_P10,  5,  "requires EVEX_B, EVEX_KZ, W, XS, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_KZ_B_P10,  5,  "requires EVEX_B, EVEX_KZ, W, XD, and P10 prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_KZ_B_P10, 5, "requires EVEX_B, EVEX_KZ, W, OpSize and P10 prefix")
+#else // INTEL_FEATURE_XISA_COMMON
 #define INSTRUCTION_CONTEXTS                                                   \
   ENUM_ENTRY(IC,                    0,  "says nothing about the instruction")  \
   ENUM_ENTRY(IC_64BIT,              1,  "says the instruction applies in "     \
@@ -525,17 +550,17 @@ enum attributeBits {
   ENUM_ENTRY(IC_EVEX_L2_W_XS_KZ,     4,  "requires EVEX_KZ, L2, W and XS prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_XD_KZ,     4,  "requires EVEX_KZ, L2, W and XD prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_KZ, 4,  "requires EVEX_KZ, L2, W and OpSize")
-#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n, r, d) n,
 enum InstructionContext {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-  INSTRUCTION_XUCC_CONTEXTS
-#else // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
+  INSTRUCTION_XISA_CONTEXTS
+#else // INTEL_FEATURE_XISA_COMMON
   INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   IC_max
 };

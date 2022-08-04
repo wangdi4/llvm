@@ -1287,6 +1287,10 @@ static bool isRedundantStacksaveStackrestore(CallInst *SSCI,
           // some known intrinsics (e.g. memset).
           if (isa<AnyMemSetInst>(II2))
             continue;
+          // Allow annotation-type intrinsics. These are typically legal to
+          // drop, though may be considered to have side effects in some cases.
+          if (II2->isAssumeLikeIntrinsic())
+            continue;
 
           if (II2->mayHaveSideEffects())
             return false;

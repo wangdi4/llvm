@@ -1295,6 +1295,13 @@ def HasAVX512COMPLEX : Predicate<"Subtarget->hasAVX512COMPLEX()">;
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
 def HasAVX512REDUCTION : Predicate<"Subtarget->hasAVX512REDUCTION()">;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX256P
+def HasAVX256P : Predicate<"Subtarget->hasAVX256P()">;
+def HasAVX256P_Or_HasAVX512 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasAVX512()">;
+def HasAVX256P_Or_HasVLX : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasVLX()">;
+def HasAVX256P_Or_HasFP16 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasFP16()">;
+def HasAVX256P_Or_HasDQI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasDQI() && Subtarget->hasVLX())">;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
@@ -3550,6 +3557,9 @@ include "Intel_X86InstrRAOINT.td"
 #if INTEL_FEATURE_XUCC
 include "Intel_X86XuCC.td"
 #endif // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_ISA_AVX256P
+include "Intel_X86InstrAVX256P.td"
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

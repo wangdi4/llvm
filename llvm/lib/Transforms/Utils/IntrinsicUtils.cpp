@@ -251,12 +251,11 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
 CallInst *IntrinsicUtils::removePrivateClauseForValue(CallInst *CI,
                                                       const Value *V) {
   assert(vpo::VPOAnalysisUtils::isBeginDirective(CI) && "Not a region entry directive!");
-  return removeOperandBundlesFromCall(
-      CI, [V](const OperandBundleDef &Bundle) {
-        return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
-                   QUAL_OMP_PRIVATE &&
-               *Bundle.input_begin() == V;
-      });
+  return removeOperandBundlesFromCall(CI, [V](const OperandBundleDef &Bundle) {
+    return vpo::VPOAnalysisUtils::getClauseID(Bundle.getTag()) ==
+               QUAL_OMP_PRIVATE &&
+           *Bundle.input_begin() == V;
+  });
 }
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB

@@ -638,6 +638,11 @@ def FeatureAVX512REDUCTION : SubtargetFeature<"avx512reduction", "HasAVX512REDUC
                                            "Support AVX512-REDUCTION instructions",
                                            [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX256P
+def FeatureAVX256P : SubtargetFeature<"avx256p", "HasAVX256P", "true",
+                                      "Support AVX256P instructions",
+                                      [FeatureAVX2, FeatureFMA, FeatureF16C]>;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 def FeatureINVPCID : SubtargetFeature<"invpcid", "HasINVPCID", "true",
                                       "Invalidate Process-Context Identifier">;

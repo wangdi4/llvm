@@ -11,11 +11,26 @@
 // License.
 
 // This file is used for migration purpose only.
-// TODO: remove this file when all VectInfo defs are migrated into source/main.td
+// 1. Invoke `ocl-tblgen -gen-ocl-biheader` to generate `BuiltinList.inc` for
+// all builtin declarations under `GENERIC` and `source` folders.
+// 2. Invoke `ocl-tblgen -gen-vectorizer-map` to generate `CustomMappings.gen`
+// for all Volcano vectorization info records under `GENERIC` and `source`
+// folders.
+// 3. Invoke `ocl-tblgen -gen-vectorization-info` to generate `VectInfo.gen`
+// for all VPlan vectorization info records under `GENERIC` and `source` folders.
 
-// Include all files that contain VectInfo defs
+// TODO: remove this file when all related records are migrated into `source`.
+
+// Include all files that contain OclBuiltin, MapRow, VectInfo defs
+
+// Migrated
 include "source/main.td"
+
+// To migrate
 include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
 include "GENERIC/opencl-v2.0WG.td"
 include "GENERIC/sub_group_builtin.td"
+include "GENERIC/matrix_layout_transform.td"
+include "GENERIC/ll_intrinsics.td"
+include "GENERIC/sycl-spirv.td"

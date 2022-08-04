@@ -1,37 +1,34 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2018 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
 #include "OclBuiltinsHeaderGen.h"
-#include "OclBuiltinEmitter.h"
+#include "ClangUtils.h"
 #include "CodeFormatter.h"
 #include "ConversionParser.h"
-#include "ClangUtils.h"
+#include "OclBuiltinEmitter.h"
 #include "cl_device_api.h"
-#include "llvm/TableGen/Record.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/IR/Module.h"
-#include <vector>
-#include <sstream>
-#include <memory>
-#include <cstdio>
+#include "llvm/TableGen/Record.h"
 #include <cctype>
+#include <cstdio>
+#include <memory>
+#include <sstream>
+#include <unordered_set>
+#include <vector>
 
 namespace llvm{
 
@@ -93,10 +90,17 @@ virtual ~MangledNameEmmiter() {
   typedbiList.sort(isLess);
   TypedBiIter typeit, typee = typedbiList.end();
   OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();
-  for (typeit = typedbiList.begin(); typeit != typee; ++typeit) {
+  for (typeit = typedbiList.begin(); typeit != typee;) {
     OclBuiltin *B = const_cast<OclBuiltin *>(typeit->first);
     B->removeAttribute(IA);
-    code += generateBuiltinOverload(B, typeit->second).append("\n");
+    auto BuiltinStr = generateBuiltinOverload(B, typeit->second);
+    // If we decide not to emit this builtin overload, erase it from the list.
+    if (BuiltinStr.empty()) {
+      typeit = typedbiList.erase(typeit);
+      continue;
+    }
+    code += BuiltinStr.append("\n");
+    ++typeit;
   }
   build(code, fileName);
   std::unique_ptr<llvm::Module> pModule =
@@ -171,6 +175,11 @@ protected:
       pBuiltin->getReturnBaseCType(typeName),
       pBuiltin->getReturnVectorLength(typeName)
     );
+    static std::unordered_set<std::string> EmittedBuiltins;
+    auto P = EmittedBuiltins.insert(ret);
+    // Skip if we have already emitted the same builtin overload before.
+    if (!P.second)
+      return "";
     return ret;
   }
 
@@ -185,7 +194,7 @@ const char* DESC=
 "Ocl BuiltIn funcs data: mangled name array + corresponding prototype array";
 
 void OclBuiltinsHeaderGen::run(raw_ostream& stream){
-  OclBuiltinDB bidb(m_recordKeeper);
+  OclBuiltinDB bidb(m_recordKeeper, /*CollectImplDefs*/ false);
   emitSourceFileHeader(DESC, stream);
   CodeFormatter formatter(stream);
   formatter << "#ifndef __MANGLED_NAMES_INC__";

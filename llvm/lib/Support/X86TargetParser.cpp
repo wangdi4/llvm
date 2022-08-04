@@ -896,6 +896,9 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
 static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX256P
+static constexpr FeatureBitset ImpliedFeaturesAVX256P = FeatureAVX2 | FeatureF16C | FeatureFMA;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;

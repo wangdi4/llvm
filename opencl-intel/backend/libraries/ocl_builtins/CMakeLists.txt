@@ -280,14 +280,11 @@ function( install_svml ARCH )
 
 endfunction( install_svml )
 
-file(GLOB_RECURSE TD_SOURCES "${CL_BUILTIN_SOURCE_DIR}/*.td")
-
 function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
-        #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL_TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ${OCL_TBLGEN} ${TD_SOURCES}
+        DEPENDS ${OCL_TBLGEN} ${OCL_ALL_TD_FILES}
         COMMENT "Generating ${OFN}"
         )
     set(${OUTPUT_VAR} ${${OUTPUT_VAR}} ${OUTPUT_DIR}/${OFN} PARENT_SCOPE)
@@ -374,7 +371,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADER_DIR}
+    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${OCL_ALL_TD_FILES} ${OCL_CLANG_HEADER_DIR}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
