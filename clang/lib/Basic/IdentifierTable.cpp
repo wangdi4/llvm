@@ -98,12 +98,8 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-<<<<<<< HEAD
-  enum {
-=======
 
   enum TokenKey : unsigned {
->>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
     KEYC99        = 0x1,
     KEYCXX        = 0x2,
     KEYCXX11      = 0x4,
@@ -120,18 +116,6 @@ namespace {
     WCHARSUPPORT  = 0x2000,
     HALFSUPPORT   = 0x4000,
     CHAR8SUPPORT  = 0x8000,
-<<<<<<< HEAD
-    KEYCONCEPTS   = 0x10000,
-    KEYOBJC       = 0x20000,
-    KEYZVECTOR    = 0x40000,
-    KEYCOROUTINES = 0x80000,
-    KEYMODULES    = 0x100000,
-    KEYCXX20      = 0x200000,
-    KEYOPENCLCXX  = 0x400000,
-    KEYMSCOMPAT   = 0x800000,
-    KEYSYCL       = 0x1000000,
-    KEYCUDA       = 0x2000000,
-=======
     KEYOBJC       = 0x10000,
     KEYZVECTOR    = 0x20000,
     KEYCOROUTINES = 0x40000,
@@ -141,23 +125,17 @@ namespace {
     KEYMSCOMPAT   = 0x400000,
     KEYSYCL       = 0x800000,
     KEYCUDA       = 0x1000000,
-    KEYMAX        = KEYCUDA, // The maximum key
->>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
-    KEYFLOAT128 = 0x4000000,
-    KEYRESTRICT = 0x8000000,
-    KEYMSASM    = 0x10000000,
-    KEYBASES    = 0x20000000,
-    KEYDECIMAL  = 0x40000000,
-    KEYOPENCLCHANNEL =  0x80000000,
+    KEYFLOAT128   = 0x2000000,
+    KEYRESTRICT   = 0x4000000,
+    KEYMSASM      = 0x8000000,
+    KEYOPENCLCHANNEL =  0x10000000,
     KEYMAX      = KEYOPENCLCHANNEL, // The maximum key
-    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL |
-                  KEYOPENCLCHANNEL,
+    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYOPENCLCHANNEL,
 #endif // INTEL_CUSTOMIZATION
     KEYALL = (KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 &
               ~KEYNOOPENCL, // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-    KEYNOINTELALL = KEYALL & ~KEYINTELALL, // INTEL
   };
 
   /// How a keyword is treated in the selected standard. This enum is ordered
@@ -254,6 +232,19 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
   case KEYNOMS18:
     // The disable behavior for this is handled in getKeywordStatus.
     return KS_Unknown;
+#if INTEL_CUSTOMIZATION
+  case KEYOPENCLCHANNEL:
+    return LangOpts.OpenCLChannel ? KS_Enabled : KS_Unknown;
+  case KEYMSASM:
+    // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+    return (LangOpts.IntelCompat && LangOpts.AsmBlocks) ? KS_Extension
+                                                        : KS_Unknown;
+  case KEYFLOAT128:
+    return (LangOpts.IntelCompat && LangOpts.Float128) ? KS_Extension
+                                                       : KS_Unknown;
+  case KEYRESTRICT:
+    return LangOpts.IntelCompat ? KS_Enabled : KS_Unknown;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown KeywordStatus flag");
   }
@@ -263,70 +254,12 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
 /// in the given language standard.
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (Flags == static_cast<unsigned>(KEYALL))
-     return KS_Enabled;
-  if (LangOpts.IntelCompat) {
-    if ((Flags & KEYINTELALL) == static_cast<unsigned>(KEYINTELALL))
-      return KS_Enabled;
-    if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
-      Flags = Flags & KEYINTELALL;
-    if (LangOpts.Float128 && (Flags & KEYFLOAT128))
-      return KS_Extension;
-    // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
-    if (LangOpts.AsmBlocks && (Flags & KEYMSASM))
-      return KS_Extension;
-    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
-    if (LangOpts.GNUMode && (Flags & KEYDECIMAL))
-      return KS_Enabled;
-    // Some keywords (like static_assert in C, CQ#377592) are enabled in MS
-    // compatibility mode only.
-    if (LangOpts.MSVCCompat && (Flags & KEYMSCOMPAT))
-      return KS_Enabled;
-  } else if ((Flags & KEYNOINTELALL) == KEYNOINTELALL) {
-    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
-    return KS_Enabled;
-  }
-  if (LangOpts.OpenCLChannel && (Flags & KEYOPENCLCHANNEL)) return KS_Enabled;
-#endif // INTEL_CUSTOMIZATION
-  if (LangOpts.CPlusPlus && (Flags & KEYCXX)) return KS_Enabled;
-  if (LangOpts.CPlusPlus11 && (Flags & KEYCXX11)) return KS_Enabled;
-  if (LangOpts.CPlusPlus20 && (Flags & KEYCXX20)) return KS_Enabled;
-  if (LangOpts.C99 && (Flags & KEYC99)) return KS_Enabled;
-  if (LangOpts.GNUKeywords && (Flags & KEYGNU)) return KS_Extension;
-  if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
-  if (LangOpts.MSVCCompat && (Flags & KEYMSCOMPAT)) return KS_Enabled;
-  if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
-  if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
-  if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;
-  if (LangOpts.WChar && (Flags & WCHARSUPPORT)) return KS_Enabled;
-  if (LangOpts.Char8 && (Flags & CHAR8SUPPORT)) return KS_Enabled;
-  if (LangOpts.AltiVec && (Flags & KEYALTIVEC)) return KS_Enabled;
-  if (LangOpts.ZVector && (Flags & KEYZVECTOR)) return KS_Enabled;
-  if (LangOpts.OpenCL && !LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLC))
-    return KS_Enabled;
-  if (LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLCXX)) return KS_Enabled;
-  if (LangOpts.SYCLIsDevice && (Flags & KEYSYCL)) return KS_Enabled;
-  if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) return KS_Enabled;
-  if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
-  // We treat bridge casts as objective-C keywords so we can warn on them
-  // in non-arc mode.
-  if (LangOpts.ObjC && (Flags & KEYOBJC)) return KS_Enabled;
-  if (LangOpts.CPlusPlus20 && (Flags & KEYCONCEPTS)) return KS_Enabled;
-  if (LangOpts.Coroutines && (Flags & KEYCOROUTINES)) return KS_Enabled;
-  if (LangOpts.ModulesTS && (Flags & KEYMODULES)) return KS_Enabled;
-  if (LangOpts.CPlusPlus && (Flags & KEYALLCXX)) return KS_Future;
-  if (LangOpts.CPlusPlus && !LangOpts.CPlusPlus20 && (Flags & CHAR8SUPPORT))
-    return KS_Future;
-  if (LangOpts.isSYCL() && (Flags & KEYSYCL))
-    return KS_Enabled;
-  if (LangOpts.CUDA && (Flags & KEYCUDA))
-    return KS_Enabled;
-  return KS_Disabled;
-=======
   // KEYALL means always enabled, so special case this one.
   if (Flags == KEYALL) return KS_Enabled;
+#if INTEL_CUSTOMIZATION
+  if ((Flags & KEYINTELALL) == KEYINTELALL && LangOpts.IntelCompat)
+    return KS_Enabled;
+#endif // INTEL_CUSTOMIZATION
   // These are tests that need to 'always win', as they are special in that they
   // disable based on certain conditions.
   if (LangOpts.OpenCL && (Flags & KEYNOOPENCL)) return KS_Disabled;
@@ -347,7 +280,6 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (CurStatus == KS_Unknown)
     return KS_Disabled;
   return CurStatus;
->>>>>>> 23c3b27b9fc47e5f8e9e0c5be3cad4917259f4e6
 }
 
 /// AddKeyword - This method is used to associate a token ID with specific

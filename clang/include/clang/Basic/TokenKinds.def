@@ -437,12 +437,9 @@ KEYWORD(_Fract                      , KEYNOCXX)
 KEYWORD(_Sat                        , KEYNOCXX)
 
 // GNU Extensions (in impl-reserved namespace)
-#if INTEL_CUSTOMIZATION
-// CQ#374317 - do not recognize _Decimal keywords in non-GNU mode.
-KEYWORD(_Decimal32                  , KEYNOINTELALL|KEYDECIMAL)
-KEYWORD(_Decimal64                  , KEYNOINTELALL|KEYDECIMAL)
-KEYWORD(_Decimal128                 , KEYNOINTELALL|KEYDECIMAL)
-#endif // INTEL_CUSTOMIZATION
+KEYWORD(_Decimal32                  , KEYALL)
+KEYWORD(_Decimal64                  , KEYALL)
+KEYWORD(_Decimal128                 , KEYALL)
 KEYWORD(__null                      , KEYCXX)
 // __alignof returns the preferred alignment of a type, the alignment
 // clang will attempt to give an object of the type if allowed by ABI.
