@@ -5651,10 +5651,12 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                      unsigned Idx,
                                                      Value *UB,
                                                      Instruction* InsertPt) {
-
-  assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
+  assert(W->getIsOmpLoop() &&
+         "updateOmpPredicateAndUpperBound: not a loop-type WRN");
 
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "updateOmpPredicateAndUpperBound: Unexpected: loop is missing");
+
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);

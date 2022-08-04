@@ -348,6 +348,7 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
     AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride,
     Value *&IsLastLoc, Value *&UpperBndVal, bool ChunkForTeams) {
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "genLoopBoundUpdatePrep: Unexpected: loop is missing");
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
 
