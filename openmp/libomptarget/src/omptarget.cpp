@@ -665,6 +665,9 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       }
 
       if (UpdateDevPtr) {
+#if INTEL_COLLAB
+        assert(PointerTpr.Entry && "Unexpected null entry");
+#endif // INTEL_COLLAB
         std::lock_guard<decltype(*PointerTpr.Entry)> LG(*PointerTpr.Entry);
         Device.ShadowMtx.unlock();
 

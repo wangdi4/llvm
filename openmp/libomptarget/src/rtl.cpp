@@ -268,7 +268,12 @@ void RTLsTy::loadRTLs() {
 
     if (!DynlibHandle) {
       // Library does not exist or cannot be found.
+#if INTEL_COLLAB
+      const char *DLError = dlerror();
+      DP("Unable to load library '%s': %s!\n", Name, DLError ? DLError : "");
+#else // INTEL_COLLAB
       DP("Unable to load library '%s': %s!\n", Name, dlerror());
+#endif // INTEL_COLLAB
       continue;
     }
 

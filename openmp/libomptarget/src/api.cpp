@@ -274,7 +274,11 @@ omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
     return OFFLOAD_FAIL;
   }
 
+#if INTEL_COLLAB
+  int Rc = OFFLOAD_SUCCESS;
+#else // INTEL_COLLAB
   int Rc;
+#endif // INTEL_COLLAB
   if (NumDims == 1) {
     Rc = omp_target_memcpy(Dst, Src, ElementSize * Volume[0],
                            ElementSize * DstOffsets[0],
