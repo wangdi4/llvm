@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2022 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -125,22 +123,23 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
                  });
 }
 
-std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
-  unsigned numVariants = Ent.funcNames.size();
-  for (unsigned i = 1; i < numVariants; ++i) {
-    output << "{\"" << Ent.funcNames[0] << "\",\"";
+static void generateVectInfos(const VectEntry &Ent,
+                              std::vector<std::string> &AllVectInfos) {
+  unsigned NumVariants = Ent.funcNames.size();
+  for (unsigned I = 1; I < NumVariants; ++I) {
+    std::stringstream S;
+    S << '"' << Ent.funcNames[0] << "\",\"";
     if (Ent.kernelCallOnce) {
-      output << "kernel-call-once\",\"";
+      S << "kernel-call-once\",\"";
     } else {
-      output << "\",\"";
+      S << "\",\"";
     }
 
-    output << getVectorVariant((unsigned)2 << i, Ent.funcNames[0],
-                               Ent.funcNames[i])
-                  .toString()
-           << "\"},\n";
+    S << getVectorVariant((unsigned)2 << I, Ent.funcNames[0], Ent.funcNames[I])
+             .toString()
+      << '"';
+    AllVectInfos.push_back(S.str());
   }
-  return output;
 }
 
 VectInfoGenerator::VectInfoGenerator(RecordKeeper &keeper)
@@ -338,10 +337,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
                   funcs[item.first] = funcs[item.second];
                 });
 
-  std::stringstream ss;
+  static std::vector<std::string> AllVectInfos;
   // Generating list of variants who use VPlan-fashioned masks.
-  std::stringstream ssVPlan;
-  ssVPlan << '{';
+  static std::vector<std::string> VPlanMaskedFuncs;
 
   auto funcIt = funcs.cbegin();
   size_t k = 0;
@@ -374,17 +372,16 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
           if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
                                                  characteristicType)) {
-            ssVPlan << '"' << fname << "\",\n";
+            VPlanMaskedFuncs.push_back(fname);
           }
         }
 
         funcNames.push_back(fname);
         funcIt++;
       }
-      ss << VectEntry{funcNames};
+      generateVectInfos(VectEntry{funcNames}, AllVectInfos);
     }
   }
-  ssVPlan << "}\n";
 
   assert(k == ScalarBuiltins.size() && k == strides.size() &&
          "the number of entries and scalar builtins should be the same");
@@ -392,15 +389,16 @@ void VectInfoGenerator::run(raw_ostream &os) {
       funcIt == funcs.cend() &&
       "the number of tblgen functions and llvm functions should be the same");
   os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n";
-  os << ss.str();
-  ss.clear();
-  ss.str("");
+  std::sort(AllVectInfos.begin(), AllVectInfos.end());
+  for (auto &S : AllVectInfos)
+    os << '{' << S << "},\n";
 
   os << "#else\n";
-  os << ssVPlan.str();
-  ssVPlan.clear();
-  ssVPlan.str("");
-
+  os << "{\n";
+  std::sort(VPlanMaskedFuncs.begin(), VPlanMaskedFuncs.end());
+  for (auto &S : VPlanMaskedFuncs)
+    os << '"' << S << '"' << ",\n";
+  os << "}\n";
   os << "#endif // IMPORT_VPLAN_MASKED_VARIANTS\n";
 }
 
