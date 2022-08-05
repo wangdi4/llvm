@@ -16,7 +16,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %bb8
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"target_parallel_do_simd_$I0.linear", i32 1), "QUAL.OMP.PRIVATE"(float* %temp27), "QUAL.OMP.PRIVATE"(float* %temp) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"target_parallel_do_simd_$I0.linear", i32 0, i32 1, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %temp27, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %temp, float 0.000000e+00, i32 1) ]
   br label %DIR.OMP.SIMD.11
 
 DIR.OMP.SIMD.11:                                  ; preds = %DIR.OMP.SIMD.1

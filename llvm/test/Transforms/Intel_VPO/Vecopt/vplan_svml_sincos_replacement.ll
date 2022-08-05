@@ -61,7 +61,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %6
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(float addrspace(1)* %uni1, float addrspace(1)* %uni2), "QUAL.OMP.PRIVATE"(float* %cosPtr), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %uni1, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %uni2, float zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %cosPtr, float 0.000000e+00, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -104,7 +104,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %6
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(float addrspace(1)* %uni1, float addrspace(1)* %uni2), "QUAL.OMP.PRIVATE"([2 x float]* %cosPtr), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %uni1, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %uni2, float zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"([2 x float]* %cosPtr, float zeroinitializer, i32 2), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region

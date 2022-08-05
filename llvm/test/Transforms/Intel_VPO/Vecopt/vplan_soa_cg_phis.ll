@@ -45,7 +45,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i64]* %arr.soa.priv64)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i64]* %arr.soa.priv64, i64 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
@@ -126,7 +126,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i64]* %arr.soa.priv64)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i64]* %arr.soa.priv64, i64 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
@@ -206,7 +206,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i64]* %arr.soa.priv64)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i64]* %arr.soa.priv64, i64 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
@@ -296,7 +296,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i64]* %arr.soa.priv64, [1024 x i64]* %arr.aos.priv64)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i64]* %arr.soa.priv64, i64 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i64]* %arr.aos.priv64, i64 0, i32 1024)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:

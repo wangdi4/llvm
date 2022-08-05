@@ -127,7 +127,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.soa.priv32) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.soa.priv32, i32 0, i32 1024) ]
   br label %simd.loop
 
 simd.loop:
