@@ -25,7 +25,9 @@ using namespace llvm;
 
 bool llvm::isSVMLCallingConv(CallingConv::ID CC) {
   return CC == CallingConv::SVML || CC == CallingConv::SVML_AVX ||
-         CC == CallingConv::SVML_AVX512 || CC == CallingConv::SVML_Unified ||
+         CC == CallingConv::SVML_AVX512 ||
+         CC == CallingConv::SVML_AVX_AVX_Impl ||
+         CC == CallingConv::SVML_Unified ||
          CC == CallingConv::SVML_Unified_256 ||
          CC == CallingConv::SVML_Unified_512;
 }

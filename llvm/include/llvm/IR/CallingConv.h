@@ -294,6 +294,15 @@ namespace CallingConv {
 
     /// Used for feature init functions in libirc.
     Intel_Features_Init = 111,
+    // An SVML function may be dispatched to different implementations using
+    // various ISAs. Calling an 256-bit SVML functions on an AVX-512 supported
+    // machine running 64-bit Linux may end up calling an implementation using
+    // AVX/AVX2 or AVX-512. In the former case, the implementation can't access,
+    // and thus won't touch YMM16-YMM31 registers. This calling convention treat
+    // these registers as callee-saved registers, and is used when we statically
+    // dispatch to an AVX/AVX2 implementation to save some register spills in
+    // the caller.
+    SVML_AVX_AVX_Impl = 112,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

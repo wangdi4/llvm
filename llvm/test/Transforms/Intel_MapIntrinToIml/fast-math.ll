@@ -83,7 +83,7 @@ entry:
 ; CHECK-LABEL: @test_widen_fmf
 ; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK:%.*]] = shufflevector <4 x i32> %B, <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call nnan afn svml_avx_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
+; CHECK: [[RESULT:%.*]] = call nnan afn svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
 ; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
 
@@ -96,7 +96,7 @@ entry:
 ; CHECK-LABEL: @test_widen_nofmf
 ; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK:%.*]] = shufflevector <4 x i32> %B, <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call svml_avx_cc <8 x float> @__svml_sinf8_ha_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
+; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_ha_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
 ; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
 

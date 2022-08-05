@@ -986,10 +986,17 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
                                              ArrayRef<Value *> Args,
                                              const Twine &Name) {
   CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
-  Optional<CallingConv::ID> UnifiedCC = getSVMLCallingConvByNameAndType(
-      cast<Function>(Callee.getCallee())->getName(), Callee.getFunctionType());
-  NewCI->setCallingConv(
-      getLegacyCSVMLCallingConvFromUnified(UnifiedCC.getValue()));
+  StringRef FunctionName = cast<Function>(Callee.getCallee())->getName();
+  Optional<CallingConv::ID> UnifiedCC =
+      getSVMLCallingConvByNameAndType(FunctionName, Callee.getFunctionType());
+  CallingConv::ID CC =
+      getLegacyCSVMLCallingConvFromUnified(UnifiedCC.getValue());
+  // Release YMM16-31 as callee-saved registers for 256-bit SVML function calls
+  // statically dispatched to AVX2 implementation.
+  if (CC == CallingConv::SVML_AVX &&
+      (FunctionName.endswith("_l9") || FunctionName.endswith("_e9")))
+    CC = CallingConv::SVML_AVX_AVX_Impl;
+  NewCI->setCallingConv(CC);
   return NewCI;
 }
 

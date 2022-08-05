@@ -162,6 +162,7 @@ enum Kind {
   kw_x86_regcallcc,
   kw_svml_cc,        // INTEL
   kw_svml_avx_cc,    // INTEL
+  kw_svml_avx_avx_impl_cc, // INTEL
   kw_svml_avx512_cc, // INTEL
   kw_svml_unified_cc,     // INTEL
   kw_svml_unified_cc_256, // INTEL
