@@ -1029,7 +1029,7 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
         continue;
       if (isa<SubscriptInst>(IntrInst)) {
         // Treat as GEP with non-zero indexes.
-        InlineCost += InlineConstants::InstrCost;
+        InlineCost += InlineConstants::getInstrCost();
         continue;
       }
       //

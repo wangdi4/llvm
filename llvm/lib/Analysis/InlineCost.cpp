@@ -846,7 +846,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         bool SeekingForgivable = CandidateCall.getCaller()->hasOptSize();
         if (SeekingForgivable && forgivableCondition(TI)) {
           FoundForgivable = true;
-          addCost(-InlineConstants::InstrCost);
+          addCost(-InlineConstants::getInstrCost());
         }
         else {
           if (!SubtractedBonus) {
