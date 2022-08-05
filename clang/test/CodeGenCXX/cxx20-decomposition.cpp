@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++20 -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -std=c++20 -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s
 
 struct S {
   int i;
