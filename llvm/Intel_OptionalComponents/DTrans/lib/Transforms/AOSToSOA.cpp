@@ -2748,55 +2748,58 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   // instruction, if one exists. If there are multiple allocations or an
   // unsupported allocation, map the type to 'nullptr'.
   DenseMap<dtrans::StructInfo *, Instruction *> TypeToAllocInstr;
-  for (auto *Call : DTInfo.call_info_entries()) {
-    auto *ACI = dyn_cast<dtrans::AllocCallInfo>(Call);
-    if (!ACI || !ACI->getAliasesToAggregateType())
-      continue;
+  for (auto CallVec : DTInfo.call_info_entries()) {
+    for (auto Call : CallVec ) {
+      auto *ACI = dyn_cast<dtrans::AllocCallInfo>(Call);
+      if (!ACI || !ACI->getAliasesToAggregateType())
+        continue;
 
-    // We do not support transforming any allocations that are not
-    // calloc/malloc. Invalidate the information for all types.
-    if (ACI->getAllocKind() != dtrans::AK_Calloc &&
-        ACI->getAllocKind() != dtrans::AK_Malloc) {
-      for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
-        auto *TI = DTInfo.getTypeInfo(AllocatedTy);
-        assert(TI && "TypeInfo not found. DTransInfo out of date?");
-        if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-          LLVM_DEBUG({
-            if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
-                          StInfo) != CandidateTypes.end() &&
-                (!TypeToAllocInstr.count(StInfo) ||
-                 TypeToAllocInstr[StInfo] != nullptr))
-              dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
-                        "allocation function: "
-                     << StructNamePrintHelper(AllocatedTy) << "\n"
-                     << "  " << *ACI->getInstruction() << "\n";
-          });
+      // We do not support transforming any allocations that are not
+      // calloc/malloc. Invalidate the information for all types.
+      if (ACI->getAllocKind() != dtrans::AK_Calloc &&
+          ACI->getAllocKind() != dtrans::AK_Malloc) {
+        for (auto *AllocatedTy :
+            ACI->getElementTypesRef().element_llvm_types()) {
+          auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+          assert(TI && "TypeInfo not found. DTransInfo out of date?");
+          if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+            LLVM_DEBUG({
+              if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
+                            StInfo) != CandidateTypes.end() &&
+                 (!TypeToAllocInstr.count(StInfo) ||
+                   TypeToAllocInstr[StInfo] != nullptr))
+                dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
+                          "allocation function: "
+                       << StructNamePrintHelper(AllocatedTy) << "\n"
+                       << "  " << *ACI->getInstruction() << "\n";
+            });
 
-          TypeToAllocInstr[StInfo] = nullptr;
+            TypeToAllocInstr[StInfo] = nullptr;
+          }
         }
+
+        continue;
       }
 
-      continue;
-    }
+      // For supported allocations, update the association between the type and
+      // allocating instruction.
+      for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
+        auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+        if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+          if (TypeToAllocInstr.count(StInfo)) {
+            LLVM_DEBUG({
+              if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
+                            StInfo) != CandidateTypes.end() &&
+                  TypeToAllocInstr[StInfo] != nullptr)
+                dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
+                       << StructNamePrintHelper(AllocatedTy) << "\n";
+            });
+            TypeToAllocInstr[StInfo] = nullptr;
+            continue;
+          }
 
-    // For supported allocations, update the association between the type and
-    // allocating instruction.
-    for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
-      auto *TI = DTInfo.getTypeInfo(AllocatedTy);
-      if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-        if (TypeToAllocInstr.count(StInfo)) {
-          LLVM_DEBUG({
-            if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
-                          StInfo) != CandidateTypes.end() &&
-                TypeToAllocInstr[StInfo] != nullptr)
-              dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << StructNamePrintHelper(AllocatedTy) << "\n";
-          });
-          TypeToAllocInstr[StInfo] = nullptr;
-          continue;
+          TypeToAllocInstr[StInfo] = ACI->getInstruction();
         }
-
-        TypeToAllocInstr[StInfo] = ACI->getInstruction();
       }
     }
   }

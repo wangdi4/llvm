@@ -93,6 +93,14 @@ public:
     return DTInfo.getCallInfo(I);
   }
 
+  const dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) const {
+    return DTInfo.getCallInfoVec(I);
+  }
+
+  dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) {
+    return DTInfo.getCallInfoVec(I);
+  }
+
   bool isReadOnlyFieldAccess(LoadInst *LI) const {
     return DTInfo.isReadOnlyFieldAccess(LI);
   }
@@ -249,6 +257,14 @@ public:
 
   dtrans::CallInfo *getCallInfo(const Instruction *I) const {
     return DTInfo.getCallInfo(I);
+  }
+
+  const dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) const {
+    return DTInfo.getCallInfoVec(I);
+  }
+
+  dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) {
+    return DTInfo.getCallInfoVec(I);
   }
 
   bool isReadOnlyFieldAccess(LoadInst *LI) const {

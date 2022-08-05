@@ -9173,22 +9173,25 @@ DTransAnalysisInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
 void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 
   std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind,
-                         const Instruction *, dtrans::CallInfo *>>
+                         const Instruction *, unsigned, dtrans::CallInfo *>>
       Entries;
 
   // To get some consistency in the printing order, populate a tuple
   // that can be sorted, then output the sorted list.
-  for (auto &Entry : call_info_entries()) {
-    Instruction *I = Entry->getInstruction();
-    Entries.push_back(std::make_tuple(I->getParent()->getParent()->getName(),
-                                      Entry->getCallInfoKind(), I, Entry));
-  }
+  for (auto CIVec : call_info_entries())
+    for (auto &E : enumerate(CIVec)) {
+      auto *CI = E.value();
+      Instruction *I = CI->getInstruction();
+      Entries.push_back(std::make_tuple(I->getFunction()->getName(),
+                                        CI->getCallInfoKind(), I, E.index(),
+                                        CI));
+    }
 
   std::sort(Entries.begin(), Entries.end());
   for (auto &Entry : Entries) {
     OS << "Function: " << std::get<0>(Entry) << "\n";
     OS << "Instruction: " << *std::get<2>(Entry) << "\n";
-    std::get<3>(Entry)->print(OS);
+    std::get<4>(Entry)->print(OS);
     OS << "\n";
   }
 }
