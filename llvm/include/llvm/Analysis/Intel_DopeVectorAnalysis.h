@@ -336,10 +336,9 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject,
+  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy = nullptr,
     std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
     DVObject(DVObject), GetTLI(GetTLI) {
-    Type* DVTy = nullptr;
     if (DVObject->getContext().supportsTypedPointers()) {
       assert(
         DVObject->getType()->isPointerTy() &&
@@ -351,16 +350,19 @@ public:
             ->getContainedType(6)
             ->isArrayTy() &&
         "Invalid type for dope vector object");
-      DVTy = DVObject->getType()->getPointerElementType();
+      if (!DVTy)
+        DVTy = DVObject->getType()->getPointerElementType();
     } else {
-      DVTy = inferPtrElementType(*DVObject);
+      if (!DVTy)
+        DVTy = inferPtrElementType(*DVObject);
       assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
-          DVTy->getContainedType(6)->isArrayTy() && "Invalid type for dope vector object");
+          DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() && 
+          "Invalid type for dope vector object");
     }
 
     // The rank of the dope vector can be determined by the array length of
     // array that is the last field of the dope vector.
-    Rank = DVTy->getContainedType(6)->getArrayNumElements();
+    Rank = DVTy->getContainedType(DV_PerDimensionArray)->getArrayNumElements();
 
     // Set as invalid, until analyzed.
     IsValid = false;

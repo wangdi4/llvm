@@ -522,6 +522,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
+  OpaquePointerTypeMapper OPTMapper(M);
 
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
@@ -542,7 +543,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
         // Find if Arg is a pointer to a dope vector.
         uint32_t ArRank;
         Type *ElemType;
-        Type *Ty = Arg.getType();
+        const Type *Ty = Arg.getType();
         if (!Ty->isPointerTy())
           continue;
         if (Ty->getContext().supportsTypedPointers()) {
@@ -550,7 +551,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
              continue;
         } else {
-          Ty = inferPtrElementType(Arg);
+          Ty = OPTMapper.getPointerElementType(&Arg);
           if (!Ty || !isDopeVectorType(Ty, DL, &ArRank, &ElemType))
             continue;
         }
@@ -569,7 +570,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           else
             dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
         });
-        DopeVectorAnalyzer DVAFormal(&Arg);
+        DopeVectorAnalyzer DVAFormal(&Arg, Ty);
         DVAFormal.analyze(false);
         bool IsValid = DVAFormal.getIsValid();
         LLVM_DEBUG(dbgs() << (IsValid ? "VALID" : "NOT VALID") << "\n");
@@ -644,7 +645,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
       });
 
-      DopeVectorAnalyzer DVALocal(AllocI, &GetTLI);
+      DopeVectorAnalyzer DVALocal(AllocI, Ty, &GetTLI);
       DVALocal.analyze(/*ForCreation*/ true, /*IsLocal*/ true);
       bool IsValid = DVALocal.getIsValid();
       LLVM_DEBUG(dbgs() << "    ANALYSIS RESULT: "
