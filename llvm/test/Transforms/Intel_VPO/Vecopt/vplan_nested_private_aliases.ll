@@ -31,7 +31,7 @@ entry:
 
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %private.src, i32* %private.dst), "QUAL.OMP.SIMDLEN"(i32 4) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %private.src, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %private.dst, i32 0, i32 1), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
@@ -69,7 +69,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %x, float** %y)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %x, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float** %y, float * null, i32 1)]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
@@ -101,7 +101,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %x)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %x, i32 0, i32 1)]
   br label %simd.loop
 
 simd.loop:

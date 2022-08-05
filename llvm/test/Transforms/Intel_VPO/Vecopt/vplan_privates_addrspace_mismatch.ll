@@ -72,7 +72,7 @@ DIR.OMP.SIMD.4:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.5
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(float addrspace(4)* %xtmp.ascast.priv.ascast) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(float addrspace(4)* %xtmp.ascast.priv.ascast, float 0.000000e+00, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body

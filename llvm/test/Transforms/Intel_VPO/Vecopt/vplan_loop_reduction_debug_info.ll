@@ -294,7 +294,7 @@ DIR.OMP.SIMD.120:
   br label %DIR.OMP.SIMD.1, !dbg !112
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.120
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ], !dbg !113
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !113
   br label %DIR.OMP.SIMD.2, !dbg !113
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
