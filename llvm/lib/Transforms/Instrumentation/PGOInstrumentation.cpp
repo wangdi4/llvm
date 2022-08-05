@@ -1735,6 +1735,8 @@ static bool InstrumentAllFunctions(
       continue;
     if (F.hasFnAttribute(llvm::Attribute::NoProfile))
       continue;
+    if (F.hasFnAttribute(llvm::Attribute::SkipProfile))
+      continue;
     auto &TLI = LookupTLI(F);
     auto *BPI = LookupBPI(F);
     auto *BFI = LookupBFI(F);

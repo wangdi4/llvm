@@ -1346,10 +1346,14 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::NoCfCheck:
       case Attribute::MustProgress:
       case Attribute::NoProfile:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case Attribute::AlwaysInlineRecursive:
       case Attribute::InlineHintRecursive:
 #endif // INTEL_CUSTOMIZATION
+=======
+      case Attribute::SkipProfile:
+>>>>>>> 12e78ff88105f2dc6cb1449d6fcd5d8f69e0512f
         break;
       // These attributes cannot be applied to functions.
       case Attribute::Alignment:
