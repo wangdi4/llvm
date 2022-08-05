@@ -212,10 +212,10 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     Type* ParmType = *ParmIt;
     if (VKIt->isVector()) {
-      if (ParmType->isIntegerTy(1)) {
-        // Promote an `i1` argument to `i8` to avoid a GEP into `<VF x i1>` when
-        // accessing elements.
-        ParmType = Type::getInt8Ty(ParmType->getContext());
+      if (ParmType->isIntOrIntVectorTy(1)) {
+        // Promote an `i1` or `<N x i1>` argument to `i8` or `<N x i8>` to
+        // avoid a GEP into `<VF x i1>` when accessing elements.
+        ParmType = ParmType->getWithNewBitWidth(8);
       }
       unsigned VF = V.getVlen();
       if (auto *FVT = dyn_cast<FixedVectorType>(ParmType))
@@ -410,10 +410,10 @@ void VecCloneImpl::updateVectorArgumentUses(
 
     Value *ArgValue = ArgElemLoad;
     Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
-    if (OrigArgTy->isIntegerTy(1)) {
-      // If the original arg type was `i1`, we need truncate the value back to
-      // its original type after loads.
-      assert(ElemType->isIntegerTy(8) &&
+    if (OrigArgTy->isIntOrIntVectorTy(1)) {
+      // If the original arg type was `i1` or `<N x i1>`, we need truncate the
+      // value back to its original type after loads.
+      assert(ElemType->isIntOrIntVectorTy(8) &&
              "expected element type to be promoted to i8 from i1");
       TruncInst *TruncatedLoad = new TruncInst(
           ArgElemLoad, OrigArgTy, ArgElemLoad->getName() + ".trunc");
@@ -498,13 +498,13 @@ Instruction *VecCloneImpl::widenVectorArguments(
     if (!OrigArgTy) {
       // If the argument is a mask, it does not exist in VMap.
       ElemType = VecType->getElementType();
-    } else if (OrigArgTy->isIntegerTy(1)) {
+    } else if (OrigArgTy->isIntOrIntVectorTy(1)) {
       // If the original argument type was `i1`, then we promoted it to an
       // `i8`. Use `i8` as the element type instead, to avoid a GEP into a
       // `<VF x i1>` when updating the argument's uses.
       assert(VecType->getElementType()->isIntegerTy(8) &&
              "expected element type to be promoted to i8 from i1");
-      ElemType = VecType->getElementType();
+      ElemType = OrigArgTy->getWithNewBitWidth(8);
     } else {
       ElemType = OrigArgTy;
     }
