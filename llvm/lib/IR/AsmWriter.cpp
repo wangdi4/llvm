@@ -344,6 +344,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::Intel_OCL_BI_AVX512: Out << "intel_ocl_bicc_avx512"; break;
   case CallingConv::SVML:          Out << "svml_cc"; break;
   case CallingConv::SVML_AVX:      Out << "svml_avx_cc"; break;
+  case CallingConv::SVML_AVX_AVX_Impl: Out << "svml_avx_avx_impl_cc"; break;
   case CallingConv::SVML_AVX512:   Out << "svml_avx512_cc"; break;
   case CallingConv::SVML_Unified:  Out << "svml_unified_cc"; break;
   case CallingConv::SVML_Unified_256: Out << "svml_unified_cc_256"; break;

@@ -65,7 +65,7 @@ for.end:                                          ; preds = %vector.body
 
 ; CHECK-LABEL: @vector_foo_static_avx
 ; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_g9(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8_e9(
+; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_e9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -95,7 +95,7 @@ for.end:                                          ; preds = %vector.body
 
 ; CHECK-LABEL: @vector_foo_static_avx2
 ; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_s9(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8_l9(
+; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_l9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -125,7 +125,7 @@ for.end:                                          ; preds = %vector.body
 
 ; CHECK-LABEL: @vector_foo_static_avx512
 ; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_s9(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8_l9(
+; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_l9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable

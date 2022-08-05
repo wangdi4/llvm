@@ -632,6 +632,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(intel_ocl_bicc_avx512);
   KEYWORD(svml_cc);
   KEYWORD(svml_avx_cc);
+  KEYWORD(svml_avx_avx_impl_cc);
   KEYWORD(svml_avx512_cc);
   KEYWORD(svml_unified_cc);
   KEYWORD(svml_unified_cc_256);

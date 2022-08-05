@@ -580,6 +580,7 @@ def RetCC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX_AVX_Impl", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<RetCC_SVML>>,
@@ -1395,6 +1396,7 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX_AVX_Impl", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<CC_SVML>>,
@@ -1540,21 +1542,18 @@ def CSR_Win64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
                                             (sequence "ZMM%u", 6, 21))>;
 def CSR_Lin64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
                                      (sequence "XMM%u", 8, 15))>;
-// FIXME: The assumption that 256-bit SVML functions preserve YMM16-31 and K4-7
-// is not correct. It breaks if the SVML function dispatches to an AVX512
-// implementation. But putting this constraint induces serious performance
-// regression since we're operating on YMM pervasively in many benchmarks. We
-// know the vast majority of SVML functions will just dispatch to an AVX2
-// implementation when using 256-bit variant, so we just assume that and will
-// fix it after static dispatch is available.
 // TODO: For now, as a workaround for CMPLRLLVM-28381, We remove K4~K7 from CSRs
 // since callee assumes lower 16-bits are preserved while K regs are 64-bits if
 // they are listed in CSRs. In the future, we will put lower-16-bits of K4~K7 in
 // CSRs instead of full-64bits K4~K7.
 def CSR_Lin64_SVML_AVX : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14,
                                          R15,
-                                         (sequence "XMM%u", 8, 31),
-                                         (sequence "YMM%u", 8, 31))>;
+                                         (sequence "XMM%u", 8, 15),
+                                         (sequence "YMM%u", 8, 15))>;
+def CSR_Lin64_SVML_AVX_AVX_Impl : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12,
+                                                   R13, R14, R15,
+                                                   (sequence "XMM%u", 8, 31),
+                                                   (sequence "YMM%u", 8, 31))>;
 // TODO: For now, as a workaround for CMPLRLLVM-28381, We remove K4~K7 from CSRs
 // since callee assumes lower 16-bits are preserved while K regs are 64-bits if
 // they are listed in CSRs. In the future, we will put lower-16-bits of K4~K7 in

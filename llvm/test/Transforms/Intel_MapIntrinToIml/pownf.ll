@@ -6,7 +6,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @vector_pownf
-; CHECK: call svml_avx_cc <8 x float> @__svml_pownf8_ha_l9
+; CHECK: call svml_avx_avx_impl_cc <8 x float> @__svml_pownf8_ha_l9
 ; CHECK: ret
 define void @vector_pownf(float* nocapture %array, float* noalias nocapture readonly %array2, i32* noalias nocapture readonly %array3) #0 {
 entry:
@@ -33,7 +33,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_pown
-; CHECK: call svml_avx_cc <4 x double> @__svml_pown4_ha_l9
+; CHECK: call svml_avx_avx_impl_cc <4 x double> @__svml_pown4_ha_l9
 ; CHECK: ret
 define void @vector_pown(double* nocapture %array, double* noalias nocapture readonly %array2, i32* noalias nocapture readonly %array3) #0 {
 entry:

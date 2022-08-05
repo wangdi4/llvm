@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @test_sinf4
 ; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_sinf8_l9(<8 x float> [[ARG]])
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_l9(<8 x float> [[ARG]])
 ; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
 
@@ -21,7 +21,7 @@ entry:
 ; CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %b to <4 x i32>
 ; CHECK: [[DIVIDEND_WIDEN:%.*]] = shufflevector <4 x i32> [[DIVIDEND]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[DIVISOR_WIDEN:%.*]] = shufflevector <4 x i32> [[DIVISOR]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[QUOTIENT:%.*]] = call svml_avx_cc <8 x i32> @__svml_idiv8_l9(<8 x i32> [[DIVIDEND_WIDEN]], <8 x i32> [[DIVISOR_WIDEN]])
+; CHECK: [[QUOTIENT:%.*]] = call svml_avx_avx_impl_cc <8 x i32> @__svml_idiv8_l9(<8 x i32> [[DIVIDEND_WIDEN]], <8 x i32> [[DIVISOR_WIDEN]])
 ; CHECK: [[QUOTIENT_EXTRACT:%.*]] = shufflevector <8 x i32> [[QUOTIENT]], <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <4 x i32> [[QUOTIENT_EXTRACT]] to <2 x i64>
 ; CHECK: ret <2 x i64> [[QUOTIENT_CAST]]
@@ -38,7 +38,7 @@ entry:
 ; CHECK-LABEL: @test_sinf4_mask
 ; CHECK: [[ARG:%.*]] = shufflevector <4 x float> %A, <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK:%.*]] = shufflevector <4 x i32> %B, <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> [[ARG]], <8 x i32> [[MASK]])
 ; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <8 x float> [[RESULT]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: ret <4 x float> [[RESULT_EXTRACT]]
 
