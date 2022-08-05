@@ -65,11 +65,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
-=======
 #include <climits>
->>>>>>> 26dd42705c2af0b8f6e5d6cdb32c9bd5ed9524eb
 #include <limits>
 
 using namespace llvm;
