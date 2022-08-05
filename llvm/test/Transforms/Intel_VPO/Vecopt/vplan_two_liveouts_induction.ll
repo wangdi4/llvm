@@ -78,7 +78,7 @@ define void @foo() {
 ; CHECK-NEXT:      Live-Out:   [[STOREMERGE100]] = phi i32 [ [[ADD30]], [[OMP_INNER_FOR_INC0]] ], [ 0, [[ENTRY0]] ]
 ;
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* @arr), "QUAL.OMP.LASTPRIVATE"(i32* @i) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* @arr, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* @i, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %entry

@@ -60,7 +60,7 @@ entry:
   br label %for.ph
 
 for.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX"(float* %max.red) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %max.red, float zeroinitializer, i32 1) ]
   %max.red.promoted = load float, float* %max.red, align 4
   br label %for.body
 

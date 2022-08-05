@@ -55,7 +55,7 @@ DIR.OMP.END.TASKLOOP.8.exitStub:                  ; preds = %DIR.OMP.SIMD.4, %DI
   ret void
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %zii.red.cast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %zii.red.cast, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph

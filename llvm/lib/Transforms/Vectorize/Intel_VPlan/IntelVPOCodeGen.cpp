@@ -2505,7 +2505,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
       if (VecVariant) {
         // If this is a generated vector variant, we need to check if we had an
-        // `i1` param that we promoted to `i8`. If so, we zero extend the value.
+        // `i1` or `<N x i1>` param that we promoted to `i8`. If so, zero
+        // extend the value, so that users observe the correct type.
         VectorType *VecArgTy = cast<VectorType>(VecArg->getType());
         if (VecArgTy->getElementType()->isIntegerTy(1)) {
           Type *PromotedTy = VecArgTy->getWithNewBitWidth(8);

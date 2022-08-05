@@ -128,7 +128,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.118, label %omp.precond.end
 
 DIR.OMP.SIMD.118:                                 ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(i64* %i, i32 1), "QUAL.OMP.LINEAR"(i64* %j, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %i, i64 0, i32 1, i32 1), "QUAL.OMP.LINEAR:TYPED"(i64* %j, i64 0, i32 1, i32 1) ]
   %cmp622 = icmp sgt i64 %m, 0
   br label %omp.inner.for.body
 
