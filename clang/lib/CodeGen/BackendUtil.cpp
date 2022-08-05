@@ -1240,6 +1240,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   PTO.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
 #if INTEL_CUSTOMIZATION
   PTO.DisableIntelProprietaryOpts = CodeGenOpts.DisableIntelProprietaryOpts;
+  PTO.EnableAutoCPUDispatch = !TargetOpts.AutoMultiVersionTargets.empty();
 #endif // INTEL_CUSTOMIZATION
 
   LoopAnalysisManager LAM;
@@ -1386,17 +1387,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [Options](ModulePassManager &MPM, OptimizationLevel Level) {
             MPM.addPass(InstrProfiling(*Options, false));
           });
-
-#if INTEL_CUSTOMIZATION
-    // Multiversion functions marked for auto cpu dispatching.
-    if (!TargetOpts.AutoMultiVersionTargets.empty() &&
-        CodeGenOpts.OptimizationLevel > 1) {
-      PB.registerPipelineStartEPCallback(
-          [](ModulePassManager &MPM, OptimizationLevel Level) {
-            MPM.addPass(AutoCPUClonePass());
-          });
-    }
-#endif // INTEL_CUSTOMIZATION
 
     if (CodeGenOpts.OptimizationLevel == 0) {
       MPM = PB.buildO0DefaultPipeline(Level, IsLTO || IsThinLTO);

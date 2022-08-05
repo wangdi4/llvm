@@ -85,6 +85,7 @@
 #include "llvm/Transforms/IPO/Intel_AggInliner.h"
 #include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h"
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h"
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
@@ -410,6 +411,11 @@ static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
   cl::init(true), cl::ReallyHidden,
   cl::desc("Enable Function Multi-versioning in the new PM"));
 
+// Enable Auto Cpu Dispatch.
+static cl::opt<bool> EnableAX("enable-ax",
+  cl::init(false), cl::ReallyHidden,
+  cl::desc("Enable Auto CPU Dispatch"));
+
 // Enable whole program analysis
 static cl::opt<bool> EnableWPA("enable-npm-whole-program-analysis",
   cl::init(true), cl::ReallyHidden,
@@ -465,6 +471,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   MergeFunctions = EnableMergeFunctions;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
   DisableIntelProprietaryOpts = false; // INTEL
+  EnableAutoCPUDispatch = EnableAX; // INTEL
 }
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> ConvertToSubs;
@@ -2410,6 +2417,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   }
 
 #if INTEL_CUSTOMIZATION
+  if (!PTO.DisableIntelProprietaryOpts && PTO.EnableAutoCPUDispatch &&
+      Level.getSpeedupLevel() > 1)
+    MPM.addPass(AutoCPUClonePass());
+
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());

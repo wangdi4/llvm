@@ -105,6 +105,8 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Disable Intel proprietary optimizations.
   bool DisableIntelProprietaryOpts;
+  /// Enable Auto CPU Dispatch transformation.
+  bool EnableAutoCPUDispatch;
 #endif // INTEL_CUSTOMIZATION
 };
 
