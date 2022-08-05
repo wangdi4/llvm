@@ -198,13 +198,23 @@ public:
   std::pair<dtrans::StructInfo *, uint64_t> getInfoFromLoad(LoadInst *Load);
 
   // A helper routine to retrieve structure type - field index pair from a
-// GEPOperator.
+  // GEPOperator.
   std::pair<llvm::StructType *, uint64_t> getStructField(GEPOperator *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
   dtrans::CallInfo *getCallInfo(const Instruction *I) const {
     return CIM.getCallInfo(I);
+  }
+
+  // Retrieve the CallInfoVec object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  const dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) const {
+    return CIM.getCallInfoVec(I);
+  }
+
+  dtrans::CallInfoVec *getCallInfoVec(const Instruction *I) {
+    return CIM.getCallInfoVec(I);
   }
 
   // Create an entry in the CallInfoMap about a memory allocation call.
@@ -236,6 +246,9 @@ public:
 
   // Destroy the CallInfo stored about the specific instruction.
   void deleteCallInfo(Instruction *I) { CIM.deleteCallInfo(I); }
+
+  // Destroy the CallInfoVec stored about the specific instruction.
+  void deleteCallInfoVec(Instruction *I) { CIM.deleteCallInfoVec(I); }
 
   // Update the instruction associated with the CallInfo object. This
   // is necessary because when a function is cloned during the DTrans

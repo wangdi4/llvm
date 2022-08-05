@@ -8293,22 +8293,25 @@ void DTransSafetyInfo::printCallInfo() {
   // that can be sorted, then output the sorted list.
   // Sort order is: Function name, CallInfoKind, Instruction
   std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind, std::string,
-                         dtrans::CallInfo *>>
+                         unsigned, dtrans::CallInfo *>>
       Entries;
 
-  for (auto *CI : call_info_entries()) {
-    Instruction *I = CI->getInstruction();
-    std::string InstStr;
-    raw_string_ostream Stream(InstStr);
-    I->printAsOperand(Stream);
-    Stream.flush();
-    Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
-                                         CI->getCallInfoKind(), InstStr, CI));
-  }
+  for (auto CIVec : call_info_entries())
+    for (auto &E : enumerate(CIVec)) {
+      auto *CI = E.value();
+      Instruction *I = CI->getInstruction();
+      std::string InstStr;
+      raw_string_ostream Stream(InstStr);
+      I->printAsOperand(Stream);
+      Stream.flush();
+      Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
+                                           CI->getCallInfoKind(), InstStr,
+                                           E.index(), CI));
+    }
 
   std::sort(Entries.begin(), Entries.end());
   for (auto &Entry : Entries) {
-    dtrans::CallInfo *CI = std::get<3>(Entry);
+    dtrans::CallInfo *CI = std::get<4>(Entry);
     Instruction *I = CI->getInstruction();
     dbgs() << "Function: " << I->getFunction()->getName() << "\n";
     dbgs() << "Instruction: " << *I << "\n";

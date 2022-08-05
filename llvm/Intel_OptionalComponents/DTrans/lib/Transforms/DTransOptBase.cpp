@@ -721,10 +721,11 @@ void DTransOptBase::initializeFunctionCallInfoMapping() {
 
   resetFunctionCallInfoMapping();
 
-  for (auto *CInfo : DTInfo->call_info_entries()) {
-    Function *F = CInfo->getInstruction()->getParent()->getParent();
-    FunctionToCallInfoVec[F].push_back(CInfo);
-  }
+  for (auto CInfoVec : DTInfo->call_info_entries())
+    for (auto CInfo : CInfoVec) {
+      Function *F = CInfo->getInstruction()->getParent()->getParent();
+      FunctionToCallInfoVec[F].push_back(CInfo);
+    }
 }
 
 // This function is used to update the CallInfo objects associated

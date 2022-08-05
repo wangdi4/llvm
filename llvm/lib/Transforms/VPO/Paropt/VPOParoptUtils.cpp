@@ -36,27 +36,27 @@
 ///
 //==------------------------------------------------------------------------==//
 
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeSize.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <string>
 
 #if INTEL_CUSTOMIZATION
@@ -824,8 +824,7 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
     Type *PrefetchPtrTy = Type::getIntNPtrTy(C, ElementSize, AS);
 
     IRBuilder<> Builder(InsertPt);
-    Value *ElemOffset =
-        Builder.CreateSExtOrTrunc(DI->getNumElements(), ElemOffsetTy);
+    Value *ElemOffset = ConstantInt::get(ElemOffsetTy, 0);
     Value *PrefetchPtr =
         Builder.CreatePointerBitCastOrAddrSpaceCast(V, PrefetchPtrTy);
     Value *CacheHint = Builder.CreateSExtOrTrunc(

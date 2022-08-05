@@ -10,7 +10,7 @@
 ; void foo(int *ptr, int a[], __float128 b[], double c[], int n, int cond) {
 ; #pragma omp target teams distribute parallel for
 ;   for (int i = 0; i < 1024; i++) {
-; // New syntax: #pragma ompx prefetch data(1 : a [i:8]) data(2 : b [i:99]) data(3 : c [i:n]) if (i % 32 == 0)
+; // New syntax: #pragma ompx prefetch data(1 : a [i:32]) data(2 : b [i:99]) data(3 : c [i:n]) if (i % 32 == 0)
 ; #pragma omp prefetch data(&a[i] : 1 : 32) data(&b[i] : 2 : 99) data(&c[i] : 3 : 20) if (i % 32 == 0)
 ;     ptr[i] = sinf(a[i]);
 ;   }
@@ -29,9 +29,9 @@
 ; Check prefetch code generation that uses LSC built-in prefetch API
 ; LSCPREFETCH: warning: {{.*}} A 'data' clause in the 'prefetch' construct was ignored. SPIRV LSC prefetch API doesn't support its element type: fp128.
 ; LSCPREFETCH: [[LSC_PTR1:%[A-Za-z0-9_.]+]] = bitcast i32 addrspace(4)* addrspace(4)* %.tmp.prefetch.ascast to i32 addrspace(4)*
-; LSCPREFETCH-NEXT: call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* [[LSC_PTR1]], i32 32, i32 1)
+; LSCPREFETCH-NEXT: call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* [[LSC_PTR1]], i32 0, i32 1)
 ; LSCPREFETCH-NEXT: [[LSC_PTR2:%[A-Za-z0-9_.]+]] = bitcast double addrspace(4)* addrspace(4)* %.tmp.prefetch4.ascast to i64 addrspace(4)*
-; LSCPREFETCH-NEXT: call spir_func void @__builtin_IB_lsc_prefetch_global_ulong(i64 addrspace(4)* [[LSC_PTR2]], i32 %n, i32 3)
+; LSCPREFETCH-NEXT: call spir_func void @__builtin_IB_lsc_prefetch_global_ulong(i64 addrspace(4)* [[LSC_PTR2]], i32 0, i32 3)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
