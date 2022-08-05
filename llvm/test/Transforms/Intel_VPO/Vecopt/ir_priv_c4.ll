@@ -78,7 +78,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i64* %ret.lpriv), "QUAL.OMP.LINEAR:IV"(i64* %l1.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

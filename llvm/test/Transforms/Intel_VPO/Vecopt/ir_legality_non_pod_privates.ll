@@ -45,7 +45,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%struct.point2d* %myPoint2.priv, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.point2d* %myPoint2.priv, %struct.point2d zeroinitializer, i32 1, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

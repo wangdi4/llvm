@@ -79,7 +79,7 @@ entry:
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
   %conv.i = trunc i32 %3 to i8
-  %6 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %p0.addr.i), "QUAL.OMP.REDUCTION.ADD"(i32* %p1.addr.i), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %6 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p0.addr.i, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p1.addr.i, i32 0, i32 1) ]
   %7 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 3), align 4, !tbaa !7
   %p0.addr.i.promoted = load i32, i32* %p0.addr.i, align 4, !tbaa !7
   %p1.addr.i.promoted = load i32, i32* %p1.addr.i, align 4, !tbaa !7
