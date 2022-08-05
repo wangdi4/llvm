@@ -65,7 +65,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
+=======
+#include <climits>
+>>>>>>> 26dd42705c2af0b8f6e5d6cdb32c9bd5ed9524eb
 #include <limits>
 
 using namespace llvm;
@@ -614,7 +618,6 @@ int64_t getExpectedNumberOfCompare(int NumCaseCluster) {
 /// FIXME: if it is necessary to derive from InlineCostCallAnalyzer, note
 /// the FIXME in onLoweredCall, when instantiating an InlineCostCallAnalyzer
 class InlineCostCallAnalyzer final : public CallAnalyzer {
-  const int CostUpperBound = INT_MAX - InlineConstants::InstrCost - 1;
   const bool ComputeFullInlineCost;
   int LoadEliminationCost = 0;
   /// Bonus to be applied when percentage of vector instructions in callee is
@@ -689,9 +692,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
                                         BlockFrequencyInfo *CallerBFI);
 
   /// Handle a capped 'int' increment for Cost.
-  void addCost(int64_t Inc, int64_t UpperBound = INT_MAX) {
-    assert(UpperBound > 0 && UpperBound <= INT_MAX && "invalid upper bound");
-    Cost = std::min<int>(UpperBound, Cost + Inc);
+  void addCost(int64_t Inc) {
+    Inc = std::max<int64_t>(std::min<int64_t>(INT_MAX, Inc), INT_MIN);
+    Cost = std::max<int64_t>(std::min<int64_t>(INT_MAX, Inc + Cost), INT_MIN);
   }
 
   void onDisableSROA(AllocaInst *Arg) override {
@@ -775,7 +778,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
           static_cast<int64_t>(JumpTableSize) * InlineConstants::InstrCost +
           4 * InlineConstants::InstrCost;
 
-      addCost(JTCost, static_cast<int64_t>(CostUpperBound));
+      addCost(JTCost);
       return;
     }
 
@@ -790,7 +793,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     int64_t SwitchCost =
         ExpectedNumberOfCompare * 2 * InlineConstants::InstrCost;
 
-    addCost(SwitchCost, static_cast<int64_t>(CostUpperBound));
+    addCost(SwitchCost);
   }
   void onMissedSimplification() override {
     addCost(InlineConstants::InstrCost);
