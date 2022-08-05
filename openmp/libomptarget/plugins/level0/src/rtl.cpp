@@ -118,7 +118,8 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #else // _WIN32
 #define LEVEL0_KERNEL_BEGIN(ID)                                                \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       DeviceInfo->Mutexes[ID].lock();                                          \
       DeviceInfo->NumActiveKernels[ID]++;                                      \
       DeviceInfo->Mutexes[ID].unlock();                                        \
@@ -127,7 +128,8 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 
 #define LEVEL0_KERNEL_END(ID)                                                  \
   do {                                                                         \
-    if (DeviceInfo->Option.KernelDynamicMemorySize > 0) {                      \
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0 &&                      \
+        DeviceInfo->Option.KernelDynamicMemoryMethod == 0) {                   \
       DeviceInfo->Mutexes[ID].lock();                                          \
       DeviceInfo->NumActiveKernels[ID]--;                                      \
       if (DeviceInfo->NumActiveKernels[ID] == 0)                               \
