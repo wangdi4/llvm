@@ -19091,7 +19091,6 @@ bool Sema::tryCaptureVariable(
       !(LangOpts.OpenMP && isOpenMPCapturedDecl(Var, /*CheckScopeInfo=*/true,
                                                 MaxFunctionScopesIndex)))
     return true;
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
   // Don't capture certain variables in target regions so they can be
@@ -19100,11 +19099,7 @@ bool Sema::tryCaptureVariable(
     return true;
 #endif // INTEL_COLLAB
 
-  if (isa<VarDecl>(Var))
-    Var = cast<VarDecl>(Var->getCanonicalDecl());
-=======
   Var = Var->getCanonicalDecl();
->>>>>>> 54ee055952ee0ee01d418aa13fd53057487477ca
 
   // Walk up the stack to determine whether we can capture the variable,
   // performing the "simple" checks that don't depend on type. We stop when
