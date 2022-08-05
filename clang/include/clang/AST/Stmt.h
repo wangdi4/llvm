@@ -76,6 +76,7 @@ class RecordDecl;
 class SourceManager;
 class StringLiteral;
 class Token;
+class ValueDecl;
 class VarDecl;
 
 //===----------------------------------------------------------------------===//
