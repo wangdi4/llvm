@@ -77,7 +77,7 @@ foreach bi = [iselect_v1widen, iselect_v1widen_mask, uselect_v1widen, uselect_v1
   def : OclBuiltinImpl<bi, bi.Types, /*isDeclOnly*/false, [{
     $Arg2igentype _c = __builtin_astype($Arg2VarName, $Arg2igentype);
     // Check zero-ness, each element of the result is either -1 (all bits set) or 0.
-    _c = _c == ($Arg2igentype)0;
+    _c = _c != ($Arg2igentype)0;
     return bitselect($Arg0VarName, $Arg1VarName, __builtin_astype(_c, $Arg0Type));
   }]>, SHARED;
 }

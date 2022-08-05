@@ -19,6 +19,7 @@ T tmain(T argc) {
   // check-same: QUAL.OMP.IF should this be here? See 2.14
   // CHECK-SAME: QUAL.OMP.DEFAULT.SHARED
   // check-same: QUAL.OMP.REDUCTION.ADD should this be here? See 2.14
+  // CHECK-NOT: QUAL.OMP.INREDUCTION.ADD
   // CHECK: DIR.OMP.MASKED
   // CHECK-SAME: QUAL.OMP.FILTER
   // CHECK-NEXT: fence acquire

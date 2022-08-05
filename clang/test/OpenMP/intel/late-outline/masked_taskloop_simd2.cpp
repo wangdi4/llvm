@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
   // CHECK-SAME: QUAL.OMP.LINEAR
   // CHECK-SAME: QUAL.OMP.ALIGNED
   // CHECK-SAME: QUAL.OMP.REDUCTION.MUL
+  // CHECK-NOT: QUAL.OMP.REDUCTION.MUL
   // CHECK: DIR.OMP.END.SIMD
   // CHECK: DIR.OMP.END.TASKLOOP
   // CHECK: DIR.OMP.END.TASKGROUP
@@ -68,6 +69,7 @@ int main(int argc, char **argv) {
   // Should be here once we switch to OpenMP5.0 (allows if on simd)
   // CHECK-NOT: DIR.OMP.SIMD
   // CHECK-SAME: QUAL.OMP.SIMDLEN
+  // CHECK-NOT: QUAL.OMP.INREDUCTION
   // CHECK: DIR.OMP.END.SIMD
   // CHECK: DIR.OMP.END.TASKLOOP
   // CHECK: DIR.OMP.END.TASKGROUP

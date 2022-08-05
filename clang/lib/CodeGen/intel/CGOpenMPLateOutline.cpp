@@ -923,6 +923,8 @@ bool OpenMPLateOutliner::isAllowedClauseForDirectiveFull(
         return true;
       if (DKind == OMPD_taskloop && ICK == ICK_inreduction)
         return true;
+      if (ICK == ICK_inreduction)
+        return false;
     }
     if (DKind == OMPD_target) {
       // Prevent reduction on target which is being allowed by
