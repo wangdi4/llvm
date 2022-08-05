@@ -1076,6 +1076,7 @@ parseStackLifetimeOptions(StringRef Params) {
   return Result;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 Expected<bool> parseVPlanDriverHIROptions(StringRef Params) {
   bool Result = false;
@@ -1097,6 +1098,12 @@ Expected<bool> parseVPlanDriverHIROptions(StringRef Params) {
   return Result;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+Expected<bool> parseDependenceAnalysisPrinterOptions(StringRef Params) {
+  return parseSinglePassOption(Params, "normalized-results",
+                               "DependenceAnalysisPrinter");
+}
+>>>>>>> 76be5549318a9e5aa3bdc2b3e0ae8ed5a16bfe59
 
 } // namespace
 
