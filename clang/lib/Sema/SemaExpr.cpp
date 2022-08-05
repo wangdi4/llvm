@@ -19143,7 +19143,6 @@ bool Sema::tryCaptureVariable(
                                                 MaxFunctionScopesIndex)))
     return true;
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Don't capture certain variables in target regions so they can be
   // treated as firstprivate.
@@ -19151,11 +19150,8 @@ bool Sema::tryCaptureVariable(
     return true;
 #endif // INTEL_COLLAB
 
-  Var = Var->getCanonicalDecl();
-=======
   if (isa<VarDecl>(Var))
     Var = cast<VarDecl>(Var->getCanonicalDecl());
->>>>>>> f4917cd39859184bf34ffeeb50b6d4d7a1ca1326
 
   // Walk up the stack to determine whether we can capture the variable,
   // performing the "simple" checks that don't depend on type. We stop when
