@@ -10732,6 +10732,11 @@ static bool MaybeElementDependentArrayFiller(const Expr *FillerExpr) {
       if (MaybeElementDependentArrayFiller(ILE->getInit(I)))
         return true;
     }
+
+    if (ILE->hasArrayFiller() &&
+        MaybeElementDependentArrayFiller(ILE->getArrayFiller()))
+      return true;
+
     return false;
   }
   return true;
