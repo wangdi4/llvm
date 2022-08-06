@@ -30,6 +30,11 @@ void __assert_fail(const char *assertion, const char *file, unsigned line,
   __builtin_trap();
 }
 
+// INTEL_CUSTOMIZATION
+// Revert "[OpenMP][DeviceRTL] Implement libc function `memcmp`" temporarily.
+// The commit from community will cause xmain-web build fail.
+// end INTEL_CUSTOMIZATION
+
 namespace impl {
 int32_t omp_vprintf(const char *Format, void *Arguments, uint32_t);
 }
