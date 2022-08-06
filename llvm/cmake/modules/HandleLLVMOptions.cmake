@@ -1380,7 +1380,6 @@ if(LLVM_USE_RELATIVE_PATHS_IN_FILES)
   append_if(SUPPORTS_FFILE_PREFIX_MAP "-ffile-prefix-map=${source_root}/=${LLVM_SOURCE_PREFIX}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
 endif()
-<<<<<<< HEAD
 
 if(INTEL_CUSTOMIZATION)
   option(INTEL_SDL_BUILD
@@ -1628,13 +1627,3 @@ if(INTEL_CUSTOMIZATION)
     message(STATUS "INTEL: setting SDL options - end.")
   endif()
 endif(INTEL_CUSTOMIZATION)
-
-if(LLVM_INCLUDE_TESTS)
-  # Lit test suite requires at least python 3.6
-  set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
-else()
-  # FIXME: it is unknown if this is the actual minimum bound
-  set(LLVM_MINIMUM_PYTHON_VERSION 3.0)
-endif()
-=======
->>>>>>> 45c056b1fb5a9bc797e935b160aa07bf53764a3a
