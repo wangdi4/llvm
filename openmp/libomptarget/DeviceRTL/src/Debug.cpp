@@ -31,9 +31,10 @@ void __assert_fail(const char *assertion, const char *file, unsigned line,
 }
 
 // INTEL_CUSTOMIZATION
-// Revert "[OpenMP][DeviceRTL] Implement libc function `memcmp`" and "[OpenMP]
+// Revert "[OpenMP][DeviceRTL] Implement libc function `memcmp`", "[OpenMP]
 // Fix the test case issue that printf cannot be used in target region for
-// AMDGPU" temporarily. The commit from community will cause xmain-web build fail.
+// AMDGPU" and "[NFC] Fix wrong header in `LibC.cpp`" temporarily. The commit
+// from community will cause xmain-web build fail.
 // end INTEL_CUSTOMIZATION
 
 namespace impl {
