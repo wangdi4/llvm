@@ -1935,6 +1935,10 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                          /*AttrOnCallSite=*/false, IsThunk);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+  if (getLangOpts().HLSL) {
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl()))
+      getHLSLRuntime().setHLSLFnuctionAttributes(F, FD);
+  }
 
 #if INTEL_CUSTOMIZATION
   // For SVML functions, select a variant of SVML calling convention according
