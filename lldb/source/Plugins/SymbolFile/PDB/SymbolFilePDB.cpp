@@ -1314,6 +1314,9 @@ void SymbolFilePDB::FindFunctions(
   FunctionNameType name_type_mask = lookup_info.GetNameTypeMask();
   lldbassert((name_type_mask & eFunctionNameTypeAuto) == 0);
 
+  if (name_type_mask & eFunctionNameTypeFull)
+    name = lookup_info.GetName();
+
   if (name_type_mask == eFunctionNameTypeNone)
     return;
   if (!DeclContextMatchesThisSymbolFile(parent_decl_ctx))

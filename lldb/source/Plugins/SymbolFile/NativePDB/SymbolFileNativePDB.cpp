@@ -1569,6 +1569,9 @@ void SymbolFileNativePDB::FindFunctions(
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   ConstString name = lookup_info.GetLookupName();
   FunctionNameType name_type_mask = lookup_info.GetNameTypeMask();
+  if (name_type_mask & eFunctionNameTypeFull)
+    name = lookup_info.GetName();
+
   // For now we only support lookup by method name or full name.
   if (!(name_type_mask & eFunctionNameTypeFull ||
         name_type_mask & eFunctionNameTypeMethod))

@@ -8010,8 +8010,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           continue;
         }
       }
-      Cost -= TTIRef.getVectorInstrCost(Instruction::ExtractElement,
-                                        EE->getVectorOperandType(), Idx);
+      Cost -= TTIRef.getVectorInstrCost(*EE, EE->getVectorOperandType(), Idx);
     }
     // Add a cost for subvector extracts/inserts if required.
     for (const auto &Data : ExtractVectorsTys) {
@@ -8254,9 +8253,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         for (unsigned I : E->ReuseShuffleIndices) {
           if (ShuffleOrOp == Instruction::ExtractElement) {
             auto *EE = cast<ExtractElementInst>(VL[I]);
-            CommonCost -= TTI->getVectorInstrCost(Instruction::ExtractElement,
-                                                  EE->getVectorOperandType(),
-                                                  *getExtractIndex(EE));
+            CommonCost -= TTI->getVectorInstrCost(
+                *EE, EE->getVectorOperandType(), *getExtractIndex(EE));
           } else {
             CommonCost -= TTI->getVectorInstrCost(Instruction::ExtractElement,
                                                   VecTy, Idx);
@@ -8267,9 +8265,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         for (Value *V : VL) {
           if (ShuffleOrOp == Instruction::ExtractElement) {
             auto *EE = cast<ExtractElementInst>(V);
-            CommonCost += TTI->getVectorInstrCost(Instruction::ExtractElement,
-                                                  EE->getVectorOperandType(),
-                                                  *getExtractIndex(EE));
+            CommonCost += TTI->getVectorInstrCost(
+                *EE, EE->getVectorOperandType(), *getExtractIndex(EE));
           } else {
             --Idx;
             CommonCost += TTI->getVectorInstrCost(Instruction::ExtractElement,
