@@ -1935,7 +1935,10 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                          /*AttrOnCallSite=*/false, IsThunk);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-<<<<<<< HEAD
+  if (getLangOpts().HLSL) {
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl()))
+      getHLSLRuntime().setHLSLFnuctionAttributes(F, FD);
+  }
 
 #if INTEL_CUSTOMIZATION
   // For SVML functions, select a variant of SVML calling convention according
@@ -1951,12 +1954,6 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   if (llvm::shouldUseIntelFeaturesInitCallConv(F->getName()))
     F->setCallingConv(llvm::CallingConv::Intel_Features_Init);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (getLangOpts().HLSL) {
-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl()))
-      getHLSLRuntime().setHLSLFnuctionAttributes(F, FD);
-  }
->>>>>>> 906e41f4e34d32c257e0c0c9ce1b56070ba11960
 }
 
 static void removeImageAccessQualifier(std::string& TyName) {
