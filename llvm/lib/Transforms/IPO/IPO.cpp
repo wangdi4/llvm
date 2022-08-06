@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -175,6 +175,10 @@ void LLVMAddMergeFunctionsPass(LLVMPassManagerRef PM) {
 
 void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
   auto PreserveMain = [=](const GlobalValue &GV) {
+#if INTEL_CUSTOMIZATION
+    if (isa<Function>(GV) && cast<Function>(GV).hasMetadata("llvm.acd.clone"))
+      return AllButMain && GV.getName().startswith("main.");
+#endif // INTEL_CUSTOMIZATION
     return AllButMain && GV.getName() == "main";
   };
   unwrap(PM)->add(createInternalizePass(PreserveMain));
