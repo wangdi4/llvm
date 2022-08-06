@@ -833,7 +833,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   if (K == ICK_shared) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in implicit clause");
-    IsRef = VD->getType()->isReferenceType();
+    IsRef = !isa<OMPCapturedExprDecl>(VD) && VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
   }
