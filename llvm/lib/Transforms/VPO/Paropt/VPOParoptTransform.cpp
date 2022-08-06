@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1640,7 +1640,12 @@ bool VPOParoptTransform::paroptTransforms() {
     if (EmitKmpcBeginEndOnlyForWindows && !TT.isOSWindows())
       return false;
 
-    return llvm::StringSwitch<bool>(F->getName())
+    StringRef FName = F->getName();
+#if INTEL_CUSTOMIZATION
+    if (F->hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
+#endif // INTEL_CUSTOMIZATION
+    return llvm::StringSwitch<bool>(FName)
         .Case("main", true)
 #if INTEL_CUSTOMIZATION
         .Case("MAIN__", F->isFortran())

@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019-2020 Intel Corporation.
+//      Copyright (c) 2019-2022 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -88,7 +88,10 @@ public:
   }
 
   bool isMainFunction(Function &F) {
-    return llvm::StringSwitch<bool>(F.getName())
+    StringRef FName = F.getName();
+    if (F.hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
+    return llvm::StringSwitch<bool>(FName)
       .Cases("main",
              "MAIN__", true)
       .Cases("wmain",

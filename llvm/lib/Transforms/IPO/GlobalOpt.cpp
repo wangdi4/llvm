@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1603,8 +1603,13 @@ safeToReplaceGlobalWithStoredOnceValue(GlobalValue *GV, Value *StoredOnceVal,
   // the store instruction of GV.
   Function *SingleSIFunction = SingleSI->getFunction();
   BasicBlock *EntryBB = &SingleSIFunction->getEntryBlock();
+  StringRef FName = SingleSIFunction->getName();                  //INTEL
+#if INTEL_CUSTOMIZATION
+  if (SingleSIFunction->hasMetadata("llvm.acd.clone"))
+    FName = FName.take_front(FName.find('.'));
+#endif // INTEL_CUSTOMIZATION
   // Check if store instruction of GV is in first BB of "main".
-  if (SingleSIFunction->getName() != "main" || SingleSI->getParent() != EntryBB)
+  if (FName != "main" || SingleSI->getParent() != EntryBB)        // INTEL
     return false;
   // Prove that there are no uses of GV before the store instruction
   // of GV.

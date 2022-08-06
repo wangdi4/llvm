@@ -1,7 +1,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1656,7 +1656,10 @@ void X86DAGToDAGISel::emitSpecialCodeForMain() {
 void X86DAGToDAGISel::emitFunctionEntryCode() {
   // If this is main, emit special code for main.
   const Function &F = MF->getFunction();
-  if (F.hasExternalLinkage() && F.getName() == "main")
+  StringRef FName = F.getName();
+  if (F.hasMetadata("llvm.acd.clone"))
+    FName = FName.take_front(FName.find('.'));
+  if (F.hasExternalLinkage() && FName == "main")
     emitSpecialCodeForMain();
 }
 
