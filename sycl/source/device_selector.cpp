@@ -226,8 +226,7 @@ int accelerator_selector::operator()(const device &dev) const {
 }
 
 int host_selector::operator()(const device &dev) const {
-<<<<<<< HEAD
-  int Score = REJECT_DEVICE_SCORE;
+  int Score = detail::REJECT_DEVICE_SCORE;
 #ifdef INTEL_CUSTOMIZATION
   bool ShouldSelect =
       detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get() ||
@@ -237,11 +236,6 @@ int host_selector::operator()(const device &dev) const {
   if (ShouldSelect)
 #endif // INTEL_CUSTOMIZATION
   {
-=======
-  int Score = detail::REJECT_DEVICE_SCORE;
-
-  if (dev.is_host()) {
->>>>>>> 64f0db7a3ba53daeea96543ccf590aaf9c1569c9
     Score = 1000;
     Score += detail::getDevicePreference(dev);
   }
