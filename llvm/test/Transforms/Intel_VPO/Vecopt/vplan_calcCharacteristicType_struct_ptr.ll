@@ -22,7 +22,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(%struct.S* %a) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(%struct.S* %a, %struct.S zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region

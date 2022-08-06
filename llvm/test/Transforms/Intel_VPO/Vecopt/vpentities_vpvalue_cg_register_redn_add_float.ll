@@ -59,7 +59,7 @@ entry:
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca float, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %s.red, float zeroinitializer, i32 1) ]
   store float 0.000000e+00, float* %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body

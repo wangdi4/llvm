@@ -17,9 +17,9 @@
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @test1
-; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"([8 x i32]* %sum) ]
+; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"([8 x i32]* %sum, i32 0, i32 8) ]
 ; CHECK: define i32 @test2
-; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
+; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %sum, i32 0, i32 42) ]
 
 ; HIR: VPlan HIR Driver for Function: test1
 ; HIR: Cannot handle array reductions.
@@ -52,7 +52,7 @@ begin.simd.1:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"([8 x i32]* %sum) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"([8 x i32]* %sum, i32 0, i32 8) ]
   br label %for.body
 
 for.body:
@@ -103,7 +103,7 @@ begin.simd.1:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %sum, i32 0, i32 42) ]
   br label %for.body
 
 for.body:

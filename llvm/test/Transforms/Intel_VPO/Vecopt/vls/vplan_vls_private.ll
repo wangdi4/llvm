@@ -30,7 +30,7 @@ entry:
   br label %omp.entry
 
 omp.entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %var) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %var, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:

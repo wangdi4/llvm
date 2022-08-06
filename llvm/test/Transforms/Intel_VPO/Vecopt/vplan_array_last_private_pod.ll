@@ -52,7 +52,7 @@ entry:
   br label %DIR.OMP.SIMD.144
 
 DIR.OMP.SIMD.144:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(%"QNCA_a0$i32*$rank2$"* %b3.i.lpriv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(%"QNCA_a0$i32*$rank2$"* %b3.i.lpriv, %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
   br label %loop_test12.preheader
 
 loop_test12.preheader:

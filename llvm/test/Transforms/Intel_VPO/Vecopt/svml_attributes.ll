@@ -56,7 +56,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %a, float* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -90,7 +90,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(double* %a, double* %b) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(double* %a, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(double* %b, double zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -126,7 +126,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -168,7 +168,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -208,7 +208,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %vsin, float* %vcos) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %vsin, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %vcos, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -244,7 +244,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
