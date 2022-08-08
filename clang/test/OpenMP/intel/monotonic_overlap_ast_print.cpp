@@ -21,6 +21,8 @@
 
 #ifndef HEADER
 #define HEADER
+typedef int(*fptr)();
+int bar();
 void foo()
 {
   int k = 0;
@@ -40,9 +42,18 @@ void foo()
 #pragma omp simd
   for (int i = 0; i < 1024; i++) {
 #pragma omp ordered simd ompx_monotonic(i,k)
-    {
-      k -= 0;
-    }
+    k -= 0;
+  }
+  fptr fp = &bar;
+#pragma omp simd
+  for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(fp)
+    k -= 0;
+  }
+#pragma omp simd
+  for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(i+k)
+    k -= 0;
   }
 }
 // CHECK: void foo
@@ -51,6 +62,10 @@ void foo()
 // CHECK: #pragma omp ordered simd ompx_monotonic(i: 10)
 // CHECK: #pragma omp simd
 // CHECK: #pragma omp ordered simd ompx_monotonic(i,k)
+// CHECK: #pragma omp simd
+// CHECK: #pragma omp ordered simd ompx_overlap(fp)
+// CHECK: #pragma omp simd
+// CHECK: #pragma omp ordered simd ompx_overlap(i + k)
 //
 struct S {
   int a;
@@ -63,20 +78,44 @@ struct S {
 #pragma omp ordered simd ompx_monotonic(a:t)
       a++;
     }
+#pragma omp simd
+    for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(a++)
+      a++;
+    }
   }
   // CHECK: template <int t> void apply()
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_monotonic(this->a: t)
+  // CHECK: #pragma omp simd
+  // CHECK: #pragma omp ordered simd ompx_overlap(this->a++)
   // CHECK: template<> void apply<10>()
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_monotonic(this->a: 10)
+  // CHECK: #pragma omp simd
+  // CHECK: #pragma omp ordered simd ompx_overlap(this->a++)
 };
 template<typename T>
 void foo(T x) {
 #pragma omp simd
-    for (int i = 0; i < 1024; i++) {
+  for (int i = 0; i < 1024; i++) {
 #pragma omp ordered simd ompx_monotonic(x:10)
-      x++;
+    x++;
+  }
+#pragma omp simd
+  for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(x)
+    x++;
+  }
+#pragma omp simd
+  for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(10)
+    x++;
+  }
+#pragma omp simd
+  for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(i+x)
+    x++;
   }
 }
 // CHECK: template <typename T> void foo(T x)
@@ -85,6 +124,12 @@ void foo(T x) {
 // CHECK: template<> void foo<int>(int x)
 // CHECK: #pragma omp simd
 // CHECK: #pragma omp ordered simd ompx_monotonic(x: 10)
+// CHECK: #pragma omp simd
+// CHECK: #pragma omp ordered simd ompx_overlap(x)
+// CHECK: #pragma omp simd
+// CHECK: #pragma omp ordered simd ompx_overlap(10)
+// CHECK: #pragma omp simd
+// CHECK: #pragma omp ordered simd ompx_overlap(i + x)
 void use_template() {
    S obj;
    obj.apply<10>();

@@ -237,6 +237,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_collapse:
   case OMPC_tile: // INTEL
   case OMPC_ompx_monotonic: // INTEL
+  case OMPC_ompx_overlap:   // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_shared:
@@ -543,6 +544,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_collapse:
   case OMPC_tile:    // INTEL
   case OMPC_ompx_monotonic:    // INTEL
+  case OMPC_ompx_overlap:      // INTEL
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_shared:

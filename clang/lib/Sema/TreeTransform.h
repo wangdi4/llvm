@@ -1711,6 +1711,16 @@ public:
     return getSema().ActOnOpenMPOmpxMonotonicClause(
         VarList, Step, StartLoc, LParenLoc, ColonLoc, EndLoc);
   }
+  /// Build a new OpenMP 'ompx_overlap' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPOmpxOverlapClause(Expr *Overlap, SourceLocation StartLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPOmpxOverlapClause(Overlap, StartLoc, LParenLoc,
+                                                  EndLoc);
+  }
 #if INTEL_FEATURE_CSA
   /// Build a new OpenMP 'dataflow' clause.
   ///
@@ -6680,6 +6690,15 @@ OMPClause *TreeTransform<Derived>::TransformOMPOmpxMonotonicClause(
   return getDerived().RebuildOMPOmpxMonotonicClause(
       Vars, Step.get(), C->getBeginLoc(), C->getLParenLoc(),
       C->getColonLoc(), C->getEndLoc());
+}
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPOmpxOverlapClause(OMPOmpxOverlapClause *C) {
+  ExprResult Overlap = getDerived().TransformExpr(C->getOverlap());
+  if (Overlap.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPOmpxOverlapClause(
+      C->getOverlap(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 #endif // INTEL_CUSTOMIZATION
 

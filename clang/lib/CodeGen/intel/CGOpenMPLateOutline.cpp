@@ -2638,6 +2638,8 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
+void OpenMPLateOutliner::emitOMPOmpxOverlapClause(
+    const OMPOmpxOverlapClause *) {}
 void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
     const OMPOmpxMonotonicClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}

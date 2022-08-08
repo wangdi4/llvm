@@ -3204,6 +3204,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 #if INTEL_CUSTOMIZATION
     bool HasSimd = false;
     bool HasOmpxMonotonic = false;
+    bool HasOmpxOverlap = false;
 #endif // INTEL_CUSTOMIZATION
     while (Tok.isNot(tok::annot_pragma_openmp_end)) {
       // If we are parsing for a directive within a metadirective, the directive
@@ -3226,8 +3227,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
                                    ? OMPC_unknown
                                    : getOpenMPClauseKind(PP.getSpelling(Tok));
 #if INTEL_CUSTOMIZATION
-      // ompx_monotonic only support in intel  -fiopenmp/iopenmp-simd
-      if (!getLangOpts().OpenMPLateOutline && CKind == OMPC_ompx_monotonic)
+      // Don't allow Intel-only clauses in community path
+      if (!getLangOpts().OpenMPLateOutline &&
+          (CKind == OMPC_ompx_monotonic || CKind == OMPC_ompx_overlap))
         CKind = OMPC_unknown;
 #endif //INTEL_CUSTOMIZATION
       if (HasImplicitClause) {
@@ -3258,6 +3260,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       Actions.EndOpenMPClause();
 #if INTEL_CUSTOMIZATION
       HasOmpxMonotonic = HasOmpxMonotonic || CKind == OMPC_ompx_monotonic;
+      HasOmpxOverlap = HasOmpxOverlap || CKind == OMPC_ompx_overlap;
       HasSimd = HasSimd || CKind == OMPC_simd;
 #endif //INTEL_CUSTOMIZATION
     }
@@ -3268,6 +3271,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       Diag(Loc, diag::err_omp_expected_simd)
         << getOpenMPDirectiveName(DKind) << 1
         << getOpenMPClauseName(OMPC_ompx_monotonic);
+    if (HasOmpxOverlap && !HasSimd)
+      Diag(Loc, diag::err_omp_expected_simd)
+          << getOpenMPDirectiveName(DKind) << 1
+          << getOpenMPClauseName(OMPC_ompx_overlap);
     if (HasAssociatedStatement)
       skipUnsupportedTargetDirectives();
 #endif // INTEL_CUSTOMIZATION
@@ -3589,6 +3596,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
+  case OMPC_ompx_overlap:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA

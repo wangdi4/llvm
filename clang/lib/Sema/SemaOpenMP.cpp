@@ -16519,6 +16519,11 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_align:
     Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_overlap:
+    Res = ActOnOpenMPOmpxOverlapClause(Expr, StartLoc, LParenLoc, EndLoc);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case OMPC_device:
   case OMPC_if:
   case OMPC_default:
@@ -21814,7 +21819,7 @@ OMPClause *Sema::ActOnOpenMPOmpxMonotonicClause(
     if (!Ty || (!Ty->isDependentType() && !Ty->isIntegralType(Context) &&
                 !Ty->isPointerType())) {
       Diag(ELoc, diag::err_ompx_monotonic_expected_integral_or_ptr)
-          << QType << getLangOpts().CPlusPlus << ERange;
+          << false << QType << getLangOpts().CPlusPlus << ERange;
       bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==
                                VarDecl::DeclarationOnly;
       Diag(D->getLocation(),
@@ -21842,6 +21847,27 @@ OMPClause *Sema::ActOnOpenMPOmpxMonotonicClause(
 
   return OMPOmpxMonotonicClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
                                         EndLoc, Vars, Step);
+}
+
+OMPClause *Sema::ActOnOpenMPOmpxOverlapClause(Expr *Overlap,
+                                              SourceLocation StartLoc,
+                                              SourceLocation LParenLoc,
+                                              SourceLocation EndLoc) {
+  if (!Overlap->isValueDependent() && !Overlap->isTypeDependent() &&
+      !Overlap->containsUnexpandedParameterPack()) {
+    QualType QType = Overlap->getType();
+    QType = QType.getNonReferenceType().getUnqualifiedType().getCanonicalType();
+    const Type *Ty = QType.getTypePtrOrNull();
+    if (!Ty || (!Ty->isDependentType() && !Ty->isIntegralType(Context) &&
+                !Ty->isPointerType())) {
+      Diag(StartLoc, diag::err_ompx_monotonic_expected_integral_or_ptr)
+          << 1 << QType << getLangOpts().CPlusPlus;
+      return nullptr;
+    }
+  }
+
+  return new (Context)
+      OMPOmpxOverlapClause(Overlap, StartLoc, LParenLoc, EndLoc);
 }
 #endif // INTEL_CUSTOMIZATION
 
