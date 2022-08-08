@@ -16,6 +16,15 @@ void zoo()
       k -= l;
     }
   }
+#pragma omp simd simdlen(1)
+  for (int l = 0; l < 16; l++) {
+    k++;
+  // expected-warning@+1 {{extra tokens at the end of '#pragma omp ordered' are ignored}}
+  #pragma omp ordered simd ompx_overlap(k)
+    {
+      k -= l;
+    }
+  }
 }
 #endif
 
@@ -35,6 +44,11 @@ void foo()
       k -= 1;
     }
   }
+  // expected-error@+1 {{'#pragma omp ordered' with 'ompx_overlap' clause can only be used with 'ordered simd'}}
+  #pragma omp ordered ompx_overlap(k)
+    {
+      k -= 1;
+    }
 }
 
 void zoo()
@@ -55,6 +69,12 @@ void zoo()
   #pragma omp ordered simd ompx_monotonic()
     {
       k -= 0;
+    }
+  double a;
+  //expected-error@+1 {{argument of ompx_overlap clause should be of integral or pointer type, not 'double'}}
+  #pragma omp ordered simd ompx_overlap(a+k)
+    {
+      k -= 1;
     }
 }
 #endif

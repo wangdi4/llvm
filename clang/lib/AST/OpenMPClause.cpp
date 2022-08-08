@@ -1881,6 +1881,13 @@ void OMPClausePrinter::VisitOMPOmpxMonotonicClause(
   }
   OS << ")";
 }
+
+void OMPClausePrinter::VisitOMPOmpxOverlapClause(OMPOmpxOverlapClause *Node) {
+  OS << "ompx_overlap";
+  OS << "(";
+  Node->getOverlap()->printPretty(OS, nullptr, Policy, 0);
+  OS << ")";
+}
 #if INTEL_FEATURE_CSA
 void OMPClausePrinter::VisitOMPDataflowClause(OMPDataflowClause *Node) {
   bool printComma = false;

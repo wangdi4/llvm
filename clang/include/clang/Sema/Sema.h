@@ -12029,6 +12029,11 @@ public:
                                             SourceLocation LParenLoc,
                                             SourceLocation ColonLoc,
                                             SourceLocation EndLoc);
+  /// Called on well-formed 'ompx_overlap' clause.
+  OMPClause *ActOnOpenMPOmpxOverlapClause(Expr *Overlap,
+                                          SourceLocation StartLoc,
+                                          SourceLocation LParenLoc,
+                                          SourceLocation EndLoc);
 #if INTEL_FEATURE_CSA
   /// Called on well-formed 'dataflow' clause.
   OMPClause *ActOnOpenMPDataflowClause(Expr *StaticSize,

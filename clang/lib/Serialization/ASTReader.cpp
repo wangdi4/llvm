@@ -11558,6 +11558,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_ompx_monotonic:
     C = OMPOmpxMonotonicClause::CreateEmpty(Context, Record.readInt());
     break;
+  case llvm::omp::OMPC_ompx_overlap:
+    C = new (Context) OMPOmpxOverlapClause();
+    break;
 #if INTEL_FEATURE_CSA
   case llvm::omp::OMPC_dataflow:
     C = new (Context) OMPDataflowClause();
@@ -11940,6 +11943,11 @@ void OMPClauseReader::VisitOMPOmpxMonotonicClause(OMPOmpxMonotonicClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
   C->setStep(Record.readSubExpr());
+}
+
+void OMPClauseReader::VisitOMPOmpxOverlapClause(OMPOmpxOverlapClause *C) {
+  C->setOverlap(Record.readSubExpr());
+  C->setLParenLoc(Record.readSourceLocation());
 }
 #if INTEL_FEATURE_CSA
 void OMPClauseReader::VisitOMPDataflowClause(OMPDataflowClause *C) {

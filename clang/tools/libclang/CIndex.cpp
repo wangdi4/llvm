@@ -2374,6 +2374,10 @@ void OMPClauseEnqueue::VisitOMPOmpxMonotonicClause(
   VisitOMPClauseList(C);
   Visitor->AddStmt(C->getStep());
 }
+void OMPClauseEnqueue::VisitOMPOmpxOverlapClause(
+    const OMPOmpxOverlapClause *C) {
+  Visitor->AddStmt(C->getOverlap());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

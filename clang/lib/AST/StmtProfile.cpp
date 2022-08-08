@@ -514,6 +514,11 @@ void OMPClauseProfiler::VisitOMPOmpxMonotonicClause(
   if (C->getStep())
     Profiler->VisitStmt(C->getStep());
 }
+void OMPClauseProfiler::VisitOMPOmpxOverlapClause(
+    const OMPOmpxOverlapClause *C) {
+  if (C->getOverlap())
+    Profiler->VisitStmt(C->getOverlap());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
   VistOMPClauseWithPreInit(C);
