@@ -302,15 +302,15 @@ void FieldModRefResult::unionModRefInfo(ModRefInfo &Status, Function *F,
   });
 
   if (isReader(StTy, FNum, F))
-    Status = unionModRef(Status, ModRefInfo::Ref);
+    Status |= ModRefInfo::Ref;
   if (isWriter(StTy, FNum, F))
-    Status = unionModRef(Status, ModRefInfo::Mod);
+    Status |= ModRefInfo::Mod;
 
   if (Indirect) {
     if (isValueReader(StTy, FNum, F))
-      Status = unionModRef(Status, ModRefInfo::Ref);
+      Status |= ModRefInfo::Ref;
     if (isValueWriter(StTy, FNum, F))
-      Status = unionModRef(Status, ModRefInfo::Mod);
+      Status |= ModRefInfo::Mod;
   }
 
   // No need to continue, once the worst case is encountered.

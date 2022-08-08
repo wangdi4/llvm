@@ -425,7 +425,7 @@ public:
     return IsVecRemainder.hasValue() ? !IsVecRemainder.getValue() : false;
   }
   bool isVecRemainderEnforced() const {
-    return IsVecRemainder.getValueOr(false);
+    return IsVecRemainder.value_or(false);
   }
 
   bool isDynAlignEnabled() const { return IsDynAlign; }

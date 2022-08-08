@@ -9685,7 +9685,7 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
 static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
                                                             StringRef Name) {
   if (const MDOperand *const Opnd =
-          findStringMetadataForLoop(L, Name).getValueOr(nullptr))
+          findStringMetadataForLoop(L, Name).value_or(nullptr))
     if (const auto *const Constant =
             mdconst::dyn_extract_or_null<ConstantInt>(Opnd->get()))
       return Constant->getZExtValue();

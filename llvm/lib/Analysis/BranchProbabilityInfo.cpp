@@ -1274,7 +1274,7 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
         Weight != static_cast<uint32_t>(BlockExecWeight::ZERO)) {
       Weight = std::max(
           static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
-          Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
+          Weight.value_or(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
                             LBH_LIKELY_WEIGHT) /
               LBH_TAKEN_WEIGHT);
     }
