@@ -7,23 +7,24 @@
 # COMPONENT: Architecture
 # JIRA: N/A
 # Core parts of LLVM owned by the architecture group
-/llvm/lib/BinaryFormat/ @andykaylor
-/llvm/lib/Bitcode/ @andykaylor
-/llvm/lib/IR/ @andykaylor
-/llvm/lib/IRReader/ @andykaylor
-/llvm/lib/Option/ @andykaylor
-/llvm/lib/Support/ @andykaylor
-/llvm/include/llvm/ @andykaylor
-/llvm/include/llvm/ADT/ @andykaylor
-/llvm/include/llvm/Analysis/Passes.h @andykaylor
-/llvm/include/llvm/AsmParser/ @andykaylor
-/llvm/include/llvm/BinaryFormat/ @andykaylor
-/llvm/include/llvm/Bitcode/ @andykaylor
-/llvm/include/llvm/Config/ @andykaylor
-/llvm/include/llvm/IR/ @andykaylor
-/llvm/include/llvm/IRReader/ @andykaylor
-/llvm/include/llvm/Option/ @andykaylor
-/llvm/include/llvm/Support/ @andykaylor
+/llvm/lib/BinaryFormat/ @andykaylor @pankaj-chawla
+/llvm/lib/Bitcode/ @andykaylor @pankaj-chawla
+/llvm/lib/IR/ @andykaylor @pankaj-chawla
+/llvm/lib/IRReader/ @andykaylor @pankaj-chawla
+/llvm/lib/Option/ @andykaylor @pankaj-chawla
+/llvm/lib/Support/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/ADT/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Analysis/Passes.h @andykaylor @pankaj-chawla
+/llvm/include/llvm/AsmParser/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/BinaryFormat/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Bitcode/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Config/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/IR/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/IRReader/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Option/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Support/ @andykaylor @pankaj-chawla
+# Temporarily added Pankaj as a code owner for sabbatical coverage
 
 # Assign ScalarOpt as the default owner of things in Transforms/Utils; specific
 # owners for individual files can be assigned below.
