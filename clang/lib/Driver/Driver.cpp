@@ -1648,21 +1648,44 @@ bool Driver::loadConfigFile() {
   }
 
 #if INTEL_CUSTOMIZATION
-  // Processing the default configuration file as specified by the
-  // --intel-config option that is passed in exclusively by the icx/icpx
-  // wrapper.  This is only read in if the --config file has not been passed.
-  // TODO:  Allow for the clang driver to process the default config files
-  // (icpx.cfg, icx.cfg, etc) and not have them passed in by the wrapper.
-  if (CLOptions) {
-    SmallString<128> CfgFilePath(
-        CLOptions->getLastArgValue(options::OPT_intel_config));
-    if (CfgFilePath.size() > 0 && llvm::sys::fs::is_regular_file(CfgFilePath)) {
-      if (!readConfigFile(CfgFilePath)) {
-        // The default .cfg file can be empty, allow for more config processing
-        // if it is.
+  if (CLOptions && IsIntelMode()) {
+    // Process any user defined .cfg files via environment variables.
+    //   ICPXCFG  - location/name for icpx usage
+    //   ICXCFG   - location/name for icx usage
+    //   DPCPPCFG - location/name for dpcpp/dpcpp-cl usage
+    // If the configuration file environment variable is set, assume it is
+    // valid and being used.  Do not continue and pick up the default config.
+    auto EnvVar = llvm::StringSwitch<StringRef>(Name)
+                      .Case("dpcpp", "DPCPPCFG")
+                      .Case("icpx", "ICPXCFG")
+                      .Case("icx", "ICXCFG")
+                      .Default("");
+    if (Optional<std::string> EnvVarValue =
+            llvm::sys::Process::GetEnv(EnvVar)) {
+      if (!readConfigFile(*EnvVarValue)) {
+        // The default .cfg file can be empty, allow for more config
+        // processing if it is.
         if (CfgOptions.get()->size() > 0)
           return false;
         CfgOptions.reset();
+      }
+    } else {
+      // Process default .cfg files.  These files are named according to the
+      // driver name used:  dpcpp.cfg, icx.cfg, icpx.cfg
+      SmallString<128> CfgFileBase(Name + ".cfg");
+      llvm::SmallString<128> CfgFilePath;
+      // Add an alternate search directory for the default cfg file.  This is
+      // ../bin from the location of the driver, which could be in 'bin-llvm'
+      SmallString<128> AltDir(Dir);
+      llvm::sys::path::append(AltDir, "..", "bin");
+      if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase)) {
+        if (!readConfigFile(CfgFilePath)) {
+          // The default .cfg file can be empty, allow for more config
+          // processing if it is.
+          if (CfgOptions.get()->size() > 0)
+            return false;
+          CfgOptions.reset();
+        }
       }
     }
   }
