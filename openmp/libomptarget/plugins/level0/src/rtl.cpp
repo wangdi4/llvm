@@ -5693,7 +5693,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
       if (KP.pNext)
         KernelProperties.Width = KPrefGRPSize.preferredMultiple;
 #endif
-      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
         // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
         KernelProperties.Width =
             (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
