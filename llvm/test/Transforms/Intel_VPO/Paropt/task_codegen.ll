@@ -134,6 +134,7 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 
 ; CHECK:  %{{.*}} = call i8* @__kmpc_omp_task_alloc({{.*}})
 ; CHECK:  call void @__kmpc_omp_task({{.*}})
+; CHECK-NOT: call void @__kmpc_omp_wait_deps
 ; CHECK:  call void @__kmpc_omp_taskwait({{.*}})
 ; sizeof_kmp_task_t and sizeof_shareds arguments are 8-byte integers for 64-bit target.
 ; CHECK:  declare i8* @__kmpc_omp_task_alloc({{[^,]+}}, i32, i32, i64, i64, i32 (i32, i8*)*)
