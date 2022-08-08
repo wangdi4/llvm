@@ -1,8 +1,11 @@
 ; Test the "-use-source-filename-for-promoted-locals" flag.
 
 ; Do setup work for all below tests: generate bitcode and combined index
-; RUN: opt -module-summary -module-hash %s -o %t.bc
-; RUN: opt -module-summary -module-hash %p/Inputs/promote-local-name-1.ll -o %t1.bc
+; INTEL_CUSTOMIZATION
+; In response to CMPLRLLVM-26597, xmain strips the path infomation from the name.
+; RUN: opt -strip-module-src-path=false -module-summary -module-hash %s -o %t.bc
+; RUN: opt -strip-module-src-path=false -module-summary -module-hash %p/Inputs/promote-local-name-1.ll -o %t1.bc
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-lto -thinlto-action=thinlink -o %t2.bc %t.bc %t1.bc
 
 ; This module will import b() which should cause the copy of foo and baz from
