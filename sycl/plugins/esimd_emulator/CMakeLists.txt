@@ -42,7 +42,7 @@ endif()
 set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "https://github.com/intel/cm-cpu-emulation/releases/download/v2022-07-06/intel-cmemu-1.0.23.u20.04-release.x86_64.tar.xz")
 
 if (INTEL_CUSTOMIZATION)
-set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "/rdrive/ref/opencl/libcm/linux/1.0.22/")
+set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "/rdrive/ref/opencl/libcm/linux/1.0.23/")
 endif (INTEL_CUSTOMIZATION)
 
 set (DEFAULT_CM_EMU_SOURCE_URL "https://github.com/intel/cm-cpu-emulation.git")
