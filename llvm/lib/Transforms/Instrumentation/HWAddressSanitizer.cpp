@@ -728,7 +728,7 @@ Value *HWAddressSanitizer::getShadowNonTls(IRBuilder<> &IRB) {
 }
 
 bool HWAddressSanitizer::ignoreAccess(Instruction *Inst, Value *Ptr) {
-  // Do not instrument acesses from different address spaces; we cannot deal
+  // Do not instrument accesses from different address spaces; we cannot deal
   // with them.
   Type *PtrTy = cast<PointerType>(Ptr->getType()->getScalarType());
   if (PtrTy->getPointerAddressSpace() != 0)
@@ -1515,7 +1515,7 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F,
     instrumentMemAccess(Operand);
 
   if (ClInstrumentMemIntrinsics && !IntrinToInstrument.empty()) {
-    for (auto Inst : IntrinToInstrument)
+    for (auto *Inst : IntrinToInstrument)
       instrumentMemIntrinsic(cast<MemIntrinsic>(Inst));
   }
 
