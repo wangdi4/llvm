@@ -1690,7 +1690,7 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
         auto NewDiscriminator =
             DIL->encodeDiscriminator(NextDisriminator, DF, CI);
         const auto *const NewDIL =
-            DIL->cloneWithDiscriminator(NewDiscriminator.getValueOr(0));
+            DIL->cloneWithDiscriminator(NewDiscriminator.value_or(0));
         MI->setDebugLoc(NewDIL);
       }
     }

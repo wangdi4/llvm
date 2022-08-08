@@ -5550,7 +5550,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       AllocaAddrSpace ?
           AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
-  AI->setAlignment(OrigAlignment.getValueOr(DL.getPrefTypeAlign(ElementType)));
+  AI->setAlignment(OrigAlignment.value_or(DL.getPrefTypeAlign(ElementType)));
 
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
@@ -6457,7 +6457,7 @@ Function *VPOParoptUtils::genOutlineFunction(
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
   auto ExtractArray =
-      BBsToExtractIn.getValueOr(makeArrayRef(W.bbset_begin(), W.bbset_end()));
+      BBsToExtractIn.value_or(makeArrayRef(W.bbset_begin(), W.bbset_end()));
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);

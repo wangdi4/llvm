@@ -2133,7 +2133,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
     if (HotCallSiteThreshold != None &&
-        intelNotHotCallee(Callee, Params.PrepareForLTO.getValueOr(false)))
+        intelNotHotCallee(Callee, Params.PrepareForLTO.value_or(false)))
       HotCallSiteThreshold = None;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
@@ -2152,7 +2152,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
         // "intel-mempool-destructor" Functions as inlining them can simplify
         // code through indirect call specialization, etc.
         && !(Callee.hasFnAttribute("intel-mempool-destructor") &&
-        Params.PrepareForLTO.getValueOr(false))
+        Params.PrepareForLTO.value_or(false))
 #endif // INTEL_FEATURE_SW_ADVANCED
         ) {
 #endif // INTEL_CUSTOMIZATION
@@ -2203,9 +2203,9 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
        F.hasOneLiveUse() && &F == Call.getCalledFunction()
 #if INTEL_FEATURE_SW_ADVANCED
-       && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.getValueOr(false),
-           Params.LinkForLTO.getValueOr(false), IsSYCLHost,
-           Params.SYCLOptimizationMode.getValueOr(false))
+       && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.value_or(false),
+           Params.LinkForLTO.value_or(false), IsSYCLHost,
+           Params.SYCLOptimizationMode.value_or(false))
 #endif // INTEL_FEATURE_SW_ADVANCED
        ;
 #endif // INTEL_CUSTOMIZATION

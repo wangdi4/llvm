@@ -1126,8 +1126,8 @@ static bool processFRem(BinaryOperator *BinOp, LazyValueInfo *LVI) {
   FPValueRangeAnalysis RangeAnalysis(LVI);
   FPValueRange DividendRange = RangeAnalysis.computeRange(Dividend),
                DivisorRange = RangeAnalysis.computeRange(Divisor);
-  if (!DividendRange.isInBitRange(64).getValueOr(false) ||
-      !DivisorRange.isInBitRange(64).getValueOr(false))
+  if (!DividendRange.isInBitRange(64).value_or(false) ||
+      !DivisorRange.isInBitRange(64).value_or(false))
     return false;
   // Divisor can't be zero
   if (DivisorRange.getMaybeZero())
