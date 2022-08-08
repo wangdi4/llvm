@@ -1,3 +1,15 @@
+// Copyright (C) 2013-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
               v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
              v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
@@ -33,7 +45,7 @@ def sincos_gen_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gent
 }
 
 // masked relaxed math
-let Types = ExpandTypesByVFAndFlatten<[v1f32], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def cos_rm_mask    : OclBuiltin<"cos_rm",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
