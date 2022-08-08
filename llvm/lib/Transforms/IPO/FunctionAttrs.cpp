@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1965,7 +1965,12 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Function *F = &N.getFunction();
     // Treat “main” as non-recursive function if there are no uses
     // when whole-program-safe is true.
-    if (F && F->getName() == "main" && F->use_empty()) {
+    if (!F)
+      continue;
+    StringRef FName = F->getName();
+    if (F->hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
+    if (FName == "main" && F->use_empty()) {
       if (WPInfo && WPInfo->isWholeProgramSafe()) {
         F->setDoesNotRecurse();
         ++NumNoRecurse;
@@ -2061,7 +2066,12 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
     Function *F = I->getFunction();
     // Treat “main” as non-recursive function if there are no uses
     // when whole-program-safe is true.
-    if (F && F->getName() == "main" && F->use_empty()) {
+    if (!F)
+      continue;
+    StringRef FName = F->getName();
+    if (F->hasMetadata("llvm.acd.clone"))
+      FName = FName.take_front(FName.find('.'));
+    if (FName == "main" && F->use_empty()) {
       if (WPA && WPA->getResult().isWholeProgramSafe()) {
         F->setDoesNotRecurse();
         ++NumNoRecurse;

@@ -2048,10 +2048,10 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
     genTaskDeps(W, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
                 DummyTaskTDependRec, InsertPt, true);
+  } else {
+    VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
+                                    W->getEntryBBlock()->getTerminator());
   }
-
-  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
-                                  W->getEntryBBlock()->getTerminator());
   return true;
 }
 

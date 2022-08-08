@@ -16,7 +16,7 @@
 ; This test checks that we are generating @__kmpc_omp_wait_deps in case of depend on taskwait without nowait
 ; The input IR was hand-modified because front end doesn't yet handle Depend clauses on taskwait
 ; CHECK: call void @__kmpc_omp_wait_deps(ptr @{{.*}}, i32 %{{.*}}, i32 1, ptr %{{.*}}, i32 0, ptr null)
-; CHECK: call void @__kmpc_omp_taskwait(ptr @{{.*}}, i32 %{{.*}})
+; CHECK-NOT: call void @__kmpc_omp_taskwait
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

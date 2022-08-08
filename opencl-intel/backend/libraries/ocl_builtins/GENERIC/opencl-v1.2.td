@@ -112,7 +112,7 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 }
 
 // OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
 def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
@@ -230,7 +230,7 @@ def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentyp
 // OpenCL 1.2 rev 15, Table 6.9
 // half, masked version
 // Spec requires Data type to be ONLY float(f32) (not-double)
-let Types = [v2f32, v3f32, v4f32, v8f32, v16f32],
+let Types = [v4f32, v8f32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def half_cos_mask      : OclBuiltin<"half_cos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 def half_divide_mask   : OclBuiltin<"half_divide",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
@@ -322,7 +322,7 @@ def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (
 // native, masked version
 // Spec requires Data type to be ONLY float(f32) (not-double)
 // Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 def native_cos_mask    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
@@ -604,14 +604,14 @@ def min_s   : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, sgentype
 }
 
 // OpenCL 1.2 rev 15, Table 6.10, masked version
-let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-              v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-             v2i16, v3i16, v4i16, v8i16, v16i16,
-             v2u16, v3u16, v4u16, v8u16, v16u16,
-             v2i32, v3i32, v4i32, v8i32, v16i32,
-             v2u32, v3u32, v4u32, v8u32, v16u32,
-             v2i64, v3i64, v4i64, v8i64, v16i64,
-             v2u64, v3u64, v4u64, v8u64, v16u64],
+let Types = [ v4i8,  v8i8,  v16i8,
+              v4u8,  v8u8,  v16u8,
+             v4i16, v8i16, v16i16,
+             v4u16, v8u16, v16u16,
+             v4i32, v8i32, v16i32,
+             v4u32, v8u32, v16u32,
+             v4i64, v8i64, v16i64,
+             v4u64, v8u64, v16u64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def abs_mask       : OclBuiltin<"abs",       (outs ugentype:$ret), (ins gentype:$x, ugentype:$mask), [], [], 0, 1>;
 def abs_diff_mask  : OclBuiltin<"abs_diff",  (outs ugentype:$ret), (ins gentype:$x, gentype:$y, ugentype:$mask), [], [], 0, 0>;
@@ -628,7 +628,7 @@ def upsample_mask  : OclBuiltin<"upsample",  (outs up_gentype:$ret), (ins gentyp
                 Except<[v2i64, v3i64, v4i64, v8i64, v16i64, v2u64, v3u64, v4u64, v8u64, v16u64]>;
 def popcount_mask  : OclBuiltin<"popcount",  (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 0>;
 }
-let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def clamp_mask   : OclBuiltin<"clamp", (outs gentype:$ret), (ins gentype:$x, gentype:$minval, gentype:$maxval, gentype:$mask), [], [], 0, 0>;
 def max_mask     : OclBuiltin<"max",   (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 0>;
@@ -695,7 +695,7 @@ def sign          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gentype:
 }
 
 // OpenCL 1.2 rev 15, Table 6.12, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 def degrees_mask       : OclBuiltin<"degrees",     (outs gentype:$ret), (ins gentype:$radians, gentype:$mask), [], [], 0, 0>;
 def mix_mask           : OclBuiltin<"mix",         (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$a, gentype:$mask), [], [], 0, 0>;
@@ -755,7 +755,7 @@ def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (in
 // builtins (defined in the above table) return vector of -1. So we can't use
 // vector version builtins for VectInfo. The following table defines a set of
 // widened builtins that return vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -785,7 +785,7 @@ def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, 
 }
 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
      Attrs = [CONSTFUNC, OVERLOADABLE],
      NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
@@ -798,7 +798,7 @@ def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret)
 }
 // Following table defines vectorized masked builtins that are for scalar
 // builtin. Therefore, the return value is vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;

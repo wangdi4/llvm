@@ -121,7 +121,7 @@ for.cond.cleanup:                                 ; preds = %for.body
   br i1 true, label %DIR.OMP.SIMD.1, label %exit
 
 DIR.OMP.SIMD.1:                                   ; preds = %for.cond.cleanup
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i16* %ret.i.lpriv) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i16* %ret.i.lpriv, i16 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

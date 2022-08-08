@@ -44,4 +44,26 @@ void k()
   }
 }
 
+struct S {
+  float scalar;
+        // CHECK: define {{.*}}run
+	void run (unsigned N)
+	{
+          //CHECK: %scalar{{.*}} = getelementptr inbounds %struct.S, ptr %this1, i32 0, i32 0
+          //CHECK-NEXT: store ptr %scalar{{.*}}, ptr %scalar, align 8
+          //CHECK: [[SCALAR:%scalar.*]] = getelementptr inbounds %struct.S, ptr %this1, i32 0, i32 0
+          //CHECK: DIR.OMP.TARGET{{.*}}FIRSTPRIVATE:TYPED"(ptr [[SCALAR]]
+          //CHECK: DIR.OMP.TEAMS{{.*}}SHARED:TYPED"(ptr [[SCALAR]]
+          //CHECK: DIR.OMP.DISTRIBUTE.PARLOOP{{.*}}FIRSTPRIVATE:TYPED"(ptr [[SCALAR]]
+	  #pragma omp target teams distribute parallel for simd firstprivate(scalar)
+	  for (unsigned index = 0; index < N; ++index)
+		float f = scalar;
+	}
+
+};
+
+void foo() {
+  S n;
+  n.run(32);
+}
 // end INTEL_COLLAB

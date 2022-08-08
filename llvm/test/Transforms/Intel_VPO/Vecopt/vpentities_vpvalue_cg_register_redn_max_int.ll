@@ -60,7 +60,7 @@ entry:
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX"(i32* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(i32* %s.red, i32 0, i32 1) ]
   store i32 -2147483648, i32* %s.red, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
