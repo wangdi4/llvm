@@ -3575,7 +3575,7 @@ int32_t OpenCLProgramTy::buildKernels() {
     }
 
 #if INTEL_CUSTOMIZATION
-    if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+    if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
       // Adjust kernel width to match level_zero plugin.
       KernelProperty.Width =
           (std::max)(KernelProperty.Width, 2 * KernelProperty.SIMDWidth);

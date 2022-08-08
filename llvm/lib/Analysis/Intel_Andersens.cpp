@@ -6234,12 +6234,13 @@ unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
   // arguments starting from the format string can be treated as read-only.
 
   if (ArgCount > StringPos) {
-    const Value *Object =
-        getUnderlyingObject(Call->getArgOperand(StringPos));
+    const Value *Object = getUnderlyingObject(Call->getArgOperand(StringPos));
     if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
-      // Check if the global variable is a constant char array.
+      // Check if the global variable has a definition that is a constant char
+      // array.
       llvm::Type *GVElemType = GV->getValueType();
-      if (GV->isConstant() && GVElemType->isArrayTy() &&
+      if (GV->hasExactDefinition() && GV->isConstant() &&
+          GVElemType->isArrayTy() &&
           GVElemType->getArrayElementType()->isIntegerTy(8)) {
         auto Array = dyn_cast<ConstantDataArray>(GV->getInitializer());
         if (Array && Array->isString()) {
