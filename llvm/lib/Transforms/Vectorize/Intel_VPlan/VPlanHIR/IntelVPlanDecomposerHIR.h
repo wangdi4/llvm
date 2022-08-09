@@ -18,6 +18,7 @@
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include <map>
 
 namespace llvm {
 namespace loopopt {
@@ -84,6 +85,12 @@ private:
 
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const loopopt::DDGraph &DDG;
+
+  /// Multimap of a hash value(representing instruction opcode and operands)
+  /// and the generated instructions. This multimap is used to avoid generating
+  /// duplicate instructions for the same opcode/operands combination within
+  /// a VPBasicBlock.
+  std::multimap<unsigned, VPInstruction *> InstrMap;
 
   /// Map HLInst's and their respective VPValue's representing their definition.
   DenseMap<loopopt::HLDDNode *, VPValue *> HLDef2VPValue;
@@ -199,6 +206,12 @@ private:
   void getOrCreateVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
 
+  // Search through InstrMap to find an equivalent instruction for given
+  // opcode/operands and return the same if found. Otherwise, return a newly
+  // created instruction.
+  VPInstruction *getOrCreateNaryOp(unsigned Opcode,
+                                   ArrayRef<VPValue *> Operands, Type *BaseTy);
+
   // Private helper method to create CmpInsts in VPlan using given HLPredicate
   // and operands.
   VPCmpInst *createCmpInst(const HLPredicate &P, VPValue *LHS, VPValue *RHS) {
@@ -230,6 +243,39 @@ private:
   VPValue *decomposeCanonExpr(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE);
   VPValue *decomposeMemoryOp(loopopt::RegDDRef *RDDR);
   VPValue *decomposeVPOperand(loopopt::RegDDRef *RDDR);
+
+  /// This specifies that created VPInstructions should be appended to the end
+  /// of the specified block.
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB) {
+    /// Clear InstrMap if insertpoint block is changing
+    if (Builder.getInsertBlock() != TheBB)
+      InstrMap.clear();
+
+    return Builder.setInsertPoint(TheBB);
+  }
+
+  /// This specifies that created instructions should be inserted at the
+  /// specified point.
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
+    /// Clear InstrMap if insertpoint block is changing or if the insertion
+    /// point is not the current insertpoint block terminator. When the
+    /// insertion point is changing to something other than the terminator, we
+    /// can have a situation like the following:
+    ///
+    /// VP1 = ...
+    /// VP2 = ...
+    /// ...
+    /// VP3 = add VP1, VP2
+    ///
+    /// VP3 is in the map and the insertion point may be changing to insert
+    /// instructions right after VP2. We may now try to generate another add
+    /// instruction with VP1 and VP2 as operands and it would be incorrect
+    /// to try to reuse VP3 for the same.
+    if (Builder.getInsertBlock() != TheBB || IP != TheBB->terminator())
+      InstrMap.clear();
+
+    return Builder.setInsertPoint(TheBB, IP);
+  }
 
   /// This class implements the decomposition of a blob in a RegDDRef. The
   /// decomposition is based on the SCEV representation of the blob.
