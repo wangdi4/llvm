@@ -4599,10 +4599,12 @@ bool SelectionDAG::canCreateUndefOrPoison(SDValue Op, const APInt &DemandedElts,
 
   unsigned Opcode = Op.getOpcode();
   switch (Opcode) {
+  case ISD::FREEZE:
+  case ISD::BSWAP:
+  case ISD::BITREVERSE:
   case ISD::SIGN_EXTEND:
   case ISD::ZERO_EXTEND:
   case ISD::BITCAST:
-  case ISD::FREEZE:
     return false;
 
   default:
