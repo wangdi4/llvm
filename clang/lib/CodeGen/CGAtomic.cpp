@@ -802,7 +802,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_add_fetch:
     PostOp = E->getValueType()->isFloatingType() ? llvm::Instruction::FAdd
                                                  : llvm::Instruction::Add;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_add:
   case AtomicExpr::AO__hip_atomic_fetch_add:
   case AtomicExpr::AO__opencl_atomic_fetch_add:
@@ -814,7 +814,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_sub_fetch:
     PostOp = E->getValueType()->isFloatingType() ? llvm::Instruction::FSub
                                                  : llvm::Instruction::Sub;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_sub:
   case AtomicExpr::AO__opencl_atomic_fetch_sub:
   case AtomicExpr::AO__atomic_fetch_sub:
@@ -824,7 +824,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_min_fetch:
     PostOpMinMax = true;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_min:
   case AtomicExpr::AO__hip_atomic_fetch_min:
   case AtomicExpr::AO__opencl_atomic_fetch_min:
@@ -835,7 +835,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_max_fetch:
     PostOpMinMax = true;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_max:
   case AtomicExpr::AO__hip_atomic_fetch_max:
   case AtomicExpr::AO__opencl_atomic_fetch_max:
@@ -846,7 +846,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_and_fetch:
     PostOp = llvm::Instruction::And;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__hip_atomic_fetch_and:
   case AtomicExpr::AO__opencl_atomic_fetch_and:
@@ -856,7 +856,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_or_fetch:
     PostOp = llvm::Instruction::Or;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__hip_atomic_fetch_or:
   case AtomicExpr::AO__opencl_atomic_fetch_or:
@@ -866,7 +866,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_xor_fetch:
     PostOp = llvm::Instruction::Xor;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_xor:
   case AtomicExpr::AO__hip_atomic_fetch_xor:
   case AtomicExpr::AO__opencl_atomic_fetch_xor:
@@ -876,7 +876,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
 
   case AtomicExpr::AO__atomic_nand_fetch:
     PostOp = llvm::Instruction::And; // the NOT is special cased below
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AtomicExpr::AO__c11_atomic_fetch_nand:
   case AtomicExpr::AO__atomic_fetch_nand:
     Op = llvm::AtomicRMWInst::Nand;
@@ -1218,7 +1218,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       EmitStoreOfScalar(Val1Scalar, MakeAddrLValue(Temp, Val1Ty));
       break;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 #if INTEL_CUSTOMIZATION
   case AtomicExpr::AO__atomic_exchange_explicit:
   case AtomicExpr::AO__atomic_exchange_explicit_1:
@@ -1232,7 +1232,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__atomic_add_fetch:
   case AtomicExpr::AO__atomic_sub_fetch:
     ShouldCastToIntPtrTy = !MemTy->isFloatingType();
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__c11_atomic_exchange:
@@ -1431,7 +1431,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       // suitably aligned for the optimized version.
       if (Misaligned)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_store_explicit:
     case AtomicExpr::AO__atomic_store_explicit_1:
@@ -1640,7 +1640,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_add_fetch:
       PostOp = llvm::Instruction::Add;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_add_explicit:
     case AtomicExpr::AO__atomic_fetch_add_explicit_1:
@@ -1669,7 +1669,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_and_fetch:
       PostOp = llvm::Instruction::And;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_and_explicit:
     case AtomicExpr::AO__atomic_fetch_and_explicit_1:
@@ -1698,7 +1698,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_or_fetch:
       PostOp = llvm::Instruction::Or;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_or_explicit:
     case AtomicExpr::AO__atomic_fetch_or_explicit_1:
@@ -1727,7 +1727,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_sub_fetch:
       PostOp = llvm::Instruction::Sub;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_sub_explicit:
     case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
@@ -1755,7 +1755,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_xor_fetch:
       PostOp = llvm::Instruction::Xor;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_xor_explicit:
     case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
@@ -1774,7 +1774,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     case AtomicExpr::AO__atomic_min_fetch:
       PostOpMinMax = true;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case AtomicExpr::AO__c11_atomic_fetch_min:
     case AtomicExpr::AO__atomic_fetch_min:
     case AtomicExpr::AO__hip_atomic_fetch_min:
@@ -1787,7 +1787,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     case AtomicExpr::AO__atomic_max_fetch:
       PostOpMinMax = true;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case AtomicExpr::AO__c11_atomic_fetch_max:
     case AtomicExpr::AO__atomic_fetch_max:
     case AtomicExpr::AO__hip_atomic_fetch_max:
@@ -1810,7 +1810,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_nand_fetch:
       PostOp = llvm::Instruction::And; // the NOT is special cased below
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_nand_explicit:
     case AtomicExpr::AO__atomic_fetch_nand_explicit_1:

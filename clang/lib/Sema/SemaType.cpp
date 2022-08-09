@@ -460,7 +460,7 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
           if (onlyBlockPointers)
             continue;
 
-          LLVM_FALLTHROUGH;
+          [[fallthrough]];
 
         case DeclaratorChunk::BlockPointer:
           result = &ptrChunk;
@@ -1418,7 +1418,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       }
     }
 
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case DeclSpec::TST_int: {
     if (DS.getTypeSpecSign() != TypeSpecifierSign::Unsigned) {
       switch (DS.getTypeSpecWidth()) {
@@ -3627,7 +3627,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
           !D.getNumTypeObjects() &&
           D.getDeclSpec().getParsedSpecifiers() == DeclSpec::PQ_TypeSpecifier)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorContext::TemplateTypeArg:
       Error = 10; // Template type argument
       break;
@@ -3652,7 +3652,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
       if (SemaRef.getLangOpts().CPlusPlus2b && IsCXXAutoType &&
           !Auto->isDecltypeAuto())
         break; // auto(x)
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorContext::TypeName:
     case DeclaratorContext::Association:
       Error = 15; // Generic
@@ -3921,7 +3921,7 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
     case DeclaratorChunk::Paren:
       if (&C == &Paren)
         continue;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorChunk::Pointer:
       StartsWithDeclaratorId = false;
       continue;
@@ -4774,7 +4774,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case DeclaratorContext::TrailingReturn:
     case DeclaratorContext::TrailingReturnVar:
       isFunctionOrMethod = true;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case DeclaratorContext::Member:
       if (state.getDeclarator().isObjCIvar() && !isFunctionOrMethod) {
@@ -4788,7 +4788,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
 
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case DeclaratorContext::File:
     case DeclaratorContext::KNRTypeList: {
@@ -4943,7 +4943,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case CAMN_InnerPointers:
       if (NumPointersRemaining == 0)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case CAMN_Yes:
       checkNullabilityConsistency(S, pointerKind, pointerLoc, pointerEndLoc);
@@ -7923,7 +7923,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
       case EST_NoexceptTrue:
       case EST_NoThrow:
         // Exception spec doesn't conflict with nothrow, so don't warn.
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case EST_Unparsed:
       case EST_Uninstantiated:
       case EST_DependentNoexcept:
@@ -8668,7 +8668,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     // clang, so revert to attribute-based handling for C.
       if (!state.getSema().getLangOpts().CPlusPlus)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     FUNCTION_TYPE_ATTRS_CASELIST:
       attr.setUsedAsTypeAttr();
 

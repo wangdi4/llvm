@@ -2960,7 +2960,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
         }
       }
       // Fall through.
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     }
     case tok::comma:
     case tok::equal:
@@ -4419,13 +4419,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         isInvalid = true;
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case tok::kw_private:
       // It's fine (but redundant) to check this for __generic on the
       // fallthrough path; we only form the __generic token in OpenCL mode.
       if (!getLangOpts().OpenCL)
         goto DoneWithDeclSpec;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5350,7 +5350,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case tok::kw_typename:  // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
     // recurse to handle whatever we get.
@@ -5504,7 +5504,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
       return false;
     if (TryAltiVecVectorToken())
       return true;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case tok::kw_decltype: // decltype(T())::type
   case tok::kw_typename: // typename T::type
     // Annotate typenames and C++ scope specifiers.  If we get one, just
@@ -5932,7 +5932,7 @@ void Parser::ParseTypeQualifierListOpt(
     case tok::kw_private:
       if (!getLangOpts().OpenCL)
         goto DoneWithTypeQuals;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5955,7 +5955,7 @@ void Parser::ParseTypeQualifierListOpt(
         if (TryKeywordIdentFallback(false))
           continue;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -6007,7 +6007,7 @@ void Parser::ParseTypeQualifierListOpt(
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type
