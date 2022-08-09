@@ -243,6 +243,10 @@ public:
   void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
                               RegDDRef *Mask, bool IsRemainderLoop);
 
+  /// Widen call instruction \p VPCall using a vector variant. \p Mask is used
+  /// to generate masked version of widened calls, if needed.
+  void widenVectorVariant(const VPCallInstruction *VPCall, RegDDRef *Mask);
+
   /// Widen call instruction \p VPCall using vector library function. \p Mask is
   /// used to generate masked version of widened calls, if needed.
   void widenLibraryCall(const VPCallInstruction *VPCall, RegDDRef *Mask);
@@ -1035,17 +1039,23 @@ private:
   // Helper utility to generate a widened Call HLInst(s) for given VPCall, using
   // vector library function or vector intrinsics. The generated call(s) are
   // returned via \p CallResults.
-  // TODO: Extend this utility to support call vectorization using
-  // vector-variants.
   void generateWideCalls(const VPCallInstruction *VPCall, unsigned PumpFactor,
-                         RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
+                         RegDDRef *Mask, VectorVariant *MatchedVariant,
+                         Intrinsic::ID VectorIntrinID,
                          SmallVectorImpl<HLInst *> &CallResults);
+
+  // Helper utility to generate the mask argument for calls to vector functions.
+  // If the call is to a vector variant and i1 vectors are not used for the
+  // mask, then convert the mask to the characteristic type of the function.
+  RegDDRef* generateMaskArg(RegDDRef *Mask, VectorVariant *MatchedVariant,
+                            const VPCallInstruction *VPCall);
 
   // Vectorize call arguments, or for trivial vector intrinsics scalarize if the
   // arg is always scalar. If the call is being pumped by \p PumpFactor times,
   // then the appropriate sub-vector is extracted for given \p PumpPart.
   void widenCallArgs(const VPCallInstruction *VPCall, RegDDRef *Mask,
-                     Intrinsic::ID VectorIntrinID, unsigned PumpPart,
+                     Intrinsic::ID VectorIntrinID,
+                     VectorVariant *MatchedVariant, unsigned PumpPart,
                      unsigned PumpFactor, SmallVectorImpl<RegDDRef *> &CallArgs,
                      SmallVectorImpl<Type *> &ArgTys,
                      SmallVectorImpl<AttributeSet> &ArgAttrs);

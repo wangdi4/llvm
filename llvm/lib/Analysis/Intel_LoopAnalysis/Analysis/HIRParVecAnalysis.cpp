@@ -550,8 +550,10 @@ void DDWalk::visit(HLDDNode *Node) {
           // TODO: Update cost model so that ephemeral values are ignored.
           IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
                            IntrinsicId == Intrinsic::assume;
-        } else
-          IsVectorizable = TLI.isFunctionVectorizable(Func->getName());
+        } else {
+          IsVectorizable = TLI.isFunctionVectorizable(Func->getName()) ||
+              Func->hasFnAttribute("vector-variants");
+        }
       } else {
         IsVectorizable = false;
       }
