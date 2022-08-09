@@ -222,8 +222,9 @@ set(LIBOMPTARGET_LLVM_LIBRARY_DIR "${LLVM_LIBRARY_DIR}" CACHE STRING
 add_subdirectory(plugins)
 if(INTEL_CUSTOMIZATION)
 add_subdirectory(deviceRTLs)
-endif(INTEL_CUSTOMIZATION)
+else(INTEL_CUSTOMIZATION)
 add_subdirectory(DeviceRTL)
+endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.

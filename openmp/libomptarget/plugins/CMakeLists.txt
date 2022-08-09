@@ -113,6 +113,9 @@ else()
 endif()
 endmacro()
 
+if(INTEL_CUSTOMIZATION)
+add_subdirectory(x86_64)
+else(INTEL_CUSTOMIZATION)
 add_subdirectory(aarch64)
 add_subdirectory(amdgpu)
 add_subdirectory(cuda)
@@ -121,6 +124,7 @@ add_subdirectory(ppc64le)
 add_subdirectory(ve)
 add_subdirectory(x86_64)
 add_subdirectory(remote)
+endif(INTEL_CUSTOMIZATION)
 
 if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_CSA
