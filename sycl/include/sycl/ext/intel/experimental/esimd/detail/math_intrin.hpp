@@ -200,7 +200,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = ret;
   }
   return retv;
@@ -218,7 +218,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = ret;
   }
   return retv;
@@ -236,7 +236,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = ret;
   }
   return retv;
@@ -254,7 +254,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = ret;
   }
   return retv;
@@ -272,7 +272,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = __ESIMD_EMU_DNS::satur<T0>::template saturate<T1>(ret, 1);
   }
   return retv;
@@ -290,7 +290,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = __ESIMD_EMU_DNS::satur<T0>::template saturate<T1>(ret, 1);
   }
   return retv;
@@ -308,7 +308,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = __ESIMD_EMU_DNS::satur<T0>::template saturate<T1>(ret, 1);
   }
   return retv;
@@ -326,7 +326,7 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
 
   for (i = 0; i < SZ; i++) {
     SIMDCF_ELEMENT_SKIP(i);
-    ret = src0.get(i) << src1.get(i);
+    ret = src0[i] << src1[i];
     retv[i] = __ESIMD_EMU_DNS::satur<T0>::template saturate<T1>(ret, 1);
   }
   return retv;
