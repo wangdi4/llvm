@@ -45,8 +45,7 @@
 #include <set>
 #include <vector>
 
-namespace lld {
-namespace coff {
+namespace lld::coff {
 
 extern std::unique_ptr<class LinkerDriver> driver;
 
@@ -272,7 +271,6 @@ enum {
 #undef OPTION
 };
 
-} // namespace coff
-} // namespace lld
+} // namespace lld::coff
 
 #endif
