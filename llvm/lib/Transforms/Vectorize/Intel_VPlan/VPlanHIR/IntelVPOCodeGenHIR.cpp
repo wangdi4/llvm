@@ -589,7 +589,18 @@ void HandledCheck::visit(HLDDNode *Node) {
   if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
     auto LLInst = Inst->getLLVMInstruction();
 
-    if (LLInst->mayThrow()) {
+    bool HasVectorVariant = false;
+    if (const CallInst *Call = Inst->getCallInst()) {
+      Function *Fn = Call->getCalledFunction();
+      if (Fn && Fn->hasFnAttribute("vector-variants"))
+        HasVectorVariant = true;
+    }
+
+    // Vector functions cannot throw exceptions, but if the original function
+    // is only declared (i.e., externed), then it will not be marked with the
+    // nounwind attribute and an explicit "vector-variants" attribute check is
+    // also necessary to avoid bailing out.
+    if (LLInst->mayThrow() && !HasVectorVariant) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
       DEBUG_WITH_TYPE(
           "VPOCGHIR-bailout",
@@ -2693,6 +2704,45 @@ void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
                 "sincos.cos.store");
 }
 
+void VPOCodeGenHIR::widenVectorVariant(const VPCallInstruction *VPCall,
+                                       RegDDRef *Mask) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::VectorVariant &&
+         "widenVectorVariant called for mismatched scenario.");
+
+  // TODO: handle indirect calls - not yet supported for HIR since we bail
+  // out in HandledCheck::visit()
+
+  Function *CalledFunc = VPCall->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function.");
+  (void)CalledFunc;
+
+  VectorVariant *MatchedVariant =
+      const_cast<VectorVariant *>(VPCall->getVectorVariant());
+  assert(MatchedVariant && "Unexpected null matched vector variant");
+
+  // Create all-ones mask for masked vector variant when unmasked variant isn't
+  // available.
+  if (!Mask && VPCall->shouldUseMaskedVariantForUnmasked()) {
+    RegDDRef *ConstOne =
+        DDRefUtilities.createConstOneDDRef(Type::getInt1Ty(Context));
+    Mask = widenRef(ConstOne, getVF());
+  }
+
+  unsigned PumpFactor = VPCall->getPumpFactor();
+  SmallVector<HLInst *, 4> CallResults;
+  generateWideCalls(VPCall, PumpFactor, Mask, MatchedVariant,
+                    Intrinsic::not_intrinsic /*No vector intrinsic*/,
+                    CallResults);
+  // We assert in widenCallArgs for PumpFactor == 1, so CallResults will
+  // have only 1 HLInst. Remove this comment after support for pumping
+  // is added.
+  HLInst *CallResult = CallResults[0];
+
+  // Update wide-ref mapping.
+  addVPValueWideRefMapping(VPCall, CallResult->getLvalDDRef());
+}
+
 void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
                                      RegDDRef *Mask) {
   assert(VPCall->getVectorizationScenario() ==
@@ -2704,6 +2754,7 @@ void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
 
   SmallVector<HLInst *, 4> CallResults;
   generateWideCalls(VPCall, PumpFactor, Mask,
+                    nullptr /*No vector variant*/,
                     Intrinsic::not_intrinsic /*No vector intrinsic*/,
                     CallResults);
 
@@ -2763,8 +2814,8 @@ void VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
   SmallVector<HLInst *, 4> CallResults;
   assert(PumpFactor == 1 &&
          "Pumping feature is not expected for trivial vector intrinsics.");
-  generateWideCalls(VPCall, PumpFactor, nullptr /*Mask*/, VectorIntrinID,
-                    CallResults);
+  generateWideCalls(VPCall, PumpFactor, nullptr /*Mask*/,
+                    nullptr /*No vector variant*/, VectorIntrinID, CallResults);
   assert(CallResults.size() == 1 &&
          "Expected single widened call for trivial vector intrinsic.");
   HLInst *CallResult = CallResults[0];
@@ -2773,13 +2824,59 @@ void VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
   addVPValueWideRefMapping(VPCall, CallResult->getLvalDDRef());
 }
 
+RegDDRef* VPOCodeGenHIR::generateMaskArg(RegDDRef *Mask,
+                                         VectorVariant *MatchedVariant,
+                                         const VPCallInstruction *VPCall) {
+  RegDDRef *NewMask = Mask;
+  // For vector variants, use the characteristic type instead of i1
+  // for the mask argument.
+  if (MatchedVariant && !Usei1MaskForSimdFunctions) {
+    auto *MaskTy = cast<VectorType>(Mask->getDestType());
+    auto *CharacteristicTy =
+        VPlanCallVecDecisions::calcCharacteristicType(
+            const_cast<VPCallInstruction*>(VPCall), *MatchedVariant);
+    // Promote i1 to an integer with same size as the characteristic type.
+    VectorType *MaskTyExt =
+        VectorType::get(
+            IntegerType::get(Context,
+                             CharacteristicTy->getPrimitiveSizeInBits()),
+            MaskTy->getElementCount());
+
+    HLInst *MaskValueExt =
+        HLNodeUtilities.createSExt(MaskTyExt,
+        Mask->clone());
+    addInstUnmasked(MaskValueExt);
+    NewMask = MaskValueExt->getLvalDDRef();
+
+    auto *CharacteristicVecTy =
+        VectorType::get(CharacteristicTy,
+        MaskTy->getElementCount());
+
+    // Bitcast to the characteristic type.
+    if (MaskTyExt != CharacteristicVecTy) {
+      auto *ConvertInst =
+          HLNodeUtilities.createCastHLInst(CharacteristicVecTy,
+          Instruction::BitCast,
+          MaskValueExt->getLvalDDRef()->clone());
+      addInstUnmasked(ConvertInst);
+      NewMask = ConvertInst->getLvalDDRef();
+    }
+  }
+  return NewMask;
+}
+
 void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
                                   RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
+                                  VectorVariant *MatchedVariant,
                                   unsigned PumpPart, unsigned PumpFactor,
                                   SmallVectorImpl<RegDDRef *> &CallArgs,
                                   SmallVectorImpl<Type *> &ArgTys,
                                   SmallVectorImpl<AttributeSet> &ArgAttrs) {
   unsigned PumpedVF = getVF() / PumpFactor;
+  std::vector<VectorKind> Parms;
+  if (MatchedVariant) {
+    Parms = MatchedVariant->getParameters();
+  }
 
   Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
@@ -2797,13 +2894,15 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
 
   for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
     RegDDRef *WideArg = nullptr;
-    if (!isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
+    if ((!MatchedVariant || Parms[I].isVector()) &&
+        !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
       WideArg = widenRef(VPCall->getOperand(I), VF);
       WideArg = extractSubVector(WideArg, PumpPart, PumpFactor);
       assert(WideArg && "Vectorized call arg cannot be nullptr.");
     } else {
+      // TODO: support pumping for vector variants
       assert(PumpFactor == 1 &&
-             "Pumping feature is not expected for trivial vector intrinsics.");
+             "Pumping feature is not expected.");
       WideArg = getOrCreateScalarRef(VPCall->getOperand(I), 0 /*Lane*/);
     }
     CallArgs.push_back(WideArg);
@@ -2828,9 +2927,10 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
         isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
       addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, PumpPartMask);
     } else {
-      auto CE = PumpPartMask->getSingleCanonExpr();
+      RegDDRef *MaskArg = generateMaskArg(PumpPartMask, MatchedVariant, VPCall);
+      auto CE = MaskArg->getSingleCanonExpr();
       ArgTys.push_back(CE->getDestType());
-      CallArgs.push_back(PumpPartMask->clone());
+      CallArgs.push_back(MaskArg->clone());
       ArgAttrs.push_back(AttributeSet());
     }
   }
@@ -2926,6 +3026,7 @@ HLInst *VPOCodeGenHIR::getCombinedCallResultsForStructTy(
 
 void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
                                       unsigned PumpFactor, RegDDRef *Mask,
+                                      VectorVariant *MatchedVariant,
                                       Intrinsic::ID VectorIntrinID,
                                       SmallVectorImpl<HLInst *> &CallResults) {
   Function *Fn = VPCall->getCalledFunction();
@@ -2941,12 +3042,18 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
     SmallVector<RegDDRef *, 4> CallArgs;
     SmallVector<Type *, 1> ArgTys;
     SmallVector<AttributeSet, 1> ArgAttrs;
-    widenCallArgs(VPCall, Mask, VectorIntrinID, PumpPart, PumpFactor, CallArgs,
-                  ArgTys, ArgAttrs);
+    widenCallArgs(VPCall, Mask, VectorIntrinID, MatchedVariant, PumpPart,
+                  PumpFactor, CallArgs, ArgTys, ArgAttrs);
 
     bool Masked = Mask != nullptr;
-    Function *VectorF = getOrInsertVectorLibFunction(
+    Function *VectorF = nullptr;
+    if (MatchedVariant) {
+      VectorF = getOrInsertVectorVariantFunction(
+        Fn, VF / PumpFactor, ArgTys, MatchedVariant, Masked);
+    } else {
+      VectorF = getOrInsertVectorLibFunction(
         Fn, VF / PumpFactor, ArgTys, TLI, VectorIntrinID, Masked);
+    }
     assert(VectorF && "Can't create vector function.");
 
     FastMathFlags FMF = VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags()
@@ -6028,9 +6135,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       ++OptRptStats.VectorMathCalls;
       return;
     }
-    // TODO: Vector variant based CG is not supported yet, serialize
-    // temporarily.
-    case VPCallInstruction::CallVecScenariosTy::VectorVariant:
+    case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
+      widenVectorVariant(VPCall, Mask);
+      ++OptRptStats.VectorVariantCalls;
+      return;
+    }
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       serializeInstruction(VPCall, Mask);
       ++OptRptStats.SerializedCalls;
