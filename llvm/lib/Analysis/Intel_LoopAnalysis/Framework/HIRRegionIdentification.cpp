@@ -2305,12 +2305,26 @@ HIRRegionIdentification::getLexicalInsertionPos(const BasicBlock *BB) {
   return RegIt;
 }
 
+static bool containsAlloca(const BasicBlock *BB) {
+
+  for (auto &Inst : *BB) {
+    if (isa<AllocaInst>(Inst)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void HIRRegionIdentification::formRegionsForLoopMaterialization(
     Function &Func) {
 
   unsigned FunctionSize = Func.size();
 
+  auto *EntryBB = &Func.getEntryBlock();
+
   for (auto &BB : Func) {
+
     if (AllLoopBasedRegionsBBlocks.count(&BB)) {
       continue;
     }
@@ -2324,6 +2338,19 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
     }
 
     if (!isLoopMaterializationCandidate(BB, SE)) {
+      continue;
+    }
+
+    // We currently blindly split the loop materialization bblock in SSA
+    // deconstruction to avoid cross-region dependencies. This is a problem if
+    // we split the function entry block containing allocas. The allocas in
+    // function entry block are 'special' as they can be optimized away by SROA.
+    // Also, if this alloca is liveout from the loop materialization bblock, its
+    // uses will be replaced by a liveout phi. This might cause issues with some
+    // passes which are expecting allocas uses in specific sections of IR.
+    if ((&BB == EntryBB) && containsAlloca(EntryBB)) {
+      LLVM_DEBUG(dbgs() << "Skipping function entry block containing alloca as "
+                           "loop materialization candidate.");
       continue;
     }
 

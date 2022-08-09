@@ -9,20 +9,20 @@
 ; into outer region's entry.
 
 ; Test src:
-;
-; subroutine test(A)
+
+; subroutine test()
 ; integer :: i, j
+; !$omp do
 ; !$omp tile sizes(4)
 ; do i = 1, 100
 ;   call bar(i)
 ; end do
-; end subroutine;
+; end subroutine
 
 ; CHECK-DAG: FLOOR.LATCH
 ; CHECK-DAG: FLOOR.PREHEAD
 ; CHECK-DAG: FLOOR.HEAD
-; CHECK-NOT: "DIR.OMP.TILE"
-; CHECK-NOT: "DIR.OMP.END.TILE"
+; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %"test_$I"), "QUAL.OMP.NORMALIZED.IV:TYPED"(i64* %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i64* %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i64* %floor_lb, i64 0, i32 1) ]
 
 ; ModuleID = 'do1_tile1.f90'
 source_filename = "do1_tile1.f90"

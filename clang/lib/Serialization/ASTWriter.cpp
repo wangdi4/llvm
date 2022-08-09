@@ -6282,6 +6282,10 @@ void OMPClauseWriter::VisitOMPOmpxMonotonicClause(OMPOmpxMonotonicClause *C) {
     Record.AddStmt(VE);
   Record.AddStmt(C->getStep());
 }
+void OMPClauseWriter::VisitOMPOmpxOverlapClause(OMPOmpxOverlapClause *C) {
+  Record.AddStmt(C->getOverlap());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
 #if INTEL_FEATURE_CSA
 void OMPClauseWriter::VisitOMPDataflowClause(OMPDataflowClause *C) {
   VisitOMPClauseWithPreInit(C);

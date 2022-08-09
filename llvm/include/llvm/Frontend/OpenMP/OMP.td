@@ -390,6 +390,9 @@ def OMPC_tile : Clause<"tile"> {
 def OMPC_OmpxMonotonic : Clause<"ompx_monotonic"> {
   let clangClass = "OMPOmpxMonotonicClause";
 }
+def OMPC_OmpxOverlap : Clause<"ompx_overlap"> {
+  let clangClass = "OMPOmpxOverlapClause";
+}
 #if INTEL_FEATURE_CSA
 def OMPC_dataflow : Clause<"dataflow"> {
   let clangClass = "OMPDataflowClause";
@@ -611,6 +614,7 @@ def OMP_Ordered : Directive<"ordered"> {
   let allowedOnceClauses = [
     VersionedClause<OMPC_Threads>,
     VersionedClause<OMPC_OmpxMonotonic>,  // INTEL
+    VersionedClause<OMPC_OmpxOverlap>,  // INTEL
     VersionedClause<OMPC_Simd>
   ];
 }

@@ -362,6 +362,7 @@ class OpenMPLateOutliner {
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
   void emitOMPOmpxMonotonicClause(const OMPOmpxMonotonicClause *);
+  void emitOMPOmpxOverlapClause(const OMPOmpxOverlapClause *);
   void emitOMPDataClause(const OMPDataClause *);
   void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);

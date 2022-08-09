@@ -1372,6 +1372,69 @@ public:
   }
 };
 
+/// This represents clause 'ompx_overlap' in the '#pragma omp ordered'
+/// directive.
+///
+/// \code
+/// #pragma omp ordered simd ompx_overlap(a)
+/// In this example directive '#pragma omp ordered simd' has clause
+/// 'ompx_overlap' with single expression 'a'.
+class OMPOmpxOverlapClause final : public OMPClause {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Overlap expression of the 'ompx_overlap' clause
+  Stmt *Overlap = nullptr;
+
+  /// Set condition.
+  void setOverlap(Expr *OverlapExpr) { Overlap = OverlapExpr; }
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+public:
+  /// Build 'Overlap' clause with given Expr \a Overlap.
+  ///
+  /// \param Overlap of ompx_overlap expression.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPOmpxOverlapClause(Expr *Overlap, SourceLocation StartLoc,
+                       SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_overlap, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Overlap(Overlap) {}
+  /// Build an empty clause.
+  ///
+  OMPOmpxOverlapClause()
+      : OMPClause(llvm::omp::OMPC_ompx_overlap, SourceLocation(),
+                  SourceLocation()) {}
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Return overlap expr.
+  Expr *getOverlap() const { return cast_or_null<Expr>(Overlap); }
+
+  child_range children() { return child_range(&Overlap, &Overlap + 1); }
+
+  const_child_range children() const {
+    return const_child_range(&Overlap, &Overlap + 1);
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_overlap;
+  }
+};
 #endif // INTEL_CUSTOMIZATION
 
 /// This represents 'safelen' clause in the '#pragma omp ...'

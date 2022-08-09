@@ -6668,6 +6668,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_monotonic:
+  case OMPC_ompx_overlap:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
