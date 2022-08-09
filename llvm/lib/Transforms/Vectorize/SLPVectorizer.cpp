@@ -2439,10 +2439,27 @@ private:
       /// also holds the operand number (i.e. the Nth operand of the frontier).
       SmallVector<SmallVector<LeafData, 8>, 8> Leaves;
 
+      /// MultiNode is essentially implementing look-ahead build of the SLP tree
+      /// that we use for two purposes:
+      ///
+      ///   1. Leafs reorder
+      ///   2. Path steering
+      ///
+      /// The second might be beneficial and is happening even when no actual
+      /// reorder is needed. However, legality constraints for (1) might require
+      /// us to stop the MultiNode construction way too early making it
+      /// impossible to analyze the path steering data. Ideally, the
+      /// optimizations should not be so tightly coupled, but our whole
+      /// customization here is very ad-hoc. As such, one more HACK wouldn't
+      /// harm. This field is used to indicate that the current MultiNode is
+      /// being built only for the purpose of path steering.
+      bool DisableReordering = false;
+
       /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
       void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
         if (OpIdx1 == OpIdx2)
           return;
+        assert(!DisableReordering && "Doing reordering while it's disabled?");
 
         LeafData &Op1 = getData(OpIdx1, Lane);
         LeafData &Op2 = getData(OpIdx2, Lane);
@@ -2644,8 +2661,13 @@ private:
         int BestScore = -1;
 
         // Go through all operands of the MultiNode looking for the best match.
-        for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
+        for (int OpIdx : seq<int>(0, getNumOperands())) {
           const LeafData &RHSOperand = getData(OpIdx, RHSLane);
+          if (DisableReordering) {
+            if (OpIdx != OrigOpIdx)
+              continue;
+            assert(!RHSOperand.isUsed() && "Original operand already used?");
+          }
           // Skip if we have already used this for this Lane.
           if (RHSOperand.isUsed())
             continue;
@@ -2784,10 +2806,13 @@ private:
         SmallVector<int> FirstOperandCandidates;
         // For the first lane we need to try all operand nodes.
         LeafData &CurrLHSOperand = getData(OpI, 0);
-        for (int OpIdx = 0, E = getNumOperands(); OpIdx != E; ++OpIdx) {
+        for (int OpIdx : seq<int>(0, getNumOperands())) {
           LeafData &LHSOperand = getData(OpIdx, 0);
-          if (!LHSOperand.isUsed() &&
-              (OpI == OpIdx || isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
+          if (LHSOperand.isUsed())
+            continue;
+
+          if (OpI == OpIdx || (!DisableReordering &&
+                               isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
             FirstOperandCandidates.push_back(OpIdx);
         }
 
@@ -2855,6 +2880,8 @@ private:
       /// \returns the number of lanes.
       unsigned getNumLanes() const { return Leaves[0].size(); }
       bool empty() const { return Leaves.empty(); }
+      void disableReordering() { DisableReordering = true; }
+
       void appendOperand(ArrayRef<Value *> OpVL, const EdgeInfo &EI) {
         unsigned NumLanes = OpVL.size();
         unsigned OpIdx = Leaves.size();
@@ -2961,7 +2988,7 @@ private:
         if (FinalScore >= OrigScore)
           DoCodeGen = true;
 
-        return DoCodeGen;
+        return DoCodeGen && !DisableReordering;
       }
     };
 
@@ -2998,22 +3025,6 @@ private:
     /// NOTE: We cannot safely deduce this from Leaves, because Leaves contains
     /// leaves, not trunks. By the time we reach the leaves it is too late.
     unsigned NumLanes = 0;
-
-    /// MultiNode is essentially implementing look-ahead build of the SLP tree
-    /// that we use for two purposes:
-    ///
-    ///   1. Leafs reorder
-    ///   2. Path steering
-    ///
-    /// The second might be beneficial and is happenning even when no actual
-    /// reorder is needed. However, legality constraints for (1) might require
-    /// us to stop the MultiNode construction way too early making it impossible
-    /// to analyze the path steering data. Ideally, the optimizations should not
-    /// be so tightly coupled, but our whole customization here is very ad-hoc.
-    /// As such, one more HACK wouldn't harm. This field is used to indicate
-    /// that the current MultiNode is being built only for the purpose of path
-    /// steering.
-    bool DisableReorder = false;
 
     /// Data used for path steering.
     /// Path steering helps buildTree_rec() follow the best path through the
@@ -3224,9 +3235,6 @@ private:
         if (*MaxScore > 0)
           steerPath(std::distance(OperandScores.begin(), MaxScore));
       }
-      if (DisableReorder)
-        return false;
-
       return DoCodeGen;
     }
 
@@ -3234,7 +3242,7 @@ private:
       return SteeringData.count(V);
     }
 
-    void disableReorder() { DisableReorder = true; }
+    void disableReordering() { Operands.disableReordering(); }
 
     // Undo the code motion that moves all frontier nodes towards the root.
     void undoMultiNodeScheduling();
@@ -6847,7 +6855,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // "multiplied" by being used multiple times. Path steering is
       // still OK though.
       if (!all_of(VL, [](const Value *V) { return V->hasOneUse(); }))
-        CurrentMultiNode->disableReorder();
+        CurrentMultiNode->disableReordering();
 
       buildTreeMultiNode_rec(S, Bundle, VL, Depth + 1, UserTreeIdx,
                              ReuseShuffleIndicies);
