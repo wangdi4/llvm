@@ -3668,8 +3668,10 @@ private:
   public:
 #if INTEL_CUSTOMIZATION
     /// Replace operand values with new values. This is ugly but we need it for
-    /// updating the operands with the newly generated instructions from PSLP.
-    /// TODO: This should be removed once we switch to community-based design.
+    /// updating the operands with the newly generated instructions (in order to
+    /// reverse their opcode).
+    // TODO: This should be removed once we switch to new design where
+    // underlying IR is not modified for applying operands reordering.
     void remapOperands(const DenseMap<Value *, Value *> &RemapMap) {
       for (unsigned OpIdx = 0, OpE = Operands.size(); OpIdx != OpE; ++OpIdx)
         for (unsigned i = 0, e = Operands[OpIdx].size(); i != e; ++i) {
@@ -3677,6 +3679,16 @@ private:
           if (it != RemapMap.end())
             Operands[OpIdx][i] = it->second;
         }
+    }
+
+    /// Replace scalar values with the new ones according to the map.
+    // See also remapOperands TODO which is perfectly applicable here too.
+    void remapScalars(const DenseMap<Value *, Value *> &RemapMap) {
+      for (int Lane : seq<int>(0, Scalars.size())) {
+        auto it = RemapMap.find(Scalars[Lane]);
+        if (it != RemapMap.end())
+          Scalars[Lane] = it->second;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -6097,8 +6109,20 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
 #endif // EXPENSIVE_CHECKS
 
   // Update the TreeEntries
-  for (const auto &TEPtr : VectorizableTree)
+  for (const auto &TEPtr : VectorizableTree) {
     TEPtr->remapOperands(RemapMap);
+    // At the time when MultiNode implementation was added if a scalar was used
+    // in any NeedToGather node it could not be vectorized. But the restriction
+    // has been lifted later. So we may need to update such nodes.
+    // This is only applicable to a case when any of scalar instructions that
+    // belong to MultiNode root have their opcode reversed as a result of
+    // MultiNode operands reordering (non-root trunk nodes are limited with
+    // single-use rule hence reordering is disabled if the condition is not
+    // met). We don't scan non-NeedToGather nodes as a scalar can only be
+    // vectorized once and its "vector" node has already been updated.
+    if (TEPtr->State == TreeEntry::NeedToGather)
+      TEPtr->remapScalars(RemapMap);
+  }
   // Update the instructions in Bundle if required.
   if (Bundle)
     Bundle->remapInsts(RemapMap);
