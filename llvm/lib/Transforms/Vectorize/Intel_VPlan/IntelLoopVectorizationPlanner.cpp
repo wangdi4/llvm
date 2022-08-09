@@ -863,9 +863,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       case VPlanIdioms::SearchLoopStrEq:
         SearchLoopPreferredVF = 32;
         break;
-      case VPlanIdioms::SearchLoopPtrEq:
+      case VPlanIdioms::SearchLoopPtrEq: {
+        // Use higher VF=16 for targets that have 2K or higher DSB size. Check
+        // CMPLRLLVM-38144 for more details.
+        if (TTI->has2KDSB())
+          VPlanSearchLpPtrEqForceVF = 16;
+
         SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
+      }
       default:
         break;
     }
