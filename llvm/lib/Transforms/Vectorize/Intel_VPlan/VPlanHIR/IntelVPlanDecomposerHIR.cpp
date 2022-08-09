@@ -16,6 +16,7 @@
 
 #include "IntelVPlanDecomposerHIR.h"
 #include "../IntelVPlanIDF.h"
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
@@ -35,12 +36,67 @@ static cl::opt<bool> VPlanForceInvariantDecomposition(
     "vplan-force-invariant-decomposition", cl::init(false), cl::Hidden,
     cl::desc("Force decomposition of invariants"));
 
+static cl::opt<bool> VPlanAvoidRedundantInst(
+    "vplan-avoid-redundant-inst", cl::init(false), cl::Hidden,
+    cl::desc("Avoid generating redundant instructions in a basic block"));
+
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
 static void movePhiToFront(VPPHINode *Phi) {
   VPBasicBlock *BB = Phi->getParent();
   BB->getInstructions().splice((BB->front()).getIterator(),
                                BB->getInstructions(), Phi->getIterator());
+}
+
+VPInstruction *VPDecomposerHIR::getOrCreateNaryOp(unsigned Opcode,
+                                                  ArrayRef<VPValue *> Operands,
+                                                  Type *BaseTy) {
+  if (!VPlanAvoidRedundantInst)
+    return cast<VPInstruction>(
+        Builder.createNaryOp(Opcode, Operands, BaseTy, nullptr /* DDNode */));
+
+  // Use FoldingSetNodeID to compute a hash from the opcode, base type and the
+  // first two operands at most.
+  FoldingSetNodeID Id;
+  unsigned NumOps = Operands.size();
+  Id.AddInteger(Opcode);
+  Id.AddPointer(BaseTy);
+  Id.AddPointer(Operands[0]);
+  if (NumOps > 1)
+    Id.AddPointer(Operands[1]);
+  else
+    Id.AddPointer(nullptr);
+  unsigned InstHash = Id.ComputeHash();
+
+  // Search InstrMap to see if we can find an equivalent instruction and reuse
+  // the same if one is found.
+  auto InstRange = InstrMap.equal_range(InstHash);
+  for (auto Start = InstRange.first; Start != InstRange.second; ++Start) {
+    VPInstruction *Inst = Start->second;
+    if (Inst->getType() != BaseTy)
+      continue;
+    if (Inst->getOpcode() != Opcode)
+      continue;
+    if (Inst->getNumOperands() != NumOps)
+      continue;
+    for (unsigned OpIdx = 0; OpIdx < NumOps; OpIdx++)
+      if (Inst->getOperand(OpIdx) != Operands[OpIdx])
+        continue;
+
+    // Found a matching instruction to reuse
+    return Inst;
+  }
+
+  // Create a new instruction for the specified opcode/operands.
+  auto *NewInst = cast<VPInstruction>(
+      Builder.createNaryOp(Opcode, Operands, BaseTy, nullptr /* DDNode */));
+
+  // We avoid reusing instructions that may have side effects by not adding
+  // it to InstrMap.
+  if (!NewInst->mayHaveSideEffects())
+    InstrMap.insert(std::pair<unsigned, VPInstruction *>(InstHash, NewInst));
+
+  return NewInst;
 }
 
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
@@ -55,9 +111,7 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
   if (RHS == nullptr)
     return LHS;
 
-  auto *NewVPI = cast<VPInstruction>(
-      Builder.createNaryOp(OpCode, {LHS, RHS}, LHS->getType()));
-  return NewVPI;
+  return getOrCreateNaryOp(OpCode, {LHS, RHS}, LHS->getType());
 }
 
 // Create a VPConstant for an integer coefficient.
@@ -76,9 +130,7 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
-  auto *NewConv = cast<VPInstruction>(
-      Builder.createNaryOp(ConvOpCode, {Src}, DestType));
-  return NewConv;
+  return getOrCreateNaryOp(ConvOpCode, {Src}, DestType);
 }
 
 // Create a VPInstruction for the conversion of \p CE, if any, using \p Src as a
@@ -1183,7 +1235,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   // step. Insert it at the beginning of the loop header and map it to the loop
   // level. HLp is set as underlying HIR of the induction phi.
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(LpH, LpH->begin());
+  setInsertPoint(LpH, LpH->begin());
   // Base type for the VPPHINode is obtained from IVStart
   Type *BaseTy = IVStart->getType();
   VPPHINode *IndVPPhi = Builder.createPhiInstruction(BaseTy, HLp);
@@ -1226,7 +1278,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
          "Expected positive unit-stride HLLoop.");
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(LpLatch);
+  setInsertPoint(LpLatch);
   Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
@@ -1275,7 +1327,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   VPValue *DecompUB;
   { // #1. This scope is for Guard (RAII).
     VPBuilder::InsertPointGuard Guard(Builder);
-    Builder.setInsertPoint(LpPH);
+    setInsertPoint(LpPH);
     DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
     // Increment UB value by 1 since HLLoop upper bounds are inclusive. This
     // allows to avoid off-by-one errors during vector TC computation and use
@@ -1325,7 +1377,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,
                                               VPBasicBlock *ZttBlock) {
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(ZttBlock);
+  setInsertPoint(ZttBlock);
   Builder.setCurrentDebugLocation(HLp->getDebugLoc());
 
   // Keep last instruction before decomposition. We will need it to set the
@@ -1379,7 +1431,7 @@ VPPHINode *VPDecomposerHIR::getOrCreateEmptyPhiForDDRef(Type *PhiTy,
   // If no entry is found in PhisToFix then create a new VPPhi node and add it
   // to the map
   VPBuilder::InsertPointGuard Guard(Builder);
-  Builder.setInsertPoint(VPBB, VPBB->begin());
+  setInsertPoint(VPBB, VPBB->begin());
   auto *VPPhi = Builder.createPhiInstruction(PhiTy);
   PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
 
@@ -1639,7 +1691,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
         // was found in PhisToFix
 
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(NewPhiBB, NewPhiBB->begin());
+        setInsertPoint(NewPhiBB, NewPhiBB->begin());
 
         assert(TrackedSymTypes.count(Sym) &&
                "PHI type for tracked symbase not found.");
@@ -2110,7 +2162,7 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Set the insertion point in the builder for the VPInstructions that we are
   // going to create for this Node.
-  Builder.setInsertPoint(InsPointVPBB);
+  setInsertPoint(InsPointVPBB);
   // Keep last instruction before decomposition. We will need it to set the
   // master VPInstruction of all the decomposed VPInstructions created.
   VPInstruction *LastVPIBeforeDec = getLastVPI(InsPointVPBB);
