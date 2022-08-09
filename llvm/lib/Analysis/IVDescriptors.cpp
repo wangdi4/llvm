@@ -831,7 +831,7 @@ RecurrenceDescriptor::isRecurrenceInstr(Loop *L, PHINode *OrigPhi,
   case Instruction::Select:
     if (Kind == RecurKind::FAdd || Kind == RecurKind::FMul)
       return isConditionalRdxPattern(Kind, I);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case Instruction::FCmp:
   case Instruction::ICmp:
   case Instruction::Call:

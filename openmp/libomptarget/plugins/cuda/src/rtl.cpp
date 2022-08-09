@@ -1099,7 +1099,7 @@ public:
 
         PeerAccessMatrix[SrcDevId][DstDevId] = PeerAccessState::Yes;
 
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       }
       case PeerAccessState::Yes: {
         Err = cuMemcpyPeerAsync(

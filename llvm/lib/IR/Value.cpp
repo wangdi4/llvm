@@ -653,7 +653,7 @@ static const Value *stripPointerCastsAndOffsets(
       case PSK_InBoundsConstantIndices:
         if (!GEP->hasAllConstantIndices())
           return V;
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case PSK_InBounds:
         if (!GEP->isInBounds())
           return V;

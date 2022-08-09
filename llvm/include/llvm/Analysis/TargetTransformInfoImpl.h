@@ -501,7 +501,7 @@ public:
   getCacheSize(TargetTransformInfo::CacheLevel Level) const {
     switch (Level) {
     case TargetTransformInfo::CacheLevel::L1D:
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case TargetTransformInfo::CacheLevel::L2D:
       return llvm::Optional<unsigned>();
     }
@@ -512,7 +512,7 @@ public:
   getCacheAssociativity(TargetTransformInfo::CacheLevel Level) const {
     switch (Level) {
     case TargetTransformInfo::CacheLevel::L1D:
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case TargetTransformInfo::CacheLevel::L2D:
       return llvm::Optional<unsigned>();
     }

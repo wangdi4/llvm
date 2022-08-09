@@ -3811,7 +3811,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     // If the target has custom/legal support for the scalar FP intrinsic ops
     // (they are probably not destined to become libcalls), then widen those
     // like any other binary ops.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case ISD::FADD:
   case ISD::FMUL:
@@ -3914,7 +3914,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     // If the target has custom/legal support for the scalar FP intrinsic ops
     // (they are probably not destined to become libcalls), then widen those
     // like any other unary ops.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case ISD::ABS:
   case ISD::BITREVERSE:

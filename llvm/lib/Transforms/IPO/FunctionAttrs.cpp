@@ -1178,7 +1178,7 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
           break;
         if (CB.getCalledFunction() && SCCNodes.count(CB.getCalledFunction()))
           break;
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       }
       default:
         return false; // Did not come from an allocation.

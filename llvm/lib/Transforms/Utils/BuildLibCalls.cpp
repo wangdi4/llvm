@@ -387,7 +387,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_strcpy:
   case LibFunc_strncpy:
     Changed |= setReturnedArg(F, 0);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_stpcpy:
   case LibFunc_stpncpy:
     Changed |= setOnlyAccessesArgMemory(F);
@@ -459,7 +459,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     break;
   case LibFunc_strndup:
     Changed |= setArgNoUndef(F, 1);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_strdup:
     Changed |= setAllocFamily(F, "malloc");
     Changed |= setOnlyAccessesInaccessibleMemOrArgMem(F);
@@ -521,7 +521,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setAlignedAllocParam(F, 0);
     Changed |= setAllocSize(F, 1, None);
     Changed |= setAllocKind(F, AllocFnKind::Alloc | AllocFnKind::Uninitialized | AllocFnKind::Aligned);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_valloc:
   case LibFunc_malloc:
   case LibFunc_vec_malloc:
@@ -581,7 +581,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_mempcpy:
   case LibFunc_memccpy:
     Changed |= setWillReturn(F);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_memcpy_chk:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -1094,7 +1094,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     break;
   case LibFunc_dunder_strndup:
     Changed |= setArgNoUndef(F, 1);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_dunder_strdup:
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
@@ -1381,10 +1381,10 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_memset:
     Changed |= setWillReturn(F);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case LibFunc_memset_chk:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyWritesMemory(F, 0);
