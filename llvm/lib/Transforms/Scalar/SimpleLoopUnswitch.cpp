@@ -3315,16 +3315,11 @@ bool SimpleLoopUnswitchLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  bool Changed = unswitchLoop(*L, DT, LI, AC, AA, TLI, TTI, true, NonTrivial,
-#endif // INTEL_CUSTOMIZATION
-                              UnswitchCB, SE, &MSSAU, DestroyLoopCB);
-=======
   bool Changed =
-      unswitchLoop(*L, DT, LI, AC, AA, TTI, true, NonTrivial, UnswitchCB, SE,
+    unswitchLoop(*L, DT, LI, AC, AA, TLI, TTI, true, NonTrivial, UnswitchCB, SE,
+#endif // INTEL_CUSTOMIZATION
                    &MSSAU, nullptr, nullptr, DestroyLoopCB);
->>>>>>> f756f06cc471b91d81d7f7f15d9df76ed24de730
 
   if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();

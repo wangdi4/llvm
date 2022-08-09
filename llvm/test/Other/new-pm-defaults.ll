@@ -200,7 +200,6 @@
 ; CHECK-EP-LOOP-LATE-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-EP-LOOP-END-NEXT: Running pass: NoOpLoopPass
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-MATRIX: Running pass: VectorCombinePass
