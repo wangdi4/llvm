@@ -4434,15 +4434,12 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   // won't always succeed, in which case we fall back to a legal integer type
   // or an i8 array of an appropriate size.
   Type *SliceTy = nullptr;
-<<<<<<< HEAD
+  VectorType *SliceVecTy = nullptr;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   bool IsSliceFromPartition = false;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-  VectorType *SliceVecTy = nullptr;
->>>>>>> 257251247a267c3fa30fdeef17ffa4987d8a52e5
   const DataLayout &DL = AI.getModule()->getDataLayout();
   std::pair<Type *, IntegerType *> CommonUseTy =
       findCommonType(P.begin(), P.end(), P.endOffset());
@@ -4461,12 +4458,9 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       IsSliceFromPartition = true;
 #endif // INTEL_FEATURE_SW_DTRANS
       SliceTy = TypePartitionTy;
-<<<<<<< HEAD
     }
 #endif // INTEL_CUSTOMIZATION
-=======
 
->>>>>>> 257251247a267c3fa30fdeef17ffa4987d8a52e5
   // If still not, can we use the largest bitwidth integer type used?
   if (!SliceTy && CommonUseTy.second)
     if (DL.getTypeAllocSize(CommonUseTy.second).getFixedSize() >= P.size()) {
