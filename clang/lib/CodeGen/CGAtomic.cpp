@@ -1218,8 +1218,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       EmitStoreOfScalar(Val1Scalar, MakeAddrLValue(Temp, Val1Ty));
       break;
     }
-<<<<<<< HEAD
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 #if INTEL_CUSTOMIZATION
   case AtomicExpr::AO__atomic_exchange_explicit:
   case AtomicExpr::AO__atomic_exchange_explicit_1:
@@ -1228,9 +1227,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__atomic_exchange_explicit_8:
   case AtomicExpr::AO__atomic_exchange_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-    [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
   case AtomicExpr::AO__atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_sub:
   case AtomicExpr::AO__atomic_add_fetch:
@@ -1435,8 +1431,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       // suitably aligned for the optimized version.
       if (Misaligned)
         break;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_store_explicit:
     case AtomicExpr::AO__atomic_store_explicit_1:
@@ -1469,9 +1464,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
     case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_load:
     case AtomicExpr::AO__c11_atomic_store:
     case AtomicExpr::AO__c11_atomic_exchange:
@@ -1648,8 +1640,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_add_fetch:
       PostOp = llvm::Instruction::Add;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_add_explicit:
     case AtomicExpr::AO__atomic_fetch_add_explicit_1:
@@ -1658,9 +1649,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_add_explicit_8:
     case AtomicExpr::AO__atomic_fetch_add_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_add:
     case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
@@ -1681,8 +1669,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_and_fetch:
       PostOp = llvm::Instruction::And;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_and_explicit:
     case AtomicExpr::AO__atomic_fetch_and_explicit_1:
@@ -1691,9 +1678,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_and_explicit_8:
     case AtomicExpr::AO__atomic_fetch_and_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_and:
     case AtomicExpr::AO__opencl_atomic_fetch_and:
     case AtomicExpr::AO__hip_atomic_fetch_and:
@@ -1714,8 +1698,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_or_fetch:
       PostOp = llvm::Instruction::Or;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_or_explicit:
     case AtomicExpr::AO__atomic_fetch_or_explicit_1:
@@ -1724,9 +1707,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_or_explicit_8:
     case AtomicExpr::AO__atomic_fetch_or_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_or:
     case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__hip_atomic_fetch_or:
@@ -1747,8 +1727,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_sub_fetch:
       PostOp = llvm::Instruction::Sub;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_sub_explicit:
     case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
@@ -1757,9 +1736,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
     case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_sub:
     case AtomicExpr::AO__opencl_atomic_fetch_sub:
     case AtomicExpr::AO__atomic_fetch_sub:
@@ -1779,8 +1755,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_xor_fetch:
       PostOp = llvm::Instruction::Xor;
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_xor_explicit:
     case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
@@ -1789,9 +1764,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
     case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_xor:
     case AtomicExpr::AO__opencl_atomic_fetch_xor:
     case AtomicExpr::AO__hip_atomic_fetch_xor:
@@ -1838,8 +1810,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 #endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_nand_fetch:
       PostOp = llvm::Instruction::And; // the NOT is special cased below
-<<<<<<< HEAD
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_nand_explicit:
     case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
@@ -1848,9 +1819,6 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
     case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
 #endif // INTEL_CUSTOMIZATION
-=======
-      [[fallthrough]];
->>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case AtomicExpr::AO__c11_atomic_fetch_nand:
     case AtomicExpr::AO__atomic_fetch_nand:
       LibCallName = "__atomic_fetch_nand";
