@@ -783,13 +783,13 @@ static void EncodeUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   switch (bytesToWrite) { // note: everything falls through.
   case 4:
     *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case 3:
     *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case 2:
     *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case 1:
     *--ResultBuf = (UTF8) (UcnVal | firstByteMark[bytesToWrite]);
   }
@@ -1060,7 +1060,12 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
             break;
           }
         }
+<<<<<<< HEAD
       LLVM_FALLTHROUGH;
+=======
+      }
+      [[fallthrough]];
+>>>>>>> 3f18f7c0072b642f5fe88d2fb7bb8ccf69a6c6f5
     case 'j':
     case 'J':
       if (isImaginary) break;   // Cannot be repeated.
