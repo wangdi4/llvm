@@ -984,7 +984,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     LibFunc LF;
     // Allow library and vectorizable calls.
     if ((RI.TLI.getLibFunc(Func->getName(), LF) && RI.TLI.has(LF)) ||
-        RI.TLI.isFunctionVectorizable(Func->getName())) {
+        RI.TLI.isFunctionVectorizable(Func->getName()) ||
+        Func->hasFnAttribute("vector-variants")) {
       return visitInstruction(static_cast<const Instruction &>(CI));
     }
   }

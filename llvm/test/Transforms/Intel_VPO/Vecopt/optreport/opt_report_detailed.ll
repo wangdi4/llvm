@@ -109,13 +109,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; HIR-NEXT:        |   @vec_func(i1);
-; HIR-NEXT:        |   %extract.1. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  1;
-; HIR-NEXT:        |   @vec_func(%extract.1.);
-; HIR-NEXT:        |   %extract.2. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  2;
-; HIR-NEXT:        |   @vec_func(%extract.2.);
-; HIR-NEXT:        |   %extract.3. = extractelement i1 + <i64 0, i64 1, i64 2, i64 3>,  3;
-; HIR-NEXT:        |   @vec_func(%extract.3.);
+; HIR-NEXT:        |   @_ZGVbN4l_vec_func(i1);
 ; HIR-NEXT:        + END LOOP
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
@@ -131,8 +125,8 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
-; HIR-NEXT:      remark #15484: vector function calls: 0
-; HIR-NEXT:      remark #15485: serialized function calls: 1
+; HIR-NEXT:      remark #15484: vector function calls: 1
+; HIR-NEXT:      remark #15485: serialized function calls: 0
 ; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
