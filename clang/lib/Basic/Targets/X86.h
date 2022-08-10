@@ -382,17 +382,8 @@ protected:
 public:
   X86TargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
     BFloat16Width = BFloat16Align = 16;
     BFloat16Format = &llvm::APFloat::BFloat();
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
-    BFloat16Width = BFloat16Align = 16;
-    BFloat16Format = &llvm::APFloat::BFloat();
->>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
     LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
     AddrSpaceMap = &X86AddrSpaceMap;
     HasStrictFP = true;
@@ -655,15 +646,7 @@ public:
     return getPointerWidthV(AddrSpace);
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
   const char *getBFloat16Mangling() const override { return "u6__bf16"; };
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-=======
-  const char *getBFloat16Mangling() const override { return "u6__bf16"; };
->>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
 };
 
 // X86-32 generic target
