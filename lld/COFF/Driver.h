@@ -184,12 +184,8 @@ private:
   std::vector<StringRef> filePaths;
   std::vector<MemoryBufferRef> resources;
 
-<<<<<<< HEAD
-  llvm::StringSet<> directivesExports;
-=======
   llvm::DenseSet<StringRef> directivesExports;
 
->>>>>>> dfe2a3f3eb92b6a94453a74f3f0a4552f6965fcc
   COFFLinkerContext &ctx;
 #if INTEL_CUSTOMIZATION
   // Return true if argv contains an response file (@) and the file
