@@ -299,7 +299,7 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   // LLVM bitcode file
   if (auto *f = dyn_cast<BitcodeFile>(file)) {
     ctx->bitcodeFiles.push_back(f);
-    f->parse<ELFT>();
+    f->parse();
     return;
   }
 
@@ -1752,7 +1752,6 @@ static uint8_t mapVisibility(GlobalValue::VisibilityTypes gvVisibility) {
   llvm_unreachable("unknown visibility");
 }
 
-template <class ELFT>
 static void
 createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
                     const lto::InputFile::Symbol &objSym, BitcodeFile &f) {
@@ -1784,7 +1783,7 @@ createBitcodeSymbol(Symbol *&sym, const std::vector<bool> &keptComdats,
   }
 }
 
-template <class ELFT> void BitcodeFile::parse() {
+void BitcodeFile::parse() {
   for (std::pair<StringRef, Comdat::SelectionKind> s : obj->getComdatTable()) {
     keptComdats.push_back(
         s.second == Comdat::NoDeduplicate ||
@@ -1798,12 +1797,12 @@ template <class ELFT> void BitcodeFile::parse() {
   for (auto it : llvm::enumerate(obj->symbols()))
     if (!it.value().isUndefined()) {
       Symbol *&sym = symbols[it.index()];
-      createBitcodeSymbol<ELFT>(sym, keptComdats, it.value(), *this);
+      createBitcodeSymbol(sym, keptComdats, it.value(), *this);
     }
   for (auto it : llvm::enumerate(obj->symbols()))
     if (it.value().isUndefined()) {
       Symbol *&sym = symbols[it.index()];
-      createBitcodeSymbol<ELFT>(sym, keptComdats, it.value(), *this);
+      createBitcodeSymbol(sym, keptComdats, it.value(), *this);
     }
 
   for (auto l : obj->getDependentLibraries())
@@ -1924,11 +1923,6 @@ std::string elf::replaceThinLTOSuffix(StringRef path) {
     return (path + repl).str();
   return std::string(path);
 }
-
-template void BitcodeFile::parse<ELF32LE>();
-template void BitcodeFile::parse<ELF32BE>();
-template void BitcodeFile::parse<ELF64LE>();
-template void BitcodeFile::parse<ELF64BE>();
 
 template class elf::ObjFile<ELF32LE>;
 template class elf::ObjFile<ELF32BE>;
