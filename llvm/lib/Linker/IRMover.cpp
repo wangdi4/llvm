@@ -3919,7 +3919,7 @@ Error IRLinker::run() {
         // Update the metadata tag. Remap it, if one has not been created yet.
         auto Mapping = ValueMap.getMappedMD(MD);
         if (Mapping)
-          GO->setMetadata(MDName, cast<MDNode>(Mapping.getValue()));
+          GO->setMetadata(MDName, cast<MDNode>(Mapping.value()));
         else
           GO->setMetadata(MDName, Mapper.mapMDNode(*MD));
       }

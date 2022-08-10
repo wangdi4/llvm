@@ -243,8 +243,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
-    VPCall->setVectorizeWithVectorVariant(VecVariant.getValue().first,
-                                          VecVariant.getValue().second);
+    VPCall->setVectorizeWithVectorVariant(VecVariant.value().first,
+                                          VecVariant.value().second);
     return;
   }
 
@@ -255,8 +255,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (!IsMasked) {
     auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI);
     if (MaskedVecVariant) {
-      VPCall->setVectorizeWithVectorVariant(MaskedVecVariant.getValue().first,
-                                            MaskedVecVariant.getValue().second,
+      VPCall->setVectorizeWithVectorVariant(MaskedVecVariant.value().first,
+                                            MaskedVecVariant.value().second,
                                             true /*UseMaskedForUnmasked*/);
       return;
     }

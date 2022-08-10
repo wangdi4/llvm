@@ -1893,14 +1893,14 @@ void Parser::ParseOMPXDeclareTargetFunctionClauses(
     if (getOpenMPClauseKind(ClauseName) == OMPC_device_type) {
       Optional<SimpleClauseData> DevTypeData =
           parseOpenMPSimpleClause(*this, OMPC_device_type);
-      if (DevTypeData.hasValue()) {
+      if (DevTypeData.has_value()) {
         if (DeviceTypeLoc.isValid()) {
           // We already saw another device_type clause, diagnose it.
-          Diag(DevTypeData.getValue().Loc,
+          Diag(DevTypeData.value().Loc,
                diag::warn_omp_more_one_device_type_clause);
           break;
         }
-        switch (static_cast<OpenMPDeviceType>(DevTypeData.getValue().Type)) {
+        switch (static_cast<OpenMPDeviceType>(DevTypeData.value().Type)) {
         case OMPC_DEVICE_TYPE_any:
           DTCI.DT = OMPDeclareTargetDeclAttr::DT_Any;
           break;
@@ -1913,7 +1913,7 @@ void Parser::ParseOMPXDeclareTargetFunctionClauses(
         case OMPC_DEVICE_TYPE_unknown:
           llvm_unreachable("Unexpected device_type");
         }
-        DeviceTypeLoc = DevTypeData.getValue().Loc;
+        DeviceTypeLoc = DevTypeData.value().Loc;
       }
     } else {
       Diag(Tok, diag::err_omp_declare_target_unexpected_clause)

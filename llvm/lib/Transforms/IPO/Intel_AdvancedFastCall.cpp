@@ -271,7 +271,7 @@ void FastCallEnabler::convert(Function *F) {
   uint64_t DirectCallExecCount = 0;
   uint64_t OrigExecCount = 0;
   Optional<Function::ProfileCount> ExecCount = F->getEntryCount();
-  if (ExecCount.hasValue()) {
+  if (ExecCount.has_value()) {
     HasProfile = true;
     OrigExecCount = ExecCount->getCount();
   }

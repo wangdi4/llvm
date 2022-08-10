@@ -43,7 +43,7 @@ void FunctionWidener::run(FuncSet &Functions,
     SmallVector<StringRef, 8> VecVariants;
     VariantsStr.split(VecVariants, ',');
     for (VectorVariant Variant : VecVariants) {
-      std::string VariantName = Variant.getName().getValue();
+      std::string VariantName = Variant.getName().value();
       Function *FnWiden = Fn->getParent()->getFunction(VariantName);
       if (FnWiden != nullptr) {
         LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
@@ -151,7 +151,7 @@ Function *FunctionWidener::cloneFunction(Function &F, VectorVariant &V,
   FunctionType *CloneFuncType =
       FunctionType::get(ReturnType, ParamTypes, false);
 
-  std::string VariantName = V.getName().getValue();
+  std::string VariantName = V.getName().value();
   Function *Clone = Function::Create(
       CloneFuncType, GlobalValue::ExternalLinkage, VariantName, F.getParent());
 

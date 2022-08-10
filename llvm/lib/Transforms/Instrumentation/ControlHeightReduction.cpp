@@ -914,7 +914,7 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       // If insert point is hotter than current block,
       // drop it.
       if (NewFreq && OldFreq &&
-          NewFreq.getValue() > OldFreq.getValue()*2)
+          NewFreq.value() > OldFreq.value()*2)
         IsHoistable = false;
 #endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {
@@ -946,7 +946,7 @@ void CHR::checkScopeHoistable(CHRScope *Scope) {
       // If insert point is hotter than current block,
       // drop it.
       if (NewFreq && OldFreq &&
-          NewFreq.getValue() > OldFreq.getValue()*2)
+          NewFreq.value() > OldFreq.value()*2)
         IsHoistable = false;
 #endif // INTEL_CUSTOMIZATION
       if (!IsHoistable) {

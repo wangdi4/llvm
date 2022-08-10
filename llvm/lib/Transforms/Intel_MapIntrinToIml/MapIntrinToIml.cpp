@@ -990,7 +990,7 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
   Optional<CallingConv::ID> UnifiedCC =
       getSVMLCallingConvByNameAndType(FunctionName, Callee.getFunctionType());
   CallingConv::ID CC =
-      getLegacyCSVMLCallingConvFromUnified(UnifiedCC.getValue());
+      getLegacyCSVMLCallingConvFromUnified(UnifiedCC.value());
   // Release YMM16-31 as callee-saved registers for 256-bit SVML function calls
   // statically dispatched to AVX2 implementation.
   if (CC == CallingConv::SVML_AVX &&

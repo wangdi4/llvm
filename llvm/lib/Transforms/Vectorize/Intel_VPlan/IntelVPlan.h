@@ -1313,7 +1313,7 @@ public:
   VPValue *getIncomingValue(const VPBasicBlock *VPBB) const {
     auto Idx = getBlockIndexOrNone(VPBB);
     assert(Idx && "Cannot find value for a given BB.");
-    return getIncomingValue(Idx.getValue());
+    return getIncomingValue(Idx.value());
   }
 
   void setIncomingValue(const unsigned Idx, VPValue *Value) {
@@ -2234,7 +2234,7 @@ public:
   StringRef getVectorLibraryFunc() const {
     assert(VecScenario == CallVecScenarios::LibraryFunc &&
            "Can't get VectorLibraryFn for mismatched scenario.");
-    return VecProperties.VectorLibraryFn.getValue();
+    return VecProperties.VectorLibraryFn.value();
   }
   /// Getters for matched vector variant.
   const VectorVariant *getVectorVariant() const {

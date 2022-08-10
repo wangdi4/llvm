@@ -1220,7 +1220,7 @@ static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
   if (!VLSOpt)
     return None;
 
-  auto VLS = VLSOpt.getValue();
+  auto VLS = VLSOpt.value();
 
   // Check if in1's type and length is equal to
   // the first vls-insert one.
@@ -1281,7 +1281,7 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
   auto FirstVLSInsertOpt = get1stVLSInsert(Shuf);
   if (!FirstVLSInsertOpt) return false;
 
-  VLSInsert FirstInsert = FirstVLSInsertOpt.getValue();
+  VLSInsert FirstInsert = FirstVLSInsertOpt.value();
 
   SmallVector<VLSInsert, 8> List;
   List.push_back(FirstInsert);
@@ -1306,7 +1306,7 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
       return false;
 
     Shuf = NextShuf;
-    List.push_back(NextVLSInsertOpt.getValue());
+    List.push_back(NextVLSInsertOpt.value());
   }
 
   if (FirstInsert.SizeInGroup <= 1)

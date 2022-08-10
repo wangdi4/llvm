@@ -479,10 +479,10 @@ class BoolMultiVersioningImpl {
               // The version selection branch always uses "not equal", update
               // and accumulate the weights based on which way the branches
               // will be revised below.
-              TrueWeight += PredIsNE ? Weights.getValue().first
-                                     : Weights.getValue().second;
-              FalseWeight += PredIsNE ? Weights.getValue().second
-                                      : Weights.getValue().first;
+              TrueWeight += PredIsNE ? Weights.value().first
+                                     : Weights.value().second;
+              FalseWeight += PredIsNE ? Weights.value().second
+                                      : Weights.value().first;
 
               // Update the profiling data on the branches. The conditional
               // will eventually be discarded, so this is not strictly
@@ -493,19 +493,19 @@ class BoolMultiVersioningImpl {
                 // The clone branch will become 'if i1 false ...'
                 BrInst->setMetadata(
                     LLVMContext::MD_prof,
-                    MDB.createBranchWeights(Weights.getValue().first, 0));
+                    MDB.createBranchWeights(Weights.value().first, 0));
                 BrInstClone->setMetadata(
                     LLVMContext::MD_prof,
-                    MDB.createBranchWeights(0, Weights.getValue().second));
+                    MDB.createBranchWeights(0, Weights.value().second));
               } else {
                 // The original branch will become 'if i1 false ...'
                 // The clone branch will become 'if i1 true ...'
                 BrInst->setMetadata(
                     LLVMContext::MD_prof,
-                    MDB.createBranchWeights(0, Weights.getValue().second));
+                    MDB.createBranchWeights(0, Weights.value().second));
                 BrInstClone->setMetadata(
                     LLVMContext::MD_prof,
-                    MDB.createBranchWeights(Weights.getValue().first, 0));
+                    MDB.createBranchWeights(Weights.value().first, 0));
               }
             }
           }
@@ -539,7 +539,7 @@ class BoolMultiVersioningImpl {
 
     // Set the profile weight for the branch the controls the version
     // selection as a percentage of the function entry count.
-    if (F.getEntryCount().hasValue() && (TrueWeight != 0 || FalseWeight != 0)) {
+    if (F.getEntryCount().has_value() && (TrueWeight != 0 || FalseWeight != 0)) {
       Function::ProfileCount EntryCount = *F.getEntryCount();
       uint64_t TotalWeight = TrueWeight + FalseWeight;
       Br->setMetadata(

@@ -1236,14 +1236,14 @@ public:
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
                 PointerInfo->addElementPointee(
-                    ValueTypeInfo::VAT_Use, ElemZeroPair.getValue().first, 0);
-                ValueInfo->addTypeAlias(Kind, ElemZeroPair.getValue().second);
+                    ValueTypeInfo::VAT_Use, ElemZeroPair.value().first, 0);
+                ValueInfo->addTypeAlias(Kind, ElemZeroPair.value().second);
 
                 // Need to defer updating the PointerInfo until the loop
                 // completes because we cannot modify the set while we are
                 // iterating it.
                 PendingTypes.push_back(LocalTM.getOrCreatePointerType(
-                    ElemZeroPair.getValue().second));
+                    ElemZeroPair.value().second));
               } else {
                 ValueInfo->setUnhandled();
               }
@@ -1382,8 +1382,8 @@ private:
     if (auto *I = dyn_cast<Instruction>(V))
       if (auto TyFromMD =
               dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
-        llvm::Type *Ty = TyFromMD.getValue().first;
-        unsigned Level = TyFromMD.getValue().second;
+        llvm::Type *Ty = TyFromMD.value().first;
+        unsigned Level = TyFromMD.value().second;
 
         // The format of the metadata used restricts the type to being just a
         // pointer to a scalar or a structure type. This assertion is to catch
@@ -1815,8 +1815,8 @@ private:
           DTransType *InferredValTy = PtrTy->getPointerElementType();
           if (InferredValTy->isAggregateType()) {
             auto ElemZeroTy = PTA.getElementZeroType(InferredValTy);
-            if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
-              InferredValTy = ElemZeroTy.getValue().second;
+            if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
+              InferredValTy = ElemZeroTy.value().second;
           }
           // The only time we would need to infer the value operand type is for
           // a pointer value. Only add the type inferred if is a pointer value.
@@ -1924,8 +1924,8 @@ private:
                 addInferredType(PTI, PtrTy->getPointerElementType());
               } else if (ElemTy->isAggregateType()) {
                 auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
-                if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
-                  addInferredType(PTI, ElemZeroTy.getValue().second);
+                if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
+                  addInferredType(PTI, ElemZeroTy.value().second);
             }
           }
         }

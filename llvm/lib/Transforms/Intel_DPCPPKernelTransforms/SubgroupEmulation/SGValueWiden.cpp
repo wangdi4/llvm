@@ -623,7 +623,7 @@ void SGValueWidenPass::widenCalls() {
     std::tie(VariantStr, Size) = selectVariantAndEmuSize(CI);
     VectorVariant Variant(VariantStr);
     Function *WideFunc =
-        CI->getModule()->getFunction(Variant.getName().getValue());
+        CI->getModule()->getFunction(Variant.getName().value());
     assert(WideFunc != nullptr && "No widen function!");
     assert(FuncMap[CI->getCalledFunction()].count(WideFunc) &&
            "Invalid vector variant function!");

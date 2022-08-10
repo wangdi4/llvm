@@ -97,19 +97,19 @@ public:
 
   /// Return true if the loop has normalized induction.
   bool hasNormalizedInduction() const {
-    assert(HasNormalizedInduction.hasValue() && "The flag is unset");
-    return HasNormalizedInduction.getValue();
+    assert(HasNormalizedInduction.has_value() && "The flag is unset");
+    return HasNormalizedInduction.value();
   }
 
   /// Return true if the loop trip count is equal to upper bound.
   bool exactUB() const {
-    assert(HasNormalizedInduction.hasValue() && "The flag is unset");
+    assert(HasNormalizedInduction.has_value() && "The flag is unset");
     return ExactUB;
   }
 
 
   void setHasNormalizedInductionFlag(bool Val, bool EUB) {
-    assert(!HasNormalizedInduction.hasValue() && "The flag is already set");
+    assert(!HasNormalizedInduction.has_value() && "The flag is already set");
     HasNormalizedInduction = Val;
     ExactUB = EUB;
   }

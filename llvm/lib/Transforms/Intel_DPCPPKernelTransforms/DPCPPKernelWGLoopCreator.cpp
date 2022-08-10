@@ -1117,7 +1117,7 @@ WGLoopCreatorImpl::getVectorLoopBoundaries(Value *InitVal, Value *DimSize) {
   if (!HasSubGroupPath) {
     if (auto PeelSize = LoopDynamicPeeling::computePeelCount(
             *NewEntry, *VectorEntry, InitGIDs, DimSize))
-      PeelLoopSize = PeelSize.getValue();
+      PeelLoopSize = PeelSize.value();
   }
   Value *VectorScalarSize;
   Value *MaxPeel = nullptr;

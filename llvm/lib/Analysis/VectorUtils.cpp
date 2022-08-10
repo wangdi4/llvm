@@ -1070,7 +1070,7 @@ Function *llvm::getOrInsertVectorVariantFunction(
 
   // Having getName() absent means that the vector variant was in the form
   // "_ZGVbM4uu_" without the BaseName. Use function name then.
-  std::string VFnName = VecVariant->getName().hasValue() ?
+  std::string VFnName = VecVariant->getName().has_value() ?
     *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {

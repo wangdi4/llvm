@@ -2046,7 +2046,7 @@ void LinkerDriver::doGNULTOLinking(
 
   // Load the generated object
   Optional<MemoryBufferRef> buffer = readFile(gNUOutputObj.str().str());
-  if (!buffer.hasValue())
+  if (!buffer.has_value())
     fatal("Output from GNU LTO not created: " + gNUOutputObj.str());
   MemoryBufferRef mbref = *buffer;
 

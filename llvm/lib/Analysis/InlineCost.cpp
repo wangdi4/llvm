@@ -1165,7 +1165,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #if INTEL_FEATURE_SW_ADVANCED
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
-      return IR.getValue();
+      return IR.value();
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Give out bonuses for the callsite, as the instructions setting them up

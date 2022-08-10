@@ -3107,7 +3107,7 @@ private:
     static bool hasCompatibleOpcodes(ArrayRef<Value *> VL) {
       return all_of(VL, [](Value *V) -> bool {
         auto *I = dyn_cast<Instruction>(V);
-        return I && getInverseOpcode(I->getOpcode()).hasValue();
+        return I && getInverseOpcode(I->getOpcode()).has_value();
       });
     }
 
@@ -3118,7 +3118,7 @@ private:
     // original instruction is being removed and replaced with new one.
     static Instruction *updateFrontierOpcode(Instruction *OrigI) {
       auto NewOpc = static_cast<Instruction::BinaryOps>(
-          getInverseOpcode(OrigI->getOpcode()).getValue());
+          getInverseOpcode(OrigI->getOpcode()).value());
       Instruction *NewI =
           BinaryOperator::Create(NewOpc, OrigI->getOperand(0),
                                  OrigI->getOperand(1), OrigI->getName(), OrigI);
@@ -3165,7 +3165,7 @@ private:
           if (I == OpI)
             continue;
           if (getData(I, Lane).getFrontier() == Frontier) {
-            assert(!Sibling.hasValue() && "More than one sibling match!");
+            assert(!Sibling.has_value() && "More than one sibling match!");
             Sibling = I;
 #ifdef NDEBUG
             break;
@@ -5966,7 +5966,7 @@ BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
     auto *VL0 = cast<Instruction>(TE->Scalars[0]);
     InstructionsState S = getSameOpcode(TE->Scalars);
     Bundle = GetBS(VL0)->tryScheduleBundle(TE->Scalars, this, S);
-    assert(Bundle.hasValue() &&
+    assert(Bundle.has_value() &&
            "TE not checked for scheduling in buildTree_rec()?");
   }
   return Bundle;
@@ -6916,13 +6916,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // The Multi-Node has been built, so reorder the leaves and cleanup.
       // This is where the bulk of the reordering work is done.
       if (CurrentMultiNode->numOfTrunks() > 1)
-        reorderMultiNodeOperands(VL, Bundle.getValue());
+        reorderMultiNodeOperands(VL, Bundle.value());
 
 #ifndef NDEBUG
       auto &&GetBundleVL = [](const Optional<BoUpSLP::ScheduleData *> &Bundle) {
         ValueList VL;
         if (Bundle)
-          for (ScheduleData *Member = Bundle.getValue(); Member;
+          for (ScheduleData *Member = Bundle.value(); Member;
                Member = Member->NextInBundle)
             VL.push_back(Member->Inst);
         return VL;

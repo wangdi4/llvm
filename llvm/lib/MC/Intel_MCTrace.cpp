@@ -54,10 +54,10 @@ void MCTraceLine::encode(raw_ostream &OS, int32_t DeltaLine, uint32_t DeltaPC) {
     //   - Tag (high 2 bits): always 11 (binary)
     //   - PC delta (low 6 bits): unsigned PC delta value minus 1
     //   - Line delta (1 byte): signed value
-    uint8_t FirstByte = traceback::getTagEncoding(CorrelationTag.getValue());
+    uint8_t FirstByte = traceback::getTagEncoding(CorrelationTag.value());
     FirstByte = FirstByte | DeltaPC;
     OS << FirstByte;
-    switch (CorrelationTag.getValue()) {
+    switch (CorrelationTag.value()) {
     default:
       llvm_unreachable("Unexpected tag");
     case traceback::TB_TAG_CO1:

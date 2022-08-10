@@ -412,7 +412,7 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall)) {
     auto Data = getAllocationDataForFunction(Callee, OpNewLike, TLI);
     if (Data)
-      return Data.getValue().AllocTy == OpNewLike;
+      return Data.value().AllocTy == OpNewLike;
   }
   return false;
 }
@@ -732,7 +732,7 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   // First check that the TLI matches and is in the delete "family".
   Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
 
-  if (!FnData.hasValue())
+  if (!FnData.has_value())
     return false;
 
   auto isDeleteFamily = [&]() {

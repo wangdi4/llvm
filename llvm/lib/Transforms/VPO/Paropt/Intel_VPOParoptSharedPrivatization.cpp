@@ -649,7 +649,7 @@ bool VPOParoptTransform::addPrivateClausesToRegion(
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Adding private clause for '";
                V->printAsOperand(dbgs()); dbgs() << "'.\n");
 
-    if (!I.second.hasValue()) {
+    if (!I.second.has_value()) {
       PrivateBundles.push_back({PrivateClauseStr, {V}});
       PrivC.add(V);
       continue;
@@ -657,7 +657,7 @@ bool VPOParoptTransform::addPrivateClausesToRegion(
 
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
-    std::tie(ElementTy, NumElements) = I.second.getValue();
+    std::tie(ElementTy, NumElements) = I.second.value();
     PrivateBundles.push_back(
         {TypedPrivateClauseStr,
          {V, Constant::getNullValue(ElementTy), NumElements}});

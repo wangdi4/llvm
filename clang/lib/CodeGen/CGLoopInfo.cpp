@@ -700,7 +700,7 @@ MDNode *LoopInfo::createMetadata(
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Attrs.GlobalSYCLIVDepInfo.hasValue()) {
+  if (Attrs.GlobalSYCLIVDepInfo.has_value()) {
     EmitIVDepLoopMetadata(Ctx, LoopProperties, *Attrs.GlobalSYCLIVDepInfo);
     // The legacy metadata also needs to be emitted to provide backwards
     // compatibility with any conformant backend. This is done exclusively
@@ -894,7 +894,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.VectorizeScalable == LoopAttributes::Unspecified &&
-      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
+      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.has_value() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
       !Attrs.SYCLMaxConcurrencyNThreads &&
       Attrs.SYCLLoopCoalesceEnable == false &&

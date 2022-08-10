@@ -1947,8 +1947,8 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
     llvm::Optional<llvm::CallingConv::ID> CC =
         llvm::getSVMLCallingConvByNameAndType(F->getName(),
                                               F->getFunctionType());
-    if (CC.hasValue())
-      F->setCallingConv(CC.getValue());
+    if (CC.has_value())
+      F->setCallingConv(CC.value());
   }
 
   if (llvm::shouldUseIntelFeaturesInitCallConv(F->getName()))

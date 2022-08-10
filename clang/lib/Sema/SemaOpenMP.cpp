@@ -24539,11 +24539,11 @@ void Sema::ActOnOpenMPDeclareTargetName(NamedDecl *ND, SourceLocation Loc,
 
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && ActiveAttr &&
-      ActiveAttr.getValue()->getDevType() != DTCI.DT &&
+      ActiveAttr.value()->getDevType() != DTCI.DT &&
       DTCI.DT == clang::OMPDeclareTargetDeclAttr::DT_Any &&
-      ActiveAttr.getValue()->getDevType() ==
+      ActiveAttr.value()->getDevType() ==
           clang::OMPDeclareTargetDeclAttr::DT_NoHost &&
-      ActiveAttr.getValue()->getMapType() == MT &&
+      ActiveAttr.value()->getMapType() == MT &&
       MT == OMPDeclareTargetDeclAttr::MT_To) {
     // device_type clause is not allowed with extended-list
     // however, by default device type is set to DT_Any.  So setting device
