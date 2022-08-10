@@ -428,9 +428,10 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     InvariantWithoutIV = true;
   }
 
+  bool IsIdiomCE = Idioms->isCEIdiom(CE);
+
   // If the canon expression is invariant once we ignore IV at the vectorization
   // level, we do not need to decompose blobs.
-  BlobDDRef *IdiomRef = nullptr;
   if (!InvariantWithoutIV)
     // Decompose blobs.
     for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
@@ -444,10 +445,6 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
           decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                     Instruction::Add);
-
-      BlobDDRef *BlobRef = RDDR->getBlobDDRef(BlobIdx);
-      if (Idioms->isCEIdiom(BlobRef))
-        IdiomRef = BlobRef;
     }
 
   // Decompose IV expression. If the canon expression is invariant without
@@ -458,7 +455,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     if (IVConstCoeff != 0 &&
         (!InvariantWithoutIV ||
          CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
-      assert((!IdiomRef ||
+      assert((!IsIdiomCE ||
               CE->getLevel(IVIt) != OutermostHLp->getNestingLevel()) &&
              "Unexpected IV in compress/expand index");
       VPValue *DecompIV =
@@ -485,7 +482,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // Decompose denominator.
   int64_t Denominator = CE->getDenominator();
   if (Denominator != 1) {
-    assert(!IdiomRef && "Unexpected denominator in compress/expand index");
+    assert(!IsIdiomCE && "Unexpected denominator in compress/expand index");
     VPValue *DecompDenom = decomposeCoeff(Denominator, CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompDenom, CE->getSrcType(),
                                   CE->isUnsignedDiv() ? Instruction::UDiv
@@ -496,8 +493,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   DecompDef = decomposeCanonExprConv(CE, DecompDef);
 
   assert(DecompDef && "CanonExpr has not been decomposed");
-  if (IdiomRef)
-    addVPValueForCEIdiom(IdiomRef, DecompDef);
+  if (IsIdiomCE)
+    addVPValueForCEIdiom(CE, DecompDef);
   return DecompDef;
 }
 
