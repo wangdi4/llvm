@@ -551,6 +551,10 @@ class FirstprivateItem : public Item
     // pointer translation is still applied for zero-sized pointers).
     bool IsPointer = false;
 
+    // True for clauses added to capture non-pointer values to be passed into a
+    // region (e.g. VLA sizes).
+    bool IsParoptGeneratedForNonPtrCapture = false;
+
   public:
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
@@ -594,6 +598,12 @@ class FirstprivateItem : public Item
     RDECL getDestructor()      const { return Destructor;      }
     void setIsPointer(bool Val) { IsPointer = Val; }
     bool getIsPointer() const { return IsPointer; }
+    void setIsParoptGeneratedForNonPtrCapture(bool Val) {
+      IsParoptGeneratedForNonPtrCapture = Val;
+    }
+    bool getIsParoptGeneratedForNonPtrCapture() const {
+      return IsParoptGeneratedForNonPtrCapture;
+    }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {

@@ -27,10 +27,14 @@
 ; Check that we capture the VLA size expression at the target construct.
 ; CHECK: VPOParopt Transform: TARGET construct
 ; CHECK: collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %1 '
-; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%[^ ]+]]'
+; CHECK: captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%[^ ]+]]'
 
-; CHECK:     define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* %vla.ascast, i64 addrspace(1)* noalias [[SIZE_ADDR]], i64 addrspace(1)* %omp.vla.tmp.ascast)
-; CHECK:       [[SIZE_VAL:%[^ ]+]] = load i64, i64 addrspace(1)* [[SIZE_ADDR]], align 8
+; CHECK:     define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* %vla.ascast, i64 addrspace(1)* %omp.vla.tmp.ascast, <{ [1 x i64] }>* noalias byval(<{ [1 x i64] }>) [[SIZE_ADDR]])
+; CHECK: [[SIZE_ARG_CAST:%.+]] = bitcast <{ [1 x i64] }>* [[SIZE_ADDR]] to i64*
+; CHECK: [[SIZE_ADDR]].fpriv = alloca i64, align 8
+; CHECK: [[SIZE_ARG_LOAD:%.+]] = load i64, i64* [[SIZE_ARG_CAST]], align 8
+; CHECK: store i64 [[SIZE_ARG_LOAD]], i64* [[SIZE_ADDR]].fpriv, align 8
+; CHECK: [[SIZE_VAL:%.+]] = load i64, i64* [[SIZE_ADDR]].fpriv, align 8
 ; Make sure that we don't allocate a WILocal copy for %vla.ascast for the firstprivate clause on target.
 ; CHECK-NOT:   %vla.ascast.fpriv
 ; Check that the captured VLA size is used in the target region for allocation of the private VLA (for the inner parallel).

@@ -553,8 +553,13 @@ private:
   /// WRNTaskLoopNode WRegion
   bool addFirstprivateForNormalizedUB(WRegionNode *W);
 
-  /// Generate code for firstprivate variables
-  bool genFirstPrivatizationCode(WRegionNode *W);
+  /// Generate code for firstprivate variables.
+  /// If \p OnlyParoptGeneratedFPForNonPtrCaptures is true, then Only those
+  /// Firtstprivate items are handled that were added to capture non-pointers to
+  /// be passed into the region.
+  /// \see captureAndAddCollectedNonPointerValuesToSharedClause() for details.
+  bool genFirstPrivatizationCode(
+      WRegionNode *W, bool OnlyParoptGeneratedFPForNonPtrCaptures = false);
 
   /// Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB,
@@ -1705,8 +1710,8 @@ private:
   ///                                   | ; the IR is not modified.
   /// \endcode
   ///
-  /// If \p W is for a target construct, `QUAL.OMP.MAP.TO` is used instead of
-  /// `QUAL.OMP.SHARED` for `%size2`.
+  /// If \p W is for a target construct, `QUAL.OMP.FIRSTPRIVATE` is used instead
+  /// of `QUAL.OMP.SHARED` for `%size2`.
   /// \see WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion() for
   /// more details.
   bool captureAndAddCollectedNonPointerValuesToSharedClause(WRegionNode *W);
