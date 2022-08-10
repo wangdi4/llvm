@@ -456,8 +456,10 @@ public:
 
   /// Returns true if \p BlobIndex is a standalone blob (ex- 1 * %t) in the
   /// canon expr and occurs nowhere else in the canon expr.
-  bool containsStandAloneBlob(unsigned BlobIndex,
-                              bool AllowConversion = true) const;
+  /// If \p AllowExtStandAloneBlob is true, SExt/ZExt operations on the blob are
+  /// also allowed.
+  bool containsStandAloneBlob(unsigned BlobIndex, bool AllowConversion = true,
+                              bool AllowExtStandAloneBlob = false) const;
 
   /// Returns true if the CanonExpr is a unitary blob. A unitary blob is a
   /// single (non-nested) standalone blob.
