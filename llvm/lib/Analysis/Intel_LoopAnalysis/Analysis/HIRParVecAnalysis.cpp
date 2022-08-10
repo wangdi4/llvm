@@ -1252,7 +1252,7 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
   if (!HIRVectorIdioms::isIncrementInst(Inst, Stride))
     return;
 
-  if (Stride < 0)
+  if (Stride <= 0)
     return;
 
   unsigned Symbase = Inst->getOperandDDRef(0)->getSymbase();
@@ -1390,7 +1390,7 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
           return Inst;
         }
 
-        if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex())) {
+        if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true)) {
           LLVM_DEBUG(
               dbgs() << "[Compress/Expand Idiom] Non-standalone blob found: ";
               CE->dump(); dbgs() << "\n");
@@ -1444,7 +1444,7 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
           }
         }
 
-        Cands.insert(std::make_pair(UseMemRef, BlobRef->getBlobIndex()));
+        Cands.insert(UseMemRef);
       }
     }
 
@@ -1454,7 +1454,7 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
   for (auto It = Increments.begin(); It != Increments.end(); It++) {
 
     auto &Nodes = It->second;
-    SetVector<std::pair<RegDDRef *, unsigned>> Cands;
+    SetVector<RegDDRef *> Cands;
     if (HLInst *Node = FilterNodes(It->first, Nodes, Cands)) {
       LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment rejected: ";
                  Node->dump());
@@ -1476,15 +1476,15 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
 
     for (auto It = Cands.begin(); It != Cands.end(); It++) {
 
-      RegDDRef *Cand = It->first;
+      RegDDRef *Cand = *It;
       if (Cand->isLval()) {
         HLInst *Inst = cast<HLInst>(Cand->getHLDDNode());
         IdiomList.addLinked(IndexIncFirst, Inst, HIRVectorIdioms::CEStore);
-        IdiomList.addLinked(Inst, Cand->getBlobDDRef(It->second),
+        IdiomList.addLinked(Inst, Cand->getDimensionIndex(1),
                             HIRVectorIdioms::CELdStIndex);
       } else {
         IdiomList.addLinked(IndexIncFirst, Cand, HIRVectorIdioms::CELoad);
-        IdiomList.addLinked(Cand, Cand->getBlobDDRef(It->second),
+        IdiomList.addLinked(Cand, Cand->getDimensionIndex(1),
                             HIRVectorIdioms::CELdStIndex);
       }
     }
@@ -1525,8 +1525,11 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
 void HIRVecIdiom::dump(raw_ostream &OS) const {
   if (is<const HLInst *>())
     get<const HLInst *>()->dump();
-  else {
+  else if (is<const DDRef *>()) {
     get<const DDRef *>()->dump();
+    OS << "\n";
+  } else {
+    get<const CanonExpr *>()->dump();
     OS << "\n";
   }
 }

@@ -291,15 +291,18 @@ private:
 };
 
 // HIR vector idiom can represent either HLInst or DDRef.
-struct HIRVecIdiom : public PointerUnion<const HLInst *, const DDRef *> {
-  using Base = PointerUnion<const HLInst *, const DDRef *>;
+struct HIRVecIdiom
+    : public PointerUnion<const HLInst *, const DDRef *, const CanonExpr *> {
+  using Base = PointerUnion<const HLInst *, const DDRef *, const CanonExpr *>;
   const HIRVecIdiom *operator->() const { return this; }
   HIRVecIdiom(const HLInst *H) { Base::operator=(H); }
   HIRVecIdiom(const DDRef *D) { Base::operator=(D); }
+  HIRVecIdiom(const CanonExpr *C) { Base::operator=(C); }
   HIRVecIdiom(const Base &U) : Base(U) {}
 
   operator const HLInst *() const { return get<const HLInst *>(); }
   operator const DDRef *() const { return get<const DDRef *>(); }
+  operator const CanonExpr *() const { return get<const CanonExpr *>(); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const;
@@ -325,8 +328,9 @@ public:
     case Base::CEStore:
       return Idiom.is<const HLInst *>();
     case Base::CELoad:
-    case Base::CELdStIndex:
       return Idiom.is<const DDRef *>();
+    case Base::CELdStIndex:
+      return Idiom.is<const CanonExpr *>();
     }
     llvm_unreachable("unexpected IdiomId");
     return false;
@@ -341,9 +345,11 @@ using HIRVectorIdioms = VectorIdioms<HIRVecIdiom, HIRVectorIdiomTraits>;
 template <>
 struct DenseMapInfo<loopopt::HIRVecIdiom>
     : public DenseMapInfo<
-          PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *>> {
-  using Base = DenseMapInfo<
-      PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *>>;
+          PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *,
+                       const loopopt::CanonExpr *>> {
+  using Base =
+      DenseMapInfo<PointerUnion<const loopopt::HLInst *, const loopopt::DDRef *,
+                                const loopopt::CanonExpr *>>;
 
   static inline loopopt::HIRVecIdiom getEmptyKey() {
     return Base::getEmptyKey();
