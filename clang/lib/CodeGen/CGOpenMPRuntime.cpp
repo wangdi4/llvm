@@ -4294,6 +4294,10 @@ public:
       Uppers.push_back(CGF.EmitScalarExpr(E->getHelper(I).Upper));
       const auto *VD = cast<VarDecl>(E->getIteratorDecl(I));
       addPrivate(VD, CGF.CreateMemTemp(VD->getType(), VD->getName()));
+#if INTEL_COLLAB
+      if (CGF.CapturedStmtInfo)
+        CGF.CapturedStmtInfo->recordDependIteratorVar(VD);
+#endif // INTEL_COLLAB
       const OMPIteratorHelperData &HelperData = E->getHelper(I);
       addPrivate(
           HelperData.CounterVD,

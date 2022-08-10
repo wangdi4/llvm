@@ -1003,6 +1003,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ImplicitMap[VD]);
       continue;
     }
+    if (DependIteratorVars.find(VD) != DependIteratorVars.end()) {
+      // Do not create implicit clauses for iterator vars.
+      // These variables generate temps and are handled with Values.
+      assert(VD->isImplicit() && "expect implicit variabe");
+      continue;
+    }
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
       if (!VD->getType()->isConstantSizeType()) {
@@ -2300,11 +2306,11 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
       ClauseEmissionHelper CEH(*this, OMPC_depend);
       if (DepKind == OMPC_DEPEND_source)
         addArg("QUAL.OMP.DEPEND.SOURCE");
-      else 
+      else
         addArg("QUAL.OMP.DEPEND.SINK");
       for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
         addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
-      continue; 
+      continue;
     }
     OMPTaskDataTy::DependData &DD =
         Data.Dependences.emplace_back(DepKind, C->getModifier());
