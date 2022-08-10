@@ -173,14 +173,13 @@ private:
   VPInstructionCost getInsertExtractElementsCost(unsigned Opcode,
                                                  Type *Ty, unsigned VF);
 
-  // Get intrinsic corresponding to provided call that is expected to be
-  // vectorized using SVML version. This is purely meant for internal cost
-  // computation purposes and not for general purpose functionality (unlike
-  // llvm::getIntrinsicForCallSite).
+  // Get intrinsic corresponding to provided call. This is purely meant for
+  // internal cost computation purposes and not for general purpose
+  // functionality (unlike llvm::getIntrinsicForCallSite).
   // TODO: This is a temporary solution to avoid CM from choosing inefficient
   // VFs, complete solution would be to introduce a general scheme in TTI to
   // provide costs for different SVML calls. Check JIRA : CMPLRLLVM-23527.
-  Intrinsic::ID getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const;
+  Intrinsic::ID getIntrinsicForLibFuncCall(const VPCallInstruction *VPCall) const;
 
   // Get Cost for Intrinsic (ID) call.
   VPInstructionCost getIntrinsicInstrCost(
