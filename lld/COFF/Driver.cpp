@@ -303,11 +303,11 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
   } else if (magic == file_magic::bitcode) {
     obj =
         make<BitcodeFile>(ctx, mb, parentName, offsetInArchive, /*lazy=*/false);
-#if INTEL_CUSTOMIZATION
   } else if (magic == file_magic::coff_cl_gl_object) {
+#if INTEL_CUSTOMIZATION
     msGLFilesFound = true;
-    return;
 #endif // INTEL_CUSTOMIZATION
+    return;
   } else {
     error("unknown file type: " + mb.getBufferIdentifier());
     return;
