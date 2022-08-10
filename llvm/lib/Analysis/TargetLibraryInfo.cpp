@@ -60,6 +60,40 @@ StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
 #include "llvm/Analysis/TargetLibraryInfo.def"
 };
 
+// Recognized types of library function arguments and return types.
+enum FuncArgTypeID : char {
+  Void = 0, // Must be zero.
+  Bool,     // 8 bits on all targets
+  Int16,
+  Int32,
+  Int,
+  IntPlus, // Int or bigger.
+  Long,    // Either 32 or 64 bits.
+  IntX,    // Any integer type.
+  Int64,
+  LLong,    // 64 bits on all targets.
+  SizeT,    // size_t.
+  SSizeT,   // POSIX ssize_t.
+  Flt,      // IEEE float.
+  Dbl,      // IEEE double.
+  LDbl,     // Any floating type (TODO: tighten this up).
+  Floating, // Any floating type.
+  Ptr,      // Any pointer type.
+  Struct,   // Any struct type.
+  Ellip,    // The ellipsis (...).
+  Same,     // Same argument type as the previous one.
+};
+
+typedef std::array<FuncArgTypeID, 8> FuncProtoTy;
+
+static const FuncProtoTy Signatures[] = {
+#define TLI_DEFINE_SIG
+#include "llvm/Analysis/TargetLibraryInfo.def"
+};
+
+static_assert(sizeof Signatures / sizeof *Signatures == LibFunc::NumLibFuncs,
+              "Missing library function signatures");
+
 static bool hasSinCosPiStret(const Triple &T) {
   // Only Darwin variants have _stret versions of combined trig functions.
   if (!T.isOSDarwin())
@@ -1529,17 +1563,62 @@ bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName, LibFunc &F) const {
   return false;
 }
 
+// Return true if ArgTy matches Ty.
+
+static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
+                      unsigned SizeTBits) {
+  switch (ArgTy) {
+  case Void:
+    return Ty->isVoidTy();
+  case Bool:
+    return Ty->isIntegerTy(8);
+  case Int16:
+    return Ty->isIntegerTy(16);
+  case Int32:
+    return Ty->isIntegerTy(32);
+  case Int:
+    return Ty->isIntegerTy(IntBits);
+  case IntPlus:
+    return Ty->isIntegerTy() && Ty->getPrimitiveSizeInBits() >= IntBits;
+  case IntX:
+    return Ty->isIntegerTy();
+  case Long:
+    // TODO: Figure out and use long size.
+    return Ty->isIntegerTy() && Ty->getPrimitiveSizeInBits() >= IntBits;
+  case Int64:
+    return Ty->isIntegerTy(64);
+  case LLong:
+    return Ty->isIntegerTy(64);
+  case SizeT:
+  case SSizeT:
+    return Ty->isIntegerTy(SizeTBits);
+  case Flt:
+    return Ty->isFloatTy();
+  case Dbl:
+    return Ty->isDoubleTy();
+    // TODO: Tighten this up.
+  case LDbl:
+    return Ty->isFloatingPointTy();
+  case Floating:
+    return Ty->isFloatingPointTy();
+  case Ptr:
+    return Ty->isPointerTy();
+  case Struct:
+    return Ty->isStructTy();
+  default:
+    break;
+  }
+
+  llvm_unreachable("Invalid type");
+}
+
 bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
                                                    LibFunc F,
                                                    const Module &M) const {
-  // FIXME: There is really no guarantee that sizeof(size_t) is equal to
-  // sizeof(int*) for every target. So the assumption used here to derive the
-  // SizeTBits based on the size of an integer pointer in address space zero
-  // isn't always valid.
-  unsigned SizeTBits = M.getDataLayout().getPointerSizeInBits(/*AddrSpace=*/0);
   unsigned NumParams = FTy.getNumParams();
 
   switch (F) {
+<<<<<<< HEAD
   case LibFunc_execl:
   case LibFunc_execlp:
   case LibFunc_execle:
@@ -6365,9 +6444,108 @@ case LibFunc_under_commit:
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
+=======
+    // Special handling for <complex.h> functions:
+  case LibFunc_cabs:
+  case LibFunc_cabsf:
+  case LibFunc_cabsl: {
+    Type *RetTy = FTy.getReturnType();
+    if (!RetTy->isFloatingPointTy())
+      return false;
+
+    Type *ParamTy = FTy.getParamType(0);
+    // NOTE: These prototypes are target specific and currently support
+    // "complex" passed as an array or discrete real & imaginary parameters.
+    // Add other calling conventions to enable libcall optimizations.
+    if (NumParams == 1)
+      return (ParamTy->isArrayTy() && ParamTy->getArrayNumElements() == 2 &&
+              ParamTy->getArrayElementType() == RetTy);
+    else if (NumParams == 2)
+      return ParamTy == RetTy && FTy.getParamType(1) == RetTy;
+
+    return false;
+  }
+    // Special handling for the sincospi functions that return either
+    // a struct or vector:
+  case LibFunc_sincospi_stret:
+  case LibFunc_sincospif_stret: {
+    if (NumParams != 1)
+      return false;
+
+    Type *RetTy = FTy.getReturnType();
+    Type *ParamTy = FTy.getParamType(0);
+    if (auto *Ty = dyn_cast<StructType>(RetTy)) {
+      if (Ty->getNumElements() != 2)
+        return false;
+      return (Ty->getElementType(0) == ParamTy &&
+              Ty->getElementType(1) == ParamTy);
+    }
+
+    if (auto *Ty = dyn_cast<FixedVectorType>(RetTy)) {
+      if (Ty->getNumElements() != 2)
+        return false;
+      return Ty->getElementType() == ParamTy;
+    }
+
+    return false;
   }
 
-  llvm_unreachable("Invalid libfunc");
+  default:
+    break;
+>>>>>>> 0dcfe7aa35cd4f6dbeb739fcd05f93aa39394f0e
+  }
+
+  // FIXME: There is no guarantee that sizeof(size_t) is equal to
+  // sizeof(int*) for every target. So the assumption used here to derive
+  // the SizeTBits based on the size of an integer pointer in address space
+  // zero isn't always valid.
+  unsigned IntBits = getIntSize();
+  unsigned SizeTBits = M.getDataLayout().getPointerSizeInBits(/*AddrSpace=*/0);
+  unsigned Idx = 0;
+
+  // Iterate over the type ids in the function prototype, matching each
+  // against the function's type FTy, starting with its return type.
+  // Return true if both match in number and kind, inclduing the ellipsis.
+  Type *Ty = FTy.getReturnType(), *LastTy = Ty;
+  const auto &ProtoTypes = Signatures[F];
+  for (auto TyID : ProtoTypes) {
+    if (Idx && TyID == Void)
+      // Except in the first position where it designates the function's
+      // return type Void ends the argument list.
+      break;
+
+    if (TyID == Ellip) {
+      // The ellipsis ends the protoype list but is not a part of FTy's
+      // argument list.  Except when it's last it must be followed by
+      // Void.
+      assert(Idx == ProtoTypes.size() - 1 || ProtoTypes[Idx + 1] == Void);
+      return FTy.isFunctionVarArg();
+    }
+
+    if (TyID == Same) {
+      assert(Idx != 0 && "Type ID 'Same' must not be first!");
+      if (Ty != LastTy)
+        return false;
+    } else {
+      if (!Ty || !matchType(TyID, Ty, IntBits, SizeTBits))
+        return false;
+      LastTy = Ty;
+    }
+
+    if (Idx == NumParams) {
+      // There's at least one and at most two more type ids than there are
+      // arguments in FTy's argument list.
+      Ty = nullptr;
+      ++Idx;
+      continue;
+    }
+
+    Ty = FTy.getParamType(Idx++);
+  }
+
+  // Return success only if all entries on both lists have been processed
+  // and the function is not a variadic one.
+  return Idx == NumParams + 1 && !FTy.isFunctionVarArg();
 }
 
 bool TargetLibraryInfoImpl::getLibFunc(const Function &FDecl,
