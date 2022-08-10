@@ -51,7 +51,6 @@
 #include "MemoryManager.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This source below is clang-compatible and does not build with xmain's
 // very strict GCC options.
@@ -59,9 +58,8 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
-=======
+
 using namespace llvm;
->>>>>>> fdbb15355e7977b914cbd7e753b5e909d735ad83
 
 // Utility for retrieving and printing CUDA error string.
 #ifdef OMPTARGET_DEBUG
