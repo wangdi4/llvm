@@ -1,0 +1,6 @@
+; This module is used by import-overriden-function.ll
+
+define half @_Z4acosDh(half %x) {
+entry:
+  ret half %x
+}

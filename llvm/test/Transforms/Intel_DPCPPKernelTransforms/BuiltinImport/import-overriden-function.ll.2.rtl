@@ -1,0 +1,9 @@
+; This module is used by import-overriden-function.ll
+
+define half @_Z4acosDh(half %x) {
+entry:
+  %y = call half @__ocl_svml_z1_acoss(half %x)
+  ret half %y
+}
+
+declare half @__ocl_svml_z1_acoss(half %x)

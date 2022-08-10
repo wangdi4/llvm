@@ -290,7 +290,12 @@ class GoogleTest(TestFormat):
                         discovered_tests.append(subtest)
             os.remove(test.gtest_json_file)
 
-            if not has_failure_in_shard and test.isFailure():
+            # INTEL_CUSTOMIZATION
+            # Don't report shutdown failures in OpenCL runtime tests until
+            # CMPLRLLVM-35668 is fixed.
+            if not has_failure_in_shard and test.isFailure() \
+               and getattr(test.config, 'opencl_report_shutdown_failure', True):
+            # end INTEL_CUSTOMIZATION
                 selected_tests.append(test)
                 discovered_tests.append(test)
 
