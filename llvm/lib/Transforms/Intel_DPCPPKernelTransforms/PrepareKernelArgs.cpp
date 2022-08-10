@@ -506,11 +506,19 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  // Replace bitcast operator user, e.g. in global value.
   for (User *U : WrappedKernel->users()) {
+    // Replace bitcast operator user, e.g. in global value.
     if (auto *Op = dyn_cast<BitCastOperator>(U)) {
       auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
       Op->replaceAllUsesWith(WrapperOp);
+    } else if (auto *Op = dyn_cast<SelectInst>(U)) {
+      // WrappedKernel is used as select instruction operand
+      auto *WrapperOp =
+          ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
+      if (Op->getOperand(1)->getName() == WrappedKernel->getName())
+        Op->setOperand(1, WrapperOp);
+      else
+        Op->setOperand(2, WrapperOp);
     }
   }
 }
