@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-capture-non-pointers-using-map-to -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt-target-capture-non-pointers-using-map-to -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -9,23 +9,22 @@
 ;   int n = 2;
 ;   int x[n];
 ;
-; #pragma omp target private(x)
+; #pragma omp target firstprivate(x)
 ;     printf("%p\n", x);
 ; }
 
-; The test is a version of target_priv_vla_tgt.ll, with the hand-modified change
-; to add a map clause in addition to the private clause on the VLA.
+; The test is a version of target_fp_map_vla_tgt.ll, but uses map(to)
+; instead of firstprivate for capturing the VLA's size.
 
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val '
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* {{%n.val.addr.*}}'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'i64 addrspace(4)* [[SIZE_ADDR:%n.val.addr.*]]'
 
 ; Check that the kernel function has arguments for the VLA and the captured VLA size.
-; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* noalias %vla.ascast, i64 [[SIZE_ARG:%n.val.addr.*]])
+; CHECK:     define {{.*}} void @__omp_offloading{{.*}}main{{.*}}(i32 addrspace(1)* %vla.ascast, i64 addrspace(1)* noalias [[SIZE_ADDR]])
 
 ; Check that no extra local copy is made for the VLA inside the kernel, and the argument passed-in is used directly.
+; CHECK-NOT:   %{{.*}} = alloca i32, {{.*}}
 ; CHECK:       [[VLA_CAST:%.+]] = addrspacecast i32 addrspace(1)* %vla.ascast to i32 addrspace(4)*
-; CHECK:       [[SIZE_FP:%n.val.addr.*fpriv]] = alloca i64, align 8
-; CHECK:       store i64 [[SIZE_ARG]], i64* [[SIZE_FP]], align 8
 ; CHECK:       call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[VLA_CAST]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -48,8 +47,8 @@ entry:
   %map.size = mul i64 %n.val, 4
   %dir = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %vla.ascast),
-    "QUAL.OMP.MAP.TO"(i32 addrspace(4)* %vla.ascast, i32 addrspace(4)* %vla.ascast, i64 %map.size, i64 160, i8* null, i8* null) ]
+    "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %vla.ascast),
+    "QUAL.OMP.MAP.TO"(i32 addrspace(4)* %vla.ascast, i32 addrspace(4)* %vla.ascast, i64 %map.size, i64 161, i8* null, i8* null) ]
 
   %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 addrspace(4)* noundef %vla.ascast)
 

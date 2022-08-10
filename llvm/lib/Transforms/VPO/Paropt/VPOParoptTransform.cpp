@@ -280,6 +280,12 @@ static cl::opt<TeamAllocMode> TeamsNonWILocalVLAAllocMode(
         clEnumValN(TeamAllocMode::WILocal, "wilocal",
                    "treat them as work-item local (default).")));
 
+static cl::opt<bool> CaptureNonPtrsUsingMapTo(
+    "vpo-paropt-target-capture-non-pointers-using-map-to", cl::Hidden,
+    cl::init(false),
+    cl::desc("For non-pointer values to be passed into a target region (like "
+             "VLA sizes), use map(to), instead of firstprivate."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -2228,6 +2234,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genDestructorCode(W);
           Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
+          Changed |= genFirstPrivatizationCode(
+              W, /*OnlyParoptGeneratedFPForNonPtrCaptures=*/true);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -7513,7 +7521,8 @@ bool VPOParoptTransform::addFirstprivateForNormalizedUB(WRegionNode *W) {
   return true;
 }
 
-bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
+bool VPOParoptTransform::genFirstPrivatizationCode(
+    WRegionNode *W, bool OnlyParoptGeneratedFPForNonPtrCaptures) {
 
   bool Changed = false;
 
@@ -7524,7 +7533,13 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
+  bool HasParoptGeneratedFPsForNonPtrCaptures =
+      llvm::any_of(FprivClause.items(), [](FirstprivateItem *FprivI) {
+        return FprivI->getIsParoptGeneratedForNonPtrCapture();
+      });
+
+  if (!FprivClause.empty() && (!OnlyParoptGeneratedFPForNonPtrCaptures ||
+                               HasParoptGeneratedFPsForNonPtrCaptures)) {
     auto *RegPredBlock = W->getEntryBBlock();
     W->setEntryBBlock(SplitBlock(RegPredBlock, &RegPredBlock->front(), DT, LI));
     // Force BBSet rebuild due to the entry block change.
@@ -7534,6 +7549,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     bool ForTask = W->getIsTask();
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
+      if (OnlyParoptGeneratedFPForNonPtrCaptures &&
+          !FprivI->getIsParoptGeneratedForNonPtrCapture())
+        continue;
+
       // Skip explicit firstprivate codegen for some cases in offload
       // compilation (but not in host compilation, because we need it for the
       // fallback code to work correctly).
@@ -7595,6 +7614,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       }
 
       Value *NewPrivInst = nullptr;
+      Instruction *AllocaInsertPt = nullptr;
       Value *Orig = FprivI->getOrig();
 
       // assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
@@ -7605,22 +7625,23 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // Only make new storage if !LprivI.
         // If the item was lastprivate, we should use the lastprivate
         // new version as the item's storage.
-        Instruction *InsertPt = EntryBB->getFirstNonPHI();
+        AllocaInsertPt = EntryBB->getFirstNonPHI();
         if (!ForTask) {
           auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, FprivI);
-          NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv",
+          NewPrivInst = genPrivatizationAlloca(FprivI, AllocaInsertPt, ".fpriv",
                                                AllocaAddrSpace);
         } else {
           NewPrivInst = FprivI->getNew(); // Use the task thunk directly
-          InsertPt =
+          AllocaInsertPt =
               cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
         }
         FprivI->setNew(NewPrivInst);
-        Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
+        Value *ReplacementVal =
+            getClauseItemReplacementValue(FprivI, AllocaInsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && FprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(FprivI, InsertPt, DT, LI,
+          VPOParoptUtils::genF90DVInitCode(FprivI, AllocaInsertPt, DT, LI,
                                            isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
@@ -7651,7 +7672,42 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         std::tie(ElementTy, NumElements, std::ignore) =
             VPOParoptUtils::getItemInfo(FprivI);
 
-        PrivInitEntryBB = createEmptyPrivInitBB(W);
+        Instruction *FprivInitInsertPt = nullptr;
+        if (FprivI->getIsParoptGeneratedForNonPtrCapture()) {
+          assert(
+              AllocaInsertPt &&
+              "No alloca insert point for paropt-generated FPs for non-ptrs.");
+          // For FP clauses emitted for capturing non-pointers (added by
+          // captureAndAddCollectedNonPointerValuesToSharedClause), the
+          // initialization of the firstprivate copy has to happen immediately
+          // after the allocation, otherwise, if we create an empty block to
+          // insert the ini code, that block may be after existing uses of
+          // those operands. For example, the non-pointer captured by the clause
+          // may be the size of a VLA which is private. The VLA's private
+          // allocation will use that size. e.g.
+          //
+          // ----------------------------------+--------------------------------
+          //      Before                       |     After
+          // ----------------------------------+--------------------------------
+          //  %vla = alloca i16, i64 %size     | %vla = alloca i16, i64 %size
+          //  %size.addr = alloca i64          | %size.addr = alloca i64
+          //  store %size, ptr %size.addr      | store %size, ptr %size.addr
+          //                                   |
+          //  <EntryBB>:                       | <EntryBB>:
+          //                                   | %size.fp = alloca i64
+          //                                   | memcpy(%size.fp, %size.addr, 8)
+          //                                   |
+          //  %size1 = load i64, %size.addr   (1) %size1 = load i64 %size.fp
+          //  %vla.priv = alloca i16, %size1   | %vla.priv = alloca i16, %size1
+          //                                   |
+          //  "PRIVATE"(%vla.priv),            | "PRIVATTE"(%vla.priv)
+          //  "FIRSTPRIVATE"(%size.addr)       | "FIRSTTPRIVATE("size.fp")
+          // ----------------------------------+--------------------------------
+          FprivInitInsertPt = AllocaInsertPt; // (1)
+        } else {
+          PrivInitEntryBB = createEmptyPrivInitBB(W);
+          FprivInitInsertPt = PrivInitEntryBB->getTerminator();
+        }
 
         // For the given FIRSTPRIVATE item, check if the data may fit
         // a pointer type, so that it may be passed by value to the region's
@@ -7774,7 +7830,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           //   %x.val.bcast.zext.trunc.bcast =
           //       bitcast i32 %x.val.bcast.zext.trunc to float
           //   store float %x.val.bcast.zext.trunc.bcast, float* %x.fpriv
-          //   ...
+          //   ...;                               FprivInitInsertPt
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
           Value *NewArg = PredBuilder.CreateLoad(
               ElementTy, Orig, Orig->getName() + Twine(".val"));
@@ -7784,7 +7840,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
               NewArg->getName() + Twine(".zext"));
           FprivI->setOrig(NewArg);
 
-          IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
+          IRBuilder<> RegBuilder(FprivInitInsertPt);
           NewArg = RegBuilder.CreateTrunc(NewArg, ValueIntTy,
               NewArg->getName() + Twine(".trunc"));
           NewArg = RegBuilder.CreateBitCast(
@@ -7804,7 +7860,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           // private copy. In the case of lastprivate, this is the lastprivate
           // copy. The lastprivate codegen will replace all original vars
           // with the lastprivate copy.
-          Instruction *FprivInitInsertPt = PrivInitEntryBB->getTerminator();
 #if INTEL_CUSTOMIZATION
           if (FprivI->getIsF90DopeVector())
             if (Instruction *AllocPt = FprivI->getF90DVDataAllocationPoint())
@@ -7835,7 +7890,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           // We also avoid an extra dereference, which is profitable.
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
           auto *Load = PredBuilder.CreateLoad(ElementTy, Orig);
-          IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
+          IRBuilder<> RegBuilder(FprivInitInsertPt);
           RegBuilder.CreateStore(Load, FprivI->getNew());
 
           FprivI->setOrig(Load);
@@ -8947,12 +9002,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 //                                    |
 //                        <entry directive for W>
 //  (..."DIR.OMP.PARALLEL"...)        |     (..."DIR.OMP.PARALLEL"...
-//                                   (6) ;   "QUAL.OMP.SHARED" (i32* size2))
+//                                   (6) ; "SHARED/MAP/FP" (i32* size2))
 //                                    |
 //                                    |  ; Note: `%size2` is added as shared to
 //                                    |  ; W, but the directive is not modified
-// TODO: Change shared/map(to) to firstprivate where possible. map(to)
-// especially is an unnecessary overhead.
 bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     WRegionNode *W) {
 
@@ -9009,19 +9062,31 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
       SharedClause &ShrClause = W->getShared();
       WRegionUtils::addToClause(ShrClause, CapturedValAddr); //         (6)
     } else {
-      MapClause &MpClause = W->getMap();
-      ConstantInt *Size =
-          ConstantInt::get(Type::getInt64Ty(C),
-                           DL.getTypeAllocSize(ValToCapture->getType()));
-      MapAggrTy *Aggr = new MapAggrTy(CapturedValAddr, CapturedValAddr,
-                                      Size, MapItem::WRNMapKind::WRNMapTo);
-      MapItem *MI = new MapItem(Aggr);
-      MI->setOrig(CapturedValAddr);
-      MpClause.add(MI);
+      IntegerType *I64Ty = Type::getInt64Ty(C);
+      Type *ValTy = ValToCapture->getType();
+      if (CaptureNonPtrsUsingMapTo) {
+        MapClause &MpClause = W->getMap();
+        ConstantInt *Size = ConstantInt::get(I64Ty, DL.getTypeAllocSize(ValTy));
+        MapAggrTy *Aggr = new MapAggrTy(CapturedValAddr, CapturedValAddr, Size,
+                                        MapItem::WRNMapKind::WRNMapTo);
+        MapItem *MI = new MapItem(Aggr);
+        MI->setOrig(CapturedValAddr);
+        MpClause.add(MI); //                                            (6)
+      } else {
+        FirstprivateClause &FprivC = W->getFpriv();
+        FprivC.add(CapturedValAddr); //                                 (6)
+        FirstprivateItem *FPI = FprivC.back();
+        FPI->setIsTyped(true);
+        FPI->setOrigItemElementTypeFromIR(ValTy);
+        FPI->setNumElements(ConstantInt::get(I64Ty, 1));
+        FPI->setIsWILocal(true);
+        FPI->setIsParoptGeneratedForNonPtrCapture(true);
+      }
     }
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Added implicit shared/map(to) clause for: '";
-               CapturedValAddr->printAsOperand(dbgs()); dbgs() << "'\n");
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__
+               << ": Added implicit shared/map(to)/firstprivate clause for: '";
+        CapturedValAddr->printAsOperand(dbgs()); dbgs() << "'\n");
     Changed = true;
   }
 

@@ -15,11 +15,15 @@
 
 ; Check that the size of both VLAs is captured, even though it's the same value.
 ; CHECK:     collectNonPointerValuesToBeUsedInOutlinedRegion: Non-pointer values to be passed into the outlined region: 'i64 %n.val i64 %n.val '
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[SIZE_ADDR1:%n.val.addr.*]]'
-; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to) clause for: 'ptr [[SIZE_ADDR2:%n.val.addr.*]]'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[SIZE_ADDR1:%n.val.addr.*]]'
+; CHECK:     captureAndAddCollectedNonPointerValuesToSharedClause: Added implicit shared/map(to)/firstprivate clause for: 'ptr [[SIZE_ADDR2:%n.val.addr.*]]'
 
 ; Check that the kernel function has arguments for the mapped VLAs and the captured VLA sizes.
-; CHECK: define {{.*}} void @__omp_offloading_{{.*}}main{{.*}}(ptr noalias %vla1, ptr noalias %vla2, ptr noalias [[SIZE_ADDR1]], ptr noalias [[SIZE_ADDR2]])
+; CHECK: define {{.*}} void @__omp_offloading_{{.*}}main{{.*}}(ptr noalias %vla1, ptr noalias %vla2, i64 [[SIZE_ADDR1]].val, i64 [[SIZE_ADDR2]].val)
+; CHECK: [[SIZE_ADDR2]].fpriv = alloca i64, align 8
+; CHECK: [[SIZE_ADDR1]].fpriv = alloca i64, align 8
+; CHECK: store i64 [[SIZE_ADDR2]].val, ptr [[SIZE_ADDR2]].fpriv, align 8
+; CHECK: store i64 [[SIZE_ADDR1]].val, ptr [[SIZE_ADDR1]].fpriv, align 8
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
