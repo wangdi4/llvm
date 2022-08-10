@@ -393,20 +393,15 @@ VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
 }
 
 Intrinsic::ID
-VPlanTTICostModel::getIntrinsicForSVMLCall(
+VPlanTTICostModel::getIntrinsicForLibFuncCall(
   const VPCallInstruction *VPCall) const {
-  assert(VPCall->getVectorizationScenario() ==
-             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
-         "Expected library function call here.");
-  auto *CalledFunc = VPCall->getCalledFunction();
-  assert(CalledFunc && "Value should not be nullptr!");
-  assert(isSVMLFunction(TLI, CalledFunc->getName(),
-                        VPCall->getVectorLibraryFunc()) &&
-         "Expected SVML function call.");
-  (void)CalledFunc;
 
-  LibFunc Func;
-  if (!TLI->getLibFunc(*VPCall->getUnderlyingCallInst(), Func))
+  assert(VPCall->getCalledFunction() && "Value should not be nullptr!");
+  const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
+  assert(UnderlyingCI && "Underlying call instruction expected here");
+
+  LibFunc Func = NotLibFunc;
+  if (!TLI->getLibFunc(*UnderlyingCI, Func) || !TLI->has(Func))
     return Intrinsic::not_intrinsic;
 
   // Table to provide alternate similar intrinsics for given library function.
@@ -775,17 +770,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // If call is expected to be vectorized using SVML then obtain alternate
     // intrinsic version (if available) which will be used for cost computation
     // purpose.
-    if (ID == Intrinsic::not_intrinsic &&
-        VPCall->getVectorizationScenario() ==
-            VPCallInstruction::CallVecScenariosTy::LibraryFunc) {
-      // Filter out SVML function calls, we currently allow some OCL builtins to
-      // be vectorized via LibraryFunc scenario too.
-      auto *CalledFunc = VPCall->getCalledFunction();
-      assert(CalledFunc && "Value should not be nullptr!");
-      if (isSVMLFunction(TLI, CalledFunc->getName(),
-                         VPCall->getVectorLibraryFunc()))
-        ID = getIntrinsicForSVMLCall(VPCall);
-    }
+    if (ID == Intrinsic::not_intrinsic && VPCall->getCalledFunction())
+      ID = getIntrinsicForLibFuncCall(VPCall);
 
     if (ID == Intrinsic::not_intrinsic)
       return VPInstructionCost::getUnknown();
