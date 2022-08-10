@@ -2194,7 +2194,6 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
     FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
     FPM.addPass(HIRDeadStoreEliminationPass());
-    FPM.addPass(HIRLoopReversalPass());
     FPM.addPass(HIRMinMaxRecognitionPass());
     FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
 
@@ -2217,6 +2216,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     if (RunLoopOpts == LoopOptMode::Full && Level.getSizeLevel() == 0)
       FPM.addPass(HIRLoopDistributionForMemRecPass());
 
+    FPM.addPass(HIRLoopReversalPass());
     FPM.addPass(HIRLoopRematerializePass());
     FPM.addPass(HIRMultiExitLoopRerollPass());
     FPM.addPass(HIRLoopCollapsePass());
