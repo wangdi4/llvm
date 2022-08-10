@@ -27,6 +27,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringRef.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -49,6 +51,7 @@
 #include "MemoryManager.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This source below is clang-compatible and does not build with xmain's
 // very strict GCC options.
@@ -56,6 +59,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
+=======
+using namespace llvm;
+>>>>>>> fdbb15355e7977b914cbd7e753b5e909d735ad83
 
 // Utility for retrieving and printing CUDA error string.
 #ifdef OMPTARGET_DEBUG
@@ -1556,13 +1562,14 @@ int32_t __tgt_rtl_is_valid_binary_info(__tgt_device_image *image,
     return false;
 
   // A subarchitecture was not specified. Assume it is compatible.
-  if (!info->Arch)
+  if (!info || !info->Arch)
     return true;
 
   int32_t NumberOfDevices = 0;
   if (cuDeviceGetCount(&NumberOfDevices) != CUDA_SUCCESS)
     return false;
 
+  StringRef ArchStr = StringRef(info->Arch).drop_front(sizeof("sm_") - 1);
   for (int32_t DeviceId = 0; DeviceId < NumberOfDevices; ++DeviceId) {
     CUdevice Device;
     if (cuDeviceGet(&Device, DeviceId) != CUDA_SUCCESS)
@@ -1578,8 +1585,11 @@ int32_t __tgt_rtl_is_valid_binary_info(__tgt_device_image *image,
                              Device) != CUDA_SUCCESS)
       return false;
 
-    std::string ArchStr = "sm_" + std::to_string(Major) + std::to_string(Minor);
-    if (ArchStr != info->Arch)
+    // A cubin generated for a certain compute capability is supported to run on
+    // any GPU with the same major revision and same or higher minor revision.
+    int32_t ImageMajor = ArchStr[0] - '0';
+    int32_t ImageMinor = ArchStr[1] - '0';
+    if (Major != ImageMajor || Minor < ImageMinor)
       return false;
   }
 
