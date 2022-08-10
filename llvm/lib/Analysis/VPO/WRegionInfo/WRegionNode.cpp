@@ -359,8 +359,9 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       // setIsTask();
     }
   }
+
   assert((getWRegionKindID() != WRNTask || !getIsTaskwaitNowaitTask() ||
-          !getDepend().empty()) &&
+          !getDepend().empty() || getDepArray()) &&
          "taskwait construct cannot have a nowait clause without a depend "
          "clause.");
 }

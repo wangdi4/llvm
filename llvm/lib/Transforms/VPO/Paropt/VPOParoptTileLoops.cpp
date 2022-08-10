@@ -104,9 +104,6 @@ static cl::opt<bool> DisableTiling("disable-" DEBUG_TYPE, cl::Hidden,
                                    cl::desc("Disable paropt loop tiling"));
 namespace {
 
-typedef SmallVector<Value *, 4> BundleOprsTy;
-typedef SmallVectorImpl<Value *> BundleOprsImplTy;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void print(const SmallVectorImpl<Value *> &IVsToFill, int Size,
            StringRef Header) {
@@ -124,9 +121,118 @@ void printWRNLoopInfo(WRNLoopInfo &WLoopInfo) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void updateParentRegionLoopInfo(WRegionNode *WParent,
-                                const BundleOprsImplTy &GenIVs,
-                                const BundleOprsImplTy &GenUBs, int NumToFill) {
+} // end of namespace
+
+namespace {
+// Stripmine a loop, i.e., one-level.
+// WRegionNode passed to the constructor is for information,
+// not for stripmining the whole WRegionNodes multiple times
+// as prescribed in tile pragma.
+class Stripminer {
+public:
+  Stripminer(unsigned LoopDepthIndex, Value *TileSize, WRegionNode *W)
+      : LoopDepthIndex(LoopDepthIndex), TileSize(TileSize), W(W),
+        IndVarTy(W->getWRNLoopInfo().getNormIVElemTy(LoopDepthIndex)),
+        FloorLB(nullptr), FloorUB(nullptr), FloorIV(nullptr),
+        OrigUpperBound(nullptr) {
+    assert(IndVarTy == W->getWRNLoopInfo().getNormUBElemTy(LoopDepthIndex) &&
+           "IV and UB types are should be the same");
+  }
+
+  std::tuple<Value *, Value *, Value *>
+  addFloorLoopIVBounds(Instruction *InsertPos);
+
+  // Update original loop preheader by adding  computation of tile loops's lower
+  // and upper bounds (tile.lb, tile.ub). Store for tile.lb to original.norm.iv
+  // & store of tile.ub to original.norm.ub also added. Original norm.iv and
+  // norm.ub are reused as tile.iv, tile.ub \p InsertPos is original loop
+  // preheader.
+  void addTileLoopBounds(Instruction *InsertPos);
+
+  // Add a floor loop around the given (tile) loop.
+  // As a result, CFG is changed.
+  // Given the current \p OutermostPreheader and \p OutermostHeader,
+  // returns a new \p OutermostPreheader, \p OutermostHeader,
+  // and \p OutermostLatch.
+  // \p Pred is the unique predecessor of \p OutermostPreheader.
+  // The returned results corresponde to those of added floor loop.
+  // The new outermost preheader and header are added between
+  // the current Entry block and outermost preheader.
+  std::tuple<BasicBlock *, BasicBlock *, BasicBlock *>
+  addFloorLoop(BasicBlock *Pred, BasicBlock *OutermostPreheader,
+               BasicBlock *OutermostHeader);
+
+private:
+  unsigned LoopDepthIndex;
+  Value *TileSize;
+  WRegionNode *W;
+  Type *IndVarTy;
+
+  // outputs
+  AllocaInst *FloorLB;
+  AllocaInst *FloorUB;
+  AllocaInst *FloorIV;
+
+  // This is a copy of Orig UB. Needed because the orig ub is reused as tile ub.
+  AllocaInst *OrigUpperBound;
+};
+
+// Top-level handler of tiling per WRegionNode, i.e. per omp tile pragma.
+// Takes care of all tiles sizes given in the pragma.
+// The parent WRegionNode is updated as needed.
+class WRegionNodeTiler {
+
+  typedef SmallVector<Value *, 4> BundleOprsTy;
+  typedef SmallVectorImpl<Value *> BundleOprsImplTy;
+
+public:
+  WRegionNodeTiler(WRegionNode *W) : W(W) {}
+
+  void run();
+
+private:
+  // Updates parent WRegionNode's LoopInfo.
+  // Parent's LoopInfo needs to be updated when
+  // tile pragmas are back to back on a loop nest.
+  // In that case, before tiling, two or more WRegionNode will
+  // contain the same outermost loop. However, as the inner WRegionNode
+  // is handled with tiling, new outer loops are added, leading to
+  // a new outermost loop for the parent WRegionNode. This change needs
+  // to be reflected to the LoopInfo of the parent WRegionNode.
+  // Notice only the minimum amount LoopInfo are updated.
+  // Not all related information, DT, all basic blocks, and so on, are
+  // kept up to date.
+  static void updateParentRegionLoopInfo(WRegionNode *WParent,
+                                         const BundleOprsImplTy &GenIVs,
+                                         const BundleOprsImplTy &GenUBs,
+                                         int NumToFill,
+                                         BasicBlock *OutermostLoopPreheader,
+                                         BasicBlock *OutermostLoopHeader,
+                                         BasicBlock *OutermostLatch);
+
+  // Directly updates LLVM IR's call to llvm.directive.region.entry()
+  // Needed with outer omp do pragma
+  static void updateParentRegionEntry(WRegionNode *WParent,
+                                      const BundleOprsImplTy &GenIVs,
+                                      const BundleOprsImplTy &GenLBs,
+                                      const BundleOprsImplTy &GenUBs,
+                                      int NumToFill);
+
+  static void updateParentRegion(WRegionNode *WParent, BundleOprsTy &GenIVs,
+                                 BundleOprsTy &GenLBs, BundleOprsTy &GenUBs,
+                                 BasicBlock *OutermostLoopPreheader,
+                                 BasicBlock *OutermostLoopHeader,
+                                 BasicBlock *OutermostLoopLatch);
+
+private:
+  WRegionNode *W;
+};
+
+void WRegionNodeTiler::updateParentRegionLoopInfo(
+    WRegionNode *WParent, const BundleOprsImplTy &GenIVs,
+    const BundleOprsImplTy &GenUBs, int NumToFill,
+    BasicBlock *OutermostLoopPreheader, BasicBlock *OutermostLoopHeader,
+    BasicBlock *OutermostLatch) {
 
   auto &WLoopInfo = WParent->getWRNLoopInfo();
 
@@ -144,15 +250,37 @@ void updateParentRegionLoopInfo(WRegionNode *WParent,
 
   // No need to worry for GenLBs
 
-  // TODO: Loop and its preheader/header/latch
+  // Loop and its preheader/header/latch
   // information should be updated as well.
   // Needs direct update on LLVM's Loop and LoopInfo
+
+  // W's original outer most loop is the same as
+  // Parent W's outermost loop, because tile pragmas are back to back.
+  Loop *OrigOutermostLoop = WLoopInfo.getLoop(0);
+
+  // Create a llvm Loop for floor-loop for LoopInfo
+  LoopInfo *LI = WLoopInfo.getLoopInfo();
+  Loop *FloorLoop = LI->AllocateLoop();
+
+  if (Loop *ParentLoop = OrigOutermostLoop->getParentLoop()) {
+    ParentLoop->replaceChildLoopWith(OrigOutermostLoop, FloorLoop);
+    ParentLoop->addBasicBlockToLoop(OutermostLoopPreheader, *LI);
+  } else {
+    LI->changeTopLevelLoop(OrigOutermostLoop, FloorLoop);
+  }
+
+  // To update loop header and latch
+  FloorLoop->addBasicBlockToLoop(OutermostLoopHeader, *LI);
+  FloorLoop->addBasicBlockToLoop(OutermostLatch, *LI);
+  FloorLoop->addChildLoop(OrigOutermostLoop);
+
+  WLoopInfo.setLoop(FloorLoop);
 }
 
 // Copy existing type bundles or make it typed if they were not
 // originally typed.
-void getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
-                         SmallVectorImpl<Value *> &NewTypedBundles) {
+static void getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
+                                SmallVectorImpl<Value *> &NewTypedBundles) {
   if (IsTyped)
     NewTypedBundles.insert(NewTypedBundles.begin(), Bundle.input_begin(),
                            Bundle.input_end());
@@ -173,10 +301,11 @@ void getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
 // Update Parent's WRNNode's intrinsic if NumToFill > 0
 // GenIVs, LBs, and UBs contain all generated data.
 // Their size is not smaller than NumToFill.
-void updateParentRegionEntry(WRegionNode *WParent,
-                             const BundleOprsImplTy &GenIVs,
-                             const BundleOprsImplTy &GenLBs,
-                             const BundleOprsImplTy &GenUBs, int NumToFill) {
+void WRegionNodeTiler::updateParentRegionEntry(WRegionNode *WParent,
+                                               const BundleOprsImplTy &GenIVs,
+                                               const BundleOprsImplTy &GenLBs,
+                                               const BundleOprsImplTy &GenUBs,
+                                               int NumToFill) {
 
   assert(NumToFill > 0 && "No information to add");
 
@@ -271,13 +400,16 @@ void updateParentRegionEntry(WRegionNode *WParent,
   EntryCI->eraseFromParent();
 }
 
-void updateParentRegion(WRegionNode *WParent, BundleOprsTy &GenIVs,
-                        BundleOprsTy &GenLBs, BundleOprsTy &GenUBs) {
+void WRegionNodeTiler::updateParentRegion(
+    WRegionNode *WParent, BundleOprsTy &GenIVs, BundleOprsTy &GenLBs,
+    BundleOprsTy &GenUBs, BasicBlock *OutermostLoopPreheader,
+    BasicBlock *OutermostLoopHeader, BasicBlock *OutermostLoopLatch) {
 
   int NumToFill = 0;
-  auto ParentWLoopInfo = WParent->getWRNLoopInfo();
-  if (WParent->getIsOmpLoopOrLoopTransform())
+  if (WParent->getIsOmpLoopOrLoopTransform()) {
+    auto ParentWLoopInfo = WParent->getWRNLoopInfo();
     NumToFill = WParent->getOmpLoopDepth() - ParentWLoopInfo.getNormIVSize();
+  }
   assert(NumToFill >= 0 && "Invalid status");
 
   LLVM_DEBUG(dbgs() << "NumToFill: " << NumToFill << "\n");
@@ -299,67 +431,17 @@ void updateParentRegion(WRegionNode *WParent, BundleOprsTy &GenIVs,
   if (WParent->getIsOmpLoop()) // omp do
     updateParentRegionEntry(WParent, GenIVs, GenLBs, GenUBs, NumToFill);
   else if (WParent->getIsOmpLoopTransform()) // omp tile
-    updateParentRegionLoopInfo(WParent, GenIVs, GenUBs, NumToFill);
+    updateParentRegionLoopInfo(WParent, GenIVs, GenUBs, NumToFill,
+                               OutermostLoopPreheader, OutermostLoopHeader,
+                               OutermostLoopLatch);
   else
     llvm_unreachable("omp tile: parent region should be either do or tile");
 }
 
 } // end of namespace
 
-namespace {
-class Stripminer {
-public:
-  Stripminer(WRegionNode *W, unsigned LoopDepthIndex, Value *TileSize)
-      : W(W), LoopDepthIndex(LoopDepthIndex), TileSize(TileSize),
-        IndVarTy(W->getWRNLoopInfo().getNormIVElemTy(LoopDepthIndex)),
-        FloorLB(nullptr), FloorUB(nullptr), FloorIV(nullptr),
-        OrigUpperBound(nullptr) {
-    assert(IndVarTy == W->getWRNLoopInfo().getNormUBElemTy(LoopDepthIndex) &&
-           "IV and UB types are should be the same");
-  }
-
-  static std::tuple<BundleOprsTy, BundleOprsTy, BundleOprsTy, BasicBlock *,
-                    BasicBlock *, BasicBlock *>
-  driver(WRegionNode *W);
-
-  std::tuple<Value *, Value *, Value *>
-  addFloorLoopIVBounds(Instruction *InsertPos);
-
-  // Update original loop preheader by adding
-  // computation of tile loops's lower and upper bounds (tile.lb, tile.ub).
-  // Store for tile.lb to original.norm.iv &
-  // sore of tile.ub to original.norm.ub
-  // also added.
-  // Original norm.iv and norm.ub are reused as tile.iv, tile.ub
-  // \p InsertPos is original loop preheader
-  void addTileLoopBounds(Instruction *InsertPos);
-
-  // Add a floor loop around the given (tile) loop.
-  // As a result, CFG is changed.
-  std::tuple<BasicBlock *, BasicBlock *, BasicBlock *>
-  addFloorLoop(BasicBlock *OutermostPreheader, BasicBlock *OutermostHeader);
-
-private:
-  WRegionNode *W;
-  unsigned LoopDepthIndex;
-  Value *TileSize;
-  Type *IndVarTy;
-
-  // outputs
-  AllocaInst *FloorLB;
-  AllocaInst *FloorUB;
-  AllocaInst *FloorIV;
-
-  // This is a copy of Orig UB. Needed because the orig ub is reused as tile ub.
-  AllocaInst *OrigUpperBound;
-};
-
-} // end of namespace
-
 // Take care of loops from innermost to outermost
-std::tuple<BundleOprsTy, BundleOprsTy, BundleOprsTy, BasicBlock *, BasicBlock *,
-           BasicBlock *>
-Stripminer::driver(WRegionNode *W) {
+void WRegionNodeTiler::run() {
   // Get the size of Sizes - how many loops are tiled in this WRegionNode
   unsigned NumTileLoops = W->getSizes().size();
 
@@ -373,28 +455,17 @@ Stripminer::driver(WRegionNode *W) {
   auto *OutermostIV = WLoopInfo.getNormIV(0);
   auto *AllocaPos = cast<AllocaInst>(OutermostIV)->getParent()->getTerminator();
 
-  // Keep this information in case the LoopInfo is affected by in-place
-  // transformation
-  SmallVector<BasicBlock *, 4> OrigPreheaders;
-  SmallVector<BasicBlock *, 4> OrigHeaders;
-  for (unsigned LoopDepthIndex = 0; LoopDepthIndex < NumTileLoops;
-       LoopDepthIndex++) {
-    OrigPreheaders.push_back(
-        WLoopInfo.getLoop(LoopDepthIndex)->getLoopPreheader());
-    OrigHeaders.push_back(WLoopInfo.getLoop(LoopDepthIndex)->getHeader());
-  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Outermost Loop from LoopInfo:\n";
+             auto *OL = WLoopInfo.getLoop(0); OL->dump();
+             dbgs() << "Size of its subloop: " << OL->getSubLoops().size()
+                    << "\n");
 
-  auto *OutermostPreheader = OrigPreheaders.front();
-  auto *OutermostHeader = OrigHeaders.front();
+  auto *OutermostPreheader = WLoopInfo.getLoop(0)->getLoopPreheader();
+  auto *OutermostHeader = WLoopInfo.getLoop(0)->getHeader();
   BasicBlock *OutermostLatch = nullptr;
 
-  auto *EntryBlock = W->getEntryBBlock();
-  // TODO: tile1_tile1.f90 dies here. LoopInfo is not updated correctly
-  //       after the tileing of inner WRNRegion.
-  // Check Entry block i-dominates OutermostPreheader;
-  assert(OutermostPreheader->getUniquePredecessor() == EntryBlock &&
-         "Missing structural correctness");
-  (void)EntryBlock;
+  assert(OutermostPreheader && OutermostHeader &&
+         "Outermost preheader and header should exist!");
 
   // TODO: See if there is accessor with direct indexing to Clause<>
   SmallVector<Value *, 4> TileSizes;
@@ -404,8 +475,10 @@ Stripminer::driver(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "TileSizes.size: " << TileSizes.size() << "\n");
   assert(NumTileLoops == TileSizes.size() && "TileSize mismatch");
 
-  // Loops are proeccessed from the innermost to outermost direction.
-  // Notice that the smaller LoopDepthIndex is the outer loop is.
+  // Loops are proccessed from the innermost to outermost direction.
+  // Notice that the smaller LoopDepthIndex is the outer the loop is.
+  // In other words, the innermost loop has the largest LoopDepthIndex,
+  // and the outermost loop has the smallest LoopDepthIndex.
   // CollectAllNormIVs and keep the outermost NumNormIVsToFill
   // for the paretn WRegionNode
   // Data Structure for Parent WRegionNode
@@ -422,7 +495,7 @@ Stripminer::driver(WRegionNode *W) {
 
     LLVM_DEBUG(dbgs() << "Tilesize processed: "; TileSize->dump());
 
-    Stripminer SM(W, LoopDepthIndex, TileSize);
+    Stripminer SM(LoopDepthIndex, TileSize, W);
 
     Value *NormIV = nullptr;
     Value *NormLB = nullptr;
@@ -446,13 +519,16 @@ Stripminer::driver(WRegionNode *W) {
         WLoopInfo.getLoop(LoopDepthIndex)->getLoopPreheader()->getTerminator();
     SM.addTileLoopBounds(TileBoundsPos);
 
+    BasicBlock *Pred = OutermostPreheader->getUniquePredecessor();
+    assert(Pred && "No predecessor block of preheader");
     std::tie(OutermostPreheader, OutermostHeader, OutermostLatch) =
-        SM.addFloorLoop(OutermostPreheader, OutermostHeader);
+        SM.addFloorLoop(Pred, OutermostPreheader, OutermostHeader);
   }
 
-  // Outermost preheader, header, latch
-  return {GenIVs,          GenLBs,        GenUBs, OutermostPreheader,
-          OutermostHeader, OutermostLatch};
+  auto *WParent = W->getParent();
+  if (WParent)
+    updateParentRegion(WParent, GenIVs, GenLBs, GenUBs, OutermostPreheader,
+                       OutermostHeader, OutermostLatch);
 }
 
 std::tuple<Value *, Value *, Value *>
@@ -539,23 +615,16 @@ void Stripminer::addTileLoopBounds(Instruction *InsertPos) {
 }
 
 std::tuple<BasicBlock *, BasicBlock *, BasicBlock *>
-Stripminer::addFloorLoop(BasicBlock *OutermostPreheader,
+Stripminer::addFloorLoop(BasicBlock *Pred, BasicBlock *OutermostPreheader,
                          BasicBlock *OutermostHeader) {
 
-  // TODO: Make them class member variable
-  auto *EntryBlock = W->getEntryBBlock();
   auto *ExitBlock = W->getExitBBlock();
-
-  // TODO: getSuccessor() is not a correct method.
-  //       However, something similar might be useful.
-  // assert(OrigHeader->getSuccessor(1) == ExitBlock ||
-  //       OrigHeader->getSuccessor(0) == ExitBlock);
 
   // 1. Fill in Floor Header
   // flooriv = load
   // floorub = load
   // br flooriv <= floorub OutermostPreheader, ExitBlock
-  BasicBlock *FloorHeader = SplitEdge(EntryBlock, OutermostPreheader, nullptr,
+  BasicBlock *FloorHeader = SplitEdge(Pred, OutermostPreheader, nullptr,
                                       nullptr, nullptr, "FLOOR.HEAD");
   auto *UncondBr = FloorHeader->getTerminator();
   IRBuilder<> Builder(UncondBr);
@@ -568,8 +637,7 @@ Stripminer::addFloorLoop(BasicBlock *OutermostPreheader,
   // Replace uncond br to cond br
   UncondBr->eraseFromParent();
 
-  LLVM_DEBUG(dbgs() << "FloorHeadBlock 2\n"; FloorHeader->dump();
-             EntryBlock->dump(); ExitBlock->dump());
+  LLVM_DEBUG(dbgs() << "FloorHeadBlock 2\n"; FloorHeader->dump());
 
   // Add reset of floor_iv between FloorHeader & its predecessor
   // I.e.
@@ -578,22 +646,24 @@ Stripminer::addFloorLoop(BasicBlock *OutermostPreheader,
   // However, we always normalize floor-loops. Thus, it can simply be
   //      store 0 to %floor_iv
   // First split edge from FloorHeader's pred to FloorHeader
-  BasicBlock *FloorPreHeader = SplitEdge(EntryBlock, FloorHeader, nullptr,
-                                         nullptr, nullptr, "FLOOR.PREHEAD");
+  BasicBlock *FloorPreHeader =
+      SplitEdge(Pred, FloorHeader, nullptr, nullptr, nullptr, "FLOOR.PREHEAD");
+
   // Add store 0 to %floor_iv
   Builder.SetInsertPoint(FloorPreHeader->getTerminator());
   auto *Zero = Builder.getIntN(cast<IntegerType>(IndVarTy)->getBitWidth(), 0);
   Builder.CreateStore(Zero, FloorIV);
 
-  // 2. Replace OutermostHeader's br to FloorLetch
+  // 2. Replace OutermostHeader's br to Floor Latch
   auto *LoopCondBr = cast<BranchInst>(OutermostHeader->getTerminator());
   unsigned ExitTargetId = LoopCondBr->getSuccessor(0) == ExitBlock ? 0 : 1;
   LoopCondBr->setSuccessor(ExitTargetId, FloorHeader);
 
   auto *FloorLatch = SplitEdge(OutermostHeader, FloorHeader, nullptr, nullptr,
                                nullptr, "FLOOR.LATCH");
+
   LLVM_DEBUG(dbgs() << "After splitting edge - floor latch\n";
-             FloorHeader->dump(); EntryBlock->dump(); ExitBlock->dump());
+             FloorHeader->dump());
 
   // 3. Fill in Floor Latch
   IRBuilder<> LatchBuilder(FloorLatch->getTerminator());
@@ -626,18 +696,7 @@ bool VPOParoptTransform::tileOmpLoops(WRegionNode *W) {
     return Exiter(false);
   }
 
-  BundleOprsTy GenIVs;
-  BundleOprsTy GenLBs;
-  BundleOprsTy GenUBs;
-  BasicBlock *OutermostLoopPreheader = nullptr;
-  BasicBlock *OutermostLoopHeader = nullptr;
-  BasicBlock *OutermostLoopLatch = nullptr;
-  std::tie(GenIVs, GenLBs, GenUBs, OutermostLoopPreheader, OutermostLoopHeader,
-           OutermostLoopLatch) = Stripminer::driver(W);
-
-  auto *WParent = W->getParent();
-  if (WParent)
-    updateParentRegion(WParent, GenIVs, GenLBs, GenUBs);
+  WRegionNodeTiler(W).run();
 
   // @entry/@exit still exists
   LLVM_DEBUG(dbgs() << "=== AFTER tile == \n"
