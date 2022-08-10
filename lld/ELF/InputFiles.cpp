@@ -1808,20 +1808,12 @@ void BitcodeFile::parse() {
 void BitcodeFile::parseLazy() {
   SymbolTable &symtab = *elf::symtab;
   symbols.resize(obj->symbols().size());
-<<<<<<< HEAD
-  for (auto it : llvm::enumerate(obj->symbols()))
-    if (!it.value().isUndefined()) {
-      StringRef name = saver().save(it.value().getName());             // INTEL
-      auto *sym = symtab.insert(name);                                 // INTEL
-      sym->resolve(LazyObject{*this}, name);                           // INTEL
-      symbols[it.index()] = sym;
-=======
   for (auto [i, irSym] : llvm::enumerate(obj->symbols()))
     if (!irSym.isUndefined()) {
-      auto *sym = symtab.insert(saver().save(irSym.getName()));
-      sym->resolve(LazyObject{*this});
+      StringRef name = saver().save(irSym.getName());                  // INTEL
+      auto *sym = symtab.insert(name);                                 // INTEL
+      sym->resolve(LazyObject{*this}, name);                           // INTEL
       symbols[i] = sym;
->>>>>>> e3fcf2e06fbf8273f68a6985f1309136dae59eb1
     }
 }
 
