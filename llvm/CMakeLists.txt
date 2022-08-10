@@ -1975,7 +1975,7 @@ if (INTEL_CUSTOMIZATION)
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers llvm-cov clang-tidy
+      clang-resource-headers llvm-cov clang-tidy llvm-ml
       # XDEV components
       xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
