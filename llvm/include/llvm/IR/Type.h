@@ -161,14 +161,20 @@ public:
   /// Return true if this is 'bfloat', a 16-bit bfloat type.
   bool isBFloatTy() const { return getTypeID() == BFloatTyID; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
+=======
+>>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
   /// Return true if this is a 16-bit float type.
   bool is16bitFPTy() const {
     return getTypeID() == BFloatTyID || getTypeID() == HalfTyID;
   }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
 
   /// Return true if this is 'float', a 32-bit IEEE fp type.
   bool isFloatTy() const { return getTypeID() == FloatTyID; }

@@ -3072,7 +3072,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
     } else if (k >= BuiltinType::Bool && k <= BuiltinType::LongLong) {
       Current = Integer;
     } else if (k == BuiltinType::Float || k == BuiltinType::Double ||
-               k == BuiltinType::Float16) {
+               k == BuiltinType::Float16 || k == BuiltinType::BFloat16) {
       Current = SSE;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -3214,7 +3214,8 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
         Current = Integer;
       else if (Size <= 128)
         Lo = Hi = Integer;
-    } else if (ET->isFloat16Type() || ET == getContext().FloatTy) {
+    } else if (ET->isFloat16Type() || ET == getContext().FloatTy ||
+               ET->isBFloat16Type()) {
       Current = SSE;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -3692,6 +3693,7 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (SourceSize > T0Size)
       T1 = getFPTypeAtOffset(IRType, IROffset + T0Size, TD);
   if (T1 == nullptr) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
     // Check if IRType is a half/bfloat + float. float type will be in IROffset+4 due
@@ -3703,6 +3705,11 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
     if (T0->isHalfTy() && SourceSize > 4)
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
+=======
+    // Check if IRType is a half/bfloat + float. float type will be in IROffset+4 due
+    // to its alignment.
+    if (T0->is16bitFPTy() && SourceSize > 4)
+>>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
       T1 = getFPTypeAtOffset(IRType, IROffset + 4, TD);
     // If we can't get a second FP type, return a simple half or float.
     // avx512fp16-abi.c:pr51813_2 shows it works to return float for
@@ -3714,6 +3721,7 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (T0->isFloatTy() && T1->isFloatTy())
     return llvm::FixedVectorType::get(T0, 2);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (T0->is16bitFPTy() && T1->is16bitFPTy()) {
@@ -3721,6 +3729,9 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (T0->isHalfTy() && T1->isHalfTy()) {
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (T0->is16bitFPTy() && T1->is16bitFPTy()) {
+>>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
     llvm::Type *T2 = nullptr;
     if (SourceSize > 4)
       T2 = getFPTypeAtOffset(IRType, IROffset + 4, TD);
@@ -3729,6 +3740,7 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
     return llvm::FixedVectorType::get(T0, 4);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (T0->is16bitFPTy() || T1->is16bitFPTy())
@@ -3736,6 +3748,9 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (T0->isHalfTy() || T1->isHalfTy())
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (T0->is16bitFPTy() || T1->is16bitFPTy())
+>>>>>>> e4888a37d36780872d685c68ef8b26b2e14d6d39
     return llvm::FixedVectorType::get(llvm::Type::getHalfTy(getVMContext()), 4);
 
   return llvm::Type::getDoubleTy(getVMContext());
