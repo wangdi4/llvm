@@ -303,18 +303,11 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
   } else if (magic == file_magic::bitcode) {
     obj =
         make<BitcodeFile>(ctx, mb, parentName, offsetInArchive, /*lazy=*/false);
-<<<<<<< HEAD
+  } else if (magic == file_magic::coff_cl_gl_object) {
 #if INTEL_CUSTOMIZATION
-  } else if (magic == file_magic::coff_cl_gl_object) {
     msGLFilesFound = true;
-    return;
 #endif // INTEL_CUSTOMIZATION
-=======
-  } else if (magic == file_magic::coff_cl_gl_object) {
-    error(mb.getBufferIdentifier() +
-          ": is not a native COFF file. Recompile without /GL?");
     return;
->>>>>>> c951edb7b22e709e50b8ae2ea6bce46f1d7d2741
   } else {
     error("unknown file type: " + mb.getBufferIdentifier());
     return;
