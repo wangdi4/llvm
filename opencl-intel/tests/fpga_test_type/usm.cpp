@@ -327,7 +327,12 @@ TEST_P(UsmTest, checkCapacities) {
 
 /// FPGA supports explicit USM, i.e. access to USM buffer allocated on host or
 /// the same device is allowed.
+#ifdef _WIN32
+/// FIXME disabled on windows due to flaky fail [CMPLRLLVM-39465]
+TEST_P(UsmTest, DISABLED_sameDevice) {
+#else
 TEST_P(UsmTest, sameDevice) {
+#endif
   for (cl_device_id device : devices()) {
     cl_context context = createContext(device);
     ASSERT_NE(nullptr, context) << "createContext failed";
