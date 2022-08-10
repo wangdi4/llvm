@@ -351,6 +351,7 @@ private:
 
   SmallDenseMap<const HLLoop *, unsigned, 16> ThresholdMap;
   SmallVector<HoistCandidate, 16> Candidates;
+  SmallPtrSet<const HLIf *, 4> OuterLoopIfs;
 
   // Set used to track which regions has been modified by the optimization.
   SmallSetVector<const HLRegion *, 16> RegionThresholdSet;
@@ -430,6 +431,12 @@ private:
       HLLoop *TargetLoop,
       const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
       unsigned RemarkID);
+
+  /// Return true if all candidates belong to outer loops. It will be used for
+  /// disabling the GenCode flag since unswitching by itself may not be
+  /// profitable. If another transformation benefits from it, then it will
+  /// enable the GenCode flag.
+  bool mustCodeGen() const;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD
@@ -533,6 +540,10 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
+
+private:
+  bool isCandidateForPerfectLoopNest(
+      SmallVectorImpl<const HLNode *> &ChildNodes);
 };
 
 // Helper structure used to count the number of nested loops in a region.
@@ -981,40 +992,39 @@ void HIROptPredicate::CandidateLookup::visit(HLRegion *Reg) {
   CostOfRegion = RegionSize.getRegionSize();
 }
 
+// Return true if the input vector has only one HLNode entry, the node
+// is HLIf, and the definition level is 0
+bool HIROptPredicate::CandidateLookup::isCandidateForPerfectLoopNest(
+    SmallVectorImpl<const HLNode *> &ChildNodes) {
+  if (ChildNodes.size() != 1)
+    return false;
+
+  auto *If = dyn_cast<const HLIf>(ChildNodes[0]);
+  if (!If)
+    return false;
+
+  // Don't allow the unswitch if the cost of the region is larger than
+  // the threshold. There is a chance that the size of the function grows
+  // big enough to produce slowdowns.
+  if (CostOfRegion > RegionCostThreshold)
+    return false;
+
+  PUContext PUC;
+  // Check if the condition can be hoisted to the outermost loop and if
+  // partial unswitch won't be performed. Partial unswitch is disabled
+  // at the moment since we don't want to create a branch with perfect loop
+  // nest and the other branch without prefect loop nest. This is
+  // conservative and can relaxed in the future through profiling and/or
+  // branch analysis.
+  bool Result = Pass.getPossibleDefLevel(If, PUC) == 0 &&
+                               !PUC.isPURequired();
+  if (Result)
+    Pass.OuterLoopIfs.insert(If);
+
+  return Result;
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
-
-  // Return true if the input vector has only one HLNode entry, the node
-  // is HLIf, and the definition level is 0
-  auto IsCandidateForPerfectLoopNest = [this](
-      SmallVectorImpl<const HLNode *> &ChildNodes) {
-    if (ChildNodes.size() != 1)
-      return false;
-
-    auto *If = dyn_cast<HLIf>(ChildNodes[0]);
-    if (!If)
-      return false;
-
-    // Don't apply if the region was modified already
-    if (If->getParentRegion()->shouldGenCode())
-      return false;
-
-    // Don't allow the unswitch if the cost of the region is larger than
-    // the threshold. There is a chance that the size of the function grows
-    // big enough to produce slowdowns.
-    if (CostOfRegion > RegionCostThreshold)
-      return false;
-
-    PUContext PUC;
-
-    // Check if the condition can be hoisted to the outermost loop and if
-    // partial unswitch won't be performed. Partial unswitch is disabled
-    // at the moment since we don't want to create a branch with perfect loop
-    // nest and the other branch without prefect loop nest. This is
-    // conservative and can relaxed in the future through profiling and/or
-    // branch analysis.
-    return Pass.getPossibleDefLevel(If, PUC) == 0 &&
-           !PUC.isPURequired();
-  };
 
   SkipNode = Loop;
 
@@ -1039,7 +1049,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
 
     if (countMaxEqualConditions(ChildNodes) < 3 &&
-        !IsCandidateForPerfectLoopNest(ChildNodes))
+        !isCandidateForPerfectLoopNest(ChildNodes))
       TransformCurrentLoop = false;
   }
 
@@ -1050,6 +1060,24 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   CandidateLookup Lookup(Pass, TransformCurrentLoop, MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
+}
+
+
+bool HIROptPredicate::mustCodeGen() const {
+  if (OuterLoopIfs.empty())
+    return true;
+
+  for (auto Candidate : Candidates) {
+    if (Candidate.isIf()) {
+      auto *If = cast<HLIf>(Candidate.getNode());
+      if (!OuterLoopIfs.contains(If))
+        return true;
+    } else {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void HIROptPredicate::sortCandidates() {
@@ -1098,9 +1126,11 @@ bool HIROptPredicate::run() {
 
     LLVM_DEBUG(dumpCandidates());
 
+    bool MustCodeGen = mustCodeGen();
     bool HasMultiexitLoop;
     if (processOptPredicate(HasMultiexitLoop)) {
-      Region->setGenCode();
+      if (MustCodeGen)
+        Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
 
       if (HasMultiexitLoop) {
@@ -1111,6 +1141,7 @@ bool HIROptPredicate::run() {
     clearOptReportState();
     Candidates.clear();
     ThresholdMap.clear();
+    OuterLoopIfs.clear();
   }
 
   return false;
