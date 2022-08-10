@@ -608,6 +608,11 @@ Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
 
     auto &spModule = spModuleOrErr.get();
     auto *pModule = spModule.get();
+    // Note: the order of builtinsModules matters, BuiltinImport pass will
+    // try to import functions in a precedent module first.
+    // We explicitly insert the target-specific module first, so that the
+    // function definitions in the target-specific RTL can override those of
+    // shared RTL.
     builtinsModules.push_back(std::move(spModule));
 
     // the shared RTL is loaded here
@@ -627,6 +632,8 @@ Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
     pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
     pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
 
+    // Make sure the shared RTL module is inserted after the target-specific
+    // module.
     builtinsModules.push_back(std::move(pModuleSvmlShared));
     return builtinsModules;
 }
