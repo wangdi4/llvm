@@ -901,6 +901,7 @@ pi_result _pi_context::initialize() {
       [this, createUSMAllocators,
        &createUSMAllocatorsRecursive](pi_device Device) -> void {
     createUSMAllocators(Device);
+    (void)this;
     for (auto &SubDevice : Device->SubDevices)
       createUSMAllocatorsRecursive(SubDevice);
   };
