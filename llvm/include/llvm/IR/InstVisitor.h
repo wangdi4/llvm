@@ -315,17 +315,14 @@ private:
         DELEGATE(MemCpyInlineInst);
       case Intrinsic::memmove:     DELEGATE(MemMoveInst);
       case Intrinsic::memset:      DELEGATE(MemSetInst);
-<<<<<<< HEAD
+      case Intrinsic::memset_inline:
+        DELEGATE(MemSetInlineInst);
 #if INTEL_CUSTOMIZATION
       case Intrinsic::intel_subscript:
                                    DELEGATE(SubscriptInst);
       case Intrinsic::intel_fakeload:
                                    DELEGATE(FakeloadInst);
 #endif // INTEL_CUSTOMIZATION
-=======
-      case Intrinsic::memset_inline:
-        DELEGATE(MemSetInlineInst);
->>>>>>> c47ec95531619fcc4faaf2c74de49779b71a5b5b
       case Intrinsic::vastart:     DELEGATE(VAStartInst);
       case Intrinsic::vaend:       DELEGATE(VAEndInst);
       case Intrinsic::vacopy:      DELEGATE(VACopyInst);
