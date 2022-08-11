@@ -15,5 +15,7 @@ include "GENERIC/code_helpers.td"
 include "GENERIC/opencl-builtin.td"
 include "source/core/targets.td"
 
+include "source/conversion.td"
+include "source/math.td"
 include "source/relational.td"
 include "source/subgroup.td"
