@@ -1,0 +1,81 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+defvar math_f16_types = ExpandTypeByVF<v1f16, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar math_f32_types = ExpandTypeByVF<v1f32, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar math_f16_mask_types = ExpandTypesByVFAndFlatten<[v1f16], [4, 8, 16, 32, 64]>.Tout;
+
+// --- Math Functions ---
+// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#math-functions
+//
+// Prototypes
+let Types = math_f16_types # math_f32_types, // f32 types are added for forward declarations, so that we can promote f16 to f32 calls.
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = true in {
+  defset list<OclBuiltin> math_builtins = {
+    def acos_f16 : OclBuiltin<"acos", (outs gentype:$ret), (ins gentype:$x)>;
+    def acosh_f16 : OclBuiltin<"acosh", (outs gentype:$ret), (ins gentype:$x)>;
+    def acospi_f16 : OclBuiltin<"acospi", (outs gentype:$ret), (ins gentype:$x)>;
+    def asin_f16 : OclBuiltin<"asin", (outs gentype:$ret), (ins gentype:$x)>;
+    def asinh_f16 : OclBuiltin<"asinh", (outs gentype:$ret), (ins gentype:$x)>;
+    def asinpi_f16 : OclBuiltin<"asinpi", (outs gentype:$ret), (ins gentype:$x)>;
+    def atan_f16 : OclBuiltin<"atan", (outs gentype:$ret), (ins gentype:$y_over_x)>;
+    def atan2_f16 : OclBuiltin<"atan2", (outs gentype:$ret), (ins gentype:$y, gentype:$x)>;
+    def atanh_f16 : OclBuiltin<"atanh", (outs gentype:$ret), (ins gentype:$x)>;
+    def atanpi_f16 : OclBuiltin<"atanpi", (outs gentype:$ret), (ins gentype:$x)>;
+    def atan2pi_f16 : OclBuiltin<"atan2pi", (outs gentype:$ret), (ins gentype:$y, gentype:$x)>;
+  } // defset math_builtins
+}
+
+defvar promote_f16_to_f32_code = [{
+  return convert_$ReturnType($Func($ARGLIST));
+}];
+
+defvar call_svml_code = [{
+  return __ocl_svml_$TargetShortName_$Func$SVMLSuffix($ARGLIST);
+}];
+
+defvar expand_code = [{
+  $ReturnType _res;
+  _res.lo = $Func($LOARGLIST);
+  _res.hi = $Func($HIARGLIST);
+  return _res;
+}];
+
+// Implementations
+foreach bi = math_builtins in {
+  // [SHARED] vXf16: convert f16 args to f32 and call f32 implementations.
+  defvar indices = Range<0, !size(bi.Ins)>.Tout;
+  defvar promoted_args = RangeStr<"convert_$Arg#f32gentype($Arg#VarName)", indices>.Tout;
+  def : OclBuiltinImpl<bi, math_f16_types, false, promote_f16_to_f32_code, [["$ARGLIST", !interleave(promoted_args, ", ")]]>, SHARED;
+
+  // [AMX] vXf16 (X <= 32): call __ocl_svml func.
+  defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
+  let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, call_svml_code, [["$ARGLIST", !interleave(args, ", ")]]>, AMX;
+
+  // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
+  defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", indices>.Tout;
+  defvar expanded_hi_args = RangeStr<"$Arg#VarName.hi", indices>.Tout;
+  let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, expand_code, [["$LOARGLIST", !interleave(expanded_lo_args, ", ")], ["$HIARGLIST", !interleave(expanded_hi_args, ", ")]]>, AMX;
+
+  // TODO: (when masked variants are added)
+  // [AMX] v3f16: call masked v4f16
+}
+
+// VectInfos
+foreach bi = math_builtins in {
+  def : VectInfo<[v1f16], bi, bi, bi, bi, bi, bi>;
+
+  // TODO: add masked VectInfo
+}
