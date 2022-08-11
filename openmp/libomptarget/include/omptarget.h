@@ -502,6 +502,12 @@ EXTERN void ompx_kernel_batch_end(int DeviceNum);
 /// Return OMP device information
 EXTERN int ompx_get_device_info(int DeviceNum, int InfoId, size_t InfoSize,
                                 void *InfoVAlue, size_t *InfoSizeRet);
+
+/// APIs that enable backend optimization when shared memory is used
+EXTERN void *ompx_target_aligned_alloc_shared_with_hint(
+    size_t Align, size_t Size, int AccessHint, int DeviceNum);
+EXTERN int ompx_target_prefetch_shared_mem(
+    size_t NumPtrs, void **Ptrs, size_t *Sizes, int DeviceNum);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators

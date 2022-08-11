@@ -415,6 +415,8 @@ void RTLsTy::loadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE_FN(get_device_info);
+    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
+    SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
 

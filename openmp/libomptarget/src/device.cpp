@@ -1153,6 +1153,21 @@ int32_t DeviceTy::getDeviceInfo(int32_t InfoID, size_t InfoSize,
   else
     return OFFLOAD_SUCCESS;
 }
+
+void *DeviceTy::dataAlignedAllocShared(size_t Align, size_t Size,
+                                       int32_t AccessHint) {
+  if (RTL->data_aligned_alloc_shared)
+    return RTL->data_aligned_alloc_shared(RTLDeviceID, Align, Size, AccessHint);
+  else
+    return dataAlignedAlloc(Align, Size, TARGET_ALLOC_SHARED);
+}
+
+int DeviceTy::prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes) {
+  if (RTL->prefetch_shared_mem)
+    return RTL->prefetch_shared_mem(RTLDeviceID, NumPtrs, Ptrs, Sizes);
+  else
+    return OFFLOAD_SUCCESS; // no-op if not supported
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly
