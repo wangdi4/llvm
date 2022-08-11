@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #pragma comment(                                                               \
     linker,                                                                    \
     "/export:?accessGlobalBuf@stream_impl@detail@sycl@cl@@QEAA?AV?$accessor@D$00$0EAC@$0HNO@$0A@V?$accessor_property_list@$$V@ONEAPI@sycl@cl@@@34@AEAVhandler@34@@Z=?accessGlobalBuf@stream_impl@detail@sycl@cl@@QEAA?AV?$accessor@D$00$0EAC@$0HNO@$0A@V?$accessor_property_list@$$V@oneapi@ext@sycl@cl@@@34@AEAVhandler@34@@Z")
@@ -52,3 +53,8 @@
 #pragma comment(                                                               \
     linker,                                                                    \
     "/export:?device_has@queue@sycl@cl@@QEBA_NW4aspect@23@@Z=?device_has@queue@sycl@cl@@AEBA_NW4aspect@23@@Z")
+=======
+// README: Empty linker scripts aren't supported in older GNU ld, so the support
+// was removed from CMakeLists.txt. If you need to re-enable abi_replacemnts,
+// please update CmakeLists.txt
+>>>>>>> 03655949facaf74f09e41c6a8214297688e17131
