@@ -479,6 +479,7 @@ public:
     virtual void recordValueReference(llvm::Value *V, llvm::Type *ElemTy) {}
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual void recordDispatchExplicitVar(const VarDecl *VD) {}
+    virtual void recordDependIteratorVar(const VarDecl *VD) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
     virtual bool isDispatchTargetCall(SourceLocation Loc) {return false; }
     virtual bool inDispatchRegion() { return false; }

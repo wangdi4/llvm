@@ -1003,6 +1003,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ImplicitMap[VD]);
       continue;
     }
+    if (DependIteratorVars.find(VD) != DependIteratorVars.end()) {
+      // Do not create implicit clauses for iterator vars.
+      // These variables generate temps and are handled with Values.
+      assert(VD->isImplicit() && "expect implicit variabe");
+      continue;
+    }
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
       if (!VD->getType()->isConstantSizeType()) {
@@ -2300,11 +2306,11 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
       ClauseEmissionHelper CEH(*this, OMPC_depend);
       if (DepKind == OMPC_DEPEND_source)
         addArg("QUAL.OMP.DEPEND.SOURCE");
-      else 
+      else
         addArg("QUAL.OMP.DEPEND.SINK");
       for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
         addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
-      continue; 
+      continue;
     }
     OMPTaskDataTy::DependData &DD =
         Data.Dependences.emplace_back(DepKind, C->getModifier());
@@ -2677,7 +2683,7 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
-
+void OpenMPLateOutliner::emitOMPInteropClause(const OMPInteropClause *) {}
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
 #define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)
@@ -3086,11 +3092,19 @@ void OpenMPLateOutliner::emitOMPScanDirective() {
 void OpenMPLateOutliner::emitOMPTargetDirective(int OffloadEntryIndex) {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET",
                              OMPD_target);
-
-  // Add operand bundle for the offload entry index.
-  ClauseEmissionHelper CEH(*this, OMPC_unknown);
-  addArg("QUAL.OMP.OFFLOAD.ENTRY.IDX");
-  addArg(CGF.Builder.getInt32(OffloadEntryIndex));
+  {
+    // Add operand bundle for the offload entry index.
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    addArg("QUAL.OMP.OFFLOAD.ENTRY.IDX");
+    addArg(CGF.Builder.getInt32(OffloadEntryIndex));
+  }
+  for (const auto *Cl : Directive.getClausesOfKind<OMPIsDevicePtrClause>()) {
+    for (const auto *E : Cl->varlists()) {
+      ClauseEmissionHelper CEH(*this, OMPC_unknown);
+      addArg("QUAL.OMP.LIVEIN");
+      addArg(E);
+    }
+  }
 }
 void OpenMPLateOutliner::emitOMPTargetDataDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET.DATA", "DIR.OMP.END.TARGET.DATA",

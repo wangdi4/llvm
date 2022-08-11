@@ -1180,6 +1180,15 @@ static int getTargetID(StringRef TargetName) {
       .Default(-1);
 }
 
+static std::string getTargetShortName(StringRef TargetName) {
+  const static bool Is64BitOS = sizeof(void *) == 8;
+  const static char *ShortName64[] = {"shared", "h8", "e9", "l9", "z0", "z1"};
+  const static char *ShortName32[] = {"shared", "n8", "g9", "s9", "x0", "x1"};
+  int ID = getTargetID(TargetName);
+  assert(ID >= 0 && ID < 6 && "Invalid target ID!");
+  return Is64BitOS ? ShortName64[ID] : ShortName32[ID];
+}
+
 static bool shouldSkipImpl(int RecordTargetID) {
   const static int SharedTargetID = getTargetID("shared");
   int CurrentTargetID = getTargetID(EmitTargetName);
@@ -1332,6 +1341,15 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper &R, bool CollectImplDefs)
       }
     }
   } else {
+    // Get prolog that might be target-specific.
+    for (auto *Rec : m_Records.getAllDerivedDefinitions("OclImplTarget")) {
+      if (getTargetID(Rec->getValueAsString("Name")) ==
+          getTargetID(EmitTargetName)) {
+        m_Prolog = Rec->getValueAsString("Prolog").str();
+        break;
+      }
+    }
+
     LLVM_DEBUG(dbgs() << "Collecting impls with `Target' field\n");
     std::vector<Record *> Impls =
         m_Records.getAllDerivedDefinitions("OclBuiltinImpl");
@@ -1406,65 +1424,67 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
 
     bool hardcodedMacro = true;
     std::map<std::string, std::string>::const_iterator iter = customMacro.find(pat);
-    if (iter != customMacro.end())
-    {
-        if(iter->second.size() && iter->second[0] == '$')
-        {
-          // custom macro could be mapped to a hardcoded macro
-          pat = iter->second;
-        } else {
-          val = iter->second;
-          hardcodedMacro = false;
-        }
+    if (iter != customMacro.end()) {
+      val = iter->second;
+      hardcodedMacro = false;
     }
 
     if(hardcodedMacro)
     {
-        if ("$Target" == pat) {
+      if ("$TargetShortName" == pat) {
+          assert(HandleImplTargetInheritance &&
+                 "The builtin macro $TargetShortName can only be used with "
+                 "--handle-impl-target-inheritance enabled!");
+          val = getTargetShortName(EmitTargetName);
+      } else if ("$Target" == pat) {
           val = getTarget();
-        } else if ("$rtn" == pat.substr(0, 4) || "$rtz" == pat.substr(0, 4) ||
-                   "$up" == pat.substr(0, 3) || "$down" == pat.substr(0, 5)) {
+      } else if ("$rtn" == pat.substr(0, 4) || "$rtz" == pat.substr(0, 4) ||
+                 "$up" == pat.substr(0, 3) || "$down" == pat.substr(0, 5)) {
           val = getSVMLRounding(pat);
-        } else if ("$Suffix" == pat) {
+      } else if ("$Suffix" == pat) {
           val = OT->getSuffix();
-        } else if ("$LoSuffix" == pat) {
+      } else if ("$LoSuffix" == pat) {
           val = OT->getLoSuffix();
-        } else if ("$HiSuffix" == pat) {
+      } else if ("$HiSuffix" == pat) {
           val = OT->getHiSuffix();
-        } else if ("$VTypeSuffix" == pat) {
+      } else if ("$VTypeSuffix" == pat) {
           val = OT->getVTypeSuffix();
-        } else if ("$SVMLSuffix" == pat) {
+      } else if ("$SVMLSuffix" == pat) {
           val = OT->getSVMLSuffix();
-        } else if ("$SVMLDSuffix" == pat) {
+      } else if ("$SVMLDSuffix" == pat) {
           val = OT->getSVMLDSuffix();
-        } else if ("$SVMLFSuffix" == pat) {
+      } else if ("$SVMLFSuffix" == pat) {
           val = OT->getSVMLFSuffix();
-        } else if ("$Pattern" == pat) {
+      } else if ("$Pattern" == pat) {
           val = OT->getCPattern();
-        } else if ("$Mask" == pat) {
+      } else if ("$Mask" == pat) {
           val = OT->getCMask();
-        } else if ("$VecLength" == pat) {
+      } else if ("$VecLength" == pat) {
           val = OT->getCVecLength();
-        } else if ("$BitWidth" == pat) {
+      } else if ("$BitWidth" == pat) {
           val = OT->getCBitWidth();
-        } else if ("$Func" == pat) {
+      } else if ("$Func" == pat) {
           val = OB->getCFunc(OT->getName());
-        } else if ("$RemovePrefixFunc" == pat) {
+      } else if ("$RemovePrefixFunc" == pat) {
           val = removePrefix(OB->getCFunc(OT->getName()));
-        } else if ("$ReturnSym" == pat.substr(0, 10) && pat.find("gentype") != std::string::npos) {
+      } else if ("$ReturnSym" == pat.substr(0, 10) &&
+                 pat.find("gentype") != std::string::npos) {
           val = OB->getReturnSym(pat.substr(10), OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.find("Sym") != std::string::npos && pat.find("gentype") != std::string::npos) {
+      } else if ("$Arg" == pat.substr(0, 4) &&
+                 pat.find("Sym") != std::string::npos &&
+                 pat.find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentSym(i, pat.substr(8), OT->getName());
-        } else if ("$ReturnType" == pat) {
+      } else if ("$ReturnType" == pat) {
           val = OB->getReturnCType(OT->getName());
-        } else if ("$ReturnBaseType" == pat) {
+      } else if ("$ReturnBaseType" == pat) {
           val = OB->getReturnBaseCType(OT->getName());
-        } else if ("$ReturnVarName" == pat) {
+      } else if ("$ReturnVarName" == pat) {
           val = OB->getReturnCName(OT->getName());
-        } else if ("$Return" == pat.substr(0, 7) && pat.substr(7).find("gentype") != std::string::npos) {
+      } else if ("$Return" == pat.substr(0, 7) &&
+                 pat.substr(7).find("gentype") != std::string::npos) {
           val = OB->getReturnCGenType(pat.substr(7), OT->getName());
-        } else if ("$MinVal" == pat) {
+      } else if ("$MinVal" == pat) {
           std::string baseType = OT->getBaseCType();
           if (baseType == "char") {
             val = "CHAR_MIN";
@@ -1487,7 +1507,7 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           } else {
             llvm_unreachable("Unexpected base type!");
           }
-        } else if ("$MaxVal" == pat) {
+      } else if ("$MaxVal" == pat) {
           std::string baseType = OT->getBaseCType();
           if (baseType == "char") {
             val = "CHAR_MAX";
@@ -1510,89 +1530,103 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           } else {
             llvm_unreachable("Unexpected base type!");
           }
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 &&
+                 "Type" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCType(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 10 && "Type" == pat.substr(6)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 10 &&
+                 "Type" == pat.substr(6)) {
           unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
           val = OB->getArgumentCType(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "BaseType" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 &&
+                 "BaseType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentBaseCType(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VecType" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 &&
+                 "VecType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VecType" == pat.substr(6)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 &&
+                 "VecType" == pat.substr(6)) {
           unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
           val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "NoASType" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 &&
+                 "NoASType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCNoASType(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 &&
+                 "VarName" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCName(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 &&
+                 "VarName" == pat.substr(6)) {
           unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
           val = OB->getArgumentCName(i, OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 20 && "SGBlockOpSuffix" == pat.substr(5)) {
+      } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 20 &&
+                 "SGBlockOpSuffix" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentSGBlockOpSuffix(i, OT->getName());
-        } else if ("$Ret" == pat.substr(0, 4) && pat.size() == 19 && "SGBlockOpSuffix" == pat.substr(4)) {
+      } else if ("$Ret" == pat.substr(0, 4) && pat.size() == 19 &&
+                 "SGBlockOpSuffix" == pat.substr(4)) {
           val = OB->getReturnSGBlockOpSuffix(OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
+      } else if ("$Arg" == pat.substr(0, 4) &&
+                 pat.substr(5).find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
-        } else if ("$NativeFunc" == pat) {
+      } else if ("$NativeFunc" == pat) {
           val = OB->getNativeCFunc(OT->getName());
-        } else if ("$NativeReturnType" == pat) {
+      } else if ("$NativeReturnType" == pat) {
           val = OB->getNativeReturnCType(OT->getName());
-        } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 15 && "Type" == pat.substr(11)) {
+      } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 15 &&
+                 "Type" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCType(i, OT->getName());
-        } else if (("$PtrArg" == pat.substr(0, 7)) && ("Type" == pat.substr(8,12)) ) {
+      } else if (("$PtrArg" == pat.substr(0, 7)) &&
+                 ("Type" == pat.substr(8, 12))) {
           unsigned i = pat[7] - '0';
           val = OB->getPtrArgumentCType(i, OT->getName());
-        } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 20 && "VecLength" == pat.substr(11)) {
+      } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 20 &&
+                 "VecLength" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCVecLen(i, OT->getName());
-        } else if ("$ExpandLoFunc" == pat) {
+      } else if ("$ExpandLoFunc" == pat) {
           val = OB->getExpandLoCFunc(OT->getName());
-        } else if ("$ExpandHiFunc" == pat) {
+      } else if ("$ExpandHiFunc" == pat) {
           val = OB->getExpandHiCFunc(OT->getName());
-        } else if ("$ExpandLoPattern" == pat) {
+      } else if ("$ExpandLoPattern" == pat) {
           val = OT->getExpandLoCPattern();
-        } else if ("$ExpandHiPattern" == pat) {
+      } else if ("$ExpandHiPattern" == pat) {
           val = OT->getExpandHiCPattern();
-        } else if ("$ExpandLoPatternPtr" == pat) {
+      } else if ("$ExpandLoPatternPtr" == pat) {
           val = OT->getExpandLoCPatternPtr();
-        } else if ("$ExpandHiPatternPtr" == pat) {
+      } else if ("$ExpandHiPatternPtr" == pat) {
           val = OT->getExpandHiCPatternPtr();
-        } else if ("$ExpandLoReturnType" == pat) {
+      } else if ("$ExpandLoReturnType" == pat) {
           const OclType *T = getOclType(getExpandLoType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getCType(OB);
-        } else if ("$ExpandHiReturnType" == pat) {
+      } else if ("$ExpandHiReturnType" == pat) {
           const OclType *T = getOclType(getExpandHiType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getCType(OB);
-        } else if ("$ExpandLoSuffix" == pat) {
+      } else if ("$ExpandLoSuffix" == pat) {
           const OclType *T = getOclType(getExpandLoType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getSuffix();
-        } else if ("$ExpandHiSuffix" == pat) {
+      } else if ("$ExpandHiSuffix" == pat) {
           const OclType *T = getOclType(getExpandHiType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getSuffix();
-        } else if ("$ExpandArg" == pat.substr(0, 10) && pat.size() == 15 &&
-                   "Type" == pat.substr(11)) {
+      } else if ("$ExpandArg" == pat.substr(0, 10) && pat.size() == 15 &&
+                 "Type" == pat.substr(11)) {
           const OclType *T = getOclType(getExpandLoType(OT->getName()));
           assert(T && "Invalid type found!");
           val = T->getCType(OB);
-        } else if ("$MaskCastTy" == pat) {
+      } else if ("$MaskCastTy" == pat) {
           val = OT->getMaskCastTy();
-        } else {
+      } else {
           GENOCL_WARNING("Invalid rewrite pattern: '" << pat << "'\n");
-        }
+      }
     }
     ret += val;
 
@@ -1607,6 +1641,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
   }
   ret += text.substr(cpos);
 
+  // Handle nested macros by recursively calling rewritePattern.
+  if (ret.find('$') != std::string::npos && ret != text)
+    return rewritePattern(OB, OT, ret, customMacro);
   return ret;
 }
 

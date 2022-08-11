@@ -19404,6 +19404,9 @@ OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
     Res = ActOnOpenMPExclusiveClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
 #if INTEL_COLLAB
+  case OMPC_interop:
+    Res = ActOnOpenMPInteropClause(VarList, StartLoc, LParenLoc, EndLoc);
+    break;
   case OMPC_data:
     Res = ActOnOpenMPDataClause(Data.DepModOrTailExpr, VarList, StartLoc,
                                 LParenLoc, EndLoc);
@@ -25192,6 +25195,18 @@ OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
 }
 
 #if INTEL_COLLAB
+OMPClause *Sema::ActOnOpenMPInteropClause(ArrayRef<Expr *> VarList,
+                                          SourceLocation StartLoc,
+                                          SourceLocation LParenLoc,
+                                          SourceLocation EndLoc) {
+  for (auto *E : VarList) {
+    if (!isValidInteropVariable(*this, E, E->getExprLoc(), OMPC_interop))
+      return nullptr;
+  }
+  return OMPInteropClause::Create(Context, StartLoc, LParenLoc, EndLoc,
+                                  VarList);
+}
+
 OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
                                             Expr *Start,
                                             Expr *Length,

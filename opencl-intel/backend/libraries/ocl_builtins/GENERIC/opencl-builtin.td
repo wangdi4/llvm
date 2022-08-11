@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 def outs;
 def ins;
@@ -77,7 +87,8 @@ class VectorSVMLSuffixString<string base, int len> {
                     !subst("ushort",  "f",
                     !subst("char",    "f",
                     !subst("uchar",   "f",
-                      base))))))))));
+                    !subst("half",    "s",
+                      base)))))))))));
   string Value = !strconcat(TypeName, Length);
 }
 
@@ -1303,3 +1314,9 @@ class TargetImpl {
 }
 
 include "GENERIC/td-helper.td"
+
+// e.g.
+// RangeStr<"$Arg#VarName", [0, 1, 2]>.Tout == ["$Arg0VarName", "$Arg1VarName", "$Arg2VarName"]
+class RangeStr<string template, list<int> indices> {
+  list<string> Tout = !foreach(i, indices, !subst("#", !cast<string>(i), template));
+}

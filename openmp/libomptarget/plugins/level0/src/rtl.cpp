@@ -2024,13 +2024,15 @@ struct MemAllocInfoTy {
   bool InPool = false;
   /// Is implicit argument
   bool ImplicitArg = false;
+  /// Allocation-time hint used for shared memory
+  uint32_t MemAdvice = UINT32_MAX;
 
   MemAllocInfoTy() = default;
 
   MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
-                 bool _ImplicitArg) :
+                 bool _ImplicitArg, uint32_t _MemAdvice) :
       Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
-      ImplicitArg(_ImplicitArg) {}
+      ImplicitArg(_ImplicitArg), MemAdvice(_MemAdvice) {}
 };
 
 /// Responsible for all activities involving memory allocation/deallocation.
@@ -2350,10 +2352,12 @@ class MemAllocatorTy {
 
   public:
     /// Add allocation information to the map
-    void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
-             bool _InPool = false, bool _ImplicitArg = false) {
+    void add(void *Ptr, void *Base, size_t Size, int32_t Kind,
+             bool InPool = false, bool ImplicitArg = false,
+             uint32_t MemAdvice = UINT32_MAX) {
       auto Inserted = Map.emplace(
-          Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
+          Ptr,
+          MemAllocInfoTy{Base, Size, Kind, InPool, ImplicitArg, MemAdvice});
 #if INTEL_INTERNAL_BUILD
       // Check if we keep valid disjoint memory ranges.
       bool Valid = Inserted.second;
@@ -2366,15 +2370,15 @@ class MemAllocatorTy {
         if (Valid) {
           auto I = std::next(Inserted.first, 1);
           if (I != Map.end())
-            Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
+            Valid = Valid && (uintptr_t)Ptr + Size <= (uintptr_t)I->first;
         }
       }
       assert(Valid && "Invalid overlapping memory allocation");
 #else // INTEL_INTERNAL_BUILD
       (void)Inserted;
 #endif // INTEL_INTERNAL_BUILD
-      if (_ImplicitArg)
-        NumImplicitArgs[_Kind]++;
+      if (ImplicitArg)
+        NumImplicitArgs[Kind]++;
     }
 
     /// Remove allocation information for the given memory location
@@ -2545,7 +2549,8 @@ public:
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
-              bool UserAlloc = false, bool Owned = false) {
+              bool UserAlloc = false, bool Owned = false,
+              uint32_t MemAdvice = UINT32_MAX) {
     assert((Kind == TARGET_ALLOC_DEVICE || Kind == TARGET_ALLOC_HOST ||
             Kind == TARGET_ALLOC_SHARED) &&
             "Unknown memory kind while allocating target memory");
@@ -2559,7 +2564,10 @@ public:
     void *Mem = nullptr;
     void *AllocBase = nullptr;
 
-    if (Pools.count(Kind) > 0) {  // Pool is enabled for the allocation kind
+    if (Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) {
+      // Pool is enabled for the allocation kind, and we do not use any memory
+      // advice. We should avoid using pool if there is any meaningful memory
+      // advice not to affect sibling allocation in the same block.
       if (Align > 0)
         AllocSize += (Align - 1);
       size_t PoolAllocSize = 0;
@@ -2580,7 +2588,7 @@ public:
     AllocBase = allocL0(AllocSize, Align, Kind);
     if (AllocBase) {
       Mem = (void *)((uintptr_t)AllocBase + Offset);
-      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
+      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc, MemAdvice);
       if (Owned)
         MemOwned.push_back(AllocBase);
     }
@@ -3009,7 +3017,8 @@ struct RTLDeviceInfoTy {
 
   /// Data alloc
   void *dataAlloc(int32_t DeviceId, size_t Size, size_t Align, int32_t Kind,
-                  intptr_t Offset, bool UserAlloc, bool Owned = false);
+                  intptr_t Offset, bool UserAlloc, bool Owned = false,
+                  uint32_t MemAdvice = UINT32_MAX);
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
@@ -4524,8 +4533,8 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
 }
 
 void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
-                                 int32_t Kind, intptr_t Offset,
-                                 bool UserAlloc, bool Owned) {
+                                 int32_t Kind, intptr_t Offset, bool UserAlloc,
+                                 bool Owned, uint32_t MemAdvice) {
   ScopedTimerTy TM(DeviceId, "DataAlloc");
   DeviceId = getInternalDeviceId(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
@@ -4538,7 +4547,8 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
   }
   auto &Allocator = (Kind == TARGET_ALLOC_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
-  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned);
+  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned,
+                         MemAdvice);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
@@ -4547,10 +4557,42 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
   auto AllocType = getMemAllocType(Ptr);
   auto &Allocator = (AllocType == ZE_MEMORY_TYPE_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
+  if (AllocType == ZE_MEMORY_TYPE_SHARED) {
+    // We need to "clear" any "set" memory advice here. Otherwise, we can see
+    // inconsistent shared memory state if subsequent new allocation happen to
+    // use the same memory range.
+    const MemAllocInfoTy *Info = Allocator.getAllocInfo(Ptr);
+    if (Info && Info->MemAdvice != UINT32_MAX) {
+      uint32_t ClearAdvice;
+      switch (Info->MemAdvice) {
+      case ZE_MEMORY_ADVICE_SET_READ_MOSTLY:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_READ_MOSTLY;
+        break;
+      case ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_PREFERRED_LOCATION;
+        break;
+      case ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY:
+        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_NON_ATOMIC_MOSTLY;
+        break;
+      default:
+        ClearAdvice = UINT32_MAX;
+      }
+      if (ClearAdvice != UINT32_MAX) {
+        auto CmdList = getLinkCopyCmdList(DeviceId);
+        auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
+        CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
+                         Info->Size,
+                         static_cast<ze_memory_advice_t>(ClearAdvice));
+        CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
+        CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
+                         &CmdList, nullptr);
+        CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+        CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+      }
+    }
+  }
   return Allocator.dealloc(Ptr);
 }
-
-
 
 bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
   for (auto &E : DriverExtensions) {
@@ -6774,4 +6816,78 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   return OFFLOAD_SUCCESS;
 }
 
+void *__tgt_rtl_data_aligned_alloc_shared(int32_t DeviceId, size_t Align,
+                                          size_t Size, int32_t AccessHint) {
+  if (Align != 0 && (Align & (Align - 1)) != 0) {
+    DP("Error: Alignment %zu is not power of two.\n", Align);
+    return nullptr;
+  }
+
+  uint32_t MemAdvice = static_cast<uint32_t>(AccessHint);
+  // Ignore hints that are unknown or not effective. This is allocation-time
+  // hint, so L0 hint with "CLEAR" action does not have any effect.
+  // Host runtime is responsible for defining meaningful enum constants for the
+  // "effective" access hints listed below.
+  switch (MemAdvice) {
+  case ZE_MEMORY_ADVICE_SET_READ_MOSTLY:
+  case ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION:
+  case ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY:
+  case ZE_MEMORY_ADVICE_BIAS_CACHED:
+  case ZE_MEMORY_ADVICE_BIAS_UNCACHED:
+    break;
+  default:
+    DP("Ignoring unknown/ineffective access hints %" PRId32 "\n", AccessHint);
+    MemAdvice = UINT32_MAX;
+  }
+
+  void *Mem = DeviceInfo->dataAlloc(DeviceId, Size, Align, TARGET_ALLOC_SHARED,
+                                    0/*Offset*/, true/*UserAlloc*/,
+                                    false/*Owned*/, MemAdvice/*MemAdvice*/);
+  if (!Mem) {
+    DP("Error: Cannot allocate shared memory with size %zu, align %zu\n", Size,
+       Align);
+    return nullptr;
+  }
+
+  if (MemAdvice == UINT32_MAX)
+    return Mem;
+
+  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+  auto Device = DeviceInfo->Devices[DeviceId];
+  CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Mem, Size,
+                   static_cast<ze_memory_advice_t>(MemAdvice));
+  CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
+  CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr);
+  CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+
+  return Mem;
+}
+
+int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
+                                      void **Ptrs, size_t *Sizes) {
+  if (NumPtrs == 0)
+    return OFFLOAD_SUCCESS;
+
+  if (!Ptrs || !Sizes) {
+    DP("Error: Invalid input while attempting shared memory prefetch\n");
+    return OFFLOAD_FAIL;
+  }
+
+  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+  for (size_t I = 0; I < NumPtrs; I++) {
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryPrefetch, CmdList, Ptrs[I],
+                     Sizes[I]);
+  }
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_CUSTOMIZATION

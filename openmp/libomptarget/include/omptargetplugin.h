@@ -373,6 +373,14 @@ EXTERN int __tgt_rtl_get_device_info(
 
 EXTERN int32_t __tgt_rtl_set_function_ptr_map(
     int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs);
+
+// Allocate shared memory with access hint
+EXTERN void *__tgt_rtl_data_aligned_alloc_shared(
+    int32_t ID, size_t Align, size_t Size, int32_t AccessHint);
+
+// Prefetch shared memory
+EXTERN int __tgt_rtl_prefetch_shared_mem(
+    int32_t ID, size_t NumPtrs, void **Ptrs, size_t *Sizes);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

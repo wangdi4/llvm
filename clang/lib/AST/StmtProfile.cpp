@@ -474,6 +474,10 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
+void OMPClauseProfiler::VisitOMPInteropClause(const OMPInteropClause *C) {
+  VisitOMPClauseList(C);
+}
+
 void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   VistOMPClauseWithPreInit(C);
   if (C->getLevel())

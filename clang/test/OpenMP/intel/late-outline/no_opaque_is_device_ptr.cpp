@@ -17,9 +17,14 @@ struct S {
 void S::foo(float *&refptr) {
   //CHECK: [[REFPTR:%refptr.*]] = alloca float**, align 8
   //CHECK: [[LREFPTR:%[0-9]+]] = load float**, float*** [[REFPTR]]
+  //CHECK: [[LREFPTR1:%[0-9]+]] = load float**, float*** [[REFPTR]]
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: "QUAL.OMP.MAP.TOFROM"(float** [[LREFPTR]]
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(i32** %ptr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(float** %0)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(i32** %aaptr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"([4 x i32]* %arr)
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(float** [[LREFPTR1]]
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
   ++a, ++*ptr, ++ref, ++arr[0], refptr++;
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -35,6 +40,7 @@ void foo() {
   //CHECK: [[L:%[0-9]+]] = load i32*, i32** %k
 
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(i32** %k)
   //CHECK: "QUAL.OMP.MAP.TOFROM"(i32* [[L]]
   #pragma omp target map(tofrom: i) is_device_ptr(k)
   {
@@ -68,6 +74,7 @@ void use_template() {
 //CHECK: [[THIS:%this.*]] = load %struct.SomeKernel*, %struct.SomeKernel** %this.addr,
 //CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, %struct.SomeKernel* [[THIS]], i32 0, i32 1
 //CHECK: "DIR.OMP.TARGET"()
+//CHECK-SAME: "QUAL.OMP.LIVEIN"(float** %devPtr)
 //CHECK: "QUAL.OMP.MAP.TOFROM"(%struct.SomeKernel* [[THIS]]
 
 
@@ -75,10 +82,13 @@ void use_template() {
 void omp_kernel(float * __restrict xxi) {
 //CHECK: "DIR.OMP.TASK"()
 //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** %xxi.addr)
+//CHECK: "DIR.OMP.TARGET"()
+//CHECK-SAME: "QUAL.OMP.LIVEIN"(float** %xxi.addr)
  #pragma omp target teams distribute nowait is_device_ptr(xxi)
   for (int n = 0; n < 100; n += 10) {
     xxi[0] = 0;
   }
+// CHECK: "DIR.OMP.END.TARGET"
 // CHECK: "DIR.OMP.END.TASK"
 }
 
@@ -102,6 +112,9 @@ int main() {
   s.foo(ptr);
 
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(float** %ptr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"([4 x float]* %arr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(float* %vla)
   //CHECK: "QUAL.OMP.MAP.TOFROM"(float* [[L]]
   //CHECK: "QUAL.OMP.MAP.TO"([4 x float]* [[ARR]]
   //CHECK: "QUAL.OMP.MAP.TO"(float* [[VLA]]
@@ -114,6 +127,7 @@ int main() {
   //CHECK: store void ()* @_Z3foov, void ()** [[FPTR]]
   //CHECK: [[L14:%[0-9]+]] = load void ()*, void ()** [[FPTR]]
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(void ()** %fptr)
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:FPTR"(void ()*
   #pragma omp target is_device_ptr(fptr)
     fptr();

@@ -233,6 +233,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_ALLOCATE_MODIFIER(Name) .Case(#Name, OMPC_ALLOCATE_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ALLOCATE_unknown);
+  case OMPC_interop:
 #endif // INTEL_COLLAB
   case OMPC_collapse:
   case OMPC_tile: // INTEL
@@ -540,6 +541,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'allocate' clause modifier");
+  case OMPC_interop:
 #endif // INTEL_COLLAB
   case OMPC_collapse:
   case OMPC_tile:    // INTEL

@@ -394,6 +394,7 @@ class OpenMPLateOutliner {
   void emitOMPFullClause(const OMPFullClause *Cl);
   void emitOMPPartialClause(const OMPPartialClause *Cl);
   void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
+  void emitOMPInteropClause(const OMPInteropClause *);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);
@@ -446,6 +447,7 @@ class OpenMPLateOutliner {
   };
   std::set<const VarDecl *, VarCompareTy> VarRefs;
   llvm::DenseSet<const VarDecl *> DispatchExplicitVars;
+  llvm::DenseSet<const VarDecl *> DependIteratorVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
@@ -551,6 +553,9 @@ public:
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addDispatchExplicitVar(const VarDecl *VD) {
     DispatchExplicitVars.insert(VD);
+  }
+  void addDependIteratorVar(const VarDecl *VD) {
+    DependIteratorVars.insert(VD);
   }
   bool isDispatchExplicitVar(const VarDecl *VD) {
     return DispatchExplicitVars.find(VD) != DispatchExplicitVars.end();
@@ -712,6 +717,9 @@ public:
   }
   void recordDispatchExplicitVar(const VarDecl *VD) override {
     Outliner.addDispatchExplicitVar(VD);
+  }
+  void recordDependIteratorVar(const VarDecl *VD) override {
+    Outliner.addDependIteratorVar(VD);
   }
   bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
