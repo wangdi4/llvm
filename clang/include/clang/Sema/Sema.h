@@ -11996,6 +11996,11 @@ public:
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
 #if INTEL_COLLAB
+  /// Called on well-formed 'interop' clause.
+  OMPClause *ActOnOpenMPInteropClause(ArrayRef<Expr *> VarList,
+                                      SourceLocation StartLoc,
+                                      SourceLocation LParenLoc,
+                                      SourceLocation EndLoc);
   /// Called on well-formed 'subdevice' clause.
   OMPClause *ActOnOpenMPSubdeviceClause(Expr *Level,
                                         Expr *Start,

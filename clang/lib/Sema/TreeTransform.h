@@ -1656,6 +1656,18 @@ public:
   }
 
 #if INTEL_COLLAB
+  /// Build a new OpenMP 'interop' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPInteropClause(ArrayRef<Expr *> VarList,
+                                     SourceLocation StartLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPInteropClause(VarList, StartLoc, LParenLoc,
+                                              EndLoc);
+  }
+
   /// Build a new OpenMP 'subdevice' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -9660,6 +9672,21 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPInteropClause(OMPInteropClause *C) {
+  llvm::SmallVector<Expr *, 4> VarList;
+  VarList.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    VarList.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPInteropClause(
+      VarList, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+}
+
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {

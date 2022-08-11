@@ -3232,6 +3232,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
           (CKind == OMPC_ompx_monotonic || CKind == OMPC_ompx_overlap))
         CKind = OMPC_unknown;
 #endif //INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+      if (!getLangOpts().OpenMPLateOutline && CKind == OMPC_interop)
+        CKind = OMPC_unknown;
+#endif // INTEL_COLLAB
       if (HasImplicitClause) {
         assert(CKind == OMPC_unknown && "Must be unknown implicit clause.");
         if (DKind == OMPD_flush) {
@@ -3779,6 +3783,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_to:
   case OMPC_from:
 #if INTEL_COLLAB
+  case OMPC_interop:
   case OMPC_data:
 #endif // INTEL_COLLAB
   case OMPC_use_device_ptr:
@@ -3790,6 +3795,13 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_affinity:
+#if INTEL_COLLAB
+    if (CKind == OMPC_interop && !FirstClause) {
+      Diag(Tok, diag::err_omp_more_one_clause)
+          << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+      ErrorFound = true;
+    }
+#endif // INTEL_COLLAB
     Clause = ParseOpenMPVarListClause(DKind, CKind, WrongDirective);
     break;
   case OMPC_sizes:

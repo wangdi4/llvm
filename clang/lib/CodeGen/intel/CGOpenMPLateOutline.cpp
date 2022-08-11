@@ -2683,7 +2683,7 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
-
+void OpenMPLateOutliner::emitOMPInteropClause(const OMPInteropClause *) {}
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
 #define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)

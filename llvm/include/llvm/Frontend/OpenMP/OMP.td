@@ -373,6 +373,9 @@ def OMPC_UseDeviceAddr : Clause<"use_device_addr"> {
   let clangClass = "OMPUseDeviceAddrClause";
 }
 #if INTEL_COLLAB
+def OMPC_Interop : Clause<"interop"> {
+  let clangClass = "OMPInteropClause";
+}
 def OMPC_Subdevice : Clause<"subdevice"> {
   let clangClass = "OMPSubdeviceClause";
 }
@@ -2099,6 +2102,9 @@ def OMP_dispatch : Directive<"dispatch"> {
   let allowedClauses = [
     VersionedClause<OMPC_Device>,
     VersionedClause<OMPC_IsDevicePtr>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Interop, 51>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_HasDeviceAddr, 51>,
     VersionedClause<OMPC_NoWait>,
     VersionedClause<OMPC_Depend>,

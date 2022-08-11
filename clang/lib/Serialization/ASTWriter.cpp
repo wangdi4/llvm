@@ -6263,6 +6263,13 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
+void OMPClauseWriter::VisitOMPInteropClause(OMPInteropClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+
 void OMPClauseWriter::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   Record.AddStmt(C->getLevel());

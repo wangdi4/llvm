@@ -2344,6 +2344,10 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
+void OMPClauseEnqueue::VisitOMPInteropClause(const OMPInteropClause *C) {
+  VisitOMPClauseList(C);
+}
+
 void OMPClauseEnqueue::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getStart());
