@@ -16,8 +16,8 @@
 #include <sycl/program.hpp>
 #include <sycl/stl.hpp>
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 __SYCL_EXPORT cl_ulong getDeviceFunctionPointerImpl(device &D, program &P,
                                                     const char *FuncName);
@@ -88,10 +88,13 @@ device_func_ptr_holder_t get_device_func_ptr(FuncType F, const char *FuncName,
 } // namespace oneapi
 } // namespace ext
 
+<<<<<<< HEAD
 namespace __SYCL2020_DEPRECATED("use 'ext::oneapi' instead") ONEAPI {
   using namespace ext::oneapi;
 }
+=======
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+>>>>>>> 3d2b25e13ecd2d941b436fe903a5d456037a1bd9
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)
 
 #endif

@@ -39,6 +39,7 @@
 
 #include <type_traits>
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #ifdef DPCPP_HOST_DEVICE_PERF_NATIVE
 extern "C" unsigned int __builtin_get_max_sub_group_size();
@@ -47,7 +48,10 @@ extern "C" unsigned int __builtin_get_sub_group_local_id();
 /* end INTEL_CUSTOMIZATION */
 
 __SYCL_INLINE_NAMESPACE(cl) {
+=======
+>>>>>>> 3d2b25e13ecd2d941b436fe903a5d456037a1bd9
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 template <typename T, access::address_space Space> class multi_ptr;
 
 namespace detail {
@@ -786,5 +790,5 @@ inline sub_group this_sub_group() {
 } // namespace oneapi
 } // namespace ext
 
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)

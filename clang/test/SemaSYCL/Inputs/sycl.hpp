@@ -3,8 +3,8 @@
 
 // Shared code for SYCL tests
 
-inline namespace cl {
 namespace sycl {
+inline namespace _V1 {
 namespace access {
 
 enum class target {
@@ -338,7 +338,7 @@ public:
   void __finalize() {}
 
 private:
-  cl::sycl::accessor<char, 1, cl::sycl::access::mode::read_write> Acc;
+  sycl::accessor<char, 1, sycl::access::mode::read_write> Acc;
   int FlushBufferSize;
 };
 
@@ -384,6 +384,7 @@ private:
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
+<<<<<<< HEAD
 
 #ifdef INTEL_CUSTOMIZATION
 namespace ext {
@@ -400,7 +401,9 @@ public:
 } // namespace intel
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
+=======
+} // inline namespace _V1
+>>>>>>> 3d2b25e13ecd2d941b436fe903a5d456037a1bd9
 } // namespace sycl
-} // namespace cl
 
 #endif
