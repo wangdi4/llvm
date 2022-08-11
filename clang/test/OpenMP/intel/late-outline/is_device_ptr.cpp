@@ -18,7 +18,10 @@ void S::foo(float *&refptr) {
   //CHECK: [[REFPTR:%refptr.*]] = alloca ptr, align 8
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %ptr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %0)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %aaptr)
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
   ++a, ++*ptr, ++ref, ++arr[0];
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -34,6 +37,7 @@ void foo() {
   //CHECK: [[L:%[0-9]+]] = load ptr, ptr %k
 
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %k)
   //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
   #pragma omp target map(tofrom: i) is_device_ptr(k)
   {
@@ -67,16 +71,20 @@ void use_template() {
 //CHECK: [[THIS:%this.*]] = load ptr, ptr %this.addr,
 //CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, ptr [[THIS]], i32 0, i32 1
 //CHECK: "DIR.OMP.TARGET"()
+//CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %devPtr)
 //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
 
 // CHECK-LABEL: omp_kernel
 void omp_kernel(float * __restrict xxi) {
 //CHECK: "DIR.OMP.TASK"()
 //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %xxi.addr)
+//CHECK: "DIR.OMP.TARGET"()
+//CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %xxi.addr)
  #pragma omp target teams distribute nowait is_device_ptr(xxi)
   for (int n = 0; n < 100; n += 10) {
     xxi[0] = 0;
   }
+// CHECK: "DIR.OMP.END.TARGET"
 // CHECK: "DIR.OMP.END.TASK"
 }
 
@@ -100,6 +108,9 @@ int main() {
   s.foo(ptr);
 
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %ptr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %arr)
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %vla)
   //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
   //CHECK: "QUAL.OMP.MAP.TO"(ptr [[ARR]]
   //CHECK: "QUAL.OMP.MAP.TO"(ptr [[VLA]]
@@ -112,6 +123,7 @@ int main() {
   //CHECK: store ptr @_Z3foov, ptr [[FPTR]]
   //CHECK: [[L14:%[0-9]+]] = load ptr, ptr [[FPTR]]
   //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %fptr)
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[L14]]
   #pragma omp target is_device_ptr(fptr)
     fptr();
