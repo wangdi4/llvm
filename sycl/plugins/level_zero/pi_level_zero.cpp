@@ -898,7 +898,7 @@ pi_result _pi_context::initialize() {
   // Recursive helper to call createUSMAllocators for all sub-devices
   std::function<void(pi_device)> createUSMAllocatorsRecursive;
   createUSMAllocatorsRecursive =
-      [this, createUSMAllocators,
+      [createUSMAllocators,
        &createUSMAllocatorsRecursive](pi_device Device) -> void {
     createUSMAllocators(Device);
     (void)this;
