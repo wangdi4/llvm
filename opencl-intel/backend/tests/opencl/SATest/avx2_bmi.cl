@@ -28,7 +28,7 @@ spmv_csr_scalar_kernel( __global const FPTYPE * restrict val,
         for (int j = start; j < end; j++) 
         {
             int col = cols[j]; 
-            t += val[j] * vec[col] + __builtin_ctz(j);
+            t += val[j] * vec[col] + __builtin_elementwise_max(j - myRow, 0);
         }
         out[myRow] = t; 
     }
