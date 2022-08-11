@@ -7915,6 +7915,7 @@ public:
                                      StringLiteral *AssertMessageExpr,
                                      SourceLocation RParenLoc,
                                      bool Failed);
+  void DiagnoseStaticAssertDetails(const Expr *E);
 
   FriendDecl *CheckFriendTypeDecl(SourceLocation LocStart,
                                   SourceLocation FriendLoc,
