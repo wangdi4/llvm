@@ -785,6 +785,81 @@ public:
 };
 
 #if INTEL_COLLAB
+/// This represents an 'interop' clause for the '#pragma omp dispatch'
+/// directive.
+///
+/// \code
+/// #pragma omp dispatch interop(iop1, iop2)
+/// \endcode
+/// In this example directive '#pragma omp dispatch' has an interop
+/// clause with two interop variables iop1 and iop2.
+///
+class OMPInteropClause final
+    : public OMPVarListClause<OMPInteropClause>,
+      private llvm::TrailingObjects<OMPInteropClause, Expr *> {
+  friend class OMPClauseReader;
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of the '('
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of variables in the clause.
+  OMPInteropClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                   SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPInteropClause>(llvm::omp::OMPC_interop, StartLoc,
+                                           LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables in the clause.
+  explicit OMPInteropClause(unsigned N)
+      : OMPVarListClause<OMPInteropClause>(llvm::omp::OMPC_interop,
+                                           SourceLocation(), SourceLocation(),
+                                           SourceLocation(), N) {}
+
+public:
+  /// Creates clause with list of variables \a LV.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param LV List of variables for interop clause.
+  static OMPInteropClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
+                                  SourceLocation EndLoc, ArrayRef<Expr *> LV);
+
+  /// Creates an empty clause with \a N interop clause variables.
+  ///
+  /// \param C AST context.
+  /// \param N Number of variables.
+  static OMPInteropClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPInteropClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_interop;
+  }
+};
+
 /// This represents the 'subdevice' clause in '#pragma omp ...' directives.
 ///
 /// \code

@@ -394,6 +394,7 @@ class OpenMPLateOutliner {
   void emitOMPFullClause(const OMPFullClause *Cl);
   void emitOMPPartialClause(const OMPPartialClause *Cl);
   void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
+  void emitOMPInteropClause(const OMPInteropClause *);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);

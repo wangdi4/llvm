@@ -11567,6 +11567,9 @@ OMPClause *OMPClauseReader::readClause() {
     C = new (Context) OMPNumThreadsClause();
     break;
 #if INTEL_COLLAB
+  case llvm::omp::OMPC_interop:
+    C = OMPInteropClause::CreateEmpty(Context, Record.readInt());
+    break;
   case llvm::omp::OMPC_subdevice:
     C = new (Context) OMPSubdeviceClause();
     break;
@@ -11925,6 +11928,16 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
+void OMPClauseReader::VisitOMPInteropClause(OMPInteropClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 4> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned I = 0; I != NumVars; ++I)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+
 void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   C->setLevel(Record.readSubExpr());

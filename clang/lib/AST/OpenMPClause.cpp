@@ -1610,6 +1610,24 @@ OMPOmpxMonotonicClause *OMPOmpxMonotonicClause::CreateEmpty(const ASTContext &C,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
+OMPInteropClause *OMPInteropClause::Create(const ASTContext &C,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation EndLoc,
+                                           ArrayRef<Expr *> LV) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(LV.size()));
+  auto *Clause =
+      new (Mem) OMPInteropClause(StartLoc, LParenLoc, EndLoc, LV.size());
+  Clause->setVarRefs(LV);
+  return Clause;
+}
+
+OMPInteropClause *OMPInteropClause::CreateEmpty(const ASTContext &C,
+                                                unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
+  return new (Mem) OMPInteropClause(N);
+}
+
 OMPDataClause *OMPDataClause::Create(const ASTContext &C,
                                      SourceLocation StartLoc,
                                      SourceLocation LParenLoc,
@@ -1803,6 +1821,12 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
 }
 
 #if INTEL_COLLAB
+void OMPClausePrinter::VisitOMPInteropClause(OMPInteropClause *Node) {
+  OS << "interop";
+  VisitOMPClauseList(Node, '(');
+  OS << ")";
+}
+
 void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   OS << "subdevice(";
   if (auto *E = Node->getLevel()) {
