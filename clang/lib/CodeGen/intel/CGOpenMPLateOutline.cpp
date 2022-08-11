@@ -3092,11 +3092,19 @@ void OpenMPLateOutliner::emitOMPScanDirective() {
 void OpenMPLateOutliner::emitOMPTargetDirective(int OffloadEntryIndex) {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET",
                              OMPD_target);
-
-  // Add operand bundle for the offload entry index.
-  ClauseEmissionHelper CEH(*this, OMPC_unknown);
-  addArg("QUAL.OMP.OFFLOAD.ENTRY.IDX");
-  addArg(CGF.Builder.getInt32(OffloadEntryIndex));
+  {
+    // Add operand bundle for the offload entry index.
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    addArg("QUAL.OMP.OFFLOAD.ENTRY.IDX");
+    addArg(CGF.Builder.getInt32(OffloadEntryIndex));
+  }
+  for (const auto *Cl : Directive.getClausesOfKind<OMPIsDevicePtrClause>()) {
+    for (const auto *E : Cl->varlists()) {
+      ClauseEmissionHelper CEH(*this, OMPC_unknown);
+      addArg("QUAL.OMP.LIVEIN");
+      addArg(E);
+    }
+  }
 }
 void OpenMPLateOutliner::emitOMPTargetDataDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET.DATA", "DIR.OMP.END.TARGET.DATA",
