@@ -515,6 +515,10 @@ struct DeviceTy {
   /// Get device information
   int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
                         size_t *InfoSizeRet);
+  /// Allocate shared memory with hint
+  void *dataAlignedAllocShared(size_t Align, size_t Size, int32_t AccessHint);
+  /// Prefetch shared memory
+  int prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

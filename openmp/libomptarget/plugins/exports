@@ -63,6 +63,10 @@ VERS1.0 {
     __tgt_rtl_alloc_per_hw_thread_scratch;
     __tgt_rtl_free_per_hw_thread_scratch;
     __tgt_rtl_get_device_info;
+    __tgt_rtl_register_host_pointer;
+    __tgt_rtl_unregister_host_pointer;
+    __tgt_rtl_data_aligned_alloc_shared;
+    __tgt_rtl_prefetch_shared_mem;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;

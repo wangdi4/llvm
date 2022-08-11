@@ -892,5 +892,60 @@ EXTERN int ompx_get_device_info(int DeviceNum, int InfoId, size_t InfoSize,
   return PM->Devices[DeviceNum]->getDeviceInfo(InfoId, InfoSize, InfoValue,
                                                InfoSizeRet);
 }
+
+EXTERN void *ompx_target_aligned_alloc_shared_with_hint(
+    size_t Align, size_t Size, int32_t AccessHint, int32_t DeviceNum) {
+  DP("Call to %s for device %d requesting %zu bytes (Align: %zu, "
+     "AccessHint: %d)\n", __func__, DeviceNum, Size, Align, AccessHint);
+
+  void *Ret = nullptr;
+
+  if (Size == 0)
+    return Ret;
+
+  if (DeviceNum == omp_get_initial_device()) {
+    Ret = malloc(Size);
+    DP("%s returns host ptr " DPxMOD "\n", __func__, DPxPTR(Ret));
+    return Ret;
+  }
+
+  if (!deviceIsReady(DeviceNum)) {
+    DP("%s returns NULL ptr\n", __func__);
+    return Ret;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  Ret = Device.dataAlignedAllocShared(Align, Size, AccessHint);
+  DP("%s returns target pointer " DPxMOD "\n", __func__, DPxPTR(Ret));
+
+  return Ret;
+}
+
+EXTERN int ompx_target_prefetch_shared_mem(
+    size_t NumPtrs, void **Ptrs, size_t *Sizes, int32_t DeviceNum) {
+  DP("Call to %s for device %d with number of pointers %zu, "
+     "pointer array " DPxMOD ", size array " DPxMOD "\n", __func__, DeviceNum,
+     NumPtrs, DPxPTR(Ptrs), DPxPTR(Sizes));
+
+  if (NumPtrs == 0 || DeviceNum == omp_get_initial_device())
+    return OFFLOAD_SUCCESS; // Nothing to be done
+
+  if (!Ptrs || !Sizes) {
+    REPORT("Call to %s with invalid input\n", __func__);
+    return OFFLOAD_FAIL;
+  }
+
+  if (!deviceIsReady(DeviceNum)) {
+    DP("%s returns OFFLOAD_FAIL\n", __func__);
+    return OFFLOAD_FAIL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  int Ret = Device.prefetchSharedMem(NumPtrs, Ptrs, Sizes);
+  if (Ret != OFFLOAD_SUCCESS)
+    REPORT("%s returns OFFLOAD_FAIL\n", __func__);
+
+  return Ret;
+}
 #endif  // INTEL_COLLAB
 
