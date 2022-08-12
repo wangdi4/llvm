@@ -1982,7 +1982,7 @@ private:
   // stack or false if it was present before the call. The value is pushed
   // onto the stack in either case. A return value of 'true' indicates that
   // dependents of the Value also need to be added to the stack.
-  LLVM_NODISCARD bool addDependency(Value *DV, DependencyStackImpl &DepStack) {
+  [[nodiscard]] bool addDependency(Value *DV, DependencyStackImpl &DepStack) {
     // If the dependency has already been completely analyzed, skip adding the
     // item to the stack and return false because all of the values that
     // depend on it have also been analyzed.
