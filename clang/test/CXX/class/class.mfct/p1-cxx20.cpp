@@ -1,3 +1,4 @@
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: rm -rf %t
 // RUN: mkdir -p %t
 // RUN: split-file %s %t
