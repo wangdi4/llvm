@@ -50,7 +50,7 @@ define dso_local void @foo() {
 ; CHECK-LLVM-IR-NEXT:    br label [[OMP_INNER_FOR_BODY_LR_PH0:%.*]]
 ; CHECK-LLVM-IR-EMPTY:
 ; CHECK-LLVM-IR-NEXT:  omp.inner.for.body.lr.ph:
-; CHECK-LLVM-IR-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV"(i32* [[I_LINEAR_IV0]], i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+; CHECK-LLVM-IR-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4),  "QUAL.OMP.LINEAR:IV.TYPED"(i32* [[I_LINEAR_IV0]], i32 0, i32 1, i32 1) ]
 ; CHECK-LLVM-IR-NEXT:    br label [[OMP_INNER_FOR_BODY0:%.*]]
 ; CHECK-LLVM-IR-EMPTY:
 ; CHECK-LLVM-IR-NEXT:  omp.inner.for.body:
@@ -71,7 +71,7 @@ entry:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body
