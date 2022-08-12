@@ -46,8 +46,8 @@ extern "C" unsigned int __builtin_get_sub_group_local_id();
 #endif
 /* end INTEL_CUSTOMIZATION */
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 template <typename T, access::address_space Space> class multi_ptr;
 
 namespace detail {
@@ -786,5 +786,5 @@ inline sub_group this_sub_group() {
 } // namespace oneapi
 } // namespace ext
 
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)
