@@ -46,7 +46,7 @@
 
 int DebugLevel = getDebugLevel();
 
-using namespace cl::sycl;
+using namespace sycl;
 
 class SyclWrapperTy {
 public:

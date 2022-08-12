@@ -120,7 +120,7 @@ void foo_ivdep(int select, SIVDep &SV, SIVDep2 &SV2, SIVDep2 *Sv2p)
 }
 
 int main() {
-  cl::sycl::handler h;
+  sycl::handler h;
   h.single_task([]() {
     foo_unroll();
     SIVDep SV;

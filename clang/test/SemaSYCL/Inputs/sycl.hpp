@@ -384,7 +384,6 @@ private:
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
-<<<<<<< HEAD
 
 #ifdef INTEL_CUSTOMIZATION
 namespace ext {
@@ -401,9 +400,7 @@ public:
 } // namespace intel
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
-=======
 } // inline namespace _V1
->>>>>>> 3d2b25e13ecd2d941b436fe903a5d456037a1bd9
 } // namespace sycl
 
 #endif

@@ -88,13 +88,10 @@ device_func_ptr_holder_t get_device_func_ptr(FuncType F, const char *FuncName,
 } // namespace oneapi
 } // namespace ext
 
-<<<<<<< HEAD
 namespace __SYCL2020_DEPRECATED("use 'ext::oneapi' instead") ONEAPI {
   using namespace ext::oneapi;
 }
-=======
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
->>>>>>> 3d2b25e13ecd2d941b436fe903a5d456037a1bd9
 } // namespace sycl
 
 #endif
