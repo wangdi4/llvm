@@ -563,6 +563,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
   void *DynamicMemPool = nullptr;
+  int TeamsThreadLimit = 0;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -3761,7 +3762,9 @@ int32_t OpenCLProgramTy::initProgramData() {
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
     DeviceType,          // Device type (0 for GPU, 1 for CPU)
-    MemPool              // Dynamic memory pool
+    MemPool,             // Dynamic memory pool
+    (int32_t)DeviceInfo->maxWorkGroupSize[DeviceId]
+                         // Teams thread limit
   };
 
   CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,

@@ -292,8 +292,6 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
 #if INTEL_CUSTOMIZATION
     if (ForcedVF > Safelen) {
       // We are bailing out of vectorization if ForcedVF > safelen
-      assert(WRLp && WRLp->isOmpSIMDLoop() &&
-             "safelen is set on a non-OMP SIMD loop.");
       LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
                            "via `#pragma omp simd`\n");
       VFs.push_back(0);

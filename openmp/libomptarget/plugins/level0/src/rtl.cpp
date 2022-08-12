@@ -999,6 +999,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
   void *DynamicMemPool = nullptr;
+  int TeamsThreadLimit = 0;
 };
 
 /// Level Zero program that can contain multiple modules.
@@ -5907,7 +5908,9 @@ int32_t LevelZeroProgramTy::initProgramData() {
     (uintptr_t)MemLB,    // Dynamic memory LB
     MemUB,               // Dynamic memory UB
     0,                   // Device type (0 for GPU, 1 for CPU)
-    MemPool              // Dynamic memory pool
+    MemPool,             // Dynamic memory pool
+    (int32_t)DeviceInfo->ComputeProperties[DeviceId].maxTotalGroupSize
+                         // Teams thread limit
   };
 
   return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,

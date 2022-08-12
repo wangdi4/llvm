@@ -158,7 +158,11 @@ static cl::opt<unsigned> HugeODRFunctionBasicBlockCount(
 #else
     "inlining-huge-odr-bb-count", cl::init(25), cl::ReallyHidden,
 #endif // _WIN32
-    cl::desc("ODR Function with this many basic blocks or more may be huge"));
+    cl::desc("ODR Function with this many basic blocks or more is huge"));
+
+static cl::opt<unsigned> HugeLTOODRFunctionBasicBlockCount(
+    "inlining-huge-lto-odr-bb-count", cl::init(200), cl::ReallyHidden,
+    cl::desc("LTO ODR Function with this many basic blocks or more is huge"));
 
 static cl::opt<unsigned> HugeFunctionArgCount(
     "inlining-huge-arg-count", cl::init(8), cl::ReallyHidden,
@@ -599,10 +603,16 @@ extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,
                            bool IsSYCLDevice) {
   if (!InlineForXmain)
     return false;
-  if (F->hasLinkOnceODRLinkage() &&
-      !PrepareForLTO && !LinkForLTO && !IsSYCLHost && !IsSYCLDevice &&
-      F->size() > HugeODRFunctionBasicBlockCount)
-    return true;
+  if (F->hasLinkOnceODRLinkage() && !IsSYCLHost && !IsSYCLDevice &&
+      !DTransInlineHeuristics) {
+      if (!PrepareForLTO && !LinkForLTO) {
+        if (F->size() > HugeODRFunctionBasicBlockCount)
+          return true;
+      } else {
+        if (F->size() > HugeLTOODRFunctionBasicBlockCount)
+          return true;
+      }
+  }
   if (!DTransInlineHeuristics)
     return false;
   size_t ArgSize = F->arg_size();

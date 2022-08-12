@@ -346,6 +346,7 @@ typedef struct kmp_program_data {
   uintptr_t dyna_mem_ub;
   int device_type; // 0 for GPU, 1 for CPU
   global void *dyna_mem_pool;
+  int teams_thread_limit;
 } kmp_program_data_t;
 
 /// Global state
@@ -873,6 +874,10 @@ EXTERN int omp_is_initial_device(void);
 EXTERN int omp_get_initial_device(void);
 
 EXTERN double omp_get_wtime(void);
+
+EXTERN int omp_get_max_teams(void);
+
+EXTERN int omp_get_teams_thread_limit(void);
 
 EXTERN void kmp_global_barrier_init(void);
 
