@@ -33,7 +33,8 @@ kmp_program_data_t __omp_spirv_program_data = {
   .dyna_mem_cur = 0,
   .dyna_mem_ub = 0,
   .device_type = 0,
-  .dyna_mem_pool = NULL
+  .dyna_mem_pool = NULL,
+  .teams_thread_limit = 0
 };
 
 ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
