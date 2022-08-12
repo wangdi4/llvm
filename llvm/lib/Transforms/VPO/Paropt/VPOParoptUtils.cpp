@@ -720,7 +720,7 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    Type *DataTy = DI->getPointeeElementType();
+    Type *DataTy = DI->getPointeeElementTypeFromIR();
 
     // TODO: GPU prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
@@ -793,7 +793,7 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    Type *DataTy = DI->getPointeeElementType();
+    Type *DataTy = DI->getPointeeElementTypeFromIR();
 
     // TODO: LSC prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.

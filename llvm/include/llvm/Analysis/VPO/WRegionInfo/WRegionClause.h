@@ -1798,19 +1798,6 @@ public:
   unsigned getHint() const { return Hint; }
   bool getIsTyped() const { return IsTyped; }
 
-  Type *getPointeeElementType() const {
-    if (!getIsTyped()) {
-      // This branch is for the old IR of DATA clause, which is obsolete.
-      // It won't be reachable with opaque pointers.
-      assert(!Ptr->getType()->isOpaquePointerTy() &&
-             "Need typed DATA clause for opaque pointers.");
-      auto PtrTy =
-          Ptr->getType()->getScalarType()->getNonOpaquePointerElementType();
-      return PtrTy->getNonOpaquePointerElementType();
-    }
-    return getPointeeElementTypeFromIR();
-  }
-
   void printIfTyped(formatted_raw_ostream &OS) const {
     if (!getIsTyped())
       return;
