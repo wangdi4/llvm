@@ -138,7 +138,7 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.PARALLEL.LO
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* null, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.OMP.SIMD.1246
 
 DIR.OMP.SIMD.1246:                                ; preds = %DIR.OMP.SIMD.1
