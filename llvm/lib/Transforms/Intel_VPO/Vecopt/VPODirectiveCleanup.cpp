@@ -17,10 +17,8 @@
 
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
@@ -73,18 +71,20 @@ bool VPODirectiveCleanupPass::runImpl(Function &F) {
   if (!Changed)
     return false;
 
-  // TODO : The following piece of code still uses legacy pass manager
-  // This needs to be changed
   // Set up a function pass manager so that we can run some cleanup transforms
   // on the LLVM IR after code gen.
-  Module *M = F.getParent();
-  legacy::FunctionPassManager FPM(M);
+  FunctionPassManager FPM;
+  FunctionAnalysisManager FAM;
+  FAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+  FAM.registerPass([&] { return DominatorTreeAnalysis(); });
+  FAM.registerPass([&] { return AssumptionAnalysis(); });
+  FAM.registerPass([&] { return TargetIRAnalysis(); });
 
   // It is possible that stripDirectives call
   // eliminates all instructions in a basic block except for the branch
   // instruction. Use CFG simplify to eliminate them.
-  FPM.add(createCFGSimplificationPass());
-  FPM.run(F);
+  FPM.addPass(SimplifyCFGPass());
+  FPM.run(F, FAM);
 
   return true;
 }
