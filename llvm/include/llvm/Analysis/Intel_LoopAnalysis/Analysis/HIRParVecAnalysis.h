@@ -102,6 +102,9 @@ private:
   // DD Edges preventing vectorization
   SmallVector<const DDEdge *, 1> VecEdges;
 
+  // Maximum safe vectorization length
+  unsigned Safelen = UINT_MAX;
+
   /// \brief Non-diagnostic strings. Analysis incomplete or
   /// diagnostic has to come from threadizer/vectorizer.
   static const std::string LoopTypeString[];
@@ -134,6 +137,14 @@ public:
   // Field accessors
   LoopType getParType() const { return ParType; }
   LoopType getVecType() const { return VecType; }
+
+  void setSafelen(unsigned Slen) {
+    // If the allowed vectorization safe length is smaller than
+    // the current allowed safe length, update Safelen value.
+    if (Slen < Safelen)
+      Safelen = Slen;
+  }
+  unsigned getSafelen() const { return Safelen; }
 
   void setParType(LoopType T) {
     if (isParallelMode())
