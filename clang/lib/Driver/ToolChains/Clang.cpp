@@ -10774,6 +10774,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // OPT_fsycl_device_code_split is not checked as it is an alias to
   // -fsycl-device-code-split=auto
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR()) {
@@ -10792,6 +10793,9 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
       TCArgs.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization,
                      isSYCLOptimizationO2orHigher(TCArgs)))
+=======
+  if (!(getToolChain().getTriple().isAMDGCN()))
+>>>>>>> 0cc7540e14e77ca24f054e238d8f3c255dbc5cc4
     addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
 #endif // INTEL_CUSTOMIZATION
   // Enable PI program metadata
