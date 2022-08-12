@@ -45,7 +45,8 @@ class ParVecDirectiveInsertion {
     /// \brief Insert auto-par directives to the loop.
     void insertParDirectives(HLLoop *L, const ParVecInfo *Info);
     /// \brief Prepend region entry directive call to the Loop.
-    HLInst *insertBeginRegion(HLLoop *Lp, OMP_DIRECTIVES Dir);
+    HLInst *insertBeginRegion(HLLoop *Lp, OMP_DIRECTIVES Dir,
+                              const ParVecInfo *Info);
     /// \brief Append a region exit directive call to the Loop.
     HLInst *insertEndRegion(HLLoop *Lp, OMP_DIRECTIVES Dir, HLInst *Entry);
 

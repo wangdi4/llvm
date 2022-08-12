@@ -436,6 +436,19 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
       // TODO: Set ParType/ParLoc. Call emitDiag().
       return;
     }
+
+    if (Edge->isBackwardDep()) {
+      DistTy DepDistance = Edge->getDistanceAtLevel(NestLevel);
+
+      // If the dependence distance is at least 2, we can vectorize the loop
+      // leveraging safe vectorization length.
+      if (DepDistance != UnknownDistance && DepDistance > 1) {
+        LLVM_DEBUG(dbgs() << "\tis safe to vectorize with Safelen: "
+                          << +DepDistance << "\n");
+        Info->setSafelen(+DepDistance);
+        return;
+      }
+    }
   }
 
   if (SrcRef->isTerminalRef() &&
