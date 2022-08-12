@@ -6710,7 +6710,7 @@ TreeTransform<Derived>::TransformOMPOmpxOverlapClause(OMPOmpxOverlapClause *C) {
   if (Overlap.isInvalid())
     return nullptr;
   return getDerived().RebuildOMPOmpxOverlapClause(
-      C->getOverlap(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+      Overlap.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 #endif // INTEL_CUSTOMIZATION
 
