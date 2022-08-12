@@ -2444,6 +2444,14 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes())
     addArg(CGF.EmitScalarExpr(E));
 }
+
+void OpenMPLateOutliner::emitOMPOmpxOverlapClause(
+    const OMPOmpxOverlapClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_ompx_overlap, "QUAL.OMP.OVERLAP");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  addArg(CSB.getString());
+  addArg(CGF.EmitScalarExpr(Cl->getOverlap()));
+}
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {
@@ -2644,8 +2652,6 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
-void OpenMPLateOutliner::emitOMPOmpxOverlapClause(
-    const OMPOmpxOverlapClause *) {}
 void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
     const OMPOmpxMonotonicClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}

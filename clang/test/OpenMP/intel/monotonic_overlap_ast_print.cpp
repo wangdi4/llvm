@@ -83,17 +83,26 @@ struct S {
 #pragma omp ordered simd ompx_overlap(a++)
       a++;
     }
+#pragma omp simd
+    for (int i = 0; i < 1024; i++) {
+#pragma omp ordered simd ompx_overlap(t)
+      a++;
+    }
   }
   // CHECK: template <int t> void apply()
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_monotonic(this->a: t)
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_overlap(this->a++)
+  // CHECK: #pragma omp simd
+  // CHECK: #pragma omp ordered simd ompx_overlap(t)
   // CHECK: template<> void apply<10>()
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_monotonic(this->a: 10)
   // CHECK: #pragma omp simd
   // CHECK: #pragma omp ordered simd ompx_overlap(this->a++)
+  // CHECK: #pragma omp simd
+  // CHECK: #pragma omp ordered simd ompx_overlap(10)
 };
 template<typename T>
 void foo(T x) {
