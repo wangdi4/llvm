@@ -18,7 +18,7 @@ define dso_local void @_Z4testP1S(%struct.S* %p) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX27]] to <4 x i32>*
 ; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> [[TMP5]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
-; CHECK-NEXT:    [[TMP6:%.*]] = add <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
 ; CHECK-NEXT:    ret void
@@ -36,7 +36,7 @@ define dso_local void @_Z4testP1S(%struct.S* %p) local_unnamed_addr {
 ; COST-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX27]] to <4 x i32>*
 ; COST-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
 ; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> [[TMP5]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
-; COST-NEXT:    [[TMP6:%.*]] = add <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
+; COST-NEXT:    [[TMP6:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
 ; COST-NEXT:    [[TMP7:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
 ; COST-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
 ; COST-NEXT:    ret void

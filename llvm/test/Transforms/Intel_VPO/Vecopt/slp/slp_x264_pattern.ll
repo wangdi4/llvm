@@ -37,8 +37,8 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1
 ; CHECK-NEXT:    [[TMP12:%.*]] = shl nuw nsw <4 x i32> [[TMP9]], <i32 16, i32 16, i32 16, i32 16>
 ; CHECK-NEXT:    [[TMP13:%.*]] = shl nuw nsw <4 x i32> [[TMP11]], <i32 16, i32 16, i32 16, i32 16>
 ; CHECK-NEXT:    [[TMP14:%.*]] = or <4 x i32> [[TMP12]], [[TMP10]]
-; CHECK-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP13]], [[TMP14]]
-; CHECK-NEXT:    [[TMP16:%.*]] = add <4 x i32> [[TMP15]], [[TMP8]]
+; CHECK-NEXT:    [[TMP15:%.*]] = sub nsw <4 x i32> [[TMP13]], [[TMP14]]
+; CHECK-NEXT:    [[TMP16:%.*]] = add nsw <4 x i32> [[TMP15]], [[TMP8]]
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 3, i32 2>
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 0, i32 1, i32 3>
 ; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 0, i32 1>
