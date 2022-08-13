@@ -203,5 +203,5 @@ constexpr auto make_function_ref_tuned() noexcept {
 }
 
 } // namespace INTEL
-} // __SYCL_INLINE_NAMESPACE(cl)
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

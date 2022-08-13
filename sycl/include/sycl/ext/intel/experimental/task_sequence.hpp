@@ -27,7 +27,7 @@
 #include <CL/__spirv/spirv_ops.hpp>
 
 namespace sycl {
-__SYCL_INLINE_NAMESPACE(cl) {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace ext {
 namespace intel {
 namespace experimental {
