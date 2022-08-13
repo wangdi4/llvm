@@ -1604,7 +1604,9 @@ int computeHostNumPhysicalCores() {
   }
   return CPU_COUNT(&Enabled);
 }
-#elif defined(__linux__) && defined(__powerpc__)
+#elif defined(__linux__) && defined(__s390x__)
+int computeHostNumPhysicalCores() { return sysconf(_SC_NPROCESSORS_ONLN); }
+#elif defined(__linux__) && !defined(__ANDROID__)
 int computeHostNumPhysicalCores() {
   cpu_set_t Affinity;
   if (sched_getaffinity(0, sizeof(Affinity), &Affinity) == 0)
@@ -1623,8 +1625,6 @@ int computeHostNumPhysicalCores() {
   }
   return -1;
 }
-#elif defined(__linux__) && defined(__s390x__)
-int computeHostNumPhysicalCores() { return sysconf(_SC_NPROCESSORS_ONLN); }
 #elif defined(__APPLE__)
 // Gets the number of *physical cores* on the machine.
 int computeHostNumPhysicalCores() {
