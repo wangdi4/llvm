@@ -2432,6 +2432,10 @@ private:
       const BoUpSLP &R;
       const DominatorTree &DT;
 
+      /// The flag is set to true if calling the reorder() method produced
+      /// any changes.
+      bool Reordered = false;
+
       /// The operands (leaves) of the Multi-Node for all lanes.
       /// We are not simply using the Value for a leaf. Instead we are using the
       /// LeafData structure because it not only contains the Value, but it
@@ -2463,8 +2467,8 @@ private:
 
         LeafData &Op1 = getData(OpIdx1, Lane);
         LeafData &Op2 = getData(OpIdx2, Lane);
-        if (Op1.getLeaf() == Op2.getLeaf())
-          return;
+
+        assert(Op1.getLeaf() != Op2.getLeaf() && "Why reordering?");
 
         bool InvertOpcodes = Op1.getAPO() != Op2.getAPO();
         // i. Swap the leaf values.
@@ -2474,7 +2478,10 @@ private:
           Op1.invertFrontierOpcode();
           Op2.invertFrontierOpcode();
         }
+        Reordered = true;
       }
+
+      bool inOriginalOrder() const { return !Reordered; }
 
       /// This specifies the vectorization mode of each operand index
       enum class VecMode {
@@ -2943,7 +2950,7 @@ private:
 
         // Get the score before we perform any operand sorting. We will use it
         // later to check if sorting improved the score.
-        int OrigScore = getScore();
+        int OrigScore = DisableReordering ? 0 : getScore();
 
         // Sort the visiting order such that operands closer to the root of the
         // Multi-Node are visited first.
@@ -2978,17 +2985,24 @@ private:
           OperandScores[OpI] = BestGroup.getScore();
         }
 
+        if (DisableReordering) {
+          LLVM_DEBUG(dbgs() << "SLP: MultiNode: reordering is disabled.\n");
+          return false;
+        }
+        if (inOriginalOrder()) {
+          LLVM_DEBUG(dbgs() << "SLP: MultiNode: reordereing did not change the "
+                               "original state.\n");
+          return false;
+        }
+
         // Perform the code transformation only if it leads to a better score.
         // TODO: We would ideally update CurrentMultiNode and get rid of
         // getScore(). But this is not so easy as CurrentMultiNode does not
         // contain pointers.
-        bool DoCodeGen = false;
-        // TODO: Not sure if this check is actually needed.
         int FinalScore = getScore();
-        if (FinalScore >= OrigScore)
-          DoCodeGen = true;
-
-        return DoCodeGen && !DisableReordering;
+        LLVM_DEBUG(dbgs() << "SLP: MultiNode:  orginal score " << OrigScore
+                          << ", final score " << FinalScore << " \n");
+        return FinalScore >= OrigScore;
       }
     };
 
@@ -3005,8 +3019,10 @@ private:
     };
 
   private:
-    // Holds data to restore LLVM IR to the original state if VTree
-    // was not vectorized for whatever reason.
+    /// Set if we used new order for code generation.
+    bool DoneCodeGen = false;
+    /// Holds data to restore LLVM IR to the original state if VTree
+    /// was not vectorized for whatever reason.
     DenseMap<std::pair<int /*OpI*/, int /*Lane*/>, BackupData> BackupMap;
 
     /// Save the instruction position to undo the scheduling that happens before
@@ -3132,6 +3148,9 @@ private:
     unsigned getNumLanes() const { return NumLanes; }
     unsigned getNumOperands() const { return Operands.getNumOperands(); }
 
+    void setCodeGenState(bool State) { DoneCodeGen = State; }
+    bool doneCodeGen() const { return DoneCodeGen; }
+
     using LeafData = MNOperands::LeafData;
 
     LeafData &getData(unsigned OpIdx, unsigned Lane) {
@@ -3224,6 +3243,9 @@ private:
       // When reordering we collect operands scores.
       // That will help to steer SLP through the multi-node.
       SmallVector<int> OperandScores(getNumOperands(), 0);
+
+      LLVM_DEBUG(dbgs() << "SLP: MultiNode: calculating best operands order.\n");
+      LLVM_DEBUG(dump());
       bool DoCodeGen = Operands.reorder(getRoot()->Idx, OperandScores);
 
       if (EnablePathSteering) {
@@ -4867,6 +4889,8 @@ void BoUpSLP::cleanupMultiNodeReordering(bool Vectorized) {
 
     // 2. Restore the instruction position before scheduling.
     MNode.undoMultiNodeScheduling();
+    // Reset CG state since all the changes were reverted.
+    MNode.setCodeGenState(false);
   }
 
   MultiNodes.clear();
@@ -6126,6 +6150,8 @@ void BoUpSLP::applyReorderedOperands(ScheduleData *Bundle) {
   // Update the instructions in Bundle if required.
   if (Bundle)
     Bundle->remapInsts(RemapMap);
+
+  CurrentMultiNode->setCodeGenState(true);
 }
 
 // Perform the operand reordering according to 'BestGroups'.
@@ -10080,20 +10106,21 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     ScalarTy = IE->getOperand(1)->getType();
   auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
 #if INTEL_CUSTOMIZATION
-  bool IsPartOfMultiNode = any_of(MultiNodes, [VL0](const MultiNode &MN) {
-    for (int Lane : seq<int>(0, MN.getNumLanes()))
-      for (int OpIdx : seq<int>(0, MN.getNumOperands()))
-        if (MN.getData(OpIdx, Lane).getFrontier() == VL0)
-          return true;
-    return false;
-  });
   // MultiNode reordering made reassociations that might have introduced
-  // wraparounds that weren't originally present. Also, only Add/Sub on
-  // integers could be part of the MultiNode so it's safe to not
-  // propagateIRFlags at all.
-  assert((!IsPartOfMultiNode || E->getOpcode() == Instruction::Add ||
-          E->getOpcode() == Instruction::Sub) &&
-         "IRFlags propagation only expects integer MultiNodes so far!");
+  // wraparounds that weren't originally present. Also, only supprted
+  // instructions can be part of a MultiNode (check that with inverse opcode).
+  // If we did actual reordering it's safe to not propagateIRFlags at all.
+  bool IsPartOfMultiNode =
+      MultiNode::getInverseOpcode(VL0->getOpcode()).hasValue() &&
+      any_of(MultiNodes, [VL0](const MultiNode &MN) {
+        if (!MN.doneCodeGen())
+          return false;
+        for (int Lane : seq<int>(0, MN.getNumLanes()))
+          for (int OpIdx : seq<int>(0, MN.getNumOperands()))
+            if (MN.getData(OpIdx, Lane).getFrontier() == VL0)
+              return true;
+        return false;
+      });
 #endif // INTEL_CUSTOMIZATION
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
