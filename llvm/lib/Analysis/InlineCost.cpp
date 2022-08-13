@@ -243,12 +243,21 @@ static cl::opt<bool> IsSYCLHost("sycl-host", cl::Hidden, cl::init(false),
 #endif //INTEL_CUSTOMIZATION
 
 namespace llvm {
+Optional<int> getStringFnAttrAsInt(const Attribute &Attr) {
+  if (Attr.isValid()) {
+    int AttrValue = 0;
+    if (!Attr.getValueAsString().getAsInteger(10, AttrValue))
+      return AttrValue;
+  }
+  return None;
+}
+
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
-  Attribute Attr = CB.getFnAttr(AttrKind);
-  int AttrValue;
-  if (Attr.getValueAsString().getAsInteger(10, AttrValue))
-    return None;
-  return AttrValue;
+  return getStringFnAttrAsInt(CB.getFnAttr(AttrKind));
+}
+
+Optional<int> getStringFnAttrAsInt(Function *F, StringRef AttrKind) {
+  return getStringFnAttrAsInt(F->getFnAttribute(AttrKind));
 }
 
 namespace InlineConstants {
@@ -3065,7 +3074,13 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
 
   // If the callee's stack size exceeds the user-specified threshold,
   // do not let it be inlined.
-  if (AllocatedSize > StackSizeThreshold)
+  // The command line option overrides a limit set in the function attributes.
+  size_t FinalStackSizeThreshold = StackSizeThreshold;
+  if (!StackSizeThreshold.getNumOccurrences())
+    if (Optional<int> AttrMaxStackSize = getStringFnAttrAsInt(
+            Caller, InlineConstants::MaxInlineStackSizeAttributeName))
+      FinalStackSizeThreshold = *AttrMaxStackSize;
+  if (AllocatedSize > FinalStackSizeThreshold)
     return InlineResult::failure("stacksize");
 
   return finalizeAnalysis();
