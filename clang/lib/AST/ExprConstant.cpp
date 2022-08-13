@@ -13609,7 +13609,7 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
       return Info.Ctx.getTypeSize(DestType) == Info.Ctx.getTypeSize(SrcType);
     }
 
-    if (Info.Ctx.getLangOpts().CPlusPlus &&
+    if (Info.Ctx.getLangOpts().CPlusPlus && Info.InConstantContext &&
         Info.EvalMode == EvalInfo::EM_ConstantExpression &&
         DestType->isEnumeralType()) {
       const EnumType *ET = dyn_cast<EnumType>(DestType.getCanonicalType());
