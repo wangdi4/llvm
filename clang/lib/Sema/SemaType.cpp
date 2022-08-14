@@ -6204,10 +6204,7 @@ namespace {
       TL.setRParenLoc(DS.getTypeofParensRange().getEnd());
     }
     void VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
-<<<<<<< HEAD
-=======
       assert(DS.isTransformTypeTrait(DS.getTypeSpecType()));
->>>>>>> bc60cf2368de90918719dc7e3d7c63a72cc007ad
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
       TL.setParensRange(DS.getTypeofParensRange());
       assert(DS.getRepAsType());
