@@ -3336,11 +3336,18 @@ bool RecursiveASTVisitor<Derived>::VisitOMPOmpxMonotonicClause(
 }
 
 template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPOmpxAssertClause(
+    OMPOmpxAssertClause *) {
+  return true;
+}
+
+template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPOmpxOverlapClause(
     OMPOmpxOverlapClause *C) {
   TRY_TO(TraverseStmt(C->getOverlap()));
   return true;
 }
+
 #if INTEL_FEATURE_CSA
 template <typename Derived>
 bool

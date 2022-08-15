@@ -1447,6 +1447,46 @@ public:
   }
 };
 
+/// This represents 'ompx_assert' clause in the '#pragma omp simd' directive.
+///
+/// \code
+/// #pragma omp simd ompx_assert
+/// \endcode
+/// In this example directive '#pragma omp simd' has 'ompx_assert' clause.
+class OMPOmpxAssertClause : public OMPClause {
+public:
+  /// Build 'ompx_assert' clause.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPOmpxAssertClause(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_assert, StartLoc, EndLoc) {}
+
+  /// Build an empty clause.
+  OMPOmpxAssertClause()
+      : OMPClause(llvm::omp::OMPC_ompx_assert, SourceLocation(), SourceLocation()) {}
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_assert;
+  }
+};
+
 /// This represents clause 'ompx_overlap' in the '#pragma omp ordered'
 /// directive.
 ///

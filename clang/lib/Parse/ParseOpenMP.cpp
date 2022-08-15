@@ -3229,7 +3229,8 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 #if INTEL_CUSTOMIZATION
       // Don't allow Intel-only clauses in community path
       if (!getLangOpts().OpenMPLateOutline &&
-          (CKind == OMPC_ompx_monotonic || CKind == OMPC_ompx_overlap))
+          (CKind == OMPC_ompx_monotonic || CKind == OMPC_ompx_overlap ||
+           CKind == OMPC_ompx_assert))
         CKind = OMPC_unknown;
 #endif //INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -3721,6 +3722,9 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     Clause = ParseOpenMPSingleExprWithArgClause(DKind, CKind, WrongDirective);
     break;
   case OMPC_nowait:
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_assert:
+#endif // INTEL_CUSTOMIZATION
   case OMPC_untied:
   case OMPC_mergeable:
   case OMPC_read:

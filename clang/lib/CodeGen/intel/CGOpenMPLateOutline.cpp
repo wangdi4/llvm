@@ -2438,6 +2438,8 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
 }
 
 #if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {}
+
 void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   ClauseEmissionHelper CEH(*this, OMPC_tile);
   addArg("QUAL.OMP.TILE");

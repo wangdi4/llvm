@@ -6275,6 +6275,8 @@ void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+void OMPClauseWriter::VisitOMPOmpxAssertClause(OMPOmpxAssertClause *) {}
+
 void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {
   Record.push_back(C->getNumLoops());
   for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)

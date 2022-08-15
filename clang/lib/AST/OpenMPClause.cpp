@@ -142,7 +142,10 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_COLLAB
   case OMPC_data:
 #endif // INTEL_COLLAB`
-  case OMPC_tile:  // INTEL
+#if INTEL_CUSTOMIZATION
+  case OMPC_tile:
+  case OMPC_ompx_assert:
+#endif // INTEL_CUSTOMIZATION
   case OMPC_private:
   case OMPC_shared:
   case OMPC_aligned:
@@ -298,6 +301,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_affinity:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
+  case OMPC_ompx_assert:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -1905,7 +1909,9 @@ void OMPClausePrinter::VisitOMPOmpxMonotonicClause(
   }
   OS << ")";
 }
-
+void OMPClausePrinter::VisitOMPOmpxAssertClause(OMPOmpxAssertClause *) {
+  OS << "ompx_assert";
+}
 void OMPClausePrinter::VisitOMPOmpxOverlapClause(OMPOmpxOverlapClause *Node) {
   OS << "ompx_overlap";
   OS << "(";
