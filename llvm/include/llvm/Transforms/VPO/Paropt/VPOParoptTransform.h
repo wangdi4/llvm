@@ -439,8 +439,11 @@ private:
   /// A copy constructor or copy-assign function \p Cctor will be used if
   /// given.
   /// \p IsByRef will insert an extra load to dereference the \p From pointer.
+  /// If \p NumElements is provided, then it is used as the number of elements.
+  /// Otherwise, it will be obtained from \p I.
   void genCopyByAddr(Item *I, Value *To, Value *From, Instruction *InsertPt,
-                     Function *Cctor = nullptr, bool IsByRef = false);
+                     Function *Cctor = nullptr, bool IsByRef = false,
+                     Value *NumElements = nullptr);
 
   /// For array constructor/destructor/copy assignment/copy constructor loop,
   /// get the base address of the array, number of elements, and element type.
@@ -485,9 +488,12 @@ private:
 
   /// Generate code for calling constructor/destructor/copy assignment/copy
   /// constructor for privatized variables including scalar and arrays.
+  /// If \p NumElements is provided, then it is used as the number of elements.
+  /// Otherwise, it will be obtained from \p I.
   void genPrivatizationInitOrFini(Item *I, Function *Fn, FunctionKind FuncKind,
                                   Value *DestVal, Value *SrcVal,
-                                  Instruction *InsertPt, DominatorTree *DT);
+                                  Instruction *InsertPt, DominatorTree *DT,
+                                  Value *NumElements = nullptr);
 
   /// If any item is a VLA or a variable length array section, a stacksave is
   /// inserted at the begining of the region and a restore is inserted at the

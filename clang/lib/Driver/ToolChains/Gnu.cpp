@@ -42,6 +42,8 @@
 #include "clang/Driver/ToolChain.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/FileUtilities.h" // INTEL
+#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VirtualFileSystem.h"
@@ -672,6 +674,43 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
     }
   }
   addIntelLib("-lirc", TC, CmdArgs, Args);
+}
+
+bool Generic_GCC::detectGCCPIEDefault() const {
+  auto GCCBinary = llvm::sys::findProgramByName("gcc");
+
+  if (GCCBinary.getError())
+    return false;
+
+  llvm::SmallString<64> OutputFile(
+      getDriver().GetTemporaryPath("gcc-enable-pie", "txt"));
+  llvm::FileRemover OutputRemover(OutputFile.c_str());
+  llvm::Optional<llvm::StringRef> Redirects[] = {
+      {""},
+      OutputFile.str(),
+      OutputFile.str(),
+  };
+
+  std::string ErrorMessage;
+  if (int Result = llvm::sys::ExecuteAndWait(
+          GCCBinary.get(), {GCCBinary.get(), "-v"}, {}, Redirects,
+          /*SecondsToWait*/ 0, /*MemoryLimit*/ 0, &ErrorMessage)) {
+    // Could not get the information, return false
+    return false;
+  }
+
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> OutputBuf =
+      llvm::MemoryBuffer::getFile(OutputFile.c_str());
+  if (!OutputBuf) {
+    // Could not capture output, return false
+    return false;
+  }
+
+  for (llvm::line_iterator LineIt(**OutputBuf); !LineIt.is_at_end(); ++LineIt) {
+    if (LineIt->str().find("enable-default-pie") != std::string::npos)
+      return true;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 

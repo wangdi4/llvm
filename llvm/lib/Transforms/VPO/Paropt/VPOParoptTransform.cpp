@@ -4455,7 +4455,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
 // copy constructor call (can be null) and by-ref dereference (false);
 void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
                                        Instruction *InsertPt, Function *Cctor,
-                                       bool IsByRef) {
+                                       bool IsByRef, Value *NumElements) {
   IRBuilder<> Builder(InsertPt);
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
   AllocaInst *AI = dyn_cast<AllocaInst>(To);
@@ -4463,9 +4463,12 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
     AI = dyn_cast<AllocaInst>(From);
 
   Type *AllocaTy = nullptr;
-  Value *NumElements = nullptr;
-  std::tie(AllocaTy, NumElements, std::ignore) =
-      VPOParoptUtils::getItemInfo(I);
+  if (NumElements)
+    std::tie(AllocaTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
+  else
+    std::tie(AllocaTy, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
 
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (IsByRef) {
@@ -9486,14 +9489,21 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
 
 // Generate the constructor/destructor/copy assignment/copy constructor for
 // privatized variables.
+// Optionally, NumElements can be specified to support VLA. Otherwise, it will
+// be determined from the privatized variable.
 void VPOParoptTransform::genPrivatizationInitOrFini(
     Item *I, Function *Fn, FunctionKind FuncKind, Value *DestVal, Value *SrcVal,
-    Instruction *InsertPt, DominatorTree *DT) {
+    Instruction *InsertPt, DominatorTree *DT,
+    Value *NumElements /* = nullptr */) {
   // The constructor/destructor/copy assignment/copy constructor function
   // is expected to be a per-element function.
   Type *AllocaTy = nullptr;
-  Value *NumElements = nullptr;
-  std::tie(AllocaTy, NumElements, std::ignore) = VPOParoptUtils::getItemInfo(I);
+  if (NumElements)
+    std::tie(AllocaTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
+  else
+    std::tie(AllocaTy, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
 
   // If it's array (fixed size or variable length array),
   // loop for calling constructor will be emitted.
@@ -12671,19 +12681,86 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   Instruction *InsertPt = W->getExitBBlock()->getTerminator();
   IRBuilder<> Builder(InsertPt);
 
+  LLVMContext &C = F->getContext();
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  LoadInst *SingleThreadVal =
+      Builder.CreateLoad(IsSingleThread->getAllocatedType(), IsSingleThread,
+                         IsSingleThread->getName() + ".val");
   SmallVector<Type *, 4> KmpCopyPrivatesVars;
+
+  // To support VLAs, the number of elements needs to be passed explicitly
+  // instead of retrieved from the original array. A two-element
+  // struct is created (1,3) to store the array's starting address and its size
+  // (4-8). Then this sub struct is stored in the KmpCopyPrivate struct (2),
+  // which is used for copyprivate callback (11). For non-VLAs, the operand's
+  // starting address is stored in the KmpCopyPrivate struct directly (9,10).
+  //
+  // e.g. Given source code:
+  //
+  // class goo a[n]; int b[10];
+  // #pragma omp single copyprivate(a, b)
+  //   ;
+  //
+  // The following IR for copyprivate clause is generated.
+  // %vla represents the VLA a in the source code.
+  //
+  // (1) %__struct.kmp_copy_privates_t =
+  //         type {%__struct.kmp_copy_privates_t.array, [10 x i32]* }
+  // (2) %__struct.kmp_copy_privates_t.array = type { %class.goo*, i64 }
+  // (3) %copyprivate.agg.1 = alloca %__struct.kmp_copy_privates_t
+  // (4) %vla.thunk.gep = getelementptr ... %copyprivate.agg.1, i32 0, i32 0
+  // (5) %vla.array.addr.gep =
+  //         getelementptr ... %vla.thunk.gep, i32 0, i32 0
+  // (6) store %vla, %vla.array.addr.gep
+  // (7) %vla.num.elements.gep =
+  //         getelementptr ... %vla.thunk.gep, i32 0, i32 1
+  // (8) store i64 %0, %vla.num.elements.gep
+  // (9) %b.thunk.gep = getelementptr ... %copyprivate.agg.1, i32 0, i32 1
+  // (10) store %b, %b.thunk.gep
+  // (11) call void @__kmpc_copyprivate(... @_Z3fool_copy_priv_1, ...)
+  //
+  // See genCopyPrivateFunc for details about the callback function
+  // @_Z3fool_copy_priv_1, sent to the __kmpc_copyprivate library call, to
+  // perform the copy.
+
+  DenseMap<std::pair<Type *, Type *>, StructType *> KmpCopyPrivateArrayInfo;
+  DenseMap<CopyprivateItem *, std::pair<StructType *, Value *>>
+      KmpCopyPrivArrayInfoTysAndNumElemsForVLAs;
   for (CopyprivateItem *CprivI : CprivClause.items()) {
+    assert(!CprivI->getIsByRef() &&
+           "Byrefs should be handled by the frontend.");
     Value *Orig = CprivI->getOrig();
-    KmpCopyPrivatesVars.push_back(Orig->getType());
+    Type *OrigTy = Orig->getType();
+    Value *NumElements = nullptr;
+    std::tie(std::ignore, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(CprivI);
+    bool IsVLA = NumElements && !isa<ConstantInt>(NumElements);
+    if (!IsVLA) {
+      KmpCopyPrivatesVars.push_back(OrigTy); // (1)
+      continue;
+    }
+    // If the type of VLA is not recorded in the map, create a new struct for
+    // it. Otherwise, load the stored sub-struct to KmpCopyPrivate struct.
+    Type *NumElementsTy = NumElements->getType();
+    std::pair<Type *, Type *> ArrayInfoTy = {OrigTy, NumElementsTy};
+    if (!KmpCopyPrivateArrayInfo.count(ArrayInfoTy)) {
+      StructType *KmpCopyPrivateArrayInfoTy = StructType::create(
+          C, {OrigTy, NumElementsTy}, "__struct.kmp_copy_privates_t.array",
+          false); // (2)
+      KmpCopyPrivateArrayInfo[ArrayInfoTy] = KmpCopyPrivateArrayInfoTy;
+    }
+    KmpCopyPrivArrayInfoTysAndNumElemsForVLAs[CprivI] = {
+        KmpCopyPrivateArrayInfo[ArrayInfoTy], NumElements};
+    KmpCopyPrivatesVars.push_back(KmpCopyPrivateArrayInfo[ArrayInfoTy]);
   }
 
-  LLVMContext &C = F->getContext();
   StructType *KmpCopyPrivateTy = StructType::create(
       C, makeArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
-      "__struct.kmp_copy_privates_t", false);
+      "__struct.kmp_copy_privates_t", false); // (1)
 
-  AllocaInst *CopyPrivateBase = Builder.CreateAlloca(
-      KmpCopyPrivateTy, nullptr, "copyprivate.agg." + Twine(W->getNumber()));
+  AllocaInst *CopyPrivateBase =
+      Builder.CreateAlloca(KmpCopyPrivateTy, nullptr,
+                           "copyprivate.agg." + Twine(W->getNumber())); // (3)
   SmallVector<Value *, 4> Indices;
 
   unsigned cnt = 0;
@@ -12691,26 +12768,79 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
     Indices.clear();
     Indices.push_back(Builder.getInt32(0));
     Indices.push_back(Builder.getInt32(cnt++));
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, CopyPrivateBase, Indices);
-    Builder.CreateStore(CprivI->getOrig(), Gep);
+    Value *Orig = CprivI->getOrig();
+    StringRef OrigName = Orig->getName();
+    Value *CprivIThunkGep =
+        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, CopyPrivateBase, Indices,
+                                  OrigName + ".thunk.gep"); // (4,9)
+
+    Value *NumElements = nullptr;
+    StructType *ArrayInfoTy = nullptr;
+    if (!KmpCopyPrivArrayInfoTysAndNumElemsForVLAs.count(CprivI)) {
+      // For non-VLAs, store only the operand's address to the KmpCopyPrivate
+      // struct.
+      Builder.CreateStore(Orig, CprivIThunkGep); // (10)
+      continue;
+    }
+    // For VLAs, save both the address and the number of elements, in a
+    // sub-structure of type {ptr <addr>, i64 <num-elemnts>}.
+    std::tie(ArrayInfoTy, NumElements) =
+        KmpCopyPrivArrayInfoTysAndNumElemsForVLAs[CprivI];
+    Value *Zero = Builder.getInt32(0);
+    Value *One = Builder.getInt32(1);
+    Value *ArrayAddrGep =
+        Builder.CreateInBoundsGEP(ArrayInfoTy, CprivIThunkGep, {Zero, Zero},
+                                  OrigName + ".array.addr.gep"); // (5)
+    Builder.CreateStore(Orig, ArrayAddrGep);                     // (6)
+    Value *NumElementsGep =
+        Builder.CreateInBoundsGEP(ArrayInfoTy, CprivIThunkGep, {Zero, One},
+                                  OrigName + ".num.elements.gep"); // (7)
+    Builder.CreateStore(NumElements, NumElementsGep);              // (8)
   }
 
   Function *FnCopyPriv = genCopyPrivateFunc(W, KmpCopyPrivateTy);
   assert(isa<PointerType>(CopyPrivateBase->getType()) &&
-           "genCopyPrivateCode: Expect non-empty pointer type");
-  const DataLayout &DL = F->getParent()->getDataLayout();
+         "genCopyPrivateCode: Expect non-empty pointer type");
   uint64_t Size = DL.getTypeAllocSize(KmpCopyPrivateTy);
-  VPOParoptUtils::genKmpcCopyPrivate(
-      W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
-      Builder.CreateLoad(IsSingleThread->getAllocatedType(), IsSingleThread),
-      InsertPt);
+  VPOParoptUtils::genKmpcCopyPrivate(W, IdentTy, TidPtrHolder, Size,
+                                     CopyPrivateBase, FnCopyPriv,
+                                     SingleThreadVal, InsertPt); // (11)
 
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
+
 // Generate the helper function for copying the copyprivate data.
-// TODO: nonPOD support
+//
+// In the example of generated callback (1-16):
+// For VLAs, it loads the array addr and number of elements from KmpCopyPrivate
+// struct first (2-9). A loop is generated for NONPOD array copy-assignment
+// (10,11). For non-VLAs, only variable addr is loaded (12-15). The callback
+// uses copy-assignment function for NONPOD (11) and memory copy function for
+// POD (16).
+//
+// (1) define internal void @_Z3fool_copy_priv_1(%0, %1) {
+//
+// (2)   %vla.src.gep = getelementptr ... %1, i32 0, i32 0
+// (3)   %vla.dst.gep = getelementptr ... %0, i32 0, i32 0
+// (4)   %vla.array.src.gep = getelementptr ... %vla.src.gep, i32 0, i32 0
+// (5)   %vla.array.src = load %vla.array.src.gep
+// (6)   %vla.array.dst.gep = getelementptr ... %vla.dst.gep, i32 0, i32 0
+// (7)   %vla.array.dst = load %vla.array.dst.gep
+// (8)   %vla.array.num.elements.gep =
+//           getelementptr ... %vla.src.gep, i32 0, i32 1
+// (9)   %vla.array.num.elements = load i64, %vla.array.num.elements.gep
+//
+// (10)  for i = 0 to %vla.array.num.elements:
+// (11)    call void @_ZTS3goo.omp.copy_assign(%vla.array.dst, %vla.array.src)
+//
+// (12)  %b.src.gep = getelementptr ... %1, i32 0, i32 1
+// (13)  %b.dst.gep = getelementptr ... %0, i32 0, i32 1
+// (14)  %b.src = load %b.src.gep
+// (15)  %b.dst = load %b.dst.gep
+// (16)  call void @llvm.memcpy.p0i8.p0i8.i64(%b.dst, %b.src, i64 40)
+//       ...
+//     }
 Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
                                                  StructType *KmpCopyPrivateTy) {
   LLVMContext &C = F->getContext();
@@ -12738,32 +12868,111 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
 
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();
-
-  Builder.SetInsertPoint(EntryBB->getTerminator());
+  Instruction *InsertPt = EntryBB->getTerminator();
+  Builder.SetInsertPoint(InsertPt);
 
   unsigned cnt = 0;
   CopyprivateClause &CprivClause = W->getCpriv();
   SmallVector<Value *, 4> Indices;
+  Value *Zero = Builder.getInt32(0);
+  Value *One = Builder.getInt32(1);
+  Value *SrcLoad = nullptr;
+  Value *DstLoad = nullptr;
+  Type *ElementTy = nullptr;
+  Value *NumElements = nullptr;
+
+  auto genLoad = [&](Type *LoadType, Value *ThunkGep, Twine ValName,
+                     StructType *VLAInfoTy = nullptr) -> Value * {
+    // For non-VLAs, the value can be directly loaded.
+    if (LoadType && !VLAInfoTy) {
+      LoadInst *Load =
+          Builder.CreateLoad(LoadType, ThunkGep, ValName); // (14,15)
+      return Load;
+    }
+
+    // For VLAs, the array addr need to be loaded from the sub-struct first.
+    Value *VLAGep = Builder.CreateInBoundsGEP(VLAInfoTy, ThunkGep, {Zero, Zero},
+                                              ValName + ".gep"); // (4,6)
+    LoadInst *Load =
+        Builder.CreateLoad(cast<GEPOperator>(VLAGep)->getResultElementType(),
+                           VLAGep, ValName); // (5,7)
+    return Load;
+  };
+
+  auto genCopyIfNonPod = [&](CopyprivateItem *Item) -> bool {
+    Function *FnCopyAssign = Item->getCopy();
+    if (!FnCopyAssign)
+      return false;
+
+    Item->setNew(SrcLoad);
+    genPrivatizationInitOrFini(Item, FnCopyAssign, FK_CopyAssign, DstLoad,
+                               SrcLoad, InsertPt, &DT, NumElements);
+    return true;
+  };
+
   for (CopyprivateItem *CprivI : CprivClause.items()) {
+    // genPrivatizationInitOrFini() generates correct code and changes the
+    // InsertPt's parent to another basic block. However, Builder assumes
+    // InsertPt's parent block is unchanged, and sets the parent of any new
+    // instructions it emits to InsertPt's original parent. As a workaround, we
+    // need to reset it in each iteration. Otherwise, the function verifier will
+    // fail later.
+    Builder.SetInsertPoint(InsertPt);
     StringRef OrigName = CprivI->getOrig()->getName();
     Indices.clear();
     Indices.push_back(Builder.getInt32(0));
     Indices.push_back(Builder.getInt32(cnt++));
     Value *SrcGep = Builder.CreateInBoundsGEP(KmpCopyPrivateTy, SrcArg, Indices,
-                                              OrigName + ".src.gep");
+                                              OrigName + ".src.gep"); // (2,12)
     Value *DstGep = Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices,
-                                              OrigName + ".dst.gep");
-    LoadInst *SrcLoad = Builder.CreateLoad(
-        cast<GEPOperator>(SrcGep)->getResultElementType(), SrcGep,
-        OrigName + ".src");
-    LoadInst *DstLoad = Builder.CreateLoad(
-        cast<GEPOperator>(DstGep)->getResultElementType(), DstGep,
-        OrigName + ".dst");
-    Value *NewCopyPrivInst =
-        genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
-    genLprivFini(CprivI, NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
-    NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
-    cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();
+                                              OrigName + ".dst.gep"); // (3,13)
+    std::tie(ElementTy, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(CprivI);
+
+    bool IsVLA = NumElements && !isa<ConstantInt>(NumElements);
+    if (!IsVLA) {
+      // For non-VLAs, the operand's address can be loaded directly from the
+      // KmpCopyPrivate struct.
+      SrcLoad = genLoad(cast<GEPOperator>(SrcGep)->getResultElementType(),
+                        SrcGep, OrigName + ".src"); // (14)
+      DstLoad = genLoad(cast<GEPOperator>(DstGep)->getResultElementType(),
+                        DstGep, OrigName + ".dst"); // (15)
+
+      //  Handle fixed size NONPOD array and scalar.
+      if (genCopyIfNonPod(CprivI))
+        continue;
+
+      // Handle POD array and scalar.
+      Value *NewCopyPrivInst =
+          genPrivatizationAlloca(CprivI, InsertPt, ".cp.priv");
+      genLprivFini(CprivI, NewCopyPrivInst, DstLoad, InsertPt); // (16)
+      NewCopyPrivInst->replaceAllUsesWith(SrcLoad);
+      cast<AllocaInst>(NewCopyPrivInst)->eraseFromParent();
+      continue;
+    }
+
+    // For VLAs, the address and the number of elements are loaded from the
+    // sub-structure of type {ptr <addr>, i64 <num-elemnts>}.
+    StructType *ArrayInfoTy =
+        cast<StructType>(KmpCopyPrivateTy->getTypeAtIndex(cnt - 1));
+    SrcLoad = genLoad(nullptr, SrcGep, OrigName + ".array.src",
+                      ArrayInfoTy); // (4,5)
+    DstLoad = genLoad(nullptr, DstGep, OrigName + ".array.dst",
+                      ArrayInfoTy); // (6,7)
+    Value *NumElementsGep =
+        Builder.CreateInBoundsGEP(ArrayInfoTy, SrcGep, {Zero, One},
+                                  OrigName + ".array.num.elements.gep"); // (8)
+    NumElements =
+        genLoad(cast<GEPOperator>(NumElementsGep)->getResultElementType(),
+                NumElementsGep, OrigName + ".array.num.elements"); // (9)
+
+    // Handle NONPOD VLA.
+    if (genCopyIfNonPod(CprivI)) // (10,11)
+      continue;
+
+    // Handle POD VLA.
+    genCopyByAddr(CprivI, DstLoad, SrcLoad, InsertPt, nullptr, false,
+                  NumElements);
   }
 
   return FnCopyPriv;
