@@ -86,6 +86,10 @@ public:
   // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
   VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadStore,
                                      unsigned VF) const;
+  // The Cost of Compress/Expand Idiom Load/Store instruction.
+  VPInstructionCost
+  getCompressExpandLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                 unsigned VF) const;
 
   const VPlanVector *const Plan;
   const unsigned VF;

@@ -1,5 +1,8 @@
 ; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
 
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
+
 ; BEGIN REGION { }
 ;       + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ;       |   if ((%C)[i1] != 0)
@@ -76,6 +79,16 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
+
+; CM4: Cost 1 for i32 [[VP2:%.*]] = compress-expand-index-init i32 [[J_0140:%.*]]
+; CM4: Cost 10 for compress-store double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]]
+; CM4: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc i32 [[VP3:%.*]] i32 1
+; CM4: Cost Unknown for i32 [[VP11:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+
+; CM8: Cost 1 for i32 [[VP2:%.*]] = compress-expand-index-init i32 [[J_0140:%.*]]
+; CM8: Cost 20 for compress-store double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]]
+; CM8: Cost 6 for i32 [[VP9:%.*]] = compress-expand-index-inc i32 [[VP3:%.*]] i32 1
+; CM8: Cost Unknown for i32 [[VP11:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
