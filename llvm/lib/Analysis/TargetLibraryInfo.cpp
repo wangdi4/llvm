@@ -1222,6 +1222,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_bad_array_new_length_ctor); 
+    TLI.setUnavailable(LibFunc_msvc_std_bad_array_new_length_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_under_Unlock);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_dtor);
@@ -1363,12 +1365,17 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_uncaught_exception);
     TLI.setUnavailable(LibFunc_msvc_std_under_generic_error_category_message);
     TLI.setUnavailable(LibFunc_msvc_std_under_immortalize_impl);
-    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_message);
     TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_name);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_message);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_name);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_locinfo_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_under_locinfo_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_system_error_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_under_Throw_bad_array_new_length);
+    TLI.setUnavailable(LibFunc_msvc_std_under_Xlen_string);
     TLI.setUnavailable(LibFunc_msvc_std_Xbad_alloc);
     TLI.setUnavailable(LibFunc_msvc_std_Xout_of_range);
     TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
@@ -1687,6 +1694,151 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_QueryPerformanceCounter:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
+<<<<<<< HEAD
+=======
+#endif // INTEL_CUSTOMIZATION
+  case LibFunc_dunder_strdup:
+  case LibFunc_dunder_strndup:
+    return (NumParams >= 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+  case LibFunc_dunder_strtok_r:
+    return (NumParams == 3 && FTy.getParamType(1)->isPointerTy());
+  case LibFunc_under_IO_putc:
+    return (NumParams == 2 && FTy.getParamType(1)->isPointerTy());
+  case LibFunc_dunder_isoc99_scanf:
+    return (NumParams >= 1 && FTy.getParamType(0)->isPointerTy());
+  case LibFunc_stat64:
+  case LibFunc_lstat64:
+  case LibFunc_statvfs64:
+    return (NumParams == 2 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+  case LibFunc_dunder_isoc99_sscanf:
+    return (NumParams >= 2 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+  case LibFunc_fopen64:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+  case LibFunc_tmpfile64:
+    return (FTy.getReturnType()->isPointerTy());
+  case LibFunc_fstat64:
+  case LibFunc_fstatvfs64:
+    return (NumParams == 2 && FTy.getParamType(1)->isPointerTy());
+  case LibFunc_open64:
+    return (NumParams >= 2 && FTy.getParamType(0)->isPointerTy());
+  case LibFunc_gettimeofday:
+    return (NumParams == 2 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  // new(unsigned int);
+  case LibFunc_Znwj:
+  // new(unsigned long);
+  case LibFunc_Znwm:
+  // new[](unsigned int);
+  case LibFunc_Znaj:
+  // new[](unsigned long);
+  case LibFunc_Znam:
+  // new(unsigned int);
+  case LibFunc_msvc_new_int:
+  // new(unsigned long long);
+  case LibFunc_msvc_new_longlong:
+  // new[](unsigned int);
+  case LibFunc_msvc_new_array_int:
+  // new[](unsigned long long);
+  case LibFunc_msvc_new_array_longlong:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy());
+
+  // new(unsigned int, nothrow);
+  case LibFunc_ZnwjRKSt9nothrow_t:
+  // new(unsigned long, nothrow);
+  case LibFunc_ZnwmRKSt9nothrow_t:
+  // new[](unsigned int, nothrow);
+  case LibFunc_ZnajRKSt9nothrow_t:
+  // new[](unsigned long, nothrow);
+  case LibFunc_ZnamRKSt9nothrow_t:
+  // new(unsigned int, nothrow);
+  case LibFunc_msvc_new_int_nothrow:
+  // new(unsigned long long, nothrow);
+  case LibFunc_msvc_new_longlong_nothrow:
+  // new[](unsigned int, nothrow);
+  case LibFunc_msvc_new_array_int_nothrow:
+  // new[](unsigned long long, nothrow);
+  case LibFunc_msvc_new_array_longlong_nothrow:
+  // new(unsigned int, align_val_t)
+  case LibFunc_ZnwjSt11align_val_t:
+  // new(unsigned long, align_val_t)
+  case LibFunc_ZnwmSt11align_val_t:
+  // new[](unsigned int, align_val_t)
+  case LibFunc_ZnajSt11align_val_t:
+  // new[](unsigned long, align_val_t)
+  case LibFunc_ZnamSt11align_val_t:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy());
+
+  // new(unsigned int, align_val_t, nothrow)
+  case LibFunc_ZnwjSt11align_val_tRKSt9nothrow_t:
+  // new(unsigned long, align_val_t, nothrow)
+  case LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t:
+  // new[](unsigned int, align_val_t, nothrow)
+  case LibFunc_ZnajSt11align_val_tRKSt9nothrow_t:
+  // new[](unsigned long, align_val_t, nothrow)
+  case LibFunc_ZnamSt11align_val_tRKSt9nothrow_t:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy());
+
+  // void operator delete[](void*);
+  case LibFunc_ZdaPv:
+  // void operator delete(void*);
+  case LibFunc_ZdlPv:
+  // void operator delete[](void*);
+  case LibFunc_msvc_delete_array_ptr32:
+  // void operator delete[](void*);
+  case LibFunc_msvc_delete_array_ptr64:
+  // void operator delete(void*);
+  case LibFunc_msvc_delete_ptr32:
+  // void operator delete(void*);
+  case LibFunc_msvc_delete_ptr64:
+    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy());
+
+  // void operator delete[](void*, nothrow);
+  case LibFunc_ZdaPvRKSt9nothrow_t:
+  // void operator delete[](void*, unsigned int);
+  case LibFunc_ZdaPvj:
+  // void operator delete[](void*, unsigned long);
+  case LibFunc_ZdaPvm:
+  // void operator delete(void*, nothrow);
+  case LibFunc_ZdlPvRKSt9nothrow_t:
+  // void operator delete(void*, unsigned int);
+  case LibFunc_ZdlPvj:
+  // void operator delete(void*, unsigned long);
+  case LibFunc_ZdlPvm:
+  // void operator delete(void*, align_val_t)
+  case LibFunc_ZdlPvSt11align_val_t:
+  // void operator delete[](void*, align_val_t)
+  case LibFunc_ZdaPvSt11align_val_t:
+  // void operator delete[](void*, unsigned int);
+  case LibFunc_msvc_delete_array_ptr32_int:
+  // void operator delete[](void*, nothrow);
+  case LibFunc_msvc_delete_array_ptr32_nothrow:
+  // void operator delete[](void*, unsigned long long);
+  case LibFunc_msvc_delete_array_ptr64_longlong:
+  // void operator delete[](void*, nothrow);
+  case LibFunc_msvc_delete_array_ptr64_nothrow:
+  // void operator delete(void*, unsigned int);
+  case LibFunc_msvc_delete_ptr32_int:
+  // void operator delete(void*, nothrow);
+  case LibFunc_msvc_delete_ptr32_nothrow:
+  // void operator delete(void*, unsigned long long);
+  case LibFunc_msvc_delete_ptr64_longlong:
+  // void operator delete(void*, nothrow);
+  case LibFunc_msvc_delete_ptr64_nothrow:
+    return (NumParams == 2 && FTy.getParamType(0)->isPointerTy());
+
+#if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_bad_array_new_length_ctor:
+      return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+          FTy.getParamType(0)->isPointerTy() &&         // this pointer
+          FTy.getParamType(1)->isPointerTy());
+
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
   case LibFunc_msvc_std_bad_alloc_ctor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
@@ -2496,7 +2648,23 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_msvc_std_bad_array_new_length_scalar_deleting_dtor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_under_Throw_bad_array_new_length:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
   case LibFunc_msvc_std_Xbad_alloc:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_msvc_std_under_Xlen_string:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
   case LibFunc_msvc_std_Xlength_error:
@@ -2515,7 +2683,17 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_msvc_std_under_iostreamer_error_category2_message:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_msvc_std_under_iostreamer_error_category_name:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_msvc_std_under_iostreamer_error_category2_name:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
 

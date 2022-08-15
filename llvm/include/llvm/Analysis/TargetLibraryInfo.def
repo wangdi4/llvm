@@ -188,7 +188,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// __cdecl std::bad_alloc::bad_alloc(class std::bad_alloc const & __ptr64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_alloc_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0bad_alloc@std@@QEAA@AEBV01@@Z")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// public: __cdecl std::bad_array_new_length::bad_array_new_length(class std::bad_array_new_length const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_array_new_length_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0bad_array_new_length@std@@QEAA@AEBV01@@Z")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// exception(const exception &right);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_const_ptr_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0exception@std@@QEAA@AEBV01@@Z")
@@ -357,7 +363,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// virtual void * __ptr64 __cdecl std::numpunct<char>::`scalar deleting destructor'(unsigned int) __ptr6
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_G?$numpunct@D@std@@MEAAPEAXI@Z")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// public: virtual void * __ptr64 __cdecl std::_Iostream_error_category2::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G_Iostream_error_category2@std@@UEAAPEAXI@Z")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// public: virtual void * __ptr64 __cdecl std::_Iostream_error_category::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_G_Iostream_error_category@std@@UEAAPEAXI@Z")
@@ -369,7 +381,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// virtual void * __ptr64 __cdecl std::bad_alloc::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_alloc_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gbad_alloc@std@@UEAAPEAXI@Z")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// public: virtual void * __ptr64 __cdecl std::bad_array_new_length::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_array_new_length_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_Gbad_array_new_length@std@@UEAAPEAXI@Z")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// public: virtual void * __ptr64 __cdecl std::exception::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gexception@std@@UEAAPEAXI@Z")
@@ -514,7 +532,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// char const * __ptr64 __cdecl std::_Syserror_map(int)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Syserror_map)
 TLI_DEFINE_STRING_INTERNAL("?_Syserror_map@std@@YAPEBDH@Z")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// void __cdecl std::_Throw_bad_array_new_length(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_Throw_bad_array_new_length)
+TLI_DEFINE_STRING_INTERNAL("?_Throw_bad_array_new_length@std@@YAXXZ")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// void __cdecl std::numpunct<char>::_Tidy(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_Tidy)
 TLI_DEFINE_STRING_INTERNAL("?_Tidy@?$numpunct@D@std@@AEAAXXZ")
@@ -534,7 +558,13 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// public: static void __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::_Xlen(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_under_xlen)
 TLI_DEFINE_STRING_INTERNAL("?_Xlen@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@SAXXZ")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// void __cdecl std::_Xlen_string(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_Xlen_string)
+TLI_DEFINE_STRING_INTERNAL("?_Xlen_string@std@@YAXXZ")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// void __cdecl std::_Xlength_error(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xlength_error)
 TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
@@ -754,11 +784,23 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Generic_error_category::message(int)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_generic_error_category_message)
 TLI_DEFINE_STRING_INTERNAL("?message@_Generic_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
+<<<<<<< HEAD
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Iostream_error_category::message(int)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_message)
 TLI_DEFINE_STRING_INTERNAL("?message@_Iostream_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+=======
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Iostream_error_category2::message(int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category2_message)
+TLI_DEFINE_STRING_INTERNAL("?message@_Iostream_error_category2@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Iostream_error_category::message(int)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_message)
+TLI_DEFINE_STRING_INTERNAL("?message@_Iostream_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
+/// public: virtual char const * __ptr64 __cdecl std::_Iostream_error_category2::name(void)const __ptr64		
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category2_name)
+TLI_DEFINE_STRING_INTERNAL("?name@_Iostream_error_category2@std@@UEBAPEBDXZ")
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
 /// virtual char const * __ptr64 __cdecl std::_Iostream_error_category::name(void)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_name)
 TLI_DEFINE_STRING_INTERNAL("?name@_Iostream_error_category@std@@UEBAPEBDXZ")
