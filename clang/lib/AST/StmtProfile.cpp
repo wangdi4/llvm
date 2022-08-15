@@ -518,6 +518,7 @@ void OMPClauseProfiler::VisitOMPOmpxMonotonicClause(
   if (C->getStep())
     Profiler->VisitStmt(C->getStep());
 }
+void OMPClauseProfiler::VisitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {}
 void OMPClauseProfiler::VisitOMPOmpxOverlapClause(
     const OMPOmpxOverlapClause *C) {
   if (C->getOverlap())

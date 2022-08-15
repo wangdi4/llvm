@@ -11555,6 +11555,9 @@ OMPClause *OMPClauseReader::readClause() {
     break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+  case llvm::omp::OMPC_ompx_assert:
+    C = new (Context) OMPOmpxAssertClause();
+    break;
   case llvm::omp::OMPC_tile:
     C = OMPTileClause::CreateEmpty(Context, Record.readInt());
     break;
@@ -11940,6 +11943,8 @@ void OMPClauseReader::VisitOMPDataClause(OMPDataClause *C) {
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+void OMPClauseReader::VisitOMPOmpxAssertClause(OMPOmpxAssertClause *) {}
+
 void OMPClauseReader::VisitOMPTileClause(OMPTileClause *C) {
   for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I) {
     C->setTile(I, Record.readSubExpr());
