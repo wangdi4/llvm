@@ -93,7 +93,7 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
 TEST_F(TargetLibraryInfoTest, ValidProto) {
 #if INTEL_CUSTOMIZATION
   // The string containing test asm, was split in 2 parts since the length
-  // of the string constant exceeded C++ limitation.
+  // of the string constant exceeded C++ limitation [See Line ~750].
   // TODO: It looks reasonable to move all INTEL_CUSTOMIZATION related functions
   // to a single chunk, which would improve the maintainability. 
   std::string TestAsm = ""
@@ -576,6 +576,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @\"??_G?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G?$numpunct@D@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gbad_alloc@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
+      "declare i8* @\"??_Gbad_array_new_length@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gexception@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gios_base@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gruntime_error@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
@@ -592,6 +593,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @\"??0_Lockit@std@@QEAA@H@Z\"(i8*, i32)\n"
       "declare %struct* @\"??0_System_error@std@@QEAA@AEBV01@@Z\"(%struct*, %struct*)\n"
       "declare %struct* @\"??0bad_alloc@std@@QEAA@AEBV01@@Z\"(%struct*, %struct*)\n"
+      "declare %struct* @\"??0bad_array_new_length@std@@QEAA@AEBV01@@Z\"(%struct*, %struct*)\n"
       "declare %struct* @\"??0exception@std@@QEAA@AEBV01@@Z\"(%struct*, %struct*)\n"
       "declare %struct* @\"??0failure@ios_base@std@@QEAA@PEBDAEBVerror_code@2@@Z\"(%struct*, i8*, %struct*)\n"
       "declare %struct* @\"??0runtime_error@std@@QEAA@AEBV01@@Z\"(%struct*, %struct*)\n"
@@ -618,6 +620,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @\"??_G?$codecvt@DDU_Mbstatet@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G?$ctype@D@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G_Iostream_error_category@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
+      "declare i8* @\"??_G_Iostream_error_category2@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G_System_error@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gfailure@ios_base@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_Gsystem_error@std@@UEAAPEAXI@Z\"(%struct*, i32)\n"
@@ -627,8 +630,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @\"?_Init@locale@std@@CAPEAV_Locimp@12@_N@Z\"(i1)\n"
       "declare void @\"?_Xlength_error@std@@YAXPEBD@Z\"(i8*)\n"
       "declare i8* @\"?_Syserror_map@std@@YAPEBDH@Z\"(i32)\n"
+      "declare void @\"?_Throw_bad_array_new_length@std@@YAXXZ\"()\n"
       "declare void @\"?_Tidy@?$numpunct@D@std@@AEAAXXZ\"(%struct*)\n"
       "declare void @\"?_Xbad_alloc@std@@YAXXZ\"()\n"
+      "declare void @\"?_Xlen_string@std@@YAXXZ\"()\n"
       "declare void @\"?_Xout_of_range@std@@YAXPEBD@Z\"(i8*)\n"
       "declare void @\"?_Xran@?$_String_val@U?$_Simple_types@D@std@@@std@@SAXXZ\"()\n"
       "declare void @\"?_Xruntime_error@std@@YAXPEBD@Z\"(i8*)\n"
@@ -687,7 +692,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"?make_error_code@std@@YA?AVerror_code@1@W4io_errc@1@@Z\"(%struct*, i32)\n"
       "declare void @\"?message@_Generic_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z\"(%struct*, %struct*, i32)\n"
       "declare void @\"?message@_Iostream_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z\"(%struct*, %struct*, i32)\n"
+      "declare void @\"?message@_Iostream_error_category2@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z\"(%struct*, %struct*, i32)\n"
       "declare i8* @\"?name@_Iostream_error_category@std@@UEBAPEBDXZ\"(%struct*)\n"
+      "declare i8* @\"?name@_Iostream_error_category2@std@@UEBAPEBDXZ\"(%struct*)\n"
       "declare void @\"?imbue@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAXAEBVlocale@2@@Z\"(%struct*, %struct*)\n"
       "declare void @\"?imbue@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAXAEBVlocale@2@@Z\"(%struct*, %struct*)\n"
       "declare %struct* @\"?insert@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@_K0D@Z\"(%struct*, i64, i64, i8)\n"
@@ -741,7 +748,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__cxa_guard_release(%struct*)\n"
 
 #if INTEL_CUSTOMIZATION
-      "declare i8* @__dynamic_cast(i8*, i8*, i8*, i64)\n"
+      "declare i8* @__dynamic_cast(i8*, i8*, i8*, i64)\n";
+
+      // Split ASM string to avoid max string literal error
+      std::string TestAsm2 = ""
 #endif // INTEL_CUSTOMIZATION
 
       "declare i32 @__nvvm_reflect(i8*)\n"
@@ -1473,6 +1483,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
 
 #if INTEL_CUSTOMIZATION
+  TestAsm += TestAsm2;
   TestAsm += ""
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EOS4_(%struct*, %struct*)\n"
       "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4_(%struct*, %struct*)\n";
