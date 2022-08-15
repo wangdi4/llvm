@@ -109,6 +109,11 @@ X86_CPU_SUBTYPE(INTEL_COREI7_SAPPHIRERAPIDS, "sapphirerapids")
 X86_CPU_SUBTYPE(INTEL_COREI7_ALDERLAKE,      "alderlake")
 X86_CPU_SUBTYPE(AMDFAM19H_ZNVER3,            "znver3")
 X86_CPU_SUBTYPE(INTEL_COREI7_ROCKETLAKE,     "rocketlake")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+X86_CPU_SUBTYPE(INTEL_COREI7_RAPTORLAKE,     "raptorlake")
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
 #undef X86_CPU_SUBTYPE
 
 // This macro is used for cpu types present in compiler-rt/libgcc. The third

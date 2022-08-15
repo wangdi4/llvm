@@ -2019,6 +2019,12 @@ def : ProcModel<"sapphirerapids", SPRModel,
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+def : ProcModel<"raptorlake", ADLModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.
 

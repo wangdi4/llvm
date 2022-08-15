@@ -390,6 +390,10 @@
 # end INTEL_FEATURE_SW_DTRANS
 # === New SW features section end ===
 
+# === New CPU section begin ===
+# INTEL_FEATURE_CPU_RPL
+@CPU_RPL:SECRET@
+# end INTEL_FEATURE_CPU_RPL
 # === New CPU section end ===
 
 # Special software features section currently consist of

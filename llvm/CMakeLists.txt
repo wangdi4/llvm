@@ -1106,6 +1106,11 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
+# INTEL_FEATURE_CPU_RPL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_RPL)
+# end INTEL_FEATURE_CPU_RPL
+
 # INTEL_FEATURE_XISA_COMMON
       # This is used to guard code that shared by more then one XISA features.
       list(APPEND features_enabled_by_default
