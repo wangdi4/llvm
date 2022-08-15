@@ -18760,6 +18760,11 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_nowait:
     Res = ActOnOpenMPNowaitClause(StartLoc, EndLoc);
     break;
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_assert:
+    Res = ActOnOpenMPOmpxAssertClause(StartLoc, EndLoc);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case OMPC_untied:
     Res = ActOnOpenMPUntiedClause(StartLoc, EndLoc);
     break;
@@ -21850,6 +21855,11 @@ OMPClause *Sema::ActOnOpenMPOmpxMonotonicClause(
 
   return OMPOmpxMonotonicClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
                                         EndLoc, Vars, Step);
+}
+
+OMPClause *Sema::ActOnOpenMPOmpxAssertClause(SourceLocation StartLoc,
+                                         SourceLocation EndLoc) {
+  return new (Context) OMPOmpxAssertClause(StartLoc, EndLoc);
 }
 
 OMPClause *Sema::ActOnOpenMPOmpxOverlapClause(Expr *Overlap,

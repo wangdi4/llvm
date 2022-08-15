@@ -2378,6 +2378,7 @@ void OMPClauseEnqueue::VisitOMPOmpxMonotonicClause(
   VisitOMPClauseList(C);
   Visitor->AddStmt(C->getStep());
 }
+void OMPClauseEnqueue::VisitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {}
 void OMPClauseEnqueue::VisitOMPOmpxOverlapClause(
     const OMPOmpxOverlapClause *C) {
   Visitor->AddStmt(C->getOverlap());

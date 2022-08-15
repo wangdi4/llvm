@@ -12023,6 +12023,9 @@ public:
                                             SourceLocation LParenLoc,
                                             SourceLocation ColonLoc,
                                             SourceLocation EndLoc);
+  /// Called on well-formed 'ompx_assert' clause.
+  OMPClause *ActOnOpenMPOmpxAssertClause(SourceLocation StartLoc,
+                                         SourceLocation EndLoc);
   /// Called on well-formed 'ompx_overlap' clause.
   OMPClause *ActOnOpenMPOmpxOverlapClause(Expr *Overlap,
                                           SourceLocation StartLoc,

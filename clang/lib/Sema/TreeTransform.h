@@ -9745,6 +9745,13 @@ TreeTransform<Derived>::TransformOMPDataClause(OMPDataClause *C) {
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 OMPClause *
+TreeTransform<Derived>::TransformOMPOmpxAssertClause(OMPOmpxAssertClause *C) {
+  // No need to rebuild this clause, no template-dependent parameters.
+  return C;
+}
+
+template <typename Derived>
+OMPClause *
 TreeTransform<Derived>::TransformOMPTileClause(OMPTileClause *C) {
   llvm::SmallVector<Expr *, 4> Sizes;
   for (unsigned I = 0, End = C->getNumLoops(); I < End; ++I) {
