@@ -31,6 +31,23 @@ using namespace llvm;
 using namespace dtransOP;
 
 namespace {
+DTransFunctionType *getDTransFunctionType(TypeMetadataReader &MDReader,
+                                          Function *F) {
+  return dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
+}
+
+DTransType *getArgType(TypeMetadataReader &MDReader, Function *F,
+                       uint32_t ArgIdx) {
+  DTransFunctionType *DFnTy = getDTransFunctionType(MDReader, F);
+  if (!DFnTy)
+    return nullptr;
+
+  if (ArgIdx >= DFnTy->getNumArgs())
+    return nullptr;
+
+  return DFnTy->getArgType(ArgIdx);
+}
+
 // Member functions are classified based on functionality.
 enum MemManageFKind : unsigned {
   Constructor = 0,  // Constructor
@@ -122,6 +139,9 @@ private:
 
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions();
+  bool checkCallSiteRestrictions();
+
+  bool isStrObjPtrType(DTransType *Ty);
 };
 
 // Collect candidates.
@@ -338,6 +358,16 @@ bool MemManageTransImpl::analyzeCandidates(Module &M) {
   return true;
 }
 
+bool MemManageTransImpl::isStrObjPtrType(DTransType *Ty) {
+  if (!Ty || !Ty->isPointerTy())
+    return false;
+
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  DTransStructType *StrObjType = Cand->getStringObjectType();
+  DTransType *ObjTy = Ty->getPointerElementType();
+  return ObjTy == StrObjType;
+}
+
 // Categorize interface functions (AllocatorInterfaceFunctions) using
 // return type and signature.
 // ReusableArenaAllocatorType or ArenaAllocatorType is considered as
@@ -419,8 +449,7 @@ bool MemManageTransImpl::categorizeFunctions() {
     int32_t IntArgs = 0;
     int32_t StrObjArgs = 0;
 
-    auto *DFnTy =
-        dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
+    DTransFunctionType *DFnTy = getDTransFunctionType(MDReader, F);
     if (!DFnTy)
       return UnKnown;
 
@@ -527,6 +556,92 @@ bool MemManageTransImpl::categorizeFunctions() {
   return true;
 }
 
+// This routine checks that the calls are in the order given here:
+//   AllocateBlock();
+//   StrObjCtor();
+//   CommitBlock();
+//
+// Check for the following callsite restrictions:
+// 1. Only one callsite is allowed for AllocateBlock and CommitBlock.
+// 2. StrObjCtor should be called after AllocateBlock.
+// 3. CommitBlock is called after StrObjCtor.
+// 4. Only instructions without side effects are allowed in between calls.
+bool MemManageTransImpl::checkCallSiteRestrictions() {
+
+  // Skip instructions without side effects. Returns next instruction.
+  auto GetNextInstWithSideEffects = [this](Instruction *I) -> Instruction * {
+    BasicBlock::iterator EndIt = I->getParent()->end();
+    BasicBlock::iterator It = I->getIterator();
+    // Get next instruction.
+    It++;
+    for (; It != EndIt; It++) {
+      Instruction *II = &*It;
+      if (!II->mayWriteToMemory())
+        continue;
+      if (auto *CB = dyn_cast<CallBase>(II)) {
+        auto *CalledF = dtrans::getCalledFunction(*CB);
+        assert(CalledF && "Unexpected indirect call");
+        // Allow GetMemManager call as it doesn't have any side effects.
+        if (FunctionalityMap[GetMemManager] == CalledF)
+          continue;
+      }
+      return II;
+    }
+    return nullptr;
+  };
+
+  // Returns callsite for "F" if it has a single callsite.
+  // Otherwise, returns nullptr.
+  auto GetSingleCallSite = [](Function *F) -> CallBase * {
+    CallBase *CallS = nullptr;
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      // Ignore non-callbase uses as we already proved that all other
+      // uses are related to VTable.
+      if (!CB)
+        continue;
+      if (CallS)
+        return nullptr;
+      CallS = CB;
+    }
+    return CallS;
+  };
+
+  CallBase *AllocCall = GetSingleCallSite(FunctionalityMap[AllocateBlock]);
+  CallBase *CommitCall = GetSingleCallSite(FunctionalityMap[CommitAllocation]);
+  if (!CommitCall || !AllocCall)
+    return false;
+
+  // Check that both calls are in same BasicBlock.
+  if (CommitCall->getParent() != AllocCall->getParent())
+    return false;
+
+  // Check that the "StrObjCtor" call follows the "AllocateBlock" call.
+  auto *StrObjCtor =
+      dyn_cast_or_null<CallBase>(GetNextInstWithSideEffects(AllocCall));
+  if (!StrObjCtor)
+    return false;
+  if (StrObjCtor->arg_size() < 1)
+    return false;
+
+  // Check that StrObjCtor is a direct call to a constructor.
+  Function *Ctor = dtrans::getCalledFunction(*StrObjCtor);
+  if (!Ctor)
+    return false;
+  if (!Ctor->hasFnAttribute("intel-mempool-constructor"))
+    return false;
+
+  // Check that the first argument is a "StringObjectType"
+  if (!isStrObjPtrType(getArgType(MDReader, Ctor, 0)))
+    return false;
+
+  // Check that the next call is the "CommitBlock"
+  Instruction *NextCall = GetNextInstWithSideEffects(StrObjCtor);
+  if (!NextCall || NextCall != CommitCall)
+    return false;
+  return true;
+}
+
 bool MemManageTransImpl::run(Module &M) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                   { dbgs() << "MemManageTransOP transformation: \n"; });
@@ -550,6 +665,13 @@ bool MemManageTransImpl::run(Module &M) {
   // Categorize functions based on signatures.
   if (!categorizeFunctions())
     return false;
+
+  // Check callsite restrictions for AllocateBlock and CommitBlock.
+  if (!checkCallSiteRestrictions()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    { dbgs() << "   Failed: Callsite restrictions\n"; });
+    return false;
+  }
 
   // TODO: Implement the pass.
   return false;
