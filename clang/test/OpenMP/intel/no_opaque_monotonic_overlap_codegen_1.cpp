@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -std=c++11 -fopenmp-late-outline \
-// RUN:  -opaque-pointers -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN:  -no-opaque-pointers -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // expected-no-diagnostics
 
@@ -59,11 +59,11 @@ void use_template() {
 // CHECK: define {{.*}}@_ZN1S5applyILi10EEEiv(
 // CHECK: "DIR.OMP.SIMD"
 // CHECK: "DIR.OMP.ORDERED"
-// CHECK: "QUAL.OMP.MONOTONIC"(ptr %a, i32 10)
+// CHECK: "QUAL.OMP.MONOTONIC"(i32* %a, i32 10)
 // CHECK: "DIR.OMP.END.ORDERED"
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.SIMD"
-// CHECK: [[L11:%11]] = load i32, ptr %a13
+// CHECK: [[L11:%11]] = load i32, i32* %a13
 // CHECK: "DIR.OMP.ORDERED"
 // CHECK: "QUAL.OMP.OVERLAP"(i32 [[L11]]
 // CHECK: "DIR.OMP.END.ORDERED"
@@ -73,7 +73,7 @@ void use_template() {
 // CHECK: "DIR.OMP.SIMD"
 // CHECK: "DIR.OMP.ORDERED"
 // CHECK-SAME: "QUAL.OMP.ORDERED.SIMD"
-// CHECK-SAME: "QUAL.OMP.MONOTONIC"(ptr %x.addr, i32 10)
+// CHECK-SAME: "QUAL.OMP.MONOTONIC"(i32* %x.addr, i32 10)
 // CHECK: "DIR.OMP.END.ORDERED"
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.SIMD"
@@ -82,7 +82,7 @@ void use_template() {
 // CHECK: "DIR.OMP.END.ORDERED"
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.SIMD"
-// CHECK: [[L26:%26]] = load i32, ptr %i38
+// CHECK: [[L26:%26]] = load i32, i32* %i38
 // CHECK: "DIR.OMP.ORDERED"
 // CHECK: "QUAL.OMP.OVERLAP"(i32 [[L26]])
 // CHECK: "DIR.OMP.END.ORDERED"

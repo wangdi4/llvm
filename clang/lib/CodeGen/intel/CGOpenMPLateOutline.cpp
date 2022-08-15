@@ -2454,6 +2454,21 @@ void OpenMPLateOutliner::emitOMPOmpxOverlapClause(
   addArg(CSB.getString());
   addArg(CGF.EmitScalarExpr(Cl->getOverlap()));
 }
+void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
+    const OMPOmpxMonotonicClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_ompx_monotonic,
+                             "QUAL.OMP.MONOTONIC");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    E = E->IgnoreParenImpCasts();
+    if (E->getType()->isPointerType())
+      CSB.setPtrToPtr();
+    addArg(CSB.getString());
+    addArg(E);
+    addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
+                         : CGF.Builder.getInt32(0));
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {
@@ -2654,8 +2669,6 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
-void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
-    const OMPOmpxMonotonicClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
