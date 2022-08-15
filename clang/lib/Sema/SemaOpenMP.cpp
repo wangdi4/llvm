@@ -19094,7 +19094,11 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
     return true;
 
   const auto *DRE = dyn_cast<DeclRefExpr>(InteropVarExpr);
+#if INTEL_COLLAB
+  if (Kind != OMPC_interop && (!DRE || !isa<VarDecl>(DRE->getDecl()))) {
+#else // INTEL_COLLAB
   if (!DRE || !isa<VarDecl>(DRE->getDecl())) {
+#endif // INTEL_COLLAB
     SemaRef.Diag(VarLoc, diag::err_omp_interop_variable_expected) << 0;
     return false;
   }
@@ -19123,6 +19127,12 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
 
   QualType VarType = InteropVarExpr->getType().getUnqualifiedType();
   if (!SemaRef.Context.hasSameType(InteropType, VarType)) {
+#if INTEL_COLLAB
+    if (Kind == OMPC_interop) {
+      SemaRef.Diag(VarLoc, diag::err_omp_interop_expression_wrong_type);
+      return false;
+    }
+#endif // INTEL_COLLAB
     SemaRef.Diag(VarLoc, diag::err_omp_interop_variable_wrong_type);
     return false;
   }

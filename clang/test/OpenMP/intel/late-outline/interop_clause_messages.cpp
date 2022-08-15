@@ -1,3 +1,4 @@
+// INTEL_COLLAB
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-late-outline -fopenmp-version=60 \
 // RUN:    -std=c++11 -o - %s
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -DNOINTEL \
@@ -34,12 +35,8 @@ void foo1(float *Fp1, float *Fp2) {
     #pragma omp dispatch interop(I1)
     bar1(Fp1, Fp2);
 #else
-    //expected-error@+1 {{expected variable of type 'omp_interop_t'}}
-    #pragma omp dispatch interop(func())
-    bar1(Fp1, Fp2);
-
     int a;
-    //expected-error@+1 {{interop variable must be of type 'omp_interop_t'}}
+    //expected-error@+1 {{'interop' clause expression must be of type 'omp_interop_t'}}
     #pragma omp dispatch interop(a)
     bar1(Fp1, Fp2);
 
@@ -53,3 +50,4 @@ void foo1(float *Fp1, float *Fp2) {
 #endif
   }
 }
+// end INTEL_COLLAB

@@ -11197,6 +11197,8 @@ def warn_omp_static_duration_allocate_directive : Warning<
   "'%0' is equivalent to 'omp_default_mem_alloc’ for variables with static "
   "storage duration, consider using a local variable instead">,
   InGroup<OpenMPAllocate>;
+def err_omp_interop_expression_wrong_type : Error<
+  "'interop' clause expression must be of type 'omp_interop_t'">;
 // end INTEL_COLLAB
 def note_omp_protected_structured_block
     : Note<"jump bypasses OpenMP structured block">;
