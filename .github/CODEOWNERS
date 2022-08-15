@@ -457,6 +457,11 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h @skozhukh @mamasten @ivankelarev @sguggill
 /llvm/include/llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h @skozhukh @mamasten @ivankelarev @sguggill
 /llvm/lib/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
+
+# ParVec directive insertion is owned by vectorizer team
+/llvm/lib/Transforms/Intel_LoopTransforms/ParVecDirectiveInsertion.cpp @skozhukh @mamasten @ivankelarev @sguggill
+/llvm/lib/Transforms/Intel_LoopTransforms/ParVecDirectiveInsertion.h @skozhukh @mamasten @ivankelarev @sguggill
+
 /llvm/lib/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
 /llvm/lib/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.cpp @skozhukh @mamasten @ivankelarev @sguggill
 /llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @ayrivera-intel
