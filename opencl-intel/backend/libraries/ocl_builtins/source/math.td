@@ -79,7 +79,6 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     def log10_f16 : OclBuiltin<"log10", (outs gentype:$ret), (ins gentype:$x)>;
     def log1p_f16 : OclBuiltin<"log1p", (outs gentype:$ret), (ins gentype:$x)>;
     def logb_f16 : OclBuiltin<"logb", (outs gentype:$ret), (ins gentype:$x)>;
-    // def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
     def maxmag_f16 : OclBuiltin<"maxmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def minmag_f16 : OclBuiltin<"minmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def modf_pas_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
@@ -116,6 +115,8 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     def tgamma_f16 : OclBuiltin<"tgamma", (outs gentype:$ret), (ins gentype:$x)>;
     def trunc_f16 : OclBuiltin<"trunc", (outs gentype:$ret), (ins gentype:$x)>;
   } // defset math_builtins
+
+  def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
 }
 
 defvar promote_f16_to_f32_code = [{
@@ -155,8 +156,12 @@ foreach bi = math_builtins in {
   // [AMX] v3f16: call masked v4f16
 }
 
+// Specialized implementations
+// mad: returns a*b+c
+def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
+
 // VectInfos
-foreach bi = math_builtins in {
+foreach bi = math_builtins # [mad_f16] in {
   def : VectInfo<[v1f16], bi, bi, bi, bi, bi, bi>;
 
   // TODO: add masked VectInfo
