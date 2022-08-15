@@ -1194,6 +1194,8 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
+  case LibFunc_msvc_std_bad_array_new_length_ctor:
+  case LibFunc_msvc_std_bad_array_new_length_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_filebuf_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_filebuf_dtor:
   case LibFunc_msvc_std_basic_filebuf_imbue:
@@ -1332,12 +1334,21 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_system_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_under_generic_error_category_message:
   case LibFunc_msvc_std_under_iostreamer_error_category_message:
+<<<<<<< HEAD
     break;
+=======
+  case LibFunc_msvc_std_under_iostreamer_error_category2_message:
+    return Changed;
+>>>>>>> 92bad7cf3d7cd6733b4f4db7ed02c5496ec61978
   case LibFunc_msvc_std_under_iostreamer_error_category_name:
+  case LibFunc_msvc_std_under_iostreamer_error_category2_name:
     Changed |= setDoesNotThrow(F);
     break;
   case LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor:
+  case LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor:
   case LibFunc_msvc_std_under_system_error_scalar_deleting_dtor:
+  case LibFunc_msvc_std_under_Throw_bad_array_new_length:
+  case LibFunc_msvc_std_under_Xlen_string:
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
   case LibFunc_msvc_std_yarn_wchar_dtor:

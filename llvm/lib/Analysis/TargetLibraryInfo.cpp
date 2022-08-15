@@ -1188,6 +1188,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_bad_array_new_length_ctor); 
+    TLI.setUnavailable(LibFunc_msvc_std_bad_array_new_length_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_under_Unlock);
     TLI.setUnavailable(LibFunc_msvc_std_basic_filebuf_dtor);
@@ -1329,12 +1331,17 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_uncaught_exception);
     TLI.setUnavailable(LibFunc_msvc_std_under_generic_error_category_message);
     TLI.setUnavailable(LibFunc_msvc_std_under_immortalize_impl);
-    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_message);
     TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_name);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_message);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_name);
+    TLI.setUnavailable(LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_locinfo_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_under_locinfo_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_under_system_error_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_under_Throw_bad_array_new_length);
+    TLI.setUnavailable(LibFunc_msvc_std_under_Xlen_string);
     TLI.setUnavailable(LibFunc_msvc_std_Xbad_alloc);
     TLI.setUnavailable(LibFunc_msvc_std_Xout_of_range);
     TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
@@ -2205,6 +2212,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getParamType(0)->isPointerTy());
 
 #if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_bad_array_new_length_ctor:
+      return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+          FTy.getParamType(0)->isPointerTy() &&         // this pointer
+          FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_msvc_std_bad_alloc_ctor:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
@@ -3014,7 +3026,23 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_msvc_std_bad_array_new_length_scalar_deleting_dtor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_under_Throw_bad_array_new_length:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
   case LibFunc_msvc_std_Xbad_alloc:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  case LibFunc_msvc_std_under_Xlen_string:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
   case LibFunc_msvc_std_Xlength_error:
@@ -3033,7 +3061,17 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_msvc_std_under_iostreamer_error_category2_message:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_msvc_std_under_iostreamer_error_category_name:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_msvc_std_under_iostreamer_error_category2_name:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
