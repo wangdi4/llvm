@@ -178,7 +178,9 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
     [[fallthrough]];
   case tok::kw_typeof:
   case tok::kw___attribute:
-  case tok::kw___underlying_type: {
+#define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case tok::kw___##Trait:
+#include "clang/Basic/TransformTypeTraits.def"
+  {
     ConsumeToken();
     if (Tok.isNot(tok::l_paren))
       return TPResult::Error;
@@ -1702,8 +1704,8 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
     return TPResult::True;
   }
 
-  // C++0x type traits support
-  case tok::kw___underlying_type:
+#define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case tok::kw___##Trait:
+#include "clang/Basic/TransformTypeTraits.def"
     return TPResult::True;
 
   // C11 _Atomic
@@ -1741,7 +1743,8 @@ bool Parser::isCXXDeclarationSpecifierAType() {
   case tok::annot_template_id:
   case tok::annot_typename:
   case tok::kw_typeof:
-  case tok::kw___underlying_type:
+#define TRANSFORM_TYPE_TRAIT_DEF(_, Trait) case tok::kw___##Trait:
+#include "clang/Basic/TransformTypeTraits.def"
     return true;
 
     // elaborated-type-specifier
