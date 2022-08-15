@@ -24,11 +24,44 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/Support/FormattedStream.h"
 
 #define DTRANS_MEMMANAGETRANSOP "dtrans-memmanagetransop"
 
 using namespace llvm;
 using namespace dtransOP;
+
+// MemManageTrans is triggered only when SOAToAOS is triggered.
+// This option is used to ignore SOAToAOS heuristic for testing.
+static cl::opt<bool>
+    MemManageIgnoreSOAHeur("dtrans-memmanageop-ignore-soa-heur",
+                           cl::init(false), cl::ReallyHidden);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// This pass requires that several functions be matched in their entirety to
+// trigger the transformation. This flag is used for LIT testing to run the
+// subsequent 'recognize*' function, even if a prior 'recognize*' function
+// failed to match the required function. This facilitates creating negative
+// tests, which otherwise would need to be generated with a complete valid match
+// of each prior function to generate the negative variant of a function being
+// checked.
+static cl::opt<bool>
+    MemManageContinueAfterMismatch("dtrans-memmanageop-continue-after-mismatch",
+                                   cl::init(false), cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Check whether a mismatch during function recognition should continue to check
+// functions following one recognition failure. In production, this should
+// always be 'false', but for testing negative tests this can help put multiple
+// negative versions into a single LIT test.
+static bool continueAfterMismatch() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  return MemManageContinueAfterMismatch;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  return false;
+}
 
 namespace {
 DTransFunctionType *getDTransFunctionType(TypeMetadataReader &MDReader,
@@ -91,6 +124,27 @@ inline raw_ostream &operator<<(raw_ostream &OS, MemManageFKind FKind) {
   }
   return OS;
 }
+
+// Helper to annotate which instructions were visited when trying to recognize
+// the functionality of one of the functions.
+class VisitedAnnotationWriter : public AssemblyAnnotationWriter {
+public:
+  VisitedAnnotationWriter(std::set<Instruction *> &Visited)
+      : Visited(Visited.begin(), Visited.end()) {}
+
+  // printInfoComment - Emit a comment to the right of an instruction to
+  // identify which instructions were visited during the recognition.
+  void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
+    if (auto *I = dyn_cast<Instruction>(&V))
+      if (Visited.count(I))
+        OS << " ; [Visited]";
+      else
+        OS << " ; [Not visited]";
+  }
+
+private:
+  std::set<const Instruction *> Visited;
+};
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 class MemManageTransImpl {
@@ -130,18 +184,35 @@ private:
   // for each MemManageFKind.
   DenseMap<unsigned, Function *> FunctionalityMap;
 
+  // For each of the categorized functions, keep the DTransFunctionType of the
+  // signature for use when matching the functionality of the Function.
+  DenseMap<Function *, DTransFunctionType *> FunctionalityTypeMap;
+
+  // This set is used to track instructions that are processed. This needs to be
+  // cleared at the start of each 'recognize*' function.
+  std::set<Instruction *> Visited;
+
   // Set of Interface functions and their users.
   SmallPtrSet<Function *, 32> RelatedFunctions;
 
   bool gatherCandidates(Module &M, FunctionTypeResolver &TypeResolver);
   bool analyzeCandidates(Module &M);
-  bool categorizeFunctions();
-
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions();
   bool checkCallSiteRestrictions();
+  bool categorizeFunctions();
+  bool recognizeFunctions();
+  bool recognizeGetMemManager(Function *);
 
   bool isStrObjPtrType(DTransType *Ty);
+  bool getGEPBaseAddrIndex(Value *V, Value **BaseOp, int32_t *Idx);
+  bool isAllocatorBlockSizeAddr(Value *V, Value *Obj);
+  bool isArenaAllocatorAddr(Value *V, Value *Obj);
+  bool isGEPLessArenaAllocatorAddr(Value *V, Value *Obj);
+  bool isListAddr(Value *V, Value *Obj);
+  bool isListMemManagerAddr(Value *V, Value *Obj);
+  bool isListMemManagerLoad(Value *V, Value *Obj);
+  bool verifyAllInstsProcessed(Function *F);
 };
 
 // Collect candidates.
@@ -535,6 +606,12 @@ bool MemManageTransImpl::categorizeFunctions() {
   unsigned NumInterfacefunctions = 0;
   for (auto F : Cand->interface_functions()) {
     NumInterfacefunctions++;
+    DTransFunctionType *DFnTy = getDTransFunctionType(MDReader, F);
+    if (!DFnTy) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      { dbgs() << "   Failed: Unknown functionality\n"; });
+      return false;
+    }
     MemManageFKind FKind = CategorizeFunctionUsingSignature(F);
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
       dbgs() << "   " << F->getName() << ": " << FKind << "\n";
@@ -550,9 +627,334 @@ bool MemManageTransImpl::categorizeFunctions() {
       return false;
     }
     FunctionalityMap[FKind] = F;
+    FunctionalityTypeMap[F] = DFnTy;
   }
   assert(FunctionalityMap.size() == NumInterfacefunctions &&
          "Unexpected functionality");
+  return true;
+}
+
+// Returns true if "V" is GetElementPtrInst that is in expected format.
+// Updates BaseOp with pointer operand and Idx with last index when
+// returning true.
+// Ex:
+//   %i8 = getelementptr %XalanList, ptr %i5, i64 0, i32 2
+bool MemManageTransImpl::getGEPBaseAddrIndex(Value *V, Value **BaseOp,
+                                             int32_t *Idx) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(V);
+  if (!GEP)
+    return false;
+  if (GEP->getNumIndices() != 2)
+    return false;
+  if (!isa<StructType>(GEP->getSourceElementType()))
+    return false;
+  auto GepOp1 = dyn_cast<ConstantInt>(GEP->getOperand(1));
+  if (!GepOp1 || !GepOp1->isZeroValue())
+    return false;
+  auto *ConstVal = dyn_cast<ConstantInt>(GEP->getOperand(2));
+  if (!ConstVal)
+    return false;
+  *Idx = ConstVal->getLimitedValue();
+  *BaseOp = GEP->getOperand(0);
+  Visited.insert(GEP);
+  return true;
+}
+
+// Returns true if "V" represents address of ArenaAllocator.
+// Type of "This Pointer" for interface functions can be either
+// ReusableArenaAllocator or ArenaAllocator.
+// This routine handles both cases.
+// Ex:
+//   foo(ArenaAllocator *Obj) {
+//     Obj
+//   }
+//
+//   or
+//
+//   foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator
+//   }
+//
+bool MemManageTransImpl::isArenaAllocatorAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  // Check if type of "This pointer" is ArenaAllocator.
+  // If it is ArenaAllocator, address of ArenaAllocator is "obj".
+  if (auto *Arg = dyn_cast<Argument>(Obj)) {
+    Function *F = Arg->getParent();
+    DTransFunctionType *DFnTy = FunctionalityTypeMap[F];
+    if (!DFnTy || DFnTy->getNumArgs() != F->arg_size())
+      return false;
+
+    DTransType *ObjTy = DFnTy->getArgType(Arg->getArgNo());
+    if (!ObjTy->isPointerTy())
+      return false;
+
+    if (ObjTy->getPointerElementType() == Cand->getArenaAllocatorType()) {
+      if (V != Obj)
+        return false;
+      return true;
+    }
+  }
+
+  // If type of "This pointer" is ReusableArenaAllocator, address of
+  // ArenaAllocator is "Obj->ArenaAllocator".
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getArenaAllocatorObjectIndex())
+    return false;
+  if (BasePtr != Obj)
+    return false;
+  return true;
+}
+
+// This handles the case where the "This pointer" object type is
+// "ReusableArenaAllocator", but the GEP directly indexes the element
+// zero structure type as "ArenaAllocator"
+//
+//   foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator
+//   }
+bool MemManageTransImpl::isGEPLessArenaAllocatorAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  if (auto *Arg = dyn_cast<Argument>(Obj)) {
+    Function *F = Arg->getParent();
+    DTransFunctionType *DFnTy = FunctionalityTypeMap[F];
+    if (!DFnTy || DFnTy->getNumArgs() != F->arg_size())
+      return false;
+
+    DTransType *ObjTy = DFnTy->getArgType(Arg->getArgNo());
+    if (!ObjTy->isPointerTy())
+      return false;
+
+    if (ObjTy->getPointerElementType() ==
+            Cand->getReusableArenaAllocatorType() &&
+        Cand->getArenaAllocatorObjectIndex() == 0 && V == Obj)
+      return true;
+  }
+
+  return false;
+}
+
+// Returns true if "V" represents address of List in ArenaAllocator.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List
+//  }
+bool MemManageTransImpl::isListAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getListObjectIndex())
+    return false;
+  if (!isArenaAllocatorAddr(BasePtr, Obj) &&
+      !isGEPLessArenaAllocatorAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of blockSize in ArenaAllocator.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.blockSize
+//  }
+bool MemManageTransImpl::isAllocatorBlockSizeAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getAllocatorBlockSizeIndex())
+    return false;
+  if (!isArenaAllocatorAddr(BasePtr, Obj) &&
+      !isGEPLessArenaAllocatorAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of MemManager in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.MemManager
+//  }
+bool MemManageTransImpl::isListMemManagerAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getListMemManagerIndex())
+    return false;
+  if (!isListAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" is load of ListMemManager address.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->List.MemoryManager
+//  }
+//
+//  or
+//
+//  foo(ReusableArenaAllocator *Obj) {
+//    GetMemManager(Obj)
+//  }
+bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
+  // We prove that GetMemManager function just returns "MemoryManager".
+  // "GetMemManager(Obj)" call is also treated as "MemoryManager".
+  if (auto *CB = dyn_cast<CallBase>(V)) {
+    auto *CalledF = dtrans::getCalledFunction(*CB);
+    assert(CalledF && "Unexpected indirect call");
+    if (FunctionalityMap[GetMemManager] != CalledF)
+      return false;
+    assert(CB->arg_size() == 1 && "Unexpected arguments");
+    if (!isArenaAllocatorAddr(CB->getArgOperand(0), Obj))
+      return false;
+    Visited.insert(CB);
+    return true;
+  }
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  Value *LoadAddr = LI->getPointerOperand();
+  if (!isListMemManagerAddr(LoadAddr, Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Check functionality of each interface function to prove that
+// it is an allocator class.
+bool MemManageTransImpl::recognizeFunctions() {
+  // Check functionality of GetMemManager.
+  Function *GetMemF = FunctionalityMap[GetMemManager];
+  if (!GetMemF)
+    return false;
+  if (!recognizeGetMemManager(GetMemF)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize GetMemManager function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      GetMemF->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+#if 0 // TODO: Match the rest
+  // Check functionality of Constructor.
+  Function *Ctor = FunctionalityMap[Constructor];
+  if (!Ctor)
+    return false;
+  if (!recognizeConstructor(Ctor)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize Constructor function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      Ctor->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+  // Check functionality of AllocateBlock.
+  Function *AllocBlock = FunctionalityMap[AllocateBlock];
+  if (!AllocBlock)
+    return false;
+  if (!recognizeAllocateBlock(AllocBlock)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize AllocateBlock function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      AllocBlock->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+  // Check functionality of CommitAllocation.
+  Function *CAllocation = FunctionalityMap[CommitAllocation];
+  if (!CAllocation)
+    return false;
+  if (!recognizeCommitAllocation(CAllocation)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize CommitAllocation function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      CAllocation->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+  // Check functionality of Destructor.
+  Function *Dtor = FunctionalityMap[Destructor];
+  if (!Dtor)
+    return false;
+  if (!recognizeDestructor(Dtor)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize Destructor function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      Dtor->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+  // Check functionality of Reset.
+  Function *ResetF = FunctionalityMap[Reset];
+  if (!ResetF)
+    return false;
+  if (!recognizeReset(ResetF)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize Reset function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      ResetF->print(dbgs(), &Annotator);
+    });
+    if (!continueAfterMismatch())
+      return false;
+  }
+
+  // Check functionality of DestroyObject.
+  Function *ObjDtorF = FunctionalityMap[DestroyObject];
+  if (!ObjDtorF)
+    return false;
+  if (!recognizeDestroyObject(ObjDtorF)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "Failed to recognize DestroyObject function\n";
+      VisitedAnnotationWriter Annotator(Visited);
+      ObjDtorF->print(dbgs(), &Annotator);
+    });
+    return false;
+  }
+#endif
+
+  return true;
+}
+
+// Return false if any unvisited instruction that can affect the behavior of a
+// function being matched is found in "F".
+bool MemManageTransImpl::verifyAllInstsProcessed(Function *F) {
+  for (auto &I : instructions(F)) {
+    if (Visited.count(&I))
+      continue;
+
+    // Ignore ReturnInst with no operands.
+    if (isa<ReturnInst>(&I) && I.getNumOperands() == 0)
+      continue;
+
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+      dbgs() << "   Failed: Missed processing some instructions\n"
+             << "   " << I << "\n";
+    });
+    // Return false if any instruction is not found in "visited".
+    return false;
+  }
+
   return true;
 }
 
@@ -642,6 +1044,44 @@ bool MemManageTransImpl::checkCallSiteRestrictions() {
   return true;
 }
 
+// Returns true if "F" is recognized as "GetMemManager".
+// Ex:
+//   MemManager *getMemManager(ArenaAllocatorTy *Obj) {
+//     return Obj->List.MemoryManager;
+//   }
+//
+// Based on the interface categorization, we know the following about F on
+// input:
+//   Return type: "MemInterfaceType"
+//   Inputs: 1 argument of type "ReusableArenaAllocatorType" or
+//   "ArenaAllocatorType"
+//
+// Check that the returned value is from loading a "MemoryManager" field from a
+// "ListType"
+bool MemManageTransImpl::recognizeGetMemManager(Function *F) {
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                  dbgs() << "   Recognizing GetMemManager Functionality "
+                         << F->getName() << "\n";);
+  if (F->size() != 1)
+    return false;
+  assert(F->arg_size() == 1 && "Unexpected arguments");
+  auto *Ret = dyn_cast<ReturnInst>(F->getEntryBlock().getTerminator());
+  assert(Ret && "Expected Ret instruction");
+  Value *RetVal = Ret->getReturnValue();
+  assert(RetVal && "Unexpected Return Value");
+  Visited.clear();
+  Argument *ThisObj = &*F->arg_begin();
+  if (!isListMemManagerLoad(RetVal, ThisObj))
+    return false;
+  Visited.insert(Ret);
+  if (!verifyAllInstsProcessed(F))
+    return false;
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                  dbgs() << "   Recognized GetMemManager: " << F->getName()
+                         << "\n";);
+  return true;
+}
+
 bool MemManageTransImpl::run(Module &M) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                   { dbgs() << "MemManageTransOP transformation: \n"; });
@@ -670,6 +1110,13 @@ bool MemManageTransImpl::run(Module &M) {
   if (!checkCallSiteRestrictions()) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                     { dbgs() << "   Failed: Callsite restrictions\n"; });
+    return false;
+  }
+
+  // Recognize functionality of each interface function.
+  if (!recognizeFunctions()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    { dbgs() << "   Failed: Recognizing functionality\n"; });
     return false;
   }
 
