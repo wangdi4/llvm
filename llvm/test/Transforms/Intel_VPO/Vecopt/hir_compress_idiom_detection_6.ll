@@ -1,5 +1,8 @@
 ; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
 
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
+
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, 14, 1   <DO_LOOP>
 ; <7>                |   if ((%c)[i1] != 0)
@@ -90,6 +93,20 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
+
+; CM4: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 [[K_0130:%.*]]
+; CM4: Cost 10 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
+; CM4: Cost 10 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
+; CM4: Cost 10 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM4: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]] i32 1
+; CM4: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+
+; CM8: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 [[K_0130:%.*]]
+; CM8: Cost 20 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
+; CM8: Cost 20 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
+; CM8: Cost 20 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM8: Cost 7 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]] i32 1
+; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
