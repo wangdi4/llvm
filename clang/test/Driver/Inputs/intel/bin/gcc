@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "--enable-default-pie"
+exit 0
