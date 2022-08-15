@@ -856,6 +856,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Tigerlake:
   case CK_SapphireRapids:
   case CK_Alderlake:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+  case CK_Raptorlake:
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -2483,6 +2488,11 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+    case CK_Raptorlake:
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:
     // K7
