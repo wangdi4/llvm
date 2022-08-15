@@ -1,4 +1,21 @@
 //===-- cpu_model.c - Support for __cpu_model builtin  ------------*- C -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -107,6 +124,11 @@ enum ProcessorSubtypes {
   INTEL_COREI7_ALDERLAKE,
   AMDFAM19H_ZNVER3,
   INTEL_COREI7_ROCKETLAKE,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+  INTEL_COREI7_RAPTORLAKE,
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
   CPU_SUBTYPE_MAX
 };
 
@@ -444,6 +466,18 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_ALDERLAKE;
       break;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+    // Raptorlake:
+    case 0xb7: // Raptorlake desktop
+    case 0xba: // Raptorlake mobile
+      CPU = "raptorlake";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_RAPTORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
 
     // Icelake Xeon:
     case 0x6a:

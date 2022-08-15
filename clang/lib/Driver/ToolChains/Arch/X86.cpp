@@ -88,6 +88,9 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                           "sapphire_rapids", "sapphirerapids")
               .CaseLower("alderlake", "alderlake")
               .CaseLower("rocketlake", "rocketlake")
+#if INTEL_FEATURE_CPU_RPL
+              .CaseLower("raptorlake", "raptorlake")
+#endif // INTEL_FEATURE_CPU_RPL
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }

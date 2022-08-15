@@ -834,6 +834,18 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ALDERLAKE;
       break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RPL
+    // Raptorlake:
+    case 0xb7: // Raptorlake desktop
+    case 0xba: // Raptorlake mobile
+      CPU = "raptorlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_RAPTORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_RPL
+#endif // INTEL_CUSTOMIZATION
+
     // Icelake Xeon:
     case 0x6a:
     case 0x6c:
