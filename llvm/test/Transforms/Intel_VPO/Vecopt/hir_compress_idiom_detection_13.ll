@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -46,7 +46,7 @@
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP16]], [[BB1]] ],  [ i32 [[VP9]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP8]] = phi  [ i32 [[VP16]], [[BB1]] ],  [ i32 [[VP17:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
@@ -60,18 +60,19 @@
 ; CHECK-NEXT:       i64 [[VP11]] = add i64 [[VP3]] i64 [[VP12]]
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP11]]
 ; CHECK-NEXT:       compress-store double [[VP_LOAD]] double* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP17:%.*]] = compress-expand-index-inc i32 [[VP8]] i32 1
+; CHECK-NEXT:       i32 [[VP10]] = add i32 [[VP8]] i32 1
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP9]] = phi  [ i32 [[VP17]], [[BB4]] ],  [ i32 [[VP8]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP9]] = phi  [ i32 [[VP10]], [[BB4]] ],  [ i32 [[VP8]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP17]] = compress-expand-index-inc i32 [[VP9]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP6]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP15]], [[BB0]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i32 [[VP18:%.*]] = compress-expand-index-final i32 [[VP9]]
+; CHECK-NEXT:     i32 [[VP18:%.*]] = compress-expand-index-final i32 [[VP17]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

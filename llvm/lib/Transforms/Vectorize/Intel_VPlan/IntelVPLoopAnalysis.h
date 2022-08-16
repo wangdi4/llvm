@@ -52,6 +52,8 @@ class VPReductionInitScalar;
 class VPReductionFinal;
 class VPLoadStoreInst;
 class VPDominatorTree;
+class VPCompressExpandInit;
+class VPCompressExpandFinal;
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -536,6 +538,13 @@ public:
 
   Type *getAllocatedType() const override;
 
+  VPPHINode *getRecurrentPhi() const { return RecurrentPhi; }
+  VPValue *getLiveIn() const { return LiveIn; }
+  VPInstruction *getLiveOut() const { return LiveOut; }
+
+  VPCompressExpandInit *getInit() const { return Init; }
+  VPCompressExpandFinal *getFinal() const { return Final; }
+
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == CompressExpand;
@@ -549,6 +558,9 @@ private:
   VPPHINode *RecurrentPhi;
   VPValue *LiveIn;
   VPInstruction *LiveOut;
+
+  VPCompressExpandInit *Init = nullptr;
+  VPCompressExpandFinal *Final = nullptr;
 
   SmallVector<IncrementInfoTy, 4> Increments;
   SmallVector<VPLoadStoreInst *, 4> Stores;
