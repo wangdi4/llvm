@@ -564,6 +564,7 @@ void writeThinLTOBitcode(raw_ostream &OS, raw_ostream *ThinLinkOS,
     writeThinLinkBitcodeToFile(M, *ThinLinkOS, *Index, ModHash);
 }
 
+<<<<<<< HEAD
 class WriteThinLTOBitcode : public ModulePass {
   raw_ostream &OS; // raw_ostream to print on
   // The output stream on which to emit a minimized module for use
@@ -597,21 +598,9 @@ public:
     AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
   }
 };
+=======
+>>>>>>> 633f5663c37a670e28040cadd938200abd854483
 } // anonymous namespace
-
-char WriteThinLTOBitcode::ID = 0;
-INITIALIZE_PASS_BEGIN(WriteThinLTOBitcode, "write-thinlto-bitcode",
-                      "Write ThinLTO Bitcode", false, true)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(ModuleSummaryIndexWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(WriteThinLTOBitcode, "write-thinlto-bitcode",
-                    "Write ThinLTO Bitcode", false, true)
-
-ModulePass *llvm::createWriteThinLTOBitcodePass(raw_ostream &Str,
-                                                raw_ostream *ThinLinkOS) {
-  return new WriteThinLTOBitcode(Str, ThinLinkOS);
-}
 
 PreservedAnalyses
 llvm::ThinLTOBitcodeWriterPass::run(Module &M, ModuleAnalysisManager &AM) {
