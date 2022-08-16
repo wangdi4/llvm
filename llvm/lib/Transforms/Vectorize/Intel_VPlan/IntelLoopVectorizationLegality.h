@@ -61,10 +61,11 @@ public:
     // Loop entities framework does not support array reductions idiom. Bailout
     // to prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
     ArrayReduction,
-    // Loop entities framework does not support nonPOD lastprivates array.
+    // Loop entities framework does not support nonPOD [last]privates array.
     // Bailout to prevent incorrect vector code generatiion.
     // TODO: CMPLRLLVM-30686.
     ArrayLastprivateNonPod,
+    ArrayPrivateNonPod,
     ArrayPrivate,
     UnsupportedReductionOp,
     InscanReduction,
@@ -84,6 +85,8 @@ public:
       return "Cannot handle array reductions.\n";
     case BailoutReason::ArrayLastprivateNonPod:
       return "Cannot handle nonPOD array lastprivates.\n";
+    case BailoutReason::ArrayPrivateNonPod:
+      return "Cannot handle nonPOD array privates.\n";
     case BailoutReason::ArrayPrivate:
       return "Cannot handle array privates yet.\n";
     case BailoutReason::UnsupportedReductionOp:
@@ -233,7 +236,7 @@ private:
   // When NumElements is null (aka 1 element) return ElType.
   // When it is a constant, construct an array type <NumElements x ElType>
   // Otherwise return nullptr.
-  Type *adjustTypeIfArray(Type *ElType, Value *NumElements) {
+  Type *adjustTypeIfArray(Type *ElType, const Value *NumElements) {
     if (!NumElements)
       return ElType;
     // For opaque pointers this is a new way an array type being communicated
@@ -271,6 +274,8 @@ private:
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
+      if (isa<ArrayType>(Type) || NumElements)
+        return bailout(BailoutReason::ArrayPrivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
                      nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
                      Item->getIsF90NonPod());
