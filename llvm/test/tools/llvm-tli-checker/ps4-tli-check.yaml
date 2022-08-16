@@ -53,10 +53,10 @@
 ## Yes, this means additions to TLI will fail this test, but the argument
 ## to -COUNT can't be an expression.
 # INTEL_CUSTOMIZATION
-# AVAIL: TLI knows 1260 symbols, 738 available
+# AVAIL: TLI knows 1267 symbols, 738 available
 # AVAIL-COUNT-738: {{^}} available
 # AVAIL-NOT:       {{^}} available
-# UNAVAIL-COUNT-522: not available
+# UNAVAIL-COUNT-529: not available
 # UNAVAIL-NOT:       not available
 # end INTEL_CUSTOMIZATION
 
