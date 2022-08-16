@@ -19132,6 +19132,12 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
 
   QualType VarType = InteropVarExpr->getType().getUnqualifiedType();
   if (!SemaRef.Context.hasSameType(InteropType, VarType)) {
+#if INTEL_COLLAB
+    if (Kind == OMPC_interop) {
+      SemaRef.Diag(VarLoc, diag::err_omp_interop_expression_wrong_type);
+      return false;
+    }
+#endif // INTEL_COLLAB
     SemaRef.Diag(VarLoc, diag::err_omp_interop_variable_wrong_type);
     return false;
   }

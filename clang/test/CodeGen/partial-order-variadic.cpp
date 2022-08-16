@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fclang-abi-compat=14 -DCLANG_ABI_COMPAT=14 %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s --check-prefix=CHECK-14
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-unknown -fclang-abi-compat=14 -DCLANG_ABI_COMPAT=14 %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s --check-prefix=CHECK-14
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-unknown %s -emit-llvm -disable-llvm-passes -o - | FileCheck %s
 
 #if defined(CLANG_ABI_COMPAT) && CLANG_ABI_COMPAT <= 14
 
