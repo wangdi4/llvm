@@ -214,6 +214,10 @@ public:
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
     virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
+    // Reset and create a new LLVMContext for current thread.
+    // Returns the new LLVMContext.
+    llvm::LLVMContext * resetLLVMContextForCurrentThread();
+
 protected:
     SmallVector<std::unique_ptr<Module>, 2> LoadBuiltinModules(BuiltinLibrary *
                                                                pLibrary);
@@ -229,7 +233,12 @@ protected:
     // Each host thread should have its own LLVMContext, because it is not
     // thread-safe for multiple threads to access LLVM resources within a
     // single LLVMContext.
-    std::unordered_map<std::thread::id, llvm::LLVMContext *> m_LLVMContexts;
+    std::unordered_map<std::thread::id, std::unique_ptr<llvm::LLVMContext>>
+        m_LLVMContexts;
+    // LLVMContext is reset when CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER is set,
+    // This vector stored the old LLVMContext, which must be valid until its
+    // related resources are released.
+    std::vector<std::unique_ptr<llvm::LLVMContext>> m_depletedLLVMContexts;
     llvm::sys::Mutex m_LLVMContextMutex;
     Intel::OpenCL::Utils::CPUDetect *m_CpuId;
     llvm::SmallVector<std::string, 8>
