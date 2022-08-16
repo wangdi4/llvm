@@ -77,18 +77,6 @@ define i32 @testRem(i8* %p, i64* %p1) {
 ; CHECK:       general_case24:
 ; CHECK-NEXT:    br i1 false, label [[LOOP2_PREHEADER:%.*]], label [[LOOP2_EXIT]]
 ; CHECK:       loop2.preheader:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP0:%.*]] = udiv i32 14, [[LOCAL_0_]]
-; CHECK-NEXT:    [[TMP1:%.*]] = udiv i32 60392, [[TMP0]]
-; INTEL_CUSTOMIZATION
-; Added nsw flags.
-; CHECK-NEXT:    [[TMP2:%.*]] = mul nsw i32 [[TMP1]], -1
-; CHECK-NEXT:    [[TMP3:%.*]] = mul nsw i32 [[TMP2]], [[TMP0]]
-; END INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP4:%.*]] = sext i32 [[TMP3]] to i64
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i64 [[TMP4]], 60392
-=======
->>>>>>> ebabd6bf1889d38660f5e00c8b2d3724f9ee7e4a
 ; CHECK-NEXT:    br label [[LOOP2:%.*]]
 ; CHECK:       loop2:
 ; CHECK-NEXT:    [[I4:%.*]] = load atomic i64, i64* [[P1:%.*]] unordered, align 8
