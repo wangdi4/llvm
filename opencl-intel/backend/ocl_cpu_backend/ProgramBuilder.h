@@ -119,8 +119,5 @@ private:
     std::string m_dumpFilenamePrefix;
     // Workload name for the stats
     std::string m_statWkldName;
-#ifndef INTEL_PRODUCT_RELEASE
-    std::unique_ptr<llvm::LLVMContext> ReplaceModuleCtx;
-#endif
 };
 }}}

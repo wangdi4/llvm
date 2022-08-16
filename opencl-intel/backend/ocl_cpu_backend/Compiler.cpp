@@ -342,10 +342,6 @@ Compiler::~Compiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
-
-    for (auto &C : m_LLVMContexts)
-        delete C.second;
-    m_LLVMContexts.clear();
 }
 
 void Compiler::materializeSpirTriple(llvm::Module *M) {
@@ -690,13 +686,24 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
     return *strTargetTriple;
 }
 
+llvm::LLVMContext* Compiler::resetLLVMContextForCurrentThread() {
+  std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
+  auto NewCtx = std::make_unique<LLVMContext>();
+  auto NewCtxPtr = NewCtx.get();
+  auto It = m_LLVMContexts.find(std::this_thread::get_id());
+  assert(It != m_LLVMContexts.end() && "LLVMContext should already exist");
+  It->second.swap(NewCtx);
+  m_depletedLLVMContexts.push_back(std::move(NewCtx));
+  return NewCtxPtr;
+}
+
 llvm::LLVMContext& Compiler::getLLVMContext() {
-    std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
-    auto TID = std::this_thread::get_id();
-    auto It = m_LLVMContexts.find(TID);
-    if (It == m_LLVMContexts.end())
-        It = m_LLVMContexts.insert(std::make_pair(TID, new LLVMContext)).first;
-    return *It->second;
+  std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
+  auto TID = std::this_thread::get_id();
+  auto It = m_LLVMContexts.find(TID);
+  if (It == m_LLVMContexts.end())
+      It = m_LLVMContexts.emplace(TID, std::make_unique<LLVMContext>()).first;
+  return *It->second;
 }
 
 }}}

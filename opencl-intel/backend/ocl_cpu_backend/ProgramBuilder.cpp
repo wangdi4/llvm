@@ -19,7 +19,7 @@
 #include "BitCodeContainer.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "Compiler.h"
+#include "CPUCompiler.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "OCLAddressSpace.h"
@@ -231,14 +231,21 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
 #ifndef INTEL_PRODUCT_RELEASE
         std::string Env;
+        llvm::LLVMContext *ReplaceModuleCtx = nullptr;
         auto ReplaceModule = [&](bool BeforeOptimizer) {
           dbgs() << "WARNING: replace module IR before device "
                  << (BeforeOptimizer ? "optimizer" : "CodeGen") << ": " << Env
                  << "\n";
           // Create new LLVMContext instead of reusing pModule's LLVMContext, in
-          // order to avoid type renaming in textual dump.
-          if (!ReplaceModuleCtx)
-            ReplaceModuleCtx.reset(new LLVMContext);
+          // order to avoid type renaming in textual IR dump.
+          static llvm::once_flag OnceFlag;
+          llvm::call_once(OnceFlag, [&]() {
+            ReplaceModuleCtx = pCompiler->resetLLVMContextForCurrentThread();
+            // Reload builtin modules since context is changed.
+            static_cast<CPUCompiler *>(pCompiler)->GetOrLoadBuiltinModules(
+                /*ForceLoad*/ true);
+          });
+          assert(ReplaceModuleCtx && "invalid replace context");
           SMDiagnostic Err;
           std::unique_ptr<Module> ReplaceModule =
               parseIRFile(Env, Err, *ReplaceModuleCtx);

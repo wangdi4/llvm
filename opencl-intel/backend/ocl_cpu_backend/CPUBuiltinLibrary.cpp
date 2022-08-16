@@ -66,7 +66,7 @@ void CPUBuiltinLibrary::Load() {
     throw Exceptions::DeviceBackendExceptionBase(
         std::string("Failed to load the builtins rtl library"));
 
-  m_pRtlBuffer = RTLBufferOrErr.get().release();
+  m_pRtlBuffer = std::move(RTLBufferOrErr.get());
 
   // Load shared built-in library
   // Deploy case:
@@ -94,7 +94,7 @@ void CPUBuiltinLibrary::Load() {
       throw Exceptions::DeviceBackendExceptionBase(
           std::string("Failed to load the shared builtins rtl library"));
   }
-  m_pRtlBufferSvmlShared = RTLBufferSharedOrErr.get().release();
+  m_pRtlBufferSvmlShared = std::move(RTLBufferSharedOrErr.get());
 }
 
 }}} // namespace
