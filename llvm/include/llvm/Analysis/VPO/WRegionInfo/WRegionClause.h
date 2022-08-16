@@ -1032,13 +1032,42 @@ class CopyprivateItem : public Item
 
   public:
     CopyprivateItem(VAR Orig) : Item(Orig, IK_Copyprivate), Copy(nullptr) {}
+    CopyprivateItem(const Use *Args, bool Typed = false)
+        : Item(nullptr, IK_Copyprivate), Copy(nullptr) {
+      // COPYPRIVATE nonPOD Args are: var, copy-assign
+      setIsTyped(Typed);
+      int TypeOffset = 0;
+      if (getIsTyped()) {
+        // COPYPRIVATE:TYPED nonPOD Args are: var, Type, NumElements,
+        // copy-assign
+        TypeOffset = 2;
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
+      }
+      Value *V = Args[0];
+      setOrig(V);
+      V = Args[1 + TypeOffset];
+      Copy = dyn_cast<Function>(V);
+      assert(Copy || isa<ConstantPointerNull>(V) &&
+                         "CopyAssign must be a function pointer or null");
+    }
+
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
     void print(formatted_raw_ostream &OS,
                bool PrintType = true) const override {
-      printOrig(OS, PrintType);
-      printIfTyped(OS, PrintType);
+      if (getIsNonPod()) {
+        OS << "NONPOD(";
+        printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
+        OS << ", COPYASSIGN: ";
+        printFnPtr(getCopy(), OS, PrintType);
+        OS << ") ";
+      } else {
+        printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
+      }
     }
 };
 

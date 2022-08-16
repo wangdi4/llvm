@@ -990,7 +990,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
 
     if (IsTyped) {
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
-              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED ||
+              ClauseID == QUAL_OMP_SHARED ||
               ClauseID == QUAL_OMP_USE_DEVICE_PTR ||
               ClauseID == QUAL_OMP_USE_DEVICE_ADDR) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
@@ -1033,14 +1033,17 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   // ctor, dtor) Example of a Typed nonPOD clause: "QUAL.OMP.PRIVATE:TYPED"(var,
   // type, number of elements, ctor, dtor)
   if (IsTyped) {
-    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE ||
+    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_COPYPRIVATE ||
+            ClauseID == QUAL_OMP_FIRSTPRIVATE ||
             ClauseID == QUAL_OMP_LASTPRIVATE) &&
-           "The TYPED keyword is for PRIVATE, FIRSTPRIVATE, LASTPRIVATE only");
+           "The TYPED keyword is for PRIVATE, COPYPRIVATE, FIRSTPRIVATE, "
+           "LASTPRIVATE only");
     // Typed clauses have 2 extra arguments, therefore minimal number of
     // arguments is 3 (POD private or firstprivate), maximal number of
     // arguments is 6 (nonPOD lastprivate)
-    assert((NumArgs == 3 || NumArgs == 5 || NumArgs == 6) &&
-           "Expected 3 or 5 (private, firstprivate) or 3 or 6 (lastprivate) "
+    assert((NumArgs == 3 || NumArgs == 4 || NumArgs == 5 || NumArgs == 6) &&
+           "Expected 3 or 4 (copyprivate) or 3 or 5 (private, firstprivate) or "
+           "3 or 6 (lastprivate) "
            "arguments for TYPED");
   }
   bool IsByRef = ClauseInfo.getIsByRef();
@@ -1078,11 +1081,15 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
 
   if (IsNonPod) {
     // NONPOD representation requires multiple args per var:
+    //  - COPYPRIVATE:  2 args : Var, CopyAssign
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
     //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
     //  Note: if (IsTyped), 2 extra arguments are used
-    if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
+    if (ClauseID == QUAL_OMP_COPYPRIVATE)
+      assert((NumArgs == 2 || NumArgs == 4) &&
+             "Expected 2 or 4 arguments for COPYPRIVATE NONPOD");
+    else if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
       assert((NumArgs == 3 || NumArgs == 5) &&
              "Expected 3 or 5 arguments for [FIRST]PRIVATE NONPOD");
     else if (ClauseID == QUAL_OMP_LASTPRIVATE)
@@ -1770,8 +1777,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
-    extractQualOpndList<CopyprivateClause>(Args, NumArgs, ClauseInfo,
-                                           getCpriv());
+    extractQualOpndListNonPod<CopyprivateItem>(Args, NumArgs, ClauseInfo,
+                                               getCpriv());
     break;
   }
   case QUAL_OMP_DEPEND_IN:

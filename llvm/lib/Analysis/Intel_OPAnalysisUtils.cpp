@@ -44,10 +44,12 @@ OpaquePointerTypeMapper::OpaquePointerTypeMapper(Module &M) {
         auto *User = Use.getUser();
         // Propagate types to functions' dummy args.
         if (auto *CB = dyn_cast<CallBase>(User)) {
-          unsigned ANo = CB->getArgOperandNo(&Use);
           auto *CalledF = CB->getCalledFunction();
           if (!CalledF || CalledF->isVarArg())
             continue;
+          if(!CB->isArgOperand(&Use))
+            continue;
+          unsigned ANo = CB->getArgOperandNo(&Use);
           auto *A = CalledF->getArg(ANo);
           updateType(PtrETypeMap[A], Ty);
         }

@@ -324,6 +324,12 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
   unsigned Opcode = LoadStore->getOpcode();
   unsigned AddrSpace = LoadStore->getPointerAddressSpace();
 
+  if (Opcode == VPInstruction::CompressStore ||
+      Opcode == VPInstruction::CompressStoreNonu ||
+      Opcode == VPInstruction::ExpandLoad ||
+      Opcode == VPInstruction::ExpandLoadNonu)
+    return getCompressExpandLoadStoreCost(LoadStore, VF);
+
   // Special case uniform loads/stores as we issue scalar load/store
   // instructions for them plus broadcast for loads.
   if (VF > 1 && isVectorizableTy(OpTy) && isUniformLoadStore(LoadStore)) {
@@ -378,6 +384,69 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
   return TTI.getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(LoadStore),
     IsMasked, Alignment.value(), AddrSpace);
+}
+
+VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
+    const VPLoadStoreInst *LoadStore, unsigned VF) const {
+
+  Intrinsic::ID IntrinsicId;
+  unsigned Opcode = LoadStore->getOpcode();
+  switch (Opcode) {
+  case VPInstruction::CompressStore:
+    IntrinsicId = Intrinsic::masked_compressstore;
+    break;
+  case VPInstruction::ExpandLoad:
+    IntrinsicId = Intrinsic::masked_expandload;
+    break;
+  case VPInstruction::CompressStoreNonu:
+    IntrinsicId = Intrinsic::x86_avx512_mask_compress;
+    break;
+  case VPInstruction::ExpandLoadNonu:
+    IntrinsicId = Intrinsic::x86_avx512_mask_expand;
+    break;
+  default:
+    llvm_unreachable("Compress/Expand Store/Load opcode is expected.");
+  }
+
+  // compress/expand intrinsic cost.
+  Type *VecType = getWidenedType(LoadStore->getValueType(), VF);
+  VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(IntrinsicId, VecType, {VecType}),
+      TTI::TCK_RecipThroughput);
+
+  if (Opcode == VPInstruction::CompressStore ||
+      Opcode == VPInstruction::ExpandLoad)
+    return Cost;
+
+  // scatter/gather cost.
+  Cost += TTI.getGatherScatterOpCost(
+      Opcode == VPInstruction::CompressStoreNonu ? Instruction::Store
+                                                 : Instruction::Load,
+      VecType, getLoadStoreIndexSize(LoadStore), true,
+      LoadStore->getAlignment().value(), LoadStore->getPointerAddressSpace());
+
+  // Mask generation cost.
+  Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
+  Type *MaskTy =
+      FixedVectorType::get(IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
+  Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
+                               TTI::CastContextHint::None);
+  Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
+      TTI::TCK_RecipThroughput);
+  Cost += TTI.getArithmeticInstrCost(
+      Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+      TargetTransformInfo::OK_UniformConstantValue,
+      TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None,
+      TargetTransformInfo::OP_None);
+  Cost += TTI.getArithmeticInstrCost(
+      Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+      TargetTransformInfo::OK_AnyValue,
+      TargetTransformInfo::OK_UniformConstantValue,
+      TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+  Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
+                               TTI::CastContextHint::None);
+  return Cost;
 }
 
 VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
@@ -1201,6 +1270,36 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
 
     return Cost;
   }
+
+  case VPInstruction::CompressExpandIndexInit:
+    return TTI.getVectorInstrCost(Instruction::InsertElement,
+                                  getWidenedType(VPInst->getType(), VF), 0);
+
+  case VPInstruction::CompressExpandIndexInc: {
+    Type *ElType = VPInst->getType();
+    VectorType *VecType = getWidenedType(ElType, VF);
+    VPInstructionCost Cost = 0;
+    Cost += TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrinsic::vector_reduce_add, ElType,
+                                {VecType}),
+        TTI::TCK_RecipThroughput);
+    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType, 0);
+    return Cost;
+  }
+
+  case VPInstruction::CompressExpandIndex: {
+    VectorType *VecType = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = 0;
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
+    Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    return Cost;
+  }
+
+  case VPInstruction::CompressStore:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::CompressStoreNonu:
+  case VPInstruction::ExpandLoadNonu:
+    return getCompressExpandLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);
   }
 }
 

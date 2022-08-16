@@ -522,7 +522,11 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
-  OpaquePointerTypeMapper OPTMapper(M);
+  // Initialize OTPMapper only for opaque pointers
+  std::unique_ptr<OpaquePointerTypeMapper> OPTMapper =
+      (!M.getContext().supportsTypedPointers())
+          ? std::make_unique<OpaquePointerTypeMapper>(M)
+          : nullptr;
 
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
@@ -551,7 +555,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
              continue;
         } else {
-          Ty = OPTMapper.getPointerElementType(&Arg);
+          Ty = OPTMapper->getPointerElementType(&Arg);
           if (!Ty || !isDopeVectorType(Ty, DL, &ArRank, &ElemType))
             continue;
         }
