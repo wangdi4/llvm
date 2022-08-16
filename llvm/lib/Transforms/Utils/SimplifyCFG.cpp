@@ -515,7 +515,8 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
 static ConstantInt *GetConstantInt(Value *V, const DataLayout &DL) {
   // Normal constant int.
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
-  if (CI || !isa<Constant>(V) || !V->getType()->isPointerTy())
+  if (CI || !isa<Constant>(V) || !V->getType()->isPointerTy() ||
+      DL.isNonIntegralPointerType(V->getType()))
     return CI;
 
   // This is some kind of pointer constant. Turn it into a pointer-sized
