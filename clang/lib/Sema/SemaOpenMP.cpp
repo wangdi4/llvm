@@ -19096,6 +19096,17 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
   SourceLocation ELoc;
   SourceRange ERange;
   Expr *RefExpr = InteropVarExpr;
+#if INTEL_COLLAB
+  // This code will be upstreamed once 'interop' clauses are finalized in the
+  // spec. For now we have to deal with some ugly code here.
+  if (Kind == OMPC_interop) {
+    if (InteropVarExpr->isValueDependent() ||
+        InteropVarExpr->isTypeDependent() ||
+        InteropVarExpr->isInstantiationDependent() ||
+        InteropVarExpr->containsUnexpandedParameterPack())
+      return true;
+  } else {
+#endif // INTEL_COLLAB
   auto Res =
       getPrivateItem(SemaRef, RefExpr, ELoc, ERange,
                      /*AllowArraySection=*/false, /*DiagType=*/"omp_interop_t");
@@ -19107,6 +19118,9 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
 
   if (!Res.first)
     return false;
+#if INTEL_COLLAB
+  }
+#endif // INTEL_COLLAB
 
   // Interop variable should be of type omp_interop_t.
   bool HasError = false;
