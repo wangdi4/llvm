@@ -2447,6 +2447,14 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
     addArg(CGF.EmitScalarExpr(E));
 }
 
+void OpenMPLateOutliner::emitOMPInteropClause(const OMPInteropClause *C) {
+  ClauseEmissionHelper CEH(*this, OMPC_interop, "QUAL.OMP.INTEROP");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  addArg(CSB.getString());
+  for (auto *E : C->varlists())
+    addArg(CGF.EmitScalarExpr(E));
+}
+
 void OpenMPLateOutliner::emitOMPOmpxOverlapClause(
     const OMPOmpxOverlapClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_ompx_overlap, "QUAL.OMP.OVERLAP");
@@ -2704,7 +2712,6 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
-void OpenMPLateOutliner::emitOMPInteropClause(const OMPInteropClause *) {}
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
 #define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)
