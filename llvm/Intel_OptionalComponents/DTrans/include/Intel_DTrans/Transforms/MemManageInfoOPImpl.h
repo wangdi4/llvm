@@ -204,8 +204,14 @@ public:
   // Returns StringAllocatorType.
   DTransStructType *getStringAllocatorType() { return StringAllocatorType; }
 
+  // Returns ListNodeType.
+  DTransStructType *getListNodeType() { return ListNodeType; }
+
   // Returns index of ArenaAllocatorObject.
   int32_t getArenaAllocatorObjectIndex() { return ArenaAllocatorObjectIndex; }
+
+  // Returns index of destroyBlockFlag.
+  int32_t getDestroyBlockFlagIndex() { return DestroyBlockFlagIndex; }
 
   // Returns index of List.
   int32_t getListObjectIndex() { return ListObjectIndex; }
@@ -215,6 +221,12 @@ public:
 
   // Returns index of MemManager in List
   int32_t getListMemManagerIndex() { return ListMemManagerIndex; }
+
+  // Returns index of Head in List.
+  int32_t getListHeadIndex() { return ListHeadIndex; }
+
+  // Returns index of FreeHead in List.
+  int32_t getListFreeHeadIndex() { return ListFreeHeadIndex; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(llvm::dbgs()); }
