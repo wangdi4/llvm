@@ -154,7 +154,6 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<T, N>
 __esimd_dpasw2(__ESIMD_DNS::vector_type_t<T1, N1> src1,
                __ESIMD_DNS::vector_type_t<T2, N2> src2, int dpas_info);
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -191,10 +190,7 @@ __esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-#ifndef __SYCL_DEVICE_ONLY__
-=======
 #else // __SYCL_DEVICE_ONLY__
->>>>>>> 3d506a3481d46cd03011bbed394351b8e4dd02a3
 
 template <typename T0, typename T1, int SZ>
 __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
