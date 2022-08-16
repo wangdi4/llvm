@@ -188,6 +188,11 @@ private:
   // signature for use when matching the functionality of the Function.
   DenseMap<Function *, DTransFunctionType *> FunctionalityTypeMap;
 
+  // Instruction that stores 'blockSize' variable in ArenaAllocator.
+  // This instruction will be changed during the transformation
+  // to change the value used for the block size.
+  StoreInst *BlockSizeStoreInst = nullptr;
+
   // This set is used to track instructions that are processed. This needs to be
   // cleared at the start of each 'recognize*' function.
   std::set<Instruction *> Visited;
@@ -203,15 +208,20 @@ private:
   bool categorizeFunctions();
   bool recognizeFunctions();
   bool recognizeGetMemManager(Function *);
+  bool recognizeConstructor(Function *);
 
   bool isStrObjPtrType(DTransType *Ty);
   bool getGEPBaseAddrIndex(Value *V, Value **BaseOp, int32_t *Idx);
-  bool isAllocatorBlockSizeAddr(Value *V, Value *Obj);
   bool isArenaAllocatorAddr(Value *V, Value *Obj);
   bool isGEPLessArenaAllocatorAddr(Value *V, Value *Obj);
+  bool isAllocatorBlockSizeAddr(Value *V, Value *Obj);
+  bool isDestroyBlockFlagAddr(Value *V, Value *Obj);
   bool isListAddr(Value *V, Value *Obj);
   bool isListMemManagerAddr(Value *V, Value *Obj);
   bool isListMemManagerLoad(Value *V, Value *Obj);
+  bool isListFreeHeadAddr(Value *V, Value *Obj);
+  bool isListHeadAddr(Value *V, Value *Obj);
+  bool isVTableAddrInReusableArenaAllocator(Value *V, Value *ThisObj);
   bool verifyAllInstsProcessed(Function *F);
 };
 
@@ -634,6 +644,45 @@ bool MemManageTransImpl::categorizeFunctions() {
   return true;
 }
 
+// Returns true if "V" represents address of VTable field in ArenaAllocator.
+// Ex:
+//   %i9 = getelementptr %ReusableArenaAllocator, ptr %This, i64 0, i32 0, i32 0
+bool MemManageTransImpl::isVTableAddrInReusableArenaAllocator(Value *V,
+                                                              Value *ThisObj) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(V);
+  if (!GEP)
+    return false;
+  if (GEP->getNumIndices() != 3 || !GEP->hasAllZeroIndices())
+    return false;
+  llvm::Type *SrcTy = GEP->getSourceElementType();
+  auto *StTy = dyn_cast<llvm::StructType>(SrcTy);
+  if (!StTy || !StTy->hasName())
+    return false;
+  DTransStructType *DStTy = TM.getStructType(StTy->getName());
+  if (!DStTy)
+    return false;
+  if (DStTy->getNumFields() == 0)
+    return false;
+
+  // Allow for nested structures at element 0
+  DTransType *FirstFieldTy = DStTy->getFieldType(0);
+  while (FirstFieldTy && FirstFieldTy->isStructTy()) {
+    auto *FieldStTy = cast<DTransStructType>(FirstFieldTy);
+    if (FieldStTy->getNumFields() == 0)
+      return false;
+    FirstFieldTy = FieldStTy->getFieldType(0);
+  }
+
+  if (!FirstFieldTy)
+    return false;
+  if (!isPtrToVFTable(FirstFieldTy))
+    return false;
+  if (ThisObj != GEP->getOperand(0))
+    return false;
+  Visited.insert(GEP);
+  return true;
+}
+
 // Returns true if "V" is GetElementPtrInst that is in expected format.
 // Updates BaseOp with pointer operand and Idx with last index when
 // returning true.
@@ -775,7 +824,7 @@ bool MemManageTransImpl::isAllocatorBlockSizeAddr(Value *V, Value *Obj) {
   return true;
 }
 
-// Returns true if "V" represents address of MemManager in List.
+// Returns true if "V" represents address of 'MemManager' field in List.
 // Ex:
 //  foo(ReusableArenaAllocator *Obj) {
 //     Obj->ArenaAllocator.List.MemManager
@@ -793,7 +842,43 @@ bool MemManageTransImpl::isListMemManagerAddr(Value *V, Value *Obj) {
   return true;
 }
 
-// Returns true if "V" is load of ListMemManager address.
+// Returns true if "V" represents address of 'Head' field in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.Head
+//  }
+bool MemManageTransImpl::isListHeadAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getListHeadIndex())
+    return false;
+  if (!isListAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of 'FreeHead' field in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.FreeHead
+//  }
+bool MemManageTransImpl::isListFreeHeadAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getListFreeHeadIndex())
+    return false;
+  if (!isListAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" is load of 'List.MemManager' address.
 // Ex:
 //  foo(ReusableArenaAllocator *Obj) {
 //     Obj->List.MemoryManager
@@ -805,8 +890,8 @@ bool MemManageTransImpl::isListMemManagerAddr(Value *V, Value *Obj) {
 //    GetMemManager(Obj)
 //  }
 bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
-  // We prove that GetMemManager function just returns "MemoryManager".
-  // "GetMemManager(Obj)" call is also treated as "MemoryManager".
+  // We proved that GetMemManager function just returns "MemoryManager".
+  // "GetMemManager(Obj)" call is therefore treated as "MemoryManager".
   if (auto *CB = dyn_cast<CallBase>(V)) {
     auto *CalledF = dtrans::getCalledFunction(*CB);
     assert(CalledF && "Unexpected indirect call");
@@ -818,6 +903,7 @@ bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
     Visited.insert(CB);
     return true;
   }
+
   auto *LI = dyn_cast<LoadInst>(V);
   if (!LI)
     return false;
@@ -825,6 +911,24 @@ bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
   if (!isListMemManagerAddr(LoadAddr, Obj))
     return false;
   Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of 'destroyBlock' field in
+// ReusableArenaAllocator. Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->destroyBlock
+//  }
+bool MemManageTransImpl::isDestroyBlockFlagAddr(Value *V, Value *Obj) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getDestroyBlockFlagIndex())
+    return false;
+  if (BasePtr != Obj)
+    return false;
   return true;
 }
 
@@ -845,7 +949,6 @@ bool MemManageTransImpl::recognizeFunctions() {
       return false;
   }
 
-#if 0 // TODO: Match the rest
   // Check functionality of Constructor.
   Function *Ctor = FunctionalityMap[Constructor];
   if (!Ctor)
@@ -860,6 +963,7 @@ bool MemManageTransImpl::recognizeFunctions() {
       return false;
   }
 
+#if 0 // TODO: Match the rest
   // Check functionality of AllocateBlock.
   Function *AllocBlock = FunctionalityMap[AllocateBlock];
   if (!AllocBlock)
@@ -1078,6 +1182,148 @@ bool MemManageTransImpl::recognizeGetMemManager(Function *F) {
     return false;
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                   dbgs() << "   Recognized GetMemManager: " << F->getName()
+                         << "\n";);
+  return true;
+}
+
+// Returns true if "F" is recognized as "Constructor".
+// Ex:
+//  Ctor(ReusableArenaAllocator *Obj, MemManager *m, i16 bSize, i1 flag) {
+//    Obj->ArenaAllocator.vtable = some_value;
+//    Obj->ArenaAllocator.blockSize = bSize;
+//    Obj->ArenaAllocator.List.MemManager = m;
+//    Obj->ArenaAllocator.List.Head = null;
+//    Obj->ArenaAllocator.List.FreeHead = null;
+//    Obj->destroyBlock = 0;
+//    return;
+//  }
+//
+// This function will check that there is one store instruction for each of the
+// above.
+bool MemManageTransImpl::recognizeConstructor(Function *F) {
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                  dbgs() << "   Recognizing Constructor Functionality "
+                         << F->getName() << "\n";);
+  if (F->size() != 1)
+    return false;
+  assert(F->arg_size() == 4 && "Unexpected arguments");
+
+  Visited.clear();
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Argument *ThisObj = &*F->arg_begin();
+
+  // On windows, constructor returns "this" object.
+  auto *RI = dyn_cast<ReturnInst>(F->getEntryBlock().getTerminator());
+  if (!RI)
+    return false;
+  Value *RetVal = RI->getReturnValue();
+  if (RetVal && RetVal != ThisObj)
+    return false;
+  Visited.insert(RI);
+
+  // Collect the store instructions, then check that there is one store with the
+  // expected value for each field.
+  SmallVector<StoreInst *, 8> SIList;
+  for (auto &I : instructions(F))
+    if (auto *SI = dyn_cast<StoreInst>(&I))
+      SIList.push_back(SI);
+
+  unsigned BlockSizeAssigned = 0;
+  unsigned DestroyObjFlagAssigned = 0;
+  unsigned VTableAssigned = 0;
+  unsigned MemManagerAssigned = 0;
+  unsigned ListHeadAssigned = 0;
+  unsigned ListFreeHeadAssigned = 0;
+
+  for (auto *SI : SIList) {
+    Visited.insert(SI);
+    Value *ValOp = SI->getValueOperand();
+    Value *PtrOp = SI->getPointerOperand();
+    llvm::Type *ValTy = ValOp->getType();
+    if (ValTy->isPointerTy()) {
+      // Check for: Obj->ArenaAllocator.vtable = some_value;
+      //
+      // This may be using the GEP-less form for storing to the first field of a
+      // structure, or a structure GEP of the form:
+      //   GEP %class.ReusableArenaAllocator, ptr %0, i64 0, i32 0, i32 0
+      if (PtrOp == ThisObj ||
+          isVTableAddrInReusableArenaAllocator(PtrOp, ThisObj)) {
+        // The stored value should be something with !types attached
+        // to it to indicate it is a vtable object.
+        auto *GV = dyn_cast_or_null<GlobalVariable>(
+            ValOp->stripInBoundsConstantOffsets());
+        if (!GV)
+          return false;
+
+        SmallVector<MDNode *, 2> Types;
+        GV->getMetadata(LLVMContext::MD_type, Types);
+        if (Types.empty())
+          return false;
+
+        VTableAssigned++;
+      }
+
+      // Check for: Obj->ArenaAllocator.List.MemManager = m;
+      else if (auto *Arg = dyn_cast<Argument>(ValOp)) {
+        DTransType *ArgTy = getArgType(MDReader, F, Arg->getArgNo());
+        // Because the ArgTy is coming from the DTrans metadata, ensure that
+        // the lookup returned a pointer type.
+        if (!ArgTy->isPointerTy())
+          return false;
+        if (ArgTy->getPointerElementType() != Cand->getMemInterfaceType())
+          return false;
+        if (!isListMemManagerAddr(PtrOp, ThisObj))
+          return false;
+
+        MemManagerAssigned++;
+      }
+
+      // Check for:  Obj->ArenaAllocator.List.Head = null;
+      // Check for: Obj->ArenaAllocator.List.FreeHead = null;
+      else if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
+        if (isListHeadAddr(PtrOp, ThisObj))
+          ListHeadAssigned++;
+        else if (isListFreeHeadAddr(PtrOp, ThisObj))
+          ListFreeHeadAssigned++;
+        else
+          return false;
+      } else {
+        return false;
+      }
+    } else if (ValTy->isIntegerTy()) {
+      // Check for: Obj->ArenaAllocator.blockSize = bSize;
+      if (ValTy->isIntegerTy(16) && isAllocatorBlockSizeAddr(PtrOp, ThisObj)) {
+        // Only allow 'bSize' to be an input argument or compile time constant.
+        if (!isa<Argument>(ValOp) && !isa<ConstantInt>(ValOp))
+          return false;
+        BlockSizeAssigned++;
+
+        // Capture the StoreInst that store the blockSize because this is the
+        // instruction that is going to be modified to during the
+        // transformation.
+        BlockSizeStoreInst = SI;
+      }
+      // Check for: Obj->destroyBlock = 0;
+      else if (ValTy->isIntegerTy(8) &&
+               cast<ConstantInt>(ValOp)->isZeroValue() &&
+               isDestroyBlockFlagAddr(PtrOp, ThisObj)) {
+        DestroyObjFlagAssigned++;
+      } else {
+        return false;
+      }
+    }
+  }
+
+  if (DestroyObjFlagAssigned != 1 || BlockSizeAssigned != 1 ||
+      MemManagerAssigned != 1 || VTableAssigned != 1 || ListHeadAssigned != 1 ||
+      ListFreeHeadAssigned != 1)
+    return false;
+
+  if (!verifyAllInstsProcessed(F))
+    return false;
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                  dbgs() << "   Recognized Constructor: " << F->getName()
                          << "\n";);
   return true;
 }
