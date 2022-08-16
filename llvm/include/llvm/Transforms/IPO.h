@@ -269,7 +269,6 @@ ModulePass *createCrossDSOCFIPass();
 /// devirtualization and control-flow integrity.
 ModulePass *createGlobalSplitPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \brief This pass enables more functions to be converted to use the 'fastcc'
 /// calling convention.
@@ -371,12 +370,6 @@ ModulePass *createArgNoAliasPropPass(void);
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
-/// Write ThinLTO-ready bitcode to Str.
-ModulePass *createWriteThinLTOBitcodePass(raw_ostream &Str,
-                                          raw_ostream *ThinLinkOS = nullptr);
-
-=======
->>>>>>> 633f5663c37a670e28040cadd938200abd854483
 } // End llvm namespace
 
 #endif

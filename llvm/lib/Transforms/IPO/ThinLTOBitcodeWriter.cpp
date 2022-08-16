@@ -564,42 +564,6 @@ void writeThinLTOBitcode(raw_ostream &OS, raw_ostream *ThinLinkOS,
     writeThinLinkBitcodeToFile(M, *ThinLinkOS, *Index, ModHash);
 }
 
-<<<<<<< HEAD
-class WriteThinLTOBitcode : public ModulePass {
-  raw_ostream &OS; // raw_ostream to print on
-  // The output stream on which to emit a minimized module for use
-  // just in the thin link, if requested.
-  raw_ostream *ThinLinkOS = nullptr;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  WriteThinLTOBitcode() : ModulePass(ID), OS(dbgs()) {
-    initializeWriteThinLTOBitcodePass(*PassRegistry::getPassRegistry());
-  }
-
-  explicit WriteThinLTOBitcode(raw_ostream &o, raw_ostream *ThinLinkOS)
-      : ModulePass(ID), OS(o), ThinLinkOS(ThinLinkOS) {
-    initializeWriteThinLTOBitcodePass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ThinLTO Bitcode Writer"; }
-
-  bool runOnModule(Module &M) override {
-    const ModuleSummaryIndex *Index =
-        &(getAnalysis<ModuleSummaryIndexWrapperPass>().getIndex());
-    writeThinLTOBitcode(OS, ThinLinkOS, LegacyAARGetter(*this), M, Index);
-    return true;
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<ModuleSummaryIndexWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
-  }
-};
-=======
->>>>>>> 633f5663c37a670e28040cadd938200abd854483
 } // anonymous namespace
 
 PreservedAnalyses
