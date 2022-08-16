@@ -50277,7 +50277,6 @@ static SDValue combineVectorInsert(SDNode *N, SelectionDAG &DAG,
                                    TargetLowering::DAGCombinerInfo &DCI,
                                    const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
   // FIXME: We don't combining PINSRB/W for VPINSR_VPEXTR target for now. Do
@@ -50287,15 +50286,10 @@ static SDValue combineVectorInsert(SDNode *N, SelectionDAG &DAG,
     return SDValue();
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
-  assert(((N->getOpcode() == X86ISD::PINSRB && VT == MVT::v16i8) ||
-          (N->getOpcode() == X86ISD::PINSRW && VT == MVT::v8i16) ||
-          N->getOpcode() == ISD::INSERT_VECTOR_ELT) &&
-=======
   unsigned Opcode = N->getOpcode();
   assert(((Opcode == X86ISD::PINSRB && VT == MVT::v16i8) ||
           (Opcode == X86ISD::PINSRW && VT == MVT::v8i16) ||
           Opcode == ISD::INSERT_VECTOR_ELT) &&
->>>>>>> 41bdb8cd36388ccd0c020798a7b9ce9014af753c
          "Unexpected vector insertion");
 
   // Fold insert_vector_elt(undef, elt, 0) --> scalar_to_vector(elt).
