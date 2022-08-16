@@ -1,15 +1,15 @@
-// RUN: %clang_cc1 -triple riscv32 -emit-llvm -x c++ %s -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv32 -emit-llvm -x c++ %s -o - \
 // RUN:   | FileCheck -check-prefixes=ILP32,ILP32-ILP32F,ILP32-ILP32F-ILP32D %s
-// RUN: %clang_cc1 -triple riscv32 -target-feature +f -target-abi ilp32f -emit-llvm -x c++ %s -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv32 -target-feature +f -target-abi ilp32f -emit-llvm -x c++ %s -o - \
 // RUN:   | FileCheck -check-prefixes=ILP32F,ILP32-ILP32F,ILP32F-ILP32D,ILP32-ILP32F-ILP32D %s
-// RUN: %clang_cc1 -triple riscv32 -target-feature +f -target-feature +d -target-abi ilp32d -emit-llvm %s -x c++ -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv32 -target-feature +f -target-feature +d -target-abi ilp32d -emit-llvm %s -x c++ -o - \
 // RUN:   | FileCheck -check-prefixes=ILP32D,ILP32F-ILP32D,ILP32-ILP32F-ILP32D %s
 
-// RUN: %clang_cc1 -triple riscv64 -emit-llvm -x c++ %s -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv64 -emit-llvm -x c++ %s -o - \
 // RUN:   | FileCheck -check-prefixes=LP64,LP64-LP64F,LP64-LP64F-LP64D %s
-// RUN: %clang_cc1 -triple riscv64 -target-feature +f -target-abi lp64f -emit-llvm -x c++ %s -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv64 -target-feature +f -target-abi lp64f -emit-llvm -x c++ %s -o - \
 // RUN:   | FileCheck -check-prefixes=LP64F,LP64-LP64F,LP64F-LP64D,LP64-LP64F-LP64D %s
-// RUN: %clang_cc1 -triple riscv64 -target-feature +f -target-feature +d -target-abi lp64d -emit-llvm %s -x c++ -o - \
+// RUN: %clang_cc1 -opaque-pointers -triple riscv64 -target-feature +f -target-feature +d -target-abi lp64d -emit-llvm %s -x c++ -o - \
 // RUN:   | FileCheck -check-prefixes=LP64D,LP64F-LP64D,LP64-LP64F-LP64D %s
 
 #include <stdint.h>
