@@ -9,6 +9,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
 ; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
+; FIXME: Test should be updated once support for non-POD private array type will be added.
+; XFAIL: *
+
 ; CHECK: SOA profitability:
 ; CHECK: SOAUnsafe = y3.lpriv
 

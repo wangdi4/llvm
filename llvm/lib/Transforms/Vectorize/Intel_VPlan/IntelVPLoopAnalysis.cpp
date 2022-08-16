@@ -1880,25 +1880,25 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
     Builder.setInsertPoint(Preheader);
-
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
-    VPInstruction *Init =
-        Builder.createNaryOp(VPInstruction::CompressExpandIndexInit,
-                             CEIdiom->LiveIn->getType(), CEIdiom->LiveIn);
-
+    auto *Init = Builder.create<VPCompressExpandInit>("init", CEIdiom->LiveIn);
     assert(CEIdiom->RecurrentPhi && "Expected a valid recurrent phi value.");
     CEIdiom->RecurrentPhi->replaceUsesOfWith(CEIdiom->LiveIn, Init);
 
-    VPValue *Exit = CEIdiom->LiveOut;
+    VPInstruction *Exit = CEIdiom->LiveOut;
     for (auto It = CEIdiom->RecurrentPhi->op_begin();
          (!Exit || Exit == Init) && It != CEIdiom->RecurrentPhi->op_end(); It++)
-      Exit = *It;
+      if (VPInstruction *I = dyn_cast<VPInstruction>(*It))
+        Exit = I;
+    assert(Exit && "Non-null exit instruction is expected.");
     Builder.setInsertPoint(PostExit);
-    VPInstruction *Final = Builder.createNaryOp(
-        VPInstruction::CompressExpandIndexFinal, Exit->getType(), {});
+    auto *Final = Builder.create<VPCompressExpandFinal>("final", Exit);
     if (CEIdiom->LiveOut)
-      CEIdiom->LiveOut->replaceAllUsesWith(Final);
-    Final->addOperand(Exit);
+      CEIdiom->LiveOut->replaceUsesWithIf(
+          Final, [&](VPUser *User) { return isa<VPExternalUse>(User); });
+
+    CEIdiom->Init = Init;
+    CEIdiom->Final = Final;
 
     int64_t StrideTotal = 0;
     for (IncrementInfoTy &Info : CEIdiom->Increments)
@@ -1929,55 +1929,42 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     }
     CEIdiom->Loads.clear();
 
+    std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
+        [&](VPUser *User) {
+          VPInstruction *Inst = dyn_cast<VPInstruction>(User);
+          if (!Inst || isa<VPPHINode>(Inst))
+            return false;
+          unsigned Opcode = Inst->getOpcode();
+          return Opcode == VPInstruction::CompressStore ||
+                 Opcode == VPInstruction::CompressStoreNonu ||
+                 Opcode == VPInstruction::ExpandLoad ||
+                 Opcode == VPInstruction::ExpandLoadNonu ||
+                 llvm::any_of(Inst->users(), IsUsedByCompressExpandLoadStore);
+        };
+
     if (StrideTotal != 1)
       for (VPInstruction *Index : CEIdiom->Indices) {
         VPConstant *Stride =
             Plan.getVPConstant(ConstantInt::get(Index->getType(), StrideTotal));
-        Builder.setInsertPoint(Index->getParent(),
-                               std::next(Index->getIterator()));
+        if (isa<VPPHINode>(Index))
+          Builder.setInsertPointFirstNonPhi(Index->getParent());
+        else
+          Builder.setInsertPoint(Index->getParent(),
+                                 std::next(Index->getIterator()));
         VPInstruction *CEIndex = Builder.createNaryOp(
             VPInstruction::CompressExpandIndex, Index->getType(), {});
-        Index->replaceAllUsesWith(CEIndex);
+        Index->replaceUsesWithIf(CEIndex, IsUsedByCompressExpandLoadStore);
         CEIndex->addOperand(Index);
         CEIndex->addOperand(Stride);
       }
     CEIdiom->Indices.clear();
 
-    std::function<VPValue *(VPInstruction *)> FindOrigIndex =
-        [&](VPInstruction *I) -> VPValue * {
-      for (auto *Op : I->operands()) {
-        if (Op == CEIdiom->RecurrentPhi)
-          return Op;
-        // Can be replaced already.
-        if (VPInstruction *VPInst = dyn_cast<VPInstruction>(Op))
-          if (VPInst->getOpcode() == VPInstruction::CompressExpandIndexInc)
-            return Op;
-        // Find if it is not replaced yet.
-        for (IncrementInfoTy &Incr : CEIdiom->Increments)
-          if (Op == Incr.VPInst)
-            return Op;
-      }
-      if (I->getOpcode() == Instruction::Add)
-        for (auto *Op : I->operands())
-          if (VPInstruction *Inst = dyn_cast<VPInstruction>(Op))
-            if (VPValue *Val = FindOrigIndex(Inst))
-              return Val;
-      return nullptr;
-    };
-
-    for (IncrementInfoTy &Info : CEIdiom->Increments) {
-      VPValue *OrigIndex = FindOrigIndex(Info.VPInst);
-      assert(OrigIndex && "Original index was unexpectedly not found");
-
-      Builder.setInsertPoint(Info.VPInst);
-      VPConstant *Stride = Plan.getVPConstant(
-          ConstantInt::get(Info.VPInst->getType(), Info.Stride));
-      VPInstruction *CEIndexInc =
-          Builder.createNaryOp(VPInstruction::CompressExpandIndexInc,
-                               Info.VPInst->getType(), {OrigIndex, Stride});
-      Info.VPInst->replaceAllUsesWith(CEIndexInc);
-      Info.VPInst->getParent()->eraseInstruction(Info.VPInst);
-    }
+    // Add an index adjustment instruction into the loop latch.
+    Builder.setInsertPointFirstNonPhi(Exit->getParent());
+    VPInstruction *CEIndexInc = Builder.createNaryOp(
+        VPInstruction::CompressExpandIndexInc, Exit->getType(), {});
+    Exit->replaceAllUsesWith(CEIndexInc);
+    CEIndexInc->addOperand(Exit);
     CEIdiom->Increments.clear();
   }
 }

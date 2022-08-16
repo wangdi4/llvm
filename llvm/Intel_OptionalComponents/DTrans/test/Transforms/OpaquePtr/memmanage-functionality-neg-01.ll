@@ -19,10 +19,10 @@
 ; CHECK: Recognizing GetMemManager Functionality
 ; CHECK: Failed to recognize GetMemManager function
 
-; The following will be enabled as CHECKs as more functionality is implemented
-; TODO: Recognizing Constructor Functionality
-; TODO: Failed to recognize Constructor function
+; CHECK: Recognizing Constructor Functionality
+; CHECK: Failed to recognize Constructor function
 
+; The following will be enabled as CHECKs as more functionality is implemented
 ; TODO: Recognizing AllocateBlock Functionality
 ; TODO: Failed to recognize AllocateBlock function
 

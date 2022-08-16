@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen 2>&1 | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=4 2>&1 | FileCheck %s
 
 ; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
 ; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
@@ -59,7 +59,7 @@
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP15]], [[BB1]] ],  [ i32 [[VP7]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP15]], [[BB1]] ],  [ i32 [[VP18:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
@@ -77,35 +77,92 @@
 ; CHECK-NEXT:       i64 [[VP12]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP12]]
 ; CHECK-NEXT:       compress-store float [[VP9]] float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP18:%.*]] = compress-expand-index-inc i32 [[VP6]] i32 1
+; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
-; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP18]], [[BB4]] ],  [ i32 [[VP6]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP8]], [[BB4]] ],  [ i32 [[VP6]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP18]] = compress-expand-index-inc i32 [[VP7]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP4]] i64 15
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB0]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i32 [[VP19:%.*]] = compress-expand-index-final i32 [[VP7]]
+; CHECK-NEXT:     i32 [[VP19:%.*]] = compress-expand-index-final i32 [[VP18]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
 
-; CM4: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 [[K_0130:%.*]]
+; CHECK:       BEGIN REGION { modified }
+; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[K_0130]],  0
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[0]
+; CHECK-NEXT:        [[DOTVEC30:%.*]] = [[DOTVEC0]] != 0
+; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_0]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXTRACT_0_40:%.*]] = extractelement &((<4 x float*>)([[B0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD50:%.*]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_40]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[DOTVEC60:%.*]] = [[EXP_LOAD0]]  +  [[EXP_LOAD50]]
+; CHECK-NEXT:        [[EXTRACT_0_70:%.*]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC60]],  [[EXTRACT_0_70]],  [[DOTVEC30]])
+; CHECK-NEXT:        [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
+; CHECK-NEXT:        [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])
+; CHECK-NEXT:        [[INSERT80:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[INSERT80]]
+; CHECK-NEXT:        [[DOTVEC0]] = (<4 x i32>*)([[C0]])[4]
+; CHECK-NEXT:        [[DOTVEC30]] = [[DOTVEC0]] != 0
+; CHECK-NEXT:        [[EXTRACT_0_0]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_0]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXTRACT_0_40]] = extractelement &((<4 x float*>)([[B0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD50]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_40]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[DOTVEC60]] = [[EXP_LOAD0]]  +  [[EXP_LOAD50]]
+; CHECK-NEXT:        [[EXTRACT_0_70]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC60]],  [[EXTRACT_0_70]],  [[DOTVEC30]])
+; CHECK-NEXT:        [[SELECT0]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
+; CHECK-NEXT:        [[VEC_REDUCE0]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])
+; CHECK-NEXT:        [[INSERT80]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[INSERT80]]
+; CHECK-NEXT:        [[DOTVEC0]] = (<4 x i32>*)([[C0]])[8]
+; CHECK-NEXT:        [[DOTVEC30]] = [[DOTVEC0]] != 0
+; CHECK-NEXT:        [[EXTRACT_0_0]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_0]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXTRACT_0_40]] = extractelement &((<4 x float*>)([[B0]])[%phi.temp]),  0
+; CHECK-NEXT:        [[EXP_LOAD50]] = @llvm.masked.expandload.v4f32([[EXTRACT_0_40]],  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[DOTVEC60]] = [[EXP_LOAD0]]  +  [[EXP_LOAD50]]
+; CHECK-NEXT:        [[EXTRACT_0_70]] = extractelement &((<4 x float*>)([[A0]])[%phi.temp]),  0
+; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC60]],  [[EXTRACT_0_70]],  [[DOTVEC30]])
+; CHECK-NEXT:        [[SELECT0]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
+; CHECK-NEXT:        [[VEC_REDUCE0]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])
+; CHECK-NEXT:        [[INSERT80]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[INSERT80]]
+; CHECK-NEXT:        [[EXTRACT_0_100:%.*]] = extractelement [[INSERT80]],  0
+; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_100]]
+; CHECK-NEXT:        [[LB_TMP0:%.*]] = 12
+; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_100]]
+; CHECK:             + DO i1 = 12, 14, 1   <DO_LOOP> <novectorize>
+; CHECK-NEXT:        |   if (([[C0]])[i1] != 0)
+; CHECK-NEXT:        |   {
+; CHECK-NEXT:        |      [[ADD0:%.*]] = ([[A0]])[%k.013]  +  ([[B0]])[%k.013]
+; CHECK-NEXT:        |      ([[A0]])[%k.013] = [[ADD0]]
+; CHECK-NEXT:        |      [[K_0130]] = [[K_0130]]  +  1
+; CHECK-NEXT:        |   }
+; CHECK-NEXT:        + END LOOP
+; CHECK-NEXT:  END REGION
+
+; CM4: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 10 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
 ; CM4: Cost 10 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM4: Cost 10 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
-; CM4: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]] i32 1
+; CM4: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM4: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
 
-; CM8: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 [[K_0130:%.*]]
+; CM8: Cost 3 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 20 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
 ; CM8: Cost 20 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM8: Cost 20 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
-; CM8: Cost 7 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]] i32 1
+; CM8: Cost 7 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

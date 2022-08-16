@@ -4522,9 +4522,273 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::CompressExpandIndexInit: {
+    // Generate a vector of zeros, but put instruction's operand into the first
+    // position of the vector.
+    Type *ElType = VPInst->getType();
+    VectorType *VecType = getWidenedType(ElType, getVF());
+
+    RegDDRef *Zeros =
+        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
+    RegDDRef *InitRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+
+    HLInst *InsertElementInst =
+        HLNodeUtilities.createInsertElementInst(Zeros, InitRef, 0);
+    addInstUnmasked(InsertElementInst);
+
+    addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressExpandIndexFinal: {
+    // CompressExpandIndexFinal returns its operand.
+    RegDDRef *ScalRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    addVPValueScalRefMapping(VPInst, ScalRef, 0);
+
+    if (!hasNoExternalUsers(VPInst)) {
+      const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
+      RegDDRef *OutRef = getUniformScalarRef(ExtUse);
+      auto *Inst = HLNodeUtilities.createCopyInst(ScalRef, ".copy", OutRef);
+      addInstUnmasked(Inst);
+    }
+    return;
+  }
+
+  case VPInstruction::CompressStore: {
+    // Just generate compress-store intrinsic, mask is the current execution
+    // mask.
+    //
+    // compress-store %value, %ptr
+    // =>
+    // call <VF x type> @llvm.masked.compressstore.XXXX(<VF x type> %value, type* %ptr, <VF x i1> %mask)
+    Type *ElType = VPInst->getOperand(0)->getType();
+    VectorType *VecType = getWidenedType(ElType, getVF());
+    Function *CompressStoreFunc =
+        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(),
+                                  Intrinsic::masked_compressstore, {VecType});
+
+    RegDDRef *ValueRef = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *PtrRef = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    HLInst *CompressStoreCall = HLNodeUtilities.createCall(
+        CompressStoreFunc, {ValueRef, PtrRef, getCurMaskValueOrAllOnes()},
+        "comp.store");
+
+    addInstUnmasked(CompressStoreCall);
+    return;
+  }
+
+  case VPInstruction::ExpandLoad: {
+    // Just generate expand-load intrinsic, mask is the current execution mask.
+    //
+    // type %ld = expand-load type, type* %ptr
+    // =>
+    // %Tmp = call <VF x type> @llvm.masked.expandload.XXXX(type* %ptr, <VF x i1> %Mask, <VF x type> undef)
+    VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
+    Function *ExpandLoadFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::masked_expandload, {VecType});
+
+    RegDDRef *PtrRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+
+    HLInst *ExpandLoadCall = HLNodeUtilities.createCall(
+        ExpandLoadFunc, {PtrRef, getCurMaskValueOrAllOnes(), Undef},
+        "exp.load");
+    addInstUnmasked(ExpandLoadCall);
+
+    addVPValueWideRefMapping(VPInst, ExpandLoadCall->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressStoreNonu: {
+    // First, compress value to store, mask is the current execution mask.
+    //
+    // compress-store-nonu %value, %ptr
+    // =>
+    // %val.to.store = call <VF x type> @x86.masked.compress.XXXXX(<VF x type> %value, <VF x type> undef, <VF x i1> %Mask)
+    Type *ElType = VPInst->getOperand(0)->getType();
+    VectorType *VecType = getWidenedType(ElType, getVF());
+    Function *CompressFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::x86_avx512_mask_compress,
+        {VecType});
+
+    RegDDRef *ValueRef = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(ValueRef->getDestType());
+    HLInst *CompressCall = HLNodeUtilities.createCall(
+        CompressFunc, {ValueRef, Undef, getCurMaskValueOrAllOnes()},
+        "compress");
+    addInstUnmasked(CompressCall);
+
+    // Next, calculate mask for strided store.
+    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+
+    // Last step, store all selected elements consecutively using index/ptr
+    // calculated by CompressExpandIndex.
+    //
+    // call void @llvm.masked.scatter.XXXX.XXXX(<VF x type> %val.to.store, <VF x type*> %ptr, i32 align, <VF x i1> %exec.mask)
+    RegDDRef *PtrRef = widenRef(VPInst->getOperand(1), 0);
+    Function *ScatterFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::masked_scatter,
+        {VecType, PtrRef->getDestType()});
+
+    RegDDRef *Align = DDRefUtilities.createConstDDRef(Type::getInt32Ty(Context),
+                                                      PtrRef->getAlignment());
+    HLInst *ScatterCall = HLNodeUtilities.createCall(
+        ScatterFunc,
+        {CompressCall->getLvalDDRef()->clone(), PtrRef, Align, Mask},
+        "scatter");
+    addInstUnmasked(ScatterCall);
+    return;
+  }
+
+  case VPInstruction::ExpandLoadNonu: {
+    // First, calculate mask for strided load.
+    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+
+    // Next, load the needed number of elements from array B.
+    //
+    // %load.val = call void @llvm.masked.gather.XXXX.XXXX(<VF x type*> %ptr, i32 align, <VF x i1> %exec.mask)
+    VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
+    RegDDRef *PtrRef = widenRef(VPInst->getOperand(0), 0);
+    Function *GatherFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::masked_gather,
+        {VecType, PtrRef->getDestType()});
+
+    RegDDRef *Align = DDRefUtilities.createConstDDRef(Type::getInt32Ty(Context),
+                                                      PtrRef->getAlignment());
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+    HLInst *GatherCall = HLNodeUtilities.createCall(
+        GatherFunc, {PtrRef, Align, Mask, Undef}, "gather");
+    addInstUnmasked(GatherCall);
+
+    // Last step, expand loaded value.
+    //
+    // %value = call <VF x type> @x86.masked.expand.XXXX(%load.val, <VF x type> undef, <VF x i1> %mask)
+    Function *ExpandFunc =
+        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(),
+                                  Intrinsic::x86_avx512_mask_expand, {VecType});
+    HLInst *ExpandCall =
+        HLNodeUtilities.createCall(ExpandFunc,
+                                   {GatherCall->getLvalDDRef()->clone(),
+                                    Undef->clone(), getCurMaskValueOrAllOnes()},
+                                   "expand");
+    addInstUnmasked(ExpandCall);
+
+    addVPValueWideRefMapping(VPInst, ExpandCall->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressExpandIndex: {
+    // CompressExpandIndex creates a vector with stride-step sequence of values
+    // and adds it to the original index.
+    //
+    // compress-expand-index %orig.index, %stride
+    // =>
+    // %bcast = broadcast %orig.index
+    // %index = add %bcast, <0, %stride, %stride * 2, %stride * 3, ...>
+    Type *ElType = VPInst->getType();
+    VectorType *VecType = getWidenedType(ElType, getVF());
+
+    RegDDRef *OrigIndex = widenRef(VPInst->getOperand(0), 0);
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+    RegDDRef *Zeros =
+        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
+
+    HLInst *Bcast =
+        HLNodeUtilities.createShuffleVectorInst(OrigIndex, Undef, Zeros);
+    addInstUnmasked(Bcast);
+
+    int64_t Stride = cast<VPConstant>(VPInst->getOperand(1))->getSExtValue();
+    SmallVector<Constant *, 8> Offsets;
+    for (unsigned I = 0; I < getVF(); I++)
+      Offsets.push_back(ConstantInt::get(ElType, I * Stride));
+
+    RegDDRef *OffsetsRef =
+        DDRefUtilities.createConstDDRef(ConstantVector::get(Offsets));
+    HLInst *Add =
+        HLNodeUtilities.createAdd(Bcast->getLvalDDRef()->clone(), OffsetsRef);
+    addInstUnmasked(Add);
+
+    addVPValueWideRefMapping(VPInst, Add->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressExpandIndexInc: {
+    // Sum elements of resulting indices vector and put the resulting value into
+    // the the first vector element. All the rest elements become zeros.
+    VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
+    Function *VecReduceFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::vector_reduce_add, {VecType});
+
+    RegDDRef *OrigIndex = widenRef(VPInst->getOperand(0), getVF());
+    HLInst *VecReduceCall =
+        HLNodeUtilities.createCall(VecReduceFunc, {OrigIndex}, "vec.reduce");
+    addInstUnmasked(VecReduceCall);
+
+    RegDDRef *Zeros =
+        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
+    HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
+        Zeros, VecReduceCall->getLvalDDRef()->clone(), 0);
+    addInstUnmasked(InsertElementInst);
+
+    addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
+}
+
+RegDDRef *VPOCodeGenHIR::getCurMaskValueOrAllOnes() const {
+
+  return CurMaskValue ? CurMaskValue->clone()
+                      : getConstantSplatDDRef(
+                            DDRefUtilities,
+                            Constant::getAllOnesValue(Type::getInt1Ty(Context)),
+                            getVF());
+}
+
+RegDDRef *VPOCodeGenHIR::generateMaskForCompressExpandLoadStoreNonu() {
+
+  if (!CurMaskValue)
+    return getConstantSplatDDRef(
+        DDRefUtilities, Constant::getAllOnesValue(Type::getInt1Ty(Context)),
+        getVF());
+
+  // Calculate mask for strided load/store. We store first consecutive elements
+  // from compressed value, their number is equal to number of bits in the
+  // current execution mask.
+  // Note: four first instructions below are scalar.
+  //
+  // %mask.i = bitcast <VF x i1> %mask to i8
+  // %mask.i.popcnt = call i8 @llvm.ctpop.i8(i8 %mask.i)
+  // %store.mask.high.bits = shl i64 -1, i64 %mask.i.popcnt
+  // %store.mask = xor i64 %store.mask.high.bits, -1
+  // %exec.mask = bitcast i64 %store.mask to <VF x i1>
+
+  Type *IntTy = IntegerType::get(Context, getVF());
+  HLInst *BitCastInst = createBitCast(IntTy, CurMaskValue);
+  RegDDRef *IntRef = BitCastInst->getLvalDDRef();
+
+  Function *CtpopFunc = Intrinsic::getDeclaration(&HLNodeUtilities.getModule(),
+                                                  Intrinsic::ctpop, {IntTy});
+  HLInst *CtpopCall =
+      HLNodeUtilities.createCall(CtpopFunc, {IntRef->clone()}, "popcnt");
+  addInstUnmasked(CtpopCall);
+
+  RegDDRef *PopCnt = CtpopCall->getLvalDDRef();
+  RegDDRef *NegOne = DDRefUtilities.createConstDDRef(PopCnt->getDestType(), -1);
+  HLInst *Shl = HLNodeUtilities.createShl(NegOne, PopCnt->clone());
+  addInstUnmasked(Shl);
+
+  HLInst *Xor =
+      HLNodeUtilities.createXor(Shl->getLvalDDRef()->clone(), NegOne->clone());
+  addInstUnmasked(Xor);
+
+  Type *VectorTy = FixedVectorType::get(Type::getInt1Ty(Context), getVF());
+  HLInst *BitCastVec = createBitCast(VectorTy, Xor->getLvalDDRef());
+
+  return BitCastVec->getLvalDDRef()->clone();
 }
 
 template <typename FinalInstType>
@@ -4929,6 +5193,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
+  case VPInstruction::CompressStore:
+  case VPInstruction::CompressStoreNonu:
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::ExpandLoadNonu:
+  case VPInstruction::CompressExpandIndexInit:
+  case VPInstruction::CompressExpandIndexFinal:
+  case VPInstruction::CompressExpandIndex:
+  case VPInstruction::CompressExpandIndexInc:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {

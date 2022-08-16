@@ -2909,6 +2909,49 @@ protected:
   }
 };
 
+template <unsigned InstOpcode>
+class VPCompressExpandInitFinal : public VPInstruction {
+public:
+  VPCompressExpandInitFinal(VPValue *V)
+      : VPInstruction(InstOpcode, V->getType(), {V}) {}
+
+  bool usesStartValue() const {
+    return InstOpcode == VPInstruction::CompressExpandIndexInit;
+  }
+
+  void replaceStartValue(VPValue *V) {
+    assert(usesStartValue() && V && "Can't replace start value");
+    setOperand(0, V);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == InstOpcode;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    return new VPCompressExpandInitFinal<InstOpcode>(getOperand(0));
+  }
+};
+
+class VPCompressExpandInit
+    : public VPCompressExpandInitFinal<VPInstruction::CompressExpandIndexInit> {
+public:
+  using VPCompressExpandInitFinal::VPCompressExpandInitFinal;
+};
+
+class VPCompressExpandFinal : public VPCompressExpandInitFinal<
+                                  VPInstruction::CompressExpandIndexFinal> {
+public:
+  using VPCompressExpandInitFinal::VPCompressExpandInitFinal;
+};
+
 /// Concrete class for representing a vector of steps of arithmetic progression.
 class VPConstStepVector : public VPInstruction {
 public:

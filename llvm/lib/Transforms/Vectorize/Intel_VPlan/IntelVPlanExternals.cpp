@@ -31,6 +31,7 @@
 #include "IntelVPlanExternals.h"
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 #define DEBUG_TYPE "VPlanExternals"
 
@@ -378,6 +379,55 @@ VPLiveInOutCreator::createInOutsPrivates<Loop>(const VPLoopEntityList *,
 template void VPLiveInOutCreator::createInOutsPrivates<loopopt::HLLoop>(
     const VPLoopEntityList *, loopopt::HLLoop *);
 
+template <>
+void VPLiveInOutCreator::createInOutsCompressExpandIdioms(
+    const VPLoopEntityList *VPLEntityList, Loop *) {
+
+  assert(VPLEntityList->vpceidioms().empty() &&
+         "Compress/expand idiom support for LLVM IR is not implemented.");
+}
+
+template <>
+void VPLiveInOutCreator::createInOutsCompressExpandIdioms(
+    const VPLoopEntityList *VPLEntityList, loopopt::HLLoop *OrigLoop) {
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+  auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  for (VPCompressExpandIdiom *CEIdiom : VPLEntityList->vpceidioms()) {
+
+    VPExtUseList ExtUseList;
+    VPCompressExpandFinal *Final = CEIdiom->getFinal();
+    for (VPUser *User : Final->users())
+      if (VPExternalUse *ExtUse = dyn_cast<VPExternalUse>(User))
+        ExtUseList.push_back(ExtUse);
+
+    bool NeedAddExtUse = ExtUseList.empty();
+    if (NeedAddExtUse) {
+
+      VPExternalDef *ExtDef = cast<VPExternalDef>(CEIdiom->getLiveIn());
+      const VPBlob *VBlob = cast<VPBlob>(ExtDef->getOperandHIR());
+      const loopopt::DDRef *DDRef = VBlob->getBlob();
+
+      const loopopt::RegDDRef *RegDDRef = dyn_cast<loopopt::RegDDRef>(DDRef);
+      if (!RegDDRef) {
+        const loopopt::BlobDDRef *BlobRef = cast<loopopt::BlobDDRef>(DDRef);
+        RegDDRef = BlobRef->getDDRefUtils().createScalarRegDDRef(
+            BlobRef->getSymbase(), BlobRef->getSingleCanonExpr()->clone());
+      }
+
+      VPExternalUse *ExtUse =
+          ExtVals.getOrCreateVPExternalUseForDDRef(RegDDRef);
+      ExtUse->addOperand(Final);
+      ExtUseList.push_back(ExtUse);
+    }
+
+    addInOutValues(CEIdiom->getInit(), Final, ExtUseList, NeedAddExtUse,
+                   CEIdiom->getLiveIn());
+    addOriginalLiveInOut(VPLEntityList, OrigLoop, CEIdiom, ExtUseList,
+                         ScalarInOuts);
+  }
+}
+
 template <class LoopTy>
 void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   VPlanVector &VecPlan = cast<VPlanVector>(Plan);
@@ -402,6 +452,7 @@ void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   createInOutsInductions(VPLEntityList, OrigLoop);
   createInOutsReductions(VPLEntityList, OrigLoop);
   createInOutsPrivates(VPLEntityList, OrigLoop);
+  createInOutsCompressExpandIdioms(VPLEntityList, OrigLoop);
 
   VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
 
