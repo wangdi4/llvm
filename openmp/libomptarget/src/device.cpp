@@ -692,6 +692,7 @@ int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
 int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                             AsyncInfoTy &AsyncInfo) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t Ret;
@@ -705,6 +706,9 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
   return Ret;
 #else // INTEL_CUSTOMIZATION
   if (!RTL->run_region || !RTL->synchronize)
+=======
+  if (!RTL->run_region_async || !RTL->synchronize)
+>>>>>>> 1081bb08cc509af820849d7c9ef62d8e84bfcde2
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                            TgtVarsSize);
   return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
