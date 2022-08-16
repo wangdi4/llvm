@@ -1632,7 +1632,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::CompressExpandIndex)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInc)
-    NewShape = getUniformVectorShape();
+    NewShape = getRandomVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();

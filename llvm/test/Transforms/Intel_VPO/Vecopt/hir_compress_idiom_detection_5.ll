@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen -vplan-enable-masked-variant=false -vplan-vec-scenario="n0;s1;n0" 2>&1 | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=8 2>&1 | FileCheck %s
 
 ; <0>          BEGIN REGION { }
 ; <25>               + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
@@ -54,7 +54,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:     float [[VP6]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP10]] = phi  [ i32 [[VP19]], [[BB1]] ],  [ i32 [[VP20:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP10]] = phi  [ i32 [[VP19]], [[BB1]] ],  [ i32 [[VP21:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP9]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP8]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
@@ -65,13 +65,14 @@
 ; CHECK-NEXT:       i64 [[VP13]] = sext i32 [[VP10]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[F0]] i64 [[VP13]]
 ; CHECK-NEXT:       float [[VP22:%.*]] = expand-load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP21:%.*]] = compress-expand-index-inc i32 [[VP10]] i32 1
+; CHECK-NEXT:       i32 [[VP12]] = add i32 [[VP10]] i32 1
 ; CHECK-NEXT:       float [[VP7]] = fadd float [[VP22]] float [[VP6]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]], [[BB0]]
 ; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP7]], [[BB3]] ],  [ float [[VP6]], [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP11]] = phi  [ i32 [[VP21]], [[BB3]] ],  [ i32 [[VP10]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP11]] = phi  [ i32 [[VP12]], [[BB3]] ],  [ i32 [[VP10]], [[BB0]] ]
+; CHECK-NEXT:     i32 [[VP21:%.*]] = compress-expand-index-inc i32 [[VP11]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp slt i64 [[VP8]] i64 [[VP14]]
 ; CHECK-NEXT:     br i1 [[VP16]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -79,7 +80,7 @@
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:     float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP5]] float [[R_0150]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i32 [[VP20]] = compress-expand-index-final i32 [[VP11]]
+; CHECK-NEXT:     i32 [[VP20:%.*]] = compress-expand-index-final i32 [[VP21]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -90,7 +91,72 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   float [[VP_RED_FINAL]] -> [[VP18:%.*]] = {%r.015}
 
-source_filename = "compress3.cpp"
+; CHECK:       BEGIN REGION { modified }
+; CHECK-NEXT:        [[TGU0:%.*]] = zext.i32.i64([[N0:%.*]])  /u  8
+; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  8
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = 0 == [[VEC_TC0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[C_0140]]
+; CHECK-NEXT:        [[PHI_TEMP20:%.*]] = [[R_0150]]
+; CHECK-NEXT:        [[PHI_TEMP40:%.*]] = 0
+; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_0]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_BLK0:merge.blk[0-9]+]].38
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[TGU60:%.*]] = zext.i32.i64([[N0]])  /u  8
+; CHECK-NEXT:        [[VEC_TC70:%.*]] = [[TGU60]]  *  8
+; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0.000000e+00
+; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[C_0140]],  0
+; CHECK-NEXT:        [[PHI_TEMP80:%.*]] = [[RED_INIT0]]
+; CHECK-NEXT:        [[PHI_TEMP100:%.*]] = [[INSERT0]]
+; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[VEC_TC70]]  -  1
+; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = (<8 x i32>*)([[A0]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC130:%.*]] = [[DOTVEC120]] != 0
+; CHECK-NEXT:        |   [[EXTRACT_0_140:%.*]] = extractelement &((<8 x float*>)([[F0]])[%phi.temp10]),  0
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v8f32([[EXTRACT_0_140]],  [[DOTVEC130]],  undef)
+; CHECK-NEXT:        |   [[DOTVEC150:%.*]] = [[EXP_LOAD0]]  +  [[PHI_TEMP80]]
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC130]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[DOTVEC150]] : [[PHI_TEMP80]]
+; CHECK-NEXT:        |   [[SELECT160:%.*]] = ([[DOTVEC130]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP100]] + 1 : [[PHI_TEMP100]]
+; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v8i32([[SELECT160]])
+; CHECK-NEXT:        |   [[INSERT170:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
+; CHECK-NEXT:        |   [[PHI_TEMP80]] = [[SELECT0]]
+; CHECK-NEXT:        |   [[PHI_TEMP100]] = [[INSERT170]]
+; CHECK-NEXT:        + END LOOP
+; CHECK:             [[R_0150]] = @llvm.vector.reduce.fadd.v8f32([[R_0150]],  [[SELECT0]])
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[INSERT170]],  0
+; CHECK-NEXT:        [[C_0140]] = [[EXTRACT_0_210]]
+; CHECK-NEXT:        [[DOTVEC220:%.*]] = zext.i32.i64([[N0]]) == [[VEC_TC70]]
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[EXTRACT_0_210]]
+; CHECK-NEXT:        [[PHI_TEMP20]] = [[R_0150]]
+; CHECK-NEXT:        [[PHI_TEMP40]] = [[IND_FINAL0]]
+; CHECK-NEXT:        [[PHI_TEMP260:%.*]] = [[EXTRACT_0_210]]
+; CHECK-NEXT:        [[PHI_TEMP280:%.*]] = [[R_0150]]
+; CHECK-NEXT:        [[PHI_TEMP300:%.*]] = [[IND_FINAL0]]
+; CHECK-NEXT:        [[EXTRACT_0_320:%.*]] = extractelement [[DOTVEC220]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_320]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[FINAL_MERGE:final.merge.[0-9]+]]
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[MERGE_BLK0]].38:
+; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP40]]
+; CHECK-NEXT:        [[R_0150]] = [[PHI_TEMP20]]
+; CHECK-NEXT:        [[C_0140]] = [[PHI_TEMP0]]
+; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK-NEXT:        |   if (([[A0]])[i1] != 0)
+; CHECK-NEXT:        |   {
+; CHECK-NEXT:        |      [[TMP1:%.*]] = ([[F0]])[%c.014]
+; CHECK-NEXT:        |      [[C_0140]] = [[C_0140]]  +  1
+; CHECK-NEXT:        |      [[R_0150]] = [[TMP1]]  +  [[R_0150]]
+; CHECK-NEXT:        |   }
+; CHECK-NEXT:        + END LOOP
+; CHECK:             [[PHI_TEMP260]] = [[C_0140]]
+; CHECK-NEXT:        [[PHI_TEMP280]] = [[R_0150]]
+; CHECK-NEXT:        [[PHI_TEMP300]] = zext.i32.i64([[N0]]) + -1
+; CHECK-NEXT:        [[FINAL_MERGE]]:
+; CHECK-NEXT:  END REGION
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

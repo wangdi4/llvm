@@ -1157,6 +1157,12 @@ private:
     HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
   }
 
+  // Returns CurMaskValue if it exists or all-ones value otherwise.
+  RegDDRef *getCurMaskValueOrAllOnes() const;
+
+  // Calculate mask for a non-unit strided compress store or expand load.
+  RegDDRef *generateMaskForCompressExpandLoadStoreNonu();
+
   template <typename FinalInstType>
   void insertPrivateFinalCond(const VPInstruction *VPInst);
 
