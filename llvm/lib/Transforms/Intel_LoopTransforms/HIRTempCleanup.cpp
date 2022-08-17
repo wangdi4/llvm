@@ -356,8 +356,23 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   // Blob could have been propagated to the temp lval by parser. Replace
   // it there as well.
   if (LvalRef && LvalRef->isTerminalRef()) {
-    LvalRef->replaceTempBlob(LvalBlobIndex, RvalBlobIndex);
-    LvalRef->makeConsistent();
+    unsigned UseLvalBlobIndex =
+        LvalRef->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
+
+    // Do not allow recursive definitions like the following as they don't make
+    // sense:
+    //
+    // t1 = smax(t1, t2);
+    // <LVAL-REG>: NON-LINEAR i32 smax(t1, t2)
+    //
+    // Instead we make t1 a self blob.
+    if (UseLvalBlobIndex == RvalBlobIndex) {
+      LvalRef->makeSelfBlob();
+
+    } else {
+      LvalRef->replaceTempBlob(LvalBlobIndex, RvalBlobIndex);
+      LvalRef->makeConsistent();
+    }
   }
 
   // Replace lval symbase by rval symbase as livein.
