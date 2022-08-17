@@ -8,7 +8,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-DAG: STR    %dim0__tid = phi i64 [ %0, %dim_0_vector_pre_head ], [ %dim0_inc_tid, %entryvector_func ]
 ; CHECK-DAG: STR    %3 = trunc i64 %dim0__tid to i32
 ; CHECK-DAG: RND    %broadcast.splatinsertvector_func = insertelement <8 x i32> poison, i32 %3, i32 0
-; CHECK-DAG: STR    %broadcast.splatvector_func = shufflevector <8 x i32> %broadcast.splatinsertvector_func, <8 x i32> poison, <8 x i32> zeroinitializer
+; CHECK-DAG: RND    %broadcast.splatvector_func = shufflevector <8 x i32> %broadcast.splatinsertvector_func, <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK-DAG: STR    %4 = add nuw <8 x i32> %broadcast.splatvector_func, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-DAG: UNI  i64 32
 ; CHECK-DAG: STR    %sextvector_func = shl i64 %dim0__tid, 32
