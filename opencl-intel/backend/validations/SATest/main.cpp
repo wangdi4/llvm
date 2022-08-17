@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
 {
     // Parse received options
     llvm::cl::ParseCommandLineOptions(argc, argv,
-        "Stand-alone test application to validate OCL/DX back-end.\n");
+        "Stand-alone test application to validate OCL back-end.\n");
 
     try
     {

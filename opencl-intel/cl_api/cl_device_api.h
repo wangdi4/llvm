@@ -440,7 +440,6 @@ struct cl_dev_alloc_prop
     bool        mustAllocRawMemory; //!< Device must allocate raw memory for memory object in Runtime
     bool        usedByDMA;          //!< Device may use DMA engine to access memory object
     bool        GLSharing;          //!< Device memory manager can accept GL sub-system memory object handles
-    bool        DXSharing;          //!< Device memory manager can accept DX sub-system memory object handles
 };
 
 /*! \struct cl_dev_cmd_desc
