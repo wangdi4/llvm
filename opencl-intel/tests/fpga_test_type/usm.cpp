@@ -160,10 +160,10 @@ protected:
     err = clFinish(queue);
     ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
 
-    err = clReleaseProgram(program);
-    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
+    err = clReleaseProgram(program);
+    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
   }
 
   /// Test memcpy
@@ -276,10 +276,10 @@ protected:
       ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";
     }
 
-    err = clReleaseProgram(program);
-    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
     err = clReleaseKernel(kernel);
     ASSERT_EQ(err, CL_SUCCESS) << "clReleaseKernel failed";
+    err = clReleaseProgram(program);
+    ASSERT_EQ(err, CL_SUCCESS) << "clReleaseProgram failed";
 
     err = m_clMemFreeINTEL(context, foo);
     ASSERT_EQ(err, CL_SUCCESS) << "clMemFreeINTEL failed";
