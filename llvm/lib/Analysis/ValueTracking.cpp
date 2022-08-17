@@ -7067,16 +7067,10 @@ bool llvm::matchSimpleRecurrence(const PHINode *P, BinaryOperator *&BO,
     case Instruction::Sub:
     case Instruction::And:
     case Instruction::Or:
-<<<<<<< HEAD
-    case Instruction::Mul: {
-      Value *LL = traceThroughReturnedArgCall(LU->getOperand(0)); // INTEL
-      Value *LR = traceThroughReturnedArgCall(LU->getOperand(1)); // INTEL
-=======
     case Instruction::Mul:
     case Instruction::FMul: {
-      Value *LL = LU->getOperand(0);
-      Value *LR = LU->getOperand(1);
->>>>>>> f61f99a105914c7060baf4161ffacc96a0995764
+      Value *LL = traceThroughReturnedArgCall(LU->getOperand(0)); // INTEL
+      Value *LR = traceThroughReturnedArgCall(LU->getOperand(1)); // INTEL
       // Find a recurrence.
       if (LL == P)
         L = LR;
