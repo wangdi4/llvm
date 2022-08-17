@@ -6626,10 +6626,10 @@ def int_x86_avx2_vcvtneps2bf16256 : ClangBuiltin<"__builtin_ia32_vcvtneps2bf1625
 let TargetPrefix = "x86" in {
 def int_x86_avx512_mask_vbcstnebf162ps128 :
         ClangBuiltin<"__builtin_ia32_vbcstnebf162ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_mask_vbcstnebf162ps256 :
         ClangBuiltin<"__builtin_ia32_vbcstnebf162ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_maskz_vbcstnebf162ps128 :
         ClangBuiltin<"__builtin_ia32_vbcstnebf162ps128_maskz">,
         Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
@@ -6640,16 +6640,16 @@ def int_x86_avx512_vbcstnebf162ps512 : ClangBuiltin<"__builtin_ia32_vbcstnebf162
         Intrinsic<[llvm_v16f32_ty], [llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_mask_vbcstnebf162ps512 :
         ClangBuiltin<"__builtin_ia32_vbcstnebf162ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_maskz_vbcstnebf162ps512 :
         ClangBuiltin<"__builtin_ia32_vbcstnebf162ps512_maskz">,
         Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_mask_vbcstnesh2ps128 :
         ClangBuiltin<"__builtin_ia32_vbcstnesh2ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_mask_vbcstnesh2ps256 :
         ClangBuiltin<"__builtin_ia32_vbcstnesh2ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_maskz_vbcstnesh2ps128 :
         ClangBuiltin<"__builtin_ia32_vbcstnesh2ps128_maskz">,
         Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty], [IntrReadMem]>;
@@ -6661,53 +6661,25 @@ def int_x86_avx512_vbcstnesh2ps512 :
         Intrinsic<[llvm_v16f32_ty], [llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_mask_vbcstnesh2ps512 :
         ClangBuiltin<"__builtin_ia32_vbcstnesh2ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_maskz_vbcstnesh2ps512 :
         ClangBuiltin<"__builtin_ia32_vbcstnesh2ps512_maskz">,
         Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty], [IntrReadMem]>;
 def int_x86_avx512_vcvtne2ps2ph128 :
         ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph128">,
         Intrinsic<[llvm_v8f16_ty], [llvm_v4f32_ty, llvm_v4f32_ty], [IntrNoMem]>;
-def int_x86_avx512_mask_vcvtne2ps2ph128 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph128_mask">,
-        Intrinsic<[llvm_v8f16_ty],
-        [llvm_v4f32_ty, llvm_v4f32_ty, llvm_v8f16_ty, llvm_i8_ty], [IntrNoMem]>;
-def int_x86_avx512_maskz_vcvtne2ps2ph128 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph128_maskz">,
-        Intrinsic<[llvm_v8f16_ty],
-        [llvm_v4f32_ty, llvm_v4f32_ty, llvm_v8f16_ty, llvm_i8_ty], [IntrNoMem]>;
 def int_x86_avx512_vcvtne2ps2ph256 : ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph256">,
         Intrinsic<[llvm_v16f16_ty], [llvm_v8f32_ty, llvm_v8f32_ty], [IntrNoMem]>;
-def int_x86_avx512_mask_vcvtne2ps2ph256 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph256_mask">,
-        Intrinsic<[llvm_v16f16_ty],
-        [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v16f16_ty, llvm_i16_ty],
-        [IntrNoMem]>;
-def int_x86_avx512_maskz_vcvtne2ps2ph256 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph256_maskz">,
-        Intrinsic<[llvm_v16f16_ty],
-        [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v16f16_ty, llvm_i16_ty],
-        [IntrNoMem]>;
 def int_x86_avx512_vcvtne2ps2ph512 : ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph512">,
-        Intrinsic<[llvm_v32f16_ty], [llvm_v16f32_ty, llvm_v16f32_ty],
-        [IntrNoMem]>;
-def int_x86_avx512_mask_vcvtne2ps2ph512 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph512_mask">,
-        Intrinsic<[llvm_v32f16_ty],
-        [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v32f16_ty, llvm_i32_ty],
-        [IntrNoMem]>;
-def int_x86_avx512_maskz_vcvtne2ps2ph512 :
-        ClangBuiltin<"__builtin_ia32_vcvtne2ps2ph512_maskz">,
-        Intrinsic<[llvm_v32f16_ty],
-        [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v32f16_ty, llvm_i32_ty],
-        [IntrNoMem]>;
+        Intrinsic<[llvm_v32f16_ty], [llvm_v16f32_ty, llvm_v16f32_ty, llvm_i32_ty],
+        [IntrNoMem, ImmArg<ArgIndex<2>>]>;
 def int_x86_avx512_mask_vcvtneebf162ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneebf162ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneebf162ps256 :
         ClangBuiltin<"__builtin_ia32_vcvtneebf162ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneebf162ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneebf162ps128_maskz">,
@@ -6723,7 +6695,7 @@ def int_x86_avx512_vcvtneebf162ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneebf162ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneebf162ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneebf162ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneebf162ps512_maskz">,
@@ -6731,11 +6703,11 @@ def int_x86_avx512_maskz_vcvtneebf162ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneeph2ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneeph2ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneeph2ps256 :
         ClangBuiltin<"__builtin_ia32_vcvtneeph2ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneeph2ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneeph2ps128_maskz">,
@@ -6751,7 +6723,7 @@ def int_x86_avx512_vcvtneeph2ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneeph2ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneeph2ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneeph2ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneeph2ps512_maskz">,
@@ -6759,11 +6731,11 @@ def int_x86_avx512_maskz_vcvtneeph2ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneobf162ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneobf162ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneobf162ps256 :
         ClangBuiltin<"__builtin_ia32_vcvtneobf162ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneobf162ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneobf162ps128_maskz">,
@@ -6779,7 +6751,7 @@ def int_x86_avx512_vcvtneobf162ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneobf162ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneobf162ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneobf162ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneobf162ps512_maskz">,
@@ -6787,11 +6759,11 @@ def int_x86_avx512_maskz_vcvtneobf162ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneoph2ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneoph2ps128_mask">,
-        Intrinsic<[llvm_v4f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v4f32_ty], [llvm_v4f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneoph2ps256 :
         ClangBuiltin<"__builtin_ia32_vcvtneoph2ps256_mask">,
-        Intrinsic<[llvm_v8f32_ty], [llvm_i8_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v8f32_ty], [llvm_v8f32_ty, llvm_i8_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneoph2ps128 :
         ClangBuiltin<"__builtin_ia32_vcvtneoph2ps128_maskz">,
@@ -6807,7 +6779,7 @@ def int_x86_avx512_vcvtneoph2ps512 :
         [IntrReadMem]>;
 def int_x86_avx512_mask_vcvtneoph2ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneoph2ps512_mask">,
-        Intrinsic<[llvm_v16f32_ty], [llvm_i16_ty, llvm_ptr_ty],
+        Intrinsic<[llvm_v16f32_ty], [llvm_v16f32_ty, llvm_i16_ty, llvm_ptr_ty],
         [IntrReadMem]>;
 def int_x86_avx512_maskz_vcvtneoph2ps512 :
         ClangBuiltin<"__builtin_ia32_vcvtneoph2ps512_maskz">,

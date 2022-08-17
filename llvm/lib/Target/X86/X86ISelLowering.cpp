@@ -6006,7 +6006,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     case Intrinsic::x86_avx512_maskz_vcvtneobf162ps256:
     case Intrinsic::x86_avx512_maskz_vcvtneobf162ps512: {
       Info.opc = ISD::INTRINSIC_W_CHAIN;
-      Info.ptrVal = I.getArgOperand(1);
+      Info.ptrVal = I.getArgOperand(2);
       VectorType *ResultTy = cast<VectorType>(I.getType());
       Info.memVT = EVT::getVectorVT(I.getType()->getContext(), MVT::i16,
                                     ResultTy->getElementCount());
@@ -6027,7 +6027,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     case Intrinsic::x86_avx512_maskz_vcvtneoph2ps256:
     case Intrinsic::x86_avx512_maskz_vcvtneoph2ps512: {
       Info.opc = ISD::INTRINSIC_W_CHAIN;
-      Info.ptrVal = I.getArgOperand(1);
+      Info.ptrVal = I.getArgOperand(2);
       VectorType *ResultTy = cast<VectorType>(I.getType());
       Info.memVT = EVT::getVectorVT(I.getType()->getContext(), MVT::f16,
                                     ResultTy->getElementCount());
@@ -6042,7 +6042,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     case Intrinsic::x86_avx512_maskz_vbcstnebf162ps256:
     case Intrinsic::x86_avx512_maskz_vbcstnebf162ps512: {
       Info.opc = ISD::INTRINSIC_W_CHAIN;
-      Info.ptrVal = I.getArgOperand(1);
+      Info.ptrVal = I.getArgOperand(2);
       Info.memVT = EVT::getIntegerVT(I.getType()->getContext(), 16);
       Info.align = Align(1);
       Info.flags |= MachineMemOperand::MOLoad;
@@ -6055,7 +6055,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     case Intrinsic::x86_avx512_maskz_vbcstnesh2ps256:
     case Intrinsic::x86_avx512_maskz_vbcstnesh2ps512: {
       Info.opc = ISD::INTRINSIC_W_CHAIN;
-      Info.ptrVal = I.getArgOperand(1);
+      Info.ptrVal = I.getArgOperand(2);
       Info.memVT = EVT::getFloatingPointVT(16);
       Info.align = Align(1);
       Info.flags |= MachineMemOperand::MOLoad;
@@ -29262,17 +29262,27 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       default:
         llvm_unreachable("Unknown Intrinsic");
       }
-      SDValue Chain = Op.getOperand(0);
+      bool IsMask = (Op.getNumOperands() == 5);
+      unsigned I = 0;
+      SDValue PassThru;
+      SDValue Chain = Op.getOperand(I++);
       MVT DstVecTy = Op.getSimpleValueType();
       SDVTList VTs = DAG.getVTList(DstVecTy, MVT::Other);
-      SDValue Mask = Op.getOperand(2);
-      SDValue Src = Op.getOperand(3);
+      // Skip the TargetConstant.
+      ++I;
+      if (IsMask)
+        PassThru = Op.getOperand(I++);
+      SDValue Mask = Op.getOperand(I++);
+      SDValue Src = Op.getOperand(I++);
       int NumElts = DstVecTy.getVectorNumElements();
       MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
       SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
-      return DAG.getMemIntrinsicNode(Opc, dl, VTs, {Chain, VMask, Src},
-                                     MemIntr->getMemoryVT(),
-                                     MemIntr->getMemOperand());
+      return IsMask ? DAG.getMemIntrinsicNode(
+                          Opc, dl, VTs, {Chain, PassThru, VMask, Src},
+                          MemIntr->getMemoryVT(), MemIntr->getMemOperand())
+                    : DAG.getMemIntrinsicNode(Opc, dl, VTs, {Chain, VMask, Src},
+                                              MemIntr->getMemoryVT(),
+                                              MemIntr->getMemOperand());
     }
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
@@ -35344,6 +35354,7 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VBCSTNESH2PS)
   NODE_NAME_CASE(VBCSTNESH2PSZ)
   NODE_NAME_CASE(VCVTNE2PS2PH)
+  NODE_NAME_CASE(VCVTNE2PS2PH_RND)
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
   NODE_NAME_CASE(VCVTNEBF162IBS)
