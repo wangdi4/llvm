@@ -106,7 +106,7 @@ omp.pdo.body5:                                    ; preds = %DIR.OMP.SIMD.134, %
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.233, label %omp.pdo.body5
 
 DIR.OMP.SIMD.132:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"foo_$I.linear.iv", i32 1), "QUAL.OMP.LASTPRIVATE:F90_NONPOD"(%"FOO$.btI_TY"** %"foo_$CL.lpriv", void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.mold_ctor_deref", void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.copy_assign_deref", void (%"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.dtor_deref"), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LIVEIN"(i32* %"foo_$B"), "QUAL.OMP.LIVEIN"(i32* %"foo_$A"), "QUAL.OMP.LIVEIN"(i32* %"foo_$N") ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"foo_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.LASTPRIVATE:F90_NONPOD.TYPED"(%"FOO$.btI_TY"** %"foo_$CL.lpriv", %"FOO$.btI_TY"* zeroinitializer, i32 1, void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.mold_ctor_deref", void (%"FOO$.btI_TY"**, %"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.copy_assign_deref", void (%"FOO$.btI_TY"**)* @"%FOO$.btI_TY.omp.dtor_deref"), "QUAL.OMP.LIVEIN"(i32* %"foo_$B"), "QUAL.OMP.LIVEIN"(i32* %"foo_$A"), "QUAL.OMP.LIVEIN"(i32* %"foo_$N") ]
   br label %DIR.OMP.SIMD.134
 
 DIR.OMP.SIMD.134:                                 ; preds = %DIR.OMP.SIMD.132

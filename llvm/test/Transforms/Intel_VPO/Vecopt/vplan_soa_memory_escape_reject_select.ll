@@ -22,7 +22,7 @@ entry:
   br label %begin.region
 
 begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv), "QUAL.OMP.UNIFORM"(i1 %pred), "QUAL.OMP.UNIFORM"(i32* %ptr) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.UNIFORM"(i1 %pred), "QUAL.OMP.UNIFORM:TYPED"(i32* %ptr, i32 0, i32 1) ]
   br label %preheader
 
 preheader:

@@ -56,7 +56,7 @@ entry:
   br label %0
 
 0:
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i8* %ret.lpriv) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i8* %ret.lpriv, i8 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:

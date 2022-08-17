@@ -74,7 +74,7 @@ for.body:                                         ; preds = %omp.precond.end, %f
   br i1 %cmp4, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %for.body
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD"(float* %sum.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %sum.red, float zeroinitializer, i32 1) ]
   store float 0.000000e+00, float* %sum.red, align 4
   br label %omp.inner.for.body
 

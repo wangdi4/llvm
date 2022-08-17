@@ -106,7 +106,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
   %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
   %c.promoted = load i8, i8* %c, align 1, !tbaa !8
   %.pre = load i32, i32* %s, align 4, !tbaa !6
@@ -225,7 +225,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.114, label %omp.precond.end
 
 DIR.OMP.SIMD.114:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
   %ptr.addr.promoted = load i32*, i32** %ptr.addr, align 8, !tbaa !2
   %c.promoted = load i8, i8* %c, align 1, !tbaa !8
   %.pre = load i32, i32* %s, align 4, !tbaa !6
