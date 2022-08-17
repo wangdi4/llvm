@@ -66,7 +66,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     // def frexp_gen_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>;
     def hypot_f16 : OclBuiltin<"hypot", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def ilogb_f16 : OclBuiltin<"ilogb", (outs i32gentype:$ret), (ins gentype:$x)>;
-    // def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
     // def ldexp_s_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, si32gentype:$k)>, Except<[v1f16, v1f32]>;
     def lgamma_f16 : OclBuiltin<"lgamma", (outs gentype:$ret), (ins gentype:$x)>;
     // def lgamma_r_pas_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
@@ -84,7 +83,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     // def nan_f16 : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$x)>;
     def nextafter_f16 : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def pow_f16 : OclBuiltin<"pow", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def pown_f16 : OclBuiltin<"pown", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
     def powr_f16 : OclBuiltin<"powr", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def remainder_f16 : OclBuiltin<"remainder", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def remquo_pas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
@@ -92,7 +90,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     // def remquo_gas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
     // def remquo_gen_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>;
     def rint_f16 : OclBuiltin<"rint", (outs gentype:$ret), (ins gentype:$x)>;
-    // def rootn_f16 : OclBuiltin<"rootn", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
     def round_f16 : OclBuiltin<"round", (outs gentype:$ret), (ins gentype:$x)>;
     def rsqrt_f16 : OclBuiltin<"rsqrt", (outs gentype:$ret), (ins gentype:$x)>;
     def sin_f16 : OclBuiltin<"sin", (outs gentype:$ret), (ins gentype:$x)>;
@@ -108,6 +105,12 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
   } // defset math_generic_builtins
 
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
+
+  defset list<OclBuiltin> math_builtins_with_i32gentype_arg1 = {
+    def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
+    def pown_f16 : OclBuiltin<"pown", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
+    def rootn_f16 : OclBuiltin<"rootn", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
+  } // defset math_builtins_with_i32gentype_arg1
 } // defset math_builtins_with_general_vect_info
 }
 
@@ -229,6 +232,23 @@ foreach bi = math_builtins_with_pgentype_arg1_strided_variants in {
   // Explicitly put a copy of linear strided impl in AMX rtl, so that the native
   // SVML impl can be inlined.
   def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code>, AMX;
+}
+
+// gentype func(gentype, i32gentype)
+foreach bi = math_builtins_with_i32gentype_arg1 in {
+  // [SHARED] vXf16: convert Arg0 to f32 and call f32 implementations.
+  def : OclBuiltinImpl<bi, math_f16_types, false, promote_f16_to_f32_code, [["$ARGLIST", "convert_$Arg0f32gentype($Arg0VarName), $Arg1VarName"]]>, SHARED;
+
+  // [AMX] vXf16 (X <= 32): call __ocl_svml func.
+  let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, call_svml_code, [["$ARGLIST", "$Arg0VarName, $Arg1VarName"]]>, AMX;
+
+  // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
+  let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, expand_code, [["$LOARGLIST", "$Arg0VarName.lo, $Arg1VarName.lo"], ["$HIARGLIST", "$Arg0VarName.hi, $Arg1VarName.hi"]]>, AMX;
+
+  // TODO: (when masked variants are added)
+  // [AMX] v3f16: call masked v4f16
 }
 
 // VectInfos
