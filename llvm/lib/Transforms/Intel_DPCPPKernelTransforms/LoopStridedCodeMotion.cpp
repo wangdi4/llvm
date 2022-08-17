@@ -85,6 +85,10 @@ private:
   /// Strided instruction to be moved.
   SmallPtrSet<Value *, 16> InstToMoveSet;
 
+  /// Map from strided value, for which phi is created, to its def which has
+  /// non-hoisted users.
+  DenseMap<Instruction *, Instruction *> NonHoistedMap;
+
   /// Obtains loop header PHI nodes and their latch entries.
   void getHeaderPhi();
 
@@ -147,7 +151,6 @@ bool LoopStridedCodeMotionImpl::run() {
 
   LLVM_DEBUG(dbgs() << "Run LoopStridedCodeMotion on loop " << Header->getName()
                     << "\n");
-  LLVM_DEBUG(dbgs().indent(2));
 
   IRBuilder<> IRB(Header->getContext());
   this->Builder = &IRB;
@@ -183,9 +186,9 @@ void LoopStridedCodeMotionImpl::getHeaderPhi() {
     HeaderPhi.insert(PN);
     HeaderPhiLatchEntries.insert(PN->getIncomingValueForBlock(Latch));
   }
-  LLVM_DEBUG(dbgs() << "HeaderPhi size " << HeaderPhi.size() << "\n");
-  LLVM_DEBUG(dbgs() << "HeaderPhiLatchEntries size "
-                    << HeaderPhiLatchEntries.size() << "\n");
+  LLVM_DEBUG(dbgs().indent(2) << "HeaderPhi size " << HeaderPhi.size() << "\n");
+  LLVM_DEBUG(dbgs().indent(2) << "HeaderPhiLatchEntries size "
+                              << HeaderPhiLatchEntries.size() << "\n");
 }
 
 void LoopStridedCodeMotionImpl::scanLoop(DomTreeNode *N) {
@@ -221,7 +224,8 @@ void LoopStridedCodeMotionImpl::hoistInstructions() {
   for (auto *I : OrderedCandidates) {
     if (!InstToMoveSet.contains(I))
       continue;
-    LLVM_DEBUG(dbgs() << "hoist " << *I << "\n");
+    LLVM_DEBUG(dbgs().indent(2) << "hoist " << *I << "\n");
+
     // Fix phi node operands if exists.
     fixHeaderPhiOps(I);
     // Move to preheader.
@@ -243,14 +247,46 @@ void LoopStridedCodeMotionImpl::fixHeaderPhiOps(Instruction *I) {
   }
 }
 
+static ShuffleVectorInst *
+getStridedShuffleUser(Instruction *I, SmallPtrSetImpl<Value *> &InstToMoveSet,
+                      LoopWIInfo &WIInfo) {
+  using namespace PatternMatch;
+  for (User *U : I->users()) {
+    if (!InstToMoveSet.contains(U))
+      continue;
+    if (match(U,
+              m_OneUse(m_InsertElt(m_Undef(), m_Specific(I), m_ZeroInt())))) {
+      auto *SingleU = *(U->user_begin());
+      if (match(SingleU,
+                m_OneUse(m_Shuffle(m_Specific(U), m_Undef(), m_ZeroMask()))) &&
+          WIInfo.isStrided(SingleU))
+        return cast<ShuffleVectorInst>(SingleU);
+    }
+  }
+  return nullptr;
+}
+
 void LoopStridedCodeMotionImpl::createPhiIncrementors(Instruction *I) {
   // Get all users that are not moved outside of the loop.
   SmallVector<User *, 4> UsersToFix;
   obtainNonHoistedUsers(I, UsersToFix);
 
-  if (UsersToFix.empty()) {
-    LLVM_DEBUG(dbgs() << *I
-                      << ": all users were hoisted, no need to create phi\n");
+  if (UsersToFix.empty() && !isa<ICmpInst>(I)) {
+    LLVM_DEBUG(dbgs().indent(2)
+               << *I << ": all users were hoisted, no need to create phi\n");
+    return;
+  }
+
+  // The instruction has non-hoisted user. If the instruction has strided
+  // shufflevector user, there is no need to create phi now since we'll create
+  // phi for shufflevector and replace non-hoisted user with value extracted
+  // from the phi. The instruction is stored into a map and is delay-processed
+  // once the phi for shufflevector is created.
+  if (auto *SVI = getStridedShuffleUser(I, InstToMoveSet, WIInfo)) {
+    LLVM_DEBUG(dbgs().indent(2)
+               << *I
+               << ": has strided shufflevector users, no need to create phi");
+    NonHoistedMap[SVI] = I;
     return;
   }
 
@@ -288,6 +324,19 @@ void LoopStridedCodeMotionImpl::createPhiIncrementors(Instruction *I) {
   // Replace users of the phi.
   for (User *U : UsersToFix)
     U->replaceUsesOfWith(I, PN);
+
+  // Fix non-hoisted users of I's def.
+  auto It = NonHoistedMap.find(I);
+  if (It != NonHoistedMap.end()) {
+    UsersToFix.clear();
+    obtainNonHoistedUsers(It->second, UsersToFix);
+    if (!UsersToFix.empty()) {
+      Builder->SetInsertPoint(PN->getNextNode());
+      auto *EEI = Builder->CreateExtractElement(PN, (uint64_t)0);
+      for (auto *U : UsersToFix)
+        U->replaceUsesOfWith(It->second, EEI);
+    }
+  }
 
   // Update LoopWIAnalysis about the new phi node.
   WIInfo.setValStrided(PN, dyn_cast<Constant>(Stride));
@@ -367,21 +416,23 @@ static bool isFPAccuracyCritical(Instruction *I) {
 bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
   // Can move strided values or their intermediates.
   if (!WIInfo.isStrided(I) && !WIInfo.isStridedIntermediate(I)) {
-    LLVM_DEBUG(dbgs() << "Can't hoist not strided: " << *I << "\n");
+    LLVM_DEBUG(dbgs().indent(2) << "Can't hoist not strided: " << *I << "\n");
     return false;
   }
 
   // Currently support moving strided scalars only if their stride is constant.
   // Stride of strided vector can be computed by subtracting vector elements.
   if (!I->getType()->isVectorTy() && !WIInfo.getConstStride(I)) {
-    LLVM_DEBUG(dbgs() << "Can't hoist nonconst strided scalar: " << *I << "\n");
+    LLVM_DEBUG(dbgs().indent(2)
+               << "Can't hoist nonconst strided scalar: " << *I << "\n");
     return false;
   }
 
   // To avoid accuracy loss, don't hoist accuracy critical instructions.
   if (isFPAccuracyCritical(I)) {
-    LLVM_DEBUG(dbgs() << "Can't hoist fp accuracy critical instruction: " << *I
-                      << '\n');
+    LLVM_DEBUG(dbgs().indent(2)
+               << "Can't hoist fp accuracy critical instruction: " << *I
+               << '\n');
     return false;
   }
 
@@ -393,17 +444,25 @@ bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
   for (Value *Op : I->operands()) {
     if (!L.isLoopInvariant(Op) && !InstToMoveSet.contains(Op) &&
         !HeaderPhi.contains(Op)) {
-      LLVM_DEBUG(dbgs() << "Can't hoist having unsupported operands: " << *I
-                        << "\n");
+      LLVM_DEBUG(dbgs().indent(2)
+                 << "Can't hoist having unsupported operands: " << *I << "\n");
       return false;
     }
   }
 
   // Don't hoise If I is for llvm.assume usage.
-  if (IsVectorAssume(I))
+  if (IsVectorAssume(I)) {
+    LLVM_DEBUG(dbgs().indent(2)
+               << "Can't hoist having llvm.assume usage: " << *I << "\n");
+    // Also remove I's operands from InstToMoveSet.
+    // Need not to do this recursively since in our use case one operand is
+    // shufflevector and it is enough to remove the shufflevector.
+    for (Value *Op : I->operands())
+      InstToMoveSet.erase(Op);
     return false;
+  }
 
-  LLVM_DEBUG(dbgs() << "Can hoist " << *I << "\n");
+  LLVM_DEBUG(dbgs().indent(2) << "Can hoist " << *I << "\n");
 
   return true;
 }
@@ -553,7 +612,8 @@ void LoopStridedCodeMotionImpl::screenNonProfitableValues() {
     bool IsScalar = !I->getType()->isVectorTy();
     if (!IsProfitable || WIInfo.isStridedIntermediate(I) || IsScalar) {
       InstToMoveSet.erase(I);
-      LLVM_DEBUG(dbgs() << "Not hoist " << *I << ". Not profitable\n");
+      LLVM_DEBUG(dbgs().indent(2)
+                 << "Not hoist " << *I << ". Not profitable\n");
     }
   }
 }
