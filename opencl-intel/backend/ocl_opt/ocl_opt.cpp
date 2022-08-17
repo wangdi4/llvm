@@ -300,7 +300,7 @@ RuntimeLib(cl::CommaSeparated, "runtimelib",
 
 static cl::opt<std::string>
 RuntimeServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx/rs)"),
+                  cl::desc("Runtime services type (ocl)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
 extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList,
