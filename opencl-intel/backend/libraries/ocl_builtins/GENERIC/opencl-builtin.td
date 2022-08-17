@@ -348,7 +348,7 @@ def ocl_types : TypeNameList<[
   pv1u32.TypeName, pv2u32.TypeName, pv3u32.TypeName, pv4u32.TypeName, pv8u32.TypeName, pv16u32.TypeName,
   pv1i64.TypeName, pv2i64.TypeName, pv3i64.TypeName, pv4i64.TypeName, pv8i64.TypeName, pv16i64.TypeName,
   pv1u64.TypeName, pv2u64.TypeName, pv3u64.TypeName, pv4u64.TypeName, pv8u64.TypeName, pv16u64.TypeName,
-  pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName,
+  pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName, pv32f16.TypeName, pv64f16.TypeName,
   pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
 
