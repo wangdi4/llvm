@@ -387,9 +387,6 @@ END_ENUM_DECL(TAL_LOG_LEVEL)
 */
 #define TAL_LOG_CAT_TAL          0x0001000000000000ull
 //#define TAL_LOG_CAT_DX           0x0002000000000000ull
-#define TAL_LOG_CAT_DX_FRAMES    0x0002000000000000ull // dx device/swapchain presents
-#define TAL_LOG_CAT_DX_ERGS      0x0004000000000000ull // dx device draw calls, buffer locks/maps
-#define TAL_LOG_CAT_DX_MISC      0x0008000000000000ull // dx other...
 #define TAL_LOG_CAT_RESERVED     0xFFFF000000000000ull // 
 #define TAL_LOG_CAT_ALL          0xFFFFFFFFFFFFFFFFull
 

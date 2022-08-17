@@ -54,8 +54,6 @@ public:
   virtual bool isSyncFunc(const std::string &func_name) const = 0;
 
   /// @brief Check if the shading language is ordered
-  ///  OpenCL is ordered, DX is not because all items must
-  ///  be randomly ordered.
   /// @return true if ordered.
   virtual bool orderedWI() const = 0;
 

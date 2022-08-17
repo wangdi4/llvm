@@ -570,7 +570,6 @@ cl_context CL_API_CALL clCreateContext(
         // Shared Platform Context
 
         // We don't support GL shared context now!
-        // We don't support DX (9/10/11) shared context now!
         // We don't support devices other than CPU or GPU in shared context now!
         if( !( OCLCRT::isSupportedContextType( properties, num_devices, devices ) ) )
         {
@@ -8787,7 +8786,6 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(
         goto FINISH;
     }
 
-    // We don't support DX for shared context
     errCode = ( (SOCLEntryPointsTable*)command_queue )->crtDispatch->clEnqueueAcquireDX9ObjectsINTEL(
                                         command_queue,
                                         num_objects,

@@ -74,7 +74,6 @@ MemoryAllocator::GetAllocProperties(cl_mem_object_type IN /*memObjType*/,
   pAllocProp->preferred_alignment = CPU_DEV_MAXIMUM_ALIGN;
   pAllocProp->maxBufferSize = m_maxAllocSize;
   pAllocProp->imagesSupported = true;
-  pAllocProp->DXSharing = false;
   pAllocProp->GLSharing = false;
 
   return CL_DEV_SUCCESS;
