@@ -2232,6 +2232,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       FPM.addPass(HIROptVarPredicatePass());
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
+      FPM.addPass(HIRLMMPass());
       if (RunVPOOpt) {
         FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
         if (EnableVPlanDriverHIR) {
