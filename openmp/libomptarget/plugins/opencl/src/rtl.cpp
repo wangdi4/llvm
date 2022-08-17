@@ -109,6 +109,7 @@ enum DeviceArch : uint64_t {
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002,
   DeviceArch_XeHP   = 0x0004,
+  DeviceArch_XeHPG  = 0x0008,
   DeviceArch_x86_64 = 0x0100
 };
 
@@ -152,16 +153,21 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4600, // ADLS
     }
   },
+#if INTEL_CUSTOMIZATION
   {
     DeviceArch_XeHP, {
-#if INTEL_CUSTOMIZATION
       0x0200, // ATS
       // Putting PVC here for now.
       // We may decide to add another arch type if needed in the future.
       0x0b00, // PVC
-#endif // INTEL_CUSTOMIZATION
+    }
+  },
+  {
+    DeviceArch_XeHPG, {
+      0x4F00, 0x5600 // DG2/ATS-M
     }
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION
@@ -1496,7 +1502,7 @@ public:
   void *allocDataClMem(int32_t DeviceId, size_t Size);
 
   /// Get PCI device ID
-  uint32_t getPCIDeviceId(int32_t DeviceId);
+  uint32_t getPCIDeviceId(int32_t DeviceId) const;
 
   /// Get device arch
   uint64_t getDeviceArch(int32_t DeviceId);
@@ -2950,7 +2956,7 @@ void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
   return (void *)ret;
 }
 
-uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) {
+uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) const {
   if (Extensions[DeviceId].DeviceAttributeQuery == ExtensionStatusEnabled)
     return DeviceProperties[DeviceId].DeviceId;
 
@@ -3031,14 +3037,13 @@ RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
 
 #if INTEL_CUSTOMIZATION
 bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) const {
-  switch (DeviceArchs[DeviceId]) {
-  case DeviceArch_XeHP:
+  switch (getPCIDeviceId(DeviceId) & 0xFF00) {
+  case 0x4900: // DG1
+  case 0x0200: // ATS SDV
+  case 0x0B00: // PVC
+  case 0x4F00: // DG2/ATS-M
+  case 0x5600: // DG2/ATS-M
     return true;
-
-  case DeviceArch_Gen9:
-  // FIXME: if needed, we should handle discrete cards from XeLP family
-  //        properly. XeLP is currently a mix.
-  case DeviceArch_XeLP:
   default:
     return false;
   }

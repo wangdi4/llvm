@@ -960,42 +960,49 @@ def X86vaaddf : SDNode<"X86ISD::VAADDF",
                         [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-def SDTAVX512NECONVERT : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
+def SDTAVX512NECONVERTMASK : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
+                                SDTCisVec<2>, SDTCisPtrTy<3>, SDTCisSameNumEltsAs<0, 2>]>;
+def SDTAVX512NECONVERTMASKZ : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
                                 SDTCisPtrTy<2>, SDTCisSameNumEltsAs<0, 1>]>;
 def X86vcvtneebf162ps : SDNode<"X86ISD::VCVTNEEBF162PS",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASK,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneebf162psz : SDNode<"X86ISD::VCVTNEEBF162PSZ",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASKZ,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneeph2ps : SDNode<"X86ISD::VCVTNEEPH2PS",
-                              SDTAVX512NECONVERT,
+                              SDTAVX512NECONVERTMASK,
                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneeph2psz : SDNode<"X86ISD::VCVTNEEPH2PSZ",
-                               SDTAVX512NECONVERT,
+                               SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneobf162ps : SDNode<"X86ISD::VCVTNEOBF162PS",
-                               SDTAVX512NECONVERT,
+                               SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtneobf162psz : SDNode<"X86ISD::VCVTNEOBF162PSZ",
-                                SDTAVX512NECONVERT,
+                                SDTAVX512NECONVERTMASKZ,
                                 [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERT,
+def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERT,
+def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERT,
+def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERT,
+def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERT,
+def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERTMASK,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
-def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERT,
+def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERTMASKZ,
                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 def X86vcvtne2ps2ph : SDNode<"X86ISD::VCVTNE2PS2PH",
                       SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
                                            SDTCVecEltisVT<1, f32>,
                                            SDTCisSameAs<1,2>]>>;
+def X86vcvtne2ps2phRnd : SDNode<"X86ISD::VCVTNE2PS2PH_RND",
+                         SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f16>,
+                                              SDTCVecEltisVT<1, f32>,
+                                              SDTCisSameAs<1,2>,
+                                              SDTCisVT<3, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
 def SDTAVX512SATCVT_BF162I_MASK : SDTypeProfile<1, 4, [

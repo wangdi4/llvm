@@ -232,10 +232,27 @@ class IfLookup final : public HLNodeVisitorBase {
   bool HasLabel;
   bool HasUnsafeCall;
 
+  void mergeCandidates(const IfLookup Src) {
+    for (auto SrcEqualCandidates : Src.getCandidates()) {
+      const HLIf *If = SrcEqualCandidates.front();
+      auto ExistingI = std::find_if(
+          Candidates.begin(), Candidates.end(),
+          [If](const EqualCandidates &EC) { return EC.isEqual(If); });
+      if (ExistingI != Candidates.end()) {
+        ExistingI->insert(SrcEqualCandidates.begin(), SrcEqualCandidates.end());
+        ExistingI->HasUnsafeCall |= SrcEqualCandidates.HasUnsafeCall;
+      } else {
+        Candidates.push_back(SrcEqualCandidates);
+      }
+    }
+  }
+
 public:
   IfLookup(SmallVectorImpl<EqualCandidates> &Candidates, unsigned Level)
       : Candidates(Candidates), Level(Level), SkipNode(nullptr),
         HasLabel(false), HasUnsafeCall(false) {}
+
+  ArrayRef<EqualCandidates> getCandidates() const { return Candidates; }
 
   bool isCandidateRef(const RegDDRef *Ref, bool *HasIV) const {
     // Only handle scalar references.
@@ -259,15 +276,52 @@ public:
 
     assert(If->getParentLoop() && "Parent should exist");
 
-    IfLookup Lookup(Candidates, Level);
+    SmallVector<EqualCandidates, 4> CandidatesFromChildren;
+    IfLookup Lookup(CandidatesFromChildren, Level);
     HLNodeUtils::visitRange(Lookup, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(Lookup, If->else_begin(), If->else_end());
 
     if (Lookup.HasLabel) {
+      mergeCandidates(Lookup);
       return;
     }
 
     // Find existing candidate
+    auto ExistingInChildrenI = std::find_if(
+        CandidatesFromChildren.begin(), CandidatesFromChildren.end(),
+        [If](const EqualCandidates &EC) { return EC.isEqual(If); });
+    if (ExistingInChildrenI != CandidatesFromChildren.end()) {
+      // This if can't be a candidate of OptVarPredicate since its
+      // then-else-children will all removed. Merge children's candidate into
+      // the global candidates and finish here.
+      // An example: outer-if and inner-if are in the same equality set.
+      // Eventually in transformation phase, (in splitLoop function), the
+      // inner-if in the outer-if's then or else body will be removed if the
+      // outer-if were a candidate. Later when the children of if candidates are
+      // put back into the loop and cloned loops, no parent node (i.e. removed
+      // inner-ifs) is available. This will break stability.
+      //  + DO i1 = 0, 99, 1   <DO_LOOP>
+      //  |   if (i1 == 20) -- if 3
+      //  |   {
+      //  |      if (i1 == 20) -- if 1
+      //  |      {
+      //  |      }
+      //  |   }
+      //  |   else
+      //  |   {
+      //  |      if (i1 == 20) -- if 2
+      //  |      {
+      //  |      }
+      //  |   }
+      //  + END LOOP
+      // Here we choose not to add the outer-if as a candidate.
+      // In the code above "if 3" is not a candidate, only if-1 and if-2 are.
+      mergeCandidates(Lookup);
+      return;
+    }
+
+    mergeCandidates(Lookup);
+    // Now this if can be added to Candidates
     auto ExistingI = std::find_if(
         Candidates.begin(), Candidates.end(),
         [If](const EqualCandidates &EC) { return EC.isEqual(If); });

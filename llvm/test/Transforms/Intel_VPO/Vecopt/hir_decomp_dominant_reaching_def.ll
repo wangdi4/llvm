@@ -101,7 +101,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.REDUCTION.ADD"(i32* %s2.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s2.red, i32 0, i32 1) ]
   store i32 0, i32* %s2.red, align 4
   store i32 0, i32* %s.red, align 4
   br label %omp.inner.for.body

@@ -145,6 +145,7 @@ enum DeviceArch : uint64_t {
   DeviceArch_Gen9   = 0x0001,
   DeviceArch_XeLP   = 0x0002,
   DeviceArch_XeHP   = 0x0004,
+  DeviceArch_XeHPG  = 0x0008,
   DeviceArch_x86_64 = 0x0100
 };
 
@@ -172,6 +173,11 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       // Putting PVC here for now.
       // We may decide to add another arch type if needed in the future.
       0x0b00, // PVC
+    }
+  },
+  {
+    DeviceArch_XeHPG, {
+      0x4F00, 0x5600 // DG2/ATS-M
     }
   }
 };
@@ -3277,8 +3283,16 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
 }
 
 static bool isDiscrete(uint32_t L0DeviceId) {
-  uint32_t prefix = L0DeviceId & 0xFF00;
-  return prefix == 0x4900 || prefix == 0x0200 || prefix == 0x0b00;
+  switch (L0DeviceId & 0xFF00) {
+  case 0x4900: // DG1
+  case 0x0200: // ATS SDV
+  case 0x0B00: // PVC
+  case 0x4F00: // DG2/ATS-M
+  case 0x5600: // DG2/ATS-M
+    return true;
+  default:
+    return false;
+  }
 }
 
 // Decide device's default memory kind for internal allocation (e.g., map)
