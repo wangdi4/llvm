@@ -511,16 +511,6 @@ bool HIRRegionIdentification::collectIntermediateBBs(
           HLInst::hasUnknownAliasing(cast<CallInst>(&Inst))) {
         return false;
       }
-
-      // Check that there are no region live-outs within BBs.
-      if (!std::all_of(Inst.user_begin(), Inst.user_end(),
-                       [this, &BBs, &LoopsSet](const Value *V) {
-                         auto *UseBB = cast<Instruction>(V)->getParent();
-                         return BBs.count(UseBB) ||
-                                LoopsSet.count(LI.getLoopFor(UseBB));
-                       })) {
-        return false;
-      }
     }
 
     // Check for multiple entries to region. BB predecessors should all be
