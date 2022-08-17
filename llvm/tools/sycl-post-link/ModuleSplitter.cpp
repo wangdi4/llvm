@@ -191,21 +191,17 @@ groupEntryPointsByKernelType(ModuleDesc &MD,
 // which contains pairs of group id and entry points for that group. Each such
 // group along with IR it depends on (globals, functions from its call graph,
 // ...) will constitute a separate module.
-<<<<<<< HEAD
 #if INTEL_COLLAB
 // There is a special case for some compilation flows where all global
 // variables definitions are extracted into a single module. This module must
 // be listed first in the output table. For the special case, this function is
 // called with AddSeparateGroupForGlobals set to 'true'
 EntryPointGroupVec
-groupEntryPointsByScope(const ModuleDesc &MD, EntryPointsGroupScope EntryScope,
+groupEntryPointsByScope(ModuleDesc &MD, EntryPointsGroupScope EntryScope,
                         bool EmitOnlyKernelsAsEntryPoints,
                         bool AddSeparateGroupForGlobals = false) {
 #else  // INTEL_COLLAB
-EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
-=======
 EntryPointGroupVec groupEntryPointsByScope(ModuleDesc &MD,
->>>>>>> 038764fdfae34979f4510039fe5e49e094ebc5c0
                                            EntryPointsGroupScope EntryScope,
                                            bool EmitOnlyKernelsAsEntryPoints) {
 #endif // INTEL_COLLAB
@@ -461,7 +457,7 @@ ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
   if (IsGlobalsModule)
     externalizeGlobalVars(SplitM.getModule());
 
-  cleanupSplitModule(SplitM.getModule());
+  SplitM.cleanup();
 
   return SplitM;
 }
