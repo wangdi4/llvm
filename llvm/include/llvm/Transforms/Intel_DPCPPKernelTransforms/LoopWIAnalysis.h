@@ -141,9 +141,6 @@ private:
   /// Calculate and return dependency of ExtractElementInst \p EEI.
   Dependency calculateDep(ExtractElementInst *EEI);
 
-  /// Calculate and return dependency of ShuffleVectorInst \p SVI.
-  Dependency calculateDep(ShuffleVectorInst *SVI);
-
   /// Return true if \p I is sequential vector, i.e. I is generation of
   /// sequential IDs according to the vectorizer pattern.
   bool isSequentialVector(Instruction *I);

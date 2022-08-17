@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -264,8 +263,6 @@ void LoopWIInfo::calculateDep(Instruction *I) {
     updateConstStride(CI, CI->getOperand(0));
   } else if (auto *EEI = dyn_cast<ExtractElementInst>(I)) {
     Dep = calculateDep(EEI);
-  } else if (auto *SVI = dyn_cast<ShuffleVectorInst>(I)) {
-    Dep = calculateDep(SVI);
   }
 
   Deps[I] = Dep;
@@ -349,63 +346,12 @@ LoopWIInfo::Dependency LoopWIInfo::calculateDep(ExtractElementInst *EEI) {
   return getDependency(VectorOp);
 }
 
-LoopWIInfo::Dependency LoopWIInfo::calculateDep(ShuffleVectorInst *SVI) {
-  if (!isBroadcast(SVI))
-    return Dependency::RANDOM;
-
-  using namespace PatternMatch;
-  Value *V;
-  if (!match(SVI, m_Shuffle(m_InsertElt(m_Value(), m_Value(V), m_ZeroInt()),
-                            m_Value(), m_ZeroMask())))
-    return Dependency::RANDOM;
-
-  auto *IEI = cast<InsertElementInst>(SVI->getOperand(0));
-  if (!IEI->hasOneUse())
-    return Dependency::RANDOM;
-
-  Dependency Dep = getDependency(V);
-  if (Dep == Dependency::UNIFORM) {
-    Deps[IEI] = Dependency::UNIFORM;
-    return Dep;
-  }
-
-  if (Dep != Dependency::STRIDED)
-    return Dependency::RANDOM;
-
-  // We further demand that the shuffle is broadcast of strided value with the
-  // same width of the vector.
-  auto It = ConstStrides.find(V);
-  if (It == ConstStrides.end())
-    return Dependency::RANDOM;
-  auto *Stride = dyn_cast<ConstantInt>(It->second);
-  if (!Stride || !Stride->equalsInt(
-                     cast<FixedVectorType>(SVI->getType())->getNumElements()))
-    return Dependency::RANDOM;
-
-  updateConstStride(SVI, V);
-  if (Dep = Dependency::STRIDED) {
-    StrideIntermediate.insert(IEI);
-    updateConstStride(IEI, V);
-  }
-
-  return Dependency::STRIDED;
-}
-
-// clang-format off
 // Sequential IDs instruction example (%c):
-//   %a = insertelement <8 x i64> undef, i64 stride_val, i32 0
-//   %b = shufflevector <8 x i64> %a, <8 x i64> undef, <8 x i32> zeroinitializer
-//   %c = add <8 x i64> %b, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
-// Another example (%c):
-//   %a = insertelement <8 x i32> poison, i32 stride_val, i64 0
-//   %b = shufflevector <8 x i32> %a, <8 x i32> poison, <8 x i32> zeroinitializer
-//   %c = add <8 x i32> %b, <i32 0, i32 -1, i32 -2, i32 -3, i32 -4, i32 -5, i32 -6, i32 -7>
-// clang-format on
+// %a = insertelement <8 x i64> undef, i64 stride_val, i32 0
+// %b = shufflevector <8 x i64> %a, <8 x i64> undef, <8 x i32> zeroinitializer
+// %c = add <8 x i64> %b, <i64 0, i8 1, ...>
 bool LoopWIInfo::isSequentialVector(Instruction *I) {
-  assert(I &&
-         (I->getOpcode() == Instruction::Add ||
-          I->getOpcode() == Instruction::ICmp) &&
-         "expected add or icmp inst");
+  assert(I && I->getOpcode() == Instruction::Add && "expected add inst");
   auto *VTy = dyn_cast<FixedVectorType>(I->getType());
   if (!VTy)
     return false;
@@ -419,17 +365,34 @@ bool LoopWIInfo::isSequentialVector(Instruction *I) {
     SVI = dyn_cast<ShuffleVectorInst>(Op1);
   else if (isConsecutiveConstVector(Op1))
     SVI = dyn_cast<ShuffleVectorInst>(Op0);
-  if (!SVI)
+  if (!SVI || !isBroadcast(SVI))
     return false;
 
-  auto It = ConstStrides.find(SVI);
+  // We further demand that the shuffle is broadcast of strided value with the
+  // same width of the vector.
+  unsigned MaskVal = SVI->getMaskValue(0);
+  auto *IEI = dyn_cast<InsertElementInst>(SVI->getOperand(0));
+  if (!IEI || !IEI->hasOneUse())
+    return false;
+  auto *C = dyn_cast<ConstantInt>(IEI->getOperand(2));
+  if (!C || !C->equalsInt(MaskVal))
+    return false;
+  Value *TID = IEI->getOperand(1);
+  auto It = ConstStrides.find(TID);
   if (It == ConstStrides.end())
+    return false;
+  auto *Stride = dyn_cast<ConstantInt>(It->second);
+  if (!Stride || !Stride->equalsInt(VTy->getNumElements()))
     return false;
 
   // Fill data structure.
   LLVM_DEBUG(dbgs() << "Found sequential IDs inst: " << *I
-                    << ", Stride: " << *It->second << "\n");
-  ConstStrides[I] = It->second;
+                    << ", Stride: " << *Stride << "\n");
+  StrideIntermediate.insert(IEI);
+  StrideIntermediate.insert(SVI);
+  ConstStrides[I] = Stride;
+  ConstStrides[IEI] = Stride;
+  ConstStrides[SVI] = Stride;
 
   return true;
 }
@@ -444,19 +407,14 @@ bool LoopWIInfo::isConsecutiveConstVector(Value *V) {
   if (!VTy->isIntOrIntVectorTy())
     return false;
 
-  auto IsConsecutive = [&](bool Negate) {
-    for (unsigned I = 0, E = VTy->getNumElements(); I != E; ++I) {
-      int64_t C = cast<ConstantInt>(CV->getAggregateElement(I))->getSExtValue();
-      if (Negate)
-        C = -C;
-      // If this is not sequence 0,1,2,... return false.
-      if (C != (int64_t)I)
-        return false;
-    }
-    return true;
-  };
+  for (unsigned I = 0, E = VTy->getNumElements(); I != E; ++I) {
+    auto *C = dyn_cast<ConstantInt>(CV->getAggregateElement(I));
+    // If this is not sequence 0,1,2,... return false.
+    if (!C->equalsInt(I))
+      return false;
+  }
 
-  return IsConsecutive(false) || IsConsecutive(true);
+  return true;
 }
 
 // We do not count undef masks as different.
