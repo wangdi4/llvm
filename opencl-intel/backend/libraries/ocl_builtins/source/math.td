@@ -12,7 +12,7 @@
 
 defvar math_f16_types = ExpandTypeByVF<v1f16, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
 defvar math_f32_types = ExpandTypeByVF<v1f32, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
-defvar math_f16_mask_types = ExpandTypesByVFAndFlatten<[v1f16], [4, 8, 16, 32, 64]>.Tout;
+defvar math_f16_vectorize_types = ExpandTypesByVFAndFlatten<[v1f16], [4, 8, 16, 32, 64]>.Tout;
 
 // --- Math Functions ---
 // https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#math-functions
@@ -21,7 +21,10 @@ defvar math_f16_mask_types = ExpandTypesByVFAndFlatten<[v1f16], [4, 8, 16, 32, 6
 let Types = math_f16_types # math_f32_types, // f32 types are added for forward declarations, so that we can promote f16 to f32 calls.
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = true in {
-  defset list<OclBuiltin> math_builtins = {
+// Builtins that use Spec-defined vector versions as vector variants.
+defset list<OclBuiltin> math_builtins_with_general_vect_info = {
+  // Builtins that are implemented with general __ocl_svml calls.
+  defset list<OclBuiltin> math_generic_builtins = {
     def acos_f16 : OclBuiltin<"acos", (outs gentype:$ret), (ins gentype:$x)>;
     def acosh_f16 : OclBuiltin<"acosh", (outs gentype:$ret), (ins gentype:$x)>;
     def acospi_f16 : OclBuiltin<"acospi", (outs gentype:$ret), (ins gentype:$x)>;
@@ -56,10 +59,6 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     // def fmin_common_f16 : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def fmin_s_f16 : OclBuiltin<"fmin", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
     def fmod_f16 : OclBuiltin<"fmod", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def fract_pas_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def fract_las_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def fract_gas_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def fract_gen_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>;
     // def fract_pas2_f16 : OclBuiltin<"fract_ret2ptr", (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     // def frexp_pas_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     // def frexp_las_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -81,10 +80,6 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     def logb_f16 : OclBuiltin<"logb", (outs gentype:$ret), (ins gentype:$x)>;
     def maxmag_f16 : OclBuiltin<"maxmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def minmag_f16 : OclBuiltin<"minmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def modf_pas_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def modf_las_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def modf_gas_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def modf_gen_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, ExceptAttr<[CONSTFUNC]>;
     // def modf_pas2_f16 : OclBuiltin<"modf_ret2ptr", (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     // def nan_f16 : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$x)>;
     def nextafter_f16 : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
@@ -101,10 +96,6 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     def round_f16 : OclBuiltin<"round", (outs gentype:$ret), (ins gentype:$x)>;
     def rsqrt_f16 : OclBuiltin<"rsqrt", (outs gentype:$ret), (ins gentype:$x)>;
     def sin_f16 : OclBuiltin<"sin", (outs gentype:$ret), (ins gentype:$x)>;
-    // def sincos_pas_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def sincos_las_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def sincos_gas_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def sincos_gen_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>;
     // def sincos_pas2_f16 : OclBuiltin<"sincos_ret2ptr", (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     def sinh_f16 : OclBuiltin<"sinh", (outs gentype:$ret), (ins gentype:$x)>;
     def sinpi_f16 : OclBuiltin<"sinpi", (outs gentype:$ret), (ins gentype:$x)>;
@@ -114,9 +105,48 @@ let Types = math_f16_types # math_f32_types, // f32 types are added for forward 
     def tanpi_f16 : OclBuiltin<"tanpi", (outs gentype:$ret), (ins gentype:$x)>;
     def tgamma_f16 : OclBuiltin<"tgamma", (outs gentype:$ret), (ins gentype:$x)>;
     def trunc_f16 : OclBuiltin<"trunc", (outs gentype:$ret), (ins gentype:$x)>;
-  } // defset math_builtins
+  } // defset math_generic_builtins
 
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
+} // defset math_builtins_with_general_vect_info
+}
+
+// Non-const prototypes
+let Types = math_f16_types # math_f32_types,
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = true in {
+// Builtins whose second arg is pgentype.
+defset list<OclBuiltin> math_builtins_with_pgentype_arg1 = {
+  def fract_pas_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, PRIVATE;
+  def fract_las_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, LOCAL;
+  def fract_gas_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, GLOBAL;
+  def fract_gen_f16 : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>;
+  def modf_pas_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, PRIVATE;
+  def modf_las_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, LOCAL;
+  def modf_gas_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>, GLOBAL;
+  def modf_gen_f16 : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr)>;
+  def sincos_pas_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, PRIVATE;
+  def sincos_las_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, LOCAL;
+  def sincos_gas_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>, GLOBAL;
+  def sincos_gen_f16 : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval)>;
+} // defset math_builtins_with_pgentype_arg1
+
+// Linear strided variants for math_builtins_with_pgentype_arg1
+let Types = math_f16_vectorize_types in
+defset list<OclBuiltin> math_builtins_with_pgentype_arg1_strided_variants = {
+  def fract_pas_f16_strided : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, PRIVATE;
+  def fract_las_f16_strided : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, LOCAL;
+  def fract_gas_f16_strided : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, GLOBAL;
+  def fract_gen_f16_strided : OclBuiltin<"fract", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>;
+  def modf_pas_f16_strided : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, PRIVATE;
+  def modf_las_f16_strided : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, LOCAL;
+  def modf_gas_f16_strided : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>, GLOBAL;
+  def modf_gen_f16_strided : OclBuiltin<"modf", (outs gentype:$ret), (ins gentype:$x, psgentype:$iptr)>;
+  def sincos_pas_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>, PRIVATE;
+  def sincos_las_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>, LOCAL;
+  def sincos_gas_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>, GLOBAL;
+  def sincos_gen_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>;
+} // defset math_builtins_with_pgentype_arg1_strided_variants
 }
 
 defvar promote_f16_to_f32_code = [{
@@ -135,7 +165,7 @@ defvar expand_code = [{
 }];
 
 // Implementations
-foreach bi = math_builtins in {
+foreach bi = math_generic_builtins in {
   // [SHARED] vXf16: convert f16 args to f32 and call f32 implementations.
   defvar indices = Range<0, !size(bi.Ins)>.Tout;
   defvar promoted_args = RangeStr<"convert_$Arg#f32gentype($Arg#VarName)", indices>.Tout;
@@ -160,9 +190,58 @@ foreach bi = math_builtins in {
 // mad: returns a*b+c
 def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
 
+// gentype func(gentype, gentype *)
+foreach bi = math_builtins_with_pgentype_arg1 in {
+  // [SHARED] vXf16: convert f16 args to f32 and call f32 implementations.
+  def : OclBuiltinImpl<bi, math_f16_types, false, [{
+    $Arg0f32gentype _expand;
+    $ReturnType _res = convert_$ReturnType($Func(convert_$Arg0f32gentype($Arg0VarName), &_expand));
+    *$Arg1VarName = convert_$Arg0Type(_expand);
+    return _res;
+  }]>, SHARED;
+
+  // [AMX] vXf16 (X <= 32): call __ocl_svml func.
+  let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, call_svml_code, [["$ARGLIST", "$Arg0VarName, $Arg1VarName"]]>, AMX;
+
+  // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
+  let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, [{
+    $ReturnType _res;
+    $ExpandArg0Type _lo, _hi;
+    _res.lo = $Func($Arg0VarName.lo, &_lo);
+    _res.hi = $Func($Arg0VarName.hi, &_hi);
+    *$Arg1VarName = ($Arg0Type)(_lo, _hi);
+    return _res;
+  }]>, AMX;
+
+  // TODO: (when masked variants are added)
+  // [AMX] v3f16: call masked v4f16
+}
+
+// Linear strided variants of 'gentype func(gentype, gentype *)'
+foreach bi = math_builtins_with_pgentype_arg1_strided_variants in {
+  defvar linear_strided_code = [{
+    // The access to $Arg1VarName is guaranteed to be linear-strided.
+    return $Func($Arg0VarName, ($Arg0Type *)$Arg1VarName);
+  }];
+  def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code>, SHARED;
+  // Explicitly put a copy of linear strided impl in AMX rtl, so that the native
+  // SVML impl can be inlined.
+  def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code>, AMX;
+}
+
 // VectInfos
-foreach bi = math_builtins # [mad_f16] in {
+foreach bi = math_builtins_with_general_vect_info in {
   def : VectInfo<[v1f16], bi, bi, bi, bi, bi, bi>;
 
   // TODO: add masked VectInfo
+}
+
+// Specialized VectInfos
+// Linear strided for ptr arg
+foreach bi = math_builtins_with_pgentype_arg1 in {
+  defvar strided = !cast<OclBuiltin>(bi # "_strided");
+  let Stride = 2 in
+  def : VectInfo<[v1f16], bi, strided, strided, strided, strided, strided>;
 }
