@@ -73,6 +73,7 @@
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
+///   WRNGuardMemMotion       | WRN to guard memory motion
 ///   WRNTileNode             | #pragma omp tile
 ///   WRNScanNode             | #pragma omp scan
 ///
@@ -1872,6 +1873,21 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNScope;
+  }
+};
+
+/// WRN for regions that guard memory motion of OMP clause variables.
+class WRNGuardMemMotionNode : public WRegionNode {
+private:
+  LiveinClause Livein;
+
+public:
+  WRNGuardMemMotionNode(BasicBlock *BB);
+  DEFINE_GETTER(LiveinClause, getLivein, Livein)
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNGuardMemMotion;
   }
 };
 

@@ -71,6 +71,7 @@ add_llvm_component_library(LLVMVPOTransforms
 
   Utils/CFGRestructuring.cpp
   Utils/CFGSimplify.cpp
+  Utils/VPORenameOperands.cpp
   Utils/VPORestoreOperands.cpp
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp
@@ -78,6 +79,7 @@ add_llvm_component_library(LLVMVPOTransforms
 
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
+  Paropt/VPOParoptGuardMemoryMotion.cpp
   Paropt/VPOParoptLoopCollapse.cpp
   Paropt/VPOParoptLoopTransform.cpp
   Paropt/VPOParoptLowerSimd.cpp

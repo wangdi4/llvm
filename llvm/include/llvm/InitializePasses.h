@@ -841,6 +841,10 @@ void initializeVPOParoptLoopTransformPass(PassRegistry&);
 void initializeVPOParoptPreparePass(PassRegistry&);
 // VPO Pass to restore operands renamed by VPO Paropt Prepare pass
 void initializeVPORestoreOperandsPass(PassRegistry &);
+// VPO Pass to rename operands as part of VPO Paropt Prepare pass
+void initializeVPORenameOperandsPass(PassRegistry &);
+// VPO Pass to guard memory motion of clause variables.
+void initializeVPOParoptGuardMemoryMotionPass(PassRegistry &);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation

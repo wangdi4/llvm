@@ -435,23 +435,25 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
-#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptGuardMemoryMotion.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
-#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Transforms/VPO/Utils/CFGSimplify.h"
+#include "llvm/Transforms/VPO/Utils/VPORenameOperands.h"
+#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 

@@ -2184,6 +2184,9 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     setThreadLimit(Args[0]);
     setThreadLimitType(Args[1]->getType());
     break;
+  case QUAL_OMP_OPERAND_ADDR:
+    // TODO: Should anything be handled for QUAL.OMP.OPERAND.ADDR clause?
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -2665,6 +2668,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNWksLoop:
   case WRNTarget:
   case WRNTile:
+  case WRNGuardMemMotion:
     return true;
   }
   return false;

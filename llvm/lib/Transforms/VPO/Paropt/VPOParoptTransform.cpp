@@ -1887,7 +1887,7 @@ bool VPOParoptTransform::paroptTransforms() {
           if (isTargetSPIRV() && isa<WRNParallelNode>(W) &&
               WRegionUtils::hasParentTarget(W))
             Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= propagateCancellationPointsToIR(W);
           if (auto *WT = dyn_cast<WRNTeamsNode>(W))
             updateKernelHasTeamsReduction(WT);
@@ -1958,7 +1958,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           if (isTargetSPIRV() && WRegionUtils::hasParentTarget(W))
             Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
@@ -2125,7 +2125,7 @@ bool VPOParoptTransform::paroptTransforms() {
           if (W->getIsTaskwaitNowaitTask())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -2160,7 +2160,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (isLoopOptimizedAway(W)) {
@@ -2222,7 +2222,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && !WRegionUtils::hasLexicalParentTarget(W))
             Changed |= callBeginEndSpmdTargetAtRegionBoundary(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);
           Changed |= promoteClauseArgumentUses(W);
@@ -2257,7 +2257,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           if (!hasOffloadCompilation()) {
             Changed |= canonicalizeGlobalVariableReferences(W);
-            Changed |= renameOperandsUsingStoreThenLoad(W);
+            Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (!hasOffloadCompilation()) {
@@ -2289,7 +2289,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           if (!hasOffloadCompilation()) {
             Changed |= canonicalizeGlobalVariableReferences(W);
-            Changed |= renameOperandsUsingStoreThenLoad(W);
+            Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (!hasOffloadCompilation()) {
@@ -2358,7 +2358,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= fixupKnownNDRange(W);
         }
         // Privatization is enabled for SIMD Transform passes
@@ -2421,7 +2421,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
         }
@@ -2631,7 +2631,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNScope:
         if(Mode & ParPrepare){
           debugPrintHeader(W, Mode);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           debugPrintHeader(W, Mode);
@@ -2707,7 +2707,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= replaceGenericLoop(W);
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= fixupKnownNDRange(W);
           RemoveDirectives = false;
         }
@@ -8105,125 +8105,6 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   return true;
 }
 
-// Create a pointer, store address of V to the pointer, and replace uses of V
-// with a load from that pointer.
-//
-//   %v = alloca i32                          ; V
-//   ...
-//   %v.addr = alloca i32*                    ; (1)
-//   ...
-//   store i32* %v, i32** %v.addr             ; (2)
-//           ; <InsertPtForStore>
-//
-//   +- <EntryBB>:
-//   | ...
-//   | %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
-//   | ...
-//   | %v1 = load i32*, i32** %v.addr          ; (3)
-//   +-
-//   ... Replace uses of %v with %v1
-//
-//   If CastVAddrToAddrSpaceGeneric is true, then cast %v.addr to
-//   address space 4 (generic) before doing the store/load.
-Value *VPOParoptTransform::replaceWithStoreThenLoad(
-    WRegionNode *W, Value *V, Instruction *InsertPtForStore, bool ReplaceUses,
-    bool EmitLoadEvenIfNoUses, bool InsertLoadInBeginningOfEntryBB,
-    bool SelectAllocaInsertPtBasedOnParentWRegion,
-    bool CastToAddrSpaceGeneric) {
-
-  // Find instructions in W that use V
-  SmallVector<Instruction *, 8> UserInsts;
-  SmallPtrSet<ConstantExpr *, 8> UserExprs;
-  if (ReplaceUses)
-    WRegionUtils::findUsersInRegion(
-        W, V, &UserInsts, !InsertLoadInBeginningOfEntryBB, &UserExprs);
-
-  Instruction *AllocaInsertPt =
-      SelectAllocaInsertPtBasedOnParentWRegion
-          ? VPOParoptUtils::getInsertionPtForAllocas(W, F, true)
-          : W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
-
-  IRBuilder<> AllocaBuilder(AllocaInsertPt);
-  Value *VAddr = //                                       (1)
-      AllocaBuilder.CreateAlloca(V->getType(), nullptr, V->getName() + ".addr");
-
-  IRBuilder<> StoreBuilder(InsertPtForStore);
-  if (CastToAddrSpaceGeneric) {
-    Value *VAddrCasted = StoreBuilder.CreatePointerBitCastOrAddrSpaceCast(
-        VAddr, V->getType()->getPointerTo(vpo::ADDRESS_SPACE_GENERIC),
-        VAddr->getName() + ".ascast");
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Casted '";
-               VAddr->printAsOperand(dbgs()); dbgs() << "' to '";
-               VAddrCasted->printAsOperand(dbgs()); dbgs() << "'.\n";);
-    VAddr = VAddrCasted;
-  }
-
-  StoreBuilder.CreateStore(V, VAddr); //                  (2)
-
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Stored '"; V->printAsOperand(dbgs());
-             dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
-             dbgs() << "'.\n";);
-
-  if (UserInsts.empty() && !EmitLoadEvenIfNoUses)
-    return VAddr; // Nothing to replace inside the region. Just capture the
-                  // address of V to VAddr and return it.
-
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  Instruction *InsertPtForLoad = InsertLoadInBeginningOfEntryBB
-                                     ? EntryBB->getFirstNonPHI()
-                                     : EntryBB->getTerminator();
-  IRBuilder<> BuilderInner(InsertPtForLoad);
-  LoadInst *VRenamed = BuilderInner.CreateLoad(V->getType(), VAddr); // (3)
-  if (!InsertLoadInBeginningOfEntryBB)
-    // InstCombine may transform:
-    //   %1 = load float*, float** %.addr
-    //   store float* %1, float** %X
-    // into:
-    //   %1 = bitcast float** %.addr to i64*
-    //   %2 = load i64, i64* %1
-    //   %3 = bitcast float** %X to i64*
-    //   store i64 %2, i64* %3
-    //
-    // In this case VRenamed will be the %2 load of type i64,
-    // VOrig will have type float*, so we will not be able
-    // to restore the operand with just BitCasting float*
-    // value to i64. We could have used IntToPtr, but
-    // this will never be optimized. So we mark the load
-    // as volatile to prevent InstCombine transformation
-    // for this load.
-    VRenamed->setVolatile(true);
-
-  VRenamed->setName(V->getName());
-
-  // Replace uses of V with VRenamed
-  while (!UserInsts.empty()) {
-    Instruction *User = UserInsts.pop_back_val();
-    User->replaceUsesOfWith(V, VRenamed);
-
-    if (UserExprs.empty())
-      continue;
-
-    // Some uses of V are in a ConstantExpr, in which case the User is the
-    // instruction using the ConstantExpr. For example, the use of @u below is
-    // the GEP expression (a ConstantExpr), not the instruction itself, so
-    // doing User->replaceUsesOfWith(V, NewI) does not replace @u
-    //
-    //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
-    //           %struct.t_union_* @u, i32 0, i32 0), align 4
-    //
-    // The solution is to access the ConstantExpr as instruction(s) in order to
-    // do the replacement. NewInstArr below keeps such instruction(s).
-    SmallVector<Instruction *, 2> NewInstArr;
-    GeneralUtils::breakExpressions(User, &NewInstArr, &UserExprs);
-    for (Instruction *NewInst : NewInstArr)
-      UserInsts.push_back(NewInst);
-  }
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loaded '";
-             VAddr->printAsOperand(dbgs()); dbgs() << "' into '";
-             VRenamed->printAsOperand(dbgs()); dbgs() << "'.\n";);
-  return VAddr;
-}
-
 // Return true if the instuction is a call to
 // @llvm.launder.invariant.group
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
@@ -9044,18 +8925,19 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
   for (Value *ValToCapture : DirectlyUsedNonPointerVals) { //           (1)
     // Make the changes (2), (3), (4), (5)
     Value *CapturedValAddr = //                                         (2)
-        replaceWithStoreThenLoad(W, ValToCapture, InsertStoreBefore,
-                                 true, // Replace uses in the region
-                                 // For target regions, insert the load even
-                                 // if ValToCapture has no use in the
-                                 // region, to avoid argument mismatch b/w
-                                 // host and device.
-                                 isa<WRNTargetNode>(W),
-                                 true, // Insert (4) in beginning of NewEntryBB
-                                 true, // Insert alloca based on parent WRegions
-                                 isTargetSPIRV()); // Add addrspace cast to
-                                                   // the captured addr for
-                                                   // target spirv.
+        VPOUtils::replaceWithStoreThenLoad(
+            W, ValToCapture, InsertStoreBefore,
+            true, // Replace uses in the region
+            // For target regions, insert the load even
+            // if ValToCapture has no use in the
+            // region, to avoid argument mismatch b/w
+            // host and device.
+            isa<WRNTargetNode>(W),
+            true,             // Insert (4) in beginning of NewEntryBB
+            true,             // Insert alloca based on parent WRegions
+            isTargetSPIRV()); // Add addrspace cast to
+                              // the captured addr for
+                              // target spirv.
     if (!CapturedValAddr)
       continue;
 
@@ -9095,142 +8977,6 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
 
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
-}
-
-// Rename operands of various clauses by replacing them with a
-// store-then-load.
-bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
-  bool Changed = false;
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *NewEntryBB =
-      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
-  Instruction *InsertBefore = EntryBB->getTerminator();
-
-  W->setEntryBBlock(NewEntryBB);
-  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
-
-  SmallPtrSet<Value *, 16> HandledVals;
-  using OpndAddrPairTy = SmallVector<Value *, 2>;
-  SmallVector<OpndAddrPairTy, 16> OpndAddrPairs;
-  auto rename = [&](Value *Orig, bool CheckAlreadyHandled,
-                    bool ReplaceUses = true) {
-    if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
-      return false;
-
-    HandledVals.insert(Orig);
-    Value *RenamedAddr =
-        replaceWithStoreThenLoad(W, Orig, InsertBefore, ReplaceUses);
-    if (!RenamedAddr)
-      return false;
-
-    OpndAddrPairs.push_back({Orig, RenamedAddr});
-    return true;
-  };
-
-  if (W->canHavePrivate()) {
-    PrivateClause &PrivClause = W->getPriv();
-    for (PrivateItem *PrivI : PrivClause.items())
-      Changed |= rename(PrivI->getOrig(), false);
-  }
-
-  if (W->canHaveFirstprivate()) {
-    FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items())
-      Changed |= rename(FprivI->getOrig(), false);
-  }
-
-  if (W->canHaveShared()) {
-    SharedClause &ShaClause = W->getShared();
-    for (SharedItem *ShaI : ShaClause.items())
-      Changed |= rename(ShaI->getOrig(), false);
-  }
-
-  if (W->canHaveReduction()) {
-    ReductionClause &RedClause = W->getRed();
-    for (ReductionItem *RedI : RedClause.items())
-      Changed |= rename(RedI->getOrig(), false);
-  }
-
-  if (W->canHaveLivein()) {
-    LiveinClause &LvClause = W->getLivein();
-    for (LiveinItem *LvI : LvClause.items())
-      Changed |= rename(LvI->getOrig(), false);
-  }
-
-  if (W->canHaveLastprivate()) {
-    LastprivateClause &LprivClause = W->getLpriv();
-    for (LastprivateItem *LprivI : LprivClause.items())
-      Changed |= rename(LprivI->getOrig(), true);
-  }
-
-  if (W->canHaveLinear()) {
-    LinearClause &LrClause = W->getLinear();
-    for (LinearItem *LrI : LrClause.items())
-      Changed |= rename(LrI->getOrig(), true);
-  }
-
-  if (W->canHaveMap()) {
-    // We need to make sure that we don't introduce new live-ins when renaming
-    // base/section ptrs, so we only do the replacement of base/section-ptrs in
-    // the region if they are the same as the base of the map-chain.
-    // ------------------------------------+------------------------------------
-    //   Before                            |  After
-    // ------------------------------------+------------------------------------
-    //                                     | %x.addr = ...
-    //                                     | %x.gep.addr = ...
-    //                                     |
-    //  MAP(i32* @x, i32* gep(@x, 0), ...) | MAP(i32* @x, i32* gep(@x, 0), ...
-    //                                     |  OPND.ADDR(@x, %x.addr)
-    //                                     |  OPND.ADDR(gep(@x, 0), %x.gep.addr)
-    //                                     |
-    //                                     | %x.renamed = load i32*, %x.addr
-    //                                     |
-    //  ... gep(@x, 0)                     | ... gep(%x.renamed, 0)
-    MapClause const &MpClause = W->getMap();
-    for (MapItem *MapI : MpClause.items()) {
-      Value *MapIOrig = MapI->getOrig();
-      if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
-        for (unsigned I = 0; I < MapChain.size(); ++I) {
-          MapAggrTy *Aggr = MapChain[I];
-          Value *SectionPtr = Aggr->getSectionPtr();
-          Value *BasePtr = Aggr->getBasePtr();
-          Changed |= rename(SectionPtr, true, SectionPtr == MapIOrig);
-          Changed |= rename(BasePtr, true, BasePtr == MapIOrig);
-        }
-      }
-      Changed |= rename(MapIOrig, true);
-    }
-  }
-
-  if (W->canHaveUseDevicePtr()) {
-    UseDevicePtrClause &UdpClause = W->getUseDevicePtr();
-    for (UseDevicePtrItem *UdpI : UdpClause.items())
-      Changed |= rename(UdpI->getOrig(), true);
-  }
-
-  // is_device_ptr() clauses must have been transformed into
-  // map[+private], but W->getIsDevicePtr().items().empty()
-  // is still not empty. Just do nothing for these items.
-
-  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
-
-  if (!Changed)
-    return false;
-
-  assert(!OpndAddrPairs.empty() && "Something changed without any renaming.");
-  CallInst *CI = cast<CallInst>(W->getEntryDirective());
-  SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> BundleOpndAddrs;
-  StringRef OperandAddrClauseString =
-      VPOAnalysisUtils::getClauseString(QUAL_OMP_OPERAND_ADDR);
-  for (auto &OpndAddrPair : OpndAddrPairs)
-    BundleOpndAddrs.emplace_back(OperandAddrClauseString,
-                                 makeArrayRef(OpndAddrPair));
-
-  CI = VPOUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);
-  W->setEntryDirective(CI);
-
-  return true;
 }
 
 llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(

@@ -191,6 +191,8 @@ def "DIR.PRAGMA.DISTRIBUTE_POINT" : Directive;
 def "DIR.PRAGMA.END.DISTRIBUTE_POINT" : Directive;
 #endif // INTEL_CUSTOMIZATION
 
+def "DIR.VPO.GUARD.MEM.MOTION" : Directive;
+def "DIR.VPO.END.GUARD.MEM.MOTION" : Directive;
 
 // =====================================================================
 // * Begin OpenMP Clauses

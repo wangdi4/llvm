@@ -170,6 +170,30 @@
 ;CHECK-NEXT:         VPO Work-Region Information
 ;CHECK-NEXT:     FunctionPass Manager
 ;CHECK-NEXT:       VPO CFG simplification
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Paropt Guard Memory Motion
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Rename Operands
 ;CHECK-NEXT:     CallGraph Construction
 ;CHECK-NEXT:     Call Graph SCC Pass Manager
 ;CHECK-NEXT:       Inliner for always_inline functions
@@ -447,6 +471,30 @@
 ;CHECK-NEXT:     FunctionPass Manager
 ;CHECK-NEXT:       VPO Directive Cleanup
 ;CHECK-NEXT:       VPO CFG simplification
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Paropt Guard Memory Motion
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Rename Operands
 ;CHECK-NEXT:     CallGraph Construction
 ;CHECK-NEXT:     Call Graph SCC Pass Manager
 ;CHECK-NEXT:       Inliner for always_inline functions

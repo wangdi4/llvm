@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2054,6 +2054,13 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_CUSTOMIZATION
   // Clean-up empty blocks after OpenMP directives handling.
   PM.add(createVPOCFGSimplifyPass());
+  // Paropt transform is complete and SIMD regions are identified. Insert guards
+  // for memory motion of pointers (if needed). Renaming is also done to avoid
+  // motion of GEPs operating on these pointers.
+  PM.add(createVPOCFGRestructuringPass());
+  PM.add(createVPOParoptGuardMemoryMotionPass());
+  PM.add(createVPOCFGRestructuringPass());
+  PM.add(createVPORenameOperandsPass());
 #if INTEL_CUSTOMIZATION
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.

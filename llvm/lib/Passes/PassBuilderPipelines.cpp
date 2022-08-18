@@ -313,23 +313,25 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
-#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptGuardMemoryMotion.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLoopTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
-#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Transforms/VPO/Utils/CFGSimplify.h"
+#include "llvm/Transforms/VPO/Utils/VPORenameOperands.h"
+#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
@@ -1995,6 +1997,13 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
 #endif // INTEL_CUSTOMIZATION
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
+  // Paropt transform is complete and SIMD regions are identified. Insert guards
+  // for memory motion of pointers (if needed). Renaming is also done to avoid
+  // motion of GEPs operating on these pointers.
+  FPM.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(VPOParoptGuardMemoryMotionPass());
+  FPM.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(VPORenameOperandsPass());
   if (RunVPOOpt == InvokeParoptAfterInliner) {
 #if INTEL_CUSTOMIZATION
     // Paropt transformation pass may produce new AlwaysInline functions.
