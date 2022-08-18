@@ -60,18 +60,10 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     // def fmin_s_f16 : OclBuiltin<"fmin", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
     def fmod_f16 : OclBuiltin<"fmod", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def fract_pas2_f16 : OclBuiltin<"fract_ret2ptr", (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def frexp_pas_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def frexp_las_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def frexp_gas_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def frexp_gen_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, ExceptAttr<[CONSTFUNC]>;
     def hypot_f16 : OclBuiltin<"hypot", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def ilogb_f16 : OclBuiltin<"ilogb", (outs i32gentype:$ret), (ins gentype:$x)>;
     // def ldexp_s_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, si32gentype:$k)>, Except<[v1f16, v1f32]>;
     def lgamma_f16 : OclBuiltin<"lgamma", (outs gentype:$ret), (ins gentype:$x)>;
-    // def lgamma_r_pas_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def lgamma_r_las_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def lgamma_r_gas_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def lgamma_r_gen_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, ExceptAttr<[CONSTFUNC]>;
     def log_f16 : OclBuiltin<"log", (outs gentype:$ret), (ins gentype:$x)>;
     def log2_f16 : OclBuiltin<"log2", (outs gentype:$ret), (ins gentype:$x)>;
     def log10_f16 : OclBuiltin<"log10", (outs gentype:$ret), (ins gentype:$x)>;
@@ -85,10 +77,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def pow_f16 : OclBuiltin<"pow", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def powr_f16 : OclBuiltin<"powr", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def remainder_f16 : OclBuiltin<"remainder", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def remquo_pas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def remquo_las_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-    // def remquo_gas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-    // def remquo_gen_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, ExceptAttr<[CONSTFUNC]>;
     def rint_f16 : OclBuiltin<"rint", (outs gentype:$ret), (ins gentype:$x)>;
     def round_f16 : OclBuiltin<"round", (outs gentype:$ret), (ins gentype:$x)>;
     def rsqrt_f16 : OclBuiltin<"rsqrt", (outs gentype:$ret), (ins gentype:$x)>;
@@ -150,6 +138,39 @@ defset list<OclBuiltin> math_builtins_with_pgentype_arg1_strided_variants = {
   def sincos_gas_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>, GLOBAL;
   def sincos_gen_f16_strided : OclBuiltin<"sincos", (outs gentype:$ret), (ins gentype:$x, psgentype:$cosval)>;
 } // defset math_builtins_with_pgentype_arg1_strided_variants
+
+// Builtins whose last arg is pi32gentype
+defset list<OclBuiltin> math_builtins_with_pi32gentype_lastarg = {
+  def frexp_pas_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, PRIVATE;
+  def frexp_las_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, LOCAL;
+  def frexp_gas_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>, GLOBAL;
+  def frexp_gen_f16 : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr)>;
+  def lgamma_r_pas_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, PRIVATE;
+  def lgamma_r_las_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, LOCAL;
+  def lgamma_r_gas_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>, GLOBAL;
+  def lgamma_r_gen_f16 : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp)>;
+  def remquo_pas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, PRIVATE;
+  def remquo_las_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, LOCAL;
+  def remquo_gas_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>, GLOBAL;
+  def remquo_gen_f16 : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo)>;
+} // defset math_builtins_with_pi32gentype_lastarg
+
+// Linear strided varaints for math_builtins_with_pi32gentype_lastarg
+let Types = math_f16_vectorize_types in
+defset list<OclBuiltin> math_builtins_with_pi32gentype_lastarg_strided_variants = {
+  def frexp_pas_f16_strided : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pv1i32:$iptr)>, PRIVATE;
+  def frexp_las_f16_strided : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pv1i32:$iptr)>, LOCAL;
+  def frexp_gas_f16_strided : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pv1i32:$iptr)>, GLOBAL;
+  def frexp_gen_f16_strided : OclBuiltin<"frexp", (outs gentype:$ret), (ins gentype:$x, pv1i32:$iptr)>;
+  def lgamma_r_pas_f16_strided : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pv1i32:$signp)>, PRIVATE;
+  def lgamma_r_las_f16_strided : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pv1i32:$signp)>, LOCAL;
+  def lgamma_r_gas_f16_strided : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pv1i32:$signp)>, GLOBAL;
+  def lgamma_r_gen_f16_strided : OclBuiltin<"lgamma_r", (outs gentype:$ret), (ins gentype:$x, pv1i32:$signp)>;
+  def remquo_pas_f16_strided : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pv1i32:$quo)>, PRIVATE;
+  def remquo_las_f16_strided : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pv1i32:$quo)>, LOCAL;
+  def remquo_gas_f16_strided : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pv1i32:$quo)>, GLOBAL;
+  def remquo_gen_f16_strided : OclBuiltin<"remquo", (outs gentype:$ret), (ins gentype:$x, gentype:$y, pv1i32:$quo)>;
+} // defset math_builtins_with_pi32gentype_lastarg_strided_variants
 }
 
 defvar promote_f16_to_f32_code = [{
@@ -234,6 +255,58 @@ foreach bi = math_builtins_with_pgentype_arg1_strided_variants in {
   def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code>, AMX;
 }
 
+// gentype func(gentype, [gentype, ]i32gentype *)
+foreach bi = math_builtins_with_pi32gentype_lastarg in {
+  // [SHARED] vXf16: convert Arg0 to f32 and call f32 implementations.
+  // All args except last arg (pi32gentype) need promotion.
+  defvar pi32_index = !sub(!size(bi.Ins), 1);
+  defvar pi32_arg_name = "$Arg" # pi32_index # "VarName";
+  defvar gentype_indices = Range<0, pi32_index>.Tout;
+  defvar promoted_args = RangeStr<"convert_$Arg#f32gentype($Arg#VarName)", gentype_indices>.Tout # [pi32_arg_name];
+  def : OclBuiltinImpl<bi, math_f16_types, false, promote_f16_to_f32_code, [["$ARGLIST", !interleave(promoted_args, ", ")]]>, SHARED;
+
+  // [AMX] vXf16 (X <= 32): call __ocl_svml func.
+  // SVML lib uses 'lgammar' as the name of 'lgamma_r'.
+  defvar func_macro = ["$Func", !if(!eq(bi.Name, "lgamma_r"), "lgammar", bi.Name)];
+  defvar indices = Range<0, !size(bi.Ins)>.Tout;
+  defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
+  let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, call_svml_code, [func_macro, ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
+
+  // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
+  defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", gentype_indices>.Tout;
+  defvar expanded_hi_args = RangeStr<"$Arg#VarName.hi", gentype_indices>.Tout;
+  let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
+  def : OclBuiltinImpl<bi, [], false, [{
+    $ReturnType _res;
+    int$LoSuffix _lo, _hi;
+    _res.lo = $Func($LOARGLIST, &_lo);
+    _res.hi = $Func($HIARGLIST, &_hi);
+    *$LASTARG = (int$VecLength)(_lo, _hi);
+    return _res;
+  }], [["$LOARGLIST", !interleave(expanded_lo_args, ", ")], ["$HIARGLIST", !interleave(expanded_hi_args, ", ")], ["$LASTARG", pi32_arg_name]]>, AMX;
+
+  // TODO: (when masked variants are added)
+  // [AMX] v3f16: call masked v4f16
+}
+
+// Linear strided variants of 'gentype func(gentype, [gentype, ]i32gentype *)'
+foreach bi = math_builtins_with_pi32gentype_lastarg_strided_variants in {
+  defvar pi32_index = !sub(!size(bi.Ins), 1);
+  defvar pi32_arg_name = "$Arg" # pi32_index # "VarName";
+  defvar gentype_indices = Range<0, pi32_index>.Tout;
+  defvar gentype_args = RangeStr<"$Arg#VarName", gentype_indices>.Tout;
+  defvar linear_strided_code = [{
+    // The access to $Arg1VarName is guaranteed to be linear-strided.
+    return $Func($ARGLIST, (int$VecLength *)$LASTARG);
+  }];
+  defvar macros = [["$ARGLIST", !interleave(gentype_args, ", ")], ["$LASTARG", pi32_arg_name]];
+  def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code, macros>, SHARED;
+  // Explicitly put a copy of linear strided impl in AMX rtl, so that the native
+  // SVML impl can be inlined.
+  def : OclBuiltinImpl<bi, math_f16_vectorize_types, false, linear_strided_code, macros>, AMX;
+}
+
 // gentype func(gentype, i32gentype)
 foreach bi = math_builtins_with_i32gentype_arg1 in {
   // [SHARED] vXf16: convert Arg0 to f32 and call f32 implementations.
@@ -262,6 +335,12 @@ foreach bi = math_builtins_with_general_vect_info in {
 // Linear strided for ptr arg
 foreach bi = math_builtins_with_pgentype_arg1 in {
   defvar strided = !cast<OclBuiltin>(bi # "_strided");
-  let Stride = 2 in
+  let Stride = 2 in // stride for f16 type
+  def : VectInfo<[v1f16], bi, strided, strided, strided, strided, strided>;
+}
+
+foreach bi = math_builtins_with_pi32gentype_lastarg in {
+  defvar strided = !cast<OclBuiltin>(bi # "_strided");
+  let Stride = 4 in // stride for i32 type
   def : VectInfo<[v1f16], bi, strided, strided, strided, strided, strided>;
 }
