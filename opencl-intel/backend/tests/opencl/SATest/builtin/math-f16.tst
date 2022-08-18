@@ -1,8 +1,7 @@
 ; Check fp16 implementation status.
 
-; FIXME: SATest build will fail since we haven't implemented all math builtins for fp16 yet.
-; RUN: not SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
-; RUN: not SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
+; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
+; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
 
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4acosDv32_Dh(<32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z5acoshDv32_Dh(<32 x half> {{.*}})
@@ -36,7 +35,7 @@
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4fminDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4fmodDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z5hypotDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
-; CHECK32-VPLAN-NOT: call{{.*}} <32 x i32> @_Z5ilogbDv32_Dh(<32 x half> {{.*}})
+; CHECK32-VPLAN: call{{.*}} <32 x i32> @_Z5ilogbDv32_Dh(<32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z5ldexpDv32_DhDv32_i(<32 x half> {{.*}}, <32 x i32> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z6lgammaDv32_Dh(<32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z3logDv32_Dh(<32 x half> {{.*}})
@@ -106,7 +105,7 @@
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z4fminDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z4fmodDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z5hypotDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
-; CHECK64-VPLAN-NOT: call{{.*}} <64 x i32> @_Z5ilogbDv64_Dh(<64 x half> {{.*}})
+; CHECK64-VPLAN: call{{.*}} <64 x i32> @_Z5ilogbDv64_Dh(<64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z5ldexpDv64_DhDv64_i(<64 x half> {{.*}}, <64 x i32> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z6lgammaDv64_Dh(<64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z3logDv64_Dh(<64 x half> {{.*}})
@@ -167,6 +166,7 @@
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_expm1s32(<32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_fmods32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_hypots32(<32 x half> {{.*}}, <32 x half> {{.*}})
+; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x i32> @__ocl_svml_{{[xz]}}1_ilogbs32(<32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_ldexps32(<32 x half> {{.*}}, <32 x i32> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_lgammas32(<32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_logs32(<32 x half> {{.*}})
@@ -246,6 +246,8 @@
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_fmods32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_hypots32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_hypots32(<32 x half> {{.*}}, <32 x half> {{.*}})
+; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x i32> @__ocl_svml_{{[xz]}}1_ilogbs32(<32 x half> {{.*}})
+; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x i32> @__ocl_svml_{{[xz]}}1_ilogbs32(<32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_ldexps32(<32 x half> {{.*}}, <32 x i32> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_ldexps32(<32 x half> {{.*}}, <32 x i32> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_lgammas32(<32 x half> {{.*}})
