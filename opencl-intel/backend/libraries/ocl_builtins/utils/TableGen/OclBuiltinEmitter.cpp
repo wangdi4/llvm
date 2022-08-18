@@ -237,6 +237,8 @@ OclType::getLoSuffix() const
     case 4: return "2";
     case 8: return "4";
     case 16: return "8";
+    case 32: return "16";
+    case 64: return "32";
   }
   GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $LoSuffix.\n");
   return "__invalid_vec_length__";
@@ -252,6 +254,8 @@ OclType::getHiSuffix() const
     case 4: return "2";
     case 8: return "4";
     case 16: return "8";
+    case 32: return "16";
+    case 64: return "32";
   }
   GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $HiSuffix.\n");
   return "__invalid_vec_length__";
