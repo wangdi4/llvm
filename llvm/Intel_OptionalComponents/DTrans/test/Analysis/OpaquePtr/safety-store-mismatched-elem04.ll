@@ -50,7 +50,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16*
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
-; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: Safety data: Mismatched element access{{ *$}}
 ; CHECK: End LLVMType: %struct.test02
 
 
@@ -63,7 +63,7 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i64*
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
-; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: Safety data: Mismatched element access{{ *$}}
 ; CHECK: End LLVMType: %struct.test03
 
 
