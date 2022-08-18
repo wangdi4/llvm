@@ -299,6 +299,10 @@ public:
                                         unsigned NumStridedMemAccesses,
                                         unsigned NumPrefetches,
                                         bool HasCall) const;
+
+  /// \return if target want to issue a prefetch in address space \p AS.
+  virtual bool shouldPrefetchAddressSpace(unsigned AS) const;
+
 #if INTEL_CUSTOMIZATION
   /// Return True if support DSB
   virtual bool hasDSB() const {

@@ -100,7 +100,7 @@ a4:                                       ; preds = %4, %.lr.ph
 ; movb encodes smaller, we do not want to use movzbl unless in a tight loop.
 ; So this test checks that movb is used.
 ; CHECK-LABEL: foo3:
-; CHECK: movb
+; CHECK: movzbl
 ; CHECK: movb
 define void @foo3(i8 *%dst, i8 *%src) {
   %t0 = load i8, i8 *%src, align 1
@@ -158,11 +158,9 @@ end:                                       ; preds = %BB4
 }
 
 ; This test contains two nested loops and a byte load in the outer loop.
-; The movb load should not be changed into movzbl unless advanced optimizations
-; are enabled.
 ; CHECK-LABEL: test_bytemov_outer_loop:
 ; CHECK-NOT: movzbl
-; NOADV: movb
+; NOADV: movzbl
 ; ADV: movzbl
 ; CHECK-NOT: movzbl
 define void @test_bytemov_outer_loop([100 x i32]* %a, [100 x i8]* %b) nounwind uwtable {

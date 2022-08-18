@@ -55,7 +55,7 @@ static int getDevicePreference(const device &Device) {
     return Score;
 
   // Strongly prefer devices with available images.
-  auto &program_manager = cl::sycl::detail::ProgramManager::getInstance();
+  auto &program_manager = sycl::detail::ProgramManager::getInstance();
   if (program_manager.hasCompatibleImage(Device))
     Score += 1000;
 
@@ -121,7 +121,7 @@ device device_selector::select_device() const {
   }
 
 #if INTEL_CUSTOMIZATION
-  throw cl::sycl::runtime_error(
+  throw sycl::runtime_error(
       "No device of requested type available. Please check "
       "https://software.intel.com/content/www/us/en/develop/articles/"
       "intel-oneapi-dpcpp-system-requirements.html",

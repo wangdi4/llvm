@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -wholeprogramdevirt-downcasting-filter -wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 ; RUN: opt -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -wholeprogramdevirt-downcasting-filter -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 
 ; This test case checks that multiversioning for virtual functions works with

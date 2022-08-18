@@ -394,14 +394,6 @@ cl::opt<bool> EnableDFAJumpThreading("enable-dfa-jump-thread",
                                      cl::desc("Enable DFA jump threading."),
                                      cl::init(false), cl::Hidden);
 
-static cl::opt<bool>
-    EnablePrepareForThinLTO("prepare-for-thinlto", cl::init(false), cl::Hidden,
-                            cl::desc("Enable preparation for ThinLTO."));
-
-static cl::opt<bool>
-    EnablePerformThinLTO("perform-thinlto", cl::init(false), cl::Hidden,
-                         cl::desc("Enable performing ThinLTO."));
-
 cl::opt<bool> EnableHotColdSplit("hot-cold-split",
                                  cl::desc("Enable hot-cold splitting pass"));
 
@@ -504,15 +496,6 @@ PassManagerBuilder::PassManagerBuilder() {
     VerifyInput = false;
     VerifyOutput = false;
     MergeFunctions = false;
-    PrepareForLTO = false;
-    EnablePGOInstrGen = false;
-    EnablePGOCSInstrGen = false;
-    EnablePGOCSInstrUse = false;
-    PGOInstrGen = "";
-    PGOInstrUse = "";
-    PGOSampleUse = "";
-    PrepareForThinLTO = EnablePrepareForThinLTO;
-    PerformThinLTO = EnablePerformThinLTO;
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
@@ -622,14 +605,8 @@ void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM, bool EnableUpCasting) const {
   // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
   bool EnableFcmpMinMaxCombine =
-      (!PrepareForLTO && !SLPVectorize) || AfterSLPVectorizer;
-#if INTEL_FEATURE_SW_DTRANS
-  // Configure the instruction combining pass to avoid some transformations
-  // that lose type information for DTrans.
-  bool PreserveForDTrans = (PrepareForLTO && DTransEnabled);
-#else // INTEL_FEATURE_SW_DTRANS
+      (!SLPVectorize) || AfterSLPVectorizer;
   bool PreserveForDTrans = false;
-#endif // INTEL_FEATURE_SW_DTRANS
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
     // the instructions combining pass inserts value definitions
@@ -644,7 +621,7 @@ void PassManagerBuilder::addInstructionCombiningPass(
   }
 
   PM.add(createInstructionCombiningPass(PreserveForDTrans,
-                                        PrepareForLTO && EnableIPArrayTranspose,
+                                        false,
                                         EnableFcmpMinMaxCombine,
                                         EnableUpCasting));
 }
@@ -657,7 +634,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   limitLoopOptOnly(FPM).add(createLoopOptMarkerLegacyPass());
   limitNoLoopOptOnly(FPM).add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
-  FPM.add(createEntryExitInstrumenterPass());
 
   // Add LibraryInfo if we have some.
   if (LibraryInfo)
@@ -711,74 +687,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createEarlyCSEPass());
 }
 
-#if INTEL_CUSTOMIZATION
-// Do PGO instrumentation generation or use pass as the option specified.
-void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
-                                           bool IsCS = false) {
-  if (IsCS) {
-    if (!EnablePGOCSInstrGen && !EnablePGOCSInstrUse)
-      return;
-  } else if (!EnablePGOInstrGen && PGOInstrUse.empty() && PGOSampleUse.empty())
-    return;
-
-  // Perform the preinline and cleanup passes for O1 and above.
-  // We will not do this inline for context sensitive PGO (when IsCS is true).
-  if (OptLevel > 0 && !DisablePreInliner && PGOSampleUse.empty() && !IsCS) {
-    // Create preinline pass. We construct an InlineParams object and specify
-    // the threshold here to avoid the command line options of the regular
-    // inliner to influence pre-inlining. The only fields of InlineParams we
-    // care about are DefaultThreshold and HintThreshold.
-    InlineParams IP;
-    IP.DefaultThreshold = PreInlineThreshold;
-    // FIXME: The hint threshold has the same value used by the regular inliner
-    // when not optimzing for size. This should probably be lowered after
-    // performance testing.
-    // Use PreInlineThreshold for both -Os and -Oz. Not running preinliner makes
-    // the instrumented binary unusably large. Even if PreInlineThreshold is not
-    // correct thresold for -Oz, it is better than not running preinliner.
-    IP.HintThreshold = SizeLevel > 0 ? PreInlineThreshold : 325;
-    IP.PrepareForLTO = PrepareForLTO; // INTEL
-
-    MPM.add(createFunctionInliningPass(IP));
-    MPM.add(createSROAPass());
-    MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
-    MPM.add(createCFGSimplificationPass(
-        SimplifyCFGOptions().convertSwitchRangeToICmp(
-            true)));                           // Merge & remove BBs
-#if INTEL_CUSTOMIZATION
-    // Combine silly seq's
-    addInstructionCombiningPass(MPM, !DTransEnabled);
-#endif // INTEL_CUSTOMIZATION
-    addExtensionsToPM(EP_Peephole, MPM);
-  }
-  if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
-    MPM.add(createPGOInstrumentationGenLegacyPass(IsCS));
-    // Add the profile lowering pass.
-    InstrProfOptions Options;
-    if (!PGOInstrGen.empty())
-      Options.InstrProfileOutput = PGOInstrGen;
-    Options.DoCounterPromotion = true;
-    Options.UseBFIInPromotion = IsCS;
-    MPM.add(createLoopRotatePass());
-  }
-  if (!PGOInstrUse.empty())
-    MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse, IsCS));
-  // Indirect call promotion that promotes intra-module targets only.
-  // For ThinLTO this is done earlier due to interactions with globalopt
-  // for imported functions. We don't run this at -O0.
-  if (OptLevel > 0 && !IsCS)
-    MPM.add(
-        createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
-
-  // The function splitting pass uses the PGO frequency info, and only
-  // makes sense to run during profile feedback.
-  if (EnableFunctionSplitting &&
-    (!PGOInstrUse.empty() || !PGOSampleUse.empty())) {
-    MPM.add(createFunctionSplittingWrapperPass());
-  }
-}
-#endif // INTEL_CUSTOMIZATION
-
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
@@ -826,17 +734,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addExtensionsToPM(EP_Peephole, MPM);
 
 #if INTEL_CUSTOMIZATION
-  // Optimize memory intrinsic calls based on the profiled size information.
-  if (SizeLevel == 0)
-    MPM.add(createPGOMemOPSizeOptLegacyPass());
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  bool SkipRecProgression = PrepareForLTO && DTransEnabled;
-#else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
-#endif // INTEL_FEATURE_SW_DTRANS
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
@@ -889,7 +787,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
                              /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
     // Rotate Loop - disable header duplication at -Oz
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
@@ -971,7 +869,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
   // memset/memmov calls of struct types.
-  if (!PrepareForLTO || !DTransEnabled)
+  if (!DTransEnabled)
     MPM.add(createMemCpyOptPass());           // Remove memcpy / form memset
 #else // INTEL_FEATURE_SW_DTRANS
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
@@ -1018,7 +916,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
 #if INTEL_CUSTOMIZATION
 bool PassManagerBuilder::isLoopOptStaticallyDisabled() const {
-  return DisableIntelProprietaryOpts || OptLevel < 2 || PerformThinLTO;
+  return DisableIntelProprietaryOpts || OptLevel < 2;
 }
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOnly(legacy::PassManagerBase &PM) const {
@@ -1048,9 +946,8 @@ PassManagerBuilder::limitLightLoopOptOnly(legacy::PassManagerBase &PM) const {
 legacy::LoopOptLimitingPassManager
 PassManagerBuilder::limitNoLoopOptOrNotPrepareForLTO(
     legacy::PassManagerBase &PM) const {
-  bool ForceRun = isLoopOptStaticallyDisabled() || !PrepareForLTO;
   return legacy::LoopOptLimitingPassManager(PM, LoopOptLimiter::NoLoopOptOnly,
-                                            false /*ForceSkip*/, ForceRun);
+                                            false /*ForceSkip*/, true);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1158,7 +1055,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (SLPVectorize) {
     PM.add(createSLPVectorizerPass());
 #if INTEL_CUSTOMIZATION
-    AfterSLPVectorizer = !PrepareForLTO;
+    AfterSLPVectorizer = true;
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP) {
@@ -1231,8 +1128,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
     // Postpone warnings to LTO link phase. Most transformations which process
     // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
-    if (!PrepareForLTO)
-      PM.add(createWarnMissedTransformationsPass());
+    PM.add(createWarnMissedTransformationsPass());
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1257,10 +1153,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createAnnotation2MetadataLegacyPass());
 
 #if INTEL_CUSTOMIZATION
-  // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
-  // is handled separately, so just check this is not the ThinLTO post-link.
-  bool DefaultOrPreLinkPipeline = !PerformThinLTO;
-
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
 #endif // INTEL_CUSTOMIZATION
 
@@ -1270,7 +1162,6 @@ void PassManagerBuilder::populateModulePassManager(
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
-    addPGOInstrPasses(MPM); // INTEL
     if (Inliner) {
       MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
@@ -1288,25 +1179,8 @@ void PassManagerBuilder::populateModulePassManager(
     else if (GlobalExtensionsNotEmpty() || !Extensions.empty())
       MPM.add(createBarrierNoopPass());
 
-    if (PerformThinLTO) {
-      MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
-      // Drop available_externally and unreferenced globals. This is necessary
-      // with ThinLTO in order to avoid leaving undefined references to dead
-      // globals in the object file.
-      MPM.add(createEliminateAvailableExternallyPass());
-      MPM.add(createGlobalDCEPass());
-    }
-
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
-    if (PrepareForLTO || PrepareForThinLTO) {
-      MPM.add(createCanonicalizeAliasesPass());
-      // Rename anon globals to be able to export them in the summary.
-      // This has to be done after we add the extensions to the pass manager
-      // as there could be passes (e.g. Adddress sanitizer) which introduce
-      // new unnamed globals.
-      MPM.add(createNameAnonGlobalPass());
-    }
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -1335,29 +1209,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   addInitialAliasAnalysisPasses(MPM);
 
-  // For ThinLTO there are two passes of indirect call promotion. The
-  // first is during the compile phase when PerformThinLTO=false and
-  // intra-module indirect call targets are promoted. The second is during
-  // the ThinLTO backend when PerformThinLTO=true, when we promote imported
-  // inter-module indirect calls. For that we perform indirect call promotion
-  // earlier in the pass pipeline, here before globalopt. Otherwise imported
-  // available_externally functions look unreferenced and are removed.
-  if (PerformThinLTO) {
-#if INTEL_CUSTOMIZATION
-    MPM.add(createPGOIndirectCallPromotionLegacyPass(/*InLTO = */ true,
-                                                     !PGOSampleUse.empty()));
-#endif // INTEL_CUSTOMIZATION
-    MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
-  }
-
-  // For SamplePGO in ThinLTO compile phase, we do not want to unroll loops
-  // as it will change the CFG too much to make the 2nd profile annotation
-  // in backend more difficult.
-  bool PrepareForThinLTOUsingPGOSampleProfile =
-      PrepareForThinLTO && !PGOSampleUse.empty();
-  if (PrepareForThinLTOUsingPGOSampleProfile)
-    DisableUnrollLoops = true;
-
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
 
@@ -1367,12 +1218,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createInlineListsPass()); // -[no]inline-list parsing
     if (RunVPOParopt && EnableVPOParoptTargetInline)
       MPM.add(createVPOParoptTargetInlinePass());
-#if INTEL_FEATURE_SW_DTRANS
-    if (PrepareForLTO && DTransEnabled) {
-      MPM.add(createDTransForceInlineWrapperPass());
-      MPM.add(createDTransForceInlineOPWrapperPass());
-    }
-#endif  // INTEL_FEATURE_SW_DTRANS
   }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -1418,19 +1263,6 @@ void PassManagerBuilder::populateModulePassManager(
   // Handle '#pragma vector aligned'.
   if (EnableHandlePragmaVectorAligned && OptLevel > 1)
     MPM.add(createHandlePragmaVectorAlignedPass());
-
-  // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
-  // call promotion as it will change the CFG too much to make the 2nd
-  // profile annotation in backend more difficult.
-  // PGO instrumentation is added during the compile phase for ThinLTO, do
-  // not run it a second time
-  if (DefaultOrPreLinkPipeline && !PrepareForThinLTOUsingPGOSampleProfile)
-    addPGOInstrPasses(MPM);
-
-  // Create profile COMDAT variables. Lld linker wants to see all variables
-  // before the LTO/ThinLTO link since it needs to resolve symbols/comdats.
-  if (!PerformThinLTO && EnablePGOCSInstrGen)
-    MPM.add(createPGOInstrumentationGenCreateVarLegacyPass(PGOInstrGen));
 #endif // INTEL_CUSTOMIZATION
 
   // We add a module alias analysis pass here. In part due to bugs in the
@@ -1502,7 +1334,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (OptLevel > 1 && !PrepareForLTO && !PrepareForThinLTO)
+  if (OptLevel > 1)
     // Remove avail extern fns and globals definitions if we aren't
     // compiling an object file for later LTO. For LTO we want to preserve
     // these so they are eligible for inlining at link-time. Note if they
@@ -1513,18 +1345,6 @@ void PassManagerBuilder::populateModulePassManager(
     // globals referenced by available external functions dead
     // and saves running remaining passes on the eliminated functions.
     MPM.add(createEliminateAvailableExternallyPass());
-
-#if INTEL_CUSTOMIZATION
-  // CSFDO instrumentation and use pass. Don't invoke this for Prepare pass
-  // for LTO and ThinLTO -- The actual pass will be called after all inlines
-  // are performed.
-  // Need to do this after COMDAT variables have been eliminated,
-  // (i.e. after EliminateAvailableExternallyPass).
-  if (!(PrepareForLTO || PrepareForThinLTO))
-    addPGOInstrPasses(MPM, /* IsCS */ true);
-#endif // INTEL_CUSTOMIZATION
-  if (EnableOrderFileInstrumentation)
-    MPM.add(createInstrOrderFilePass());
 
   MPM.add(createReversePostOrderFunctionAttrsPass());
 
@@ -1538,24 +1358,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createGlobalOptimizerPass());
     MPM.add(createGlobalDCEPass());
   }
-
-  // If we are planning to perform ThinLTO later, let's not bloat the code with
-  // unrolling/vectorization/... now. We'll first run the inliner + CGSCC passes
-  // during ThinLTO and perform the rest of the optimizations afterward.
-  if (PrepareForThinLTO) {
-    // Ensure we perform any last passes, but do so before renaming anonymous
-    // globals in case the passes add any.
-    addExtensionsToPM(EP_OptimizerLast, MPM);
-    MPM.add(createCanonicalizeAliasesPass());
-    // Rename anon globals to be able to export them in the summary.
-    MPM.add(createNameAnonGlobalPass());
-    return;
-  }
-
-  if (PerformThinLTO)
-    // Optimize globals now when performing ThinLTO, this enables more
-    // optimizations later.
-    MPM.add(createGlobalOptimizerPass());
 
   // Scheduling LoopVersioningLICM when inlining is over, because after that
   // we may see more accurate aliasing. Reason to run this late is that too
@@ -1615,7 +1417,7 @@ void PassManagerBuilder::populateModulePassManager(
   // Re-rotate loops in all our loop nests. These may have fallout out of
   // rotated form due to GVN or other transformations, and the vectorizer relies
   // on the rotated form. Disable header duplication at -Oz.
-  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
   } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
@@ -1653,7 +1455,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   // See comment in the new PM for justification of scheduling splitting at
   // this stage (\ref buildModuleSimplificationPipeline).
-  if (EnableHotColdSplit && !(PrepareForLTO || PrepareForThinLTO))
+  if (EnableHotColdSplit)
     MPM.add(createHotColdSplittingPass());
 
   if (EnableIROutliner)
@@ -1686,12 +1488,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
-  if (PrepareForLTO) {
-    MPM.add(createCanonicalizeAliasesPass());
-    // Rename anon globals to be able to handle them in the summary
-    MPM.add(createNameAnonGlobalPass());
-  }
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (EnableCSAPasses) {
@@ -1704,12 +1500,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
-  // If LTO is enabled, then check if the declaration for math libraries are
-  // needed
-  if (PrepareForLTO)
-    MPM.add(createIntelMathLibrariesDeclarationWrapperPass()); // INTEL
-  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
-                                        PrepareForLTO || PrepareForThinLTO));
+  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1844,14 +1635,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
     // Compute the loop attributes
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
-
-    // Indirect call promotion. This should promote all the targets that are
-    // left by the earlier promotion pass that promotes intra-module targets.
-    // This two-step promotion is to save the compile time. For LTO, it should
-    // produce the same result as if we only do promotion here.
-    PM.add(
-        createPGOIndirectCallPromotionLegacyPass(true, !PGOSampleUse.empty()));
-
 #endif // INTEL_CUSTOMIZATION
 
     // Propage constant function arguments by specializing the functions.
@@ -1889,9 +1672,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // improve the quality of generated code when virtual constant propagation or
   // control flow integrity are enabled.
   PM.add(createGlobalSplitPass());
-
-  // Apply whole-program devirtualization and virtual constant propagation.
-  PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
 
   // That's all we need at opt level 1.
   if (OptLevel == 1)
@@ -1995,11 +1775,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 
   PM.add(createPruneEHPass());   // Remove dead EH info.
-
-#if INTEL_CUSTOMIZATION
-  // CSFDO instrumentation and use pass.
-  addPGOInstrPasses(PM, /* IsCS */ true);
-#endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -2619,35 +2394,16 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
-  PerformThinLTO = true;
   if (LibraryInfo)
     PM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   if (VerifyInput)
     PM.add(createVerifierPass());
 
-  if (ImportSummary) {
-    // This pass imports type identifier resolutions for whole-program
-    // devirtualization and CFI. It must run early because other passes may
-    // disturb the specific instruction patterns that these passes look for,
-    // creating dependencies on resolutions that may not appear in the summary.
-    //
-    // For example, GVN may transform the pattern assume(type.test) appearing in
-    // two basic blocks into assume(phi(type.test, type.test)), which would
-    // transform a dependency on a WPD resolution into a dependency on a type
-    // identifier resolution for CFI.
-    //
-    // Also, WPD has access to more precise information than ICP and can
-    // devirtualize more effectively, so it should operate on the IR first.
-    PM.add(createWholeProgramDevirtPass(nullptr, ImportSummary));
-    PM.add(createLowerTypeTestsPass(nullptr, ImportSummary));
-  }
-
   populateModulePassManager(PM);
 
   if (VerifyOutput)
     PM.add(createVerifierPass());
-  PerformThinLTO = false;
 }
 
 void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
@@ -2661,24 +2417,10 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 
   if (OptLevel != 0)
     addLTOOptimizationPasses(PM);
-  else {
-    // The whole-program-devirt pass needs to run at -O0 because only it knows
-    // about the llvm.type.checked.load intrinsic: it needs to both lower the
-    // intrinsic itself and handle it in the summary.
-    PM.add(createWholeProgramDevirtPass(ExportSummary, nullptr));
-  }
 
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.
   PM.add(createCrossDSOCFIPass());
-
-  // Lower type metadata and the type.test intrinsic. This pass supports Clang's
-  // control flow integrity mechanisms (-fsanitize=cfi*) and needs to run at
-  // link time if CFI is enabled. The pass does nothing if CFI is disabled.
-  PM.add(createLowerTypeTestsPass(ExportSummary, nullptr));
-  // Run a second time to clean up any type tests left behind by WPD for use
-  // in ICP (which is performed earlier than this in the regular LTO pipeline).
-  PM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
 
   if (OptLevel != 0)
     addLateLTOOptimizationPasses(PM);

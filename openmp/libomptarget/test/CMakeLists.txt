@@ -20,8 +20,11 @@ string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM
 # INTEL_CUSTOMIZATION
 # We do not test targets other than x86_64 with LIT
 list(FILTER SYSTEM_TARGETS INCLUDE REGEX "x86_64")
-foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
+# Upstream clang use different offload linker tool chain, so LTO is not supposed
+# to work with product
+list(FILTER SYSTEM_TARGETS EXCLUDE REGEX "LTO")
 # end INTEL_CUSTOMIZATION
+foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
   string(STRIP "${CURRENT_TARGET}" CURRENT_TARGET)
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being

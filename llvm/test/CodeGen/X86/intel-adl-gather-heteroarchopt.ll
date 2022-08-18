@@ -15,7 +15,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    rdpid %rax
 ; X64-NEXT:    movzbl %al, %eax
 ; X64-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rcx
-; X64-NEXT:    movb (%rcx,%rax), %al
+; X64-NEXT:    movzbl (%rcx,%rax), %eax
 ; X64-NEXT:    testb %al, %al
 ; X64-NEXT:    je .LBB0_11
 ; X64-NEXT:  .LBB0_3:
@@ -209,7 +209,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
 ; X86-NEXT:    rdpid %eax
 ; X86-NEXT:    movzbl %al, %eax
-; X86-NEXT:    movb __cpu_core_type(%eax), %al
+; X86-NEXT:    movzbl __cpu_core_type(%eax), %eax
 ; X86-NEXT:    testb %al, %al
 ; X86-NEXT:    je .LBB0_13
 ; X86-NEXT:  .LBB0_3:

@@ -69,6 +69,7 @@ add_llvm_component_library(LLVMCore
   PassRegistry.cpp
   PassTimingInfo.cpp
   PrintPasses.cpp
+  ProfDataUtils.cpp
   SafepointIRVerifier.cpp
   ProfileSummary.cpp
   PseudoProbe.cpp
@@ -76,6 +77,7 @@ add_llvm_component_library(LLVMCore
   Statepoint.cpp
   StructuralHash.cpp
   Type.cpp
+  TypedPointerType.cpp
   TypeFinder.cpp
   Use.cpp
   User.cpp

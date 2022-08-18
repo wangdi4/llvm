@@ -145,6 +145,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/integer_misc.cpp
                            imf_utils/float_convert.cpp
                            imf_utils/half_convert.cpp
+                           imf_utils/simd_emulate.cpp
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp32.hpp
                            imf/intel/erfinv_s_ha.cpp

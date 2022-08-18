@@ -775,7 +775,6 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
   auto materializerPM = [this]() {
     if (m_IsSYCL)
       m_PM.add(createSPIRVToOCL20Legacy());
-    m_PM.add(llvm::createNameAnonGlobalPass());
     m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
     m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass());
@@ -985,8 +984,6 @@ void OptimizerOCLLegacy::initializePasses() {
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
   initializeGlobalMergePass(Registry);
   initializeInterleavedAccessPass(Registry);
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeExpandReductionsPass(Registry);
   initializeWriteBitcodePassPass(Registry);

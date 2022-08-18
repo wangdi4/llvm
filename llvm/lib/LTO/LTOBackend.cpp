@@ -57,8 +57,9 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/IPO.h" // INTEL
+#include "llvm/Transforms/IPO.h"                    // INTEL
 #include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
+#include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
 #include "llvm/Transforms/Utils/SplitModule.h"
@@ -382,12 +383,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   PMB.LoopVectorize = true;
   PMB.SLPVectorize = true;
   PMB.OptLevel = Conf.OptLevel;
-  PMB.PGOSampleUse = Conf.SampleProfile;
-  PMB.EnablePGOCSInstrGen = Conf.RunCSIRInstr;
-  if (!Conf.RunCSIRInstr && !Conf.CSIRProfile.empty()) {
-    PMB.EnablePGOCSInstrUse = true;
-    PMB.PGOInstrUse = Conf.CSIRProfile;
-  }
   if (IsThinLTO)
     PMB.populateThinLTOPassManager(passes);
   else
@@ -635,6 +630,8 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
   // Set the partial sample profile ratio in the profile summary module flag of
   // the module, if applicable.
   Mod.setPartialSampleProfileRatio(CombinedIndex);
+
+  updatePublicTypeTestCalls(Mod, CombinedIndex.withWholeProgramVisibility());
 
   if (Conf.CodeGenOnly) {
     codegen(Conf, TM.get(), AddStream, Task, Mod, CombinedIndex);

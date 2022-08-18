@@ -106,7 +106,7 @@ define <4 x i32> @stack_fold_vpdpbssd_maskz_commuted(<4 x i32> %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl
@@ -238,7 +238,7 @@ define <4 x i32> @stack_fold_vpdpbssds_maskz_commuted(<4 x i32> %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl
@@ -370,7 +370,7 @@ define <4 x i32> @stack_fold_vpdpbuud_maskz_commuted(<4 x i32> %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl
@@ -502,7 +502,7 @@ define <4 x i32> @stack_fold_vpdpbuuds_maskz_commuted(<4 x i32> %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl
@@ -620,7 +620,7 @@ define <4 x i32> @stack_fold_vpdpbsud_maskz(<4 x i32> %a0, <4 x i32> %a1, <4 x i
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl
@@ -738,7 +738,7 @@ define <4 x i32> @stack_fold_vpdpbsuds_maskz(<4 x i32> %a0, <4 x i32> %a1, <4 x 
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movb (%rdi), %al
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
 ; AVXDOTPROD-NEXT:    andb $1, %cl

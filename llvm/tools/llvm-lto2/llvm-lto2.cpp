@@ -192,9 +192,15 @@ static cl::opt<bool>
              cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
+#if ENABLE_OPAQUE_POINTERS
+static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
+                                       cl::desc("Enable opaque pointer types"),
+                                       cl::init(true), cl::Hidden);
+#else
 static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
                                        cl::desc("Enable opaque pointer types"),
                                        cl::init(false), cl::Hidden);
+#endif
 
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::Hidden,

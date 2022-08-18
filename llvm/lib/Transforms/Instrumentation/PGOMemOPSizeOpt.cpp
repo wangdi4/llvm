@@ -115,45 +115,6 @@ static cl::opt<unsigned>
     MemOpMaxOptSize("memop-value-prof-max-opt-size", cl::Hidden, cl::init(128),
                     cl::desc("Optimize the memop size <= this value"));
 
-#if INTEL_CUSTOMIZATION
-namespace {
-class PGOMemOPSizeOptLegacyPass : public FunctionPass {
-public:
-  static char ID;
-
-  PGOMemOPSizeOptLegacyPass() : FunctionPass(ID) {
-    initializePGOMemOPSizeOptLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "PGOMemOPSize"; }
-
-private:
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-};
-} // end anonymous namespace
-
-char PGOMemOPSizeOptLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(PGOMemOPSizeOptLegacyPass, "pgo-memop-opt",
-                      "Optimize memory intrinsic using its size value profile",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(PGOMemOPSizeOptLegacyPass, "pgo-memop-opt",
-                    "Optimize memory intrinsic using its size value profile",
-                    false, false)
-
-FunctionPass *llvm::createPGOMemOPSizeOptLegacyPass() {
-  return new PGOMemOPSizeOptLegacyPass();
-}
-#endif // INTEL_CUSTOMIZATION
-
 namespace {
 
 static const char *getMIName(const MemIntrinsic *MI) {
@@ -532,22 +493,6 @@ static bool PGOMemOPSizeOptImpl(Function &F, BlockFrequencyInfo &BFI,
   return MemOPSizeOpt.isChanged();
 }
 
-#if INTEL_CUSTOMIZATION
-bool PGOMemOPSizeOptLegacyPass::runOnFunction(Function &F) {
-  BlockFrequencyInfo &BFI =
-      getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
-  auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
-  auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
-  DominatorTree *DT = DTWP ? &DTWP->getDomTree() : nullptr;
-  TargetLibraryInfo &TLI =
-      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  return PGOMemOPSizeOptImpl(F, BFI, ORE, DT, TLI);
-}
-
-namespace llvm {
-char &PGOMemOPSizeOptID = PGOMemOPSizeOptLegacyPass::ID;
-#endif // INTEL_CUSTOMIZATION
-
 PreservedAnalyses PGOMemOPSizeOpt::run(Function &F,
                                        FunctionAnalysisManager &FAM) {
   auto &BFI = FAM.getResult<BlockFrequencyAnalysis>(F);
@@ -561,6 +506,3 @@ PreservedAnalyses PGOMemOPSizeOpt::run(Function &F,
   PA.preserve<DominatorTreeAnalysis>();
   return PA;
 }
-#if INTEL_CUSTOMIZATION
-} // namespace llvm
-#endif // INTEL_CUSTOMIZATION

@@ -580,7 +580,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
       if (isa<DbgInfoIntrinsic>(&I))
         continue;
       if (auto *Call = dyn_cast<CallBase>(&I))
-        if (!isFreeCall(Call, &TLI))
+        if (!getFreedOperand(Call, &TLI))
           return false;
     }
     return true;

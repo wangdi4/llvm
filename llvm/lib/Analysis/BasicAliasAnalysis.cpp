@@ -1128,7 +1128,6 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
     ModRefInfo Result = ModRefInfo::NoModRef;
-    bool IsMustAlias = true;
 
     unsigned OperandNo = 0;
     for (auto CI = Call->data_operands_begin(), CE = Call->data_operands_end();
@@ -1151,8 +1150,6 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       AliasResult AR = getBestAAResults().alias(
           MemoryLocation::getBeforeOrAfter(*CI),
           MemoryLocation::getBeforeOrAfter(Object), AAQI);
-      if (AR != AliasResult::MustAlias)
-        IsMustAlias = false;
       // Operand doesn't alias 'Object', continue looking for other aliases
 #if INTEL_CUSTOMIZATION
       // AA currently does not handle vectors of pointers, if we get
@@ -1163,12 +1160,12 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       // Operand aliases 'Object', but call doesn't modify it. Strengthen
       // initial assumption and keep looking in case if there are more aliases.
       if (Call->onlyReadsMemory(OperandNo)) {
-        Result = setRef(Result);
+        Result |= ModRefInfo::Ref;
         continue;
       }
       // Operand aliases 'Object' but call only writes into it.
       if (Call->onlyWritesMemory(OperandNo)) {
-        Result = setMod(Result);
+        Result |= ModRefInfo::Mod;
         continue;
       }
       // This operand aliases 'Object' and call reads and writes into it.
@@ -1178,17 +1175,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
       break;
     }
 
-    // No operand aliases, reset Must bit. Add below if at least one aliases
-    // and all aliases found are MustAlias.
-    if (isNoModRef(Result))
-      IsMustAlias = false;
-
     // Early return if we improved mod ref information
-    if (!isModAndRefSet(Result)) {
-      if (isNoModRef(Result))
-        return ModRefInfo::NoModRef;
-      return IsMustAlias ? setMust(Result) : clearMust(Result);
-    }
+    if (!isModAndRefSet(Result))
+      return Result;
   }
 
   // If the call is malloc/calloc like, we can assume that it doesn't
@@ -1219,9 +1208,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
     // It's also possible for Loc to alias both src and dest, or neither.
     ModRefInfo rv = ModRefInfo::NoModRef;
     if (SrcAA != AliasResult::NoAlias || Call->hasReadingOperandBundles())
-      rv = setRef(rv);
+      rv |= ModRefInfo::Ref;
     if (DestAA != AliasResult::NoAlias || Call->hasClobberingOperandBundles())
-      rv = setMod(rv);
+      rv |= ModRefInfo::Mod;
     return rv;
   }
 

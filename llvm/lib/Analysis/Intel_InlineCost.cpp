@@ -805,8 +805,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // when we are compiling with -O3 -flto -xCORE-AVX2 on the link step.
   if (DTransInlineHeuristics ||
       passesMinimalSmallAppConditions(
-          CandidateCall, CalleeTTI, WPI, Params.LinkForLTO.getValueOr(false),
-          Params.InlineOptLevel.getValueOr(false))) {
+          CandidateCall, CalleeTTI, WPI, Params.LinkForLTO.value_or(false),
+          Params.InlineOptLevel.value_or(false))) {
     for (User *U : I.users())
       if (isa<SubscriptInst>(U))
         return true;
@@ -1173,8 +1173,9 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
   if (F->getName().contains("realloc"))
     return true;
   for (auto &I : instructions(F))
-    if (isReallocLikeFn(&I, TLI))
-      return true;
+    if (const auto *const CB = dyn_cast<CallBase>(&I))
+      if (getReallocatedOperand(CB, TLI))
+        return true;
   return false;
 }
 
@@ -1900,7 +1901,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
     const TargetTransformInfo &CalleeTTI, ProfileSummaryInfo *PSI,
     InliningLoopInfoCache *ILIC, SmallPtrSetImpl<Function *> *QueuedCallers,
     InlineReasonVector &NoReasonVector) {
-  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false);
+  bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
     return None;
@@ -4116,9 +4117,9 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
                               SmallPtrSetImpl<Function *> *QueuedCallers,
                               InlineReasonVector &YesReasonVector,
                               WholeProgramInfo *WPI, bool IsCallerRecursive) {
-  bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false);
-  bool LinkForLTO = Params.LinkForLTO.getValueOr(false);
-  unsigned InlineOptLevel = Params.InlineOptLevel.getValueOr(0);
+  bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
+  bool LinkForLTO = Params.LinkForLTO.value_or(false);
+  unsigned InlineOptLevel = Params.InlineOptLevel.value_or(0);
   Function *F = CB.getCalledFunction();
   if (!F)
     return 0;

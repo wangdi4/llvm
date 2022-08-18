@@ -29,9 +29,9 @@ define i32 @ctlz_loop_with_abs(i32 %n) {
 ; CHECK-NEXT:    [[TOBOOL_NOT1:%.*]] = icmp eq i32 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL_NOT1]], label [[WHILE_END:%.*]], label [[WHILE_END_LOOPEXIT:%.*]]
 ; CHECK:       while.end.loopexit:
-; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.abs.i32(i32 [[N]], i1 true)
+; CHECK-NEXT:    [[TMP0:%.*]] = tail call i32 @llvm.abs.i32(i32 [[N]], i1 true)
 ; CHECK-NEXT:    [[TMP1:%.*]] = lshr i32 [[TMP0]], 1
-; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP1]], i1 false), !range [[RNG0:![0-9]+]]
+; CHECK-NEXT:    [[TMP2:%.*]] = tail call i32 @llvm.ctlz.i32(i32 [[TMP1]], i1 false), !range [[RNG0:![0-9]+]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = sub nuw nsw i32 33, [[TMP2]]
 ; CHECK-NEXT:    br label [[WHILE_END]]
 ; CHECK:       while.end:

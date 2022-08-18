@@ -1346,6 +1346,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::NoCfCheck:
       case Attribute::MustProgress:
       case Attribute::NoProfile:
+      case Attribute::SkipProfile:
 #if INTEL_CUSTOMIZATION
       case Attribute::AlwaysInlineRecursive:
       case Attribute::InlineHintRecursive:

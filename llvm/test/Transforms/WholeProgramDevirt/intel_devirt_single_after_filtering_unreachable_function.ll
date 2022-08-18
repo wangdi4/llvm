@@ -4,7 +4,6 @@
 ; Test that @_ZN4BaseD0Ev function is not detected as unreachable function
 ; due to "call void @exit()" call.
 
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
 
 ; CHECK: tail call void %3

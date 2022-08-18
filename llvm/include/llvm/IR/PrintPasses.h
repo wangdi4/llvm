@@ -27,11 +27,26 @@
 #define LLVM_IR_PRINTPASSES_H
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/CommandLine.h"
 #include <vector>
 
 namespace llvm {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
+enum class ChangePrinter {
+  None,
+  Verbose,
+  Quiet,
+  DiffVerbose,
+  DiffQuiet,
+  ColourDiffVerbose,
+  ColourDiffQuiet,
+  DotCfgVerbose,
+  DotCfgQuiet
+};
+
+extern cl::opt<ChangePrinter> PrintChanged;
 
 // Returns true if printing before/after some pass is enabled, whether all
 // passes or a specific pass.
@@ -65,6 +80,14 @@ std::vector<std::string> printAfterPasses();
 
 // Returns true if we should print the function.
 bool isFunctionInPrintList(StringRef FunctionName);
+
+// Perform a system based diff between \p Before and \p After, using \p
+// OldLineFormat, \p NewLineFormat, and \p UnchangedLineFormat to control the
+// formatting of the output. Return an error message for any failures instead
+// of the diff.
+std::string doSystemDiff(StringRef Before, StringRef After,
+                         StringRef OldLineFormat, StringRef NewLineFormat,
+                         StringRef UnchangedLineFormat);
 
 } // namespace llvm
 

@@ -36,6 +36,7 @@ add_clang_tool(clang-offload-bundler
 
 set(CLANG_OFFLOAD_BUNDLER_LIB_DEPS
   clangBasic
+  clangDriver
   )
 
 add_dependencies(clang clang-offload-bundler)

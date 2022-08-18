@@ -338,9 +338,6 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   bool IsSpirFunc = Triple(F.getParent()->getTargetTriple()).isSPIR();
 #endif // INTEL_CUSTOMIZATION
 
-  if(!isLibFreeFunction(&F, TheLibFunc) && !isReallocLikeFn(&F,  &TLI))
-    Changed |= setDoesNotFreeMemory(F);
-
   if (F.getParent() != nullptr && F.getParent()->getRtLibUseGOT())
     Changed |= setNonLazyBind(F);
 
@@ -353,14 +350,14 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_strchr:
   case LibFunc_strrchr:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_strtol:
   case LibFunc_strtod:
   case LibFunc_strtof:
@@ -373,7 +370,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_strcat:
   case LibFunc_strncat:
   case LibFunc_wcscpy:                      // INTEL
@@ -386,7 +383,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyReadsMemory(F, 1);
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
-    return Changed;
+    break;
   case LibFunc_strcpy:
   case LibFunc_strncpy:
     Changed |= setReturnedArg(F, 0);
@@ -401,14 +398,14 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyReadsMemory(F, 1);
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
-    return Changed;
+    break;
   case LibFunc_strxfrm:
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_strcmp:      // 0,1
   case LibFunc_strspn:      // 0,1
   case LibFunc_strncmp:     // 0,1
@@ -419,7 +416,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_strcoll:
   case LibFunc_strcasecmp:  // 0,1
   case LibFunc_strncasecmp: //
@@ -432,7 +429,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_strstr:
   case LibFunc_strpbrk:
     Changed |= setOnlyAccessesArgMemory(F);
@@ -440,26 +437,26 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_strtok:
   case LibFunc_strtok_r:
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_scanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_setbuf:
   case LibFunc_setvbuf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_strndup:
     Changed |= setArgNoUndef(F, 1);
     LLVM_FALLTHROUGH;
@@ -471,7 +468,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_stat:
   case LibFunc_statvfs:
     Changed |= setRetAndArgsNoUndef(F);
@@ -479,7 +476,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_sscanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -487,7 +484,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_sprintf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -496,7 +493,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyWritesMemory(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_snprintf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -505,7 +502,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyWritesMemory(F, 0);
     Changed |= setDoesNotCapture(F, 2);
     Changed |= setOnlyReadsMemory(F, 2);
-    return Changed;
+    break;
   case LibFunc_setitimer:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -513,13 +510,13 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 2);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_system:
     // May throw; "system" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_aligned_alloc:
     Changed |= setAlignedAllocParam(F, 0);
     Changed |= setAllocSize(F, 1, None);
@@ -537,7 +534,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_memcmp:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
@@ -545,7 +542,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_dunder_rawmemchr:                           // INTEL
   case LibFunc_memchr:
   case LibFunc_memrchr:
@@ -553,14 +550,14 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_modf:
   case LibFunc_modff:
   case LibFunc_modfl:
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_memcpy:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -571,7 +568,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotAlias(F, 1);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_memmove:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -580,7 +577,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyWritesMemory(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_mempcpy:
   case LibFunc_memccpy:
     Changed |= setWillReturn(F);
@@ -593,7 +590,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotAlias(F, 1);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_memalign:
     Changed |= setAllocFamily(F, "malloc");
     Changed |= setAllocKind(F, AllocFnKind::Alloc | AllocFnKind::Aligned |
@@ -605,20 +602,20 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_mkdir:
   case LibFunc_under_mkdir:                   // INTEL
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_mktime:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_realloc:
   case LibFunc_reallocf:
   case LibFunc_vec_realloc:
@@ -634,12 +631,12 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setArgNoUndef(F, 1);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_re_compile_fastmap:
-    return Changed;
+    break;
   case LibFunc_re_search_2:
-    return Changed;
+    break;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_read:
 #if INTEL_CUSTOMIZATION
@@ -650,12 +647,12 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     // May throw; "read" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_rewind:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_rmdir:
   case LibFunc_remove:
   case LibFunc_under_wremove:                  // INTEL
@@ -664,7 +661,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_rename:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -672,20 +669,20 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_readlink:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_write:
     // May throw; "write" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_bcopy:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -694,7 +691,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyWritesMemory(F, 1);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_bcmp:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -702,19 +699,19 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_bzero:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyWritesMemory(F, 0);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_cexp:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_calloc:
   case LibFunc_vec_calloc:
@@ -727,21 +724,21 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_chmod:
   case LibFunc_chown:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_ctermid:
   case LibFunc_clearerr:
   case LibFunc_closedir:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_cpow:
   case LibFunc_cpowf:
@@ -750,9 +747,9 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_atexit:
-    return Changed;
+    break;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_atoi:
   case LibFunc_atol:
@@ -762,14 +759,14 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyReadsMemory(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_access:
   case LibFunc_under_waccess:                   // INTEL
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_fopen:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -778,19 +775,19 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_fdopen:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_feof:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_free:
   case LibFunc_vec_free:
     Changed |= setAllocFamily(F, TheLibFunc == LibFunc_vec_free ? "vec_malloc"
@@ -802,7 +799,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_fseek:
   case LibFunc_ftell:
   case LibFunc_fgetc:
@@ -819,45 +816,45 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_ferror:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F);
-    return Changed;
+    break;
   case LibFunc_fputc:
   case LibFunc_fputc_unlocked:
   case LibFunc_fstat:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_frexp:
   case LibFunc_frexpf:
   case LibFunc_frexpl:
     Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_fstatvfs:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_fgets:
   case LibFunc_fgets_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 2);
-    return Changed;
+    break;
   case LibFunc_fread:
   case LibFunc_fread_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 3);
-    return Changed;
+    break;
   case LibFunc_fwrite:
   case LibFunc_fwrite_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
@@ -865,7 +862,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 3);
     // FIXME: readonly #1?
-    return Changed;
+    break;
   case LibFunc_fputs:
   case LibFunc_fputs_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
@@ -873,7 +870,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_fscanf:
   case LibFunc_fprintf:
     Changed |= setRetAndArgsNoUndef(F);
@@ -881,61 +878,61 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_fgetpos:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_getc:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_getlogin_r:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_getc_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_getenv:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_gets:
   case LibFunc_getchar:
   case LibFunc_getchar_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getitimer:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_getpwnam:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_ungetc:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_uname:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_under_unlink:
 #endif // INTEL_CUSTOMIZATION
@@ -944,13 +941,13 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_unsetenv:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_utime:
   case LibFunc_utimes:
     Changed |= setRetAndArgsNoUndef(F);
@@ -959,13 +956,13 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_putc:
   case LibFunc_putc_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_puts:
   case LibFunc_printf:
   case LibFunc_perror:
@@ -973,23 +970,23 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_pread:
     // May throw; "pread" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_pwrite:
     // May throw; "pwrite" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_putchar:
   case LibFunc_putchar_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_popen:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -998,18 +995,18 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_pclose:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_vscanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_vsscanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -1017,20 +1014,20 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_vfscanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_vprintf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_vfprintf:
   case LibFunc_vsprintf:
     Changed |= setRetAndArgsNoUndef(F);
@@ -1038,63 +1035,63 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_vsnprintf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 2);
     Changed |= setOnlyReadsMemory(F, 2);
-    return Changed;
+    break;
   case LibFunc_open:
     // May throw; "open" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_opendir:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_tmpfile:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
-    return Changed;
+    break;
   case LibFunc_times:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_htonl:
   case LibFunc_htons:
   case LibFunc_ntohl:
   case LibFunc_ntohs:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotAccessMemory(F);
-    return Changed;
+    break;
   case LibFunc_lstat:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_lchown:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_qsort:
     // May throw; places call through function pointer.
     // Cannot give undef pointer/size
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 3);
-    return Changed;
+    break;
   case LibFunc_dunder_strndup:
     Changed |= setArgNoUndef(F, 1);
     LLVM_FALLTHROUGH;
@@ -1104,28 +1101,28 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_dunder_strtok_r:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_under_IO_getc:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_under_IO_putc:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_dunder_isoc99_scanf:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_stat64:
   case LibFunc_lstat64:
   case LibFunc_statvfs64:
@@ -1134,7 +1131,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   // stat and its other form can throw an exception handler in Windows
   case LibFunc_under_stat64:
@@ -1143,7 +1140,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_sscanf:
     Changed |= setRetAndArgsNoUndef(F);
@@ -1152,7 +1149,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_fopen64:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
@@ -1161,30 +1158,30 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_fseeko64:
   case LibFunc_ftello64:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_tmpfile64:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
-    return Changed;
+    break;
   case LibFunc_fstat64:
   case LibFunc_fstatvfs64:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_open64:
     // May throw; "open" is a valid pthread cancellation point.
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   case LibFunc_gettimeofday:
     // Currently some platforms have the restrict keyword on the arguments to
     // gettimeofday. To be conservative, do not add noalias to gettimeofday's
@@ -1193,7 +1190,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
@@ -1209,10 +1206,10 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_basic_filebuf_std_fpos_seekpos:
   case LibFunc_msvc_std_basic_filebuf_sync:
   case LibFunc_msvc_std_basic_filebuf_uflow:
-    return Changed;
+    break;
   case LibFunc_msvc_std_basic_filebuf_under_Endwrite:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_basic_filebuf_underflow:
   case LibFunc_msvc_std_basic_filebuf_under_Lock:
   case LibFunc_msvc_std_basic_filebuf_under_Unlock:
@@ -1251,16 +1248,16 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_basic_string_operator_plus_equal_char:
   case LibFunc_msvc_std_basic_string_push_back:
   case LibFunc_msvc_std_basic_string_resize:
-    return Changed;
+    break;
   case LibFunc_msvc_std_basic_string_under_xlen:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_codecvt_do_always_noconv:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_codecvt_scalar_deleting_dtor:
   case LibFunc_msvc_std_codecvt_use_facet:
-    return Changed;
+    break;
   case LibFunc_msvc_std_codecvt_do_encoding:
   case LibFunc_msvc_std_codecvt_do_in:
   case LibFunc_msvc_std_codecvt_do_length:
@@ -1276,13 +1273,13 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_ctype_do_widen_char:
   case LibFunc_msvc_std_ctype_do_widen_ptr_ptr_ptr:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_ctype_scalar_deleting_dtor:
-    return Changed;
+    break;
   case LibFunc_msvc_std_error_category_default_error:
   case LibFunc_msvc_std_error_category_equivalent_error_code:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_ctype_use_facet:
   case LibFunc_msvc_std_CxxThrowException:
   case LibFunc_msvc_std_error_category_equivalent_error_condition:
@@ -1338,11 +1335,11 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_under_generic_error_category_message:
   case LibFunc_msvc_std_under_iostreamer_error_category_message:
   case LibFunc_msvc_std_under_iostreamer_error_category2_message:
-    return Changed;
+    break;
   case LibFunc_msvc_std_under_iostreamer_error_category_name:
   case LibFunc_msvc_std_under_iostreamer_error_category2_name:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_under_iostreamer_error_category_scalar_deleting_dtor:
   case LibFunc_msvc_std_under_iostreamer_error_category2_scalar_deleting_dtor:
   case LibFunc_msvc_std_under_system_error_scalar_deleting_dtor:
@@ -1351,18 +1348,18 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_Xbad_alloc:
   case LibFunc_msvc_std_yarn_dtor:
   case LibFunc_msvc_std_yarn_wchar_dtor:
-    return Changed;
+    break;
   case LibFunc_msvc_std_Xlength_error:
   case LibFunc_msvc_std_Xout_of_range:
   case LibFunc_msvc_std_Xran:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_Xruntime_error:
-    return Changed;
+    break;
   case LibFunc_msvc_std_numpunct_do_decimal_point:
   case LibFunc_msvc_std_numpunct_do_thousands_sep:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_msvc_std_numpunct_do_falsename:
   case LibFunc_msvc_std_numpunct_do_grouping:
   case LibFunc_msvc_std_numpunct_use_facet:
@@ -1380,10 +1377,10 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_num_put_ostreambuf_iterator_scalar_deleting_dtor:
   case LibFunc_msvc_std_num_put_use_facet:
   case LibFunc_msvc_std_numpunct_scalar_deleting_dtor:
-    return Changed;
+    break;
   case LibFunc_msvc_std_under_immortalize_impl:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_memset_pattern4:
   case LibFunc_memset_pattern8:
@@ -1399,795 +1396,795 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyWritesMemory(F, 0);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   // int __nvvm_reflect(const char *)
   case LibFunc_nvvm_reflect:
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
 #if INTEL_CUSTOMIZATION
   case LibFunc_assert_fail:
     if (!IsSpirFunc)
       Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_clang_call_terminate:
-    return Changed;
+    break;
   case LibFunc_ctype_b_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ctype_get_mb_cur_max:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ctype_tolower_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ctype_toupper_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_cxa_allocate_exception:
     Changed |= setRetDoesNotAlias(F);
-    return Changed;
+    break;
   case LibFunc_cxa_bad_typeid:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_cxa_bad_cast:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_cxa_begin_catch:
-    return Changed;
+    break;
   case LibFunc_cxa_call_unexpected:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_cxa_end_catch:
-    return Changed;
+    break;
   case LibFunc_cxa_free_exception:
-    return Changed;
+    break;
   case LibFunc_cxa_get_exception_ptr:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_cxa_rethrow:
-    return Changed;
+    break;
   case LibFunc_cxa_pure_virtual:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_cxa_throw:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_dynamic_cast:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setMustProgress(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   case LibFunc_errno_location:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fxstat:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fxstat64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_gnu_std_basic_filebuf_dtor:
-    return Changed;
+    break;
   case LibFunc_gnu_std_cxx11_basic_stringstream_ctor:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEED1Ev:
-    return Changed;
+    break;
   case LibFunc_gxx_personality_v0:
-    return Changed;
+    break;
   case LibFunc_isinf:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isnan:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isnanf:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_atomic_fixed4_add:
   case LibFunc_kmpc_atomic_float8_add:
-    return Changed;
+    break;
   case LibFunc_kmpc_critical:
   case LibFunc_kmpc_critical_with_hint:
-    return Changed;
+    break;
   case LibFunc_kmpc_dispatch_init_4:
   case LibFunc_kmpc_dispatch_init_4u:
   case LibFunc_kmpc_dispatch_init_8:
   case LibFunc_kmpc_dispatch_init_8u:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_dispatch_next_4:
   case LibFunc_kmpc_dispatch_next_4u:
   case LibFunc_kmpc_dispatch_next_8:
   case LibFunc_kmpc_dispatch_next_8u:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_end_critical:
-    return Changed;
+    break;
   case LibFunc_kmpc_end_reduce_nowait:
-    return Changed;
+    break;
   case LibFunc_kmpc_end_serialized_parallel:
-    return Changed;
+    break;
   case LibFunc_kmpc_flush:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_for_static_fini:
-    return Changed;
+    break;
   case LibFunc_kmpc_for_static_init_4:
   case LibFunc_kmpc_for_static_init_4u:
-    return Changed;
+    break;
   case LibFunc_kmpc_for_static_init_8:
   case LibFunc_kmpc_for_static_init_8u:
-    return Changed;
+    break;
   case LibFunc_kmpc_fork_call:
-    return Changed;
+    break;
   case LibFunc_kmpc_global_thread_num:
-    return Changed;
+    break;
   case LibFunc_kmpc_ok_to_fork:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_omp_task:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_omp_task_alloc:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_omp_task_begin_if0:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_omp_task_complete_if0:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_omp_taskwait:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_push_num_threads:
-    return Changed;
+    break;
   case LibFunc_kmpc_reduce_nowait:
-    return Changed;
+    break;
   case LibFunc_kmpc_serialized_parallel:
-    return Changed;
+    break;
   case LibFunc_kmpc_single:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_end_single:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_masked:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_end_masked:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_master:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_end_master:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmpc_threadprivate_cached:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_lxstat:
   case LibFunc_lxstat64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_regcomp:
   case LibFunc_regerror:
   case LibFunc_regexec:
   case LibFunc_regfree:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_sigsetjmp:
-    return Changed;
+    break;
   case LibFunc_std_exception_copy:
-    return Changed;
+    break;
   case LibFunc_std_exception_destroy:
-    return Changed;
+    break;
   case LibFunc_std_reverse_trivially_swappable_8:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_strncpy_s:
     Changed |= setDoesNotCapture(F, 2);
     Changed |= setOnlyReadsMemory(F, 2);
-    return Changed;
+    break;
   case LibFunc_tunder_mb_cur_max_func:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_dunder_CxxFrameHandler3:
-    return Changed;
+    break;
   case LibFunc_dunder_RTDynamicCast:
-    return Changed;
+    break;
   case LibFunc_dunder_RTtypeid:
-    return Changed;
+    break;
   case LibFunc_dunder_std_terminate:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_dunder_std_type_info_compare:
-    return Changed;
+    break;
   case LibFunc_dunder_std_type_info_name:
-    return Changed;
+    break;
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_Getctype:
-    return Changed;
+    break;
   case LibFunc_under_Getcvt:
-    return Changed;
+    break;
   case LibFunc_under_Init_thread_abort:
-    return Changed;
+    break;
   case LibFunc_under_get_stream_buffer_pointers:
-    return Changed;
+    break;
   // Get working directory in Windows can throw an exception
   // compared to the Linux version (LibFunc_getcwd)
   case LibFunc_under_getcwd:
   case LibFunc_under_getdcwd:
-    return Changed;
+    break;
   case LibFunc_under_getdrive:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   // gmtime in Windows can throw an exception as opposed to the
   // Linux version (LibFunc_gmtime)
   case LibFunc_under_gmtime64:
-    return Changed;
+    break;
   case LibFunc_under_Stollx:
   case LibFunc_under_Stolx:
   case LibFunc_under_Stoullx:
   case LibFunc_under_Stoulx:
-    return Changed;
+    break;
   case LibFunc_under_Tolower:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_Toupper:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_chdir:
-    return Changed;
+    break;
   case LibFunc_under_commit:
-    return Changed;
+    break;
   // _close in Windows can throw an exception compared to
   // the Linux version (LibFunc_close)
   case LibFunc_under_close:
-    return Changed;
+    break;
   case LibFunc_under_errno:
-    return Changed;
+    break;
   case LibFunc_under_fdopen:
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_under_fseeki64:
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_under_fstat64:
   case LibFunc_under_fstat64i32:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_exit:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_under_fileno:
-    return Changed;
+    break;
   case LibFunc_under_findclose:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_findfirst64i32:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_findnext64i32:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_ftelli64:
     Changed |= setDoesNotCapture(F, 0);
-    return Changed;
+    break;
   case LibFunc_under_Init_thread_header:
   case LibFunc_under_Init_thread_footer:
-    return Changed;
+    break;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_under_localtime64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_lock_file:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_lseeki64:
-    return Changed;
+    break;
   case LibFunc_under_set_errno:
-    return Changed;
+    break;
   case LibFunc_under_setmode:
-    return Changed;
+    break;
   case LibFunc_under_purecall:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_obstack_begin:
-    return Changed;
+    break;
   case LibFunc_obstack_memory_used:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_obstack_newchunk:
-    return Changed;
+    break;
   case LibFunc_setjmp:
-    return Changed;
+    break;
   case LibFunc_ZNKSs17find_first_not_ofEPKcmm:
-    return Changed;
+    break;
   case LibFunc_ZNKSs4findEcm:
-    return Changed;
+    break;
   case LibFunc_ZNKSs4findEPKcmm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSs5rfindEcm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSs5rfindEPKcmm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSs7compareEPKc:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt13runtime_error4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
-    return Changed;
+    break;
   case LibFunc_std_cxx11_basic_string_find_first_not_of:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_std_cxx11_basic_string_find_char_unsigned_long:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE3strEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt9bad_alloc4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc:
-    return Changed;
+    break;
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNSi10_M_extractIdEERSiRT_:
-    return Changed;
+    break;
   case LibFunc_ZNSi10_M_extractIfEERSiRT_:
-    return Changed;
+    break;
   case LibFunc_ZNSi10_M_extractIlEERSiRT_:
-    return Changed;
+    break;
   case LibFunc_ZNSi10_M_extractImEERSiRT_:
-    return Changed;
+    break;
   case LibFunc_ZNSi4readEPci:
-    return Changed;
+    break;
   case LibFunc_ZNSi4readEPcl:
-    return Changed;
+    break;
   case LibFunc_ZNSi5tellgEv:
     Changed |= setOnlyReadsMemory(F);
-    return Changed;
+    break;
   case LibFunc_ZNSi5ungetEv:
-    return Changed;
+    break;
   case LibFunc_ZNSirsERi:
-    return Changed;
+    break;
   case LibFunc_ZNSo3putEc:
-    return Changed;
+    break;
   case LibFunc_ZNSo5flushEv:
-    return Changed;
+    break;
   case LibFunc_ZNSo5writeEPKci:
-    return Changed;
+    break;
   case LibFunc_ZNSo5writeEPKcl:
-    return Changed;
+    break;
   case LibFunc_ZNSo9_M_insertIbEERSoT_:
-    return Changed;
+    break;
   case LibFunc_ZNSo9_M_insertIdEERSoT_:
-    return Changed;
+    break;
   case LibFunc_ZNSo9_M_insertIlEERSoT_:
-    return Changed;
+    break;
   case LibFunc_ZNSo9_M_insertImEERSoT_:
-    return Changed;
+    break;
   case LibFunc_ZNSo9_M_insertIPKvEERSoT_:
-    return Changed;
+    break;
   case LibFunc_ZNSolsEi:
-    return Changed;
+    break;
   case LibFunc_ZNSs12_M_leak_hardEv:
-    return Changed;
+    break;
   case LibFunc_ZNSs4_Rep10_M_destroyERKSaIcE:
-    return Changed;
+    break;
   case LibFunc_ZNSs4_Rep9_S_createEmmRKSaIcE:
-    return Changed;
+    break;
   case LibFunc_ZNSs6appendEmc:
-    return Changed;
+    break;
   case LibFunc_ZNSs6appendEPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSs6appendERKSs:
-    return Changed;
+    break;
   case LibFunc_ZNSs6assignEPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSs6assignERKSs:
-    return Changed;
+    break;
   case LibFunc_ZNSs6insertEmPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSs6resizeEmc:
-    return Changed;
+    break;
   case LibFunc_ZNSs7replaceEmmPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSs7reserveEm:
-    return Changed;
+    break;
   case LibFunc_ZNSs9_M_mutateEmmm:
-    return Changed;
+    break;
   case LibFunc_ZNSsC1EPKcmRKSaIcE:
-    return Changed;
+    break;
   case LibFunc_ZNSsC1EPKcRKSaIcE:
-    return Changed;
+    break;
   case LibFunc_ZNSsC1ERKSs:
-    return Changed;
+    break;
   case LibFunc_ZNSsC1ERKSsmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt12__basic_fileIcED1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC1EPKc:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC1ERKSs:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC1ERKS_:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
-    return Changed;
+    break;
   case LibFunc_std_runtime_error_std_runtime_error_const:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC2ERKSs:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorC2EPKc:
   case LibFunc_ZNSt13runtime_errorD0Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorD1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt13runtime_errorD2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_std_basic_ifstream_ctor:
-    return Changed;
+    break;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_std_cxx11_basic_ostringstream_ctor:
-    return Changed;
+    break;
   case LibFunc_std_basic_ofstream_dtor:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE5uflowEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEED2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt6localeC1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt6localeD1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EOS4:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9showmanycEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode:
-    return Changed;
+    break;
   case LibFunc_std_cxx11_basic_ostringstream_dtor:
-    return Changed;
+    break;
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
-    return Changed;
+    break;
   case LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_:
-    return Changed;
+    break;
   case LibFunc_ZNSt8__detail15_List_node_base9_M_unhookEv:
-    return Changed;
+    break;
   case LibFunc_ZNSt8ios_base4InitC1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt8ios_base4InitD1Ev:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZNSt8ios_baseC2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt8ios_baseD2Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt9bad_allocD0Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt9bad_allocD1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6insertEmRKS4_:
-    return Changed; 
+    break; 
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_:
-    return Changed;
+    break;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc:
-    return Changed;
+    break;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE4initEPSt15basic_streambufIcS1_E:
-    return Changed;
+    break;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate:
-    return Changed;
+    break;
   case LibFunc_ZNSt9basic_iosIcSt11char_traitsIcEE5rdbufEPSt15basic_streambufIcS1_E:
-    return Changed;
+    break;
   case LibFunc_ZNSt9exceptionD0Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt9exceptionD1Ev:
-    return Changed;
+    break;
   case LibFunc_ZNSt9exceptionD2Ev:
-    return Changed;
+    break;
   case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_i:
-    return Changed;
+    break;
   case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l:
-    return Changed;
+    break;
   case LibFunc_ZSt16__throw_bad_castv:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt17__throw_bad_allocv:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base:
-    return Changed;
+    break;
   case LibFunc_ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base:
-    return Changed;
+    break;
   case LibFunc_ZSt18_Rb_tree_incrementPKSt18_Rb_tree_node_base:
-    return Changed;
+    break;
   case LibFunc_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base:
-    return Changed;
+    break;
   case LibFunc_ZSt19__throw_logic_errorPKc:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt20__throw_length_errorPKc:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt20__throw_out_of_rangePKc:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt24__throw_out_of_range_fmtPKcz:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
-    return Changed;
+    break;
   case LibFunc_ZSt28__throw_bad_array_new_lengthv:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
   case LibFunc_std_basic_ostream_std_endl:
   case LibFunc_std_basic_ostream_std_flush:
   case LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_:
   case LibFunc_std_basic_istream_getline_cxx11_char:
-    return Changed;
+    break;
   case LibFunc_ZSt9terminatev:
     Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc:
-    return Changed;
+    break;
   case LibFunc_ZStrsIcSt11char_traitsIcEERSt13basic_istreamIT_T0_ES6_RS3_:
-    return Changed;
+    break;
   case LibFunc_abort:
     if (!IsSpirFunc)
       Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_acrt_iob_func:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_alphasort:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_asctime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_asprintf:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_backtrace:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_backtrace_symbols:
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
-    return Changed;
+    break;
   case LibFunc_bsearch:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_chdir:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_clock:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_close:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ctime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_CloseHandle:
-    return Changed;
+    break;
   case LibFunc_ConvertThreadToFiber:
-    return Changed;
+    break;
   case LibFunc_CreateFiber:
-    return Changed;
+    break;
   case LibFunc_CreateFileA:
   case LibFunc_CreateFileW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_DeleteCriticalSection:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_DeleteFiber:
-    return Changed;
+    break;
   case LibFunc_difftime:
   case LibFunc_under_difftime64:  // INTEL
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_div:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_dup:
   case LibFunc_dup2:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_EnterCriticalSection:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_erfc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_error:
     if (!IsSpirFunc)
       Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_execl:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_execv:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_execvp:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fcntl:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fcntl64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fnmatch:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_for_adjustl:
   case LibFunc_for_alloc_allocatable:
   case LibFunc_for_alloc_allocatable_handle:
@@ -2244,502 +2241,502 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_for_write_seq_lis_xmit:
   case LibFunc_for_write_seq_xmit:
     Changed |= setFortran(F);
-    return Changed;
+    break;
   case LibFunc_fork:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_freopen:
   case LibFunc_freopen64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_fsync:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ftruncate64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getcwd:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getegid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_geteuid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getgid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getopt_long:
   case LibFunc_getopt_long_only:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_getpid:
   case LibFunc_getpid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getpwuid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getrlimit:
   case LibFunc_getrlimit64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getrusage:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FindClose:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FindFirstFileA:
   case LibFunc_FindFirstFileW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FindNextFileA:
   case LibFunc_FindNextFileW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FindResourceA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FormatMessageA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_FreeResource:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetCurrentDirectoryA:
   case LibFunc_GetCurrentDirectoryW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetCurrentProcess:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetCurrentThreadId:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetFullPathNameA:
   case LibFunc_GetFullPathNameW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetLastError:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetModuleFileNameA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetModuleHandleA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetProcAddress:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetProcessTimes:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetShortPathNameW:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetSystemTime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GetVersionExA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_GlobalMemoryStatus:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_getuid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_glob:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_globfree:
-    return Changed;
+    break;
   case LibFunc_gmtime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_gmtime_r:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_hypot:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_hypotf:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_InitializeCriticalSection:
   case LibFunc_InitializeCriticalSectionAndSpinCount:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ioctl:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isalnum:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isalpha:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isatty:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_iscntrl:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_islower:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isprint:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isspace:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isupper:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_iswspace:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_isxdigit:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_j0:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_j1:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kill:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_kmp_set_blocktime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_LeaveCriticalSection:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_link:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_LoadLibraryA:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_LoadResource:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_LocalFree:
      Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_LockResource:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_local_stdio_printf_options:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_local_stdio_scanf_options:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_localeconv:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_localtime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_localtime_r:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_longjmp:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_lseek:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_lseek64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_mallopt:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_mblen:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_mbstowcs:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_mkdtemp:
   case LibFunc_mkstemps:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_mmap:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_MultiByteToWideChar:
   case LibFunc_WideCharToMultiByte:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_munmap:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_obstack_free:
-    return Changed;
+    break;
   case LibFunc_omp_destroy_lock:
   case LibFunc_omp_destroy_nest_lock:
-    return Changed;
+    break;
   case LibFunc_omp_get_active_level:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_ancestor_thread_num:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_cancellation:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_default_device:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_dynamic:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_initial_device:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_level:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_max_active_levels:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_max_task_priority:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_max_threads:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_nested:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_num_devices:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_num_procs:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_num_teams:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_num_threads:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_proc_bind:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_schedule:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
-    return Changed;
+    break;
   case LibFunc_omp_get_team_num:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_team_size:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_thread_limit:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_thread_num:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_wtick:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_get_wtime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_in_final:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_in_parallel:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_is_initial_device:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_init_lock:
   case LibFunc_omp_init_lock_with_hint:
   case LibFunc_omp_init_nest_lock:
   case LibFunc_omp_init_nest_lock_with_hint:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_lock:
   case LibFunc_omp_set_nest_lock:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_test_lock:
   case LibFunc_omp_test_nest_lock:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_unset_lock:
   case LibFunc_omp_unset_nest_lock:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_default_device:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_dynamic:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_max_active_levels:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_num_threads:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_nested:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_omp_set_schedule:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_pipe:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_pthread_key_create:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_pthread_self:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_putenv:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_qsort_r:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_QueryPerformanceCounter:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_raise:
-    return Changed;
+    break;
   case LibFunc_rand:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_readdir:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_readdir64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_scandir:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_select:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_setgid:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_setlocale:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_setrlimit:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_setuid:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_siglongjmp:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_signal:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_signbit:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_ReadFile:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_SetFilePointer:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_SizeofResource:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_Sleep:
   case LibFunc_under_sleep:
   case LibFunc_sleep:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_SwitchToFiber:
-    return Changed;
+    break;
   case LibFunc_srand:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_stdio_common_vfprintf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 2);
-    return Changed;
+    break;
   case LibFunc_stdio_common_vfscanf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 2);
-    return Changed;
+    break;
   case LibFunc_stdio_common_vsprintf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 3);
-    return Changed;
+    break;
   // NOTE: sprintf_s in Windows is a wrapper to
   // __stdio_common_vsprintf_s
   case LibFunc_sprintf_s:
@@ -2748,103 +2745,103 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 3);
-    return Changed;
+    break;
   case LibFunc_stdio_common_vsscanf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
     Changed |= setOnlyReadsMemory(F, 3);
-    return Changed;
+    break;
   case LibFunc_strerror:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_strftime:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_strsignal:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_symlink:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_sysconf:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_SystemTimeToFileTime:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_terminate:
     Changed |= setDoesNotReturn(F);
-    return Changed;
+    break;
   case LibFunc_time:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   // _ftime64 validates the parameters, it can throw
   // an exception
   case LibFunc_under_ftime64:
-    return Changed;
+    break;
   case LibFunc_under_time64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_unlock_file:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_wassert:
     Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_under_wfopen:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_under_wopen:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
-    return Changed;
+    break;
   // _write can throw an exception in Windows
   case LibFunc_under_write:
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
+    break;
   case LibFunc_tolower:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_toupper:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_towlower:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_towupper:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_truncate64:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_usleep:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_vasprintf:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_waitpid:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_wcstombs:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
   case LibFunc_WriteFile:
     Changed |= setDoesNotThrow(F);
-    return Changed;
+    break;
 #endif //INTEL_CUSTOMIZATION
 
   case LibFunc_ldexp:
@@ -2853,7 +2850,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     Changed |= setWillReturn(F);
     if (!F.onlyReadsMemory() && isAllUsersFast(F)) // INTEL
       Changed |= setOnlyReadsMemory(F);            // INTEL
-    return Changed;
+    break;
   case LibFunc_abs:
   case LibFunc_acos:
   case LibFunc_acosf:
@@ -2986,12 +2983,17 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
       Changed |= setOnlyReadsMemory(F);            // INTEL
     Changed |= setOnlyWritesMemory(F);
     Changed |= setWillReturn(F);
-    return Changed;
+    break;
   default:
     // FIXME: It'd be really nice to cover all the library functions we're
     // aware of here.
-    return false;
+    break;
   }
+  // We have to do this step after AllocKind has been inferred on functions so
+  // we can reliably identify free-like and realloc-like functions.
+  if (!isLibFreeFunction(&F, TheLibFunc) && !isReallocLikeFn(&F, &TLI))
+    Changed |= setDoesNotFreeMemory(F);
+  return Changed;
 }
 
 static void setArgExtAttr(Function &F, unsigned ArgNo,

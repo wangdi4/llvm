@@ -105,7 +105,7 @@ static AllocKind getAllocFnKind(const CallBase *Call,
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
   if (isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (isReallocLikeFn(Call, &TLI))
+  if (getReallocatedOperand(Call, &TLI))
     return AK_Realloc;
   return AK_NotAlloc;
 }
@@ -160,7 +160,7 @@ bool AllocFreeAnalyzer::hasFreeCall(BasicBlock &BB,
     Instruction *I = &*BI++;
     if (auto *Call = dyn_cast<CallBase>(I)) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-      if (isFreeCall(Call, &TLI, false)) {
+      if (getFreedOperand(Call, &TLI, false)) {
         Result = true;
         InstVec.push_back(Call); // save the CallBase*
       }

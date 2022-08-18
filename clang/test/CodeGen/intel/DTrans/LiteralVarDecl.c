@@ -3,7 +3,7 @@
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 char a[] = {30, 0, 0, 0, 0, 0, 0, 0, 0};
 // CHECK: @a = global <{ i8, [8 x i8] }>{{.+}}!intel_dtrans_type ![[A:[0-9]+]]
-int *a2[] = {30, 0, 0, 0, 0, 0, 0, 0, 0};
+int *a2[] = {(int *)30, 0, 0, 0, 0, 0, 0, 0, 0};
 // PTR: @a2 = global <{ i32*, [8 x i32*] }>{{.+}}!intel_dtrans_type ![[A2:[0-9]+]]
 // OPQ: @a2 = global <{ ptr, [8 x ptr] }>{{.+}}!intel_dtrans_type ![[A2:[0-9]+]]
 char b[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -14,7 +14,7 @@ int *b2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 int c[] = {1, 100000, 0, 0, 0, 0, 0, 0, 0, 0};
 // CHECK: @c = global <{ i32, i32, [8 x i32] }> {{.+}}!intel_dtrans_type ![[C:[0-9]+]]
-int *c2[] = {1, 100000, 0, 0, 0, 0, 0, 0, 0, 0};
+int *c2[] = {(int *)1, (int *)100000, 0, 0, 0, 0, 0, 0, 0, 0};
 // PTR: @c2 = global <{ i32*, i32*, [8 x i32*] }> {{.+}}!intel_dtrans_type ![[C2:[0-9]+]]
 // OPQ: @c2 = global <{ ptr, ptr, [8 x ptr] }> {{.+}}!intel_dtrans_type ![[C2:[0-9]+]]
 

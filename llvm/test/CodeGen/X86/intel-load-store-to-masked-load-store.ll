@@ -2976,7 +2976,7 @@ define void @i8_1x(<1 x i8>* %in, <1 x i8>* %out) {
 ; X86-AVX512-VL:       # %bb.0: # %entry
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-NEXT:    movb (%ecx), %cl
+; X86-AVX512-VL-NEXT:    movzbl (%ecx), %ecx
 ; X86-AVX512-VL-NEXT:    movb %cl, (%eax)
 ; X86-AVX512-VL-NEXT:    retl
 ;
@@ -2984,25 +2984,25 @@ define void @i8_1x(<1 x i8>* %in, <1 x i8>* %out) {
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX512-VL-BW-NEXT:    movb (%ecx), %cl
+; X86-AVX512-VL-BW-NEXT:    movzbl (%ecx), %ecx
 ; X86-AVX512-VL-BW-NEXT:    movb %cl, (%eax)
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: i8_1x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    movb (%rdi), %al
+; X86_64-AVX512-VL-NEXT:    movzbl (%rdi), %eax
 ; X86_64-AVX512-VL-NEXT:    movb %al, (%rsi)
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: i8_1x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    movb (%rdi), %al
+; X86_64-AVX512-VL-BW-NEXT:    movzbl (%rdi), %eax
 ; X86_64-AVX512-VL-BW-NEXT:    movb %al, (%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-DQ-LABEL: i8_1x:
 ; X86_64-AVX512-VL-DQ:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-DQ-NEXT:    movb (%rdi), %al
+; X86_64-AVX512-VL-DQ-NEXT:    movzbl (%rdi), %eax
 ; X86_64-AVX512-VL-DQ-NEXT:    movb %al, (%rsi)
 ; X86_64-AVX512-VL-DQ-NEXT:    retq
 entry:
@@ -3147,7 +3147,7 @@ define void @i8_5x(<5 x i8>* %in, <5 x i8>* %out) {
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-NEXT:    movl (%ecx), %edx
-; X86-AVX512-VL-NEXT:    movb 4(%ecx), %cl
+; X86-AVX512-VL-NEXT:    movzbl 4(%ecx), %ecx
 ; X86-AVX512-VL-NEXT:    movb %cl, 4(%eax)
 ; X86-AVX512-VL-NEXT:    movl %edx, (%eax)
 ; X86-AVX512-VL-NEXT:    retl

@@ -2510,11 +2510,11 @@ define <3 x i32> @test30(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i
 ; KNL_32-NEXT:    # kill: def $xmm2 killed $xmm2 def $zmm2
 ; KNL_32-NEXT:    movw $-3, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    andl $1, %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kandw %k0, %k1, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kshiftlw $15, %k1, %k1
 ; KNL_32-NEXT:    kshiftrw $14, %k1, %k1
@@ -2522,7 +2522,7 @@ define <3 x i32> @test30(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i
 ; KNL_32-NEXT:    movw $-5, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kandw %k1, %k0, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kshiftlw $15, %k1, %k1
 ; KNL_32-NEXT:    kshiftrw $13, %k1, %k1
@@ -2567,12 +2567,12 @@ define <3 x i32> @test30(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i
 ; SKX_32:       # %bb.0:
 ; SKX_32-NEXT:    movb $-3, %al
 ; SKX_32-NEXT:    kmovw %eax, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $7, %k1, %k1
 ; SKX_32-NEXT:    kandw %k0, %k1, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $6, %k1, %k1
@@ -2580,7 +2580,7 @@ define <3 x i32> @test30(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i
 ; SKX_32-NEXT:    movb $-5, %al
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kandw %k1, %k0, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $5, %k1, %k1
@@ -2633,11 +2633,11 @@ define void @test30b(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i32> 
 ; KNL_32-NEXT:    # kill: def $xmm2 killed $xmm2 def $zmm2
 ; KNL_32-NEXT:    movw $-3, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    andl $1, %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kandw %k0, %k1, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kshiftlw $15, %k1, %k1
 ; KNL_32-NEXT:    kshiftrw $14, %k1, %k1
@@ -2645,7 +2645,7 @@ define void @test30b(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i32> 
 ; KNL_32-NEXT:    movw $-5, %ax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kandw %k1, %k0, %k0
-; KNL_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; KNL_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; KNL_32-NEXT:    kmovw %eax, %k1
 ; KNL_32-NEXT:    kshiftlw $15, %k1, %k1
 ; KNL_32-NEXT:    kshiftrw $13, %k1, %k1
@@ -2688,12 +2688,12 @@ define void @test30b(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i32> 
 ; SKX_32:       # %bb.0:
 ; SKX_32-NEXT:    movb $-3, %al
 ; SKX_32-NEXT:    kmovw %eax, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $7, %k1, %k1
 ; SKX_32-NEXT:    kandw %k0, %k1, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $6, %k1, %k1
@@ -2701,7 +2701,7 @@ define void @test30b(<3 x ptr> %base, <3 x i32> %ind, <3 x i1> %mask, <3 x i32> 
 ; SKX_32-NEXT:    movb $-5, %al
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kandw %k1, %k0, %k0
-; SKX_32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; SKX_32-NEXT:    movzbl {{[0-9]+}}(%esp), %eax
 ; SKX_32-NEXT:    kmovw %eax, %k1
 ; SKX_32-NEXT:    kshiftlb $7, %k1, %k1
 ; SKX_32-NEXT:    kshiftrb $5, %k1, %k1

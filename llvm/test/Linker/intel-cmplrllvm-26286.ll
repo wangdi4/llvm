@@ -1,12 +1,9 @@
-; RUN: opt -module-summary %s -o %t1.o -module-summary-dot-file=%t1.dot
-; RUN: cat %t1.dot | FileCheck %s
+; RUN: opt -module-summary %s -o - | llvm-dis | FileCheck %s
 
-; Check that there is an edge in the module summary graph from main to
-; GlobalIFunc MCD.ifunc, indicating that main calls MCD.ifunc.
+; Check that MCD.resolver is marked as live in module-summary.
 
-; CHECK: M0_[[L0:[0-9]+]]{{.*}}label="MCD.ifunc
-; CHECK: M0_[[L1:[0-9]+]]{{.*}}label="main
-; CHECK: M0_[[L1]] -> M0_[[L0]]
+; CHECK: (name: "MCD.resolver",
+; CHECK-SAME: live: 1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

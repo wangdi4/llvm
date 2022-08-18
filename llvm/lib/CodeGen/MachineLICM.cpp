@@ -287,8 +287,7 @@ namespace {
 
     bool IsGuaranteedToExecute(MachineBasicBlock *BB);
 
-    bool isTriviallyReMaterializable(const MachineInstr &MI,
-                                     AAResults *AA) const;
+    bool isTriviallyReMaterializable(const MachineInstr &MI) const;
 
     void EnterScope(MachineBasicBlock *MBB);
 
@@ -616,7 +615,7 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI,
   // We may be able to unfold a load and hoist it if the instruction is
   // loading from an amenable memory location or stack.
   int FI = std::numeric_limits<int>::min();
-  if (!MI->isDereferenceableInvariantLoad(AA) &&
+  if (!MI->isDereferenceableInvariantLoad() &&
       !(TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
       return;
 
@@ -882,9 +881,9 @@ bool MachineLICMBase::IsGuaranteedToExecute(MachineBasicBlock *BB) {
 /// virtual register uses. Even though rematerializable RA might not actually
 /// rematerialize it in this scenario. In that case we do not want to hoist such
 /// instruction out of the loop in a belief RA will sink it back if needed.
-bool MachineLICMBase::isTriviallyReMaterializable(const MachineInstr &MI,
-                                                  AAResults *AA) const {
-  if (!TII->isTriviallyReMaterializable(MI, AA))
+bool MachineLICMBase::isTriviallyReMaterializable(
+    const MachineInstr &MI) const {
+  if (!TII->isTriviallyReMaterializable(MI))
     return false;
 
   for (const MachineOperand &MO : MI.operands()) {
@@ -1390,7 +1389,7 @@ bool MachineLICMBase::IsProfitableToHoist(MachineInstr &MI) {
 
   // Rematerializable instructions should always be hoisted providing the
   // register allocator can just pull them down again when needed.
-  if (isTriviallyReMaterializable(MI, AA))
+  if (isTriviallyReMaterializable(MI))
     return true;
 
   // FIXME: If there are long latency loop-invariant instructions inside the
@@ -1443,8 +1442,8 @@ bool MachineLICMBase::IsProfitableToHoist(MachineInstr &MI) {
 
   // High register pressure situation, only hoist if the instruction is going
   // to be remat'ed.
-  if (!isTriviallyReMaterializable(MI, AA) &&
-      !MI.isDereferenceableInvariantLoad(AA)) {
+  if (!isTriviallyReMaterializable(MI) &&
+      !MI.isDereferenceableInvariantLoad()) {
     LLVM_DEBUG(dbgs() << "Can't remat / high reg-pressure: " << MI);
     return false;
   }
@@ -1463,7 +1462,7 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
   // If not, we may be able to unfold a load and hoist that.
   // First test whether the instruction is loading from an amenable
   // memory location.
-  if (!MI->isDereferenceableInvariantLoad(AA))
+  if (!MI->isDereferenceableInvariantLoad())
     return nullptr;
 
   // Next determine the register class for a temporary register.
@@ -1691,7 +1690,7 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
         auto NewDiscriminator =
             DIL->encodeDiscriminator(NextDisriminator, DF, CI);
         const auto *const NewDIL =
-            DIL->cloneWithDiscriminator(NewDiscriminator.getValueOr(0));
+            DIL->cloneWithDiscriminator(NewDiscriminator.value_or(0));
         MI->setDebugLoc(NewDIL);
       }
     }

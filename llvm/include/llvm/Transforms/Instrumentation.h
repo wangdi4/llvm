@@ -45,7 +45,6 @@
 namespace llvm {
 
 class Triple;
-class FunctionPass;
 class ModulePass;
 class OptimizationRemarkEmitter;
 class Comdat;
@@ -112,7 +111,6 @@ ModulePass *createPGOInstrumentationGenCreateVarLegacyPass(
     StringRef CSInstrName = StringRef(""));
 ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
                                                      bool SamplePGO = false);
-FunctionPass *createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 // The pgo-specific indirect call promotion function declared below is used by
@@ -159,8 +157,6 @@ struct InstrProfOptions {
 
   InstrProfOptions() = default;
 };
-
-ModulePass *createInstrOrderFilePass();
 
 // Insert DataFlowSanitizer (dynamic data flow analysis) instrumentation
 ModulePass *createDataFlowSanitizerLegacyPassPass(

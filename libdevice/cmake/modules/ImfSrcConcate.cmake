@@ -19,6 +19,7 @@
 set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf_utils/half_convert.cpp
                                imf_utils/float_convert.cpp
+                               imf_utils/simd_emulate.cpp
                                # INTEL_CUSTOMIZATION
                                imf/intel/erfinv_s_ha.cpp
                                imf/intel/cos_s_ha.cpp

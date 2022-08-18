@@ -101,7 +101,7 @@ public:
     }
   }
 
-  // Checks if the intrinsic is an annotation.
+  /// Checks if the intrinsic is an annotation.
   bool isAssumeLikeIntrinsic() const {
     switch (getIntrinsicID()) {
     default: break;
@@ -124,7 +124,11 @@ public:
     return false;
   }
 
-  // Methods for support type inquiry through isa, cast, and dyn_cast:
+  /// Check if the intrinsic might lower into a regular function call in the
+  /// course of IR transformations
+  static bool mayLowerToFunctionCall(Intrinsic::ID IID);
+
+  /// Methods for support type inquiry through isa, cast, and dyn_cast:
   static bool classof(const CallInst *I) {
     if (const Function *CF = I->getCalledFunction())
       return CF->isIntrinsic();
@@ -1573,9 +1577,6 @@ public:
   }
 };
 
-// Defined in Statepoint.h -- NOT a subclass of IntrinsicInst
-class GCStatepointInst;
-
 /// Common base class for representing values projected from a statepoint.
 /// Currently, the only projections available are gc.result and gc.relocate.
 class GCProjectionInst : public IntrinsicInst {
@@ -1598,7 +1599,7 @@ public:
   }
 
   /// The statepoint with which this gc.relocate is associated.
-  const GCStatepointInst *getStatepoint() const;
+  const Value *getStatepoint() const;
 };
 
 /// Represents calls to the gc.relocate intrinsic.

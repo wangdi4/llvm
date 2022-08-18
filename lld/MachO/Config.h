@@ -30,6 +30,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/MachO.h"
@@ -126,7 +127,7 @@ struct Configuration {
   bool archMultiple = false;
   bool exportDynamic = false;
   bool forceLoadObjC = false;
-  bool forceLoadSwift = false;
+  bool forceLoadSwift = false; // Only applies to LC_LINKER_OPTIONs.
   bool staticLink = false;
   bool implicitDylibs = false;
   bool isPic = false;
@@ -149,6 +150,7 @@ struct Configuration {
   bool omitDebugInfo = false;
   bool warnDylibInstallName = false;
   bool ignoreOptimizationHints = false;
+  bool forceExactCpuSubtypeMatch = false;
   uint32_t headerPad;
   uint32_t dylibCompatibilityVersion = 0;
   uint32_t dylibCurrentVersion = 0;
@@ -186,7 +188,7 @@ struct Configuration {
   std::vector<llvm::StringRef> systemLibraryRoots;
   std::vector<llvm::StringRef> librarySearchPaths;
   std::vector<llvm::StringRef> frameworkSearchPaths;
-  std::vector<llvm::StringRef> runtimePaths;
+  llvm::SmallVector<llvm::StringRef, 0> runtimePaths;
   std::vector<std::string> astPaths;
   std::vector<Symbol *> explicitUndefineds;
   llvm::StringSet<> explicitDynamicLookups;
@@ -206,6 +208,8 @@ struct Configuration {
   SymbolPatterns unexportedSymbols;
   SymbolPatterns whyLive;
 
+  std::vector<std::pair<llvm::StringRef, llvm::StringRef>> aliasedSymbols;
+
   SymtabPresence localSymbolsPresence = SymtabPresence::All;
   SymbolPatterns localSymbolPatterns;
 
@@ -218,13 +222,6 @@ struct Configuration {
   llvm::MachO::PlatformType platform() const {
     return platformInfo.target.Platform;
   }
-};
-
-// Whether to force-load an archive.
-enum class ForceLoad {
-  Default, // Apply -all_load or -ObjC behaviors if those flags are enabled
-  Yes,     // Always load the archive, regardless of other flags
-  No,      // Never load the archive, regardless of other flags
 };
 
 extern std::unique_ptr<Configuration> config;

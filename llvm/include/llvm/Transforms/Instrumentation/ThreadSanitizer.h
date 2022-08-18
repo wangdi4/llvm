@@ -34,7 +34,6 @@
 
 namespace llvm {
 class Function;
-class FunctionPass;
 class Module;
 #if INTEL_CUSTOMIZATION
 // Insert ThreadSanitizer (race detection) instrumentation

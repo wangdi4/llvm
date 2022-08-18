@@ -130,6 +130,7 @@ add_llvm_component_library(LLVMAnalysis
   IndirectCallPromotionAnalysis.cpp
   InlineCost.cpp
   InlineAdvisor.cpp
+  InlineOrder.cpp
   InlineSizeEstimatorAnalysis.cpp
   InstCount.cpp
   InstructionPrecedenceTracking.cpp
@@ -196,6 +197,7 @@ add_llvm_component_library(LLVMAnalysis
   MemoryBuiltins.cpp
   MemoryDependenceAnalysis.cpp
   MemoryLocation.cpp
+  MemoryProfileInfo.cpp
   MemorySSA.cpp
   MemorySSAUpdater.cpp
   ModelUnderTrainingRunner.cpp
@@ -226,10 +228,11 @@ add_llvm_component_library(LLVMAnalysis
   SyncDependenceAnalysis.cpp
   SyntheticCountsUtils.cpp
   TFUtils.cpp
-  TensorSpec.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp
+  TensorSpec.cpp
   Trace.cpp
+  TrainingLogger.cpp
   TypeBasedAliasAnalysis.cpp
   TypeMetadataUtils.cpp
   ScopedNoAliasAA.cpp

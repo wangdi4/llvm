@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -S %s -O2 -vplan-vec | FileCheck %s
-; RUN: opt -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -S %s -O2 -vplan-vec | FileCheck %s --check-prefixes=CHECK,CHECK-OLD-PM
+; RUN: opt -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-NEW-PM
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd
@@ -18,8 +18,10 @@
 ; CHECK: %wide.load = load <4 x i32>, <4 x i32>*
 ; CHECK: %[[MASK:.*]] = icmp eq <4 x i32> %wide.load, zeroinitializer
 ; CHECK: %[[MASK_NOT:.*]] = xor <4 x i1> %[[MASK]], <i1 true, i1 true, i1 true, i1 true>
-; CHECK: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
-; CHECK: %[[WIDE_MASK_LOAD2:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
+; CHECK-OLD-PM: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
+; CHECK-NEW-PM: %[[WIDE_MASK_LOAD1:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
+; CHECK-OLD-PM: %[[WIDE_MASK_LOAD2:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
+; CHECK-NEW-PM: %[[WIDE_MASK_LOAD2:.*]] = tail call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
 ; CHECK: %[[PRED_PFI:.*]] = select <4 x i1> %[[MASK]], <4 x i32>
 ; CHECK: store <4 x i32> %[[PRED_PFI]], <4 x i32>*
 

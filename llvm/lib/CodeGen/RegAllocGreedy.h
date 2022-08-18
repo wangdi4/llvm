@@ -60,7 +60,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/CalcSpillWeights.h"
 #include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/LiveRangeEdit.h"
@@ -89,7 +88,6 @@ class MachineLoop;
 class MachineLoopInfo;
 class MachineOptimizationRemarkEmitter;
 class MachineOptimizationRemarkMissed;
-class SlotIndex;
 class SlotIndexes;
 class TargetInstrInfo;
 class VirtRegMap;
@@ -187,7 +185,7 @@ public:
 private:
   // Convenient shortcuts.
   using PQueue = std::priority_queue<std::pair<unsigned, unsigned>>;
-  using SmallLISet = SmallPtrSet<const LiveInterval *, 4>;
+  using SmallLISet = SmallSetVector<const LiveInterval *, 4>;
 
   // We need to track all tentative recolorings so we can roll back any
   // successful and unsuccessful recoloring attempts.
@@ -209,7 +207,6 @@ private:
   EdgeBundles *Bundles;
   SpillPlacement *SpillPlacer;
   LiveDebugVariables *DebugVars;
-  AliasAnalysis *AA;
 
   // state
   std::unique_ptr<Spiller> SpillerInstance;
@@ -309,6 +306,8 @@ private:
   /// Flags for the live range priority calculation, determined once per
   /// machine function.
   bool RegClassPriorityTrumpsGlobalness;
+
+  bool ReverseLocalAssignment;
 
 public:
   RAGreedy(const RegClassFilterFunc F = allocateAllRegClasses);

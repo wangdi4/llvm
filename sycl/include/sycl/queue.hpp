@@ -81,8 +81,13 @@ class context;
 class device;
 class queue;
 
+template <backend BackendName, class SyclObjectT>
+auto get_native(const SyclObjectT &Obj)
+    -> backend_return_t<BackendName, SyclObjectT>;
+
 namespace detail {
 class queue_impl;
+
 #if __SYCL_USE_FALLBACK_ASSERT
 static event submitAssertCapture(queue &, event &, queue *,
                                  const detail::code_location &);
@@ -872,40 +877,12 @@ public:
   /// \param WorkItemOffset specifies the offset for each work item id
   /// \param KernelFunc is the Kernel functor or lambda
   /// \param CodeLoc contains the code location of user code
-  template <typename KernelName = detail::auto_name, typename KernelType>
-  event parallel_for(range<1> Range, id<1> WorkItemOffset,
+  template <typename KernelName = detail::auto_name, typename KernelType,
+            int Dim>
+  event parallel_for(range<Dim> Range, id<Dim> WorkItemOffset,
                      const std::vector<event> &DepEvents,
                      _KERNELFUNCPARAM(KernelFunc)) {
-    return parallel_for_impl<KernelName>(Range, WorkItemOffset, DepEvents,
-                                         KernelFunc);
-  }
-
-  /// parallel_for version with a kernel represented as a lambda + range and
-  /// offset that specify global size and global offset correspondingly.
-  ///
-  /// \param Range specifies the global work space of the kernel
-  /// \param WorkItemOffset specifies the offset for each work item id
-  /// \param KernelFunc is the Kernel functor or lambda
-  /// \param CodeLoc contains the code location of user code
-  template <typename KernelName = detail::auto_name, typename KernelType>
-  event parallel_for(range<2> Range, id<2> WorkItemOffset,
-                     const std::vector<event> &DepEvents,
-                     _KERNELFUNCPARAM(KernelFunc)) {
-    return parallel_for_impl<KernelName>(Range, WorkItemOffset, DepEvents,
-                                         KernelFunc);
-  }
-
-  /// parallel_for version with a kernel represented as a lambda + range and
-  /// offset that specify global size and global offset correspondingly.
-  ///
-  /// \param Range specifies the global work space of the kernel
-  /// \param WorkItemOffset specifies the offset for each work item id
-  /// \param KernelFunc is the Kernel functor or lambda
-  /// \param CodeLoc contains the code location of user code
-  template <typename KernelName = detail::auto_name, typename KernelType>
-  event parallel_for(range<3> Range, id<3> WorkItemOffset,
-                     const std::vector<event> &DepEvents,
-                     _KERNELFUNCPARAM(KernelFunc)) {
+    static_assert(1 <= Dim && Dim <= 3, "Invalid number of dimensions");
     return parallel_for_impl<KernelName>(Range, WorkItemOffset, DepEvents,
                                          KernelFunc);
   }
@@ -1061,15 +1038,6 @@ public:
   /// \return the backend associated with this queue.
   backend get_backend() const noexcept;
 
-  /// Gets the native handle of the SYCL queue.
-  ///
-  /// \return a native handle, the type of which defined by the backend.
-  template <backend Backend>
-  __SYCL_DEPRECATED("Use SYCL 2020 sycl::get_native free function")
-  backend_return_t<Backend, queue> get_native() const {
-    return reinterpret_cast<backend_return_t<Backend, queue>>(getNative());
-  }
-
 private:
   pi_native_handle getNative() const;
 
@@ -1080,6 +1048,10 @@ private:
   friend decltype(Obj::impl) detail::getSyclObjImpl(const Obj &SyclObject);
   template <class T>
   friend T detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);
+
+  template <backend BackendName, class SyclObjectT>
+  friend auto get_native(const SyclObjectT &Obj)
+      -> backend_return_t<BackendName, SyclObjectT>;
 
 #if __SYCL_USE_FALLBACK_ASSERT
   friend event detail::submitAssertCapture(queue &, event &, queue *,
@@ -1273,10 +1245,10 @@ event submitAssertCapture(queue &Self, event &Event, queue *SecondaryQueue,
 } // __SYCL_INLINE_NAMESPACE(cl)
 
 namespace std {
-template <> struct hash<cl::sycl::queue> {
-  size_t operator()(const cl::sycl::queue &Q) const {
-    return std::hash<std::shared_ptr<cl::sycl::detail::queue_impl>>()(
-        cl::sycl::detail::getSyclObjImpl(Q));
+template <> struct hash<sycl::queue> {
+  size_t operator()(const sycl::queue &Q) const {
+    return std::hash<std::shared_ptr<sycl::detail::queue_impl>>()(
+        sycl::detail::getSyclObjImpl(Q));
   }
 };
 } // namespace std

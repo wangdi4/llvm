@@ -239,8 +239,7 @@ static bool isPrivatizationCandidate(AllocaInst *AI,
           // AA assumes they do.
           if (isa<FenceInst>(&I))
             continue;
-          if (isModOrRefSet(intersectModRef(AA->getModRefInfo(&I, Loc),
-                                            ModRefInfo::Mod))) {
+          if (isModOrRefSet(AA->getModRefInfo(&I, Loc) & ModRefInfo::Mod)) {
             LLVM_DEBUG(reportSkipped(AI, "is modified by");
                        dbgs() << I << "\n";);
             return true;

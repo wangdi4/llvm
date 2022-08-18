@@ -6,7 +6,6 @@
 ; CHECK-NEXT:     DPCPPPreprocessSPIRVFriendlyIRLegacy
 ; CHECK-NEXT:     Regularize LLVM for SPIR-V
 ; CHECK-NEXT:     Translate SPIR-V builtins to OCL 2.0 builtins
-; CHECK-NEXT:     Name Anon Globals
 
 #ifndef NDEBUG
 ; CHECK:        FunctionPass Manager

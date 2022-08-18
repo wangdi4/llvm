@@ -724,6 +724,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_NOCF_CHECK;
   case Attribute::NoProfile:
     return bitc::ATTR_KIND_NO_PROFILE;
+  case Attribute::SkipProfile:
+    return bitc::ATTR_KIND_SKIP_PROFILE;
   case Attribute::NoUnwind:
     return bitc::ATTR_KIND_NO_UNWIND;
   case Attribute::NoSanitizeBounds:
@@ -1061,8 +1063,8 @@ void ModuleBitcodeWriter::writeTypeTable() {
         TypeVals.push_back(true);
       break;
     }
-    case Type::DXILPointerTyID:
-      llvm_unreachable("DXIL pointers cannot be added to IR modules");
+    case Type::TypedPointerTyID:
+      llvm_unreachable("Typed pointers cannot be added to IR modules");
     }
 
     // Emit the finished record.
@@ -4158,25 +4160,12 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   for (const GlobalVariable &G : M.globals())
     writeModuleLevelReferences(G, NameVals, FSModRefsAbbrev,
                                FSModVTableRefsAbbrev);
-#if INTEL_CUSTOMIZATION
-  // This change and related changes could be ported back to the community
-  // to fix CMPLRLLVM-26177.
-  for (const GlobalIFunc &GIF : M.ifuncs()) {
-    NameVals.push_back(VE.getValueID(&GIF));
-    auto *Summary = Index->getGlobalValueSummary(GIF);
-    AliasSummary *AS = cast<AliasSummary>(Summary);
-    NameVals.push_back(getEncodedGVSummaryFlags(AS->flags()));
-    auto RF = GIF.getResolverFunction();
-    NameVals.push_back(VE.getValueID(RF));
-    Stream.EmitRecord(bitc::FS_ALIAS, NameVals, FSAliasAbbrev);
-    NameVals.clear();
-  }
-#endif // INTEL_CUSTOMIZATION
 
   for (const GlobalAlias &A : M.aliases()) {
     auto *Aliasee = A.getAliaseeObject();
-    if (!Aliasee->hasName())
-      // Nameless function don't have an entry in the summary, skip it.
+    // Skip ifunc and nameless functions which don't have an entry in the
+    // summary.
+    if (!Aliasee->hasName() || isa<GlobalIFunc>(Aliasee))
       continue;
     auto AliasId = VE.getValueID(&A);
     auto AliaseeId = VE.getValueID(Aliasee);

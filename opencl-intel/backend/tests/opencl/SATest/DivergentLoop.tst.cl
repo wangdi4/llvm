@@ -9,8 +9,8 @@ kernel void my_cc_cc_analysis(const unsigned short offset_y,
     int line_labels_1[3];
     size_t thread_id = get_global_id(0);
 
-    __global int* restrict eq_table = table_tile_stride;
-    __global TRACKED_OBJECT_T* restrict fv_table = fv_tile_stride;
+    __global int* restrict eq_table = (__global int * restrict)table_tile_stride;
+    __global TRACKED_OBJECT_T* restrict fv_table = (__global TRACKED_OBJECT_T* restrict)fv_tile_stride;
 
     unsigned short line_labels_1_count = (offset_y == 0) ? 0
       : active_line_objects_count[thread_id];

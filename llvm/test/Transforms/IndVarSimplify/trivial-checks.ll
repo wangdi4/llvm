@@ -13,7 +13,9 @@ define void @test_sgt(i32 %x) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[GUARDED:%.*]] ], [ [[X]], [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP:%.*]] = add i32 [[IV]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP:%.*]] = add nsw i32 [[IV]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[GUARD:%.*]] = icmp sgt i32 [[TMP]], [[IV]]
 ; CHECK-NEXT:    br i1 [[GUARD]], label [[GUARDED]], label [[FAIL:%.*]]
 ; CHECK:       guarded:
@@ -58,7 +60,9 @@ define void @test_sge(i32 %x) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[GUARDED:%.*]] ], [ [[X]], [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP:%.*]] = add i32 [[IV]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP:%.*]] = add nsw i32 [[IV]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[GUARD:%.*]] = icmp sge i32 [[TMP]], [[IV]]
 ; CHECK-NEXT:    br i1 [[GUARD]], label [[GUARDED]], label [[FAIL:%.*]]
 ; CHECK:       guarded:
@@ -103,7 +107,9 @@ define void @test_ugt(i32 %x) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[GUARDED:%.*]] ], [ [[X]], [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP:%.*]] = add i32 [[IV]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP:%.*]] = add nsw i32 [[IV]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[GUARD:%.*]] = icmp ugt i32 [[TMP]], [[IV]]
 ; CHECK-NEXT:    br i1 [[GUARD]], label [[GUARDED]], label [[FAIL:%.*]]
 ; CHECK:       guarded:
@@ -149,7 +155,9 @@ define void @test_uge(i32 %x) {
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ [[IV_NEXT:%.*]], [[GUARDED:%.*]] ], [ [[X]], [[LOOP_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP:%.*]] = add i32 [[IV]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP:%.*]] = add nsw i32 [[IV]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[GUARD:%.*]] = icmp uge i32 [[TMP]], [[IV]]
 ; CHECK-NEXT:    br i1 [[GUARD]], label [[GUARDED]], label [[FAIL:%.*]]
 ; CHECK:       guarded:

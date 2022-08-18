@@ -40,6 +40,8 @@
 #endif // INTEL_COLLAB
 #include <vector>
 
+using llvm::SmallVector;
+
 int AsyncInfoTy::synchronize() {
   int Result = OFFLOAD_SUCCESS;
   if (AsyncInfo.Queue) {
@@ -448,11 +450,11 @@ int targetDataMapper(ident_t *Loc, DeviceTy &Device, void *ArgBase, void *Arg,
   // Construct new arrays for args_base, args, arg_sizes and arg_types
   // using the information in MapperComponents and call the corresponding
   // targetData* function using these new arrays.
-  std::vector<void *> MapperArgsBase(MapperComponents.Components.size());
-  std::vector<void *> MapperArgs(MapperComponents.Components.size());
-  std::vector<int64_t> MapperArgSizes(MapperComponents.Components.size());
-  std::vector<int64_t> MapperArgTypes(MapperComponents.Components.size());
-  std::vector<void *> MapperArgNames(MapperComponents.Components.size());
+  SmallVector<void *> MapperArgsBase(MapperComponents.Components.size());
+  SmallVector<void *> MapperArgs(MapperComponents.Components.size());
+  SmallVector<int64_t> MapperArgSizes(MapperComponents.Components.size());
+  SmallVector<int64_t> MapperArgTypes(MapperComponents.Components.size());
+  SmallVector<void *> MapperArgNames(MapperComponents.Components.size());
 
   for (unsigned I = 0, E = MapperComponents.Components.size(); I < E; ++I) {
     auto &C = MapperComponents.Components[I];
@@ -798,7 +800,7 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                   int64_t *ArgTypes, map_var_info_t *ArgNames,
                   void **ArgMappers, AsyncInfoTy &AsyncInfo, bool FromMapper) {
   int Ret;
-  std::vector<PostProcessingInfo> PostProcessingPtrs;
+  SmallVector<PostProcessingInfo> PostProcessingPtrs;
   void *FromMapperBase = nullptr;
 #if INTEL_COLLAB
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
@@ -1027,7 +1029,9 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       // If the struct is to be deallocated, remove the shadow entry.
       if (Info.DelEntry) {
         DP("Removing shadow pointer " DPxMOD "\n", DPxPTR((void **)Itr->first));
-        Itr = Device.ShadowPtrMap.erase(Itr);
+        auto OldItr = Itr;
+        Itr++;
+        Device.ShadowPtrMap.erase(OldItr);
       } else {
         ++Itr;
       }
@@ -1334,17 +1338,17 @@ class PrivateArgumentManagerTy {
   };
 
   /// A vector of target pointers for all private arguments
-  std::vector<void *> TgtPtrs;
+  SmallVector<void *> TgtPtrs;
 #if INTEL_COLLAB
   /// A vector of host pointers allocated for privatee arguments
   /// that are passed to the plugins in the host memory.
-  std::vector<void *> HstPtrs;
+  SmallVector<void *> HstPtrs;
 #endif // INTEL_COLLAB
 
   /// A vector of information of all first-private arguments to be packed
-  std::vector<FirstPrivateArgInfoTy> FirstPrivateArgInfo;
+  SmallVector<FirstPrivateArgInfoTy> FirstPrivateArgInfo;
   /// Host buffer for all arguments to be packed
-  std::vector<char> FirstPrivateArgBuffer;
+  SmallVector<char> FirstPrivateArgBuffer;
   /// The total size of all arguments to be packed
   int64_t FirstPrivateArgSize = 0;
 
@@ -1468,7 +1472,7 @@ public:
 
   /// Pack first-private arguments, replace place holder pointers in \p TgtArgs,
   /// and start the transfer.
-  int packAndTransfer(std::vector<void *> &TgtArgs) {
+  int packAndTransfer(SmallVector<void *> &TgtArgs) {
     if (!FirstPrivateArgInfo.empty()) {
       assert(FirstPrivateArgSize != 0 &&
              "FirstPrivateArgSize is 0 but FirstPrivateArgInfo is empty");
@@ -1545,8 +1549,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                              int32_t ArgNum, void **ArgBases, void **Args,
                              int64_t *ArgSizes, int64_t *ArgTypes,
                              map_var_info_t *ArgNames, void **ArgMappers,
-                             std::vector<void *> &TgtArgs,
-                             std::vector<ptrdiff_t> &TgtOffsets,
+                             SmallVector<void *> &TgtArgs,
+                             SmallVector<ptrdiff_t> &TgtOffsets,
                              PrivateArgumentManagerTy &PrivateArgumentManager,
 #if INTEL_COLLAB
                              AsyncInfoTy &AsyncInfo, void **TgtNDLoopDesc) {
@@ -1573,7 +1577,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
   }
 
   // List of (first-)private arrays allocated for this target region
-  std::vector<int> TgtArgsPositions(ArgNum, -1);
+  SmallVector<int> TgtArgsPositions(ArgNum, -1);
 
   for (int32_t I = 0; I < ArgNum; ++I) {
     if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
@@ -1845,8 +1849,8 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
   // begin addresses, not bases. That's why we pass args and offsets as two
   // separate entities so that each plugin can do what it needs. This behavior
   // was introdued via https://reviews.llvm.org/D33028 and commit 1546d319244c.
-  std::vector<void *> TgtArgs;
-  std::vector<ptrdiff_t> TgtOffsets;
+  SmallVector<void *> TgtArgs;
+  SmallVector<ptrdiff_t> TgtOffsets;
 
   PrivateArgumentManagerTy PrivateArgumentManager(Device, AsyncInfo);
 
@@ -1921,11 +1925,11 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
     TIMESCOPE_WITH_NAME_AND_IDENT(
         IsTeamConstruct ? "runTargetTeamRegion" : "runTargetRegion", Loc);
     if (IsTeamConstruct)
-      Ret = Device.runTeamRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
+      Ret = Device.runTeamRegion(TgtEntryPtr, TgtArgs.data(), TgtOffsets.data(),
                                  TgtArgs.size(), TeamNum, ThreadLimit,
                                  Tripcount, AsyncInfo);
     else
-      Ret = Device.runRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
+      Ret = Device.runRegion(TgtEntryPtr, TgtArgs.data(), TgtOffsets.data(),
                              TgtArgs.size(), AsyncInfo);
   }
 #endif // INTEL_COLLAB

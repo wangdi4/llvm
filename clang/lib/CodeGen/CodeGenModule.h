@@ -64,6 +64,10 @@ class DataLayout;
 class FunctionType;
 class LLVMContext;
 class IndexedInstrProfReader;
+
+namespace vfs {
+class FileSystem;
+}
 }
 
 namespace clang {
@@ -311,6 +315,7 @@ public:
 private:
   ASTContext &Context;
   const LangOptions &LangOpts;
+  IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS; // Only used for debug info.
   const HeaderSearchOptions &HeaderSearchOpts; // Only used for debug info.
   const PreprocessorOptions &PreprocessorOpts; // Only used for debug info.
   const CodeGenOptions &CodeGenOpts;
@@ -321,7 +326,7 @@ private:
   std::unique_ptr<CGCXXABI> ABI;
   llvm::LLVMContext &VMContext;
   std::string ModuleNameHash;
-
+  bool CXX20ModuleInits = false;
   std::unique_ptr<CodeGenTBAA> TBAA;
 
   mutable std::unique_ptr<TargetCodeGenInfo> TheTargetCodeGenInfo;
@@ -650,7 +655,8 @@ private:
   llvm::DenseMap<StringRef, const RecordDecl *> TypesWithAspects;
 
 public:
-  CodeGenModule(ASTContext &C, const HeaderSearchOptions &headersearchopts,
+  CodeGenModule(ASTContext &C, IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+                const HeaderSearchOptions &headersearchopts,
                 const PreprocessorOptions &ppopts,
                 const CodeGenOptions &CodeGenOpts, llvm::Module &M,
                 DiagnosticsEngine &Diags,
@@ -809,6 +815,9 @@ public:
 
   ASTContext &getContext() const { return Context; }
   const LangOptions &getLangOpts() const { return LangOpts; }
+  const IntrusiveRefCntPtr<llvm::vfs::FileSystem> &getFileSystem() const {
+    return FS;
+  }
   const HeaderSearchOptions &getHeaderSearchOpts()
     const { return HeaderSearchOpts; }
   const PreprocessorOptions &getPreprocessorOpts()
@@ -1789,34 +1798,7 @@ public:
   /// Move some lazily-emitted states to the NewBuilder. This is especially
   /// essential for the incremental parsing environment like Clang Interpreter,
   /// because we'll lose all important information after each repl.
-  void moveLazyEmissionStates(CodeGenModule *NewBuilder) {
-    assert(DeferredDeclsToEmit.empty() &&
-           "Should have emitted all decls deferred to emit.");
-    assert(NewBuilder->DeferredDecls.empty() &&
-           "Newly created module should not have deferred decls");
-    NewBuilder->DeferredDecls = std::move(DeferredDecls);
-
-    assert(NewBuilder->DeferredVTables.empty() &&
-           "Newly created module should not have deferred vtables");
-    NewBuilder->DeferredVTables = std::move(DeferredVTables);
-
-    assert(NewBuilder->MangledDeclNames.empty() &&
-           "Newly created module should not have mangled decl names");
-    assert(NewBuilder->Manglings.empty() &&
-           "Newly created module should not have manglings");
-    NewBuilder->Manglings = std::move(Manglings);
-
-    assert(WeakRefReferences.empty() &&
-           "Not all WeakRefRefs have been applied");
-    NewBuilder->WeakRefReferences = std::move(WeakRefReferences);
-
-    NewBuilder->TBAA = std::move(TBAA);
-
-    assert(NewBuilder->EmittedDeferredDecls.empty() &&
-           "Still have (unmerged) EmittedDeferredDecls deferred decls");
-
-    NewBuilder->EmittedDeferredDecls = std::move(EmittedDeferredDecls);
-  }
+  void moveLazyEmissionStates(CodeGenModule *NewBuilder);
 
 private:
   llvm::Constant *GetOrCreateLLVMFunction(
@@ -1873,6 +1855,9 @@ private:
 
   /// Emit the function that initializes C++ thread_local variables.
   void EmitCXXThreadLocalInitFunc();
+
+  /// Emit the function that initializes global variables for a C++ Module.
+  void EmitCXXModuleInitFunc(clang::Module *Primary);
 
   /// Emit the function that initializes C++ globals.
   void EmitCXXGlobalInitFunc();
@@ -1940,6 +1925,9 @@ private:
 
   /// Emit the llvm.used and llvm.compiler.used metadata.
   void emitLLVMUsed();
+
+  /// For C++20 Itanium ABI, emit the initializers for the module.
+  void EmitModuleInitializers(clang::Module *Primary);
 
   /// Emit the link options introduced by imported modules.
   void EmitModuleLinkOptions();

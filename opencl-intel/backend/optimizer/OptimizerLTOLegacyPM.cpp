@@ -71,8 +71,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.DisableUnrollLoops = false;
   PMBuilder.LoopsInterleaved = false;
   PMBuilder.MergeFunctions = false;
-  PMBuilder.PrepareForThinLTO = false;
-  PMBuilder.PrepareForLTO = false;
   PMBuilder.RerollLoops = false;
 
   DPCPPForceOptnone = PMBuilder.OptLevel == 0;
@@ -86,10 +84,8 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // We do not want to inline hot callsites for SamplePGO module-summary build
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
-    auto Params =
-        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
-                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO,
-                        /*SYCLOptimizationMode=*/false);
+    auto Params = getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
+                                  false, false, /*SYCLOptimizationMode=*/false);
     Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }
@@ -105,7 +101,6 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createDPCPPPreprocessSPIRVFriendlyIRLegacyPass());
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
-  MaterializerMPM.add(createNameAnonGlobalPass());
 #ifndef NDEBUG
   MaterializerMPM.add(createVerifierPass());
 #endif // #ifndef NDEBUG

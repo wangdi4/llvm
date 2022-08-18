@@ -5396,7 +5396,7 @@ void BoUpSLP::reorderTopToBottom() {
       unsigned Opcode0 = TE->getOpcode();
       unsigned Opcode1 = TE->getAltOpcode();
       // The opcode mask selects between the two opcodes.
-      SmallBitVector OpcodeMask(TE->Scalars.size(), 0);
+      SmallBitVector OpcodeMask(TE->Scalars.size(), false);
       for (unsigned Lane : seq<unsigned>(0, TE->Scalars.size()))
         if (cast<Instruction>(TE->Scalars[Lane])->getOpcode() == Opcode1)
           OpcodeMask.set(Lane);
@@ -6830,7 +6830,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     return;
   }
 
-#if INTEL_CUSTOMIZATION
   // Don't go into catchswitch blocks, which can happen with PHIs.
   // Such blocks can only have PHIs and the catchswitch.  There is no
   // place to insert a shuffle if we need to, so just avoid that issue.
@@ -6839,7 +6838,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
     return;
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Check that every instruction appears once in this bundle.
   if (!TryToFindDuplicates(S))
@@ -13704,9 +13702,7 @@ public:
            It != E; ++It) {
         PossibleRedValsVect.emplace_back();
         auto RedValsVect = It->second.takeVector();
-        stable_sort(RedValsVect, [](const auto &P1, const auto &P2) {
-          return P1.second < P2.second;
-        });
+        stable_sort(RedValsVect, llvm::less_second());
         for (const std::pair<Value *, unsigned> &Data : RedValsVect)
           PossibleRedValsVect.back().append(Data.second, Data.first);
       }
