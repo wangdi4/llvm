@@ -5474,6 +5474,7 @@ bool LevelZeroProgramTy::loadOffloadTable(size_t NumEntries) {
     }
 
     Entry.Base.name = new char[NameSize];
+    std::fill(Entry.Base.name, Entry.Base.name + NameSize, 0);
     RC = DeviceInfo->enqueueMemCopy(DeviceId, Entry.Base.name, NameTgtAddr,
                                     NameSize);
     if (RC != OFFLOAD_SUCCESS)

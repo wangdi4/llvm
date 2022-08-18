@@ -2246,11 +2246,17 @@ public:
       // expected type for the indexed element.
       else if (!isElementLoadStoreTypeCompatible(IndexedType, ValTy)) {
         TypesCompatible = false;
-        // If the expected type was a pointer or the used type was a pointer,
-        // then mark it as bad casting.
-        BadCasting = (IndexedType->isPointerTy() &&
-                      ValTy != getDTransPtrSizedIntPtrType()) ||
-                     ValTy->isPointerTy();
+        if ((IndexedType->isPointerTy() &&
+             ValTy != getDTransPtrSizedIntPtrType()) || ValTy->isPointerTy()) {
+          // If the indexed and value type are both ptrs that are making
+          // scalar accesses, the should be treated as mismatched element
+          // access, otherwise if the expected type was a pointer or the used
+          // type was a pointer, then mark it as bad casting.
+          if (!(IndexedType->isPointerTy() && ValTy->isPointerTy() &&
+                !IndexedType->getPointerElementType()->isAggregateType() &&
+                !ValTy->getPointerElementType()->isAggregateType()))
+            BadCasting = true;
+         }
       }
       // Check whether the value is compatible with the pointer operand
       else if (!areLoadStoreTypesCompatible(IndexedType, ValInfo, ValOp,
