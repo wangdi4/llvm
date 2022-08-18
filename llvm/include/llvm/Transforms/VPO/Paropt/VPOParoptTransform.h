@@ -1628,48 +1628,6 @@ private:
   /// \endcode
   bool genCancellationBranchingCode(WRegionNode *W);
 
-  /// @}
-
-  /// Rename operands of various clauses by replacing them with a
-  /// store-then-load, and adding operand-address pair to the entry directive.
-  /// This renaming is done to prevent CSE/Instcombine transformations which
-  /// break OpenMP semantics by combining/recomputing bitcasts/GEPs across
-  /// region boundaries.
-  /// This renaming is done for operands to private, firstprivate, lastprivate,
-  /// reduction, shared, and map clauses.
-  ///
-  /// This renaming is done in the vpo-paropt-prepare phase, and is undone
-  /// in the vpo-paropt-restore phase beofore the vpo-paropt transformation
-  /// pass.
-  ///
-  /// The IR before and after this renaming looks like:
-  ///
-  /// \code
-  ///            Before                   |            After
-  ///          ---------------------------+---------------------------
-  ///                                     |   store i32* %y, i32** %y.addr
-  ///                                     |
-  ///   %1 = begin_region[... %y...]      |   %1 = begin_region[... %y...
-  ///                                     |        "QUAL.OMP.OPERAND.ADDR"
-  ///                                     |         (i32* %y,i32** %y.addr)]
-  ///                                     |
-  ///                                     |   %y1 = load i32*, i32** %y.addr
-  ///                                     |
-  ///   ...                               |   ...
-  ///   <%y used inside the region>       |   <%y1 used inside the region>
-  ///                                     |
-  ///                                     |
-  ///   end_region(%1)                    |   end_region(%1)
-  /// \endcode
-  ///
-  /// In the region, `%y1` is used to replace all uses of `$y`. If there is no
-  /// use of `%y` inside the region, then the load `%y` is not emitted.
-  /// The operand-addr pair in the auxiliary clause `QUAL.OMP.OPERAND.ADDR` is
-  /// used to undo the renaming in the VPORestoreOperandsPass.
-  /// \see VPOUtils::restoreOperands() for details on how the renaming is
-  /// undone and the original operands are restored.
-  bool renameOperandsUsingStoreThenLoad(WRegionNode *W);
-
   /// For non-pointer values which will be used directly inside the outlined
   /// region for \p W, rename them using store-then-load, and mark the pointer
   /// where they are stored, as shared on the region's directive. This is done
@@ -1732,55 +1690,6 @@ private:
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag,
                          bool IsTargetKernelArg) const;
-
-  /// Create a pointer, store address of \p V to the pointer, and replace uses
-  /// of \p V with a load from that pointer.
-  ///
-  /// \code
-  ///   %v = alloca i32
-  ///   ...
-  ///   %v.addr = alloca i32*
-  ///   ...
-  ///   store i32* %v, i32** %v.addr
-  ///   ; <InsertPtForStore>
-  ///
-  ///   +- <EntryBB>:
-  ///   | ...
-  ///   | %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
-  ///   | ...
-  ///   | %v1 = load i32*, i32** %v.addr
-  ///   +-
-  ///   ...
-  ///   ; Replace uses of %v with %v1
-  ///   ...
-  /// \endcode
-  ///
-  /// If \p ReplaceUses is \b true (default), then original uses or %v are
-  /// replaced with %v1.
-  ///
-  /// If \p EmitLoadEvenIfNoUses is \b true, then %v1 is emitted even if there
-  /// is no use of original %v in the region, otherwise not (default).
-  ///
-  /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
-  /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
-  /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
-  /// `v1` is inserted at the end of EntryBB.
-  ///
-  /// If \p SelectAllocaInsertPtBasedOnParentWRegion is \b true, then the
-  /// insertion point for `%v.addr` is determined based on whether a parent
-  /// WRegion would eventually be outlined, otherwise, the end of the Function's
-  /// entry block is used.
-  ///
-  /// If \p CastToAddrSpaceGeneric is \b true, then `%v.addr` is casted to
-  /// address space generic (4) before doing the store/load.
-  ///
-  /// \returns the pointer where \p V is stored (`%v.addr` above).
-  Value *replaceWithStoreThenLoad(
-      WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-      bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
-      bool InsertLoadInBeginningOfEntryBB = false,
-      bool SelectAllocaInsertPtBasedOnParentWRegion = false,
-      bool CastToAddrSpaceGeneric = false);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.

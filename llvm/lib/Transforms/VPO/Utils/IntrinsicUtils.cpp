@@ -733,4 +733,74 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
   calculateClique(MemoryInsns, BM);
 }
 #endif // INTEL_CUSTOMIZATION
+
+/// Return the guard directive that is used to prohibit memory motion outside
+/// the given loop. If guard isn't found, then insert it in the following format
+/// - \code
+///
+///   LoopHeaderBB:
+///    <Loop header PHIs>
+///    %g = call @llvm.directive.region.entry(); [ DIR.VPO.GUARD.MEM.MOTION() ]
+///
+///   ...
+///
+///   LoopLatchBB:
+///    ...
+///    call @llvm.directive.region.exit(%g); [ DIR.VPO.END.GUARD.MEM.MOTION() ]
+///    %backedge.cmp = icmp ...
+///
+/// \endcode
+// TODO: Region being created below is not explicitly in
+// single-entry-single-exit (SESE) format. We currently haven't run into any
+// use-case/issue, but if the need arises in future, then consider splitting the
+// loop's header and latch BBs to insert the region's directives in standlone
+// BBs. This would ensure that the new region is in SESE format.
+CallInst *VPOUtils::getOrCreateLoopGuardForMemMotion(Loop *L) {
+  auto *LpHeader = L->getHeader();
+  Instruction *FirstNonPHIInst = LpHeader->getFirstNonPHI();
+  // Guard directive is expected to be the first non-PHI instruction in loop's
+  // header block.
+  int DirID = VPOAnalysisUtils::getRegionDirectiveID(FirstNonPHIInst);
+
+  // Guard already exists for this loop.
+  if (DirID == DIR_VPO_GUARD_MEM_MOTION)
+    return cast<CallInst>(FirstNonPHIInst);
+
+  IRBuilder<> Builder(LpHeader);
+
+  // Helper lambda to create directive calls at given insertion point using the
+  // provided args.
+  auto CreateDirectiveCall =
+      [&Builder](Instruction *InsertPt, Function *DirFn,
+                 ArrayRef<Value *> CallArgs, OMP_DIRECTIVES DirID,
+                 const Twine &CallName = "") -> CallInst * {
+    assert(DirFn && "Cannot get declaration for region directive.");
+
+    SmallVector<OperandBundleDef, 1> IntrinOpBundle;
+    OperandBundleDef OpBundle(
+        std::string(IntrinsicUtils::getDirectiveString(DirID)), {});
+    IntrinOpBundle.push_back(OpBundle);
+
+    Builder.SetInsertPoint(InsertPt);
+    return Builder.CreateCall(DirFn, CallArgs, IntrinOpBundle, CallName);
+  };
+
+  Module *M = LpHeader->getParent()->getParent();
+  // Create @llvm.directive.region.entry(); [ DIR.VPO.GUARD.MEM.MOTION() ]
+  Function *BeginIntrin =
+      Intrinsic::getDeclaration(M, Intrinsic::directive_region_entry);
+  CallInst *GuardBegin =
+      CreateDirectiveCall(FirstNonPHIInst, BeginIntrin, {} /*Args*/,
+                          DIR_VPO_GUARD_MEM_MOTION, "guard.start");
+
+  // Create @llvm.directive.region.exit(); [ DIR.VPO.END.GUARD.MEM.MOTION() ]
+  Function *EndIntrin =
+      Intrinsic::getDeclaration(M, Intrinsic::directive_region_exit);
+  auto *LatchCondInst = L->getLatchCmpInst();
+  assert(LatchCondInst && "Latch condition not found for loop.");
+  CreateDirectiveCall(LatchCondInst, EndIntrin, {GuardBegin},
+                      DIR_VPO_END_GUARD_MEM_MOTION);
+
+  return GuardBegin;
+}
 #endif // INTEL_COLLAB

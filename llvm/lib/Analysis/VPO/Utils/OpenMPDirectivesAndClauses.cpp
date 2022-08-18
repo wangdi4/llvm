@@ -332,6 +332,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
+  case DIR_VPO_GUARD_MEM_MOTION:
     return true;
   }
   return false;
@@ -413,6 +414,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
+  case DIR_VPO_END_GUARD_MEM_MOTION:
     return true;
   }
   return false;
@@ -636,6 +638,9 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   case DIR_PRAGMA_DISTRIBUTE_POINT:
     return DIR_PRAGMA_END_DISTRIBUTE_POINT;
 #endif // INTEL_CUSTOMIZATION
+
+  case DIR_VPO_GUARD_MEM_MOTION:
+    return DIR_VPO_END_GUARD_MEM_MOTION;
 
   // StandAlone Directives
   case DIR_OMP_BARRIER:

@@ -822,6 +822,8 @@ FUNCTION_PASS("print<vpo-wrncollection>",
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-cfg-simplify", VPOCFGSimplifyPass())
 FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
+FUNCTION_PASS("vpo-rename-operands", VPORenameOperandsPass())
+FUNCTION_PASS("vpo-paropt-guard-memory-motion", VPOParoptGuardMemoryMotionPass())
 FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-loop-transform", VPOParoptLoopTransformPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())

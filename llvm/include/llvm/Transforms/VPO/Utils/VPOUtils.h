@@ -110,6 +110,20 @@ public:
   static bool CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
+  /// Create a pointer, store address of \p V to the pointer, and replace uses
+  /// of \p V with a load from that pointer.
+  static Value *replaceWithStoreThenLoad(
+      WRegionNode *W, Value *V, Instruction *InsertPtForStore,
+      bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
+      bool InsertLoadInBeginningOfEntryBB = false,
+      bool SelectAllocaInsertPtBasedOnParentWRegion = false,
+      bool CastToAddrSpaceGeneric = false);
+
+  /// Rename operands of various clauses by replacing them with a
+  /// store-then-load.
+  static bool renameOperandsUsingStoreThenLoad(WRegionNode *W,
+                                               DominatorTree *DT, LoopInfo *LI);
+
   // Restore the clause operands by undoing the renaming done in the prepare
   // pass.
   static bool restoreOperands(Function &F);
@@ -169,7 +183,12 @@ public:
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
                           const DataLayout *DL);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
+
+  /// Return the starting guard directive (DIR.VPO.GUARD.MEM.MOTION) that is
+  /// present in loop \p L to prohibit memory motion. If such a guard doesn't
+  /// exist, then add corresponding directives to the loop.
+  static CallInst *getOrCreateLoopGuardForMemMotion(Loop *L);
 
   /// Generate a memcpy call with the destination argument \p D, the source
   /// argument \p S and size computed by multiplying \p Size and \p NumElements.

@@ -114,6 +114,10 @@
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPORenameOperandsPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;            Running pass: CoroEarlyPass on foo
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module> on [module]

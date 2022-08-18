@@ -1032,6 +1032,17 @@ void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 //
+// Methods for WRNGuardMemMotionNode
+//
+
+// constructor
+WRNGuardMemMotionNode::WRNGuardMemMotionNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNGuardMemMotion, BB) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNGuardMemMotionNode<" << getNumber()
+                    << ">\n");
+}
+
+//
 // Methods for WRNTileNode
 //
 

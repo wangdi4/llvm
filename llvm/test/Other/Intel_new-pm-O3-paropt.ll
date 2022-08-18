@@ -127,6 +127,10 @@
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPORenameOperandsPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]            ;INTEL
 ;CHECK-NEXT: Running pass: OpenMPOptPass on [module]
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]                ;INTEL

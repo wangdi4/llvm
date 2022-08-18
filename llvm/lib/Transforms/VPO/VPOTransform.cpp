@@ -46,6 +46,8 @@ void llvm::initializeVPOTransforms(PassRegistry &Registry) {
   initializeVPOParoptLowerSimdPass(Registry);
 
   initializeVPORestoreOperandsPass(Registry);
+  initializeVPORenameOperandsPass(Registry);
+  initializeVPOParoptGuardMemoryMotionPass(Registry);
   initializeVPOCFGRestructuringPass(Registry);
   initializeVPOCFGSimplifyPass(Registry);
 }

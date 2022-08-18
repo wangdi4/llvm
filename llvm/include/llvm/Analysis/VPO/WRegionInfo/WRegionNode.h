@@ -665,6 +665,7 @@ public:
   friend class WRegionCollection;  //temporary
   friend class VPOParoptTransform;
   friend class VPOParoptUtils;
+  friend class VPOUtils; // needed for renaming operands
 
   // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
   virtual ~WRegionNode() {
@@ -959,6 +960,7 @@ public:
     WRNTaskyield,
     WRNInterop,
     WRNScope,
+    WRNGuardMemMotion,
     WRNScan,
   };
 
