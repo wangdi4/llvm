@@ -264,12 +264,6 @@ public:
   InstructionCost getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
                                       const APInt &Imm, Type *Ty,
                                       TTI::TargetCostKind CostKind);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
-                                       InstructionCost BuildVecCost) const;
-#endif
-=======
   /// Return the cost of the scaling factor used in the addressing
   /// mode represented by AM for this target, for a load/store
   /// of the specified type.
@@ -279,7 +273,11 @@ public:
                                        int64_t BaseOffset, bool HasBaseReg,
                                        int64_t Scale, unsigned AddrSpace) const;
 
->>>>>>> 7ed3d81333b7a366d48a27521bb36ac58dc12fa2
+#if INTEL_CUSTOMIZATION
+  InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
+                                       InstructionCost BuildVecCost) const;
+#endif // INTEL_CUSTOMIZATION
+
   bool isLSRCostLess(const TargetTransformInfo::LSRCost &C1,
                      const TargetTransformInfo::LSRCost &C2);
   bool canMacroFuseCmp();

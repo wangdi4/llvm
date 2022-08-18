@@ -4342,7 +4342,7 @@ InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
       // Type legalization can't handle structs
       if (TLI->getValueType(DL, Src, true) != MVT::Other) {
         // Legalize the type.
-        std::pair<InstructionCost, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
+        std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Src);
         assert(
             (Opcode == Instruction::Load || Opcode == Instruction::Store) &&
             "Invalid Opcode");
