@@ -25,8 +25,9 @@
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i64 [[VP7:%.*]] = phi  [ i64 [[J_0130]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP8:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i64 [[J_0130]]
+; CHECK-NEXT:    TotalStride: 2
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i64 [[VP9:%.*]] = add i64 [[VP7]] i64 2 (Stride = 2)
+; CHECK-NEXT:      i64 [[VP9:%.*]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:    Stores:
 ; CHECK-NEXT:      store i32 [[VP_LOAD:%.*]] i32* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:

@@ -216,27 +216,23 @@ void VPCompressExpandIdiom::dump(raw_ostream &OS) const {
     OS << "  LiveIn: " << *LiveIn << "\n";
   if (LiveOut)
     OS << "  LiveOut: " << *LiveOut << "\n";
+  OS << "  TotalStride: " << TotalStride << "\n";
 
-  auto DumpList = [&](const auto &Name, const auto &List, auto &&PrintFn) {
+  auto DumpList = [&](const auto &Name, const auto &List) {
     if (List.empty())
       return;
     OS << "  " << Name << ":\n";
     for (const auto &Item : List) {
       OS << "    ";
-      PrintFn(Item, OS);
+      Item->print(OS);
       OS << '\n';
     }
   };
 
-  DumpList("Increments", Increments,
-           [](const IncrementInfoTy &Info, raw_ostream &OS) {
-             OS << *Info.VPInst << " (Stride = " << Info.Stride << ')';
-           });
-
-  auto PrintVPVal = [](VPValue *VPVal, raw_ostream &OS) { VPVal->print(OS); };
-  DumpList("Stores", Stores, PrintVPVal);
-  DumpList("Loads", Loads, PrintVPVal);
-  DumpList("Indices", Indices, PrintVPVal);
+  DumpList("Increments", Increments);
+  DumpList("Stores", Stores);
+  DumpList("Loads", Loads);
+  DumpList("Indices", Indices);
 
   printLinkedValues(OS);
 }
@@ -270,7 +266,7 @@ VPPrivate::~VPPrivate() {
 
 Type *VPCompressExpandIdiom::getAllocatedType() const {
   assert(!Increments.empty() && "Expected at least one increment.");
-  return Increments.front().VPInst->getType();
+  return Increments.front()->getType();
 }
 
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
@@ -495,30 +491,28 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
 
 VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
     VPPHINode *RecurrentPhi, VPValue *LiveIn, VPInstruction *LiveOut,
-    const SmallVectorImpl<IncrementInfoTy> &Increments,
+    int64_t TotalStride, const SmallVectorImpl<VPInstruction *> &Increments,
     const SmallVectorImpl<VPLoadStoreInst *> &Stores,
     const SmallVectorImpl<VPLoadStoreInst *> &Loads,
     const SmallVectorImpl<VPInstruction *> &Indices) {
 
-  VPCompressExpandIdiom *CEIdiom = new VPCompressExpandIdiom(
-      RecurrentPhi, LiveIn, LiveOut, Increments, Stores, Loads, Indices);
+  VPCompressExpandIdiom *CEIdiom =
+      new VPCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
+                                Increments, Stores, Loads, Indices);
   ComressExpandIdiomList.emplace_back(CEIdiom);
 
-  linkValue(ComressExpandIdiomMap, CEIdiom, RecurrentPhi);
-  linkValue(ComressExpandIdiomMap, CEIdiom, LiveIn);
-  linkValue(ComressExpandIdiomMap, CEIdiom, LiveOut);
+  linkValue(CEIdiom, RecurrentPhi);
+  linkValue(CEIdiom, LiveIn);
+  linkValue(CEIdiom, LiveOut);
 
-  for (const IncrementInfoTy &Info : Increments)
-    linkValue(ComressExpandIdiomMap, CEIdiom, Info.VPInst);
-
+  for (VPInstruction *Increment : Increments)
+    linkValue(CEIdiom, Increment);
   for (VPLoadStoreInst *VPInst : Stores)
-    linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
-
+    linkValue(CEIdiom, VPInst);
   for (VPLoadStoreInst *VPInst : Loads)
-    linkValue(ComressExpandIdiomMap, CEIdiom, VPInst);
-
+    linkValue(CEIdiom, VPInst);
   for (VPInstruction *VPVal : Indices)
-    linkValue(ComressExpandIdiomMap, CEIdiom, VPVal);
+    linkValue(CEIdiom, VPVal);
 
   return CEIdiom;
 }
@@ -1879,50 +1873,52 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   VPBuilder::InsertPointGuard Guard(Builder);
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
+    // Create Init instruction using live-in instruction as an operand.
     Builder.setInsertPoint(Preheader);
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
     auto *Init = Builder.create<VPCompressExpandInit>("init", CEIdiom->LiveIn);
     assert(CEIdiom->RecurrentPhi && "Expected a valid recurrent phi value.");
     CEIdiom->RecurrentPhi->replaceUsesOfWith(CEIdiom->LiveIn, Init);
 
+    // Look for Exit instruction in RecurrentPhi.
     VPInstruction *Exit = CEIdiom->LiveOut;
     for (auto It = CEIdiom->RecurrentPhi->op_begin();
          (!Exit || Exit == Init) && It != CEIdiom->RecurrentPhi->op_end(); It++)
       if (VPInstruction *I = dyn_cast<VPInstruction>(*It))
         Exit = I;
     assert(Exit && "Non-null exit instruction is expected.");
+
+    // Create Final instruction replacing live-out external uses with it.
     Builder.setInsertPoint(PostExit);
     auto *Final = Builder.create<VPCompressExpandFinal>("final", Exit);
     if (CEIdiom->LiveOut)
       CEIdiom->LiveOut->replaceUsesWithIf(
           Final, [&](VPUser *User) { return isa<VPExternalUse>(User); });
 
+    // Store Init and Final instructions in the idiom.
     CEIdiom->Init = Init;
     CEIdiom->Final = Final;
 
-    int64_t StrideTotal = 0;
-    for (IncrementInfoTy &Info : CEIdiom->Increments)
-      StrideTotal += Info.Stride;
-    assert(StrideTotal > 0 && "Expected a non-zero total stride.");
-
+    // Create CompressStore/CompressStoreNonu for each store.
     for (VPLoadStoreInst *Store : CEIdiom->Stores) {
       Builder.setInsertPoint(Store);
       Builder.create<VPLoadStoreInst>(
           "",
-          StrideTotal == 1 ? VPInstruction::CompressStore
-                           : VPInstruction::CompressStoreNonu,
+          CEIdiom->TotalStride == 1 ? VPInstruction::CompressStore
+                                    : VPInstruction::CompressStoreNonu,
           Store->getType(),
           ArrayRef<VPValue *>(Store->op_begin(), Store->op_end()));
       Store->getParent()->eraseInstruction(Store);
     }
     CEIdiom->Stores.clear();
 
+    // Create ExpandLoad/ExpandLoadNonu for each load.
     for (VPLoadStoreInst *Load : CEIdiom->Loads) {
       Builder.setInsertPoint(Load);
       VPLoadStoreInst *ExpandLoad = Builder.create<VPLoadStoreInst>(
           "",
-          StrideTotal == 1 ? VPInstruction::ExpandLoad
-                           : VPInstruction::ExpandLoadNonu,
+          CEIdiom->TotalStride == 1 ? VPInstruction::ExpandLoad
+                                    : VPInstruction::ExpandLoadNonu,
           Load->getType(), Load->getPointerOperand());
       Load->replaceAllUsesWith(ExpandLoad);
       Load->getParent()->eraseInstruction(Load);
@@ -1942,10 +1938,12 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
                  llvm::any_of(Inst->users(), IsUsedByCompressExpandLoadStore);
         };
 
-    if (StrideTotal != 1)
+    // If idiom's loads/stores are non-unit strided, CompressExpandIndex
+    // instruction has to be created for each index instruction.
+    if (CEIdiom->TotalStride != 1) {
+      VPConstant *Stride = Plan.getVPConstant(ConstantInt::get(
+          Type::getInt64Ty(*Plan.getLLVMContext()), CEIdiom->TotalStride));
       for (VPInstruction *Index : CEIdiom->Indices) {
-        VPConstant *Stride =
-            Plan.getVPConstant(ConstantInt::get(Index->getType(), StrideTotal));
         if (isa<VPPHINode>(Index))
           Builder.setInsertPointFirstNonPhi(Index->getParent());
         else
@@ -1957,6 +1955,7 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
         CEIndex->addOperand(Index);
         CEIndex->addOperand(Stride);
       }
+    }
     CEIdiom->Indices.clear();
 
     // Add an index adjustment instruction into the loop latch.
@@ -3306,8 +3305,8 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
     return true;
   };
 
-  for (IncrementInfoTy &Info : Increments)
-    if (!GatherIdiomInfo(Info.VPInst)) {
+  for (VPInstruction *Increment : Increments)
+    if (!GatherIdiomInfo(Increment)) {
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
       LE->setImportingError(VPLoopEntityList::ImportError::ComressExpand);
       return;
@@ -3321,6 +3320,6 @@ void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan,
   if (IsIncomplete)
     return;
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  LE->addCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, Increments, Stores,
-                             Loads, Indices);
+  LE->addCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
+                             Increments, Stores, Loads, Indices);
 }

@@ -34,8 +34,9 @@
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i32 [[VP6:%.*]] = phi  [ i32 [[K_0130]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP7:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[K_0130]]
+; CHECK-NEXT:    TotalStride: 1
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP6]] i32 1 (Stride = 1)
+; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:    Stores:
 ; CHECK-NEXT:      store float [[VP9:%.*]] float* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Loads:
