@@ -31,8 +31,9 @@
 ; CHECK-NEXT:    Phi: i32 [[VP10:%.*]] = phi  [ i32 [[C_0140]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP11:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[C_0140]]
 ; CHECK-NEXT:    LiveOut: i32 [[VP11]] = phi  [ i32 [[VP12:%.*]], [[BB3:BB[0-9]+]] ],  [ i32 [[VP10]], [[BB0]] ]
+; CHECK-NEXT:    TotalStride: 1
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP12]] = add i32 [[VP10]] i32 1 (Stride = 1)
+; CHECK-NEXT:      i32 [[VP12]] = add i32 [[VP10]] i32 1
 ; CHECK-NEXT:    Loads:
 ; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:

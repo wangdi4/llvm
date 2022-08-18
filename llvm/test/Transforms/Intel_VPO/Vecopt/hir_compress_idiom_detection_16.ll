@@ -62,8 +62,9 @@
 ; CHECK-NEXT:    Phi: i32 [[VP12:%.*]] = phi  [ i32 [[N_PRIV_02920]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP13:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[N_PRIV_02920]]
 ; CHECK-NEXT:    LiveOut: i32 [[VP13]] = phi  [ i32 [[VP12]], [[BB3:BB[0-9]+]] ],  [ i32 [[VP14:%.*]], [[BB4:BB[0-9]+]] ],  [ i32 [[VP12]], [[BB5:BB[0-9]+]] ],  [ i32 [[VP12]], [[BB6:BB[0-9]+]] ],  [ i32 [[VP12]], [[BB7:BB[0-9]+]] ]
+; CHECK-NEXT:    TotalStride: 1
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP14]] = add i32 [[VP12]] i32 1 (Stride = 1)
+; CHECK-NEXT:      i32 [[VP14]] = add i32 [[VP12]] i32 1
 ; CHECK-NEXT:    Stores:
 ; CHECK-NEXT:      store i32 [[TMP0]] i32* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
@@ -86,8 +87,9 @@
 ; CHECK-NEXT:    Phi: i32 [[VP12:%.*]] = phi  [ i32 [[N_PRIV_22960]], [[BB16:BB[0-9]+]] ],  [ i32 [[VP11:%.*]], [[BB17:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[N_PRIV_22960]]
 ; CHECK-NEXT:    LiveOut: i32 [[VP11]] = phi  [ i32 [[VP19:%.*]], [[BB18:BB[0-9]+]] ],  [ i32 [[VP12]], [[BB15]] ]
+; CHECK-NEXT:    TotalStride: 1
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP19]] = add i32 [[VP12]] i32 1 (Stride = 1)
+; CHECK-NEXT:      i32 [[VP19]] = add i32 [[VP12]] i32 1
 ; CHECK-NEXT:    Stores:
 ; CHECK-NEXT:      store i32 [[VP_LOAD:%.*]] i32* [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:

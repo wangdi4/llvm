@@ -515,19 +515,14 @@ class VPCompressExpandIdiom : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
-  struct IncrementInfoTy {
-    VPInstruction *VPInst;
-    int64_t Stride;
-  };
-
   VPCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                        VPInstruction *LiveOut,
-                        const SmallVectorImpl<IncrementInfoTy> &Increments,
+                        VPInstruction *LiveOut, int64_t TotalStride,
+                        const SmallVectorImpl<VPInstruction *> &Increments,
                         const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                         const SmallVectorImpl<VPLoadStoreInst *> &Loads,
                         const SmallVectorImpl<VPInstruction *> &Indices)
       : VPLoopEntity(CompressExpand, false), RecurrentPhi(RecurrentPhi),
-        LiveIn(LiveIn), LiveOut(LiveOut),
+        LiveIn(LiveIn), LiveOut(LiveOut), TotalStride(TotalStride),
         Increments(Increments.begin(), Increments.end()),
         Stores(Stores.begin(), Stores.end()), Loads(Loads.begin(), Loads.end()),
         Indices(Indices.begin(), Indices.end()) {}
@@ -541,9 +536,17 @@ public:
   VPPHINode *getRecurrentPhi() const { return RecurrentPhi; }
   VPValue *getLiveIn() const { return LiveIn; }
   VPInstruction *getLiveOut() const { return LiveOut; }
+  int64_t getTotalStride() const { return TotalStride; }
 
   VPCompressExpandInit *getInit() const { return Init; }
   VPCompressExpandFinal *getFinal() const { return Final; }
+
+  auto increments() const {
+    return make_range(Increments.begin(), Increments.end());
+  }
+  auto stores() const { return make_range(Stores.begin(), Stores.end()); }
+  auto loads() const { return make_range(Loads.begin(), Loads.end()); }
+  auto indices() const { return make_range(Indices.begin(), Indices.end()); }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -558,11 +561,12 @@ private:
   VPPHINode *RecurrentPhi;
   VPValue *LiveIn;
   VPInstruction *LiveOut;
+  int64_t TotalStride;
 
   VPCompressExpandInit *Init = nullptr;
   VPCompressExpandFinal *Final = nullptr;
 
-  SmallVector<IncrementInfoTy, 4> Increments;
+  SmallVector<VPInstruction *, 4> Increments;
   SmallVector<VPLoadStoreInst *, 4> Stores;
   SmallVector<VPLoadStoreInst *, 4> Loads;
   SmallVector<VPInstruction *, 4> Indices;
@@ -616,7 +620,6 @@ private:
 class VPLoopEntityList {
   using InductionKind = VPInduction::InductionKind;
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
-  using IncrementInfoTy = VPCompressExpandIdiom::IncrementInfoTy;
 
 public:
   /// Importing error indicators.
@@ -694,8 +697,8 @@ public:
 
   VPCompressExpandIdiom *
   addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                         VPInstruction *LiveOut,
-                         const SmallVectorImpl<IncrementInfoTy> &Increments,
+                         VPInstruction *LiveOut, int64_t TotalStride,
+                         const SmallVectorImpl<VPInstruction *> &Increments,
                          const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                          const SmallVectorImpl<VPLoadStoreInst *> &Loads,
                          const SmallVectorImpl<VPInstruction *> &Indices);
@@ -910,6 +913,8 @@ public:
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
       linkValue(PrivateMap, Priv, Val);
+    else if (auto CEIdiom = dyn_cast<VPCompressExpandIdiom>(E))
+      linkValue(ComressExpandIdiomMap, CEIdiom, Val);
     else
       llvm_unreachable("Unknown loop entity");
   }
@@ -1531,13 +1536,12 @@ private:
 
 class CompressExpandIdiomDescr : public VPEntityImportDescr {
 
-  using IncrementInfoTy = VPCompressExpandIdiom::IncrementInfoTy;
-
-  SmallVector<IncrementInfoTy> Increments;
+  SmallVector<VPInstruction *> Increments;
   SmallVector<VPLoadStoreInst *, 4> Stores;
   SmallVector<VPLoadStoreInst *, 4> Loads;
   SmallVector<VPInstruction *, 4> Indices;
 
+  int64_t TotalStride = 0;
   VPPHINode *RecurrentPhi = nullptr;
   VPValue *LiveIn = nullptr;
   VPInstruction *LiveOut = nullptr;
@@ -1546,7 +1550,8 @@ class CompressExpandIdiomDescr : public VPEntityImportDescr {
 
 public:
   void addIncrement(VPInstruction *VPInst, int64_t Stride) {
-    Increments.push_back({VPInst, Stride});
+    Increments.push_back(VPInst);
+    TotalStride += Stride;
   }
   void addStore(VPLoadStoreInst *VPInst) { Stores.push_back(VPInst); }
   void addLoad(VPLoadStoreInst *VPInst) { Loads.push_back(VPInst); }

@@ -26,8 +26,9 @@
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i32 [[VP7:%.*]] = phi  [ i32 [[K_0340]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP8:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    LiveIn: i32 [[K_0340]]
+; CHECK-NEXT:    TotalStride: 3
 ; CHECK-NEXT:    Increments:
-; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP7]] i32 3 (Stride = 3)
+; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP7]] i32 3
 ; CHECK-NEXT:    Loads:
 ; CHECK-NEXT:      i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
