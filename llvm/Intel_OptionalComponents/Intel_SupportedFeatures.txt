@@ -394,6 +394,12 @@
 # INTEL_FEATURE_CPU_RPL
 @CPU_RPL:SECRET@
 # end INTEL_FEATURE_CPU_RPL
+# INTEL_FEATURE_CPU_GNR
+@CPU_GNR:SECRET@
+# end INTEL_FEATURE_CPU_GNR
+# INTEL_FEATURE_CPU_DMR
+@CPU_DMR:SECRET@
+# end INTEL_FEATURE_CPU_DMR
 # === New CPU section end ===
 
 # Special software features section currently consist of

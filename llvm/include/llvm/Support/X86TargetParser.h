@@ -134,6 +134,12 @@ enum CPUKind {
 #if INTEL_FEATURE_CPU_RPL
   CK_Raptorlake,
 #endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_GNR
+  CK_Graniterapids,
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+  CK_Diamondrapids,
+#endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,

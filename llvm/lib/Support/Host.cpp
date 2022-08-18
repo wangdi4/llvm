@@ -864,6 +864,25 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS;
       break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GNR
+    // Graniterapids:
+    case 0xad:
+      CPU = "graniterapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_GRANITERAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+    // Diamondrapids:
+    case 0xd6:
+      CPU = "diamondrapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_DIAMONDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
+
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
     case 0x27: // 32 nm Atom Medfield
