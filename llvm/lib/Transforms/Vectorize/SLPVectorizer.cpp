@@ -10110,7 +10110,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
   // instructions can be part of a MultiNode (check that with inverse opcode).
   // If we did actual reordering it's safe to not propagateIRFlags at all.
   bool IsPartOfMultiNode =
-      MultiNode::getInverseOpcode(VL0->getOpcode()).hasValue() &&
+      MultiNode::getInverseOpcode(VL0->getOpcode()).has_value() &&
       any_of(MultiNodes, [VL0](const MultiNode &MN) {
         if (!MN.doneCodeGen())
           return false;

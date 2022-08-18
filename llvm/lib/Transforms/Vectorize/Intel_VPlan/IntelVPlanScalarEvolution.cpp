@@ -71,7 +71,7 @@ VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
   //              x = ptr[i + j*j];
   //
   Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
-  return Ind.map([](auto &I) {
+  return Ind.transform([](auto &I) {
     return VPConstStepLinear{I.InvariantBase, I.Step};
   });
 }
