@@ -2438,7 +2438,9 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
 }
 
 #if INTEL_CUSTOMIZATION
-void OpenMPLateOutliner::emitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {}
+void OpenMPLateOutliner::emitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {
+  // This is handled with the LoopHint mechanism.
+}
 
 void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   ClauseEmissionHelper CEH(*this, OMPC_tile);
