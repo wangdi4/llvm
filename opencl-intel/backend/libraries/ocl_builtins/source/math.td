@@ -61,7 +61,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def fmod_f16 : OclBuiltin<"fmod", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def fract_pas2_f16 : OclBuiltin<"fract_ret2ptr", (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     def hypot_f16 : OclBuiltin<"hypot", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def ilogb_f16 : OclBuiltin<"ilogb", (outs i32gentype:$ret), (ins gentype:$x)>;
+    def ilogb_f16 : OclBuiltin<"ilogb", (outs i32gentype:$ret), (ins gentype:$x)>;
     // def ldexp_s_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, si32gentype:$k)>, Except<[v1f16, v1f32]>;
     def lgamma_f16 : OclBuiltin<"lgamma", (outs gentype:$ret), (ins gentype:$x)>;
     def log_f16 : OclBuiltin<"log", (outs gentype:$ret), (ins gentype:$x)>;
