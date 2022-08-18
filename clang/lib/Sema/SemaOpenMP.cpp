@@ -21871,7 +21871,7 @@ OMPClause *Sema::ActOnOpenMPOmpxMonotonicClause(
 }
 
 OMPClause *Sema::ActOnOpenMPOmpxAssertClause(SourceLocation StartLoc,
-                                         SourceLocation EndLoc) {
+                                             SourceLocation EndLoc) {
   return new (Context) OMPOmpxAssertClause(StartLoc, EndLoc);
 }
 
