@@ -1745,7 +1745,7 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
         return false;
       }
 
-      if (hasUnsupportedOperandBundle(CInst)) {
+      if (!isa<AssumeInst>(Inst) && hasUnsupportedOperandBundle(CInst)) {
         printOptReportRemark(Lp, "Unsupported operand bundle.");
         return false;
       }
