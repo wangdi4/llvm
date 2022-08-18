@@ -128,6 +128,12 @@ enum ProcessorSubtypes {
 #if INTEL_FEATURE_CPU_RPL
   INTEL_COREI7_RAPTORLAKE,
 #endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_GNR
+  INTEL_COREI7_GRANITERAPIDS,
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+  INTEL_COREI7_DIAMONDRAPIDS,
+#endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
   CPU_SUBTYPE_MAX
 };
@@ -493,6 +499,25 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = INTEL_COREI7;
       *Subtype = INTEL_COREI7_SAPPHIRERAPIDS;
       break;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GNR
+    // Granite Rapids:
+    case 0xad:
+      CPU = "graniterapids";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_GRANITERAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+    // Diamond Rapids:
+    case 0xd6:
+      CPU = "diamondrapids";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_DIAMONDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft

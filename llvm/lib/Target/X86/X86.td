@@ -1364,6 +1364,153 @@ def ProcessorFeatures {
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GNR
+#define ENABLE_CPU_GNR
+  // Graniterapids
+  list<SubtargetFeature> GNRAdditionalFeatures = [
+#endif // INTEL_FEATURE_CPU_GNR
+#ifdef ENABLE_CPU_GNR
+#if INTEL_FEATURE_ISA_AMX_FP16
+                                                  FeatureAMXFP16,
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_PREFETCHI
+                                                  FeaturePREFETCHI
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // ENABLE_CPU_GNR
+#if INTEL_FEATURE_CPU_GNR
+  ];
+  list<SubtargetFeature> GNRTuning = SPRTuning;
+  list<SubtargetFeature> GNRFeatures =
+    !listconcat(SPRFeatures, GNRAdditionalFeatures);
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+#define ENABLE_CPU_DMR
+  // Lioncove
+  list<SubtargetFeature> LNCAdditionalFeatures = [
+#endif // INTEL_FEATURE_CPU_DMR
+#ifdef ENABLE_CPU_DMR
+#if INTEL_FEATURE_ISA_SM3
+                                                  FeatureSM3,
+#endif // INTEL_FEATURE_ISA_SM3
+#if INTEL_FEATURE_ISA_SM4
+                                                  FeatureSM4,
+#endif // INTEL_FEATURE_ISA_SM4
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+                                                  FeatureAVX512VNNIFP16,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+                                                  FeatureAVX512VNNIINT16,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+                                                  FeatureAVX512VNNIINT8,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+// FIXME: Need to change to AVX-NE-CONVERT
+                                                  FeatureAVXCONVERT,
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+                                                  FeatureAVXVNNIINT16,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+                                                  FeatureAVXVNNIINT8,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+                                                  FeatureAVX512MEDIAX,
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+// FIXME: Need to change to AVX512-NE-CONVERT
+                                                  FeatureAVX512NECONVERT,
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_BF16_NE
+                                                  FeatureNEBF16,
+#endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AVX_IFMA
+                                                  FeatureAVXIFMA,
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_CMPCCXADD
+                                                  FeatureCMPCCXADD,
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
+#if INTEL_FEATURE_ISA_SHA512
+                                                  FeatureSHA512,
+#endif // INTEL_FEATURE_ISA_SHA512
+#if INTEL_FEATURE_ISA_PREFETCHST2
+                                                  FeaturePREFETCHST2,
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_AMX_LNC
+// FIXME: according to latest EAS (lnc-rev52 and pnc-rev11), part of AMX_TRANSPOSE
+// is split into AMX_INTERLEAVE, which is introduced in pnc.
+                                                  FeatureAMXTRANSPOSE,
+                                                  FeatureAMXAVX512,
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+                                                  FeatureAMXCOMPLEX,
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_TF32
+                                                  FeatureAMXTF32
+#endif // INTEL_FEATURE_ISA_AMX_TF32
+#endif // ENABLE_CPU_DMR
+#if INTEL_FEATURE_CPU_DMR
+  ];
+  list<SubtargetFeature> LNCFeatures =
+    !listconcat(GNRFeatures, LNCAdditionalFeatures);
+  // Diamondrapids
+  list<SubtargetFeature> DMRAdditionalFeatures = [
+// FIXME: Add FeatureMTT
+// FIXME: Add FeatureUMSR
+// FIXME: Add FeatureAMXF8
+// FIXME: Add FeatureAVX512NECONVERTFP8
+// FIXME: Add FeatureAVX512VNNIFP8
+#endif // INTEL_FEATURE_CPU_DMR
+#ifdef ENABLE_CPU_DMR
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+                                                  FeatureAMXSPARSE,
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
+#if INTEL_FEATURE_ISA_AMX_TILE2
+                                                  FeatureAMXTILE2,
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+                                                  FeatureAMXMEMADVISE,
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+                                                  FeatureAVX512MEMADVISE,
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+                                                  FeatureAVX512MINMAX,
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_COMPLEX
+                                                  FeatureAVX512COMPLEX,
+#endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+                                                  FeatureAVX512REDUCTION,
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+                                                  FeatureAVX512SATCVT,
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX256P
+                                                  FeatureAVX256P,
+#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+                                                  FeatureVPINSRVPEXTR,
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#if INTEL_FEATURE_ISA_RAO_INT
+                                                  FeatureRAOINT,
+#endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_FP
+                                                  FeatureAVXRAOFP,
+#endif // INTEL_FEATURE_ISA_AVX_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+                                                  FeatureAVX512RAOFP
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#endif // ENABLE_CPU_DMR
+#if INTEL_FEATURE_CPU_DMR
+  ];
+  list<SubtargetFeature> DMRTuning = SPRTuning;
+  list<SubtargetFeature> DMRFeatures =
+    !listconcat(LNCFeatures, DMRAdditionalFeatures);
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256
 #define ENABLE_ISA_AVX256
   list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
@@ -2024,6 +2171,14 @@ def : ProcModel<"gracemont", GRTModel,
 def : ProcModel<"raptorlake", ADLModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 #endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_GNR
+def : ProcModel<"graniterapids", SPRModel,
+                ProcessorFeatures.GNRFeatures, ProcessorFeatures.GNRTuning>;
+#endif // INTEL_FEATURE_CPU_GNR
+#if INTEL_FEATURE_CPU_DMR
+def : ProcModel<"diamondrapids", SPRModel,
+                ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
+#endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.

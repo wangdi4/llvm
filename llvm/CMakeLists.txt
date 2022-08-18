@@ -1075,6 +1075,14 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_RPL)
 # end INTEL_FEATURE_CPU_RPL
+# INTEL_FEATURE_CPU_GNR
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_GNR)
+# end INTEL_FEATURE_CPU_GNR
+# INTEL_FEATURE_CPU_DMR
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_DMR)
+# end INTEL_FEATURE_CPU_DMR
 
 # INTEL_FEATURE_XISA_COMMON
       # This is used to guard code that shared by more then one XISA features.
