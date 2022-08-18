@@ -136,15 +136,12 @@ define i32 @test3(i1 %cmp) {
 ; CHECK-NEXT:    popl %edi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl
-<<<<<<< HEAD
-=======
 ; CHECK-NEXT:  .LBB2_6: # Block address taken
 ; CHECK-NEXT:    # %indirect
 ; CHECK-NEXT:    # Label of block must be emitted
 ; CHECK-NEXT:    .cfi_def_cfa_offset 12
 ; CHECK-NEXT:    movl $42, %eax
 ; CHECK-NEXT:    jmp .LBB2_5
->>>>>>> 6b0e2fa6f0b1045ed616e263c75ee59768e9f7f8
 entry:
   br i1 %cmp, label %true, label %false
 
