@@ -319,11 +319,7 @@ KEYWORD(_ExtInt                     , KEYALL)
 KEYWORD(_BitInt                     , KEYALL)
 KEYWORD(long                        , KEYALL)
 KEYWORD(register                    , KEYALL)
-#if INTEL_CUSTOMIZATION
-KEYWORD(restrict                    , KEYC99|KEYRESTRICT)
-#else
 KEYWORD(restrict                    , KEYC99)
-#endif  // INTEL_CUSTOMIZATION
 KEYWORD(return                      , KEYALL)
 KEYWORD(short                       , KEYALL)
 KEYWORD(signed                      , KEYALL)
