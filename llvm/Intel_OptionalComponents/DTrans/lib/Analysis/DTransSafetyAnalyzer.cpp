@@ -6436,7 +6436,8 @@ public:
     assert((!dtrans::hasPointerType(I.getType()) || Info) &&
            "Expected pointer type analyzer to analyze pointer result");
 
-    if (Info && Info->canAliasToAggregatePointer()) {
+    if (Info &&
+        (Info->canAliasToAggregatePointer() || Info->pointsToSomeElement())) {
       setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
                                             "Unhandled instruction", &I);
     }
@@ -6444,7 +6445,8 @@ public:
     for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum)
       if (IsPossiblePtrValue(I.getOperand(OpNum))) {
         ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
-        if (OpInfo && OpInfo->canAliasToAggregatePointer())
+        if (OpInfo && (OpInfo->canAliasToAggregatePointer() ||
+                       OpInfo->pointsToSomeElement()))
           setAllAliasedAndPointeeTypeSafetyData(
               OpInfo, dtrans::UnhandledUse,
               "Operand used in unhandled instruction", &I);
