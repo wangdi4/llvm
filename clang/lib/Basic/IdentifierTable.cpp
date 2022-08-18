@@ -128,11 +128,10 @@ namespace {
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
     KEYFLOAT128   = 0x2000000,
-    KEYRESTRICT   = 0x4000000,
-    KEYMSASM      = 0x8000000,
-    KEYOPENCLCHANNEL =  0x10000000,
+    KEYMSASM      = 0x4000000,
+    KEYOPENCLCHANNEL =  0x8000000,
     KEYMAX      = KEYOPENCLCHANNEL, // The maximum key
-    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYOPENCLCHANNEL,
+    KEYINTELALL = KEYFLOAT128 | KEYMSASM | KEYOPENCLCHANNEL,
 #endif // INTEL_CUSTOMIZATION
     KEYALL = (KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 &
               ~KEYNOOPENCL, // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -243,8 +242,6 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
   case KEYFLOAT128:
     return (LangOpts.IntelCompat && LangOpts.Float128) ? KS_Extension
                                                        : KS_Unknown;
-  case KEYRESTRICT:
-    return LangOpts.IntelCompat ? KS_Enabled : KS_Unknown;
 #endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown KeywordStatus flag");
