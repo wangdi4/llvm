@@ -110,13 +110,13 @@ private:
   SmallPtrSet<Value *, 4> HeaderPhi;
 
   /// Set containing values that are intermediate to strided values.
-  SmallPtrSet<Value *, 4> StrideIntermediate;
+  SmallSetVector<Value *, 4> StrideIntermediate;
 
   /// Map values to their dependencies.
   DenseMap<Value *, Dependency> Deps;
 
   /// Map values to their constant strides.
-  DenseMap<Value *, Constant *> ConstStrides;
+  MapVector<Value *, Constant *> ConstStrides;
 
   /// Compute the stride dependency of the loop header phi nodes.
   void getHeaderPhiStride();
@@ -140,6 +140,9 @@ private:
 
   /// Calculate and return dependency of ExtractElementInst \p EEI.
   Dependency calculateDep(ExtractElementInst *EEI);
+
+  /// Calculate and return dependency of ShuffleVectorInst \p SVI.
+  Dependency calculateDep(ShuffleVectorInst *SVI);
 
   /// Return true if \p I is sequential vector, i.e. I is generation of
   /// sequential IDs according to the vectorizer pattern.
