@@ -1030,7 +1030,7 @@ unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
   }
 
   return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
-      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency));
+      TTI.getInstructionCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency));
 }
 
 unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {

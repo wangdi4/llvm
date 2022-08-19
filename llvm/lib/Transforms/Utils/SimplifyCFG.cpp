@@ -406,7 +406,7 @@ static InstructionCost computeSpeculationCost(const User *I,
   assert((!isa<Instruction>(I) ||
           isSafeToSpeculativelyExecute(cast<Instruction>(I))) &&
          "Instruction is not safe to speculatively execute!");
-  return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
+  return TTI.getInstructionCost(I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -4898,8 +4898,8 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
 
     // Account for the cost of duplicating this instruction into each
     // predecessor. Ignore free instructions.
-    if (!TTI ||
-        TTI->getUserCost(&I, CostKind) != TargetTransformInfo::TCC_Free) {
+    if (!TTI || TTI->getInstructionCost(&I, CostKind) !=
+                    TargetTransformInfo::TCC_Free) {
       NumBonusInsts += PredCount;
 
       // Early exits once we reach the limit.
@@ -5071,7 +5071,8 @@ static bool mergeConditionalStoreToAddress(
         return false; // Not in white-list - not worthwhile folding.
       // And finally, if this is a non-free instruction that we are okay
       // speculating, ensure that we consider the speculation budget.
-      Cost += TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+      Cost +=
+          TTI.getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
       if (Cost > Budget)
         return false; // Eagerly refuse to fold as soon as we're out of budget.
     }
