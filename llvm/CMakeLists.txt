@@ -1413,6 +1413,14 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_PBNDKB)
 # end INTEL_FEATURE_ISA_PBNDKB
+# INTEL_FEATURE_ISA_WRMSRNS
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_WRMSRNS)
+# end INTEL_FEATURE_ISA_WRMSRNS
+# INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_RDMSRLIST_WRMSRLIST)
+# end INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
