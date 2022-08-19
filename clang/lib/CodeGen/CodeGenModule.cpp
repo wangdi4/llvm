@@ -2957,12 +2957,17 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline)
     addDeclareVariantAttributes(*this, FD, F);
 
   SetTargetRegionFunctionAttributes(F);
 #endif // INTEL_COLLAB
+=======
+  if (CodeGenOpts.InlineMaxStackSize != UINT_MAX)
+    F->addFnAttr("inline-max-stacksize", llvm::utostr(CodeGenOpts.InlineMaxStackSize));
+>>>>>>> 8564e2fea559c58fecab3c7c01acf498bbe7820a
 
   if (const auto *CB = FD->getAttr<CallbackAttr>()) {
     // Annotate the callback behavior as metadata:
