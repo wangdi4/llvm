@@ -405,6 +405,7 @@ class VPInstruction : public VPUser,
   friend class VPCloneUtils;
   friend class VPValueMapper;
   friend class VPLoopEntityList;
+  friend class VPTransformLibraryCall; // Needed for `copyUnderlyingFrom`
   friend class VPValue;
   // FIXME: This is only needed to support buggy mixed HIR codegen. Once we
   // retire it and use full VPValue-based codegen, underlying IR copying won't
@@ -490,6 +491,7 @@ class VPInstruction : public VPUser,
       case Instruction::PHI:
       case Instruction::Select:
       case Instruction::Call:
+      case VPInstruction::TransformLibraryCall:
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
@@ -696,6 +698,11 @@ public:
                                //           x];
                                // }
     ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
+    TransformLibraryCall,      // Transformed library call whose scalar
+                               // signature does not match its vectorized
+                               // signature. (e.g. sincos)
+    SOAExtractValue,           // Like LLVM extract value, but specialized for
+                               // when we know the aggregate is in SOA layout
   };
 
 private:
@@ -2005,34 +2012,43 @@ private:
   FunctionType *FnTy;
   const CallInst *OrigCall;
 
-public:
-  using CallVecScenariosTy = CallVecScenarios;
-  using SerializationReasonTy = CallVecProperties::SerializationReason;
-
+protected:
   // Most generic ctor.
-  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
-                    ArrayRef<VPValue *> ArgList)
-      : VPInstruction(Instruction::Call, FnTy->getReturnType(), ArgList),
-        FnTy(FnTy), OrigCall(nullptr) {
+  VPCallInstruction(unsigned OpCode, VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList, const CallInst *OrigCall)
+      : VPInstruction(OpCode, FnTy->getReturnType(), ArgList), FnTy(FnTy),
+        OrigCall(OrigCall) {
     assert(Callee && "Call instruction does not have Callee");
     // Add called value to end of operand list for def-use chain.
     addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
+
+    if (OrigCall) {
+      // Check if Call should not be strictly widened i.e. not (re-)vectorized
+      // or serialized.
+      if (OrigCall->hasFnAttr("kernel-uniform-call"))
+        VecScenario = CallVecScenarios::DoNotWiden;
+
+      if (OrigCall->hasFnAttr("unmasked"))
+        VecScenario = CallVecScenarios::UnmaskedWiden;
+    }
   }
+
+public:
+  using CallVecScenariosTy = CallVecScenarios;
+  using SerializationReasonTy = CallVecProperties::SerializationReason;
+
+  // When we have no underlying CallInst.
+  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList)
+      : VPCallInstruction(Instruction::Call, Callee, FnTy, ArgList, nullptr) {}
 
   // If extra information from the underlying CallInst is available.
   VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
                     const CallInst &OrigCallInst)
-      : VPCallInstruction(Callee, OrigCallInst.getFunctionType(), ArgList) {
-    OrigCall = &OrigCallInst;
-    // Check if Call should not be strictly widened i.e. not (re-)vectorized or
-    // serialized.
-    if (OrigCall->hasFnAttr("kernel-uniform-call"))
-      VecScenario = CallVecScenarios::DoNotWiden;
-
-    if (OrigCall->hasFnAttr("unmasked"))
-      VecScenario = CallVecScenarios::UnmaskedWiden;
-  }
+      : VPCallInstruction(Instruction::Call, Callee,
+                          OrigCallInst.getFunctionType(), ArgList,
+                          &OrigCallInst) {}
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -2341,7 +2357,8 @@ public:
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == Instruction::Call;
+    return VPI->getOpcode() == Instruction::Call ||
+           VPI->getOpcode() == VPInstruction::TransformLibraryCall;
   }
 
   static bool classof(const VPValue *V) {
@@ -4503,6 +4520,45 @@ public:
 
   VPConvertMaskToInt *cloneImpl() const override {
     return new VPConvertMaskToInt(getType(), getOperand(0));
+  }
+};
+
+/// Transformed library call specialization.
+/// This represents a library call that has been transformed in some way. By that
+/// we mean it has:
+///   1. An input signature (the original function call)
+///   2. An output signature (the transformed function call)
+///
+/// Take `sincos` for example:
+///
+///   void sincos(float, float*, float*)
+///   =>
+///   {float, float} __svml_sincos(float)
+///
+class VPTransformLibraryCall final : public VPCallInstruction {
+public:
+  VPTransformLibraryCall(VPCallInstruction &OrigCall, FunctionType *FnTy,
+                         ArrayRef<VPValue *> ArgList)
+      : VPCallInstruction(VPInstruction::TransformLibraryCall,
+                          OrigCall.getCalledValue(), FnTy, ArgList,
+                          OrigCall.getOriginalCall()) {
+    assert(OrigCall.getVectorizationScenario() ==
+               CallVecScenariosTy::LibraryFunc &&
+           "Call being transformed must have library vectorization scenario!");
+    assert(FnTy->getNumParams() == ArgList.size() &&
+           "Transformed function type and arg list must match!");
+    setVectorizeWithLibraryFn(OrigCall.getVectorLibraryFunc(),
+                              OrigCall.getPumpFactor());
+    copyUnderlyingFrom(OrigCall);
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::TransformLibraryCall;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 };
 

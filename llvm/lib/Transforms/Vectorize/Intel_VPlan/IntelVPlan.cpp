@@ -451,6 +451,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "running-exclusive-reduction";
   case VPInstruction::ExtractLastVectorLane:
     return "extract-last-vector-lane";
+  case VPInstruction::TransformLibraryCall:
+    return "transform-lib-call";
+  case VPInstruction::SOAExtractValue:
+    return "soa-extract-value";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -555,7 +559,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     cast<VPBlendInst>(this)->printImpl(O);
     break;
   }
-  case Instruction::Call: {
+  case Instruction::Call:
+  case VPInstruction::TransformLibraryCall: {
     cast<VPCallInstruction>(this)->printImpl(O);
     break;
   }

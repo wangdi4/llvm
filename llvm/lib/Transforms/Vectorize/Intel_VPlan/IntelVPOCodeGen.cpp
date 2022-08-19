@@ -1373,6 +1373,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
   }
 
+  case VPInstruction::TransformLibraryCall: {
+    auto *TransformedCall = cast<VPTransformLibraryCall>(VPInst);
+    vectorizeLibraryCall(TransformedCall);
+    ++OptRptStats.VectorMathCalls;
+    return;
+  }
+
   case VPInstruction::AllZeroCheck: {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Type *Ty = A->getType();
@@ -2032,6 +2039,22 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     VPScalarMap[VPInst][0] = vectorizeExtractLastVectorLane(VPInst);
     return;
   }
+  case VPInstruction::SOAExtractValue: {
+    // We know our first operand is an aggregate in SOA layout. Emit a single
+    // ExtractValue to get the widened value.
+
+    // First operand is our SOA aggregate
+    Value *Aggregate = getVectorValue(VPInst->getOperand(0));
+
+    // Subsequent operands are ExtractValue indices
+    SmallVector<unsigned, 1> Indices(
+        map_range(drop_begin(VPInst->operands(), 1), [](const VPValue *Arg) {
+          return cast<VPConstantInt>(Arg)->getZExtValue();
+        }));
+
+    VPWidenMap[VPInst] = Builder.CreateExtractValue(Aggregate, Indices);
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
@@ -2545,12 +2568,6 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   unsigned NumArgOperands = VPCall->getNumArgOperands();
 
-  // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
-  // functions return the results directly in a struct. The pointers should be
-  // omitted in vectorized call.
-  if ((FnName == "sincos" || FnName == "sincosf") && !VecVariant)
-    NumArgOperands -= 2;
-
   for (unsigned OrigArgIdx = VPCall->isIntelIndirectCall() ? 1 : 0,
                 ParamsIdx = 0;
        OrigArgIdx < NumArgOperands; OrigArgIdx++, ParamsIdx++) {
@@ -2682,11 +2699,9 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
-  // TODO: Using align 1 for new loads/stores introduced by VPlan-to-VPlan
-  // transforms.
+Align VPOCodeGen::getLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
   if (LoadStore->getUnderlyingValue() == nullptr)
-    return Align(1);
+    return LoadStore->getAlignment();
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   Type *OrigTy = LoadStore->getValueType();
@@ -2697,7 +2712,7 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPLoadStoreInst *LoadStore
 }
 
 Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *LoadStore) {
-  Align Alignment = getOriginalLoadStoreAlignment(LoadStore);
+  Align Alignment = getLoadStoreAlignment(LoadStore);
 
   Type *OrigTy = LoadStore->getValueType();
   VectorType *VectorTy = dyn_cast<VectorType>(OrigTy);
@@ -2908,7 +2923,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   if (Plan->getVPlanDA()->isUniform(*Ptr) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPStore->getOperand(0);
-    Align Alignment = getOriginalLoadStoreAlignment(VPStore);
+    Align Alignment = getLoadStoreAlignment(VPStore);
     // Extract last lane of data operand to generate scalar store. For uniform
     // data operand, the same value is present on all lanes.
     auto *Inst = Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1),
@@ -3352,17 +3367,6 @@ void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
   } else {
     VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
   }
-
-  // Handle results of SVML sincos function calls
-  // sincos function has two return values. The scalar sincos function uses
-  // pointers as out-parameters. SVML sincos function, instead, returns them in
-  // a struct directly. Here we store the results in the struct to the pointer
-  // given in parameters to bridge the gap between these two approaches.
-  if (cast<CallInst>(CallResults[0])
-          ->getCalledFunction()
-          ->getName()
-          .startswith("__svml_sincos"))
-    generateStoreForSinCos(VPCall, VPWidenMap[VPCall]);
 }
 
 void VPOCodeGen::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {

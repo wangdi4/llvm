@@ -17,6 +17,7 @@
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPMemRefTransform.h"
+#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
 #include "IntelVPlan.h"
@@ -522,14 +523,18 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
         if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
           LVP.unroll(*NonMaskedVPlan);
 
-      // Transform SOA-GEPs.
+      // Transform SOA-GEPs and library calls.
       // Do this transformation only for Masked and Non-masked, i.e.,
       // vector-loops.
-      if (isa<VPlanVector>(Plan))
+      if (auto *VPlan = dyn_cast<VPlanVector>(Plan)) {
         if (EnableSOAAnalysis) {
-          VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
+          VPMemRefTransform VPMemRefTrans(*VPlan);
           VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
         }
+
+        VPTransformLibraryCalls VPTransLibCall(*VPlan, *TLI);
+        VPTransLibCall.transform();
+      }
 
       // Capture opt-report remarks for main VPLoop.
       if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain)

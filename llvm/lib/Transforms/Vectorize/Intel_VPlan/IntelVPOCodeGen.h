@@ -556,8 +556,9 @@ private:
   SmallVector<std::pair<VPInstruction *, BasicBlock *>, 2>
       OutgoingScalarLoopHeaders;
 
-  // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
-  Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
+  // Get alignment for VPLoadStoreInst using underlying llvm::Instruction if it
+  // exists, otherwise use the alignment of the instruction itself.
+  Align getLoadStoreAlignment(const VPLoadStoreInst *VPInst);
 
   // Get alignment for the gather/scatter intrinsic when widening load/store
   // VPInstruction \p VPInst.

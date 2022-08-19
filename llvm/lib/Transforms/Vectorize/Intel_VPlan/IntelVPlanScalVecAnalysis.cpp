@@ -97,6 +97,12 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
     const VPInstruction *Inst) {
+  auto SetSVAKindForCallArgOperands = [this](const VPCallInstruction *VPCall,
+                                             const SVAKind Kind) {
+    for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx)
+      setSVAKindForOperand(VPCall, ArgIdx, Kind);
+  };
+
   auto *DA = Plan->getVPlanDA();
 
   switch (Inst->getOpcode()) {
@@ -219,11 +225,6 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // scenario is Undefined i.e. not analyzed, then we conservatively skip the
     // instruction from any further analysis and mark both instruction and its
     // operands as Vector.
-    auto SetSVAKindForArgOperands = [this](const VPCallInstruction *VPCall,
-                                           const SVAKind Kind) {
-      for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands(); ++ArgIdx)
-        setSVAKindForOperand(VPCall, ArgIdx, Kind);
-    };
 
     const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
     assert(VPCall->getVFForScenario() > 0 &&
@@ -232,34 +233,34 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     case VPCallInstruction::CallVecScenariosTy::Undefined: {
       // No knowledge available for call, conservatively vectorize.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
       // This is a vector library call, so all call arguments sould be vector in
       // nature.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // Serialization is tracked as emulated vectorization by SVA. Set
       // instruction and operands as vector.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
       // Call will be emitted as single scalar copy in generated code.
       setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      SetSVAKindForArgOperands(VPCall, SVAKind::FirstScalar);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::FirstScalar);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
       // Ther are no way to specify uniformity/linearity/etc. in the current
       // DPC++ spec.
       setSVAKindForInst(Inst, SVAKind::Vector);
-      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
@@ -313,6 +314,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
     // Last operand of call is called value, which should be left as scalar.
     // TODO: Indirect calls.
+    setSVAKindForOperand(Inst, VPCall->getNumOperands() - 1,
+                         SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::TransformLibraryCall: {
+    const auto *VPCall = cast<VPTransformLibraryCall>(Inst);
+
+    // Instruction itself is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+
+    // This is a vector library call, so all call arguments should be vector in
+    // nature.
+    SetSVAKindForCallArgOperands(VPCall, SVAKind::Vector);
+
+    // Last operand of call is called value, which should be left as scalar.
     setSVAKindForOperand(Inst, VPCall->getNumOperands() - 1,
                          SVAKind::FirstScalar);
     return true;
@@ -732,6 +749,21 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::SOAExtractValue: {
+    // Instruction is scalar
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+
+    // Return and aggregate argument are vector
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+
+    // Index arguments are scalar
+    for (unsigned I = 1; I < Inst->getNumOperands(); ++I) {
+      setSVAKindForOperand(Inst, I, SVAKind::FirstScalar);
+    }
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -1003,6 +1035,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case Instruction::Load:
   case Instruction::Store:
   case Instruction::Call:
+  case VPInstruction::TransformLibraryCall:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
@@ -1058,6 +1091,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::CompressExpandIndexFinal:
   case VPInstruction::CompressExpandIndex:
   case VPInstruction::CompressExpandIndexInc:
+  case VPInstruction::SOAExtractValue:
     return true;
   default:
     return false;

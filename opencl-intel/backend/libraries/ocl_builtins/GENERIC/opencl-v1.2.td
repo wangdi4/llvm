@@ -81,7 +81,7 @@ def modf_las      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x
 def modf_gas      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 def modf_gen      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
 def modf_pas2    : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def nan           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x), [], [], 0, 1>;
+def nan           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$nancode), [], [], 0, 1>;
 def nextafter     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pow           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pown          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], [], 0, 1>;
