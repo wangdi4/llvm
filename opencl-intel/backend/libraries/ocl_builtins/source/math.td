@@ -53,11 +53,9 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def floor_f16 : OclBuiltin<"floor", (outs gentype:$ret), (ins gentype:$x)>;
     def fma_f16 : OclBuiltin<"fma", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
     def fmax_f16 : OclBuiltin<"fmax", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def fmax_common_f16 : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def fmax_s_f16 : OclBuiltin<"fmax", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
+    def fmax_common_f16 : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def fmin_f16 : OclBuiltin<"fmin", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def fmin_common_f16 : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-    // def fmin_s_f16 : OclBuiltin<"fmin", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
+    def fmin_common_f16 : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def fmod_f16 : OclBuiltin<"fmod", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def fract_pas2_f16 : OclBuiltin<"fract_ret2ptr", (outs), (ins gentype:$x, pgentype:$ret0 ,pgentype:$ret1)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
     def hypot_f16 : OclBuiltin<"hypot", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
@@ -100,6 +98,12 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def rootn_f16 : OclBuiltin<"rootn", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
   } // defset math_builtins_with_i32gentype_arg1
 } // defset math_builtins_with_general_vect_info
+
+// Builtins that do not need VectInfos.
+defset list<OclBuiltin> math_builtins_fmax_fmin_sgentype_arg1 = {
+  def fmax_s_f16 : OclBuiltin<"fmax", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
+  def fmin_s_f16 : OclBuiltin<"fmin", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<[v1f16, v1f32]>;
+} // defset math_builtins_fmax_fmin_sgentype_arg1
 }
 
 // Non-const prototypes
@@ -196,9 +200,11 @@ foreach bi = math_generic_builtins in {
   def : OclBuiltinImpl<bi, math_f16_types, false, promote_f16_to_f32_code, [["$ARGLIST", !interleave(promoted_args, ", ")]]>, SHARED;
 
   // [AMX] vXf16 (X <= 32): call __ocl_svml func.
+  // For fmax_common and fmin_common, just call __ocl_svml_*_fmax/fmin
+  defvar func_macro = ["$Func", !subst("_common", "", bi.Name)]; // Removing the "_common" suffix for fmax_common/fmin_common
   defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
   let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
-  def : OclBuiltinImpl<bi, [], false, call_svml_code, [["$ARGLIST", !interleave(args, ", ")]]>, AMX;
+  def : OclBuiltinImpl<bi, [], false, call_svml_code, [func_macro, ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
 
   // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
   defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", indices>.Tout;
@@ -322,6 +328,18 @@ foreach bi = math_builtins_with_i32gentype_arg1 in {
 
   // TODO: (when masked variants are added)
   // [AMX] v3f16: call masked v4f16
+}
+
+// gentype fmax/fmin(gentype, sgentype)
+// Broadcast arg1 to vector type.
+foreach bi = math_builtins_fmax_fmin_sgentype_arg1 in {
+  defvar broadcast_code = [{
+    return $Func($Arg0VarName, ($Arg0Type)$Arg1VarName);
+  }];
+  def : OclBuiltinImpl<bi, math_f16_types, false, broadcast_code>, SHARED;
+  // Explicitly put a copy of broadcasting impl in AMX rtl, so that the native
+  // SVML impl can be inlined.
+  def : OclBuiltinImpl<bi, math_f16_types, false, broadcast_code>, AMX;
 }
 
 // VectInfos
