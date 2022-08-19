@@ -92,8 +92,9 @@
 // CHECK: PragmaVector
 // CHECK-NEXT: ============
 // CHECK-NEXT: Accept #pragma vector - indicates a loop should be vectorized according to the
-// CHECK-NEXT: argument keywords 'assert', 'aligned', 'unaligned', 'vecremainder', and
-// CHECK-NEXT: 'novecremainder'.
+// CHECK-NEXT: argument keywords 'assert', 'aligned', 'always assert', 'dynamic_align',
+// CHECK-NEXT: 'nodynamic_align', 'vecremainder', 'novecremainder', 'temporal',
+// CHECK-NEXT: 'nontemporal' and 'vectorlength'.
 
 // CHECK: PredeclareAlignValT
 // CHECK-NEXT: ===================

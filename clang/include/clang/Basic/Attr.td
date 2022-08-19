@@ -4742,6 +4742,7 @@ def LoopHint : Attr {
                            "novector", "always", "aligned",
                            "dynamic_align","nodynamic_align",
                            "vecremainder","novecremainder", "assert",
+                           "temporal", "nontemporal", "vectorlength",
                            "loop_count", "max", "min", "avg"],
 // end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
@@ -4757,7 +4758,9 @@ def LoopHint : Attr {
                            "VectorizeAlways", "VectorizeAligned",
                            "VectorizeDynamicAlign", "VectorizeNoDynamicAlign",
                            "VectorizeVecremainder", "VectorizeNoVecremainder",
-                           "VectorizeAlwaysAssert", "LoopCount",
+                           "VectorizeAlwaysAssert", "VectorizeTemporal",
+                           "VectorizeNonTemporal", "VectorizeLength",
+                           "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
 // end INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
@@ -4794,6 +4797,9 @@ def LoopHint : Attr {
     case VectorizeVecremainder: return "vecremainder";
     case VectorizeNoVecremainder: return "novecremainder";
     case VectorizeAlwaysAssert: return "always assert";
+    case VectorizeTemporal: return "temporal";
+    case VectorizeNonTemporal: return "nontemporal";
+    case VectorizeLength: return "vectorlength";
     case LoopCount: return "loop_count";
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";

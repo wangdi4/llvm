@@ -614,6 +614,30 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.ivdep_back")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+  // Setting vector temporal
+  if (Attrs.VectorizeTemporalEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.temporal")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting vector nontemporal
+  if (Attrs.VectorizeNonTemporalEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.intel.vector.nontemporal")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  // Setting vector vectorlength
+  if (Attrs.VectorizeLength.size() > 0){
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.vectorlength"));
+    for (auto Length : Attrs.VectorizeLength) {
+      Vals.push_back(ConstantAsMetadata::get(
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Length)));
+    }
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   // Setting vector always
   if (Attrs.VectorizeAlwaysEnable ||
       Attrs.VectorizeAlwaysAssertEnable) {
@@ -801,7 +825,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
-      VectorizeAlwaysAssertEnable(false), VectorizeAlignedEnable(false),
+      VectorizeAlwaysAssertEnable(false),
+      VectorizeTemporalEnable(false), VectorizeNonTemporalEnable(false),
+      VectorizeAlignedEnable(false),
       VectorizeDynamicAlignEnable(false), VectorizeNoDynamicAlignEnable(false),
       VectorizeVecremainderEnable(false), VectorizeNoVecremainderEnable(false),
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
@@ -833,6 +859,9 @@ void LoopAttributes::clear() {
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
   VectorizeAlwaysAssertEnable = false;
+  VectorizeTemporalEnable = false;
+  VectorizeNonTemporalEnable = false;
+  VectorizeLength.clear();
   VectorizeAlignedEnable = false;
   VectorizeDynamicAlignEnable = false;
   VectorizeNoDynamicAlignEnable = false;
@@ -898,6 +927,9 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.VectorizeVecremainderEnable &&
       !Attrs.VectorizeNoVecremainderEnable &&
       !Attrs.VectorizeAlwaysAssertEnable &&
+      !Attrs.VectorizeTemporalEnable &&
+      !Attrs.VectorizeNonTemporalEnable &&
+      Attrs.VectorizeLength.size() == 0 &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
@@ -1116,6 +1148,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1195,6 +1230,13 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAlwaysAssert:
         setVectorizeAlwaysAssertEnable();
         break;
+      case LoopHintAttr::VectorizeTemporal:
+        setVectorizeTemporalEnable();
+        break;
+      case LoopHintAttr::VectorizeNonTemporal:
+        setVectorizeNonTemporalEnable();
+        break;
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::LoopCount:
@@ -1238,6 +1280,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1285,6 +1330,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1343,6 +1391,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
         break;
+      case LoopHintAttr::VectorizeLength:
+        setVectorLength(ValueInt);
+        break;
       case LoopHintAttr::LoopCount:
         setLoopCount(ValueInt);
         break;
@@ -1369,6 +1420,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
@@ -1414,6 +1467,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeVecremainder:
       case LoopHintAttr::VectorizeNoVecremainder:
       case LoopHintAttr::VectorizeAlwaysAssert:
+      case LoopHintAttr::VectorizeTemporal:
+      case LoopHintAttr::VectorizeNonTemporal:
+      case LoopHintAttr::VectorizeLength:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
