@@ -29,7 +29,7 @@ omp.inner.for.body.i.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"([12 x i16]* %b3.i.lpriv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"([12 x i16]* %b3.i.lpriv, i16 0, i32 12) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:

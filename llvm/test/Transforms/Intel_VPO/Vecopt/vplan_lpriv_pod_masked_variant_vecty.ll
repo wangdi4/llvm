@@ -20,7 +20,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(<2 x i32>* %xp)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(<2 x i32>* %xp, <2 x i32> zeroinitializer, i32 1)]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]

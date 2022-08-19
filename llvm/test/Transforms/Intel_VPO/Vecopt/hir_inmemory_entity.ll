@@ -31,7 +31,7 @@ entry:
   br label %preheader
 
 preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD"(i64* %ret) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(i64* %ret, i64 0, i32 1) ]
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body

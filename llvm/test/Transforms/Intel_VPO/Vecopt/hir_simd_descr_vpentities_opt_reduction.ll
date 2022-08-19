@@ -58,7 +58,7 @@ omp.inner.for.body.lr.ph:
   %0 = bitcast i32* %s to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
   store i32 0, i32* %s, align 4, !tbaa !2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
   %s.promoted = load i32, i32* %s, align 4, !tbaa !2
   br label %omp.inner.for.body
 
