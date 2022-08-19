@@ -649,6 +649,7 @@ static unsigned getJumpThreadDuplicationCost(
       if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
         return ~0U;
 
+<<<<<<< HEAD
       // Blocks with NoDuplicate are modelled as having infinite cost, so they
       // are never duplicated.
       if (const CallInst *CI = dyn_cast<CallInst>(I))
@@ -658,6 +659,11 @@ static unsigned getJumpThreadDuplicationCost(
       if (TTI->getUserCost(&*I, TargetTransformInfo::TCK_SizeAndLatency)
               == TargetTransformInfo::TCC_Free)
         continue;
+=======
+    if (TTI->getInstructionCost(&*I, TargetTransformInfo::TCK_SizeAndLatency) ==
+        TargetTransformInfo::TCC_Free)
+      continue;
+>>>>>>> fdec50182d85ec0b8518af3baae37ae28b102f1c
 
       // All other instructions count for at least one unit.
       ++Size;
