@@ -4357,7 +4357,7 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
   auto &TTI = getTargetTransformInfo();
   auto *F = FI.getFunction();
   if (!F->isFortran() && TargetIsAVX2(TTI, F))
-    MoveBefore = &FI;
+    MoveBefore = FI.getIterator();
 #endif // INTEL_CUSTOMIZATION
 
   bool Changed = false;
