@@ -2427,8 +2427,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (!PTO.DisableIntelProprietaryOpts && PTO.EnableAutoCPUDispatch &&
-      Level.getSpeedupLevel() > 1)
+  if (!LTOPreLink && !PTO.DisableIntelProprietaryOpts &&
+      PTO.EnableAutoCPUDispatch && Level.getSpeedupLevel() > 1)
     MPM.addPass(AutoCPUClonePass());
 
   if (EnableAndersen) {
@@ -3236,6 +3236,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Propagate noalias attribute to function arguments.
   if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2)
     MPM.addPass(ArgNoAliasPropPass());
+
+  if (!PTO.DisableIntelProprietaryOpts && Level.getSpeedupLevel() > 1)
+    MPM.addPass(AutoCPUClonePass());
 
   if (EnableAndersen) {
     // Andersen's IP alias analysis
