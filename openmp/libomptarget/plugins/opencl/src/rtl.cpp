@@ -1533,6 +1533,7 @@ public:
 #endif // _WIN32
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
+static void closeRTL();
 
 __ATTRIBUTE__(constructor(101)) void init() {
   DP("Init OpenCL plugin!\n");
@@ -1541,6 +1542,7 @@ __ATTRIBUTE__(constructor(101)) void init() {
 
 __ATTRIBUTE__(destructor(101)) void deinit() {
   DP("Deinit OpenCL plugin!\n");
+  closeRTL();
   delete DeviceInfo;
   DeviceInfo = nullptr;
 }
@@ -1704,7 +1706,7 @@ public:
   }
 }; // ProfileIntervalTy
 
-/// Clean-up routine to be registered by std::atexit().
+/// Clean-up routine to be invoked by destructor.
 static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
@@ -4226,14 +4228,6 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("WARNING: No OpenCL devices found.\n");
   }
 
-#ifndef _WIN32
-  // Make sure it is registered after OCL handlers are registered.
-  // Registerization is done in DLLmain for Windows
-  if (std::atexit(closeRTL)) {
-    FATAL_ERROR("Registration of clean-up function");
-  }
-#endif //WIN32
-
   return DeviceInfo->NumDevices;
 }
 
@@ -4533,6 +4527,14 @@ int32_t __tgt_rtl_synchronize(int32_t device_id, __tgt_async_info *AsyncInfo) {
   return OFFLOAD_SUCCESS;
 }
 
+#ifdef _WIN32
+EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
+  static std::once_flag Flag;
+  std::call_once(Flag, deinit);
+  return OFFLOAD_SUCCESS;
+}
+#endif // _WIN32
+
 ///
 /// Extended plugin interface
 ///
@@ -4717,16 +4719,6 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   DP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
      DeviceId, Ret ? "" : " not", DPxPTR(DeviceType));
   return Ret;
-}
-
-void __tgt_rtl_deinit(void) {
-  // No-op on Linux
-#ifdef _WIN32
-  if (DeviceInfo) {
-    closeRTL();
-    deinit();
-  }
-#endif // _WIN32
 }
 
 #if INTEL_CUSTOMIZATION

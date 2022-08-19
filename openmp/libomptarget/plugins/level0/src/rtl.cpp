@@ -3234,9 +3234,7 @@ ATTRIBUTE(constructor(101)) void init() {
 
 ATTRIBUTE(destructor(101)) void deinit() {
   DP("Deinit Level0 plugin!\n");
-#ifndef _WIN32
   closeRTL();
-#endif
   delete TLSList;
   TLSList = nullptr;
   delete DeviceInfo;
@@ -6184,6 +6182,14 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
 int32_t __tgt_rtl_supports_empty_images() { return 1; }
 
+#ifdef _WIN32
+EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
+  static std::once_flag Flag;
+  std::call_once(Flag, deinit);
+  return OFFLOAD_SUCCESS;
+}
+#endif // _WIN32
+
 
 ///
 /// Extended plugin interface
@@ -6339,16 +6345,6 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   DP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
      DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
   return ret;
-}
-
-void __tgt_rtl_deinit(void) {
-  // No-op on Linux
-#ifdef _WIN32
-  if (DeviceInfo) {
-    closeRTL();
-    deinit();
-  }
-#endif // _WIN32
 }
 
 __tgt_interop *__tgt_rtl_create_interop(

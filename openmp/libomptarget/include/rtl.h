@@ -95,7 +95,6 @@ struct RTLInfoTy {
   typedef int32_t(pop_subdevice_ty)(void);
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
-  typedef void (deinit_ty)(void);
 #if INTEL_CUSTOMIZATION
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
                                              int32_t *);
@@ -198,7 +197,6 @@ struct RTLInfoTy {
   pop_subdevice_ty *pop_subdevice = nullptr;
   add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
-  deinit_ty *deinit = nullptr;
 #if INTEL_CUSTOMIZATION
   create_interop_ty *create_interop = nullptr;
   release_interop_ty *release_interop = nullptr;

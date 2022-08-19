@@ -41,7 +41,6 @@ VERS1.0 {
     __tgt_rtl_pop_subdevice;
     __tgt_rtl_add_build_options;
     __tgt_rtl_is_supported_device;
-    __tgt_rtl_deinit;
     __tgt_rtl_create_interop;
     __tgt_rtl_release_interop;
     __tgt_rtl_use_interop;
