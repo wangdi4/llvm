@@ -1,14 +1,14 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-HOST
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-HOST
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization)' -pass-remarks-analysis=openmp -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-HOST
 ;
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -switch-to-offload -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-DEVICE
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -switch-to-offload -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-DEVICE
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization)' -pass-remarks-analysis=openmp -switch-to-offload -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-DEVICE
 ;
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -pass-remarks-output=%t1.opt.yaml -S %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -pass-remarks-analysis=openmp -pass-remarks-output=%t1.opt.yaml -S %s
 ; RUN: FileCheck %s -input-file=%t1.opt.yaml --check-prefix=CHECK-YAML
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization)' -pass-remarks-analysis=openmp -pass-remarks-output=%t2.opt.yaml -S %s
 ; RUN: FileCheck %s -input-file=%t2.opt.yaml --check-prefix=CHECK-YAML
-
+;
 ; Test src:
 ;
 ; void test1(int A) {
@@ -27,7 +27,7 @@
 ; #pragma omp for firstprivate(D)
 ;     for (int J = 0; J < M; J++) {}
 ; }
-
+;
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'A.addr' on 'parallel' construct is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'A.addr' on 'target' construct is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'B' on 'target' construct is redundant
@@ -161,45 +161,27 @@
 ; CHECK-YAML-NEXT:   - String:          target
 ; CHECK-YAML-NEXT:   - String:          ''' construct is redundant'
 ; CHECK-YAML-NEXT: ...
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test1(i32 noundef %A) #0 {
+define dso_local void @test1(i32 %A) #0 {
 ; CHECK-LABEL: @test1(
 entry:
   %A.addr = alloca i32, align 4
   %B = alloca i32, align 4
-  store i32 %A, ptr %A.addr, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %B, i32 0, i32 1) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %B, i32 0, i32 1) ]
-
+  store i32 %A, i32* %A.addr, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* %A.addr), "QUAL.OMP.FIRSTPRIVATE"(i32* %B) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %A.addr), "QUAL.OMP.PRIVATE"(i32* %B) ]
 ; CHECK:   call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1)
-
+; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %A.addr)
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test2(i32 noundef %N, i32 noundef %M, i32 noundef %T) #0 {
+define dso_local void @test2(i32 %N, i32 %M, i32 %T) #0 {
 ; CHECK-LABEL: @test2(
 entry:
   %N.addr = alloca i32, align 4
@@ -222,170 +204,101 @@ entry:
   %.omp.lb14 = alloca i32, align 4
   %.omp.ub15 = alloca i32, align 4
   %J = alloca i32, align 4
-  store i32 %N, ptr %N.addr, align 4
-  store i32 %M, ptr %M.addr, align 4
-  store i32 %T, ptr %T.addr, align 4
-  %0 = load i32, ptr %T.addr, align 4
-  store i32 %0, ptr %.capture_expr.0, align 4
-  %1 = load i32, ptr %N.addr, align 4
-  store i32 %1, ptr %.capture_expr.3, align 4
-  %2 = load i32, ptr %.capture_expr.3, align 4
+  store i32 %N, i32* %N.addr, align 4
+  store i32 %M, i32* %M.addr, align 4
+  store i32 %T, i32* %T.addr, align 4
+  %0 = load i32, i32* %T.addr, align 4
+  store i32 %0, i32* %.capture_expr.0, align 4
+  %1 = load i32, i32* %N.addr, align 4
+  store i32 %1, i32* %.capture_expr.3, align 4
+  %2 = load i32, i32* %.capture_expr.3, align 4
   %sub = sub nsw i32 %2, 0
   %sub1 = sub nsw i32 %sub, 1
   %add = add nsw i32 %sub1, 1
   %div = sdiv i32 %add, 1
   %sub2 = sub nsw i32 %div, 1
-  store i32 %sub2, ptr %.capture_expr.4, align 4
-  store i32 0, ptr %.omp.lb, align 4
-  %3 = load i32, ptr %.capture_expr.4, align 4
-  store i32 %3, ptr %.omp.ub, align 4
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %M.addr, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %C, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %D, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.ub, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %I, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.capture_expr.3, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.2, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv13, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb14, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub15, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.1, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp5, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.capture_expr.0, i32 0, i32 1) ]
-  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr %.capture_expr.0, i32 0),
-    "QUAL.OMP.SHARED:TYPED"(ptr %M.addr, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %C, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %D, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %.omp.lb, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %.omp.ub, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %I, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %.capture_expr.3, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.2, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv13, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb14, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub15, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.1, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp5, i32 0, i32 1) ]
-
+  store i32 %sub2, i32* %.capture_expr.4, align 4
+  store i32 0, i32* %.omp.lb, align 4
+  %3 = load i32, i32* %.capture_expr.4, align 4
+  store i32 %3, i32* %.omp.ub, align 4
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* %M.addr), "QUAL.OMP.FIRSTPRIVATE"(i32* %C), "QUAL.OMP.FIRSTPRIVATE"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.FIRSTPRIVATE"(i32* %.capture_expr.3), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp5), "QUAL.OMP.FIRSTPRIVATE"(i32* %.capture_expr.0) ]
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.THREAD_LIMIT"(i32* %.capture_expr.0), "QUAL.OMP.SHARED"(i32* %M.addr), "QUAL.OMP.SHARED"(i32* %C), "QUAL.OMP.SHARED"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.SHARED"(i32* %.omp.lb), "QUAL.OMP.SHARED"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.SHARED"(i32* %.capture_expr.3), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"()
-; CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr null, i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %C, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %D, i32 0, i32 1)
-
-  %6 = load i32, ptr %.capture_expr.3, align 4
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %C), "QUAL.OMP.PRIVATE"(i32* %D)
+  %6 = load i32, i32* %.capture_expr.3, align 4
   %cmp = icmp slt i32 0, %6
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end27
 
 omp.precond.then:                                 ; preds = %entry
-  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %C, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %I, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.2, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv13, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb14, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub15, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.1, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp5, i32 0, i32 1) ]
-
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %C), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %C, i32 0, i32 1)
-
-  %8 = load i32, ptr %.omp.lb, align 4
-  store i32 %8, ptr %.omp.iv, align 4
+; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %C)
+  %8 = load i32, i32* %.omp.lb, align 4
+  store i32 %8, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc23, %omp.precond.then
-  %9 = load i32, ptr %.omp.iv, align 4
-  %10 = load i32, ptr %.omp.ub, align 4
+  %9 = load i32, i32* %.omp.iv, align 4
+  %10 = load i32, i32* %.omp.ub, align 4
   %cmp3 = icmp sle i32 %9, %10
   br i1 %cmp3, label %omp.inner.for.body, label %omp.inner.for.end25
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %11 = load i32, ptr %.omp.iv, align 4
+  %11 = load i32, i32* %.omp.iv, align 4
   %mul = mul nsw i32 %11, 1
   %add4 = add nsw i32 0, %mul
-  store i32 %add4, ptr %I, align 4
-  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.SHARED:TYPED"(ptr %M.addr, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %D, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.2, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv13, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb14, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub15, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.capture_expr.1, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp5, i32 0, i32 1) ]
-
+  store i32 %add4, i32* %I, align 4
+  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %M.addr), "QUAL.OMP.SHARED"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %D, i32 0, i32 1)
-
-  %13 = load i32, ptr %M.addr, align 4
-  store i32 %13, ptr %.capture_expr.1, align 4
-  %14 = load i32, ptr %.capture_expr.1, align 4
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %D)
+  %13 = load i32, i32* %M.addr, align 4
+  store i32 %13, i32* %.capture_expr.1, align 4
+  %14 = load i32, i32* %.capture_expr.1, align 4
   %sub6 = sub nsw i32 %14, 0
   %sub7 = sub nsw i32 %sub6, 1
   %add8 = add nsw i32 %sub7, 1
   %div9 = sdiv i32 %add8, 1
   %sub10 = sub nsw i32 %div9, 1
-  store i32 %sub10, ptr %.capture_expr.2, align 4
-  %15 = load i32, ptr %.capture_expr.1, align 4
+  store i32 %sub10, i32* %.capture_expr.2, align 4
+  %15 = load i32, i32* %.capture_expr.1, align 4
   %cmp11 = icmp slt i32 0, %15
   br i1 %cmp11, label %omp.precond.then12, label %omp.precond.end
 
 omp.precond.then12:                               ; preds = %omp.inner.for.body
-  store i32 0, ptr %.omp.lb14, align 4
-  %16 = load i32, ptr %.capture_expr.2, align 4
-  store i32 %16, ptr %.omp.ub15, align 4
-  %17 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %D, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv13, i32 0),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb14, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub15, i32 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %J, i32 0, i32 1) ]
-
+  store i32 0, i32* %.omp.lb14, align 4
+  %16 = load i32, i32* %.capture_expr.2, align 4
+  store i32 %16, i32* %.omp.ub15, align 4
+  %17 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %D), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv13), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb14), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %D, i32 0, i32 1)
-
-  %18 = load i32, ptr %.omp.lb14, align 4
-  store i32 %18, ptr %.omp.iv13, align 4
+; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
+; CHECK-SAME:  "QUAL.OMP.PRIVATE"(i32* %D)
+  %18 = load i32, i32* %.omp.lb14, align 4
+  store i32 %18, i32* %.omp.iv13, align 4
   br label %omp.inner.for.cond16
 
 omp.inner.for.cond16:                             ; preds = %omp.inner.for.inc, %omp.precond.then12
-  %19 = load i32, ptr %.omp.iv13, align 4
-  %20 = load i32, ptr %.omp.ub15, align 4
+  %19 = load i32, i32* %.omp.iv13, align 4
+  %20 = load i32, i32* %.omp.ub15, align 4
   %cmp17 = icmp sle i32 %19, %20
   br i1 %cmp17, label %omp.inner.for.body18, label %omp.inner.for.end
 
 omp.inner.for.body18:                             ; preds = %omp.inner.for.cond16
-  %21 = load i32, ptr %.omp.iv13, align 4
+  %21 = load i32, i32* %.omp.iv13, align 4
   %mul19 = mul nsw i32 %21, 1
   %add20 = add nsw i32 0, %mul19
-  store i32 %add20, ptr %J, align 4
+  store i32 %add20, i32* %J, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body18
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %22 = load i32, ptr %.omp.iv13, align 4
+  %22 = load i32, i32* %.omp.iv13, align 4
   %add21 = add nsw i32 %22, 1
-  store i32 %add21, ptr %.omp.iv13, align 4
+  store i32 %add21, i32* %.omp.iv13, align 4
   br label %omp.inner.for.cond16
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond16
@@ -403,9 +316,9 @@ omp.body.continue22:                              ; preds = %omp.precond.end
   br label %omp.inner.for.inc23
 
 omp.inner.for.inc23:                              ; preds = %omp.body.continue22
-  %23 = load i32, ptr %.omp.iv, align 4
+  %23 = load i32, i32* %.omp.iv, align 4
   %add24 = add nsw i32 %23, 1
-  store i32 %add24, ptr %.omp.iv, align 4
+  store i32 %add24, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end25:                              ; preds = %omp.inner.for.cond
@@ -421,26 +334,14 @@ omp.precond.end27:                                ; preds = %omp.loop.exit26, %e
   ret void
 }
 
-; Function Attrs: noinline nounwind uwtable
-define internal void @.omp_offloading.requires_reg() #2 section ".text.startup" {
-entry:
-  call void @__tgt_register_requires(i64 1)
-  ret void
-}
 
-; Function Attrs: nounwind
-declare void @__tgt_register_requires(i64) #1
+declare token @llvm.directive.region.entry()
 
-attributes #0 = { noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-attributes #2 = { noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+declare void @llvm.directive.region.exit(token)
+
+attributes #0 = { "may-have-openmp-directive"="true" }
 
 !omp_offload.info = !{!0, !1}
-!llvm.module.flags = !{!2, !3, !4, !5}
 
-!0 = !{i32 0, i32 53, i32 -1916230714, !"_Z5test2", i32 10, i32 1, i32 0}
-!1 = !{i32 0, i32 53, i32 -1916230714, !"_Z5test1", i32 3, i32 0, i32 0}
-!2 = !{i32 1, !"wchar_size", i32 4}
-!3 = !{i32 7, !"openmp", i32 51}
-!4 = !{i32 7, !"uwtable", i32 2}
-!5 = !{i32 7, !"frame-pointer", i32 2}
+!0 = !{i32 0, i32 52, i32 -694943886, !"_Z5test2", i32 10, i32 1, i32 0}
+!1 = !{i32 0, i32 52, i32 -694943886, !"_Z5test1", i32 3, i32 0, i32 0}
