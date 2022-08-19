@@ -1,4 +1,6 @@
 // UNSUPPORTED: system-windows
+// Disable test as we have disabled functionality in the driver
+// XFAIL:*
 
 /// Check for dynamic setting of -pie based on gcc defaults
 // RUN: env PATH=%S/Inputs/intel/bin:$PATH \

@@ -778,10 +778,7 @@ bool Linux::isPIEDefault(const llvm::opt::ArgList &Args) const {
   // generate position independent code.
   return !getDriver().IsFlangMode() &&
          (CLANG_DEFAULT_PIE_ON_LINUX || getTriple().isAndroid() ||
-#if INTEL_CUSTOMIZATION
-          getTriple().isMusl() || getSanitizerArgs(Args).requiresPIE() ||
-          (getDriver().IsIntelMode() && Generic_GCC::detectGCCPIEDefault()));
-#endif // INTEL_CUSTOMIZATION
+          getTriple().isMusl() || getSanitizerArgs(Args).requiresPIE());
 }
 
 bool Linux::IsAArch64OutlineAtomicsDefault(const ArgList &Args) const {
