@@ -55,7 +55,7 @@ namespace sd = sycl::detail;
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-using half = cl::sycl::detail::half_impl::StorageT;
+using half = sycl::detail::half_impl::StorageT;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
