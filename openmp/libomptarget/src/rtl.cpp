@@ -424,7 +424,6 @@ void RTLsTy::loadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
     SET_OPTIONAL_INTERFACE_FN(add_build_options);
     SET_OPTIONAL_INTERFACE_FN(is_supported_device);
-    SET_OPTIONAL_INTERFACE_FN(deinit);
 #if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(create_interop);
     SET_OPTIONAL_INTERFACE_FN(release_interop);
@@ -838,12 +837,6 @@ void RTLsTy::unregisterLib(__tgt_bin_desc *Desc) {
   }
 
   PM->TblMapMtx.unlock();
-#if INTEL_COLLAB
-  // Force RTL deinit if applicable
-  for (auto *R : UsedRTLs)
-    if (R->deinit)
-      R->deinit();
-#endif // INTEL_COLLAB
 
   // TODO: Write some RTL->unload_image(...) function?
 

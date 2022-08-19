@@ -48,4 +48,8 @@ void zoo()
 #pragma vector vecremainder
 #pragma vector novecremainder // expected-error {{duplicate directives '#pragma vector vecremainder' and '#pragma vector novecremainder'}}
   for(int j=1; j<10; j++) { a[j]=1; }
+#pragma vector temporal nontemporal // expected-error {{duplicate directives '#pragma vector temporal' and '#pragma vector nontemporal'}}
+  for(int j=1; j<10; j++) { a[j]=1; }
+#pragma vector vectorlength(-2,9) // expected-error {{invalid value '-2'; must be positive}}
+  for(int j=1; j<10; j++) { a[j]=1; }
 }

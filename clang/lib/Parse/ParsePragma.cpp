@@ -4764,7 +4764,8 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
 /// Handle the \#pragma vector directive.
 ///
 /// The syntax is
-/// \#pragma vector {always[assert]|aligned|[no]dynamic_align|[no]vecremainder}
+/// \#pragma vector {always[assert]|aligned|dynamic_align|nodynamic_align|
+///         [no]vecremainder|temporal|nontemporal|vectorlength(n1[, n2]...)}
 ///
 void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
                                        PragmaIntroducer Introducer,
@@ -4826,7 +4827,10 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
   assert(Tok.is(tok::annot_pragma_vector));
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
+  IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
   ConsumeAnyToken();  // Consume annot_pragma_vector
+  Hint.PragmaNameLoc = IdentifierLoc::create(
+      Actions.Context, Info->PragmaName.getLocation(), PragmaNameInfo);
   // processing 'vector'
   IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
   assert(OptionInfo->isStr("vector"));
@@ -4862,14 +4866,29 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
                            .Case("nodynamic_align", true)
                            .Case("vecremainder", true)
                            .Case("novecremainder", true)
+                           .Case("temporal", true)
+                           .Case("nontemporal", true)
+                           .Case("vectorlength", true)
                            .Default(false);
     if (!OptionValid) {
       bool MissingOption = !HasAlways && OptionInfo->getName() == "assert";
       Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
           << MissingOption << OptionInfo;
     }
-    AddNewAttr(Tok, OptionInfo);
-    ConsumeToken(); // Consume Option token
+    if (OptionInfo->getName() == "vectorlength") {
+      Hint.OptionLoc =
+          IdentifierLoc::create(Actions.Context, Tok.getLocation(), OptionInfo);
+      if (NextToken().isNot(tok::l_paren)) {
+        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
+          << "vector vectorlength";
+        return false;
+      }
+      if (!ParseLoopHintValueList(Hint, Attrs))
+        return false;
+    } else {
+      AddNewAttr(Tok, OptionInfo);
+      ConsumeToken(); // Consume Option token
+    }
   }
 
   if (Tok.isNot(tok::eod)) {

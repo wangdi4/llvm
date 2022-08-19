@@ -46,6 +46,9 @@ void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
     OS << ' ' << getValueString(Policy);
     return;
 #if INTEL_CUSTOMIZATION
+  } else if (SpellingIndex == Pragma_vector) {
+    OS << ' ' << getOptionName(option) << getValueString(Policy);
+    return;
   } else if (SpellingIndex == Pragma_distribute_point)
     return;
   else if (SpellingIndex == Pragma_nofusion)
@@ -53,8 +56,6 @@ void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
   else if (SpellingIndex == Pragma_fusion)
     return;
   else if (SpellingIndex == Pragma_novector)
-    return;
-  else if (SpellingIndex == Pragma_vector)
     return;
   else if (SpellingIndex == Pragma_force_hyperopt)
     return;

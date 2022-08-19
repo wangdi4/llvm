@@ -690,8 +690,14 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  .Case("vecremainder", LoopHintAttr::VectorizeVecremainder)
                  .Case("novecremainder", LoopHintAttr::VectorizeNoVecremainder)
                  .Case("assert", LoopHintAttr::VectorizeAlwaysAssert)
+                 .Case("temporal", LoopHintAttr::VectorizeTemporal)
+                 .Case("nontemporal", LoopHintAttr::VectorizeNonTemporal)
+                 .Case("vectorlength", LoopHintAttr::VectorizeLength)
                  .Default(LoopHintAttr::Vectorize);
-    SetHints(Option, LoopHintAttr::Enable);
+    if (Option == LoopHintAttr::VectorizeLength)
+      SetHints(Option, LoopHintAttr::Numeric);
+    else
+      SetHints(Option, LoopHintAttr::Enable);
   } else if (PragmaName == "loop_count") {
     assert(OptionLoc && OptionLoc->Ident &&
            "Attribute must have valid option info.");
@@ -1269,6 +1275,9 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // VectorVecremainder
                    {nullptr, nullptr}, // VectorNoVecremainder
                    {nullptr, nullptr}, // VectorAlwaysAssert
+                   {nullptr, nullptr}, // VectorTemporal
+                   {nullptr, nullptr}, // VectorNonTemporal
+                   {nullptr, nullptr}, // VectorizeLength
                    {nullptr, nullptr}, // LoopCount
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
@@ -1305,6 +1314,9 @@ CheckForIncompatibleAttributes(Sema &S,
       VectorVecremainder,
       VectorNoVecremainder,
       VectorAlwaysAssert,
+      VectorTemporal,
+      VectorNonTemporal,
+      VectorizeLength,
       LoopCount,
       LoopCountMin,
       LoopCountMax,
@@ -1361,6 +1373,15 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeAlwaysAssert:
       Category = VectorAlwaysAssert;
+      break;
+    case LoopHintAttr::VectorizeTemporal:
+      Category = VectorTemporal;
+      break;
+    case LoopHintAttr::VectorizeNonTemporal:
+      Category = VectorTemporal;
+      break;
+    case LoopHintAttr::VectorizeLength:
+      Category = VectorizeLength;
       break;
     case LoopHintAttr::LoopCount:
       Category = LoopCount;
@@ -1470,6 +1491,9 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::VectorizeVecremainder ||
                Option == LoopHintAttr::VectorizeNoVecremainder ||
                Option == LoopHintAttr::VectorizeAlwaysAssert ||
+               Option == LoopHintAttr::VectorizeTemporal ||
+               Option == LoopHintAttr::VectorizeNonTemporal ||
+               Option == LoopHintAttr::VectorizeLength ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
                Option == LoopHintAttr::LoopCountMax ||
@@ -1478,7 +1502,9 @@ CheckForIncompatibleAttributes(Sema &S,
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
         PrevAttr = nullptr;
-        if (Option == LoopHintAttr::LoopCount &&  CategoryState.NumericAttr) {
+        if ((Option == LoopHintAttr::LoopCount ||
+             Option == LoopHintAttr::VectorizeLength) &&
+            CategoryState.NumericAttr) {
           SourceLocation OptionLoc = LH->getRange().getBegin();
           SourceLocation PrevOptionLoc =
               CategoryState.NumericAttr->getRange().getBegin();

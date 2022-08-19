@@ -127,6 +127,15 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always_assert.enable metadata.
   bool VectorizeAlwaysAssertEnable;
 
+  /// Value for llvm.loop.vector_temporal.enable metadata.
+  bool VectorizeTemporalEnable;
+
+  /// Value for llvm.loop.vector_nontemporal.enable metadata.
+  bool VectorizeNonTemporalEnable;
+
+  /// Value for llvm.loop.vector_vectorlength
+  llvm::SmallVector<unsigned, 2> VectorizeLength;
+
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
@@ -487,26 +496,38 @@ public:
 
   /// Set the back flag for ivdep.
   void setIVDepBack() { StagedAttrs.IVDepBack = true; }
-  /// Set next pushed loop  'vector_always.enable'
+  /// Set next pushed loop  'vector.always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
   }
-  /// Set next pushed loop  'vector_always.enable'
+  /// Set next pushed loop  'vector.always.enable'
   void setVectorizeAlwaysAssertEnable() {
     StagedAttrs.VectorizeAlwaysAssertEnable = true;
   }
-  /// Set next pushed loop  'vector_aligned.enable'
+  /// Set next pushed loop  'vector.temporal.enable'
+  void setVectorizeTemporalEnable() {
+    StagedAttrs.VectorizeTemporalEnable = true;
+  }
+  /// Set next pushed loop  'vector.nontemporal.enable'
+  void setVectorizeNonTemporalEnable() {
+    StagedAttrs.VectorizeNonTemporalEnable = true;
+  }
+  /// Set the VectorLength for the next loop pushed.
+  void setVectorLength(unsigned C) {
+    StagedAttrs.VectorizeLength.push_back(C);
+  }
+  /// Set next pushed loop  'vector.aligned.enable'
   void setVectorizeAlignedEnable() {
     StagedAttrs.VectorizeAlignedEnable = true;
   }
 
 
-  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  /// Set next pushed loop  'vector.dynamic_aligned.enable'
   void setVectorizeDynamicAlignEnable() {
     StagedAttrs.VectorizeDynamicAlignEnable = true;
   }
 
-  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  /// Set next pushed loop  'vector.nodynamic_aligned.enable'
   void setVectorizeNoDynamicAlignEnable() {
     StagedAttrs.VectorizeNoDynamicAlignEnable = true;
   }

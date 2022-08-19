@@ -301,9 +301,6 @@ EXTERN void __tgt_rtl_add_build_options(
 // Check if the specified device type is supported
 EXTERN int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 
-// Deinit RTL
-EXTERN void __tgt_rtl_deinit(void);
-
 #if INTEL_CUSTOMIZATION
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(

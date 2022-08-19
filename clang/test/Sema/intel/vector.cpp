@@ -112,4 +112,34 @@ void goo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeTemporal Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector temporal
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeNonTemporal Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector nontemporal
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeLength Numeric
+  // CHECK-NEXT: IntegerLiteral{{.*}} 2
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeLength Numeric
+  // CHECK-NEXT: IntegerLiteral{{.*}} 4
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector vectorlength(2,4)
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
 }
