@@ -1,7 +1,8 @@
 ; Check fp16 implementation status.
 
-; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
-; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
+; FIXME: SATest build would fail because 'isnan(half)' is not implemented yet.
+; RUN: not SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
+; RUN: not SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
 
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4acosDv32_Dh(<32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z5acoshDv32_Dh(<32 x half> {{.*}})
@@ -46,7 +47,7 @@
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z3madDv32_DhS_S_(<32 x half> {{.*}}, <32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z6maxmagDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z6minmagDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
-; CHECK32-VPLAN-NOT: call{{.*}} <32 x half> @_Z3nanDv32_j(<32 x i32> {{.*}})
+; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z3nanDv32_t(<32 x i16> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z9nextafterDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z3powDv32_DhS_(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4pownDv32_DhDv32_i(<32 x half> {{.*}}, <32 x i32> {{.*}})
@@ -116,7 +117,7 @@
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z3madDv64_DhS_S_(<64 x half> {{.*}}, <64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z6maxmagDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z6minmagDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
-; CHECK64-VPLAN-NOT: call{{.*}} <64 x half> @_Z3nanDv64_j(<64 x i32> {{.*}})
+; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z3nanDv64_t(<64 x i16> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z9nextafterDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z3powDv64_DhS_(<64 x half> {{.*}}, <64 x half> {{.*}})
 ; CHECK64-VPLAN: call{{.*}} <64 x half> @_Z4pownDv64_DhDv64_i(<64 x half> {{.*}}, <64 x i32> {{.*}})

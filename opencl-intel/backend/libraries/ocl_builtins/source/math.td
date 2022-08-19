@@ -70,7 +70,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def maxmag_f16 : OclBuiltin<"maxmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def minmag_f16 : OclBuiltin<"minmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def modf_pas2_f16 : OclBuiltin<"modf_ret2ptr", (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    // def nan_f16 : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$x)>;
     def nextafter_f16 : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def pow_f16 : OclBuiltin<"pow", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def powr_f16 : OclBuiltin<"powr", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
@@ -91,6 +90,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
   } // defset math_generic_builtins
 
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
+  def nan_f16 : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode)>;
 
   defset list<OclBuiltin> math_builtins_with_i32gentype_arg1 = {
     def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
@@ -219,6 +219,11 @@ foreach bi = math_generic_builtins in {
 // Specialized implementations
 // mad: returns a*b+c
 def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
+
+// nan: returns 0b0111_1100_0000_0000 | nancode
+def : OclBuiltinImpl<nan_f16, math_f16_types, false, [{
+  return __builtin_astype(($Arg0Type)($Arg0VarName | ($Arg0Type)0x7C00), $ReturnType);
+}]>, SHARED;
 
 // gentype func(gentype, gentype *)
 foreach bi = math_builtins_with_pgentype_arg1 in {
