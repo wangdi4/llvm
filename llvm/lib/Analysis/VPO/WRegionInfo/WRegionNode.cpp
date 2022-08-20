@@ -1636,15 +1636,18 @@ void WRegionNode::extractInclusiveExclusiveOpndList(
   assert((ClauseInfo.getId() == QUAL_OMP_INCLUSIVE ||
           ClauseInfo.getId() == QUAL_OMP_EXCLUSIVE) &&
          "Unexpected clause.");
-  assert(!ClauseInfo.getIsTyped() &&
-         "Typed clauses are not supported for Inclusive/Exclusive clauses.");
-  assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
-                         "operands: var and inscan_idx");
+  if (ClauseInfo.getIsTyped())
+    assert(NumArgs == 4 && "Inclusive/Exclusive quals should only have four "
+                           "operands: var, type, number of elements and "
+                           "inscan_idx");
+  else
+    assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
+                           "operands: var and inscan_idx");
 
   C.add(Args[0]);
 
   uint64_t InscanIdx = 0;
-  Value *InscanIdxV = Args[1];
+  Value *InscanIdxV = Args[ClauseInfo.getIsTyped() ? 3 : 1];
 
   assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
   InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();

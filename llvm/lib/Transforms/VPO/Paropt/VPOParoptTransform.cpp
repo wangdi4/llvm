@@ -2960,6 +2960,15 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
   return V;
 }
 
+Value *VPOParoptTransform::genReductionInscanInit(Type *ScalarTy,
+                                                  Value *ReductionVar,
+                                                  IRBuilder<> &Builder) {
+  // For simd inscan reduction actual start value is required in the loop.
+  Value *V = Builder.CreateLoad(ScalarTy, ReductionVar);
+  return V;
+}
+
+
 // Generate the reduction intialization instructions.
 Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
@@ -3973,6 +3982,14 @@ bool VPOParoptTransform::genReductionScalarFini(
 
   PHINode *SumPhi = !IsArraySection ? PHINode::Create(RedElemType, 0) : nullptr;
 
+  // For simd inscan the calculated reduction is the final value.
+  if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan()) {
+    auto *Load = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
+    Builder.CreateStore(Load, ReductionVar);
+    // No need for atomic updates for SIMD loops.
+    return false;
+  }
+
   // NOTE: due to some weird load elimination + phi translation by GVN we want
   // to generate volatile load from the reduction variable for the local
   // update loop. The load from ReductionValueLoc doesn't need to be volatile
@@ -4252,7 +4269,8 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   Value *DestVal = (IsInit ? AI : OldV);
 
   // For reduction init loop, if the reduction is UDR with non-null initializer,
-  // Src and Dest are needed; otherwise, only Dest is needed.
+  // or SIMD scan reduction, Src and Dest are needed; otherwise,
+  // only Dest is needed.
   // For reduction fini loop, both Src and Dest are needed.
   if (SrcVal == nullptr)
     genAggrReductionInitDstInfo(*RedI, DestVal, InsertPt, Builder, NumElements,
@@ -4400,7 +4418,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
       genReductionUdrInit(RedI, SrcElementPHI, DestElementPHI, DestElementTy,
                           Builder);
     else {
-      Value *V = genReductionScalarInit(RedI, DestElementTy);
+      Value *V = nullptr;
+      if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan())
+        V = genReductionInscanInit(DestElementTy, SrcElementPHI, Builder);
+      else
+        V = genReductionScalarInit(RedI, DestElementTy);
       Builder.CreateStore(V, DestElementPHI);
     }
   } else {
@@ -5007,6 +5029,9 @@ void VPOParoptTransform::genConditionalLPCode(
 //    store float 0.000000e+00, float* %sum.red
 //    br label %dir.exit
 //
+// For simd inscan reduction the actual start value is used, not the
+// identity, as the start value is required inside the loop.
+//
 void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
                                           Instruction *InsertPt,
@@ -5023,7 +5048,8 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   //       with array sections (which would have an explicit number of elements
   //       specified).
   bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
-  bool NeedSrc = IsUDR && (RedI->getInitializer() != nullptr);
+  bool NeedSrc = (IsUDR && (RedI->getInitializer() != nullptr)) ||
+                 (isa<WRNVecLoopNode>(W) && RedI->getIsInscan());
   Value *OldV = RedI->getOrig();
   Value *NewV = RedI->getNew();
   if (NeedSrc) {
@@ -5067,7 +5093,11 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                       InsertPt->getModule()->getDataLayout()) ||
           RedI->getIsComplex()) &&
          "genReductionInit: Expect incoming scalar/complex type.");
-  Value *V = genReductionScalarInit(RedI, AllocaTy);
+  Value *V = nullptr;
+    if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan())
+      V = genReductionInscanInit(AllocaTy, OldV, Builder);
+    else
+      V = genReductionScalarInit(RedI, AllocaTy);
   Builder.CreateStore(V, NewV);
 }
 

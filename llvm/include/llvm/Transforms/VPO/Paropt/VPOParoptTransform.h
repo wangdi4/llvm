@@ -753,6 +753,10 @@ private:
                            Value *ReductionValueLoc, Type *ScalarTy,
                            IRBuilder<> &Builder);
 
+  /// Generate the inscan reduction initialization.
+  Value *genReductionInscanInit(Type *ScalarTy, Value *ReductionVar,
+                                IRBuilder<> &Builder);
+
   /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
