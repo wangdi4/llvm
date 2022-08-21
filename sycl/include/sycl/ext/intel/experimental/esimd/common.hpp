@@ -58,6 +58,7 @@ using bfloat16 = uint16_t;
 /* end INTEL_CUSTOMIZATION */
 
 enum class argument_type {
+<<<<<<< HEAD
   U1 = 0,   // unsigned 1 bit
   S1 = 1,   // signed 1 bit
   U2 = 2,   // unsigned 2 bits
@@ -74,6 +75,19 @@ enum class argument_type {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
   TF32 = 11 // tensorfloat 32
+=======
+  U1 = 1,   // unsigned 1 bit
+  S1 = 2,   // signed 1 bit
+  U2 = 3,   // unsigned 2 bits
+  S2 = 4,   // signed 2 bits
+  U4 = 5,   // unsigned 4 bits
+  S4 = 6,   // signed 4 bits
+  U8 = 7,   // unsigned 8 bits
+  S8 = 8,   // signed 8 bits
+  BF16 = 9, // bfloat 16
+  FP16 = 10, // half float
+  TF32 = 12 // tensorfloat 32
+>>>>>>> 82100830005a2b1e72951126abe7a6cef4fd8bef
 };
 
 
