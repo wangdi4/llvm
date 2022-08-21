@@ -167,7 +167,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN"(i32* %min) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(i32* %min, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:

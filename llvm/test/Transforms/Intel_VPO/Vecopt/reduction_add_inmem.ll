@@ -151,7 +151,7 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %sum, i32 0, i32 1) ]
   br label %for.body
 
 for.body:

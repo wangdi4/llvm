@@ -10,11 +10,11 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 
 ; LLVM-IR: Complex type reductions are not supported
-; LLVM-IR: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX"(%complex_64bit* %sum) ]
+; LLVM-IR: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(%complex_64bit* %sum, %complex_64bit zeroinitializer, i32 1) ]
 
 ; HIR: Complex type reductions are not supported
 ; HIR: BEGIN REGION { }
-; HIR:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD:CMPLX(&((%sum)[0])) ]
+; HIR:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(), QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED(&((%sum)[0])zeroinitializer1) ]
 ; HIR:      DO i1 = 0, %N + -1, 1   <DO_LOOP> <simd> <vectorize>
 
 %complex_64bit = type { float, float }
@@ -28,7 +28,7 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX"(%complex_64bit* %sum) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(%complex_64bit* %sum, %complex_64bit zeroinitializer, i32 1) ]
   br label %for.body
 
 for.body:

@@ -19,7 +19,7 @@ entry:
   br label %for.body5.preheader.i
 
 for.body5.preheader.i:                            ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(i1* %priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i1* %priv, i1 zeroinitializer, i32 1) ]
   br label %for.body5.i
 
 for.body5.i:                                      ; preds = %if.end33.i, %for.body5.preheader.i

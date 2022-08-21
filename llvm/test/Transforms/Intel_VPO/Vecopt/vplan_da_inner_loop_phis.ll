@@ -60,7 +60,7 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %0
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i64* %alloca.7, i64* %alloca.8) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.8, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
@@ -163,7 +163,7 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %0
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i64* %alloca.7, i64* %alloca.8) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.7, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca.8, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region

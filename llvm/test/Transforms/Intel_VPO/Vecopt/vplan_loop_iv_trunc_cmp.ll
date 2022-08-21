@@ -81,7 +81,7 @@ entry:
   br label %simd.begin
 
 simd.begin:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL"(i32* %cond.priv) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i32* %cond.priv, i32 0, i32 1) ]
   br label %for.body
 
 for.body:                                           ; preds = %for.body.preheader, %for.body
