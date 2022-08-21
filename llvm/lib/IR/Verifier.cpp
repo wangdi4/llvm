@@ -5290,7 +5290,6 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           Call);
     break;
   case Intrinsic::prefetch:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
     Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 3 &&
@@ -5305,15 +5304,14 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
           "invalid arguments to llvm.prefetch", Call);
 #endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
-=======
+#else // INTEL_CUSTOMIZATION
     Check(cast<ConstantInt>(Call.getArgOperand(1))->getZExtValue() < 2,
           "rw argument to llvm.prefetch must be 0-1", Call);
     Check(cast<ConstantInt>(Call.getArgOperand(2))->getZExtValue() < 4,
           "locality argument to llvm.prefetch must be 0-4", Call);
     Check(cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue() < 2,
           "cache type argument to llvm.prefetch must be 0-1", Call);
->>>>>>> 3a729069e463440035284ae6a27798b2573223de
+#endif // INTEL_CUSTOMIZATION
     break;
   case Intrinsic::stackprotector:
     Check(isa<AllocaInst>(Call.getArgOperand(1)->stripPointerCasts()),
