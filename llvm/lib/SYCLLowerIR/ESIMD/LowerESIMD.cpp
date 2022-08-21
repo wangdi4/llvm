@@ -536,17 +536,16 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-        {"dpas",
-         {"dpas2", {a(0), a(1), a(2), a(3), a(4), a(5), a(6), a(7), a(8)}}},
-        {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
-        {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
-        {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+        {"dpas2",
+         {"dpas2", {a(0), a(1), a(2), t(0), t(1), t(2), t(3), t(11), t(12)}}},
+        {"dpas_nosrc0", {"dpas.nosrc0", {a(0), a(1), t(0)}}},
+        {"dpasw", {"dpasw", {a(0), a(1), a(2), t(0)}}},
+        {"dpasw_nosrc0", {"dpasw.nosrc0", {a(0), a(1), t(0)}}},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"bf_cvt", { "bf.cvt", { a(0) }}},
@@ -555,13 +554,6 @@ public:
         {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-=======
-        {"dpas2",
-         {"dpas2", {a(0), a(1), a(2), t(0), t(1), t(2), t(3), t(11), t(12)}}},
-        {"dpas_nosrc0", {"dpas.nosrc0", {a(0), a(1), t(0)}}},
-        {"dpasw", {"dpasw", {a(0), a(1), a(2), t(0)}}},
-        {"dpasw_nosrc0", {"dpasw.nosrc0", {a(0), a(1), t(0)}}},
->>>>>>> 82100830005a2b1e72951126abe7a6cef4fd8bef
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal",
          {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},

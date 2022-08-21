@@ -1937,7 +1937,12 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
   // From ESIMD compiler side the additional compile-time help/convenience may
   // be provided via using optional target-specific macros to enforce
   // verification of arguments and returns at compilation time.
-#if defined(ESIMD_XE_HPC)
+#if defined(ESIMD_XE_HPC) || \
+/* INTEL_CUSTOMIZATION */ \
+/* INTEL_FEATURE_ESIMD_EMBARGO */ \
+    defined(ESIMD_XE2_HPC)
+/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
+/* end INTEL_CUSTOMIZATION */ \
   // f, bf | f, bf | bf | bf
   constexpr bool check_bf16 = detail::is_one_of_v<T, float, short> &&
                               detail::is_one_of_v<T0, float, short> &&
@@ -1945,51 +1950,6 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
                               src2_precision == argument_type::BF16;
 
   // f,hf | f, hf | hf | hf
-<<<<<<< HEAD
-  constexpr bool check_hf =
-      detail::is_one_of_v<T, float, half> &&
-      detail::is_one_of_v<T0, float, half> &&
-      detail::is_one_of_enum_v<argument_type, src1_precision,
-                               argument_type::FP16> &&
-      detail::is_one_of_enum_v<argument_type, src2_precision,
-                               argument_type::FP16>;
-
-#if defined(ESIMD_XE_HPC) || \
-/* INTEL_CUSTOMIZATION */ \
-/* INTEL_FEATURE_ESIMD_EMBARGO */ \
-    defined(ESIMD_XE2_HPC) || \
-/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
-/* end INTEL_CUSTOMIZATION */ \
-    defined(ESIMD_XE_HPG)
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-  // f, hf, bf | f, hf, bf | bf8 | bf8
-  constexpr bool check_bf8 =
-      detail::is_one_of_v<T, float, half, short> &&
-      detail::is_one_of_v<T0, float, half, short> &&
-      detail::is_one_of_enum_v<argument_type, src1_precision,
-                               argument_type::BF8> &&
-      detail::is_one_of_enum_v<argument_type, src2_precision,
-                               argument_type::BF8>;
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-  // f | f | tf32 | tf32
-  constexpr bool check_tf32 =
-      detail::is_one_of_v<T, float> && detail::is_one_of_v<T0, float> &&
-      detail::is_one_of_enum_v<argument_type, src1_precision,
-                               argument_type::TF32> &&
-      detail::is_one_of_enum_v<argument_type, src2_precision,
-                               argument_type::TF32>;
-#endif // defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
-
-#if defined(ESIMD_XE_HPC) || \
-/* INTEL_CUSTOMIZATION */ \
-/* INTEL_FEATURE_ESIMD_EMBARGO */ \
-    defined(ESIMD_XE2_HPC) || \
-/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
-/* end INTEL_CUSTOMIZATION */ \
-    defined(ESIMD_XE_HPG)
-=======
   constexpr bool check_hf = detail::is_one_of_v<T, float, half> &&
                             detail::is_one_of_v<T0, float, half> &&
                             src1_precision == argument_type::FP16 &&
@@ -2001,7 +1961,16 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
                               src1_precision == argument_type::TF32 &&
                               src2_precision == argument_type::TF32;
 
->>>>>>> 82100830005a2b1e72951126abe7a6cef4fd8bef
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+  // f, hf, bf | f, hf, bf | bf8 | bf8
+  constexpr bool check_bf8 = detail::is_one_of_v<T, float, half, short> &&
+                             detail::is_one_of_v<T0, float, half, short> &&
+                             src1_precision == argument_type::BF8 &&
+                             src2_precision == argument_type::BF8;
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
   constexpr bool check_passed =
       (check_integer || check_hf || check_bf16 ||
 /* INTEL_CUSTOMIZATION */
@@ -2012,26 +1981,16 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
 	   check_tf32);
   static_assert(check_passed,
                 "unsupported dpas type! The supported types are:\n"
-<<<<<<< HEAD
-                "    dst    |    src0    |      src1      |      src2      \n"
-                "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
-                "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
-                "   f, bf   |    f, bf   |       bf       |       bf       \n"
-                "   f, hf   |    f, hf   |       hf       |       hf       \n"
+                "   dst   |   src0   |      src1        |      src2        \n"
+                "  ud, d  |  ud, d   | ub,b,u4,s4,u2,s2 | ub,b,u4,s4,u2,s2 \n"
+                "  f, bf  |  f, bf   |       bf         |       bf         \n"
+                "  f, hf  |  f, hf   |       hf         |       hf         \n"
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
                 " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-                "    f      |     f      |      tf32      |      tf32      \n");
-#else  // else defined(ESIMD_XE_HPC) || defined(ESIMD_XE_HPG)
-=======
-                "   dst   |   src0   |      src1        |      src2        \n"
-                "  ud, d  |  ud, d   | ub,b,u4,s4,u2,s2 | ub,b,u4,s4,u2,s2 \n"
-                "  f, bf  |  f, bf   |       bf         |       bf         \n"
-                "  f, hf  |  f, hf   |       hf         |       hf         \n"
                 "  f      |  f       |      tf32        |      tf32        \n");
-
   static_assert((N == 16 * repeat_count), "Execution size on PVC must be 16");
 #else  // else defined(ESIMD_XE_HPC)
   // f | f | bf | bf
@@ -2046,7 +2005,6 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
                             src1_precision == argument_type::FP16 &&
                             src1_precision == argument_type::FP16;
 
->>>>>>> 82100830005a2b1e72951126abe7a6cef4fd8bef
   constexpr bool check_passed = (check_integer || check_hf || check_bf16);
   static_assert(check_passed,
                 "unsupported dpas type! The supported types are:\n"
@@ -2063,25 +2021,7 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
   static_assert(__ESIMD_DNS::is_dword_type<T2>::value,
                 "Src2 must be DWORD type");
 
-<<<<<<< HEAD
-#if defined(ESIMD_XE_HPC) || \
-/* INTEL_CUSTOMIZATION */ \
-/* INTEL_FEATURE_ESIMD_EMBARGO */ \
-    defined(ESIMD_XE2_HPC) || \
-/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
-/* end INTEL_CUSTOMIZATION */ \
-    defined(ESIMD_XE_HPG)
-  static_assert((N == 16 * repeat_count), "Execution size on PVC must be 16");
-#else
-  static_assert((N == 8 * repeat_count), "Execution size must be 8");
-#endif
-
-  static_assert((systolic_depth == 8) || (systolic_depth == 4),
-                "systolic_depth must be 8 or 4");
-
-=======
   static_assert(systolic_depth == 8, "systolic_depth must be 8");
->>>>>>> 82100830005a2b1e72951126abe7a6cef4fd8bef
   static_assert((repeat_count >= 1) && (repeat_count <= 8),
                 "repeat_count must be within 1 to 8");
 
