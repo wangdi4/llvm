@@ -54,7 +54,7 @@ if(CLANG_BUILT_STANDALONE)
 
   # They are used as destination of target generators.
   set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/bin)
-  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib${LLVM_LIBDIR_SUFFIX})
   if(WIN32 OR CYGWIN)
     # DLL platform -- put DLLs into bin.
     set(LLVM_SHLIB_OUTPUT_INTDIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
@@ -89,8 +89,8 @@ if(CLANG_BUILT_STANDALONE)
   link_directories("${LLVM_LIBRARY_DIR}")
 
   set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin )
-  set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib )
-  set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib )
+  set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
+  set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX} )
 
   if(LLVM_INCLUDE_TESTS)
     find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED
@@ -328,7 +328,6 @@ if (NOT LLVM_LINK_LLVM_DYLIB AND CLANG_LINK_CLANG_DYLIB)
                       "LLVM_LINK_LLVM_DYLIB=OFF")
 endif()
 
-<<<<<<< HEAD
 # The libdir suffix must exactly match whatever LLVM's configuration used.
 set(CLANG_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}")
 
@@ -336,10 +335,6 @@ set(CLANG_LIBDIR_SUFFIX "${LLVM_LIBDIR_SUFFIX}")
 set(CLANG_TOOLS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE PATH
     "Path for binary subdirectory (defaults to '${LLVM_TOOLS_INSTALL_DIR}')")
 # end INTEL_CUSTOMIZATION
-=======
-set(CLANG_TOOLS_INSTALL_DIR "${CMAKE_INSTALL_BINDIR}" CACHE PATH
-    "Path for binary subdirectory (defaults to '${CMAKE_INSTALL_BINDIR}')")
->>>>>>> f7a33090a91015836497c75f173775392ab0304d
 mark_as_advanced(CLANG_TOOLS_INSTALL_DIR)
 
 set(CLANG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -905,8 +900,6 @@ if(CLANG_BUILT_STANDALONE)
   llvm_distribution_add_targets()
   process_llvm_pass_plugins()
 endif()
-
-get_filename_component(CLANG_INSTALL_LIBDIR_BASENAME "${CMAKE_INSTALL_LIBDIR}" NAME)
 
 configure_file(
   ${CLANG_SOURCE_DIR}/include/clang/Config/config.h.cmake
