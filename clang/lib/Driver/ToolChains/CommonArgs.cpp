@@ -556,6 +556,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     const char *Suffix = ".so";
 #endif
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     const char * PluginName = "LLVMgold";
     if (D.IsIntelMode())
@@ -568,6 +569,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     llvm::sys::path::append(Plugin, "lib" CLANG_LIBDIR_SUFFIX,
                             Twine(PluginName) + Twine(Suffix));
 #endif // INTEL_CUSTOMIZATION
+=======
+    SmallString<1024> Plugin;
+    llvm::sys::path::native(
+        Twine(D.Dir) + "/../lib" CLANG_LIBDIR_SUFFIX "/LLVMgold" + Suffix,
+        Plugin);
+>>>>>>> e941b031d316f74267350fe2373d30e28b3a2c2e
     CmdArgs.push_back(Args.MakeArgString(Plugin));
   }
 

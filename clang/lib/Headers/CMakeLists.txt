@@ -864,6 +864,7 @@ add_header_target("windows-resource-headers" ${windows_only_files})
 add_header_target("utility-resource-headers" ${utility_files})
 
 set(header_install_dir lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+<<<<<<< HEAD
 
 if(INTEL_CUSTOMIZATION)
   # Avoid deploying header files for unsupported targets.
@@ -899,6 +900,8 @@ if(INTEL_CUSTOMIZATION)
   # Currently all generated files are for ARM.  Avoid deploying them.
   set(generated_files)
 endif(INTEL_CUSTOMIZATION)
+=======
+>>>>>>> e941b031d316f74267350fe2373d30e28b3a2c2e
 
 #############################################################
 # Install rules for the catch-all clang-resource-headers target

@@ -74,6 +74,7 @@ project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
 
+<<<<<<< HEAD
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2023")
@@ -96,6 +97,8 @@ if (INTEL_CUSTOMIZATION)
     )
 endif (INTEL_CUSTOMIZATION)
 
+=======
+>>>>>>> e941b031d316f74267350fe2373d30e28b3a2c2e
 # Must go after project(..)
 include(GNUInstallDirs)
 
