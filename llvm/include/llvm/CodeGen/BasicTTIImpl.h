@@ -1266,7 +1266,8 @@ public:
                 ? commonAlignment(*Alignment, SL->getElementOffset(EI - EB))
                 : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
-            Opcode, *EI, ElementAlignment, AddressSpace, CostKind, I);
+            Opcode, *EI, ElementAlignment, AddressSpace, CostKind,
+            TTI::OK_AnyValue, I);
       }
       return Cost;
     }
@@ -1280,7 +1281,8 @@ public:
         MaybeAlign ElementAlignment =
             Alignment ? commonAlignment(*Alignment, i * EltSize) : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
-            Opcode, EltTy, ElementAlignment, AddressSpace, CostKind, I);
+            Opcode, EltTy, ElementAlignment, AddressSpace, CostKind,
+            TTI::OK_AnyValue, I);
       }
       return Cost;
     }

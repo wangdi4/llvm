@@ -4318,7 +4318,7 @@ InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   // Defer to base implementation to split.
   if (Src->isAggregateType())
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
-                                  CostKind, I);
+                                  CostKind, TTI::OK_AnyValue, I);
 #endif
 
   // TODO: Handle other cost kinds.
