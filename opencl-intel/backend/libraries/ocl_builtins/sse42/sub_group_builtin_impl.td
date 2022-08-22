@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 list<OclType> sub_group_types_all = [v1i32, v4i32, v8i32, v16i32,
                                      v1u32, v4u32, v8u32, v16u32,
                                      v1i64, v4i64, v8i64, v16i64,
@@ -1468,30 +1480,34 @@ OclBuiltinImpl sub_group_shuffle_up_avx_gen = OclBuiltinImpl<sub_group_shuffle_u
     return *($Arg0Type*)&temp;
   }]>;
 
-OclBuiltinImpl khr_sub_group_shuffle_up_avx_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx,
-  VFType<khr_shuffle_gentype, "_avx">.Tout, 0, [{
-    int4 sg_indexes = { 0, 1, 2, 3};
-    sg_indexes = sg_indexes - *(int4*)&$Arg1VarName;
-    sg_indexes &= *(int4*)&$Arg2VarName;
-    int4 indexes_mask = sg_indexes >= 0;
-    return sub_group_shuffle($Arg0VarName, *(uint4*)&sg_indexes, *(uint4*)&indexes_mask);
-  }]>;
-OclBuiltinImpl khr_sub_group_shuffle_up_avx2_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx2,
-  VFType<khr_shuffle_gentype, "_avx2">.Tout, 0, [{
-    int8 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7};
-    sg_indexes = sg_indexes - *(int8*)&$Arg1VarName;
-    sg_indexes &= *(int8*)&$Arg2VarName;
-    int8 indexes_mask = sg_indexes >= 0;
-    return sub_group_shuffle($Arg0VarName, *(uint8*)&sg_indexes, *(uint8*)&indexes_mask);
-  }]>;
-OclBuiltinImpl khr_sub_group_shuffle_up_avx512_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx512,
-  VFType<khr_shuffle_gentype, "_avx512">.Tout, 0, [{
-    int16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    sg_indexes = sg_indexes - *(int16*)&$Arg1VarName;
-    sg_indexes &= *(int16*)&$Arg2VarName;
-    int16 indexes_mask = sg_indexes >= 0;
-    return sub_group_shuffle($Arg0VarName, *(uint16*)&sg_indexes, *(uint16*)&indexes_mask);
-  }]>;
+code khr_sub_group_shuffle_up_code = [{
+    int$VecLength sg_indexes = $INDEXES;
+    sg_indexes = sg_indexes - *(int$VecLength*)&$Arg1VarName;
+    sg_indexes &= *(int$VecLength*)&$Arg2VarName;
+    int$VecLength indexes_mask = sg_indexes >= 0;
+    return sub_group_shuffle($Arg0VarName, *(uint$VecLength*)&sg_indexes, *(uint$VecLength*)&indexes_mask);
+}];
+
+OclBuiltinImpl khr_sub_group_shuffle_up_avx_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx.Types, 0, khr_sub_group_shuffle_up_code, [["$INDEXES", "{0, 1, 2, 3}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_up_avx2_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx2.Types, 0, khr_sub_group_shuffle_up_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_up_avx512_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_avx512, khr_sub_group_shuffle_up_avx512.Types, 0, khr_sub_group_shuffle_up_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_up_x32_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_x32, khr_sub_group_shuffle_up_x32.Types, 0, khr_sub_group_shuffle_up_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_up_x64_gentype = OclBuiltinImpl<khr_sub_group_shuffle_up_x64, khr_sub_group_shuffle_up_x64.Types, 0, khr_sub_group_shuffle_up_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63}"]]>;
+
+code khr_sub_group_shuffle_down_code = [{
+    uint$VecLength sg_indexes = $INDEXES;
+    sg_indexes = sg_indexes + $Arg1VarName;
+    sg_indexes &= $Arg2VarName;
+    int$VecLength indexes_mask = sg_indexes < $VecLength;
+    return sub_group_shuffle($Arg0VarName, sg_indexes, *(uint$VecLength*)&indexes_mask);
+}];
+
+OclBuiltinImpl khr_sub_group_shuffle_down_avx_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx.Types, 0, khr_sub_group_shuffle_down_code, [["$INDEXES", "{0, 1, 2, 3}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_down_avx2_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx2.Types, 0, khr_sub_group_shuffle_down_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_down_avx512_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_avx512, khr_sub_group_shuffle_down_avx512.Types, 0, khr_sub_group_shuffle_down_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_down_x32_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_x32, khr_sub_group_shuffle_down_x32.Types, 0, khr_sub_group_shuffle_down_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}"]]>;
+OclBuiltinImpl khr_sub_group_shuffle_down_x64_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_x64, khr_sub_group_shuffle_down_x64.Types, 0, khr_sub_group_shuffle_down_code, [["$INDEXES", "{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63}"]]>;
+
 OclBuiltinImpl khr_sub_group_shuffle_down_avx_gentype = OclBuiltinImpl<khr_sub_group_shuffle_down_avx,
   VFType<khr_shuffle_gentype, "_avx">.Tout, 0, [{
     uint4 sg_indexes = { 0, 1, 2, 3};

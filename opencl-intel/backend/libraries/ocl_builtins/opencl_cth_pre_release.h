@@ -1110,6 +1110,13 @@ double  __attribute__((overloadable)) intel_sub_group_shuffle_up( double prev, d
 double  __attribute__((overloadable)) intel_sub_group_shuffle_xor( double x, uint c );
 #endif
 
+#if defined(cl_khr_fp16)
+half  __attribute__((overloadable)) intel_sub_group_shuffle(half   x, uint c);
+half  __attribute__((overloadable)) intel_sub_group_shuffle_xor(half   x, uint c);
+half  __attribute__((overloadable)) intel_sub_group_shuffle_down( half prev, half cur, uint c );
+half  __attribute__((overloadable)) intel_sub_group_shuffle_up( half prev, half cur, uint c );
+#endif // defined(cl_khr_fp16)
+
 #endif // defined(cl_intel_subgroups)
 
 #endif // #ifndef _OPENCL_CTH_
