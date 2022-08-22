@@ -6445,8 +6445,7 @@ LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
     Cost += TTI.getMaskedMemoryOpCost(I->getOpcode(), VectorTy, Alignment, AS,
                                       CostKind);
   } else {
-    TTI::OperandValueProperties OpVP = TTI::OP_None;
-    TTI::OperandValueKind OpVK = TTI::getOperandInfo(I->getOperand(0), OpVP);
+    TTI::OperandValueKind OpVK = TTI::getOperandInfo(I->getOperand(0));
     Cost += TTI.getMemoryOpCost(I->getOpcode(), VectorTy, Alignment, AS,
                                 CostKind, OpVK, I);
   }
@@ -6726,8 +6725,7 @@ LoopVectorizationCostModel::getMemoryInstructionCost(Instruction *I,
     const Align Alignment = getLoadStoreAlignment(I);
     unsigned AS = getLoadStoreAddressSpace(I);
 
-    TTI::OperandValueProperties OpVP = TTI::OP_None;
-    TTI::OperandValueKind OpVK = TTI::getOperandInfo(I->getOperand(0), OpVP);
+    TTI::OperandValueKind OpVK = TTI::getOperandInfo(I->getOperand(0));
     return TTI.getAddressComputationCost(ValTy) +
            TTI.getMemoryOpCost(I->getOpcode(), ValTy, Alignment, AS,
                                TTI::TCK_RecipThroughput, OpVK, I);
