@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <random>
 #include <string>
 
 class TestHostSidePipes : public OCLFPGABaseFixture {
@@ -280,6 +281,7 @@ TEST_F(TestHostSidePipes, MapSeq) {
 
   std::vector<void *> maps;
   std::vector<cl_int> indices;
+  std::mt19937 r(666);
 
   for (cl_int i = 0; i < (cl_int)numPackets; ++i) {
     void *mem = nullptr;
@@ -288,8 +290,7 @@ TEST_F(TestHostSidePipes, MapSeq) {
     indices.push_back(i);
   }
 
-  std::srand(666);
-  std::random_shuffle(indices.begin(), indices.end());
+  std::shuffle(indices.begin(), indices.end(), r);
 
   for (cl_int i : indices) {
     void *mem = maps[i];
