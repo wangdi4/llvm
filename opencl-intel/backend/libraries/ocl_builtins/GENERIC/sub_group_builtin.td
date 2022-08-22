@@ -216,7 +216,7 @@ Attrs = [OVERLOADABLE] in {
 
   def khr_sub_group_shuffle_up : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
   def khr_sub_group_shuffle_down : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
-  foreach suffix = ["_avx", "_avx2", "_avx512"] in {
+  foreach suffix = ["_avx", "_avx2", "_avx512", "_x32", "_x64"] in {
       defvar types = VFType<khr_shuffle_gentype, suffix>.Tout;
       defvar delta_mask = !head(VFType<[v1u32], suffix>.Tout);
       def khr_sub_group_shuffle_up#suffix : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, delta_mask:$delta, delta_mask:$vec_mask), types, [], 1, 0>;
@@ -841,5 +841,5 @@ let Types = [v1u8], NeedWidenTypes=0 in {
 let Types = [v1i32] in {
 def intel_sub_group_ballot_vect_info : VectInfo<[], intel_sub_group_ballot, intel_sub_group_ballot_vf4, intel_sub_group_ballot_vf8, intel_sub_group_ballot_vf16>;
 }
-def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512>;
-def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512>;
+def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512, khr_sub_group_shuffle_up_x32, khr_sub_group_shuffle_up_x64>;
+def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512, khr_sub_group_shuffle_up_x32, khr_sub_group_shuffle_up_x64>;

@@ -96,3 +96,123 @@ foreach vf = [4, 8, 16, 32, 64] in {
 let Types = [v1i32] in {
 def : VectInfo<[], sub_group_ballot, sub_group_ballot_vf4, sub_group_ballot_vf8, sub_group_ballot_vf16, sub_group_ballot_vf32, sub_group_ballot_vf64>;
 }
+
+// --- sub_group_shuffle builtins ---
+//
+// 
+// https://registry.khronos.org/OpenCL/extensions/intel/cl_intel_subgroups.html
+// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroup_shuffle
+//
+
+defvar sub_group_types = [v1f16];
+
+// Prototypes
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
+  // scalar
+  let Types = [v1f16] in {
+    def sub_group_shuffle_vf1 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id)>;
+    def sub_group_shuffle_xor_vf1 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id)>;
+    def sub_group_shuffle_up_vf1 : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, gentype:$current, v1u32: $sub_group_local_id)>;
+    def sub_group_shuffle_down_vf1 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, gentype:$next, v1u32: $sub_group_local_id)>;
+
+    def khr_sub_group_shuffle_up_vf1 : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, v1u32: $delta)>;
+    def khr_sub_group_shuffle_down_vf1 : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, v1u32: $delta)>;
+  }
+  // vectorized
+  foreach vf = [4, 8, 16, 32, 64] in {
+    defvar mask_type = !cast<OclType>("v" # vf # "u32");
+    let Types = ExpandTypesByVFAndFlatten<sub_group_types, [vf]>.Tout in {
+      def sub_group_shuffle_vf # vf : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, mask_type: $sub_group_local_id, mask_type:$vec_mask)>;
+      def sub_group_shuffle_xor_vf # vf : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, mask_type: $value, mask_type:$vec_mask)>;
+      def sub_group_shuffle_up_vf # vf : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, gentype:$current, mask_type: $value, mask_type:$vec_mask)>;
+      def sub_group_shuffle_down_vf # vf : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, gentype:$next, mask_type: $value, mask_type:$vec_mask)>;
+
+      def khr_sub_group_shuffle_up_vf # vf : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, mask_type: $delta, mask_type:$vec_mask)>;
+      def khr_sub_group_shuffle_down_vf # vf : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, mask_type: $delta, mask_type:$vec_mask)>;
+    }
+  }
+
+  // Because half type shuffle builtins are implemented via short type builtins.
+  // So just declare short builtins here, when all builtin are migrated here,
+  // these declarations can be deleted.
+  foreach vf = [4, 8, 16, 32, 64] in {
+    defvar mask_type = !cast<OclType>("v" # vf # "u32");
+    let Types = ExpandTypesByVFAndFlatten<[v1i16], [vf]>.Tout in {
+      def sub_group_shuffle_short_vf # vf : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, mask_type: $sub_group_local_id, mask_type:$vec_mask)>;
+      def sub_group_shuffle_xor_short_vf # vf : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, mask_type: $value, mask_type:$vec_mask)>;
+      def sub_group_shuffle_up_short_vf # vf : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, mask_type: $value, mask_type:$vec_mask)>;
+      def sub_group_shuffle_down_short_vf # vf : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, mask_type: $value, mask_type:$vec_mask)>;
+      
+      def khr_sub_group_shuffle_up_short_vf # vf : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, mask_type: $delta, mask_type:$vec_mask)>;
+      def khr_sub_group_shuffle_down_short_vf # vf : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, mask_type: $delta, mask_type:$vec_mask)>;
+    }
+  }
+}
+// Implementations
+// scalar
+foreach bi = [sub_group_shuffle_vf1, sub_group_shuffle_xor_vf1,
+              sub_group_shuffle_up_vf1, khr_sub_group_shuffle_up_vf1,
+              sub_group_shuffle_down_vf1, khr_sub_group_shuffle_down_vf1] in {
+  def : OclBuiltinImpl<bi, sub_group_types, false, [{
+    return $Arg0VarName;
+  }]>, SHARED;
+}
+
+// vectorized
+defvar intel_sub_group_shuffle_f16_code = [{
+    short$VecLength temp = __builtin_astype($Arg0VarName, short$VecLength);
+    temp = $func(temp, $Arg1VarName, $Arg2VarName);
+    $Arg0VarName = __builtin_astype(temp, $Arg0Type);
+    return $Arg0VarName;
+}];
+
+defvar intel_sub_group_shuffle_up_down_f16_code = [{
+    short$VecLength temp1 = __builtin_astype($Arg0VarName, short$VecLength);
+    short$VecLength temp2 = __builtin_astype($Arg1VarName, short$VecLength);
+    temp1 = $func(temp1, temp2, $Arg2VarName, $Arg3VarName);
+    $Arg0VarName = __builtin_astype(temp1, $Arg0Type);
+    return $Arg0VarName;
+}];
+
+foreach vf = [4, 8, 16, 32, 64] in {
+  defvar builtin = !cast<OclBuiltin>("sub_group_shuffle_vf" # vf);
+  def : OclBuiltinImpl<builtin, builtin.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_f16_code, [["$func", "intel_sub_group_shuffle"]]>, SHARED;
+
+  defvar builtin_xor = !cast<OclBuiltin>("sub_group_shuffle_xor_vf" # vf);
+  def : OclBuiltinImpl<builtin_xor, builtin_xor.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_f16_code, [["$func", "intel_sub_group_shuffle_xor"]]>, SHARED;
+
+  defvar builtin_up = !cast<OclBuiltin>("sub_group_shuffle_up_vf" # vf);
+  def : OclBuiltinImpl<builtin_up, builtin_up.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_up_down_f16_code, [["$func", "intel_sub_group_shuffle_up"]]>, SHARED;
+
+  defvar builtin_down = !cast<OclBuiltin>("sub_group_shuffle_down_vf" # vf);
+  def : OclBuiltinImpl<builtin_down, builtin_down.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_up_down_f16_code, [["$func", "intel_sub_group_shuffle_down"]]>, SHARED;
+
+  defvar builtin_khr_up = !cast<OclBuiltin>("khr_sub_group_shuffle_up_vf" # vf);
+  def : OclBuiltinImpl<builtin_khr_up, builtin_khr_up.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_f16_code, [["$func", "sub_group_shuffle_up"]]>, SHARED;
+
+  defvar builtin_khr_down = !cast<OclBuiltin>("khr_sub_group_shuffle_down_vf" # vf);
+  def : OclBuiltinImpl<builtin_khr_down, builtin_khr_down.Types, /*isDeclOnly*/false, intel_sub_group_shuffle_f16_code, [["$func", "sub_group_shuffle_down"]]>, SHARED;
+}
+
+// VectInfos
+foreach suffix = ["", "_xor", "_up", "_down"] in {
+  let Types = [v1f16] in {
+    def : VectInfo<[], !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf1"), !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf4"), 
+                      !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf8"), !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf16"), 
+                      !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf32"), !cast<OclBuiltin>("sub_group_shuffle"#suffix#"_vf64")>;
+  }
+}
+foreach suffix = ["_up", "_down"] in {
+  let Types = [v1f16] in {
+    def : VectInfo<[], !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf1"), !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf4"), 
+                      !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf8"), !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf16"), 
+                      !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf32"), !cast<OclBuiltin>("khr_sub_group_shuffle"#suffix#"_vf64")>;
+  }
+}
+
+// AliasMap
+foreach vf = [1, 4, 8, 16, 32, 64] in {
+  defvar types = WidenType<v1f16, vf>.Tout;
+  def : AliasMap<[["sub_group_shuffle_vf" #vf, "sub_group_shuffle"], 
+                  ["sub_group_shuffle_xor_vf" #vf, "sub_group_shuffle_xor"]], [types]>;
+}
