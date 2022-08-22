@@ -565,7 +565,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
     llvm::sys::path::append(Plugin, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(Plugin, "lib" CLANG_LIBDIR_SUFFIX,
+    llvm::sys::path::append(Plugin, CLANG_INSTALL_LIBDIR_BASENAME,
                             Twine(PluginName) + Twine(Suffix));
 #else // INTEL_CUSTOMIZATION
     SmallString<1024> Plugin;
