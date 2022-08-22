@@ -1454,8 +1454,8 @@ VPInstructionCost VPlanTTICostModel::getNonMaskedMemOpCostAdj(
 VPInstructionCost VPlanTTICostModel::getMemoryOpCost(
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, const Instruction *I) const {
-  auto TTICost = TTI.getMemoryOpCost(Opcode, Src, Alignment,
-                                     AddressSpace, CostKind, I);
+  auto TTICost = TTI.getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                     CostKind, TTI::OK_AnyValue, I);
   LLVM_DEBUG(dbgs() << "TTICost: " << TTICost << '\n';);
 
   // Return not adjusted scaled up cost for non-vector types.

@@ -1246,10 +1246,11 @@ public:
     return Cost;
   }
 
-  InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src,
-                                  MaybeAlign Alignment, unsigned AddressSpace,
-                                  TTI::TargetCostKind CostKind,
-                                  const Instruction *I = nullptr) {
+  InstructionCost
+  getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
+                  unsigned AddressSpace, TTI::TargetCostKind CostKind,
+                  TTI::OperandValueKind OpdInfo = TTI::OK_AnyValue,
+                  const Instruction *I = nullptr) {
     assert(!Src->isVoidTy() && "Invalid type");
 
 #if INTEL_CUSTOMIZATION
@@ -1265,7 +1266,8 @@ public:
                 ? commonAlignment(*Alignment, SL->getElementOffset(EI - EB))
                 : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
-            Opcode, *EI, ElementAlignment, AddressSpace, CostKind, I);
+            Opcode, *EI, ElementAlignment, AddressSpace, CostKind,
+            TTI::OK_AnyValue, I);
       }
       return Cost;
     }
@@ -1279,7 +1281,8 @@ public:
         MaybeAlign ElementAlignment =
             Alignment ? commonAlignment(*Alignment, i * EltSize) : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
-            Opcode, EltTy, ElementAlignment, AddressSpace, CostKind, I);
+            Opcode, EltTy, ElementAlignment, AddressSpace, CostKind,
+            TTI::OK_AnyValue, I);
       }
       return Cost;
     }
