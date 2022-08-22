@@ -255,8 +255,10 @@ bool FoldLoadsToGather::run(Instruction& I) {
   }
 
   // Generate the GEP with 'AddrBase' and 'AddrIndex'.
-  auto GEPTy =
-      Load0.AddrBase->getType()->getScalarType()->getPointerElementType();
+  auto AddrBaseTy = Load0.AddrBase->getType()->getScalarType();
+  auto GEPTy = AddrBaseTy->isOpaquePointerTy()
+                   ? AddrBaseTy
+                   : AddrBaseTy->getPointerElementType();
   auto GEP =
       Builder.CreateGEP(GEPTy, Load0.AddrBase, ArrayRef<Value *>({AddrIndex}));
 
