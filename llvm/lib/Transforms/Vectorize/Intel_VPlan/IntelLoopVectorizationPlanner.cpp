@@ -431,6 +431,35 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     return 0;
   }
 
+  // If we have non-unit strided compress/expand idioms we are going to call
+  // @llvm.x86.avx512.mask.compress.xxx/@llvm.x86.avx512.mask.expand.xxx
+  // intrinsics. LLVM codegen only supports 128/256/512 total bit width for
+  // them. So we need to make sure that VF*sizeof(element) value is valid.
+  SmallSet<int, 5> CELoadStoreWidths;
+  for (VPCompressExpandIdiom *CEIdiom : LE->vpceidioms()) {
+    if (CEIdiom->getTotalStride() == 1)
+      continue;
+    for (auto LoadStore :
+         concat<VPLoadStoreInst *const>(CEIdiom->loads(), CEIdiom->stores()))
+      CELoadStoreWidths.insert(
+          LoadStore->getValueType()->getPrimitiveSizeInBits());
+  }
+  VFs.erase(std::remove_if(
+                  VFs.begin(), VFs.end(),
+                  [&CELoadStoreWidths](unsigned VF) {
+                    return llvm::any_of(CELoadStoreWidths, [VF](int Width) {
+                      int TotalWidth = VF * Width;
+                      return TotalWidth != 128 && TotalWidth != 256 &&
+                             TotalWidth != 512;
+                    });
+                  }),
+              VFs.end());
+  if (VFs.empty()) {
+    LLVM_DEBUG(dbgs() << "There is no suitable VF for compress/expand idiom "
+                         "vectorization.\n");
+    return 0;
+  }
+
   // TODO: Implement computeScalarVPlanCost()
 
   // Run initial set of vectorization specific transforms on plain VPlan CFG
