@@ -53,6 +53,7 @@ define x86_fp80 @atanl_x86(x86_fp80 %x) {
 ; This is not folded because it is known to set errno on some systems.
 
 define float @callatan2_00() {
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This is a corner case and may be folded differently depending on default
 ; precision options. It is always safe not to fold it (as currently we do).
@@ -60,6 +61,11 @@ define float @callatan2_00() {
 ; DISABLED:    [[CALL:%.*]] = call float @atan2f(float 0.000000e+00, float 0.000000e+00)
 ; DISABLED:    ret float 0.000000e+00
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @callatan2_00(
+; CHECK-NEXT:    [[CALL:%.*]] = call float @atan2f(float 0.000000e+00, float 0.000000e+00)
+; CHECK-NEXT:    ret float [[CALL]]
+>>>>>>> 2981a9490277a7920936d287c9703f0f7edef84b
 ;
   %call = call float @atan2f(float 0.0, float 0.0)
   ret float %call
@@ -68,6 +74,7 @@ define float @callatan2_00() {
 ; This is not folded because it is known to set errno on some systems.
 
 define float @callatan2_n00() {
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This is a corner case and may be folded differently depending on default
 ; precision options. It is always safe not to fold it (as currently we do).
@@ -75,6 +82,11 @@ define float @callatan2_n00() {
 ; DISABLED:    [[CALL:%.*]] = call float @atan2f(float -0.000000e+00, float 0.000000e+00)
 ; DISABLED:    ret float -0.000000e+00
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @callatan2_n00(
+; CHECK-NEXT:    [[CALL:%.*]] = call float @atan2f(float -0.000000e+00, float 0.000000e+00)
+; CHECK-NEXT:    ret float [[CALL]]
+>>>>>>> 2981a9490277a7920936d287c9703f0f7edef84b
 ;
   %call = call float @atan2f(float -0.0, float 0.0)
   ret float %call
@@ -83,6 +95,7 @@ define float @callatan2_n00() {
 ; This is not folded because it is known to set errno on some systems.
 
 define float @callatan2_0n0() {
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This is a corner case and may be folded differently depending on default
 ; precision options. It is always safe not to fold it (as currently we do).
@@ -90,6 +103,11 @@ define float @callatan2_0n0() {
 ; DISABLED:    [[CALL:%.*]] = call float @atan2f(float 0.000000e+00, float -0.000000e+00)
 ; DISABLED:    ret float 0x400921FB60000000
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @callatan2_0n0(
+; CHECK-NEXT:    [[CALL:%.*]] = call float @atan2f(float 0.000000e+00, float -0.000000e+00)
+; CHECK-NEXT:    ret float [[CALL]]
+>>>>>>> 2981a9490277a7920936d287c9703f0f7edef84b
 ;
   %call = call float @atan2f(float 0.0, float -0.0)
   ret float %call
@@ -98,6 +116,7 @@ define float @callatan2_0n0() {
 ; This is not folded because it is known to set errno on some systems.
 
 define float @callatan2_n0n0() {
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; This is a corner case and may be folded differently depending on default
 ; precision options. It is always safe not to fold it (as currently we do).
@@ -105,6 +124,11 @@ define float @callatan2_n0n0() {
 ; DISABLED:    [[CALL:%.*]] = call float @atan2f(float -0.000000e+00, float -0.000000e+00)
 ; DISABLED:    ret float 0xC00921FB60000000
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @callatan2_n0n0(
+; CHECK-NEXT:    [[CALL:%.*]] = call float @atan2f(float -0.000000e+00, float -0.000000e+00)
+; CHECK-NEXT:    ret float [[CALL]]
+>>>>>>> 2981a9490277a7920936d287c9703f0f7edef84b
 ;
   %call = call float @atan2f(float -0.0, float -0.0)
   ret float %call
