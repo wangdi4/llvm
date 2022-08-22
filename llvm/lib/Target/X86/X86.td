@@ -2166,7 +2166,7 @@ def : ProcModel<"alderlake", AlderlakePModel,
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 #if INTEL_FEATURE_CPU_RPL
-def : ProcModel<"raptorlake", ADLModel,
+def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 #endif // INTEL_FEATURE_CPU_RPL
 #if INTEL_FEATURE_CPU_GNR
