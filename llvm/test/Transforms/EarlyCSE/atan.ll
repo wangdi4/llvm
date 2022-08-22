@@ -55,10 +55,46 @@ define float @callatan2_00() {
 ; This is a corner case and may be folded differently depending on default
 ; precision options. It is always safe not to fold it (as currently we do).
 ; DISABLED: @callatan2_00(
+; DISABLED:    ret float 0.000000e+00
+; end INTEL_CUSTOMIZATION
+;
+  %call = call float @atan2f(float 0.0, float 0.0)
+  ret float %call
+}
+
+define float @callatan2_n00() {
+; INTEL_CUSTOMIZATION
+; This is a corner case and may be folded differently depending on default
+; precision options. It is always safe not to fold it (as currently we do).
+; DISABLED: @callatan2_n00(
 ; DISABLED:    ret float -0.000000e+00
 ; end INTEL_CUSTOMIZATION
 ;
   %call = call float @atan2f(float -0.0, float 0.0)
+  ret float %call
+}
+
+define float @callatan2_0n0() {
+; INTEL_CUSTOMIZATION
+; This is a corner case and may be folded differently depending on default
+; precision options. It is always safe not to fold it (as currently we do).
+; DISABLED: @callatan2_0n0(
+; DISABLED:    ret float 0x400921FB60000000
+; end INTEL_CUSTOMIZATION
+;
+  %call = call float @atan2f(float 0.0, float -0.0)
+  ret float %call
+}
+
+define float @callatan2_n0n0() {
+; INTEL_CUSTOMIZATION
+; This is a corner case and may be folded differently depending on default
+; precision options. It is always safe not to fold it (as currently we do).
+; DISABLED: @callatan2_n0n0(
+; DISABLED:    ret float 0xC00921FB60000000
+; end INTEL_CUSTOMIZATION
+;
+  %call = call float @atan2f(float -0.0, float -0.0)
   ret float %call
 }
 
