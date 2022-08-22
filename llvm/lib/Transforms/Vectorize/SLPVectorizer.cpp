@@ -8244,15 +8244,15 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           auto *LI = cast<LoadInst>(V);
           ScalarsCost += TTI->getMemoryOpCost(
               Instruction::Load, LI->getType(), LI->getAlign(),
-              LI->getPointerAddressSpace(), CostKind, LI);
+              LI->getPointerAddressSpace(), CostKind, TTI::OK_AnyValue, LI);
         }
         auto *LI = cast<LoadInst>(E->getMainOp());
         auto *LoadTy = FixedVectorType::get(LI->getType(), VF);
         Align Alignment = LI->getAlign();
-        GatherCost +=
-            VectorizedCnt *
-            TTI->getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
-                                 LI->getPointerAddressSpace(), CostKind, LI);
+        GatherCost += VectorizedCnt *
+                      TTI->getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
+                                           LI->getPointerAddressSpace(),
+                                           CostKind, TTI::OK_AnyValue, LI);
         GatherCost += ScatterVectorizeCnt *
                       TTI->getGatherScatterOpCost(
                           Instruction::Load, LoadTy, LI->getPointerOperand(),
@@ -8643,8 +8643,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     case Instruction::Load: {
       // Cost of wide load - cost of scalar loads.
       Align Alignment = cast<LoadInst>(VL0)->getAlign();
-      InstructionCost ScalarEltCost = TTI->getMemoryOpCost(
-          Instruction::Load, ScalarTy, Alignment, 0, CostKind, VL0);
+      InstructionCost ScalarEltCost =
+          TTI->getMemoryOpCost(Instruction::Load, ScalarTy, Alignment, 0,
+                               CostKind, TTI::OK_AnyValue, VL0);
       if (NeedToShuffleReuses) {
         CommonCost -= (EntryVF - VL.size()) * ScalarEltCost;
       }
@@ -8652,6 +8653,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       InstructionCost VecLdCost;
       if (E->State == TreeEntry::Vectorize) {
         VecLdCost = TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
+<<<<<<< HEAD
                                          CostKind, VL0);
 #if INTEL_CUSTOMIZATION
         // Cost modeling for split-load.
@@ -8673,6 +8675,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           } while (NumElems > 1);
         }
 #endif // INTEL_CUSTOMIZATION
+=======
+                                         CostKind, TTI::OK_AnyValue, VL0);
+>>>>>>> d53e245951f861f1874f493591938779b7498cc8
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
         Align CommonAlignment = Alignment;
@@ -8692,11 +8697,23 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       auto *SI =
           cast<StoreInst>(IsReorder ? VL[E->ReorderIndices.front()] : VL0);
       Align Alignment = SI->getAlign();
+      TTI::OperandValueProperties OpVP = TTI::OP_None;
+      TTI::OperandValueKind OpVK = TTI::getOperandInfo(SI->getOperand(0), OpVP);
       InstructionCost ScalarEltCost = TTI->getMemoryOpCost(
-          Instruction::Store, ScalarTy, Alignment, 0, CostKind, VL0);
+          Instruction::Store, ScalarTy, Alignment, 0, CostKind, OpVK, VL0);
       InstructionCost ScalarStCost = VecTy->getNumElements() * ScalarEltCost;
+      OpVK = TTI::OK_AnyValue;
+      if (all_of(E->Scalars,
+                 [](Value *V) {
+                   return isConstant(cast<Instruction>(V)->getOperand(0));
+                 }) &&
+          any_of(E->Scalars, [](Value *V) {
+            Value *Op = cast<Instruction>(V)->getOperand(0);
+            return !isa<UndefValue>(Op) && !cast<Constant>(Op)->isZeroValue();
+          }))
+        OpVK = TTI::OK_NonUniformConstantValue;
       InstructionCost VecStCost = TTI->getMemoryOpCost(
-          Instruction::Store, VecTy, Alignment, 0, CostKind, VL0);
+          Instruction::Store, VecTy, Alignment, 0, CostKind, OpVK, VL0);
       LLVM_DEBUG(dumpTreeCosts(E, CommonCost, VecStCost, ScalarStCost));
       return CommonCost + VecStCost - ScalarStCost;
     }

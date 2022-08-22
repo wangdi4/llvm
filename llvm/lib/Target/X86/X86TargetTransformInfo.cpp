@@ -4312,6 +4312,7 @@ InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                             MaybeAlign Alignment,
                                             unsigned AddressSpace,
                                             TTI::TargetCostKind CostKind,
+                                            TTI::OperandValueKind OpdInfo,
                                             const Instruction *I) {
 #if INTEL_CUSTOMIZATION
   // Defer to base implementation to split.
