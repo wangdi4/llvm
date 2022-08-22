@@ -224,7 +224,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
       P = llvm::sys::path::parent_path(Child);
     }
 #endif
-    llvm::sys::path::append(P, Twine("lib") + CLANG_LIBDIR_SUFFIX, "clang",
+    llvm::sys::path::append(P, CLANG_INSTALL_LIBDIR_BASENAME, "clang",
                             CLANG_VERSION_STRING);
   }
 
