@@ -2690,9 +2690,9 @@ static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
   if (Attr->appendArgs_size()) {
     llvm::raw_string_ostream OS(Buffer);
-    for (auto InterOpType : Attr->appendArgs()) {
+    for (const auto &InteropInfo : Attr->appendArgs()) {
       OS << ";interop:";
-      OS << OMPDeclareVariantAttr::ConvertInteropTypeToStr(InterOpType);
+      OS << OMPDeclareVariantAttr::getInteropTypeString(&InteropInfo);
     }
   }
   return Buffer;
