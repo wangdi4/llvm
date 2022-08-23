@@ -8634,7 +8634,8 @@ public:
       // map for vtable pointers - alloc the space for the whole record.
       PartialStruct.HasCompleteRecord = true;
       // generate map info for vptrs.
-      generateInfoForVTable(AssocExpr->getType(), PartialStruct, CombinedInfo);
+      generateInfoForVTable(AssocExpr->getType(), /*VD=*/nullptr,
+                            PartialStruct.Base.getPointer(), CombinedInfo);
     }
 #endif  // INTEL_COLLAB
 
@@ -9550,17 +9551,16 @@ public:
 
   /// Emit map info for VTables.
   void generateInfoForVTable(QualType ClassTy,
-                             const StructRangeInfoTy &PartialStruct,
+                             const VarDecl *VD,
+                             llvm::Value *BP,
                              MapCombinedInfoTy &CurInfo) const {
     CXXRecordDecl *ClassDecl =
         cast<CXXRecordDecl>(ClassTy->castAs<RecordType>()->getDecl());
     assert(ClassDecl && "not a class decl");
     CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, /*ShouldEnter=*/true);
+    Address This = Address(BP, CGF.ConvertTypeForMem(ClassTy),
+                           CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
     for (const CodeGenFunction::VPtr &Vptr : CGF.getVTablePointers(ClassDecl)) {
-      Address This = Address(
-          PartialStruct.Base.getPointer(),
-          CGF.ConvertTypeForMem(ClassTy),
-          CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)
         continue;
@@ -9568,13 +9568,42 @@ public:
           MappableExprsHandler::OMP_MAP_MEMBER_OF |
           MappableExprsHandler::OMP_MAP_PTR_AND_OBJ |
           MappableExprsHandler::OMP_MAP_TO;
-      CurInfo.Exprs.emplace_back(CurInfo.Exprs[0]);
-      CurInfo.BasePointers.push_back(PartialStruct.Base.getPointer());
+      CurInfo.Exprs.emplace_back(VD ? VD : CurInfo.Exprs[0]);
+      CurInfo.BasePointers.push_back(BP);
       CurInfo.Pointers.push_back(VPtrValue);
       CurInfo.Sizes.push_back(CGF.Builder.getInt32(8));
       CurInfo.Types.push_back(Type);
       CurInfo.Mappers.push_back(nullptr);
       CurInfo.NonContigInfo.Dims.push_back(1);
+    }
+  }
+  /// Generate the vtable map information for a given capture \a CI
+  /// and captured value \a CV.
+  void generateDefaultInfoForVTable(const CapturedStmt::Capture &CI,
+                                    llvm::Value *CV, MapCombinedInfoTy &CurInfo,
+                                    StructRangeInfoTy &PartialStruct) {
+    if (!CI.capturesVariable())
+      return;
+    const VarDecl *VD = CI.getCapturedVar();
+    const RecordType *RT = VD->getType()->getAs<RecordType>();
+    if (!RT)
+      return;
+    const CXXRecordDecl *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl());
+    if (!ClassDecl)
+      return;
+    if (ClassDecl->isDynamicClass() &&
+        !CGF.getVTablePointers(ClassDecl).empty()) {
+      // Capture reference require vtable map info.
+      Address PtrAddr = Address(CV, CGF.ConvertType(VD->getType()),
+                                CGF.getContext().getDeclAlign(VD));
+      generateInfoForVTable(VD->getType(), VD, PtrAddr.getPointer(), CurInfo);
+      // Vtable is as member expression.
+      // Set info about the lowest and highest elements for this struct
+      PartialStruct.Base = PtrAddr;
+      PartialStruct.LB = PtrAddr;
+      PartialStruct.LowestElem = {0, PtrAddr};
+      PartialStruct.HighestElem = {0, PtrAddr};
+      PartialStruct.HasVTPtr = true;
     }
   }
 #endif // INTEL_COLLAB
@@ -10341,6 +10370,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         MappedVarSet.insert(CI->getCapturedVar());
       else
         MappedVarSet.insert(nullptr);
+      // Save the map argument's size of CombinedInfo.  This is used later
+      // to determine if base map is added after call to emitCombinedEntry.
+      unsigned long SaveSize = CombinedInfo.BasePointers.size();
+
       // Generate default map information for a given capture
       if (CurInfo.BasePointers.empty() && !PartialStruct.Base.isValid()) {
         // Skip captures without CapturedVar. This happens if we've decided in
@@ -10348,16 +10381,16 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         // the Var.
         if (!*CV)
           continue;
-        MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
+        MEHandler.generateDefaultInfoForVTable(*CI, *CV, CurInfo,
+                                               PartialStruct);
+        if (!PartialStruct.Base.isValid())
+          MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
       }
       // Generate correct mapping for variables captured by reference in
       // lambdas.
       if (CI->capturesVariable())
         MEHandler.generateInfoForLambdaCaptures(CI->getCapturedVar(), *CV,
                                                 CurInfo, LambdaPointers);
-      // Save the map argument's size of CombinedInfo.  This is used later
-      // to determine if base map is added after call to emitCombinedEntry
-      unsigned long SaveSize = CombinedInfo.BasePointers.size();
       if (PartialStruct.Base.isValid()) {
         CombinedInfo.append(PartialStruct.PreliminaryMapData);
         // The partial struct case requires two steps.  The step above generates
