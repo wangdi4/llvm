@@ -1117,6 +1117,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       Report->beginUpdate(CB);
       MDReport->beginUpdate(CB);
+      bool IsAlwaysInlineRecursive =
+          CB->hasFnAttr(Attribute::AlwaysInlineRecursive);
+      bool IsInlineHintRecursive =
+          CB->hasFnAttr(Attribute::InlineHintRecursive);
       Report->setReasonIsInlined(CB, *IC);
       llvm::setMDReasonIsInlined(CB, *IC);
 #endif // INTEL_CUSTOMIZATION
@@ -1217,6 +1221,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
+              if (IsAlwaysInlineRecursive)
+                 ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
+              if (IsInlineHintRecursive)
+                 ICB->addFnAttr(Attribute::InlineHintRecursive);
               Calls.push({ICB, NewHistoryID});
               // Continually inlining through an SCC can result in huge compile
               // times and bloated code since we arbitrarily stop at some point
