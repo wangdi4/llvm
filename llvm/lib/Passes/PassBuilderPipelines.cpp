@@ -2529,8 +2529,15 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // flattening of blocks.
   OptimizePM.addPass(DivRemPairsPass());
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  bool SkipRecProgression = LTOPreLink && DTransEnabled;
+#else // INTEL_FEATURE_SW_DTRANS
+  bool SkipRecProgression = false;
+#endif // INTEL_FEATURE_SW_DTRANS
   // Try to annotate calls that were created during optimization.
-  OptimizePM.addPass(TailCallElimPass());
+  OptimizePM.addPass(TailCallElimPass(SkipRecProgression));
+#endif // INTEL_CUSTOMIZATION
 
   // LoopSink (and other loop passes since the last simplifyCFG) might have
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
