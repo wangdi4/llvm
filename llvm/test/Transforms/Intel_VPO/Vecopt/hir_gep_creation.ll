@@ -41,12 +41,9 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = mul i64 -1 i64 [[VP4]]
 ; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[I870:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i8* [[VP7:%.*]] = hir-copy i8* [[VP_SUBSCRIPT]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP4]]
-; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 -1
+; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP6]] i64 -1
 ; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP9]]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = mul i64 -1 i64 [[VP4]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP10]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP11]]
+; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP9]]
 ; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = zext i8 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [256 x i32]* @PL_charclass i64 0 i64 [[VP12]]

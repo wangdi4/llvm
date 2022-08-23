@@ -26,10 +26,7 @@ define dso_local void @foo(i32 %arg0) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP4:%.*]] = sext i32 [[VP3]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP5:%.*]] = trunc i64 [[VP0]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP6:%.*]] = add i32 [[ARG00]] i32 [[VP5]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP7]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP4]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_1]]
 ;
 entry:

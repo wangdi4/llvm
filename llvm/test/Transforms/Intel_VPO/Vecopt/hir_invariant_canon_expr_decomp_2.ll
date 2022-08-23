@@ -44,8 +44,7 @@ define void @foo(i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 111
 ; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x i64]* @longarr i64 0 i64 [[VP9]]
 ; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP10]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP3]] i64 [[VP4]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = trunc i64 [[VP11]] to i32
+; CHECK-NEXT:     i32 [[VP12:%.*]] = trunc i64 [[VP6]] to i32
 ; CHECK-NEXT:     i64 [[VP13:%.*]] = add i64 [[N30]] i64 [[VP4]]
 ; CHECK-NEXT:     i32* [[VP14:%.*]] = subscript inbounds [100 x i32]* @intarr i64 0 i64 [[VP13]]
 ; CHECK-NEXT:     store i32 [[VP12]] i32* [[VP14]]

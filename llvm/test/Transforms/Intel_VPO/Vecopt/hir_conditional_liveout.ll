@@ -81,8 +81,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i32]* [[S10:%.*]] i64 0 i64 [[VP11]]
 ; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       i32 [[VP12:%.*]] = add i32 [[VP_LOAD_1]] i32 -1
-; CHECK-NEXT:       i64 [[VP13:%.*]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x i32]* [[S10]] i64 0 i64 [[VP13]]
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x i32]* [[S10]] i64 0 i64 [[VP11]]
 ; CHECK-NEXT:       store i32 [[VP12]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:

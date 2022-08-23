@@ -44,10 +44,8 @@
 ; CHECK-NEXT:      float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:      i64 [[VP11:%.*]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:      i64 [[VP12:%.*]] = zext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[K_0130]], i32 [[VP8]], void [[VP_STORE:%.*]], float [[VP_LOAD]], float [[VP_LOAD_1]], i64 [[VP10]], i64 [[VP11]], i64 [[VP12]],
+; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[K_0130]], i32 [[VP8]], void [[VP_STORE:%.*]], float [[VP_LOAD]], float [[VP_LOAD_1]], i64 [[VP10]],
 
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
@@ -71,12 +69,10 @@
 ; CHECK-NEXT:       i64 [[VP10]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1]] = subscript inbounds float* [[A0]] i64 [[VP10]]
 ; CHECK-NEXT:       float [[VP16:%.*]] = expand-load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i64 [[VP11]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP11]]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP10]]
 ; CHECK-NEXT:       float [[VP17:%.*]] = expand-load float* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       float [[VP9]] = fadd float [[VP16]] float [[VP17]]
-; CHECK-NEXT:       i64 [[VP12]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP12]]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP10]]
 ; CHECK-NEXT:       compress-store float [[VP9]] float* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:       br [[BB2]]

@@ -39,9 +39,8 @@
 ; CHECK-NEXT:      double [[VP_LOAD:%.*]] = load double* [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:      i64 [[VP11:%.*]] = sext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[J_0150]], i32 [[VP8]], void [[VP_STORE:%.*]], double [[VP_LOAD]], i64 [[VP10]], i64 [[VP11]],
+; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[J_0150]], i32 [[VP8]], void [[VP_STORE:%.*]], double [[VP_LOAD]], i64 [[VP10]],
 
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
@@ -67,8 +66,7 @@
 ; CHECK-NEXT:       double [[VP17:%.*]] = expand-load double* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       double [[VP14:%.*]] = fmul double [[VP17]] double 3.000000e+00
 ; CHECK-NEXT:       double [[VP9]] = fadd double [[VP14]] double 2.000000e+00
-; CHECK-NEXT:       i64 [[VP11]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP11]]
+; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP10]]
 ; CHECK-NEXT:       compress-store double [[VP9]] double* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 1
 ; CHECK-NEXT:       br [[BB2]]

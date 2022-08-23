@@ -97,47 +97,37 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = mul i64 4 i64 [[VP2]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP5]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP6:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP6]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP5]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_1:%.*]] = load i8* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = zext i8 [[VP_LOAD]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = zext i8 [[VP_LOAD_1]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP9:%.*]] = mul i32 [[VP8]] i32 -1 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP10:%.*]] = add i32 [[VP7]] i32 [[VP9]] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP11:%.*]] = abs i32 [[VP10]] *PSADBW*, CarryOut: [[VP1]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP12:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP13:%.*]] = add i64 [[VP12]] i64 1
+; CHECK-NEXT:    Cost 1 for i64 [[VP13:%.*]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP13]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_2:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP14:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP15:%.*]] = add i64 [[VP14]] i64 1
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP15]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP13]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_3:%.*]] = load i8* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = zext i8 [[VP_LOAD_2]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP17:%.*]] = zext i8 [[VP_LOAD_3]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP18:%.*]] = mul i32 [[VP17]] i32 -1 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP19:%.*]] = add i32 [[VP16]] i32 [[VP18]] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP20:%.*]] = abs i32 [[VP19]] *PSADBW*, CarryOut: [[VP1]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP21:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP22:%.*]] = add i64 [[VP21]] i64 2
+; CHECK-NEXT:    Cost 1 for i64 [[VP22:%.*]] = add i64 [[VP5]] i64 2
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP22]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_4:%.*]] = load i8* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP23:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP24:%.*]] = add i64 [[VP23]] i64 2
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP24]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP22]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_5:%.*]] = load i8* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP25:%.*]] = zext i8 [[VP_LOAD_4]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP26:%.*]] = zext i8 [[VP_LOAD_5]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP27:%.*]] = mul i32 [[VP26]] i32 -1 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP28:%.*]] = add i32 [[VP25]] i32 [[VP27]] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP29:%.*]] = abs i32 [[VP28]] *PSADBW*, CarryOut: [[VP1]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP30:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP31:%.*]] = add i64 [[VP30]] i64 3
+; CHECK-NEXT:    Cost 1 for i64 [[VP31:%.*]] = add i64 [[VP5]] i64 3
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP31]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_6:%.*]] = load i8* [[VP_SUBSCRIPT_6]]
-; CHECK-NEXT:    Cost 2 for i64 [[VP32:%.*]] = mul i64 4 i64 [[VP2]]
-; CHECK-NEXT:    Cost 1 for i64 [[VP33:%.*]] = add i64 [[VP32]] i64 3
-; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP33]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP31]]
 ; CHECK-NEXT:    Cost 1 for i8 [[VP_LOAD_7:%.*]] = load i8* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP34:%.*]] = zext i8 [[VP_LOAD_6]] to i32 *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP35:%.*]] = zext i8 [[VP_LOAD_7]] to i32 *PSADBW*, CarryOut: [[VP1]]
@@ -155,10 +145,10 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:    Cost 1 for i1 [[VP46:%.*]] = icmp slt i64 [[VP3]] i64 256
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP46]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 60
-; CHECK-NEXT:  Base Cost: 60
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 53
-; CHECK-NEXT:  Total Cost: 7
+; CHECK-NEXT:  [[BB2]]: base cost: 43
+; CHECK-NEXT:  Base Cost: 43
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 43
+; CHECK-NEXT:  Total Cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 0

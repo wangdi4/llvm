@@ -26,12 +26,10 @@
 ; CHECK-NEXT:    Cost 9 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP4:%.*]] = add i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP5:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP4]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP7:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP6]]
+; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP7:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP4]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 2
 ; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP8]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP10:%.*]] = add i32 [[VP_LOAD]] i32 2
-; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP11:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP10]]
+; CHECK-NEXT:    Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP11:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP8]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP12:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:    Cost 6 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP13:%.*]] = select i1 [[VP12]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP7]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP11]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP14:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP13]]
@@ -42,8 +40,8 @@
 ; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 8 for i1 [[VP17:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 34.0625
-; CHECK-NEXT:  Base Cost: 34.0625
+; CHECK-NEXT:  [[BB2]]: base cost: 32.0625
+; CHECK-NEXT:  Base Cost: 32.0625
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
