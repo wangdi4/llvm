@@ -1572,27 +1572,10 @@ bool Parser::parseOpenMPAppendArgs(
       return true;
 
     OMPInteropInfo InteropInfo;
-<<<<<<< HEAD
-    if (ParseOMPInteropInfo(InteropInfo, OMPC_append_args)) {
-      HasError = true;
-    } else {
-      OMPDeclareVariantAttr::InteropType IT;
-      // As of OpenMP 5.1, there are two interop-types, "target" and
-      // "targetsync". Either or both are allowed for a single interop.
-      if (InteropInfo.IsTarget && InteropInfo.IsTargetSync)
-        IT = OMPDeclareVariantAttr::Target_TargetSync;
-      else if (InteropInfo.IsTarget)
-        IT = OMPDeclareVariantAttr::Target;
-      else
-        IT = OMPDeclareVariantAttr::TargetSync;
-      InterOpTypes.push_back(IT);
-    }
-=======
     if (ParseOMPInteropInfo(InteropInfo, OMPC_append_args))
       HasError = true;
     else
       InteropInfos.push_back(InteropInfo);
->>>>>>> e2324571f44e5cb8456d218d49eb838ffdee19ab
 
     IT.consumeClose();
     if (Tok.is(tok::comma))
