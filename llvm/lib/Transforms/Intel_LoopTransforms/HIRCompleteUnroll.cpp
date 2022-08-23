@@ -2903,9 +2903,8 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  // Ignore vectorizable loops
-  if (Loop->isVecLoop()) {
-    LLVM_DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
+  if (Loop->isSIMD()) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of SIMD loop!\n");
     return false;
   }
 

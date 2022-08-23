@@ -600,10 +600,10 @@ static bool isSmallCountLoop(const HLLoop *Loop) {
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   LLVM_DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
-  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isVecLoop() ||
+  if (!Loop->isDo() || !Loop->isNormalized() || Loop->isSIMD() ||
       Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
     LLVM_DEBUG(
-        dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
+        dbgs() << "Skipping - non-DO-Loop / non-Normalized / SIMD / unroll "
                   "pragma loop\n");
     return false;
   }

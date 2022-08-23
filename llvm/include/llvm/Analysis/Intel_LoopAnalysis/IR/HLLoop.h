@@ -807,10 +807,6 @@ public:
     return false;
   }
 
-  /// Checks whether we have a vectorizable loop by checking if SIMD
-  /// or AUTO_VEC directive is attached to the loop.
-  bool isVecLoop() const { return isSIMD() || getDirective(DIR_VPO_AUTO_VEC); }
-
   unsigned getMVTag() const { return MVTag; }
 
   SmallVectorImpl<unsigned> &getMVDelinearizableBlobIndices() {
