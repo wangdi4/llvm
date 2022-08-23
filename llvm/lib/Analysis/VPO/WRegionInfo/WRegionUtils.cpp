@@ -1067,6 +1067,10 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   SmallSet<Value *, 16> AlreadyCollected;
 
+  auto isNonPointer = [](Value *V) -> bool {
+    return (V && !isa<PointerType>(V->getType()));
+  };
+
   auto isNonPointerNonConstant = [](Value *V) -> bool {
     if (!V || isa<Constant>(V) || isa<PointerType>(V->getType()))
       return false;
@@ -1100,6 +1104,14 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
+  auto collectIfNonPointer = [&](Value *V, bool CollectEvenIfConstant = false) {
+    if (!CollectEvenIfConstant)
+      return collectIfNonPointerNonConstant(V);
+    if (!isNonPointer(V))
+      return;
+    collectIfNotAlreadyCollected(V);
+  };
+
   auto collectIfUsedInRegion = [&](Value *V) {
     if (!isNonPointerNonConstant(V))
       return;
@@ -1111,14 +1123,19 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
-  auto collectSizeIfVLA = [&](Value *V) {
+  auto collectSizeIfAlloca = [&](Value *V, bool CollectEvenIfConstant = false) {
     // Skip AddrSpaceCastInsts in hope to reach the underlying value.
     while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
       V = ASCI->getPointerOperand();
 
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
       if (AI->isArrayAllocation())
-        collectIfNonPointerNonConstant(AI->getArraySize());
+        collectIfNonPointer(AI->getArraySize(), CollectEvenIfConstant);
+      else if (CollectEvenIfConstant)
+        collectIfNonPointer(
+            ConstantInt::get(Type::getInt64Ty(V->getContext()), 1),
+            CollectEvenIfConstant);
+    }
   };
 
   auto collectArraySectionBounds = [&](const ArraySectionInfo &ASI) {
@@ -1130,15 +1147,24 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     }
   };
 
+  auto collectEvenIfConstant = [&](Item *I) -> bool {
+    // It's possible for CSE to promote some variables to constants before
+    // Paropt. For target regions, we need to capture such constants to avoid
+    // mismatch between host/device optimization pipelines.
+    return isa<WRNTargetNode>(W) && I->getIsVarLen();
+  };
+
   auto collectTypedNumElementsOrVlaSize = [&](Item *I) {
+    bool CollectEvenIfConstant = collectEvenIfConstant(I);
+
     if (I->getIsTyped()) {
-      collectIfNonPointerNonConstant(I->getNumElements());
+      collectIfNonPointer(I->getNumElements(), CollectEvenIfConstant);
       return;
     }
     // We need to capture VLA size even if it's not currently used
     // in the region because we'll use it for the allocation of
     // the private copy of the clause operand.
-    collectSizeIfVLA(I->getOrig());
+    collectSizeIfAlloca(I->getOrig(), CollectEvenIfConstant);
   };
 
   if (W->canHavePrivate()) {
@@ -1165,7 +1191,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       else if (RedI->getIsTyped())
         collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
-        collectSizeIfVLA(RedI->getOrig());
+        collectSizeIfAlloca(RedI->getOrig());
     }
   }
 
@@ -1204,7 +1230,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
         if (!FPI->getIsTyped())
           continue;
 
-      collectSizeIfVLA(MapI->getOrig());
+      collectSizeIfAlloca(MapI->getOrig(), collectEvenIfConstant(MapI));
     }
   }
 

@@ -193,6 +193,13 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "INSCAN"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
+/// * Operand with a variable number-of-elements when the clause was emitted.
+///   Example:
+///      FullName = "QUAL.OMP.PRIVATE:VARLEN"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "VARLEN"
+///      Id = QUAL_OMP_PRIVATE
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -214,6 +221,7 @@ private:
   bool IsWILocal:1;
   bool IsAllocatable:1;
 #endif // INTEL_CUSTOMIZATION
+  bool IsVarLen:1;
   bool IsAggregate:1;
   bool IsPointer:1;
   bool IsFunctionPointer:1;
@@ -281,6 +289,7 @@ public:
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
   void setIsMapChainLink()         { IsMapChainLink = true; }
+  void setIsVarLen()               { IsVarLen = true; }
   void setIsAggregate()            { IsAggregate = true; }
   void setIsPointer()              { IsPointer = true; }
   void setIsFunctionPointer()      { IsFunctionPointer = true; }
@@ -326,6 +335,7 @@ public:
   void setIsAllocatable() { IsAllocatable = true; }
   bool getIsAllocatable() const { return IsAllocatable; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsVarLen() const { return IsVarLen; }
   bool getIsAggregate() const { return IsAggregate; }
   bool getIsPointer() const { return IsPointer; }
   bool getIsFunctionPointer() const { return IsFunctionPointer; }

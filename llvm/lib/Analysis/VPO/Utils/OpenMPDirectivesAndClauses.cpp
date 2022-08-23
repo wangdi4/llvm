@@ -57,10 +57,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsF90DopeVector(false), IsF90NonPod(false), IsCptr(false),
       IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAggregate(false), IsPointer(false), IsFunctionPointer(false),
-      IsPointerToPointer(false), IsScalar(false), IsAlways(false),
-      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
-      IsConditional(false), IsScheduleMonotonic(false),
+      IsVarLen(false), IsAggregate(false), IsPointer(false),
+      IsFunctionPointer(false), IsPointerToPointer(false), IsScalar(false),
+      IsAlways(false), IsClose(false), IsPresent(false), IsUnsigned(false),
+      IsComplex(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
@@ -178,6 +178,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
+        else if (ModSubString[i] == "VARLEN")
+          setIsVarLen();
         else if (ModSubString[i] == "UNSIGNED")    // for reduction clause
           setIsUnsigned();
         else if (ModSubString[i] == "CMPLX")       // for reduction clause

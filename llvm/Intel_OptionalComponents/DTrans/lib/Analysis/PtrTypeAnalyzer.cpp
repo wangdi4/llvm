@@ -1139,6 +1139,8 @@ public:
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) { analyzeValue(&I); }
+  void visitAtomicRMWInst(AtomicRMWInst &I) { analyzeValue(&I); }
   void visitBinaryOperator(BinaryOperator &I) {
     // To support safety analysis on pointer arithmetic, subtract instruction
     // need to be analyzed to see if they carry pointer information.
@@ -1513,6 +1515,12 @@ private:
       break;
     case Instruction::Alloca:
       analyzeAllocaInst(cast<AllocaInst>(I), Info);
+      break;
+    case Instruction::AtomicCmpXchg:
+      analyzeAtomicCmpXchg(cast<AtomicCmpXchgInst>(I), Info);
+      break;
+    case Instruction::AtomicRMW:
+      analyzeAtomicRMWInst(cast<AtomicRMWInst>(I), Info);
       break;
     case Instruction::BitCast:
       analyzeBitCastOperator(cast<BitCastOperator>(I), Info);
@@ -2225,6 +2233,38 @@ private:
       default:
         break;
 
+      case Instruction::AtomicCmpXchg: {
+        auto *CXI = cast<AtomicCmpXchgInst>(I);
+        Value *PtrOp = CXI->getPointerOperand();
+        if (addDependency(PtrOp, DependentVals))
+          populateDependencyStack(PtrOp, DependentVals);
+        Value *Op1 = CXI->getCompareOperand();
+        Value *Op2 = CXI->getNewValOperand();
+        // Op1 and Op2 must be the same type. If the type is a pointer,
+        // make sure both are processed.
+        if (Op1->getType()->isPointerTy()) {
+          bool Op1WasAdded = addDependency(Op1, DependentVals);
+          bool Op2WasAdded = addDependency(Op2, DependentVals);
+          if (Op1WasAdded)
+            populateDependencyStack(Op1, DependentVals);
+          if (Op2WasAdded)
+            populateDependencyStack(Op2, DependentVals);
+        }
+        break;
+      }
+
+      case Instruction::AtomicRMW: {
+        auto RMWI = cast<AtomicRMWInst>(I);
+        Value *PtrOp = RMWI->getPointerOperand();
+        if (addDependency(PtrOp, DependentVals))
+          populateDependencyStack(PtrOp, DependentVals);
+        Value *ValOp = RMWI->getValOperand();
+        if (ValOp->getType()->isPointerTy())
+          if (addDependency(ValOp, DependentVals))
+            populateDependencyStack(ValOp, DependentVals);
+        break;
+      }
+
       case Instruction::BitCast:
       case Instruction::ExtractValue:
       case Instruction::Freeze:
@@ -2434,6 +2474,58 @@ private:
 
     ResultInfo->setUnhandled();
     LLVM_DEBUG(dbgs() << "Unhandled AllocaInst:" << *AI << "\n");
+  }
+
+  void analyzeAtomicCmpXchg(AtomicCmpXchgInst *CXI, ValueTypeInfo *ResultInfo) {
+    // The value to be read/written to memory could be an integer or a pointer.
+    // For simplicity, only support integer types for now. This could be
+    // extended to support pointer types, if necessary. However, doing so would
+    // require:
+    // - propagating a pointer of the value operand type to the information
+    //   collected about the pointer operand.
+    // - Setting the 'ResultInfo' to contain a literal structure type containing
+    //   the type collected for the 'compare operand' and an 'i1' type.
+    ValueTypeInfo *PointerInfo =
+        PTA.getOrCreateValueTypeInfo(CXI, CXI->getPointerOperandIndex());
+    llvm::Type *Ty = CXI->getCompareOperand()->getType();
+    if (!Ty->isIntegerTy()) {
+      ResultInfo->setUnhandled();
+      PointerInfo->setUnhandled();
+      return;
+    }
+
+    // The result type is the same as the compare operand. Since we are limiting
+    // this to integers, there is no need to set pointer type info to
+    // 'ResultInfo'.
+    // Treat the pointer operand as a use of a pointer to the integer type used
+    // for the instruction operands.
+    PointerInfo->addTypeAlias(
+        ValueTypeInfo::VAT_Use,
+        TM.getOrCreatePointerType(TM.getOrCreateSimpleType(Ty)));
+  }
+
+  void analyzeAtomicRMWInst(AtomicRMWInst *RMWI, ValueTypeInfo *ResultInfo) {
+    // Generally the value operand will be an integer type, but it could be a
+    // floating point or pointer type. For simplicity, only support integer
+    // types for now. This could be extended to support pointer types, if
+    // necessary, by propagating a pointer of the value operand type to the
+    // information collected about the pointer operand.
+    ValueTypeInfo *PointerInfo =
+        PTA.getOrCreateValueTypeInfo(RMWI, RMWI->getPointerOperandIndex());
+    llvm::Type *Ty = RMWI->getValOperand()->getType();
+    if (!Ty->isIntegerTy()) {
+      ResultInfo->setUnhandled();
+      PointerInfo->setUnhandled();
+      return;
+    }
+
+    // The result type is the same as the value operand. Since we are limiting
+    // this to integers, there is no need to set pointer type info to
+    // 'ResultInfo'. The pointer operand will be treated as a use of a pointer
+    // to the integer type used for the instruction operands.
+    PointerInfo->addTypeAlias(
+        ValueTypeInfo::VAT_Use,
+        TM.getOrCreatePointerType(TM.getOrCreateSimpleType(Ty)));
   }
 
   void analyzeBitCastOperator(BitCastOperator *BC, ValueTypeInfo *ResultInfo) {

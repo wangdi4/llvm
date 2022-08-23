@@ -157,6 +157,13 @@ class Item
     VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
+    bool IsVarLen = false; // true if the var had a non-constant number of
+                           // elements when the frontend emitted code for it.
+                           // Intervening optimizations may change the number
+                           // of elements to a constant before reaching Paropt.
+    // TODO: This can be removed after switch to typed clauses + opaque-pointers.
+    // It's currently used by task codegen. For typed clauses, we can replace
+    // getIsVLA()'s body with a check for NumElements not being a constant.
     bool  IsVla;     // true for variable-length arrays (C99)
     bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
     EXPR ThunkBufferSize; // Tasks: size in bytes of the space needed for the
@@ -203,6 +210,7 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
+    void setIsVarLen(bool Flag)   { IsVarLen = Flag;    }
     void setIsTyped(bool Flag) { IsTyped = Flag; }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
@@ -225,6 +233,7 @@ class Item
     VAR getOrigGEP()        const { return OrigGEP;        }
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
+    bool getIsVarLen()      const { return IsVarLen;       }
     bool getIsVla()         const { return IsVla;          }
     bool getIsTyped() const { return IsTyped; }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
@@ -308,6 +317,8 @@ class Item
       if (getIsCptr())
         OS << "CPTR(";
 #endif // INTEL_CUSTOMIZATION
+      if (getIsVarLen())
+        OS << "VARLEN(";
       if (getIsByRef())
         OS << "BYREF(";
       if (getIsPointerToPointer())
@@ -323,6 +334,8 @@ class Item
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
+      if (getIsVarLen())
+        OS << ")";
       if (getIsCptr())
         OS << ")";
       if (getIsF90DopeVector())
@@ -331,25 +344,24 @@ class Item
     }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    SmallVector<StringRef, 5> ModStrings;
 #if INTEL_CUSTOMIZATION
-      if (getIsF90DopeVector()) {
-        OS << "F90_DV";
-        if (getIsCptr() || getIsByRef() || getIsPointerToPointer())
-          OS << ",";
-      }
-      if (getIsCptr()) {
-        OS << "CPTR";
-        if (getIsByRef() || getIsPointerToPointer())
-          OS << ",";
-      }
+      if (getIsF90DopeVector())
+        ModStrings.push_back("F90_DV");
+      if (getIsCptr())
+        ModStrings.push_back("CPTR");
 #endif // INTEL_CUSTOMIZATION
-      if (getIsByRef()) {
-        OS << "BYREF";
-        if (getIsPointerToPointer())
+      if (getIsVarLen())
+        ModStrings.push_back("VARLEN");
+      if (getIsByRef())
+        ModStrings.push_back("BYREF");
+      if (getIsPointerToPointer())
+        ModStrings.push_back("PTR_TO_PTR");
+      for (size_t I = 0, NumStrings = ModStrings.size(); I < NumStrings; I++) {
+        OS << ModStrings[I];
+        if (I + 1 < NumStrings)
           OS << ",";
       }
-      if (getIsPointerToPointer())
-        OS << "PTR_TO_PTR";
       OS << "(" ;
 #if INTEL_CUSTOMIZATION
       if (HOrigItem)
@@ -1362,8 +1374,9 @@ public:
 
   void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
-      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "") << "(";
-      for (unsigned I=0; I < MapChain.size(); ++I) {
+      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "")
+         << (getIsVarLen() ? ",VARLEN" : "") << "(";
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
@@ -1371,7 +1384,7 @@ public:
         uint64_t MapType = Aggr->getMapType();
         GlobalVariable *Name = Aggr->getName();
         Value *Mapper = Aggr->getMapper();
-        OS << "<" ;
+        OS << "<";
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
         SectionPtr->printAsOperand(OS, PrintType);
@@ -1401,6 +1414,8 @@ public:
     } else {
       if (getIsFunctionPointer())
         OS << "FPTR";
+      if (getIsVarLen())
+        OS << "VARLEN";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";

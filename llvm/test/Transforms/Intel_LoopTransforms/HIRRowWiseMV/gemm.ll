@@ -118,8 +118,8 @@ L3:
   %B_ind = add nuw nsw i32 %B_row, %j
   %Bkjp = getelementptr inbounds double, double* %B, i32 %B_ind
   %Bkj = load double, double* %Bkjp
-  %AikBkj = fmul fast double %Aik, %Bkj
-  %sum.next = fadd fast double %sum.L3, %AikBkj
+  %AikBkj = fmul nnan nsz arcp afn reassoc double %Aik, %Bkj
+  %sum.next = fadd double %sum.L3, %AikBkj
   %k.next = add nuw nsw i32 %k, 1
   %L3.cond = icmp eq i32 %k.next, 128
   br i1 %L3.cond, label %L3.exit, label %L3
