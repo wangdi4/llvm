@@ -12,13 +12,18 @@
 
 defvar math_f16_types = ExpandTypeByVF<v1f16, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
 defvar math_f32_types = ExpandTypeByVF<v1f32, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar math_f64_types = ExpandTypeByVF<v1f64, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
+defvar math_all_fp_types = math_f16_types # math_f32_types # math_f64_types;
 defvar math_f16_vectorize_types = ExpandTypesByVFAndFlatten<[v1f16], [4, 8, 16, 32, 64]>.Tout;
+defvar math_f32_vectorize_types = ExpandTypesByVFAndFlatten<[v1f32], [4, 8, 16, 32, 64]>.Tout;
+defvar math_f64_vectorize_types = ExpandTypesByVFAndFlatten<[v1f64], [4, 8, 16, 32, 64]>.Tout;
+defvar math_all_fp_vectorize_types = math_f16_vectorize_types # math_f32_vectorize_types # math_f64_vectorize_types;
 
 // --- Math Functions ---
 // https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#math-functions
 //
 // Prototypes
-let Types = math_f16_types # math_f32_types, // f32 types are added for forward declarations, so that we can promote f16 to f32 calls.
+let Types = math_all_fp_types,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = true in {
 // Builtins that use Spec-defined vector versions as vector variants.
@@ -90,7 +95,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
   } // defset math_generic_builtins
 
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
-  def nan_f16 : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode)>;
+  def nan : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode)>;
 
   defset list<OclBuiltin> math_builtins_with_i32gentype_arg1 = {
     def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
@@ -98,6 +103,13 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def rootn_f16 : OclBuiltin<"rootn", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
   } // defset math_builtins_with_i32gentype_arg1
 } // defset math_builtins_with_general_vect_info
+
+// Masked prototypes for math_builtins_with_general_vect_info
+let Types = math_all_fp_vectorize_types,
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = true in {
+  def nan_mask : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode, gentype:$mask)>;
+}
 
 // Builtins that do not need VectInfos.
 defset list<OclBuiltin> math_builtins_fmax_fmin_sgentype_arg1 = {
@@ -220,9 +232,13 @@ foreach bi = math_generic_builtins in {
 // mad: returns a*b+c
 def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
 
-// nan: returns 0b0111_1100_0000_0000 | nancode
-def : OclBuiltinImpl<nan_f16, math_f16_types, false, [{
-  return __builtin_astype(($Arg0Type)($Arg0VarName | ($Arg0Type)0x7C00), $ReturnType);
+// nan: returns *_QNAN_MASK | nancode
+def : OclBuiltinImpl<nan, nan.Types, false, [{
+  return __builtin_astype(($Arg0Type)($Arg0VarName | ($Arg0Type)$ReturnBaseType_QNAN_MASK), $ReturnType);
+}]>, SHARED;
+// [MASKED] nan: fill results with zero to avoid potential NaN propagation.
+def : OclBuiltinImpl<nan_mask, nan_mask.Types, false, [{
+  return bitselect(($ReturnType)0.0, nan($Arg0VarName), $Arg1VarName);
 }]>, SHARED;
 
 // gentype func(gentype, gentype *)
@@ -352,6 +368,17 @@ foreach bi = math_builtins_with_general_vect_info in {
   def : VectInfo<[v1f16], bi, bi, bi, bi, bi, bi>;
 
   // TODO: add masked VectInfo
+}
+
+// TODO: merge into the `foreach` loop above when all types are supported for
+// all builtins.
+let Types = [v1f16, v1f32, v1f64] in
+foreach bi = [nan] in {
+  def : VectInfo<[], bi, bi, bi, bi, bi, bi>;
+
+  defvar bi_mask = !cast<OclBuiltin>(bi # "_mask");
+  let HandleAlias = false in
+  def : VectInfo<[], bi, bi_mask, bi_mask, bi_mask, bi_mask, bi_mask>;
 }
 
 // Specialized VectInfos

@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 defvar svml_code1 = [{
     return __ocl_svml_$Target_$NAME$SVMLSuffix($Arg0VarName);
   }];
@@ -18,7 +30,7 @@ defvar fabs_code = [{
   }];
 
 defvar fdim_code_vec = [{
-    const $ReturnType NaNasFP = __builtin_astype(($ReturnBaseType_const_nanStorage), $ReturnBaseType);
+    const $ReturnType NaNasFP = __builtin_astype($ReturnBaseType_QNAN_MASK, $ReturnBaseType);
     const $ReturnType Zero = 0;
     $Arg0Type xMinusY = $Arg0VarName - $Arg1VarName;
     $Arg0igentype XorYNaN = isnan($Arg0VarName) | isnan($Arg1VarName);
@@ -191,10 +203,6 @@ defvar modf_svml = [{
 defvar modf_ret2ptr = [{
     $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
-  }];
-
-defvar nan_code = [{
-    return __builtin_astype(($Arg0VarName | $ReturnBaseType_const_nanStorage), $ReturnType);
   }];
 
 defvar remquo_svml = [{

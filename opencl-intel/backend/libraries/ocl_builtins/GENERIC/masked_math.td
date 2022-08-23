@@ -315,19 +315,3 @@ OclBuiltinImpl rootn_mask_svml_double = OclBuiltinImpl<rootn_mask, math_double_t
 // extended native
 OclBuiltinImpl native_pown_mask_svml_double = OclBuiltinImpl<native_pown_mask, math_double_types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl native_rootn_mask_svml_double = OclBuiltinImpl<native_rootn_mask, math_double_types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-
-// generated cl code example: nan float
-// float2 __attribute__((const)) __attribute__((overloadable)) nan(uint2 x, float2 mask)
-// {
-//   uint2 mx = select((uint2)(0), x, as_int2(mask));
-//   return nan(mx);
-// }
-OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, math_float_types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
-
-// generated cl code example: nan double
-// double2 __attribute__((const)) __attribute__((overloadable)) nan(ulong2 x, double2 mask)
-// {
-//   ulong2 mx = select((ulong2)(0), x, as_long2(mask));
-//   return nan(mx);
-// }
-OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, math_double_types, 0, masked_impl_code_DG_UG_M, [["$DEF0", "0"]]>;

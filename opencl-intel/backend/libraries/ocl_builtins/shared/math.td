@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // NOTE
 // this file contains built-ins shared between all CPU architectures,
@@ -175,13 +185,6 @@ OclBuiltinImpl minmag_f32_promote = OclBuiltinImpl<minmag, [v1f32, v2f32, v3f32]
 // maxmag
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
 OclBuiltinImpl maxmag_f32_promote = OclBuiltinImpl<maxmag, [v1f32, v2f32, v3f32], 0, Promote2>;
-
-
-// nan
-// float3 are promoted to float4
-OclBuiltinImpl nan_f32_promote = OclBuiltinImpl<nan, [v1f32, v2f32, v3f32], 0, Promote1>;
-// leave only implementaion for double2. double are promoted to double2
-OclBuiltinImpl nan_f64_promote = OclBuiltinImpl<nan, [v1f64], 0, Promote1>;
 
 // nextafter  f(vXfX, vXfX)
 OclBuiltinImpl nextafter_svml_promote = OclBuiltinImpl<nextafter, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
