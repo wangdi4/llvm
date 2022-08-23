@@ -1470,7 +1470,7 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   OMPTraitInfo &TI = ASTCtx.getNewOMPTraitInfo();
   SmallVector<Expr *, 6> AdjustNothing;
   SmallVector<Expr *, 6> AdjustNeedDevicePtr;
-  SmallVector<OMPDeclareVariantAttr::InteropType, 3> AppendArgs;
+  SmallVector<OMPInteropInfo, 3> AppendArgs;
   SourceLocation AdjustArgsLoc, AppendArgsLoc;
 
   // At least one clause is required.
@@ -1554,7 +1554,7 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
 }
 
 bool Parser::parseOpenMPAppendArgs(
-    SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes) {
+    SmallVectorImpl<OMPInteropInfo> &InteropInfos) {
   bool HasError = false;
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
@@ -1572,6 +1572,7 @@ bool Parser::parseOpenMPAppendArgs(
       return true;
 
     OMPInteropInfo InteropInfo;
+<<<<<<< HEAD
     if (ParseOMPInteropInfo(InteropInfo, OMPC_append_args)) {
       HasError = true;
     } else {
@@ -1586,12 +1587,18 @@ bool Parser::parseOpenMPAppendArgs(
         IT = OMPDeclareVariantAttr::TargetSync;
       InterOpTypes.push_back(IT);
     }
+=======
+    if (ParseOMPInteropInfo(InteropInfo, OMPC_append_args))
+      HasError = true;
+    else
+      InteropInfos.push_back(InteropInfo);
+>>>>>>> e2324571f44e5cb8456d218d49eb838ffdee19ab
 
     IT.consumeClose();
     if (Tok.is(tok::comma))
       ConsumeToken();
   }
-  if (!HasError && InterOpTypes.empty()) {
+  if (!HasError && InteropInfos.empty()) {
     HasError = true;
     Diag(Tok.getLocation(), diag::err_omp_unexpected_append_op);
     SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
