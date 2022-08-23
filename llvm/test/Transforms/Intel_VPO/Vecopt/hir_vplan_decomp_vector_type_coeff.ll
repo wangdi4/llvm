@@ -50,26 +50,20 @@ define dso_local void @do_add_pd(<8 x i1> %cond) local_unnamed_addr #0 {
 ; CHECK-NEXT:     <8 x double>* [[VP6:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     <8 x double> [[VP_LOAD:%.*]] = load <8 x double>* [[VP6]]
 ; CHECK-NEXT:     <8 x double> [[VP7:%.*]] = fadd <8 x double> [[VP_LOAD]] <8 x double> [[VP_LOAD]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 2 i64 [[VP3]]
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP8]]
+; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP5]]
 ; CHECK-NEXT:     <8 x double>* [[VP9:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     store <8 x double> [[VP7]] <8 x double>* [[VP9]]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = mul i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP10]] i64 1
+; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP11]]
 ; CHECK-NEXT:     <8 x double>* [[VP12:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     <8 x double> [[VP_LOAD_1:%.*]] = load <8 x double>* [[VP12]]
-; CHECK-NEXT:     i64 [[VP13:%.*]] = mul i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP13]] i64 1
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x %union.V512]* @dsrc1 i64 0 i64 [[VP14]]
+; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x %union.V512]* @dsrc1 i64 0 i64 [[VP11]]
 ; CHECK-NEXT:     <8 x double>* [[VP15:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     <8 x double> [[VP_LOAD_2:%.*]] = load <8 x double>* [[VP15]]
 ; CHECK-NEXT:     <8 x double> [[VP16:%.*]] = fadd <8 x double> [[VP_LOAD_2]] <8 x double> [[VP_LOAD_2]]
 ; CHECK-NEXT:     <8 x i1> [[VP17:%.*]] = icmp ne <8 x i1> [[COND0:%.*]] <8 x i1> zeroinitializer
 ; CHECK-NEXT:     <8 x double> [[VP18:%.*]] = select <8 x i1> [[VP17]] <8 x double> [[VP16]] <8 x double> [[VP_LOAD_1]]
-; CHECK-NEXT:     i64 [[VP19:%.*]] = mul i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP20:%.*]] = add i64 [[VP19]] i64 1
-; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP20]]
+; CHECK-NEXT:     %union.V512* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [100 x %union.V512]* @ddest_zmm i64 0 i64 [[VP11]]
 ; CHECK-NEXT:     <8 x double>* [[VP21:%.*]] = bitcast %union.V512* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     store <8 x double> [[VP18]] <8 x double>* [[VP21]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1

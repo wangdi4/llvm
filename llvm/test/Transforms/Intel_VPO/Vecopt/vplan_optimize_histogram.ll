@@ -32,8 +32,7 @@ define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = sitofp i64 [[VP_POP_COUNT]] to float
@@ -106,8 +105,7 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOAD_2:%.*]] = load i32* [[C0:%.*]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -189,9 +187,7 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -272,8 +268,7 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -355,8 +350,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -369,8 +363,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD_2]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = sext i32 [[VP_LOAD_2]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP13]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC_1:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT_1:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC_1]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = trunc i64 [[VP_POP_COUNT_1]] to i32
@@ -460,8 +453,7 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -469,12 +461,10 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = mul i32 [[VP9]] i32 100
 ; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP10]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP11]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP12:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP12]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC_1:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX_1]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC_1:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT_1:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC_1]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = trunc i64 [[VP_POP_COUNT_1]] to i32
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = add i32 [[VP13]] i32 1
@@ -567,8 +557,7 @@ define dso_local void @foo7(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -650,8 +639,7 @@ define dso_local void @foo8(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = trunc i64 [[VP_POP_COUNT]] to i32
@@ -741,8 +729,7 @@ define dso_local void @foo9(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = sitofp i64 [[VP_POP_COUNT]] to float

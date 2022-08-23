@@ -33,9 +33,7 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP7]] to i32
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP9]] i32 1
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = hir-copy i32 [[VP10]] , OriginPhiId: -1
-; CHECK-NEXT:     i32 [[VP12:%.*]] = trunc i64 [[VP7]] to i32
-; CHECK-NEXT:     i32 [[VP13:%.*]] = add i32 [[VP12]] i32 1
-; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp ult i32 [[VP13]] i32 2
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp ult i32 [[VP10]] i32 2
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]

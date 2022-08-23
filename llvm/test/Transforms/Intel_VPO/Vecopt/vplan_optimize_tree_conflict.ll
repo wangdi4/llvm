@@ -37,8 +37,7 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] { Redux Opcode: add }
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_TREE_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
@@ -118,8 +117,7 @@ define dso_local void @foo2(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] float [[VP_LOAD_2]] float [[VP_LOAD_1]] { Redux Opcode: fadd }
 ; CHECK-NEXT:     [DA: Div] store float [[VP_TREE_CONFLICT]] float* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]

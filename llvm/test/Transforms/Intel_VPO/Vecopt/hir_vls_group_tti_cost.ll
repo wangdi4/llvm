@@ -48,8 +48,7 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP0:%.*]] i64 [[VP5]]
 ; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*(-8) AdjCost: 4
-; CMCHECK-NEXT:    Cost 12 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP7:%.*]] = add i64 [[VP5]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP0]] i64 [[VP7]]
 ; CMCHECK-NEXT:    Cost 12 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 [[VP4]]
@@ -57,8 +56,8 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 8 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 42
-; CMCHECK-NEXT:  Base Cost: 42
+; CMCHECK-NEXT:  [[BB2]]: base cost: 30
+; CMCHECK-NEXT:  Base Cost: 30
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

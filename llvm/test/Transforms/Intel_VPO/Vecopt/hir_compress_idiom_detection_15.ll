@@ -43,10 +43,8 @@
 ; CHECK-NEXT:      float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:      i64 [[VP11:%.*]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:      i64 [[VP12:%.*]] = zext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[K_0130]], i32 [[VP8]], void [[VP_STORE:%.*]], float [[VP_LOAD]], float [[VP_LOAD_1]], i64 [[VP10]], i64 [[VP11]], i64 [[VP12]],
+; CHECK-NEXT:    Linked values: i32 [[VP6]], i32 [[K_0130]], i32 [[VP8]], void [[VP_STORE:%.*]], float [[VP_LOAD]], float [[VP_LOAD_1]], i64 [[VP10]],
 
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
@@ -71,14 +69,10 @@
 ; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index i64 [[VP10]] i64 5
 ; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1]] = subscript inbounds float* [[A0]] i64 [[VP16]]
 ; CHECK-NEXT:       float [[VP17:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i64 [[VP11]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:       i64 [[VP18:%.*]] = compress-expand-index i64 [[VP11]] i64 5
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP18]]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP16]]
 ; CHECK-NEXT:       float [[VP19:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       float [[VP9]] = fadd float [[VP17]] float [[VP19]]
-; CHECK-NEXT:       i64 [[VP12]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:       i64 [[VP20:%.*]] = compress-expand-index i64 [[VP12]] i64 5
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP20]]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP16]]
 ; CHECK-NEXT:       compress-store-nonu float [[VP9]] float* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP8]] = add i32 [[VP6]] i32 5
 ; CHECK-NEXT:       br [[BB2]]
@@ -113,25 +107,21 @@
 ; CHECK-NEXT:        |   [[CAST30:%.*]] = bitcast.i16.<16 x i1>([[XOR0]])
 ; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add2]),  0,  [[CAST30]],  undef)
 ; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[SHUFFLE40:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD60:%.*]] = [[SHUFFLE40]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
 ; CHECK-NEXT:        |   [[CAST70:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC10]])
 ; CHECK-NEXT:        |   [[POPCNT80:%.*]] = @llvm.ctpop.i16([[CAST70]])
 ; CHECK-NEXT:        |   [[SHL90:%.*]] = -1  <<  [[POPCNT80]]
 ; CHECK-NEXT:        |   [[XOR100:%.*]] = [[SHL90]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST110:%.*]] = bitcast.i16.<16 x i1>([[XOR100]])
-; CHECK-NEXT:        |   [[GATHER120:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add6]),  0,  [[CAST110]],  undef)
+; CHECK-NEXT:        |   [[GATHER120:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add2]),  0,  [[CAST110]],  undef)
 ; CHECK-NEXT:        |   [[EXPAND130:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER120]],  undef,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   [[DOTVEC140:%.*]] = [[EXPAND0]]  +  [[EXPAND130]]
-; CHECK-NEXT:        |   [[SHUFFLE150:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD160:%.*]] = [[SHUFFLE150]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
 ; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC140]],  undef,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   [[CAST170:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC10]])
 ; CHECK-NEXT:        |   [[POPCNT180:%.*]] = @llvm.ctpop.i16([[CAST170]])
 ; CHECK-NEXT:        |   [[SHL190:%.*]] = -1  <<  [[POPCNT180]]
 ; CHECK-NEXT:        |   [[XOR200:%.*]] = [[SHL190]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST210:%.*]] = bitcast.i16.<16 x i1>([[XOR200]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add16]),  0,  [[CAST210]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add2]),  0,  [[CAST210]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 5 : [[PHI_TEMP0]]
 ; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v16i32([[SELECT0]])
 ; CHECK-NEXT:        |   [[INSERT220:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
@@ -144,9 +134,7 @@
 ; CM4: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
 ; CM4: Cost 15 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM4: Cost 2 for i64 [[VP10:%.*]] = compress-expand-index i64 [[VP9:%.*]] i64 5
 ; CM4: Cost 15 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM4: Cost 2 for i64 [[VP14:%.*]] = compress-expand-index i64 [[VP13:%.*]] i64 5
 ; CM4: Cost 16 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM4: Cost 4 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM4: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
@@ -154,9 +142,7 @@
 ; CM8: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
 ; CM8: Cost 16 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM8: Cost 2 for i64 [[VP10:%.*]] = compress-expand-index i64 [[VP9:%.*]] i64 5
 ; CM8: Cost 16 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM8: Cost 2 for i64 [[VP14:%.*]] = compress-expand-index i64 [[VP13:%.*]] i64 5
 ; CM8: Cost 20 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 6 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]

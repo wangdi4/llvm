@@ -37,7 +37,7 @@ static cl::opt<bool> VPlanForceInvariantDecomposition(
     cl::desc("Force decomposition of invariants"));
 
 static cl::opt<bool> VPlanAvoidRedundantInst(
-    "vplan-avoid-redundant-inst", cl::init(false), cl::Hidden,
+    "vplan-avoid-redundant-inst", cl::init(true), cl::Hidden,
     cl::desc("Avoid generating redundant instructions in a basic block"));
 
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
