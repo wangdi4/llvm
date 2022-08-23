@@ -379,9 +379,256 @@ double __imf_copysign(double x, double y) {
 }
 
 #ifdef INTEL_CUSTOMIZATION
-DEVICE_EXTERN_C_INLINE double __devicelib_imf_erfinv(double);
+// float64 devicelib API's
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_erfinv(double);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_acos (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_acosh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_asin (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_asinh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_atan2 (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_atan (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_atanh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cbrt (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cdfnorm (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cdfnorminv (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cos (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cosh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_cospi (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_erfc (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_erfcinv (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_erfcx (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_erf (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_exp10 (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_exp2 (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_exp (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_expm1 (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_fdim (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_fmod (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_frexp (double x, int* z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_hypot (double x, double y);
+DEVICE_EXTERN_C_INLINE
+int __devicelib_imf_ilogb (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_rcbrt (double x);
+DEVICE_EXTERN_C_INLINE
+int __devicelib_imf_isfinite (double x);
+DEVICE_EXTERN_C_INLINE
+int __devicelib_imf_isinf (double x);
+DEVICE_EXTERN_C_INLINE
+int __devicelib_imf_isnan (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_ldexp (double x, int y);
+DEVICE_EXTERN_C_INLINE
+long long int __devicelib_imf_llrint (double x);
+DEVICE_EXTERN_C_INLINE
+long long int __devicelib_imf_llround (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_log (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_log10 (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_log1p (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_log2 (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_logb (double x);
+DEVICE_EXTERN_C_INLINE
+int64_t __devicelib_imf_lrint (double x);
+DEVICE_EXTERN_C_INLINE
+int64_t __devicelib_imf_lround (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_modf (double x, double* z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_nan (const char* x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_nextafter (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_norm3d (double x, double y, double z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_norm4d (double x, double y, double z, double t);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_pow (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_remainder (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_remquo (double x, double y, int* z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_rhypot (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_rnorm3d (double x, double y, double z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_rnorm4d (double x, double y, double z, double t);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_round (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_scalbn (double x, int y);
+DEVICE_EXTERN_C_INLINE
+int __devicelib_imf_signbit (double x);
+DEVICE_EXTERN_C_INLINE
+void __devicelib_imf_sincos (double x, double* y, double* z);
+DEVICE_EXTERN_C_INLINE
+void __devicelib_imf_sincospi (double x, double* y, double* z);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_sin (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_sinh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_sinpi (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_tan (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_tanh (double x);
 
+// float64 imf wrappers
 DEVICE_EXTERN_C_INLINE
 double __imf_erfinv(double x) { return __devicelib_imf_erfinv(x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_acos (double x) { return __devicelib_imf_acos (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_acosh (double x) { return __devicelib_imf_acosh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_asin (double x) { return __devicelib_imf_asin (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_asinh (double x) { return __devicelib_imf_asinh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_atan2 (double x, double y) { return __devicelib_imf_atan2 (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_atan (double x) { return __devicelib_imf_atan (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_atanh (double x) { return __devicelib_imf_atanh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cbrt (double x) { return __devicelib_imf_cbrt (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cdfnorm (double x) { return __devicelib_imf_cdfnorm (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cdfnorminv (double x) { return __devicelib_imf_cdfnorminv (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cos (double x) { return __devicelib_imf_cos (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cosh (double x) { return __devicelib_imf_cosh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_cospi (double x) { return __devicelib_imf_cospi (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_erfc (double x) { return __devicelib_imf_erfc (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_erfcinv (double x) { return __devicelib_imf_erfcinv (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_erfcx (double x) { return __devicelib_imf_erfcx (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_erf (double x) { return __devicelib_imf_erf (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_exp10 (double x) { return __devicelib_imf_exp10 (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_exp2 (double x) { return __devicelib_imf_exp2 (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_exp (double x) { return __devicelib_imf_exp (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_expm1 (double x) { return __devicelib_imf_expm1 (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_fdim (double x, double y) { return __devicelib_imf_fdim (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_fmod (double x, double y) { return __devicelib_imf_fmod (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_frexp (double x, int* z) { return __devicelib_imf_frexp (x, z); }
+DEVICE_EXTERN_C_INLINE
+double __imf_hypot (double x, double y) { return __devicelib_imf_hypot (x, y); }
+DEVICE_EXTERN_C_INLINE
+int __imf_ilogb (double x) { return __devicelib_imf_ilogb (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_rcbrt (double x) { return __devicelib_imf_rcbrt (x); }
+DEVICE_EXTERN_C_INLINE
+int __imf_isfinite (double x) { return __devicelib_imf_isfinite (x); }
+DEVICE_EXTERN_C_INLINE
+int __imf_isinf (double x) { return __devicelib_imf_isinf (x); }
+DEVICE_EXTERN_C_INLINE
+int __imf_isnan (double x) { return __devicelib_imf_isnan (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_ldexp (double x, int y) { return __devicelib_imf_ldexp (x, y); }
+DEVICE_EXTERN_C_INLINE
+long long int __imf_llrint (double x) { return __devicelib_imf_llrint (x); }
+DEVICE_EXTERN_C_INLINE
+long long int __imf_llround (double x) { return __devicelib_imf_llround (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_log (double x) { return __devicelib_imf_log (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_log10 (double x) { return __devicelib_imf_log10 (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_log1p (double x) { return __devicelib_imf_log1p (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_log2 (double x) { return __devicelib_imf_log2 (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_logb (double x) { return __devicelib_imf_logb (x); }
+DEVICE_EXTERN_C_INLINE
+int64_t __imf_lrint (double x) { return __devicelib_imf_lrint (x); }
+DEVICE_EXTERN_C_INLINE
+int64_t __imf_lround (double x) { return __devicelib_imf_lround (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_modf (double x, double* z) { return __devicelib_imf_modf (x, z); }
+DEVICE_EXTERN_C_INLINE
+double __imf_nan (const char* x) { return __devicelib_imf_nan (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_nextafter (double x, double y) { return __devicelib_imf_nextafter (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_norm3d (double x, double y, double z) { return __devicelib_imf_norm3d (x, y, z); }
+DEVICE_EXTERN_C_INLINE
+double __imf_norm4d (double x, double y, double z, double t) { return __devicelib_imf_norm4d (x, y, z, t); }
+DEVICE_EXTERN_C_INLINE
+double __imf_pow (double x, double y) { return __devicelib_imf_pow (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_remainder (double x, double y) { return __devicelib_imf_remainder (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_remquo (double x, double y, int* z) { return __devicelib_imf_remquo (x, y, z); }
+DEVICE_EXTERN_C_INLINE
+double __imf_rhypot (double x, double y) { return __devicelib_imf_rhypot (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_rnorm3d (double x, double y, double z) { return __devicelib_imf_rnorm3d (x, y, z); }
+DEVICE_EXTERN_C_INLINE
+double __imf_rnorm4d (double x, double y, double z, double t) { return __devicelib_imf_rnorm4d (x, y, z, t); }
+DEVICE_EXTERN_C_INLINE
+double __imf_round (double x) { return __devicelib_imf_round (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_scalbn (double x, int y) { return __devicelib_imf_scalbn (x, y); }
+DEVICE_EXTERN_C_INLINE
+int __imf_signbit (double x) { return __devicelib_imf_signbit (x); }
+DEVICE_EXTERN_C_INLINE
+void __imf_sincos (double x, double* y, double* z) { __devicelib_imf_sincos (x, y, z); return; }
+DEVICE_EXTERN_C_INLINE
+void __imf_sincospi (double x, double* y, double* z) { __devicelib_imf_sincospi (x, y, z); return; }
+DEVICE_EXTERN_C_INLINE
+double __imf_sin (double x) { return __devicelib_imf_sin (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_sinh (double x) { return __devicelib_imf_sinh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_sinpi (double x) { return __devicelib_imf_sinpi (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_tan (double x) { return __devicelib_imf_tan (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_tanh (double x) { return __devicelib_imf_tanh (x); }
 #endif
 #endif // __LIBDEVICE_IMF_ENABLED__
