@@ -4607,9 +4607,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // %val.to.store = call <VF x type> @x86.masked.compress.XXXXX(<VF x type> %value, <VF x type> undef, <VF x i1> %Mask)
     Type *ElType = VPInst->getOperand(0)->getType();
     VectorType *VecType = getWidenedType(ElType, getVF());
-    Function *CompressFunc = Intrinsic::getDeclaration(
-        &HLNodeUtilities.getModule(), Intrinsic::x86_avx512_mask_compress,
-        {VecType});
+    Function *CompressFunc = getCompressExpandIntrinsicDeclaration(
+        Intrinsic::x86_avx512_mask_compress, VecType);
 
     RegDDRef *ValueRef = widenRef(VPInst->getOperand(0), getVF());
     RegDDRef *Undef = DDRefUtilities.createUndefDDRef(ValueRef->getDestType());
@@ -4663,9 +4662,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // Last step, expand loaded value.
     //
     // %value = call <VF x type> @x86.masked.expand.XXXX(%load.val, <VF x type> undef, <VF x i1> %mask)
-    Function *ExpandFunc =
-        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(),
-                                  Intrinsic::x86_avx512_mask_expand, {VecType});
+    Function *ExpandFunc = getCompressExpandIntrinsicDeclaration(
+        Intrinsic::x86_avx512_mask_expand, VecType);
     HLInst *ExpandCall =
         HLNodeUtilities.createCall(ExpandFunc,
                                    {GatherCall->getLvalDDRef()->clone(),
@@ -4789,6 +4787,32 @@ RegDDRef *VPOCodeGenHIR::generateMaskForCompressExpandLoadStoreNonu() {
   HLInst *BitCastVec = createBitCast(VectorTy, Xor->getLvalDDRef());
 
   return BitCastVec->getLvalDDRef()->clone();
+}
+
+Function *
+VPOCodeGenHIR::getCompressExpandIntrinsicDeclaration(Intrinsic::ID IntrinsicId,
+                                                     VectorType *VecType) {
+
+  assert(IntrinsicId == Intrinsic::x86_avx512_mask_compress ||
+         IntrinsicId == Intrinsic::x86_avx512_mask_expand &&
+             "Expected compress/expand intrinsic ID.");
+  assert(TTI->hasVLX() &&
+         "AVX-512VL instructions are expected to be available.");
+
+  // For the correct intrinsics code generation +avx512f,+avx512vl attributes
+  // are required (could be copied from the current function).
+  Function *F = Intrinsic::getDeclaration(&HLNodeUtilities.getModule(),
+                                          IntrinsicId, {VecType});
+  for (StringRef AttrName : {"target-cpu", "target-features"})
+    F->addFnAttr(AttrName,
+                 getFunction().getFnAttribute(AttrName).getValueAsString());
+
+  // Too small min-legal-vector-width attribute value could prevent proper
+  // @llvm.x86.avx512.mask.compress.xxx/@llvm.x86.avx512.mask.expand.xxx
+  // intrinsics code generation, so upgrading it.
+  AttributeFuncs::updateMinLegalVectorWidthAttr(getFunction(), 512);
+
+  return F;
 }
 
 template <typename FinalInstType>

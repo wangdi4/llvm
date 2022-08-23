@@ -2695,10 +2695,10 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   return true;
 }
 
-/// For [first]private clauses on \p W with non-constant number-of-elements,
-/// create a Map clause to let the runtime handle their privatization. Any
-/// instructions generated for the map clause are inserted before \p W's entry
-/// BasicBlock.
+/// For [first]private clauses on \p W with non-constant number-of-elements
+/// (or those marked with a VARLEN modifier), create a Map clause to let the
+/// runtime handle their privatization. Any instructions generated for the map
+/// clause are inserted before \p W's entry BasicBlock.
 ///
 /// \code
 /// (A)
@@ -2771,8 +2771,9 @@ bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
     std::tie(ElementTy, NumElements, std::ignore) =
         VPOParoptUtils::getItemInfo(I);
 
-    // If the item is not for a VLA, we don't need to emit a map clause for it.
-    if (!NumElements || isa<ConstantInt>(NumElements))
+    // If the item is not for a VLA, and it's not marked with a VARLEN modifier,
+    // we don't need to emit a map clause for it.
+    if (!I->getIsVarLen() && (!NumElements || isa<ConstantInt>(NumElements)))
       return nullptr;
 
     // WILOCAL private VLAs can be allocated within the body of the target
@@ -2785,6 +2786,9 @@ bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
 
     const DataLayout &DL = F->getParent()->getDataLayout();
     Type *I64Ty = MapBuilder.getInt64Ty();
+    if (!NumElements)
+      NumElements = ConstantInt::get(I64Ty, 1);
+
     Value *ElementSize =
         ConstantInt::get(I64Ty, DL.getTypeAllocSize(ElementTy));
     Value *NumElementsCast = MapBuilder.CreateZExtOrTrunc(
@@ -2801,6 +2805,7 @@ bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
     MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
     MapItem *MapI = new MapItem(MapAggr);
     MapI->setOrig(MappedVal);
+    MapI->setIsVarLen(I->getIsVarLen());
     MapC.add(MapI); //                                                     (3)
     I->setInMap(MapI);
 

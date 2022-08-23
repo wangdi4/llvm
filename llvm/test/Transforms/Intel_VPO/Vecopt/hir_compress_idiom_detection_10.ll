@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -91,17 +91,17 @@
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[INSERT0:%.*]] = insertelement zeroinitializer,  [[J_0150]],  0
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[INSERT0]]
-; CHECK:             + DO i1 = 0, 1023, 16   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x i32>*)([[C0]])[i1]
+; CHECK:             + DO i1 = 0, 1023, 32   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<32 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<16 x double*>)([[B0]])[%phi.temp]),  0
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v16f64([[EXTRACT_0_0]],  [[DOTVEC10]],  undef)
+; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement &((<32 x double*>)([[B0]])[%phi.temp]),  0
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v32f64([[EXTRACT_0_0]],  [[DOTVEC10]],  undef)
 ; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[EXP_LOAD0]]  *  3.000000e+00
 ; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  2.000000e+00
-; CHECK-NEXT:        |   [[EXTRACT_0_40:%.*]] = extractelement &((<16 x double*>)([[B0]])[%phi.temp]),  0
-; CHECK-NEXT:        |   @llvm.masked.compressstore.v16f64([[DOTVEC30]],  [[EXTRACT_0_40]],  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
-; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v16i32([[SELECT0]])
+; CHECK-NEXT:        |   [[EXTRACT_0_40:%.*]] = extractelement &((<32 x double*>)([[B0]])[%phi.temp]),  0
+; CHECK-NEXT:        |   @llvm.masked.compressstore.v32f64([[DOTVEC30]],  [[EXTRACT_0_40]],  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 1 : [[PHI_TEMP0]]
+; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v32i32([[SELECT0]])
 ; CHECK-NEXT:        |   [[INSERT50:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
 ; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[INSERT50]]
 ; CHECK-NEXT:        + END LOOP

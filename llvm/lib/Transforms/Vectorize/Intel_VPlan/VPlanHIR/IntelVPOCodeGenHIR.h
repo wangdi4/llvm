@@ -1163,6 +1163,10 @@ private:
   // Calculate mask for a non-unit strided compress store or expand load.
   RegDDRef *generateMaskForCompressExpandLoadStoreNonu();
 
+  // Returns compress/expand intrinsic with correct attributes.
+  Function *getCompressExpandIntrinsicDeclaration(Intrinsic::ID IntrinsicId,
+                                                  VectorType *VecType);
+
   template <typename FinalInstType>
   void insertPrivateFinalCond(const VPInstruction *VPInst);
 

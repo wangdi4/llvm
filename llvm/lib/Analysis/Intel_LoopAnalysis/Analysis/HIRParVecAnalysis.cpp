@@ -1514,7 +1514,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   if (TTI->hasCDI() && VConflictIdiomEnabled && tryVConflictIdiom(Node))
     return;
 
-  if (CEIdiomsEnabled)
+  if (TTI->hasVLX() && CEIdiomsEnabled)
     tryAddIncrementNode(Node);
 
   return;
