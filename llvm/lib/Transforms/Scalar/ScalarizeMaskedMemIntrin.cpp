@@ -713,6 +713,48 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
   return nullptr;
 }
 
+// Return true if V matches following pattern:
+// %ld = load <16 x i16>, <16 x i16>* %0, align 2
+// %2 = sext <16 x i16> %ld to <16 x i64>
+// %3 = add nsw <16 x i64> %2, <i64 32768, ..., i64 32768>
+static bool isSplatAndConstRestrictI16(Value *V, unsigned Depth,
+                                       unsigned &LoadCount,
+                                       unsigned &ConstCount,
+                                       unsigned &ScalarCount) {
+  auto Bin = dyn_cast<BinaryOperator>(V);
+  if (!Bin)
+    return false;
+
+  auto LHS = Bin->getOperand(0);
+  auto RHS = Bin->getOperand(1);
+
+  if (Bin->getOpcode() != Instruction::Add)
+    return false;
+
+  auto* C = dyn_cast_or_null<ConstantInt>(getSplatValue(RHS));
+  if (!C)
+    return false;
+
+  if (!isa<SExtInst>(LHS))
+    return false;
+
+  auto *Ext = cast<CastInst>(LHS);
+  auto *Ty = dyn_cast<FixedVectorType>(Ext->getSrcTy());
+  if (!Ty || !Ty->getElementType()->isIntegerTy(16))
+    return false;
+
+  if (!isa<LoadInst>(Ext->getOperand(0)))
+    return false;
+
+  ++ScalarCount;
+  ++LoadCount;
+
+  if (LoadCount > 1 || ConstCount || ScalarCount > 1)
+    return false;
+
+  return true;
+}
+
 // Get splat value if the input is a splat vector or return nullptr.
 // The value may be extracted from a splat constants vector or from
 // a sequence of instructions that broadcast a single value into a vector.
@@ -815,9 +857,11 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
         }
         Indices.push_back(C->getAggregateElement(Element));
         continue;
-      } else if (TTI.isAdvancedOptEnabled(
+      } else if ((TTI.isAdvancedOptEnabled(
               TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
-              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount, ScalarCount)) {
+              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount, ScalarCount)) ||
+              isSplatAndConstRestrictI16(GEPIdx, 1, LoadCount, ConstCount,
+                                         ScalarCount)) {
         Indices.push_back(nullptr);
         continue;
       }
