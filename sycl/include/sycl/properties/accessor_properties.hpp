@@ -96,8 +96,8 @@ struct no_alias {
 
 #if __cplusplus >= 201703L
 
-inline constexpr property::no_offset::instance no_offset;
-inline constexpr property::no_alias::instance no_alias;
+inline constexpr property::no_offset::instance<> no_offset;
+inline constexpr property::no_alias::instance<> no_alias;
 
 #endif
 
