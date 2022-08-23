@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -607,12 +607,14 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool AdviceT = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
   bool IsAlways = AdviceT && (&Caller != &Callee);
   InlineCost MIC =
-      IsAlways
-          ? llvm::InlineCost::getAlways("always inline", InlrAlwaysInline)
-          : MandatoryInliningKind::Never == MIK
-                ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
-                : llvm::InlineCost::getNever("not mandatory",
-                                             NinlrNotMandatory);
+      IsAlways ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
+                      ? llvm::InlineCost::getAlways("always inline (recursive)",
+                                                    InlrAlwaysInlineRecursive)
+                      : llvm::InlineCost::getAlways("always inline",
+                                                    InlrAlwaysInline))
+      : MandatoryInliningKind::Never == MIK
+          ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
+          : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
   if (IsAlways)
     MIC.setIsRecommended(true);
   auto UP =
