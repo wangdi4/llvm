@@ -740,6 +740,24 @@ Value *InstCombinerImpl::simplifyMaskedLoad(IntrinsicInst &II) {
 // * Single constant active lane -> store
 // * Narrow width by halfs excluding zero/undef lanes
 Instruction *InstCombinerImpl::simplifyMaskedStore(IntrinsicInst &II) {
+#if INTEL_CUSTOMIZATION
+  // No need to mask the value that is stored into a masked store.
+  //
+  // %StoreVal = select %Mask, %SelectTrue, %X
+  // llvm.masked.store(%StoreVal, %Addr, %Mask)
+  // =>
+  // %StoreVal = select %Mask, %SelectTrue, %X
+  // llvm.masked.store(%SelectTrue, %Addr, %Mask)
+  auto *Mask = II.getArgOperand(3);
+  Value *StoreVal = II.getArgOperand(0);
+  Value *SelectTrue = nullptr;
+  if (match(StoreVal,
+            m_Select(m_Specific(Mask), m_Value(SelectTrue), m_Value())))
+    return replaceOperand(II, 0, SelectTrue);
+    // If we get a match, return. The patterns below are very unlikely with a
+    // select operand, but IC will get them anyway on the next pass.
+#endif // INTEL_CUSTOMIZATION
+
   auto *ConstMask = dyn_cast<Constant>(II.getArgOperand(3));
   if (!ConstMask)
     return nullptr;
