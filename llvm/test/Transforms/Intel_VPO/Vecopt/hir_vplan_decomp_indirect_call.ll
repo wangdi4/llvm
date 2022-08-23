@@ -48,8 +48,7 @@
 ; CHECK-NEXT:     i32 [[VP16:%.*]] = load i32* [[VP15]]
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = add i32 [[VP11]] i32 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP16]]
-; CHECK-NEXT:     i64 [[VP19:%.*]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP19]]
+; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
 ; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8

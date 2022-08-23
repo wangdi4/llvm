@@ -42,15 +42,14 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 12 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-12) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
-; CMCHECK-NEXT:    Cost 12 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
-; CMCHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
+; CMCHECK-NEXT:    Cost 2 for i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
 ; CMCHECK-NEXT:    Cost 12 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+8) AdjCost: 20
 ; CMCHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 8 for i1 [[VP6:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 58
-; CMCHECK-NEXT:  Base Cost: 58
+; CMCHECK-NEXT:  [[BB2]]: base cost: 46
+; CMCHECK-NEXT:  Base Cost: 46
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]

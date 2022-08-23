@@ -566,10 +566,10 @@ private:
   VPCompressExpandInit *Init = nullptr;
   VPCompressExpandFinal *Final = nullptr;
 
-  SmallVector<VPInstruction *, 4> Increments;
+  SmallSetVector<VPInstruction *, 4> Increments;
   SmallVector<VPLoadStoreInst *, 4> Stores;
   SmallVector<VPLoadStoreInst *, 4> Loads;
-  SmallVector<VPInstruction *, 4> Indices;
+  SmallSetVector<VPInstruction *, 4> Indices;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.

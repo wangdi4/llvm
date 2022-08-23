@@ -42,8 +42,7 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP2]] i64 [[VP8]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[CUR0:%.*]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP4]] i32 1
-; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i32 [[VP10]] to i64
+; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP11]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]

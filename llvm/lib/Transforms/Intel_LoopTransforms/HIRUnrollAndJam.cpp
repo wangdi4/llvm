@@ -638,8 +638,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  // TODO: What is the right behavior for vectorizable loops?
-  if (Lp->isVecLoop()) {
+  if (Lp->isSIMD()) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vectorizable loop!\n");
     HUAJ.throttleRecursively(Lp);
     return;

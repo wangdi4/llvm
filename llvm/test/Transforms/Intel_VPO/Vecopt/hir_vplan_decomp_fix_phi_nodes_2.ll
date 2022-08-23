@@ -135,9 +135,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:     i32 [[VP22:%.*]] = mul i32 [[N0]] i32 2
-; CHECK-NEXT:     i32 [[VP23:%.*]] = add i32 [[VP18]] i32 [[VP22]]
-; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP23]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP21]] i32 [[VP_LOAD_3]]
 ; CHECK-NEXT:     i64 [[VP25:%.*]] = sext i32 [[VP24]] to i64
 ; CHECK-NEXT:     i1 [[VP26:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP25]]
 ; CHECK-NEXT:     i32 [[VP27:%.*]] = select i1 [[VP26]] i32 [[VP18]] i32 [[VP_LOAD_3]]
