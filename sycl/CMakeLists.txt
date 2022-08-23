@@ -68,12 +68,13 @@ if (MSVC)
 # end INTEL_CUSTOMIZATION
 else ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
-  # Temporarily disable warnings for use of implicit CTAD since clang
-  # currently issues them for STL class usage (e.g. lock_guard).
-  check_cxx_compiler_flag("-Wno-ctad-maybe-unsupported" SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
-  if (SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-ctad-maybe-unsupported")
-  endif()
+endif()
+
+# Temporarily disable warnings for use of implicit CTAD since clang
+# currently issues them for STL class usage (e.g. lock_guard).
+check_cxx_compiler_flag("-Wno-ctad-maybe-unsupported" SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+if (SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-ctad-maybe-unsupported")
 endif()
 
 if(SYCL_ENABLE_WERROR)
