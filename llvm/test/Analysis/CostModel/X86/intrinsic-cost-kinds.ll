@@ -157,26 +157,28 @@ define void @log2(float %a, <16 x float> %va) {
 ; INTEL_CUSTOMIZATION
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %s = call float @llvm.log2.f32(float %a)
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 440 for instruction: %v = call <16 x float> @llvm.log2.v16f32(<16 x float> %va)
-; END INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; LATE-LABEL: 'log2'
-; LATE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %s = call float @llvm.log2.f32(float %a)
-; LATE-NEXT:  Cost Model: Found an estimated cost of 184 for instruction: %v = call <16 x float> @llvm.log2.v16f32(<16 x float> %va)
+; INTEL_CUSTOMIZATION
+; LATE-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %s = call float @llvm.log2.f32(float %a)
+; LATE-NEXT:  Cost Model: Found an estimated cost of 440 for instruction: %v = call <16 x float> @llvm.log2.v16f32(<16 x float> %va)
+; end INTEL_CUSTOMIZATION
 ; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'log2'
 ; INTEL_CUSTOMIZATION
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %s = call float @llvm.log2.f32(float %a)
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 440 for instruction: %v = call <16 x float> @llvm.log2.v16f32(<16 x float> %va)
-; END INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 ; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE_LATE-LABEL: 'log2'
 ; INTEL_CUSTOMIZATION
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %s = call float @llvm.log2.f32(float %a)
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 440 for instruction: %v = call <16 x float> @llvm.log2.v16f32(<16 x float> %va)
-; END INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 ; SIZE_LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %s = call float @llvm.log2.f32(float %a)
@@ -219,8 +221,10 @@ define void @fmaximum(float %a, float %b, <16 x float> %va, <16 x float> %vb) {
 ; THRU-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; LATE-LABEL: 'fmaximum'
-; LATE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %s = call float @llvm.maximum.f32(float %a, float %b)
-; LATE-NEXT:  Cost Model: Found an estimated cost of 196 for instruction: %v = call <16 x float> @llvm.maximum.v16f32(<16 x float> %va, <16 x float> %vb)
+; INTEL_CUSTOMIZATION
+; LATE-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %s = call float @llvm.maximum.f32(float %a, float %b)
+; LATE-NEXT:  Cost Model: Found an estimated cost of 452 for instruction: %v = call <16 x float> @llvm.maximum.v16f32(<16 x float> %va, <16 x float> %vb)
+; end INTEL_CUSTOMIZATION
 ; LATE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'fmaximum'
