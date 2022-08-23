@@ -21,6 +21,14 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf_utils/float_convert.cpp
                                imf_utils/simd_emulate.cpp
                                # INTEL_CUSTOMIZATION
+                               imf/intel/cos_h_la.cpp
+                               imf/intel/exp10_h_la.cpp
+                               imf/intel/exp2_h_la.cpp
+                               imf/intel/exp_h_la.cpp
+                               imf/intel/ln_h_la.cpp
+                               imf/intel/log10_h_la.cpp
+                               imf/intel/log2_h_la.cpp
+                               imf/intel/sin_h_la.cpp
                                imf/intel/erfinv_s_ha.cpp
                                imf/intel/cos_s_ha.cpp
                                imf/intel/cbrt_s_la.cpp
@@ -70,12 +78,86 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/norm4d_s_la.cpp
                                imf/intel/tgamma_s_la.cpp
                                imf/intel/tanh_s_ha.cpp
+                               imf/intel/cdfnorm_s_la.cpp
+                               imf/intel/erfcx_s_la.cpp
+                               imf/intel/hypot_s_la.cpp
+                               imf/intel/isfinite_s_xa.cpp
+                               imf/intel/isinf_s_xa.cpp
+                               imf/intel/isnan_s_xa.cpp
+                               imf/intel/llrint_s_xa.cpp
+                               imf/intel/llround_s_xa.cpp
+                               imf/intel/lrint_s_xa.cpp
+                               imf/intel/lround_s_xa.cpp
+                               imf/intel/nan_s_xa.cpp
+                               imf/intel/scalbn_s_xa.cpp
+                               imf/intel/signbit_s_xa.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp32.cpp)
 
 set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                # INTEL_CUSTOMIZATION
                                imf/intel/erfinv_d_la.cpp
+                               imf/intel/acos_d_ha.cpp
+                               imf/intel/acosh_d_la.cpp
+                               imf/intel/asin_d_ha.cpp
+                               imf/intel/asinh_d_la.cpp
+                               imf/intel/atan2_d_ha.cpp
+                               imf/intel/atan_d_ha.cpp
+                               imf/intel/atanh_d_ha.cpp
+                               imf/intel/cbrt_d_ha.cpp
+                               imf/intel/cdfnorm_d_la.cpp
+                               imf/intel/cdfnorminv_d_la.cpp
+                               imf/intel/cos_d_ha.cpp
+                               imf/intel/cosh_d_ha.cpp
+                               imf/intel/cospi_d_ha.cpp
+                               imf/intel/erfc_d_la.cpp
+                               imf/intel/erfcinv_d_la.cpp
+                               imf/intel/erfcx_d_la.cpp
+                               imf/intel/erf_d_ha.cpp
+                               imf/intel/exp10_d_la.cpp
+                               imf/intel/exp2_d_ha.cpp
+                               imf/intel/exp_d_ha.cpp
+                               imf/intel/expm1_d_ha.cpp
+                               imf/intel/fdim_d_ha.cpp
+                               imf/intel/fmod_d_xa.cpp
+                               imf/intel/frexp_d_xa.cpp
+                               imf/intel/hypot_d_la.cpp
+                               imf/intel/ilogb_d_xa.cpp
+                               imf/intel/invcbrt_d_ha.cpp
+                               imf/intel/isfinite_d_xa.cpp
+                               imf/intel/isinf_d_xa.cpp
+                               imf/intel/isnan_d_xa.cpp
+                               imf/intel/ldexp_d_xa.cpp
+                               imf/intel/llrint_d_xa.cpp
+                               imf/intel/llround_d_xa.cpp
+                               imf/intel/ln_d_ha.cpp
+                               imf/intel/log10_d_ha.cpp
+                               imf/intel/log1p_d_ha.cpp
+                               imf/intel/log2_d_ha.cpp
+                               imf/intel/logb_d_xa.cpp
+                               imf/intel/lrint_d_xa.cpp
+                               imf/intel/lround_d_xa.cpp
+                               imf/intel/modf_d_xa.cpp
+                               imf/intel/nan_d_xa.cpp
+                               imf/intel/nextafter_d_xa.cpp
+                               imf/intel/norm3d_d_la.cpp
+                               imf/intel/norm4d_d_la.cpp
+                               imf/intel/pow_d_la.cpp
+                               imf/intel/remainder_d_xa.cpp
+                               imf/intel/remquo_d_xa.cpp
+                               imf/intel/rhypot_d_la.cpp
+                               imf/intel/rnorm3d_d_la.cpp
+                               imf/intel/rnorm4d_d_la.cpp
+                               imf/intel/round_d_xa.cpp
+                               imf/intel/scalbn_d_xa.cpp
+                               imf/intel/signbit_d_xa.cpp
+                               imf/intel/sincos_d_la.cpp
+                               imf/intel/sincospi_d_la.cpp
+                               imf/intel/sin_d_ha.cpp
+                               imf/intel/sinh_d_la.cpp
+                               imf/intel/sinpi_d_ha.cpp
+                               imf/intel/tan_d_ha.cpp
+                               imf/intel/tanh_d_ha.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp64.cpp)
 
