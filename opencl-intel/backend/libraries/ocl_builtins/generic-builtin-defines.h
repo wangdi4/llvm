@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2018 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -16,6 +14,20 @@
 
 #ifndef GENERIC_BUILTIN_DEFINES_H
 #define GENERIC_BUILTIN_DEFINES_H
+
+// IEEE 754-2019 Section 6.2.1:
+// All binary NaN bit strings have the sign bit S set to 0 or 1 and all the bits
+// of the biased exponent field E set to 1.
+// A quiet NaN (QNAN) bit string should be encoded with the first bit (d1) of
+// the trailing significand field T being 1. A signaling NaN (SNAN) bit string
+// should be encoded with the first bit of the trailing significand field being
+// 0.
+//
+// So all the exponent bits and the most significant bit of the trailing
+// significand are set for a QNAN_MASK.
+#define half_QNAN_MASK 0x7E00      // 0b0111_1110
+#define float_QNAN_MASK 0x7FC00000 // 0b0111_1111_1100_0000
+#define double_QNAN_MASK 0x7FF8000000000000 // 0b0111_1111_1111_1000_0000_0000_...
 
 // pi/180
 extern const constant float generic_pi_180f;
@@ -29,8 +41,6 @@ extern const constant double generic_inv_pi_180;
 extern const constant short  half_const_signMask;
 extern const constant int    float_const_signMask;
 extern const constant long   double_const_signMask;
-extern const constant int    float_const_nanStorage;
-extern const constant long   double_const_nanStorage;
 extern const constant int    float_const_expMask;
 extern const constant long   double_const_expMask;
 extern const constant float  float_const_fractLimit;

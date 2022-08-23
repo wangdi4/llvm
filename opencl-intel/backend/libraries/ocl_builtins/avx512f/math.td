@@ -150,13 +150,11 @@ OclBuiltinImpl ilogb_mask_svml_float = OclBuiltinImpl<ilogb_mask, v32v64f32Types
 OclBuiltinImpl ldexp_mask_svml_float = OclBuiltinImpl<ldexp_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 OclBuiltinImpl pown_mask_svml_float = OclBuiltinImpl<pown_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl rootn_mask_svml_float = OclBuiltinImpl<rootn_mask, v32v64f32Types, 0, masked_impl_code_FG_FG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-OclBuiltinImpl nan_mask_svml_float = OclBuiltinImpl<nan_mask, v32v64f32Types, 0, masked_impl_code_FG_UG_M, [["$DEF0", "0"]]>;
 defvar v32v64f64Types = ExpandTypesByVFAndFlatten<[v1f64], [32, 64]>.Tout;
 OclBuiltinImpl ilogb_mask_svml_double = OclBuiltinImpl<ilogb_mask, v32v64f64Types, 0, masked_impl_code_I32_DG_M, [["$DEF0", "1"]]>;
 OclBuiltinImpl ldexp_mask_svml_double = OclBuiltinImpl<ldexp_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 OclBuiltinImpl pown_mask_svml_double = OclBuiltinImpl<pown_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "5"], ["$DEF1", "5"]]>;
 OclBuiltinImpl rootn_mask_svml_double = OclBuiltinImpl<rootn_mask, v32v64f64Types, 0, masked_impl_code_DG_DG_I32_M, [["$DEF0", "1"], ["$DEF1", "1"]]>;
-OclBuiltinImpl nan_mask_svml_double = OclBuiltinImpl<nan_mask, v32v64f64Types, 0, masked_impl_code_DG_UG_M, [["$DEF0", "0"]]>;
 
 // native
 

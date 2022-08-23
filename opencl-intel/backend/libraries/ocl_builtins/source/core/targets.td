@@ -28,6 +28,7 @@ class OclImplTarget<string name> {
 
 defvar shared_prolog = [{
   #include "svml_shared.h"
+  #include "generic-builtin-defines.h"
 }];
 let Prolog = shared_prolog in
 def _SHARED_TARGET : OclImplTarget<"shared">;

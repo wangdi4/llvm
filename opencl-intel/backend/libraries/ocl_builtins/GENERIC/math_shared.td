@@ -1,4 +1,14 @@
-// vim:ts=2:sw=2:et:
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 // NOTE:
 // this is generic implementations for math functions common for all cpu
@@ -197,9 +207,6 @@ OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, math_shared_types_v1_to_v16,
 // minmag types is a special case, math_shared_types are not used
 // minmag
 OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, math_shared_types_v1_to_v16, 0, minmag_code>;
-
-// nan
-OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, math_shared_types_v1_to_v16, 0, nan_code>;
 
 // nextafter
 OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, math_shared_types, 0, [{

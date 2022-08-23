@@ -81,7 +81,6 @@ def modf_las      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x
 def modf_gas      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 def modf_gen      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
 def modf_pas2    : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def nan           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$nancode), [], [], 0, 1>;
 def nextafter     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pow           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def pown          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], [], 0, 1>;
@@ -176,7 +175,6 @@ def modf_las_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins genty
 def modf_gas_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 def modf_gen_mask      : OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr, gentype:$mask), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>;
 def modf_pas2_mask     : OclBuiltin<"modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval, gentype:$mask), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def nan_mask           : OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x, gentype:$mask), [], [], 0, 1>;
 def nextafter_mask     : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def pow_mask           : OclBuiltin<"pow",       (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def pown_mask          : OclBuiltin<"pown",      (outs gentype:$ret), (ins gentype:$x, i32gentype:$y, gentype:$mask), [], [], 0, 1>;
@@ -482,7 +480,7 @@ let Types = [v1f32, v1f64] in {
                 "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
                 "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
                 "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
-                "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
+                "mad", "maxmag", "minmag", "nextafter", "pow", "pown", "powr", "remainder", "rint",
                 "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
     def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
