@@ -74,7 +74,14 @@ project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
 
-<<<<<<< HEAD
+if (NOT DEFINED CMAKE_INSTALL_LIBDIR AND DEFINED LLVM_LIBDIR_SUFFIX)
+  # Must go before `include(GNUInstallDirs)`.
+  set(CMAKE_INSTALL_LIBDIR "lib${LLVM_LIBDIR_SUFFIX}")
+endif()
+
+# Must go after `DEFINED LLVM_LIBDIR_SUFFIX` check.
+set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
+
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2023")
@@ -98,17 +105,6 @@ if (INTEL_CUSTOMIZATION)
 endif (INTEL_CUSTOMIZATION)
 
 # Must go after project(..)
-=======
-if (NOT DEFINED CMAKE_INSTALL_LIBDIR AND DEFINED LLVM_LIBDIR_SUFFIX)
-  # Must go before `include(GNUInstallDirs)`.
-  set(CMAKE_INSTALL_LIBDIR "lib${LLVM_LIBDIR_SUFFIX}")
-endif()
-
-# Must go after `DEFINED LLVM_LIBDIR_SUFFIX` check.
-set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
-
-# Must go after `project(..)`.
->>>>>>> 90dcdc4b6e7d86cb3d5049bd766aecddd549dd7d
 include(GNUInstallDirs)
 
 # This C++ standard is required to build LLVM.
