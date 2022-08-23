@@ -22,6 +22,8 @@
 #include "llvm/TableGen/Record.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
+#define DEBUG_TYPE "vect-info-gen"
+
 namespace llvm {
 
 const VectorVariant::ISAClass VectEntry::isaClass =
@@ -124,7 +126,7 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
 }
 
 static void generateVectInfos(const VectEntry &Ent,
-                              std::vector<std::string> &AllVectInfos) {
+                              std::set<std::string> &AllVectInfos) {
   unsigned NumVariants = Ent.funcNames.size();
   for (unsigned I = 1; I < NumVariants; ++I) {
     std::stringstream S;
@@ -138,7 +140,7 @@ static void generateVectInfos(const VectEntry &Ent,
     S << getVectorVariant((unsigned)2 << I, Ent.funcNames[0], Ent.funcNames[I])
              .toString()
       << '"';
-    AllVectInfos.push_back(S.str());
+    AllVectInfos.insert(S.str());
   }
 }
 
@@ -209,6 +211,9 @@ void VectInfoGenerator::generateFunctions(
       std::string proto = pBuiltin->getCProto(strTy);
       // Get Alias proto.
       const std::string &funcName = pBuiltin->getCFunc(strTy);
+      LLVM_DEBUG(dbgs() << "Generating dummy function body for " << funcName
+                        << "\n  #Variant = " << t << "  Proto: " << proto
+                        << "\n  Type: " << strTy << '\n');
       size_t pos = proto.find(funcName);
       size_t length = funcName.size();
       const std::string &rewritedAlias =
@@ -274,6 +279,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
   std::vector<unsigned> strides;
 
   for (Record *record : vectInfos) {
+    LLVM_DEBUG(dbgs() << "Processing VectInfo record: " << *record << '\n');
     VectInfo vectInfo{record};
 
     strides.push_back(vectInfo.stride());
@@ -337,9 +343,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
                   funcs[item.first] = funcs[item.second];
                 });
 
-  static std::vector<std::string> AllVectInfos;
+  static std::set<std::string> AllVectInfos;
   // Generating list of variants who use VPlan-fashioned masks.
-  static std::vector<std::string> VPlanMaskedFuncs;
+  static std::set<std::string> VPlanMaskedFuncs;
 
   auto funcIt = funcs.cbegin();
   size_t k = 0;
@@ -372,7 +378,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
           if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
                                                  characteristicType)) {
-            VPlanMaskedFuncs.push_back(fname);
+            VPlanMaskedFuncs.insert(fname);
           }
         }
 
@@ -389,13 +395,11 @@ void VectInfoGenerator::run(raw_ostream &os) {
       funcIt == funcs.cend() &&
       "the number of tblgen functions and llvm functions should be the same");
   os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n";
-  std::sort(AllVectInfos.begin(), AllVectInfos.end());
   for (auto &S : AllVectInfos)
     os << '{' << S << "},\n";
 
   os << "#else\n";
   os << "{\n";
-  std::sort(VPlanMaskedFuncs.begin(), VPlanMaskedFuncs.end());
   for (auto &S : VPlanMaskedFuncs)
     os << '"' << S << '"' << ",\n";
   os << "}\n";

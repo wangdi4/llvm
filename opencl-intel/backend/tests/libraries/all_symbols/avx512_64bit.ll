@@ -12207,14 +12207,6 @@
 ; CHECK-NEXT: _Z3minDv8_mS_
 ; CHECK-NEXT: _Z3minDv8_sS_
 ; CHECK-NEXT: _Z3minDv8_tS_
-; CHECK-NEXT: _Z3nanDv32_j
-; CHECK-NEXT: _Z3nanDv32_jDv32_f
-; CHECK-NEXT: _Z3nanDv32_m
-; CHECK-NEXT: _Z3nanDv32_mDv32_d
-; CHECK-NEXT: _Z3nanDv64_j
-; CHECK-NEXT: _Z3nanDv64_jDv64_f
-; CHECK-NEXT: _Z3nanDv64_m
-; CHECK-NEXT: _Z3nanDv64_mDv64_d
 ; CHECK-NEXT: _Z3powDv16_dS_
 ; CHECK-NEXT: _Z3powDv16_fS_
 ; CHECK-NEXT: _Z3powDv32_dS_
