@@ -1307,8 +1307,7 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
 // recognized %j.014 = %j.014 + 2 is rejected.
 void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
 
-  auto FilterNodes = [this](unsigned Symbase, auto &Nodes,
-                            auto &Cands) -> HLInst * {
+  auto FilterNodes = [this](auto &Nodes, auto &Cands) -> HLInst * {
     HLInst *BaseInst = nullptr;
     auto CheckParent = [&BaseInst](HLInst *Inst) {
       if (!BaseInst) {
@@ -1338,10 +1337,9 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
                                           .getHIRAnalysisProvider()
                                           .get<HIRSafeReductionAnalysis>();
       if (SRA && SRA->isSafeReduction(Inst)) {
-        LLVM_DEBUG(
-            dbgs()
-                << "[Compress/Expand Idiom] No associated loads/stores found: ";
-            Inst->dump());
+        LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] No associated "
+                             "loads/stores found (safe reduction): ";
+                   Inst->dump());
         return Inst;
       }
 
@@ -1459,6 +1457,14 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
 
         Cands.insert(UseMemRef);
       }
+
+      if (Cands.empty() && std::next(It) == Nodes.end()) {
+        LLVM_DEBUG(
+            dbgs()
+                << "[Compress/Expand Idiom] No associated loads/stores found: ";
+            Inst->dump());
+        return Inst;
+      }
     }
 
     return nullptr;
@@ -1468,7 +1474,7 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
 
     auto &Nodes = It->second;
     SetVector<RegDDRef *> Cands;
-    if (HLInst *Node = FilterNodes(It->first, Nodes, Cands)) {
+    if (HLInst *Node = FilterNodes(Nodes, Cands)) {
       LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment rejected: ";
                  Node->dump());
       continue;
@@ -1528,7 +1534,11 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
   if (MinMaxIndexEnabled || VConflictIdiomEnabled || CEIdiomsEnabled) {
     HIRIdiomAnalyzer IdiomAnalyzer(TTI, IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
-    IdiomAnalyzer.detectCompressExpandIdioms();
+    if (!Loop->isMultiExit())
+      IdiomAnalyzer.detectCompressExpandIdioms();
+    else
+      LLVM_DEBUG(
+          dbgs() << "[Compress/Expand Idiom] Disabled for multi-exit loops.\n");
     LLVM_DEBUG(IList.dump());
   } else
     LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
