@@ -18,10 +18,14 @@
 
 // arch: args are case-sensitive.
 // RUN: %clang_cl -m32 -arch:ia32 --target=i386-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=ia32 %s
-// ia32: invalid /arch: argument 'ia32'; for 32-bit expected one of AVX, AVX2, AVX512, AVX512F, IA32, SSE, SSE2
+// INTEL_CUSTOMIZATION
+// ia32: invalid /arch: argument 'ia32'; for 32-bit expected one of AVX, AVX2, AVX512, IA32, SSE, SSE2
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cl -m64 -arch:IA32 --target=x86_64-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=IA3264 %s
-// IA3264: invalid /arch: argument 'IA32'; for 64-bit expected one of AVX, AVX2, AVX512, AVX512F
+// INTEL_CUSTOMIZATION
+// IA3264: invalid /arch: argument 'IA32'; for 64-bit expected one of AVX, AVX2, AVX512
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cl -m32 -arch:SSE --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_32_ARCH_SSE -- %s
 #if defined(TEST_32_ARCH_SSE)
@@ -44,7 +48,9 @@
 // sse2: invalid /arch: argument
 
 // RUN: %clang_cl -m64 -arch:SSE --target=x86_64-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=SSE64 %s
-// SSE64: invalid /arch: argument 'SSE'; for 64-bit expected one of AVX, AVX2, AVX512, AVX512F
+// INTEL_CUSTOMIZATION
+// SSE64: invalid /arch: argument 'SSE'; for 64-bit expected one of AVX, AVX2, AVX512
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cl -m64 -arch:SSE2 --target=x86_64-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=SSE264 %s
 // SSE264: invalid /arch: argument
@@ -71,7 +77,9 @@
 // end INTEL_CUSTOMIZATION
 // avx2: invalid /arch: argument
 
-// RUN: %clang_cl -m32 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_32_ARCH_AVX512F -- %s
+// INTEL_CUSTOMIZATION
+// RUNx: %clang_cl -m32 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_32_ARCH_AVX512F -- %s
+// end INTEL_CUSTOMIZATION
 #if defined(TEST_32_ARCH_AVX512F)
 #if _M_IX86_FP != 2 || !__AVX__ || !__AVX2__ || !__AVX512F__  || __AVX512BW__
 #error fail
@@ -113,7 +121,9 @@
 // end INTEL_CUSTOMIZATION
 // avx264: invalid /arch: argument
 
-// RUN: %clang_cl -m64 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_64_ARCH_AVX512F -- %s
+// INTEL_CUSTOMIZATION
+// RUNx: %clang_cl -m64 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_64_ARCH_AVX512F -- %s
+// end INTEL_CUSTOMIZATION
 #if defined(TEST_64_ARCH_AVX512F)
 #if _M_IX86_FP || !__AVX__ || !__AVX2__ || !__AVX512F__  || __AVX512BW__
 #error fail
