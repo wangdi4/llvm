@@ -3622,17 +3622,27 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   MemRef->setAlignment(Alignment.value());
 
   // Attach PreferredAlignmentMetadata if VPLdSt is a dynamic peeling candidate.
-  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
-  if (auto *DynPeeling =
-          dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
-    if (VPLdSt == DynPeeling->memref()) {
-      LLVMContext &Context = *Plan->getLLVMContext();
-      auto *CI = ConstantInt::get(Type::getInt32Ty(Context),
-                                  DynPeeling->targetAlignment().value());
-      SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
-      MemRef->setMetadata("intel.preferred_alignment",
-                          MDTuple::get(Context, Ops));
+  if (NeedPeelLoop) {
+    VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
+    if (auto *DynPeeling =
+            dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling)) {
+      if (VPLdSt == DynPeeling->memref()) {
+        LLVMContext &Context = *Plan->getLLVMContext();
+        auto *CI = ConstantInt::get(Type::getInt32Ty(Context),
+                                    DynPeeling->targetAlignment().value());
+        SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
+        MemRef->setMetadata("intel.preferred_alignment",
+                            MDTuple::get(Context, Ops));
+        auto DL = MemRef->getDDRefUtils().getDataLayout();
+        auto LdStValAlignment = DL.getABITypeAlignment(VPLdSt->getValueType());
+
+        // If memory ref is properly aligned on element boundary, we can set
+        // its alignment to the target alignment from dynamic peeling.
+        if (Alignment == LdStValAlignment)
+          MemRef->setAlignment(DynPeeling->targetAlignment().value());
+      }
     }
+  }
 
   return MemRef;
 }
@@ -5800,74 +5810,18 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // adjusted base would be: (A + 8 * n1 + 16 * i1). However, HIR framework
     // does not allow such canon expression in actual generated code although
     // it is ok for analysis purposes. When generating code, we need to convert
-    // the adjusted base back to: &A[n1 + 2 * i1].
-    // TODO: Look into avoiding this back and forth conversion in SCEV analysis
-    // to keep the code in sync between this analysis and CG.
-    CanonExpr *AdjustedBase = AddRecHIR->Base->clone();
+    // the adjusted base back to: &A[n1 + 2 * i1]. We were doing this by using
+    // the adjusted base earlier, but we now effectively do the same by removing
+    // vectorization level IV from the original memory ref - this is needed
+    // for correctness(preserve lower/stride info) as well as for easier
+    // handling of multi dimensional array accesses.
+    // TODO: Look into avoiding using canon expr for adjusted base in SCEV
+    // analysis and rely on adjusted RegDDRef if it serves the same purpose.
     const RegDDRef *ParentRef = AddRecHIR->Ref;
-
-    // Find the blob index of pointer type
-    SmallVector<unsigned, 8> BlobIndices;
-    AdjustedBase->collectBlobIndices(BlobIndices, true /* MakeUnique */);
-    unsigned PtrBI = InvalidBlobIndex;
-
-    for (auto BI : BlobIndices) {
-      BlobTy TopBlob = BlobUtilities.getBlob(BI);
-      if (TopBlob->getType()->isPointerTy()) {
-        assert(PtrBI == InvalidBlobIndex &&
-               "Expected to find only one pointer type blob");
-        PtrBI = BI;
-      }
-    }
-    assert(PtrBI != InvalidBlobIndex && "Expected to find a pointer type blob");
-
-    // Construct addressof ref using pointer type blob index and set up
-    // the dimension.
-    auto *AddrOfRef = DDRefUtilities.createAddressOfRef(
-        ParentRef->getSrcType(), PtrBI,
-        ParentRef->getBlobDDRef(PtrBI)->getDefinedAtLevel());
-    Type *PtrIntTy = Type::getIntNTy(
-        Fn.getContext(), DDRefUtilities.getDataLayout().getPointerSizeInBits());
-
-    // Compute the memory ref dimension from adjusted base
-    CanonExpr *RefDim = AdjustedBase;
-    RefDim->removeBlob(PtrBI);
-    RefDim->setSrcType(PtrIntTy);
-    RefDim->setDestType(PtrIntTy);
-    int64_t ElementSize = ParentRef->getDimensionConstStride(1);
-    assert(ElementSize && "Unexpected zero element size");
-
-    // IVs of outer loops are part of adjusted base. That is, when vectorizing
-    // Loop(Level = 2), adjusted base for ptr[i1 + i2] would be: (ptr +
-    // ElementSize * i1). When changing this back to a dimension, we need to
-    // divide by ElementSize. The same holds for any blobs. For instance,
-    // adjusted base for ptr[n1 + i1] would be (ptr + ElementSize * n1) and the
-    // blob coefficients need to be divided by ElementSize.
-    for (unsigned Lvl = 1; Lvl < OrigLoop->getNestingLevel(); ++Lvl)
-      if (RefDim->hasIV(Lvl)) {
-        unsigned IV_Index;
-        int64_t IV_Coeff;
-        RefDim->getIVCoeff(Lvl, &IV_Index, &IV_Coeff);
-        assert((IV_Coeff % ElementSize) == 0 &&
-               "Expected IV_Coeff to be a multiple of ElementSize");
-        RefDim->setIVCoeff(Lvl, IV_Index, IV_Coeff / ElementSize);
-      }
-
-    for (auto &Blob : make_range(RefDim->blob_begin(), RefDim->blob_end())) {
-      assert((Blob.Coeff % ElementSize) == 0 &&
-             "Expected Blob.Coeff to be a multiple of ElementSize");
-      RefDim->setBlobCoeff(Blob.Index, Blob.Coeff / ElementSize);
-    }
-
-    AddrOfRef->addDimension(RefDim);
-
-    // InvSCEVWrapper is expected to be outside the topmost loop being
-    // vectorized. Use (OrigLoop's nesting level - 1) and the original
-    // ref that the base address was part of to make addressof ref consistent.
-    assert(!Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
-           "Expected InvSCEVWrapper to be outside topmost loop");
-    AddrOfRef->makeConsistent({AddRecHIR->Ref},
-                              getNestingLevelFromInsertPoint());
+    RegDDRef *AddrOfRef = ParentRef->clone();
+    AddrOfRef->setAddressOf(true);
+    AddrOfRef->getDimensionIndex(1)->removeIV(OrigLoop->getNestingLevel());
+    AddrOfRef->makeConsistent({}, getNestingLevelFromInsertPoint());
     addVPValueScalRefMapping(VPInst, AddrOfRef, 0);
     return;
   }
