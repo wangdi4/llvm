@@ -93,18 +93,6 @@
 // RUN:  | FileCheck -check-prefixes=XATOMSSSE3,ADV_OPT %s
 // XATOMSSSE3: "-target-cpu" "atom"
 
-// RUN: %clang -### -c -xMIC-AVX512 %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=XMICAVX512,ADV_OPT %s
-// RUN: %clang_cl -### -c /QxMIC-AVX512 %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=XMICAVX512,ADV_OPT %s
-// XMICAVX512: "-target-cpu" "knl"
-
-// RUN: %clang -### -c -xKNM %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=XKNM,ADV_OPT %s
-// RUN: %clang_cl -### -c /QxKNM %s 2>&1 \
-// RUN:  | FileCheck -check-prefixes=XKNM,ADV_OPT %s
-// XKNM: "-target-cpu" "knm"
-
 // RUN: %clang -### -c -xSKYLAKE %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XSKYLAKE,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxSKYLAKE %s 2>&1 \

@@ -66,8 +66,6 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("goldmont", "goldmont")
               .CasesLower("goldmont-plus", "goldmont_plus", "goldmont-plus")
               .CaseLower("tremont", "tremont")
-              .CasesLower("mic-avx512", "mic_avx512", "knl", "knl")
-              .CaseLower("knm", "knm")
               .CasesLower("skylake", "kabylake", "coffeelake", "skylake")
               .CasesLower("amberlake", "whiskeylake", "skylake")
               .CasesLower("core-avx512", "core_avx512", "skylake-avx512",
@@ -187,7 +185,9 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     llvm::StringMap<StringRef> ArchMap({
         {"AVX", "sandybridge"},
         {"AVX2", "haswell"},
+#if !INTEL_CUSTOMIZATION
         {"AVX512F", "knl"},
+#endif // !INTEL_CUSTOMIZATION
         {"AVX512", "skylake-avx512"},
     });
     if (Triple.getArch() == llvm::Triple::x86) {
