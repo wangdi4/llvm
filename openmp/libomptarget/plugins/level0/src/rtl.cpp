@@ -1447,7 +1447,7 @@ struct RTLOptionTy {
   uint32_t NumTeams = 0;
 
   /// Dynamic kernel memory size
-  size_t KernelDynamicMemorySize = 0;
+  size_t KernelDynamicMemorySize = (1 << 20);
 
   /// Dynamic kernel memory allocator
   /// 0: atomic_add with no free()
@@ -1823,7 +1823,9 @@ struct RTLOptionTy {
         DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
         Size = 0;
       }
-      if (Size > 0) {
+      if (Size == 0) {
+        KernelDynamicMemorySize = 0;
+      } else if (Size > 0) {
         size_t MaxSize;
         if (KernelDynamicMemoryMethod == 0) {
           MaxSize = 2048;

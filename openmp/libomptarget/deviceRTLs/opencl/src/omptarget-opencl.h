@@ -879,6 +879,10 @@ EXTERN int omp_get_max_teams(void);
 
 EXTERN int omp_get_teams_thread_limit(void);
 
+EXTERN void *omp_alloc(size_t size, omp_allocator_handle_t allocator);
+
+EXTERN void omp_free(void *ptr, omp_allocator_handle_t allocator);
+
 EXTERN void kmp_global_barrier_init(void);
 
 EXTERN void kmp_global_barrier(void);
