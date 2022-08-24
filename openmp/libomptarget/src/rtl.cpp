@@ -66,7 +66,9 @@ static const char *RTLNames[] = {
 #if INTEL_CUSTOMIZATION
     /* Level0 target  */ "omptarget.rtl.level0.dll",
 #endif // INTEL_CUSTOMIZATION
-    /* OpenCL target  */ "omptarget.rtl.opencl.dll",
+    // OpenCL plugin is excluded from the default list to avoid initialization
+    // issue when dll contains device image.
+    /* OpenCL target  */ //"omptarget.rtl.opencl.dll",
 #else  // !_WIN32
 #if INTEL_CUSTOMIZATION
     /* Level0 target  */ "libomptarget.rtl.level0.so",
@@ -271,6 +273,15 @@ void RTLsTy::loadRTLs() {
   if (RTLChecked.empty()) {
     RTLChecked.insert(RTLChecked.begin(), RTLNames,
                       RTLNames + sizeof(RTLNames) / sizeof(const char *));
+#if _WIN32
+    // Add OpenCL RTL if CPU device type is requested.
+    const char *EnvStr = getenv("LIBOMPTARGET_DEVICETYPE");
+    if (EnvStr) {
+      std::string DeviceType(EnvStr);
+      if (DeviceType == "CPU" || DeviceType == "cpu")
+        RTLChecked.push_back("omptarget.rtl.opencl.dll");
+    }
+#endif // _WIN32
   } else {
     DP("Checking user-specified plugin '%s'...\n", RTLChecked[0]);
   }
