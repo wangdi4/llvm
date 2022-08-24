@@ -3790,6 +3790,9 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
   StructType *DVStruct = GlobalDVInfo->getLLVMStructType();
   assert(DVStruct && "Analyzing dope vector without the proper structure");
 
+  if (!Glob->getType()->getContext().supportsTypedPointers())
+    return false; // FIXME to support opaque pointers
+  
   PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
   if (!PtrAddr)
     return false;
@@ -3967,16 +3970,6 @@ void GlobalDopeVector::validateGlobalDopeVector(const DataLayout &DL) {
 
 void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
                                           bool ForDVCP) {
-
-  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
-  // will be turned back on once the FE supplies a mechanism to collect the
-  // type of the pointers.
-  if (!Glob->getParent()->getContext().supportsTypedPointers()) {
-    LLVM_DEBUG(dbgs() << "  Opaque pointers not supported for global DVCP\n");
-    getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-    return;
-  }
-
 #if INTEL_FEATURE_SW_ADVANCED
   // Aggressive DVCP is turned on by default, collect the option from opt if
   // it is turned off.
@@ -3984,27 +3977,45 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
     EnableAggressiveDVCP = EnableAgressiveDVCPOpt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
+  bool isOpaquePtr = !Glob->getParent()->getContext().supportsTypedPointers();
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
       // should happen only once
-      if (!collectAndAnalyzeAllocSite(BC)) {
-        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-        break;
-      }
+      if (collectAndAnalyzeAllocSite(BC))
+        continue;
     } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
-
       // The fields of the global dope vector are accessed through
       // a GEPOperator
-      if (!collectAndAnalyzeGlobalDopeVectorField(GEP)) {
-        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-        break;
+      if (collectAndAnalyzeGlobalDopeVectorField(GEP))
+        continue;
+    } else if (auto *CB = dyn_cast<CallBase>(U)) {
+      // This is needed in the opaque pointer case because we cannot 
+      // find the DV allocate function through bitcasts in the 
+      // opaque pointer case.
+      if (isOpaquePtr && GlobalDVInfo && !GlobalDVInfo->hasAllocSite()) {
+        if (isCallToAllocFunction(CB, GetTLI)) {
+          GlobalDVInfo->addAllocSite(CB);
+          continue;
+        }
       }
-    } else {
-      // Any other use is invalid
-      getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-      break;
+    } else if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
+      // This is needed in the opaque pointer case because
+      // GEP(X,0,0) instructions may be dead code eliminated.
+      if (isOpaquePtr) {
+        auto *DVField = GlobalDVInfo->getDopeVectorField(DV_ArrayPtr);
+        if (DVField && !DVField->getIsBottom()) {
+          DVField->addFieldAddr(Glob);
+          bool isNotForDVCP = DVField->isAddrNotForDVCP(Glob);
+          DVField->analyzeLoadOrStoreInstruction(U, Glob, isNotForDVCP);
+          if (!DVField->getIsBottom())
+            continue;
+        }
+      }
     }
+    // Any other use is invalid
+    getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+    break;
   }
 
   // Make sure that none of the fields the in the dope vector are
