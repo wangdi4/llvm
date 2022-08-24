@@ -325,10 +325,22 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   }
 
   // TODO: Handle more cost kinds.
-  if (CostKind != TTI::TCK_RecipThroughput)
+  if (CostKind != TTI::TCK_RecipThroughput) {
+    // Handle some basic single instruction code size cases.
+    if (CostKind == TTI::TCK_CodeSize) {
+      switch (ISD) {
+      case ISD::FADD:
+      case ISD::FSUB:
+      case ISD::FMUL:
+        return LT.first;
+        break;
+      }
+    }
+
     return BaseT::getArithmeticInstrCost(Opcode, Ty, CostKind, Op1Info, Op2Info,
                                          Opd1PropInfo, Opd2PropInfo, Args,
                                          CxtI);
+  }
 
   static const CostTblEntry GLMCostTable[] = {
     { ISD::FDIV,  MVT::f32,   18 }, // divss
@@ -1338,8 +1350,10 @@ InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
   std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(BaseTp);
 
   Kind = improveShuffleKindFromMask(Kind, Mask);
+
   // Treat Transpose as 2-op shuffles - there's no difference in lowering.
-  if (Kind == TTI::SK_Transpose)
+  // TODO: Treat Splice as 2-op shuffles - improve this in the future.
+  if (Kind == TTI::SK_Transpose || Kind == TTI::SK_Splice)
     Kind = TTI::SK_PermuteTwoSrc;
 
 #if INTEL_CUSTOMIZATION
@@ -3688,6 +3702,10 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
       return LT.first * Cost;
     }
+
+    // FSQRT is a single instruction.
+    if (ISD == ISD::FSQRT && CostKind == TTI::TCK_CodeSize)
+      return LT.first;
 
     auto adjustTableCost = [](const CostTblEntry &Entry,
                               InstructionCost LegalizationCost,

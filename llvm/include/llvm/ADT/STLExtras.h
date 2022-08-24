@@ -77,12 +77,11 @@ template <typename T> struct make_const_ref {
 };
 
 namespace detail {
-template <typename...> using void_t = void;
 template <class, template <class...> class Op, class... Args> struct detector {
   using value_t = std::false_type;
 };
 template <template <class...> class Op, class... Args>
-struct detector<void_t<Op<Args...>>, Op, Args...> {
+struct detector<std::void_t<Op<Args...>>, Op, Args...> {
   using value_t = std::true_type;
 };
 } // end namespace detail
@@ -96,16 +95,6 @@ struct detector<void_t<Op<Args...>>, Op, Args...> {
 ///   bool fooHasCopyAssign = is_detected<has_copy_assign_t, FooClass>::value;
 template <template <class...> class Op, class... Args>
 using is_detected = typename detail::detector<void, Op, Args...>::value_t;
-
-namespace detail {
-template <typename Callable, typename... Args>
-using is_invocable =
-    decltype(std::declval<Callable &>()(std::declval<Args>()...));
-} // namespace detail
-
-/// Check if a Callable type can be invoked with the given set of arg types.
-template <typename Callable, typename... Args>
-using is_invocable = is_detected<detail::is_invocable, Callable, Args...>;
 
 /// This class provides various trait information about a callable object.
 ///   * To access the number of arguments: Traits::num_args
