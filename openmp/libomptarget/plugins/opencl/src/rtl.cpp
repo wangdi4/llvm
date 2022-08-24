@@ -964,7 +964,7 @@ struct RTLOptionTy {
 
 #if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
-  size_t KernelDynamicMemorySize = 0; // Turned off by default
+  size_t KernelDynamicMemorySize = (1 << 20); // 1MB by default
   /// Dynamic kernel memory allocation method
   /// 0: atomic_add with no free()
   /// 1: pool-based allocator with free() support
@@ -1209,7 +1209,9 @@ struct RTLOptionTy {
         DP("Ignoring incorrect value for LIBOMPTARGET_DYNAMIC_MEMORY_SIZE\n");
         Size = 0;
       }
-      if (Size > 0) {
+      if (Size == 0) {
+        KernelDynamicMemorySize = 0;
+      } else if (Size > 0) {
         size_t MaxSize;
         if (KernelDynamicMemoryMethod == 0) {
           MaxSize = 2048;
