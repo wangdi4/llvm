@@ -1,8 +1,7 @@
 ; Check fp16 implementation status.
 
-; FIXME: SATest build would fail because 'isnan(half)' is not implemented yet.
-; RUN: not SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
-; RUN: not SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
+; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
+; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,dpcpp-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
 
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z4acosDv32_Dh(<32 x half> {{.*}})
 ; CHECK32-VPLAN: call{{.*}} <32 x half> @_Z5acoshDv32_Dh(<32 x half> {{.*}})
