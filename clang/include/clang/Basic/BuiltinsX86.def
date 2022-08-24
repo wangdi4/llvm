@@ -1936,25 +1936,14 @@ TARGET_BUILTIN(__builtin_ia32_subsh_round_mask, "V8xV8xV8xV8xUcIi", "ncV:128:", 
 TARGET_BUILTIN(__builtin_ia32_maxsh_round_mask, "V8xV8xV8xV8xUcIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_minsh_round_mask, "V8xV8xV8xV8xUcIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_cmpph512_mask, "UiV32xV32xIiUiIi", "ncV:512:", "avx512fp16")
-<<<<<<< HEAD
 TARGET_BUILTIN(__builtin_ia32_cmpph256_mask, "UsV16xV16xIiUs", "ncV:256:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_cmpph128_mask, "UcV8xV8xIiUc", "ncV:128:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_cmpsh_mask, "UcV8xV8xIiUcIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
-TARGET_BUILTIN(__builtin_ia32_loadsh128_mask, "V8xV8x*V8xUc", "nV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_loadsh128_mask, "V8xV8xC*V8xUc", "nV:128:", "avx512fp16" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_storesh128_mask, "vV8x*V8xUc", "nV:128:", "avx512fp16" EXT_FEATURES)
 
 TARGET_BUILTIN(__builtin_ia32_rcpph128_mask, "V8xV8xV8xUc", "ncV:128:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_rcpph256_mask, "V16xV16xV16xUs", "ncV:256:", "avx512fp16,avx512vl" EXT_FEATURES)
-=======
-TARGET_BUILTIN(__builtin_ia32_cmpph256_mask, "UsV16xV16xIiUs", "ncV:256:", "avx512fp16,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_cmpph128_mask, "UcV8xV8xIiUc", "ncV:128:", "avx512fp16,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_cmpsh_mask, "UcV8xV8xIiUcIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_loadsh128_mask, "V8xV8xC*V8xUc", "nV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_storesh128_mask, "vV8x*V8xUc", "nV:128:", "avx512fp16")
-
-TARGET_BUILTIN(__builtin_ia32_rcpph128_mask, "V8xV8xV8xUc", "ncV:128:", "avx512fp16,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_rcpph256_mask, "V16xV16xV16xUs", "ncV:256:", "avx512fp16,avx512vl")
->>>>>>> df23fc4f7fe7b9210217cbd37c409fc76d4ff136
 TARGET_BUILTIN(__builtin_ia32_rcpph512_mask, "V32xV32xV32xUi", "ncV:512:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_rsqrtph128_mask, "V8xV8xV8xUc", "ncV:128:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_rsqrtph256_mask, "V16xV16xV16xUs", "ncV:256:", "avx512fp16,avx512vl" EXT_FEATURES)
