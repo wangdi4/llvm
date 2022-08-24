@@ -11,7 +11,7 @@
 ; END REGION
 
 ; CHECK:      [Compress/Expand Idiom] Increment {sb:3}+1 detected: <13>         %j.014 = %j.014  +  1; <Safe Reduction>
-; CHECK-NEXT: [Compress/Expand Idiom] No associated loads/stores found: <13>         %j.014 = %j.014  +  1; <Safe Reduction>
+; CHECK-NEXT: [Compress/Expand Idiom] No associated loads/stores found (safe reduction): <13>         %j.014 = %j.014  +  1; <Safe Reduction>
 ; CHECK-NEXT: [Compress/Expand Idiom] Increment rejected: <13>         %j.014 = %j.014  +  1; <Safe Reduction>
 ; CHECK-NEXT: Idiom List
 ; CHECK-NEXT:   No idioms detected.

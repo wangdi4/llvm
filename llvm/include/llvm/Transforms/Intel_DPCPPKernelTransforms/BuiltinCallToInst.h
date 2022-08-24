@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_BUILTIN_CALL_TO_INST_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_BUILTIN_CALL_TO_INST_H
 
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -40,6 +41,13 @@ private:
     BI_REL_IS_GREATER_EQUAL,
     BI_REL_IS_EQUAL,
     BI_REL_IS_NOT_EQUAL,
+    BI_REL_IS_ORDERED,
+    BI_REL_IS_UNORDERED,
+    BI_REL_IS_NAN,
+    BI_REL_IS_FINITE,
+    BI_REL_IS_INF,
+    BI_REL_IS_NORMAL,
+    BI_REL_SIGNBIT,
     BI_UDIV,
     BI_SDIV,
     BI_UREM,
@@ -62,6 +70,15 @@ private:
   /// \param ShuffleCall call instruction to shuffle built-in.
   /// \param ShuffleTy type of the called shuffle built-in.
   void handleShuffleCalls(CallInst *ShuffleCall, BuiltinType ShuffleTy);
+
+  /// Create a fcmp instruction for relational built-in with 2 operands.
+  Value *createFCmp(IRBuilder<> &Builder, BuiltinType RelationalTy, Value *Op1,
+                    Value *Op2);
+
+  /// Create a llvm.is.fpclass intrinsic for relational built-in with single
+  /// operand.
+  Value *createIsFPClass(IRBuilder<> &Builder, BuiltinType RelationalTy,
+                         Value *Op);
 
   /// Handle all relational calls in current function.
   /// \param RelationalCall call instruction to relational built-in.
