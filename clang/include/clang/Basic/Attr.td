@@ -1273,7 +1273,6 @@ def CUDAShared : InheritableAttr {
 }
 def : MutualExclusions<[CUDAConstant, CUDAShared, HIPManaged]>;
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 def HLSDevice : InheritableAttr {
   let Spellings = [Clang<"hls_device">];
@@ -1283,12 +1282,11 @@ def HLSDevice : InheritableAttr {
   let SimpleHandler = 1;
 }
 // end INTEL_CUSTOMIZATION
-=======
+
 def GlobalStorageNonLocalVar : SubsetSubject<Var,
                                              [{S->hasGlobalStorage() &&
                                                !S->isLocalVarDeclOrParm()}],
                                              "global variables">;
->>>>>>> 8b958f67eb27d9dc87091c18973214c5e1d253a1
 
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];

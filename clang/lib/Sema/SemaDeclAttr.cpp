@@ -6930,7 +6930,8 @@ static void handleSYCLUnmaskedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (!FD->isExternallyVisible()) {
-    S.Diag(AL.getLoc(), diag::err_sycl_attribute_internal_function) << AL;
+    S.Diag(AL.getLoc(), diag::err_sycl_attribute_internal_decl)
+        << AL << /*function*/ 0;
     return;
   }
 
