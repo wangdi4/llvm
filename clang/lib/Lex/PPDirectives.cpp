@@ -2924,7 +2924,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
 
         Major = static_cast<unsigned short>(Version.getMajor());
         if (Version.getMinor())
-          Minor = static_cast<unsigned short>(Version.getMinor().getValue());
+          Minor = static_cast<unsigned short>(Version.getMinor().value());
 
         LexUnexpandedToken(SubTok);
         Tokens.push_back(SubTok);
