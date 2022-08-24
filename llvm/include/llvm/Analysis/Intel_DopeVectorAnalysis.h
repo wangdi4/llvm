@@ -262,6 +262,14 @@ public:
   void print(raw_ostream &OS) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  // Return true if the input value V is a load instruction, or a store
+  // instruction where the pointer operand is Pointer.
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
+  bool isAddrNotForDVCP(Value* Addr) const {
+    return NotForDVCPFieldAddr.contains(Addr);
+  }
+
+
 private:
   bool IsBottom;
   bool IsRead;
@@ -302,10 +310,6 @@ private:
   // there is a chance for multiple pointers could access the current field.
   // The default value is false.
   bool AllowMultipleFieldAddresses;
-
-  // Return true if the input value V is a load instruction, or a store
-  // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
 };
 
 // This class is for analyzing the uses of all the fields that make up a dope
