@@ -12,10 +12,10 @@
 ; CHECK:                    |   %1 = (%lpp)[i1];
 
 ; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[sext.i32.i64(%0)]));
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:23}
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> sext.i32.i64(%0)]) inbounds  {sb:22}
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1 {sb:10}
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 %0 {sb:6}
+; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> sext.i32.i64(%0)]) inbounds 
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 %0
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1
 ;
 define  void @baz(i64**  %lpp, i32* %off) {
 entry:

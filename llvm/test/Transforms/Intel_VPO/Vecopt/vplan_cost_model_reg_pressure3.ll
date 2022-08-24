@@ -35,32 +35,32 @@ define dso_local void @foo() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_8:%.*]] = load i32* [[VP_SUBSCRIPT_8]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_8:%.*]] = load i32* [[VP_SUBSCRIPT_8]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_9:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_9:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_10:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.1875 for i32 [[VP_LOAD_10:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_10:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP2:%.*]] = hir-copy i32 0 , OriginPhiId: -1
 ; CHECK-NEXT:    Cost 2 for i32 [[VP3:%.*]] = add i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:    Cost 8 for i1 [[VP4:%.*]] = icmp ne i32 [[VP3]] i32 0
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 34.0625
+; CHECK-NEXT:  [[BB2]]: base cost: 32
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
@@ -80,14 +80,14 @@ define dso_local void @foo() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__BLEND_BB4:%.*]] = blend [ i32 [[VP2]], i1 true ], [ i32 [[VP16]], i1 [[VP4]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2.375 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
+; CHECK-NEXT:    Cost 2 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 32 for i1 [[VP17:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:  [[BB3]]: base cost: 38.375
-; CHECK-NEXT:  Base Cost: 92.4375
+; CHECK-NEXT:  [[BB3]]: base cost: 38
+; CHECK-NEXT:  Base Cost: 90
 ; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56
-; CHECK-NEXT:  Total Cost: 148.4375
+; CHECK-NEXT:  Total Cost: 146
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]]
 ; CHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB6:BB[0-9]+]]

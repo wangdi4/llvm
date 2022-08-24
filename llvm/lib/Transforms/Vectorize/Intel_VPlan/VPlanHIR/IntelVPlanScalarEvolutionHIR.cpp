@@ -106,16 +106,35 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   if (!Ref || !Ref->isMemRef())
     return nullptr;
 
-  // FIXME: Support multidimensional arrays.
-  if (!Ref->isSingleDimension())
+  // FIXME: Add full support for multidimensional arrays. Currently we handle
+  // single dimensional arrays and multi-dimensional arrays where dimensions
+  // other than lowest are invariant i.e. accesses of the form
+  // a[inv1][inv2][SomeIndex] where inv1/inv2 are invariant at the nesting level
+  // of the loop we are vectorizing.
+  unsigned MainLoopLevel = MainLoop->getNestingLevel();
+  auto supportedAccess = [MainLoopLevel](const RegDDRef *Ref) {
+    if (!Ref->getDimensionLower(1)->isInvariantAtLevel(MainLoopLevel) ||
+        !Ref->getDimensionStride(1)->isInvariantAtLevel(MainLoopLevel))
+      return false;
+
+    for (unsigned I = Ref->getNumDimensions(); I > 1; --I)
+      if (!Ref->getDimensionIndex(I)->isInvariantAtLevel(MainLoopLevel) ||
+          !Ref->getDimensionLower(I)->isInvariantAtLevel(MainLoopLevel) ||
+          !Ref->getDimensionStride(I)->isInvariantAtLevel(MainLoopLevel))
+        return false;
+
+    return true;
+  };
+
+  if (!supportedAccess(Ref))
     return nullptr;
 
   // TODO: Support for struct offsets.
   if (Ref->hasTrailingStructOffsets())
     return nullptr;
 
-  // One-dimensional arrays have only one CanonExpr (index expression).
-  const CanonExpr *AddressCE = Ref->getSingleCanonExpr();
+  // We use the lowest dimension for creating adjusted base.
+  const CanonExpr *AddressCE = Ref->getDimensionIndex(1);
   if (AddressCE->getDenominator() != 1)
     return nullptr;
 
@@ -126,7 +145,6 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
 
   // Only expressions with loop invariant blobs and without nested IVs can be
   // represented as AddRecExpr.
-  unsigned MainLoopLevel = MainLoop->getNestingLevel();
   if (!AddressCE->isLinearAtLevel(MainLoopLevel))
     return nullptr;
 
