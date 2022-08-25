@@ -4288,15 +4288,14 @@ InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                             MaybeAlign Alignment,
                                             unsigned AddressSpace,
                                             TTI::TargetCostKind CostKind,
-                                            TTI::OperandValueKind OpdKind,
+                                            TTI::OperandValueInfo OpInfo,
                                             const Instruction *I) {
 #if INTEL_CUSTOMIZATION
   // Defer to base implementation to split.
   if (Src->isAggregateType())
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
-                                  CostKind, TTI::OK_AnyValue, I);
+                                  CostKind, TTI::OperandValueInfo(), I);
 #endif
-  const TTI::OperandValueInfo OpInfo = {OpdKind, TTI::OP_None};
 
   // TODO: Handle other cost kinds.
   if (CostKind != TTI::TCK_RecipThroughput) {
