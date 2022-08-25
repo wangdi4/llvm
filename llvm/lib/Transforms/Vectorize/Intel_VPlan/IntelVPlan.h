@@ -3552,9 +3552,8 @@ public:
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 protected:
-  VPInstruction *cloneImpl() const override {
-    llvm_unreachable("not expected to clone");
-    return nullptr;
+  VPInvSCEVWrapper *cloneImpl() const override {
+    return new VPInvSCEVWrapper(getSCEV(), getType());
   }
 };
 

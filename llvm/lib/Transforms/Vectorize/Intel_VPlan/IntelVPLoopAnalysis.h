@@ -298,11 +298,13 @@ class VPInduction
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
+              int StepMultiplier, Type *StepTy, const SCEV *StepSCEV,
               VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
               bool IsMemOnly = false,
               unsigned int Opc = Instruction::BinaryOpsEnd)
       : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
+        StepMultiplier(StepMultiplier), StepTy(StepTy), StepSCEV(StepSCEV),
         StartVal(StartVal), EndVal(EndVal), IndOpcode(Opc) {
     assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
            "Induction opcode should be set");
@@ -310,6 +312,9 @@ public:
 
   /// Return stride
   VPValue *getStep() const { return Step; }
+  int getStepMultiplier() const { return StepMultiplier; }
+  Type *getStepType() const { return StepTy; }
+  const SCEV *getStepSCEV() const { return StepSCEV; }
 
   /// Return lower/upper range of values for induction
   VPValue *getStartVal() const { return StartVal; }
@@ -354,6 +359,9 @@ public:
 #endif
 private:
   VPValue *Step;
+  int StepMultiplier; // For linear pointer, holds pointee type
+  Type *StepTy;       // For linear pointer, holds step type
+  const SCEV *StepSCEV; // Holds auto-detected SCEV
   VPValue *StartVal;
   VPValue *EndVal;
   unsigned int IndOpcode; // Explicitly set opcode.
@@ -665,7 +673,8 @@ public:
   /// \p InductionOp, starting instruction \pStart, incoming value
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
-                            InductionKind K, VPValue *Step,
+                            InductionKind K, VPValue *Step, int StepMultiplier,
+                            Type *StepTy, const SCEV *StepSCEV,
                             VPValue *StartVal, VPValue *EndVal,
                             VPInstruction *InductionOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
@@ -1359,6 +1368,9 @@ public:
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
   VPValue *getStep() const { return Step; }
+  int getStepMultiplier() const { return StepMultiplier; }
+  Type *getStepType() const { return StepTy; }
+  const SCEV *getStepSCEV() const { return StepSCEV; }
   VPValue *getStartVal() const { return StartVal; }
   VPValue *getEndVal() const { return EndVal; }
   VPInstruction *getInductionOp() const { return InductionOp; }
@@ -1368,6 +1380,9 @@ public:
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
   void setStep(VPValue *V) { Step = V; }
+  void setStepMultiplier(int multiplier) { StepMultiplier = multiplier; }
+  void setStepType(Type *Ty) { StepTy = Ty; }
+  void setStepSCEV(const SCEV *Scev) { StepSCEV = Scev; }
   void setStartVal(VPValue *V) { StartVal = V; }
   void setEndVal(VPValue *V) { EndVal = V; }
   void setInductionOp(VPInstruction *V) { InductionOp = V; }
@@ -1406,6 +1421,9 @@ public:
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
     Step = nullptr;
+    StepMultiplier = 1;
+    StepSCEV = nullptr;
+    StepTy = nullptr;
     StartVal = nullptr;
     EndVal = nullptr;
     InductionOp = nullptr;
@@ -1442,6 +1460,9 @@ private:
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
   VPValue *Step = nullptr;
+  int StepMultiplier = 1;
+  Type *StepTy = nullptr;
+  const SCEV *StepSCEV = nullptr;
   VPValue *StartVal = nullptr;
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;

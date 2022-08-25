@@ -4478,7 +4478,7 @@ void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
       IndStep.push_back(ConstVal);
     }
     Value *VecConst = ConstantVector::get(IndStep);
-    Value *BcstStep = createVectorSplat(StepVal, VF, Builder, "ind.step.vec");
+    Value *BcstStep = getVectorValue(StepVPVal);
     VectorStep = Builder.CreateBinOp(
         IsFloat ? Instruction::FMul : Instruction::Mul, BcstStep, VecConst);
 

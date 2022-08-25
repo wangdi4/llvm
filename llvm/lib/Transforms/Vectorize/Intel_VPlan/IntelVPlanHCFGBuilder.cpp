@@ -372,6 +372,15 @@ public:
     else {
       // Step of induction is variable, populate it later via VPlan
       Descriptor.setStep(nullptr);
+      // Variable step; auto-detected case
+      // Holds auto-detected SCEV returned by IVDescriptor which is later used
+      // by insertInductionVPInstructions to create VPInstructions Eg: (8 *
+      // %step)
+      if (Descriptor.getKind() ==
+          llvm::InductionDescriptorData::IK_PtrInduction) {
+        Descriptor.setStepSCEV(Step);
+        Descriptor.setStepType(Step->getType());
+      }
     }
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionOp(dyn_cast<VPInstruction>(
@@ -446,19 +455,36 @@ public:
            "expected pointer type for explicit induction");
     Type *IndTy;
     Type *IndPointeeTy;
-    int Step;
+    Value *Step;
     std::tie(IndTy, IndPointeeTy, Step) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
     Type *StepTy = IndTy;
-    if (IndTy->isPointerTy()) {
-      const DataLayout &DL = cast<Instruction>(V)->getModule()->getDataLayout();
-      if (IndTy->isOpaquePointerTy())
-        Step = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * Step;
-      StepTy = DL.getIntPtrType(IndTy);
+    Descriptor.setStepType(StepTy);
+    if (isa<ConstantInt>(Step)) {
+      int StepInt = cast<ConstantInt>(Step)->getSExtValue();
+      if (IndTy->isPointerTy()) {
+        const DataLayout &DL =
+            cast<Instruction>(V)->getModule()->getDataLayout();
+        StepTy = DL.getIntPtrType(IndTy);
+        if (IndTy->isOpaquePointerTy())
+          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * StepInt;
+      }
+      Descriptor.setStep(
+          Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, StepInt)));
+    } else { // Variable step; explicit case
+      if (IndTy->isPointerTy()) {
+        // Storing information in converter, which is then used by
+        // insertInductionVPInstructions to generate VPInstructions
+        const DataLayout &DL =
+            cast<Instruction>(V)->getModule()->getDataLayout();
+        Descriptor.setStepType(DL.getIntPtrType(IndTy));
+        if (IndTy->isOpaquePointerTy())
+          Descriptor.setStepMultiplier(
+              DL.getTypeAllocSize(IndPointeeTy).getFixedSize());
+      }
+      Descriptor.setStep(Builder.getOrCreateVPOperand(Step));
     }
-    Descriptor.setStep(
-        Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, Step)));
 
     Descriptor.setInductionOp(nullptr);
     assertIsSingleElementAlloca(V);

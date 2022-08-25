@@ -434,12 +434,13 @@ VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
 
 VPInduction *VPLoopEntityList::addInduction(
     VPInstruction *Start, VPValue *Incoming, InductionKind Kind, VPValue *Step,
-    VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
-    unsigned int Opc, VPValue *AI, bool ValidMemOnly) {
+    int StepMultiplier, Type *StepTy, const SCEV *StepSCEV, VPValue *StartVal,
+    VPValue *EndVal, VPInstruction *InductionOp, unsigned int Opc, VPValue *AI,
+    bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, StartVal, EndVal, InductionOp,
-                      ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, StepMultiplier, StepTy, StepSCEV,
+                      StartVal, EndVal, InductionOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
   if (InductionOp) {
@@ -1447,27 +1448,46 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     else if (VPPHINode *PhiN = getRecurrentVPHINode(*Induction))
       Name = PhiN->getName();
 
+    VPValue *Step = Induction->getStep();
+    const SCEV *StepSCEV = Induction->getStepSCEV();
+    if (Step == nullptr) { // Variable step; auto-detected
+      // Eg: i64 %vp_step = inv-scev-wrapper{ (8 * %step) }
+      //     ptr %vp_ind_init = induction-init{getelementptr, StartVal: ?,
+      //     EndVal: ?} ptr %vp_ptr i64 %vp_step
+      assert(StepSCEV && "Expected SCEV");
+      VPlanSCEV *StepVPSCEV = VPlanScalarEvolutionLLVM::toVPlanSCEV(StepSCEV);
+      Step = Builder.create<VPInvSCEVWrapper>("vplan.step.scev", StepVPSCEV,
+                                              Induction->getStepType());
+    } else if (!isa<VPConstant>(Step) && Induction->getStepMultiplier() != 1) {
+      // Variable step; explicit clause
+      // retrieve info stored in converter to generate VPInstruction
+      // Eg: i64 %vp_step = mul i64 %step i64 8
+      //     ptr %vp_ind_init = induction-init{getelementptr, StartVal: ?,
+      //     EndVal: ?} ptr %vp_ptr i64 %vp_step
+      VPValue *VPStepMultiplier = Plan.getVPConstant(ConstantInt::get(
+          Induction->getStepType(), Induction->getStepMultiplier()));
+      Step = Builder.createMul(Induction->getStep(), VPStepMultiplier);
+    }
     VPInstruction *Init = Builder.create<VPInductionInit>(
-        Name + ".ind.init", Start, Induction->getStep(),
-        Induction->getStartVal(), Induction->getEndVal(), Opc);
+        Name + ".ind.init", Start, Step, Induction->getStartVal(),
+        Induction->getEndVal(), Opc);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
-        Name + ".ind.init.step", Induction->getStep(), Opc);
+    VPInstruction *InitStep =
+        Builder.create<VPInductionInitStep>(Name + ".ind.init.step", Step, Opc);
 
     if (Induction->needCloseForm()) {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
                                PrivateMem);
     } else {
       if (auto *Instr = Induction->getInductionBinOp()) {
-        assert(isConsistentInductionUpdate(Instr,
-                                           Induction->getInductionOpcode(),
-                                           Induction->getStep()) &&
+        assert(isConsistentInductionUpdate(
+                   Instr, Induction->getInductionOpcode(), Step) &&
                "Inconsistent induction update");
         // This is the only instruction to replace step in induction
         // calculation, no other instruction should be affected. That is
         // important in case the step is used in other instructions linked
         // with induction.
-        Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+        Instr->replaceUsesOfWith(Step, InitStep);
       }
     }
 
@@ -1489,8 +1509,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     auto *Final =
         IsExtract && Exit
             ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit)
-            : Builder.create<VPInductionFinal>(Name + ".ind.final", Start,
-                                               Induction->getStep(), Opc);
+            : Builder.create<VPInductionFinal>(Name + ".ind.final", Start, Step,
+                                               Opc);
     // Check if induction's last value is live-out of penultimate loop
     // iteration.
     Final->setLastValPreIncrement(isInductionLastValPreInc(Induction));
@@ -3213,9 +3233,9 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
     return;
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, StartVal, EndVal, InductionOp,
-                       IndOpcode, AllocaInst, ValidMemOnly);
+  VPInduction *VPInd = LE->addInduction(
+      StartPhi, Start, K, Step, StepMultiplier, StepTy, StepSCEV, StartVal,
+      EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
 }
@@ -3250,7 +3270,7 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                                   : StartPhi->getOperand(0));
   }
 
-  if (Step == nullptr) {
+  if (Step == nullptr && StepSCEV == nullptr) {
     // Induction variable with variable step
     assert((StartPhi && InductionOp) &&
            "Variable step occurs only for auto-recognized inductions.");
