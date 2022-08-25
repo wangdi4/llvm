@@ -1253,15 +1253,8 @@ Function *llvm::getOrInsertVectorVariantFunction(
     VecRetTy = getWidenedType(RetTy, VL);
   }
 
-<<<<<<< HEAD
-  // Having getName() absent means that the vector variant was in the form
-  // "_ZGVbM4uu_" without the BaseName. Use function name then.
-  std::string VFnName = VecVariant->getName().has_value() ?
-    *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
-=======
   std::string VFnName = VecVariant->VectorName;
   LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
->>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
