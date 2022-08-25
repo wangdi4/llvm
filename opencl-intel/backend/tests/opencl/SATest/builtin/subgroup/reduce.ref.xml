@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="8">
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">24</Vector>
+        <Vector id="1">24</Vector>
+        <Vector id="2">24</Vector>
+        <Vector id="3">24</Vector>
+        <Vector id="4">24</Vector>
+        <Vector id="5">24</Vector>
+        <Vector id="6">24</Vector>
+        <Vector id="7">24</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">-0.5</Vector>
+        <Vector id="1">-0.5</Vector>
+        <Vector id="2">-0.5</Vector>
+        <Vector id="3">-0.5</Vector>
+        <Vector id="4">-0.5</Vector>
+        <Vector id="5">-0.5</Vector>
+        <Vector id="6">-0.5</Vector>
+        <Vector id="7">-0.5</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">6.5</Vector>
+        <Vector id="1">6.5</Vector>
+        <Vector id="2">6.5</Vector>
+        <Vector id="3">6.5</Vector>
+        <Vector id="4">6.5</Vector>
+        <Vector id="5">6.5</Vector>
+        <Vector id="6">6.5</Vector>
+        <Vector id="7">6.5</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">-528</Vector>
+        <Vector id="1">-528</Vector>
+        <Vector id="2">-528</Vector>
+        <Vector id="3">-528</Vector>
+        <Vector id="4">-528</Vector>
+        <Vector id="5">-528</Vector>
+        <Vector id="6">-528</Vector>
+        <Vector id="7">-528</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">0</Vector>
+        <Vector id="1">-0.5</Vector>
+        <Vector id="2">0</Vector>
+        <Vector id="3">1.5</Vector>
+        <Vector id="4">4</Vector>
+        <Vector id="5">7.5</Vector>
+        <Vector id="6">12</Vector>
+        <Vector id="7">17.5</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">1</Vector>
+        <Vector id="1">-0.5</Vector>
+        <Vector id="2">-0.25</Vector>
+        <Vector id="3">-0.375</Vector>
+        <Vector id="4">-0.9375</Vector>
+        <Vector id="5">-3.28125</Vector>
+        <Vector id="6">-14.7656</Vector>
+        <Vector id="7">-81.1875</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">-0.5</Vector>
+        <Vector id="1">-0.5</Vector>
+        <Vector id="2">-0.5</Vector>
+        <Vector id="3">-0.5</Vector>
+        <Vector id="4">-0.5</Vector>
+        <Vector id="5">-0.5</Vector>
+        <Vector id="6">-0.5</Vector>
+        <Vector id="7">-0.5</Vector>
+      </Buffer>
+      <Buffer length="8" type="f16" type_size_in_bytes="2" neat="0">
+        <Vector id="0">-0.5</Vector>
+        <Vector id="1">0.5</Vector>
+        <Vector id="2">1.5</Vector>
+        <Vector id="3">2.5</Vector>
+        <Vector id="4">3.5</Vector>
+        <Vector id="5">4.5</Vector>
+        <Vector id="6">5.5</Vector>
+        <Vector id="7">6.5</Vector>
+      </Buffer>
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>

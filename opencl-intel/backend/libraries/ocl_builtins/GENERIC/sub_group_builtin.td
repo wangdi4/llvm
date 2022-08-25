@@ -173,17 +173,7 @@ Attrs = [OVERLOADABLE] in {
       def sub_group_non_uniform_#func#_#mul : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc), [], [], 1, 0>;
     }
   }
-
-  let Types = [ v4i8 , v8i8 , v16i8 ,
-                v4u8 , v8u8 , v16u8 ,
-                v4i16, v8i16, v16i16,
-                v4u16, v8u16, v16u16,
-                v4i32, v8i32, v16i32,
-                v4u32, v8u32, v16u32,
-                v4i64, v8i64, v16i64,
-                v4u64, v8u64, v16u64,
-                v4f32, v8f32, v16f32,
-                v4f64, v8f64, v16f64 ] in {
+  let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1f32, v1i64, v1u64, v1f64], [4,8,16,32,64]>.Tout in {
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       def sub_group_non_uniform_#func#_#mul_vec : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
     }
@@ -718,7 +708,8 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
 
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
-    def sub_group_non_uniform_#func#_#"mul_vect_info" : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec")>;
+    defvar vec_variant = !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec");
+    def sub_group_non_uniform_#func#"_mul_vect_info" : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul"), vec_variant, vec_variant, vec_variant, vec_variant, vec_variant>;
   }
 }
 

@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //
 // Generic Intel Subgroups Implementation
 //
@@ -89,6 +101,18 @@ OclBuiltinImpl sub_group_reduce_max_generic = OclBuiltinImpl<sub_group_reduce_ma
 OclBuiltinImpl sub_group_reduce_min_cs_generic = OclBuiltinImpl<sub_group_reduce_min_vec_cs, sub_group_reduce_min_vec_cs.Types, 0, generic_reduce_comp, [["$OP", ">"], ["$INIT", "$MaxVal"]]>;
 OclBuiltinImpl sub_group_reduce_max_cs_generic = OclBuiltinImpl<sub_group_reduce_max_vec_cs, sub_group_reduce_max_vec_cs.Types, 0, generic_reduce_comp, [["$OP", "<"], ["$INIT", "$MinVal"]]>;
 
+// Reduce mul
+code generic_reduce_mul = [{
+$Arg0BaseType init = 1;
+for (int i = 0; i < $VecLength; ++i) {
+ if ($Arg1VarName[i] == 0)
+   continue;
+ init *= $Arg0VarName[i];
+}
+return init;
+}];
+
+OclBuiltinImpl sub_group_reduce_mul_generic = OclBuiltinImpl<sub_group_non_uniform_reduce_mul_vec, sub_group_non_uniform_reduce_mul_vec.Types, 0, generic_reduce_mul>;
 
 // Scan inclusive add
 code generic_scan_inclusive_add = [{
@@ -123,6 +147,21 @@ OclBuiltinImpl sub_group_scan_inclusive_min_generic = OclBuiltinImpl<sub_group_s
 OclBuiltinImpl sub_group_scan_inclusive_max_generic = OclBuiltinImpl<sub_group_scan_inclusive_max_vec, sub_group_scan_inclusive_max_vec.Types, 0, generic_scan_inclusive_comp,  [["$OP", ">"], ["$INIT", "$MinVal"]]>;
 OclBuiltinImpl sub_group_scan_inclusive_min_cs_generic = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, sub_group_scan_inclusive_min_vec_cs.Types, 0, generic_scan_inclusive_comp,  [["$OP", "<"], ["$INIT", "$MaxVal"]]>;
 OclBuiltinImpl sub_group_scan_inclusive_max_cs_generic = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, sub_group_scan_inclusive_max_vec_cs.Types, 0, generic_scan_inclusive_comp,  [["$OP", ">"], ["$INIT", "$MinVal"]]>;
+
+// Scan inclusive mul
+code generic_scan_inclusive_mul = [{
+if ($Arg1VarName[0] == 0)
+  $Arg0VarName[0] = 1;
+for (int i = 1; i < $VecLength; ++i) {
+  if ($Arg1VarName[i] != 0)
+    $Arg0VarName[i] *= $Arg0VarName[i-1];
+  else
+    $Arg0VarName[i] = $Arg0VarName[i-1];
+}
+return $Arg0VarName;
+}];
+
+OclBuiltinImpl sub_group_scan_inclusive_mul_generic = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_mul_vec, sub_group_non_uniform_scan_inclusive_mul_vec.Types, 0, generic_scan_inclusive_mul>;
 
 // Scan exclusive add
 code generic_scan_exclusive_add = [{
@@ -163,6 +202,24 @@ OclBuiltinImpl sub_group_scan_exclusive_min_generic = OclBuiltinImpl<sub_group_s
 OclBuiltinImpl sub_group_scan_exclusive_max_generic = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, sub_group_scan_exclusive_max_vec.Types, 0, generic_scan_exclusive_comp,  [["$OP", ">"], ["$INIT", "$MinVal"]]>;
 OclBuiltinImpl sub_group_scan_exclusive_min_cs_generic = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, sub_group_scan_exclusive_min_vec_cs.Types, 0, generic_scan_exclusive_comp,  [["$OP", "<"], ["$INIT", "$MaxVal"]]>;
 OclBuiltinImpl sub_group_scan_exclusive_max_cs_generic = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, sub_group_scan_exclusive_max_vec_cs.Types, 0, generic_scan_exclusive_comp,  [["$OP", ">"], ["$INIT", "$MinVal"]]>;
+
+// Scan exclusive mul
+code generic_scan_exclusive_mul = [{
+$Arg0Type helper;
+helper[0] = 1;
+if ($Arg1VarName[0] == 0)
+  $Arg0VarName[0] = 1;
+for (int i = 1; i < $VecLength; ++i) {
+  if ($Arg1VarName[i] != 0)
+    $Arg0VarName[i] *= $Arg0VarName[i-1];
+  else
+    $Arg0VarName[i] = $Arg0VarName[i-1];
+  helper[i] = $Arg0VarName[i-1];
+}
+return helper;
+}];
+
+OclBuiltinImpl sub_group_scan_exclusive_mul_generic = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, sub_group_non_uniform_scan_exclusive_mul_vec.Types, 0, generic_scan_exclusive_mul>;
 
 // Shuffle
 code generic_shuffle = [{
