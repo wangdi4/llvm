@@ -285,7 +285,7 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
     SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
   return TTI.getArithmeticInstrCost(Opcode, VecTy,
-    TargetTransformInfo::TCK_RecipThroughput, {Op1VK, Op1VP}, {Op1VK, Op2VP});
+    TargetTransformInfo::TCK_RecipThroughput, {Op1VK, Op1VP}, {Op2VK, Op2VP});
 }
 
 VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
