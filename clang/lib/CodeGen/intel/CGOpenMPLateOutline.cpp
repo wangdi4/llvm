@@ -1445,7 +1445,11 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       case OMPC_REDUCTION_unknown:
         break;
       }
-    if (VD->getType()->isAnyComplexType())
+    if (CGF.CGM.getContext()
+            .getBaseElementType(E->getType())
+            .getNonReferenceType()
+            ->getPointeeOrArrayElementType()
+            ->isAnyComplexType())
       CSB.setCmplx();
     if (IsRef)
       CSB.setByRef();
@@ -1454,6 +1458,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
         E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       CSB.setArrSect();
       QualType BaseTy = getArraySectionBase(E)->getType();
+      if (isa<ComplexType>(BaseTy->getPointeeOrArrayElementType()))
+        CSB.setCmplx();
       if (UseTypedClauses && BaseTy->isPointerType()) {
         CSB.setPtrToPtr();
         ElemTy = CGF.ConvertTypeForMem(BaseTy->getPointeeType());
