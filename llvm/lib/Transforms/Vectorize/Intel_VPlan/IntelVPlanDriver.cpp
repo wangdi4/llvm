@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -61,7 +61,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -627,7 +626,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
           }
 
     OptimizationRemark R("VPlan Vectorization", "Vectorized", &Fn);
-    if (VectorVariant::isVectorVariant(Fn.getName()))
+    if (VFInfo::isVectorVariant(Fn.getName()))
       R << ore::NV("Remark",
                    "Kernel was " + Twine(VF).str() + "-way vectorized");
     else

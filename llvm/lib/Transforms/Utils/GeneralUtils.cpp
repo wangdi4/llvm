@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -44,9 +44,10 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
-cl::opt<bool> Usei1MaskForSimdFunctions(
-  "use-i1-mask-for-simd-funcs", cl::init(false),
-  cl::desc("Use vector of i1 as mask for simd functions"));
+bool Usei1MaskForSimdFunctions;
+cl::opt<bool, true> Usei1MaskForSimdFunctionsOpt(
+    "use-i1-mask-for-simd-funcs", cl::location(Usei1MaskForSimdFunctions),
+    cl::init(false), cl::desc("Use vector of i1 as mask for simd functions"));
 #endif // INTEL_CUSTOMIZATION
 
 template Constant *

@@ -17,7 +17,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SET_PREFER_VECTOR_WIDTH_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SET_PREFER_VECTOR_WIDTH_H
 
-#include "llvm/IR/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -25,7 +25,7 @@ namespace llvm {
 class SetPreferVectorWidthPass
     : public PassInfoMixin<SetPreferVectorWidthPass> {
 public:
-  SetPreferVectorWidthPass(VectorVariant::ISAClass ISA = VectorVariant::XMM);
+  SetPreferVectorWidthPass(VFISAKind ISA = VFISAKind::SSE);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &FAM);
 
@@ -33,7 +33,7 @@ public:
   bool runImpl(Module &M);
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 
 } // namespace llvm

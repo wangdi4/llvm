@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -1040,14 +1040,14 @@ private:
   // vector library function or vector intrinsics. The generated call(s) are
   // returned via \p CallResults.
   void generateWideCalls(const VPCallInstruction *VPCall, unsigned PumpFactor,
-                         RegDDRef *Mask, VectorVariant *MatchedVariant,
+                         RegDDRef *Mask, const VFInfo *MatchedVariant,
                          Intrinsic::ID VectorIntrinID,
                          SmallVectorImpl<HLInst *> &CallResults);
 
   // Helper utility to generate the mask argument for calls to vector functions.
   // If the call is to a vector variant and i1 vectors are not used for the
   // mask, then convert the mask to the characteristic type of the function.
-  RegDDRef* generateMaskArg(RegDDRef *Mask, VectorVariant *MatchedVariant,
+  RegDDRef* generateMaskArg(RegDDRef *Mask, const VFInfo *MatchedVariant,
                             const VPCallInstruction *VPCall);
 
   // Vectorize call arguments, or for trivial vector intrinsics scalarize if the
@@ -1055,7 +1055,7 @@ private:
   // then the appropriate sub-vector is extracted for given \p PumpPart.
   void widenCallArgs(const VPCallInstruction *VPCall, RegDDRef *Mask,
                      Intrinsic::ID VectorIntrinID,
-                     VectorVariant *MatchedVariant, unsigned PumpPart,
+                     const VFInfo *MatchedVariant, unsigned PumpPart,
                      unsigned PumpFactor, SmallVectorImpl<RegDDRef *> &CallArgs,
                      SmallVectorImpl<Type *> &ArgTys,
                      SmallVectorImpl<AttributeSet> &ArgAttrs);

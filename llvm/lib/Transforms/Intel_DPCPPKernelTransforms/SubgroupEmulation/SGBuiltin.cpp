@@ -160,7 +160,7 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
           CandidateVariants,
           [EmuSizes](
               const std::tuple<std::string, std::string, std::string> &Info) {
-            return EmuSizes.count(VectorVariant{std::get<2>(Info)}.getVlen());
+            return EmuSizes.count(VFABI::demangleForVFABI(std::get<2>(Info)).getVF());
           });
       assert(!MatchingVariants.empty() &&
              "sub-group calls with unsupported VF should be checked in "
