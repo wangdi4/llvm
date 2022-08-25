@@ -39,15 +39,6 @@ void FunctionWidener::run(FuncSet &Functions,
 
   for (auto *Fn : Functions) {
     LLVM_DEBUG(dbgs() << "Expanding Function: " << Fn->getName() << "\n");
-<<<<<<< HEAD
-    Attribute Attr = Fn->getFnAttribute("vector-variants");
-    StringRef VariantsStr = Attr.getValueAsString();
-    SmallVector<StringRef, 8> VecVariants;
-    VariantsStr.split(VecVariants, ',');
-    for (VectorVariant Variant : VecVariants) {
-      std::string VariantName = Variant.getName().value();
-      Function *FnWiden = Fn->getParent()->getFunction(VariantName);
-=======
 
     SmallVector<StringRef, 8> VecVariantsStr;
     Fn->getFnAttribute("vector-variants")
@@ -60,7 +51,6 @@ void FunctionWidener::run(FuncSet &Functions,
 
     for (const VFInfo &Variant : VecVariants) {
       Function *FnWiden = Fn->getParent()->getFunction(Variant.VectorName);
->>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
       if (FnWiden != nullptr) {
         LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
                           << "exists: " << Variant.VectorName << "\n");
@@ -167,11 +157,7 @@ Function *FunctionWidener::cloneFunction(Function &F, const VFInfo &V,
   FunctionType *CloneFuncType =
       FunctionType::get(ReturnType, ParamTypes, false);
 
-<<<<<<< HEAD
-  std::string VariantName = V.getName().value();
-=======
   std::string VariantName = V.VectorName;
->>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
   Function *Clone = Function::Create(
       CloneFuncType, GlobalValue::ExternalLinkage, VariantName, F.getParent());
 

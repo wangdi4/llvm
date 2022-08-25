@@ -242,13 +242,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
-<<<<<<< HEAD
-    VPCall->setVectorizeWithVectorVariant(VecVariant.value().first,
-                                          VecVariant.value().second);
-=======
     VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
                                           VecVariant->second);
->>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
     return;
   }
 
@@ -257,16 +252,9 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // TODO: Same optimization can be done for calls with vectorizable library
   // function.
   if (!IsMasked) {
-<<<<<<< HEAD
-    auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI);
-    if (MaskedVecVariant) {
-      VPCall->setVectorizeWithVectorVariant(MaskedVecVariant.value().first,
-                                            MaskedVecVariant.value().second,
-=======
     if (auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI)) {
       VPCall->setVectorizeWithVectorVariant(std::move(MaskedVecVariant->first),
                                             MaskedVecVariant->second,
->>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
                                             true /*UseMaskedForUnmasked*/);
       return;
     }
