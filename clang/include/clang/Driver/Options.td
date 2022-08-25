@@ -7900,6 +7900,7 @@ def _SLASH_E : CLFlag<"E">, HelpText<"Preprocess to stdout">, Alias<E>;
 def _SLASH_external_COLON_I : CLJoinedOrSeparate<"external:I">, Alias<isystem>,
   HelpText<"Add directory to include search path with warnings suppressed">,
   MetaVarName<"<dir>">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def _SLASH_fcf_protection_COL : CLJoined<"fcf-protection:">,
   Alias<fcf_protection_EQ>;
@@ -7994,6 +7995,14 @@ def _SLASH_fp_precise : CLFlag<"fp:precise">,
   HelpText<"">, Alias<fno_fast_math>;
 def _SLASH_fp_strict : CLFlag<"fp:strict">, HelpText<"">, Alias<fno_fast_math>;
 #endif // INTEL_CUSTOMIZATION
+=======
+def _SLASH_fp_contract : CLFlag<"fp:contract">, HelpText<"">, Alias<ffp_contract>, AliasArgs<["on"]>;
+def _SLASH_fp_except : CLFlag<"fp:except">, HelpText<"">, Alias<ffp_exception_behavior_EQ>, AliasArgs<["strict"]>;
+def _SLASH_fp_except_ : CLFlag<"fp:except-">, HelpText<"">, Alias<ffp_exception_behavior_EQ>, AliasArgs<["ignore"]>;
+def _SLASH_fp_fast : CLFlag<"fp:fast">, HelpText<"">, Alias<ffast_math>;
+def _SLASH_fp_precise : CLFlag<"fp:precise">, HelpText<"">, Alias<ffp_model_EQ>, AliasArgs<["precise"]>;
+def _SLASH_fp_strict : CLFlag<"fp:strict">, HelpText<"">, Alias<ffp_model_EQ>, AliasArgs<["strict"]>;
+>>>>>>> 3d89323d1896fde5dc69ecb8306917718c5e3aed
 def _SLASH_fsanitize_EQ_address : CLFlag<"fsanitize=address">,
   HelpText<"Enable AddressSanitizer">,
   Alias<fsanitize_EQ>, AliasArgs<["address"]>;
