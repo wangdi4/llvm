@@ -591,12 +591,12 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
     Descriptor.setAllocatedType(CurValue->getType());
+    Descriptor.setIsF90(CurValue->isF90());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
-      Descriptor.setIsF90NonPod(NonPODCurValue->isF90NonPod());
     }
     SmallVector<VPInstruction *, 4> AliasUpdates;
     for (auto *Alias : CurValue->aliases()) {

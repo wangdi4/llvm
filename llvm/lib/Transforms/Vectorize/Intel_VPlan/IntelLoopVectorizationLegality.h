@@ -281,7 +281,8 @@ private:
                      Item->getIsF90NonPod());
       return true;
     }
-    addLoopPrivate(Val, Type, PrivateKindTy::NonLast);
+    addLoopPrivate(Val, Type, PrivateKindTy::NonLast,
+                   Item->getIsF90DopeVector());
     return true;
   }
 
@@ -315,7 +316,8 @@ private:
 
     addLoopPrivate(Val, Type,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
-                                            : PrivateKindTy::Last);
+                                            : PrivateKindTy::Last,
+                   Item->getIsF90DopeVector());
     return true;
   }
 
@@ -383,14 +385,14 @@ private:
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
-                      Function *CopyAssign, PrivateKindTy Kind,
-                      bool IsF90NonPod) {
+                      Function *CopyAssign, PrivateKindTy Kind, bool IsF90) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(
-        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90NonPod);
+        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90);
   }
 
-  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind) {
-    return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind);
+  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind, bool IsF90) {
+    return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind,
+                                                           IsF90);
   }
 
   void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step) {
@@ -658,16 +660,17 @@ private:
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
-                      bool IsF90NonPod) {
+                      bool IsF90) {
     Privates.insert({PrivVal, std::make_unique<PrivDescrNonPODTy>(
-                                  PrivVal, PrivTy, Kind, Constr, Destr,
-                                  CopyAssign, IsF90NonPod)});
+                                  PrivVal, PrivTy, Kind, IsF90, Constr, Destr,
+                                  CopyAssign)});
   }
 
   /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind,
+                      bool IsF90) {
     Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind)});
+        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind, IsF90)});
   }
 
   /// Add linear value to Linears map

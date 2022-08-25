@@ -406,21 +406,22 @@ public:
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedTy, bool IsMemOnly = false,
-            unsigned char Id = Private)
+            bool IsF90 = false, unsigned char Id = Private)
       : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
         TagOrExit(ExitI), Aliases(std::move(InAliases)),
-        AllocatedType(AllocatedTy) {}
+        AllocatedType(AllocatedTy), IsF90(IsF90) {}
 
   VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedType, bool IsMemOnly = false,
-            unsigned char Id = Private)
+            bool IsF90 = false, unsigned char Id = Private)
       : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
         TagOrExit(PTag), Aliases(std::move(InAliases)),
-        AllocatedType(AllocatedType) {}
+        AllocatedType(AllocatedType), IsF90(IsF90) {}
 
   bool isConditional() const { return Kind == PrivateKind::Conditional; }
   bool isLast() const { return Kind != PrivateKind::NonLast; }
   bool isExplicit() const { return IsExplicit; }
+  bool isF90() const { return IsF90; }
 
   PrivateTag getPrivateTag() const {
     assert(hasPrivateTag() && "expected tag");
@@ -486,22 +487,23 @@ private:
 
   // Type of the allocated memory.
   Type *AllocatedType;
+
+  // Is private F90 directive.
+  bool IsF90;
 };
 
 class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
                   Function *Ctor, Function *Dtor, Type *AllocatedTy,
-                  Function *CopyAssign, bool IsF90NonPod)
+                  Function *CopyAssign, bool IsF90)
       : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
-                  AllocatedTy, true /*IsMemOnly*/, PrivateNonPOD),
-        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign),
-        IsF90NonPod(IsF90NonPod) {}
+                  AllocatedTy, true /*IsMemOnly*/, IsF90, PrivateNonPOD),
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
 
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
   Function *getCopyAssign() const { return CopyAssign; }
-  bool isF90NonPod() const { return IsF90NonPod; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -516,7 +518,6 @@ private:
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
-  bool IsF90NonPod;
 };
 
 class VPCompressExpandIdiom : public VPLoopEntity {
@@ -686,21 +687,20 @@ public:
   VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
                         VPPrivate::PrivateKind K, bool Explicit,
                         Type *AllocatedTy, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false);
+                        bool ValidMemOnly = false, bool IsF90 = false);
 
   /// Add private corresponding to \p Alloca along with the specified private
   /// tag. Also store other relavant attributes of the private like the
   /// conditional, last and explicit.
   VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
                         VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
-                        bool Explicit, Type *AllocatedTy,
-                        VPValue *AI = nullptr,
-                        bool ValidMemOnly = false);
+                        bool Explicit, Type *AllocatedTy, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false, bool IsF90 = false);
 
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
-                                    Function *CopyAssign, bool IsF90NonPod,
+                                    Function *CopyAssign, bool IsF90,
                                     Type *AllocatedTy = nullptr,
                                     VPValue *AI = nullptr);
 
@@ -1496,7 +1496,7 @@ public:
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
-    IsF90NonPod = false;
+    IsF90 = false;
     PTag = VPPrivate::PrivateTag::PTRegisterized;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
@@ -1524,7 +1524,7 @@ public:
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
-  void setIsF90NonPod(bool F90NonPod) { IsF90NonPod = F90NonPod; }
+  void setIsF90(bool F90) { IsF90 = F90; }
 
 private:
   /// Set fields to define PrivateKind for the imported private.
@@ -1548,7 +1548,7 @@ private:
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;
-  bool IsF90NonPod = false;
+  bool IsF90 = false;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;

@@ -161,16 +161,17 @@ private:
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
-                      bool IsF90NonPod) {
+                      bool IsF90) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
-                                    CopyAssign, IsF90NonPod);
+    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, IsF90, Constr, Destr,
+                                    CopyAssign);
   }
 
   /// Add an explicit POD private to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind,
+                      bool IsF90) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
+    PrivatesList.emplace_back(PrivVal, PrivTy, Kind, IsF90);
   }
 
   /// Add an explicit linear.

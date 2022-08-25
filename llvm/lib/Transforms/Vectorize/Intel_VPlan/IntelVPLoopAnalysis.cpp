@@ -454,9 +454,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly) {
+                                        bool ValidMemOnly, bool IsF90) {
   auto *Priv = new VPPrivate(FinalI, std::move(Aliases), K, Explicit,
-                             AllocatedTy, ValidMemOnly);
+                             AllocatedTy, ValidMemOnly, IsF90);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, FinalI);
   linkValue(PrivateMap, Priv, AI);
@@ -468,9 +468,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly) {
+                                        bool ValidMemOnly, bool IsF90) {
   auto *Priv = new VPPrivate(Tag, std::move(Aliases), K, Explicit, AllocatedTy,
-                             ValidMemOnly);
+                             ValidMemOnly, IsF90);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -479,11 +479,11 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
 
 VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
     VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
-    Function *Ctor, Function *Dtor, Function *CopyAssign, bool IsF90NonPod,
+    Function *Ctor, Function *Dtor, Function *CopyAssign, bool IsF90,
     Type *AllocatedTy, VPValue *AI) {
   VPPrivateNonPOD *Priv =
       new VPPrivateNonPOD(std::move(Aliases), K, Explicit, Ctor, Dtor,
-                          AllocatedTy, CopyAssign, IsF90NonPod);
+                          AllocatedTy, CopyAssign, IsF90);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -1768,7 +1768,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // operand.
     if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
       if (auto *CtorFn = PrivateNonPOD->getCtor()) {
-        if (PrivateNonPOD->isF90NonPod())
+        if (PrivateNonPOD->isF90())
           createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
         else
           createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
@@ -2900,7 +2900,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   Type *AllocatedTy = getAllocatedType();
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
-                         IsF90NonPod, AllocatedTy, AllocaInst);
+                         IsF90, AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     if (LE->getReduction(ExitInst)) {
