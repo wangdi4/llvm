@@ -483,18 +483,6 @@ bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
     }
   }
 
-  // Don't hoise If I is for llvm.assume usage.
-  if (IsVectorAssume(I)) {
-    LLVM_DEBUG(dbgs().indent(2)
-               << "Can't hoist having llvm.assume usage: " << *I << "\n");
-    // Also remove I's operands from InstToMoveSet.
-    // Need not to do this recursively since in our use case one operand is
-    // shufflevector and it is enough to remove the shufflevector.
-    for (Value *Op : I->operands())
-      InstToMoveSet.erase(Op);
-    return false;
-  }
-
   LLVM_DEBUG(dbgs().indent(2) << "Can hoist " << *I << "\n");
 
   return true;
@@ -610,6 +598,8 @@ void LoopStridedCodeMotionImpl::screenNonProfitableValues() {
     return false;
   };
 
+  SmallPtrSet<Instruction *, 4> NonProfitableInsts;
+
   // Scan the instruction marked to move in reverse order, meaning use before
   // def.
   for (auto It = OrderedCandidates.rbegin(), E = OrderedCandidates.rend();
@@ -638,6 +628,22 @@ void LoopStridedCodeMotionImpl::screenNonProfitableValues() {
       IsProfitable |= NonHoistedUsers.size() == 1 && HeaderPhi.contains(Op) &&
                       cast<PHINode>(Op)->getIncomingValueForBlock(Latch) ==
                           NonHoistedUsers[0];
+    }
+
+    // Don't hoist if I is for llvm.assume usage, since they won't generate
+    // assembly code.
+    if (IsVectorAssume(I)) {
+      LLVM_DEBUG(dbgs().indent(2)
+                 << "Have llvm.assume usage: " << *I << "\n");
+      NonProfitableInsts.insert(I);
+      IsProfitable = false;
+    }
+    // It isn't profitable if I has only one user which is, e.g., for
+    // llvm.assume usage.
+    if (I->hasOneUse()) {
+      auto *UI = dyn_cast<Instruction>(*I->user_begin());
+      if (UI && NonProfitableInsts.contains(UI))
+        IsProfitable = false;
     }
 
     // Can not have strided intermediate as pivot strided value.

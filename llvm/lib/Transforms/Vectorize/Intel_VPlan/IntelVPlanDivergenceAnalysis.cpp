@@ -1435,8 +1435,32 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     // This could be a VPExternalDef (a non-constant value), i.e., a
     // variable step IV. We should set the shape to be random if we
     // cannot infer the step-size.
-    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step)) &&
+#ifndef NDEBUG
+    auto CheckOperands = [&](VPValue *Step) {
+      assert(isa<VPInstruction>(Step) && "Expected an instruction");
+      if (isa<VPInvSCEVWrapper>(Step)) {
+        // TODO: VPInvSCEVWrapper is used to represent auto-detected(by
+        // IVDescriptor) step. Because step has previously been established as
+        // invariant, we return true here. An alternative would be to check for
+        // step operands(as in the case below), but it requires access to LLVM
+        // SE analysis results in DA.
+        return true;
+      } else {
+        VPInstruction *StepInst = cast<VPInstruction>(Step);
+        for (unsigned i = 0; i < StepInst->getNumOperands(); i++) {
+          VPValue *Op = StepInst->getOperand(i);
+          if (!isa<VPExternalDef>(Op) && !isa<VPLiveInValue>(Op) &&
+              !isa<VPConstant>(Op))
+            return false;
+        }
+        return true;
+      }
+      return false;
+    };
+    assert((isa<VPExternalDef>(Step) || isa<VPLiveInValue>(Step) ||
+            CheckOperands(Step)) &&
            "Expect the non-constant to be VPExternalDef or VPLiveInValue.");
+#endif
     return getRandomVectorShape();
   }
 
@@ -1633,7 +1657,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInc)
     NewShape = getRandomVectorShape();
-  else {
+  else if (Opcode == VPInstruction::InvSCEVWrapper) {
+    // TODO: In this situation, we return uniform based on how InvSCEVWrapper
+    // instructions are currently being used. This has to be reevaluated if how
+    // it is used changes.
+    NewShape = getUniformVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&
