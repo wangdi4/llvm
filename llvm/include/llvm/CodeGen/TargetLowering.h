@@ -1559,12 +1559,14 @@ public:
     return RegisterTypeForVT[VT.SimpleTy];
   }
 
+  virtual bool breakDownNonPow2VectorType(EVT VT) const { return false; } // INTEL
+
   /// Return the type of registers that this ValueType will eventually require.
   MVT getRegisterType(LLVMContext &Context, EVT VT) const {
 #if INTEL_CUSTOMIZATION
-    // For non-power of 2 vector use getVectorTypeBreakdown.
-    if (VT.isSimple() &&
-        (!VT.getSimpleVT().isVector() || VT.getSimpleVT().isPow2VectorType())) {
+    // For non-power of 2 vector let target decide whether to use
+    // getVectorTypeBreakdown or not.
+    if (VT.isSimple() && !breakDownNonPow2VectorType(VT)) {
 #endif // INTEL_CUSTOMIZATION
       assert((unsigned)VT.getSimpleVT().SimpleTy <
                 array_lengthof(RegisterTypeForVT));
@@ -1599,9 +1601,9 @@ public:
   getNumRegisters(LLVMContext &Context, EVT VT,
                   Optional<MVT> RegisterVT = None) const {
 #if INTEL_CUSTOMIZATION
-    // For non-power of 2 vector use getVectorTypeBreakdown.
-    if (VT.isSimple() &&
-        (!VT.getSimpleVT().isVector() || VT.getSimpleVT().isPow2VectorType())) {
+    // For non-power of 2 vector let target decide whether to use
+    // getVectorTypeBreakdown or not.
+    if (VT.isSimple() && !breakDownNonPow2VectorType(VT)) {
 #endif // INTEL_CUSTOMIZATION
       assert((unsigned)VT.getSimpleVT().SimpleTy <
                 array_lengthof(NumRegistersForVT));

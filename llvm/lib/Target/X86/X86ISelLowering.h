@@ -1612,6 +1612,11 @@ namespace llvm {
     bool hasVectorBlend() const override { return true; }
 
 #if INTEL_CUSTOMIZATION
+    bool breakDownNonPow2VectorType(EVT VT) const override {
+      return VT.isSimple() && VT.getSimpleVT().isVector() &&
+             !VT.getSimpleVT().isPow2VectorType();
+    }
+
     unsigned getMaxSupportedInterleaveFactor() const override { return 8; }
 
     bool CustomLowerComplexMultiply(Type *FloatTy) const override;
