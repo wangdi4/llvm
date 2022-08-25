@@ -207,6 +207,14 @@ public:
   // Returns ListNodeType.
   DTransStructType *getListNodeType() { return ListNodeType; }
 
+  // Returns ReusableArenaBlockType.
+  DTransStructType *getReusableArenaBlockType() {
+    return ReusableArenaBlockType;
+  }
+
+  // Returns BlockBaseType.
+  DTransStructType *getBlockBaseType() { return BlockBaseType; }
+
   // Returns index of ArenaAllocatorObject.
   int32_t getArenaAllocatorObjectIndex() { return ArenaAllocatorObjectIndex; }
 
@@ -227,6 +235,36 @@ public:
 
   // Returns index of FreeHead in List.
   int32_t getListFreeHeadIndex() { return ListFreeHeadIndex; }
+
+  // Returns index of Allocator in BlockBase.
+  int32_t getBasicAllocatorIndex() { return BasicAllocatorIndex; }
+
+  // Returns index of ObjectCount in BlockBase.
+  int32_t getBlockObjectCountIndex() { return BlockObjectCountIndex; }
+
+  // Returns index of BlockSize in BlockBase.
+  int32_t getBlockBlockSizeIndex() { return BlockBlockSizeIndex; }
+
+  // Returns index of StringObject (i.e ObjectBlock) in BlockBase.
+  int32_t getStringObjectIndex() { return StringObjectIndex; }
+
+  // Returns index of BlockBase class in ReusableArenaBlock.
+  int32_t getBlockBaseObjIndex() { return BlockBaseObjIndex; }
+
+  // Returns index of FirstFreeBlockIndex in ReusableArenaBlock.
+  int32_t getFirstFreeBlockIndex() { return FirstFreeBlockIndex; }
+
+  // Returns index of NextFreeBlockIndex in ReusableArenaBlock.
+  int32_t getNextFreeBlockIndex() { return NextFreeBlockIndex; }
+
+  // Returns index of ReusableArenaBlock in ListNode.
+  int32_t getReusableArenaBlockIndex() { return ReusableArenaBlockIndex; }
+
+  // Returns index of NodePrevIndex in ListNode.
+  int32_t getNodePrevIndex() { return NodePrevIndex; }
+
+  // Returns index of NodeNextIndex in ListNode.
+  int32_t getNodeNextIndex() { return NodeNextIndex; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(llvm::dbgs()); }
