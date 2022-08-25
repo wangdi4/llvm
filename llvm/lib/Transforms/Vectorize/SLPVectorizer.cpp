@@ -8668,19 +8668,19 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       InstructionCost VecLdCost;
       if (E->State == TreeEntry::Vectorize) {
         VecLdCost = TTI->getMemoryOpCost(Instruction::Load, VecTy, Alignment, 0,
-<<<<<<< HEAD
-                                         CostKind, TTI::OK_AnyValue, VL0);
+                                         CostKind,
+                                         {TTI::OK_AnyValue, TTI::OP_None}, VL0);
 #if INTEL_CUSTOMIZATION
         // Cost modeling for split-load.
         if (!E->SplitLoadGroups.empty()) {
           // Cost of all loads.
           unsigned Size = std::get<1>(E->SplitLoadGroups.back());
           unsigned NumElems = E->SplitLoadGroups.size();
-          VecLdCost = NumElems *
-                      TTI->getMemoryOpCost(Instruction::Load,
-                                           FixedVectorType::get(ScalarTy, Size),
-                                           Alignment, 0, CostKind,
-                                           TTI::OK_AnyValue, VL0);
+          VecLdCost =
+              NumElems * TTI->getMemoryOpCost(
+                             Instruction::Load,
+                             FixedVectorType::get(ScalarTy, Size), Alignment, 0,
+                             CostKind, {TTI::OK_AnyValue, TTI::OP_None}, VL0);
           // Cost of shuffles.
           do {
             Size *= 2;
@@ -8691,9 +8691,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           } while (NumElems > 1);
         }
 #endif // INTEL_CUSTOMIZATION
-=======
-                                         CostKind, {TTI::OK_AnyValue, TTI::OP_None}, VL0);
->>>>>>> 27d3321c4fef62f567d29e88cd44fc1d92c6b6a5
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
         Align CommonAlignment = Alignment;
