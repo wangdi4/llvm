@@ -55,7 +55,7 @@ cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable vconflict idiom"));
 
-cl::opt<bool> CEIdiomsEnabled("enable-compress-expand-idiom", cl::init(false),
+cl::opt<bool> CEIdiomsEnabled("enable-compress-expand-idiom", cl::init(true),
                               cl::Hidden,
                               cl::desc("Enable compress/expand idioms"));
 
