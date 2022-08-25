@@ -27,3 +27,7 @@ defvar ret_zero_code = [{
 defvar ret_void_code = [{
   return;
 }];
+
+defvar ret_arg0_code = [{
+  return $Arg0VarName;
+}];
