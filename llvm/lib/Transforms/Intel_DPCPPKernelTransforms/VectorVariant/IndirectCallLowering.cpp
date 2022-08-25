@@ -12,7 +12,6 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
@@ -69,7 +68,7 @@ bool IndirectCallLowering::runImpl(Module &M) {
       // Look for the first masked variant.
       unsigned Index;
       for (Index = 0; Index < Variants.size(); Index++)
-        if (VectorVariant(Variants[Index]).isMasked())
+        if (VFABI::demangleForVFABI(Variants[Index]).isMasked())
           break;
 
       // We expect here at least one masked vector-variant.
@@ -82,8 +81,8 @@ bool IndirectCallLowering::runImpl(Module &M) {
         continue;
       }
 
-      VectorVariant Variant(Variants[Index]);
-      unsigned VecLen = Variant.getVlen();
+      VFInfo Variant = VFABI::demangleForVFABI(Variants[Index]);
+      unsigned VecLen = Variant.getVF();
       ConstantInt *Zero = ConstantInt::get(M.getContext(), APInt(32, 0, true));
       FunctionType *FTy = Call.getFunctionType();
 
@@ -98,7 +97,7 @@ bool IndirectCallLowering::runImpl(Module &M) {
         Type *Ty = FTy->getParamType(I);
         Value *Operand = Call.getArgOperand(I);
 
-        if (Variant.getParameters()[I - 1].isVector()) {
+        if (Variant.Shape.Parameters[I - 1].isVector()) {
 
           VectorType *VecTy = VectorType::get(Ty, VecLen, false);
           VecArgTy.push_back(VecTy);

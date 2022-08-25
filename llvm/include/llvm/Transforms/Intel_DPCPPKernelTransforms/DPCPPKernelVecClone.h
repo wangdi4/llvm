@@ -15,6 +15,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -27,7 +28,7 @@ namespace llvm {
 class DPCPPKernelVecCloneImpl : public VecCloneImpl {
 public:
   DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                          VectorVariant::ISAClass ISA, bool IsOCL);
+                          VFISAKind ISA, bool IsOCL);
 
   void setVectorizationDimensionMap(
       const VectorizationDimensionAnalysisLegacy::Result *VDMap) {
@@ -37,7 +38,7 @@ public:
 private:
   // Configuration options
   ArrayRef<VectItem> VectInfos;
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
   bool IsOCL;
 
   DPCPPKernelMetadataAPI::KernelList::KernelVectorTy Kernels;
@@ -54,7 +55,7 @@ private:
   // kernels with barriers.
   void handleLanguageSpecifics(Function &F, PHINode *Phi, Function *Clone,
                                BasicBlock *EntryBlock,
-                               const VectorVariant &Variant) override;
+                               const VFInfo &Variant) override;
 
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
@@ -67,7 +68,7 @@ private:
 public:
   explicit DPCPPKernelVecClonePass(
       ArrayRef<VectItem> VectInfos = {},
-      VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
+      VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };

@@ -20,9 +20,9 @@
 #include "TypeConversion.h"
 #include "VectorizerUtils.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
@@ -81,7 +81,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
     return false;
   }
 
-  if (InVPlanPipeline && !VectorVariant::isVectorVariant(F.getName()))
+  if (InVPlanPipeline && !VFInfo::isVectorVariant(F.getName()))
     return false;
 
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();

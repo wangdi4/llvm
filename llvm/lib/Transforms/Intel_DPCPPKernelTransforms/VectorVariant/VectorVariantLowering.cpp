@@ -1,6 +1,6 @@
 //=--------------------- VectorVariantLowering.cpp -*- C++ -*----------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,10 +11,10 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantLowering.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
@@ -80,13 +80,13 @@ bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
 
         // Fix ISA for vector-variants attribute.
         for (unsigned I = 0; I < Variants.size(); I++) {
-          VectorVariant Variant(Variants[I]);
+          VFInfo Variant = VFABI::demangleForVFABI(Variants[I]);
 
-          if (Variant.getISA() == VectorVariant::OTHER) {
+          if (Variant.getISA() == VFISAKind::Unknown) {
             Variant.setISA(ISA);
           }
 
-          NewVariants.push_back(Variant.toString());
+          NewVariants.push_back(std::move(Variant.VectorName));
         }
 
         // Update attributes.
@@ -112,8 +112,7 @@ class VectorVariantLoweringLegacy : public ModulePass {
 public:
   static char ID;
 
-  VectorVariantLoweringLegacy(
-      VectorVariant::ISAClass ISA = VectorVariant::XMM);
+  VectorVariantLoweringLegacy(VFISAKind ISA = VFISAKind::SSE);
 
   llvm::StringRef getPassName() const override {
     return "VectorVariantLoweringLegacy";
@@ -129,13 +128,13 @@ protected:
   bool runOnModule(llvm::Module &M) override;
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 
 char VectorVariantLoweringLegacy::ID = 0;
 
 VectorVariantLoweringLegacy::VectorVariantLoweringLegacy(
-    VectorVariant::ISAClass ISA)
+    VFISAKind ISA)
     : ModulePass(ID), ISA(ISA) {
   initializeVectorVariantLoweringLegacyPass(*PassRegistry::getPassRegistry());
 }
@@ -156,6 +155,6 @@ INITIALIZE_PASS_END(VectorVariantLoweringLegacy,
                 "Lowering vector-variant attributes", false, false)
 
 ModulePass *
-llvm::createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass ISA) {
+llvm::createVectorVariantLoweringLegacyPass(VFISAKind ISA) {
   return new VectorVariantLoweringLegacy(ISA);
 }

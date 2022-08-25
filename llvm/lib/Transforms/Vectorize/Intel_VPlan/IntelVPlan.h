@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2021 Intel Corporation
+ * Copyright (C) 2021-2022 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -66,7 +66,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -1931,7 +1930,7 @@ private:
   /// instruction.
   struct CallVecProperties {
     unsigned VF = 0;
-    VectorVariant *MatchedVecVariant = nullptr;
+    std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
     Optional<StringRef> VectorLibraryFn = None;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
@@ -1965,7 +1964,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void printImpl(raw_ostream &OS) const {
       std::string VecVariantName =
-          MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
+          MatchedVecVariant != nullptr ? MatchedVecVariant->VectorName : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
       OS << "  VecVariantIndex: " << MatchedVecVariantIndex << "\n";
       OS << "  VecIntrinsic: " << Intrinsic::getBaseName(VectorIntrinsic)
@@ -1975,6 +1974,19 @@ private:
       OS << "  PumpFactor: " << PumpFactor << "\n";
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    CallVecProperties clone() const {
+      return CallVecProperties{
+          VF,
+          MatchedVecVariant ? std::make_unique<const VFInfo>(*MatchedVecVariant)
+                            : nullptr,
+          MatchedVecVariantIndex,
+          VectorLibraryFn,
+          VectorIntrinsic,
+          PumpFactor,
+          UseMaskedForUnmasked,
+      };
+    }
   } VecProperties;
 
   enum class CallVecScenarios {
@@ -2161,7 +2173,7 @@ public:
       VecScenario = CallVecScenarios::Undefined;
     }
 
-    VecProperties.MatchedVecVariant = nullptr;
+    VecProperties.MatchedVecVariant.reset();
     VecProperties.MatchedVecVariantIndex = 0;
     VecProperties.VectorLibraryFn = None;
     VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
@@ -2200,28 +2212,26 @@ public:
 
   // Unmasked widening - the scenario itself is immutable, but some data is
   // VF-dependent.
-  void setUnmaskedVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+  void setUnmaskedVectorVariant(VFInfo VecVariant,
                                 unsigned VecVariantIndex) {
-    assert(VecVariant && "Can't set null vector variant.");
     assert(VecScenario == CallVecScenarios::UnmaskedWiden &&
            "Inconsistent scenario update.");
-    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariant = std::make_unique<const VFInfo>(VecVariant);
     VecProperties.MatchedVecVariantIndex = VecVariantIndex;
   }
 
   // Vectorization using SIMD vector variant.
-  void setVectorizeWithVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+  void setVectorizeWithVectorVariant(VFInfo VecVariant,
                                      unsigned VecVariantIndex,
                                      bool UseMaskedForUnmasked = false,
                                      unsigned PumpFactor = 1) {
-    assert(VecVariant && "Can't set null vector variant.");
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
     assert(PumpFactor == 1 || !isKernelCallOnce() &&
                                   "Pumped vectorization of a kernel "
                                   "called-once function is not allowed.");
     VecScenario = CallVecScenarios::VectorVariant;
-    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.MatchedVecVariant = std::make_unique<const VFInfo>(VecVariant);
     VecProperties.MatchedVecVariantIndex = VecVariantIndex;
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
     VecProperties.PumpFactor = PumpFactor;
@@ -2253,11 +2263,11 @@ public:
     return VecProperties.VectorLibraryFn.value();
   }
   /// Getters for matched vector variant.
-  const VectorVariant *getVectorVariant() const {
+  const VFInfo *getVectorVariant() const {
     assert((VecScenario == CallVecScenarios::VectorVariant ||
             VecScenario == CallVecScenarios::UnmaskedWiden) &&
            "Can't get VectorVariant for mismatched scenario.");
-    return VecProperties.MatchedVecVariant;
+    return VecProperties.MatchedVecVariant.get();
   }
   unsigned getVectorVariantIndex() const {
     return VecProperties.MatchedVecVariantIndex;
@@ -2385,7 +2395,7 @@ protected:
         getCalledValue(), FnTy, ArrayRef<VPValue *>(op_begin(), op_end() - 1));
     Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
-    Cloned->VecProperties = VecProperties;
+    Cloned->VecProperties = VecProperties.clone();
     return Cloned;
   }
 };
