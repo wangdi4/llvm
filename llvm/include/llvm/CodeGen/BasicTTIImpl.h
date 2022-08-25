@@ -1264,7 +1264,7 @@ public:
                 : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, *EI, ElementAlignment, AddressSpace, CostKind,
-            TTI::OK_AnyValue, I);
+            TTI::OperandValueInfo(), I);
       }
       return Cost;
     }
@@ -1279,7 +1279,7 @@ public:
             Alignment ? commonAlignment(*Alignment, i * EltSize) : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, EltTy, ElementAlignment, AddressSpace, CostKind,
-            TTI::OK_AnyValue, I);
+            TTI::OperandValueInfo(), I);
       }
       return Cost;
     }
