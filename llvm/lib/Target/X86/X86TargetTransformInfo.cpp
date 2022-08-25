@@ -341,21 +341,20 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
 
 #if INTEL_CUSTOMIZATION
   if (ISD == ISD::MUL && ST->hasSSE2() && LT.second.isVector() &&
-      Op2Kind == TargetTransformInfo::OK_UniformConstantValue &&
+      Op2Info.isConstant() && Op2Info.isUniform() &&
       (LT.second.getVectorElementType() == MVT::i8 ||
        (LT.second.getVectorElementType() == MVT::i32 && !ST->hasSSE41()) ||
        (LT.second.getVectorElementType() == MVT::i64 && !ST->hasDQI()))) {
-    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2)
-      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Kind,
-                                    Op2Kind, TargetTransformInfo::OP_None,
-                                    TargetTransformInfo::OP_None);
-    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2_PlusMinus1) {
-      InstructionCost Cost = getArithmeticInstrCost(
-          Instruction::Shl, Ty, CostKind, Op1Kind, Op2Kind,
-          TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
-      Cost += getArithmeticInstrCost(
-          Instruction::Add, Ty, CostKind, TargetTransformInfo::OK_AnyValue,
-          Op1Kind, TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+    if (Op2Info.isPowerOf2())
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind,
+                                    Op1Info.getNoProps(), Op2Info.getNoProps());
+    if (Op2Info.isPowerOf2PlusMinus1()) {
+      InstructionCost Cost =
+          getArithmeticInstrCost(Instruction::Shl, Ty, CostKind,
+                                 Op1Info.getNoProps(), Op2Info.getNoProps());
+      Cost +=
+          getArithmeticInstrCost(Instruction::Add, Ty, CostKind,
+                                 TTI::OperandValueInfo(), Op1Info.getNoProps());
       return Cost;
     }
   }
@@ -437,9 +436,7 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   if (ST->hasAVX2() &&
       (ISD == ISD::SDIV || ISD == ISD::SREM || ISD == ISD::UDIV ||
        ISD == ISD::UREM) &&
-      (Op2Kind == TargetTransformInfo::OK_UniformConstantValue ||
-       Op2Kind == TargetTransformInfo::OK_NonUniformConstantValue) &&
-      Opd2PropInfo != TargetTransformInfo::OP_PowerOf2) {
+      Op2Info.isConstant() && !Op2Info.isPowerOf2()) {
 
     if (const auto *Entry = CostTableLookup(AVX2DivRemNormalConstCostTable, ISD,
                                             LT.second))

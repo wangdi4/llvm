@@ -964,6 +964,12 @@ public:
       return Properties == OP_PowerOf2;
     }
 
+#if INTEL_CUSTOMIZATION
+    bool isPowerOf2PlusMinus1() const {
+      return Properties == OP_PowerOf2_PlusMinus1;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     OperandValueInfo getNoProps() const {
       return {Kind, OP_None};
     }
