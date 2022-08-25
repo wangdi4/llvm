@@ -376,6 +376,9 @@ INLINE uint __kmp_claim_blocks(global kmp_mem_heap_t *heap, uint desc_id,
 }
 
 INLINE void *__kmp_alloc(size_t align, size_t size) {
+  global static volatile atomic_uint total_num_allocs = ATOMIC_VAR_INIT(0);
+  // Use this number to distribute block search
+  uint num_allocs = atomic_fetch_add(&total_num_allocs, 1U);
   void *ret = NULL;
   global kmp_mem_pool_t *pool =
       (global kmp_mem_pool_t *)__omp_spirv_program_data.dyna_mem_pool;
@@ -387,9 +390,9 @@ INLINE void *__kmp_alloc(size_t align, size_t size) {
     if (heap->max_size < size)
       continue; // Requires heap with bigger block size
     uint num_blocks = (size + heap->block_size - 1) / heap->block_size;
-    for (uint j = 0; j < heap->num_block_desc;) {
-      // Let different WIs check different descriptor if possible
-      uint k = (j + __kmp_get_global_id()) % heap->num_block_desc;
+    uint block_start = num_allocs % heap->num_block_desc;
+    for (uint j = block_start; j < heap->num_block_desc + block_start;) {
+      uint k = j % heap->num_block_desc;
       uint counter_id = k / KMP_MEM_NUM_DESCS_PER_COUNTER;
       volatile atomic_uint *counter =
           (volatile atomic_uint *)&heap->block_counter[counter_id];

@@ -186,7 +186,7 @@ Sets the size (in megabyte) of dynamic memory allocatable within a kernel.
 ``<Method>=1``: Use allocator supporting free. This is the default option when
 ``<Num>`` is greater than zero.
 
-**Default**: 0 (disabled)
+**Default**: 1 (1MB)
 
 ``INTEL_ENABLE_OFFLOAD_ANNOTATIONS=<Path>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

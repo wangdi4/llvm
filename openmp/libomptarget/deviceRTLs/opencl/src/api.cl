@@ -200,6 +200,14 @@ EXTERN int omp_get_teams_thread_limit(void) {
   return __omp_spirv_program_data.teams_thread_limit;
 }
 
+EXTERN void *omp_alloc(size_t size, omp_allocator_handle_t al) {
+  return __kmpc_alloc(0, size, al);
+}
+
+EXTERN void omp_free(void *ptr, omp_allocator_handle_t al) {
+  __kmpc_free(0, ptr, al);
+}
+
 EXTERN void *malloc(size_t size) {
   return __kmpc_alloc(0, size, NULL);
 }
