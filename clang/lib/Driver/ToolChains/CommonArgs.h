@@ -118,6 +118,8 @@ void addIntelOptimizationArgs(const ToolChain &TC,
                               const JobAction &JA);
 #endif // INTEL_CUSTOMIZATION
 
+const char *RelocationModelName(llvm::Reloc::Model Model);
+
 std::tuple<llvm::Reloc::Model, unsigned, bool>
 ParsePICArgs(const ToolChain &ToolChain, const llvm::opt::ArgList &Args);
 

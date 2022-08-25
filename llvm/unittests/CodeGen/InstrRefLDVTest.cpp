@@ -1816,7 +1816,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   DbgOpID LiveInRspID = addValueDbgOp(LiveInRsp);
   DbgOpID LiveInRaxID = addValueDbgOp(LiveInRax);
   DbgOpID RspPHIInBlk2ID = addValueDbgOp(RspPHIInBlk2);
-  DbgOpID RspPHIInBlk3ID = addValueDbgOp(RspPHIInBlk3);
+  addValueDbgOp(RspPHIInBlk3);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
@@ -1946,8 +1946,8 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   ValueIDNum RaxPHIInBlk1(LoopBlk, 0, RaxLoc);
   DbgOpID LiveInRspID = addValueDbgOp(LiveInRsp);
   DbgOpID LiveInRaxID = addValueDbgOp(LiveInRax);
-  DbgOpID RspPHIInBlk1ID = addValueDbgOp(RspPHIInBlk1);
-  DbgOpID RaxPHIInBlk1ID = addValueDbgOp(RaxPHIInBlk1);
+  addValueDbgOp(RspPHIInBlk1);
+  addValueDbgOp(RaxPHIInBlk1);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
@@ -2053,9 +2053,9 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   DbgOpID LiveInRspID = addValueDbgOp(LiveInRsp);
   DbgOpID LiveInRaxID = addValueDbgOp(LiveInRax);
   DbgOpID LiveInRbxID = addValueDbgOp(LiveInRbx);
-  DbgOpID RspPHIInBlk1ID = addValueDbgOp(RspPHIInBlk1);
-  DbgOpID RaxPHIInBlk1ID = addValueDbgOp(RaxPHIInBlk1);
-  DbgOpID RbxPHIInBlk1ID = addValueDbgOp(RbxPHIInBlk1);
+  addValueDbgOp(RspPHIInBlk1);
+  addValueDbgOp(RaxPHIInBlk1);
+  addValueDbgOp(RbxPHIInBlk1);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
@@ -2177,9 +2177,7 @@ TEST_F(InstrRefLDVTest, vlocJoinDiamond) {
   ASSERT_TRUE(MTracker->getNumLocs() == 1);
   LocIdx RspLoc(0);
   Register RAX = getRegByName("RAX");
-  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
-
-  unsigned EntryBlk = 0, Br2Blk = 2, RetBlk = 3;
+  MTracker->lookupOrTrackRegister(RAX);
 
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
@@ -2365,9 +2363,7 @@ TEST_F(InstrRefLDVTest, vlocJoinLoops) {
   ASSERT_TRUE(MTracker->getNumLocs() == 1);
   LocIdx RspLoc(0);
   Register RAX = getRegByName("RAX");
-  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
-
-  unsigned EntryBlk = 0, LoopBlk = 1;
+  MTracker->lookupOrTrackRegister(RAX);
 
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
@@ -2466,11 +2462,9 @@ TEST_F(InstrRefLDVTest, vlocJoinBadlyNestedLoops) {
   ASSERT_TRUE(MTracker->getNumLocs() == 1);
   LocIdx RspLoc(0);
   Register RAX = getRegByName("RAX");
-  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
+  MTracker->lookupOrTrackRegister(RAX);
   Register RBX = getRegByName("RBX");
-  LocIdx RbxLoc = MTracker->lookupOrTrackRegister(RBX);
-
-  unsigned EntryBlk = 0;
+  MTracker->lookupOrTrackRegister(RBX);
 
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
@@ -3308,4 +3302,3 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.clear();
   VLocs[2].Vars.clear();
 }
-
