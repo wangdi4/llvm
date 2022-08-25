@@ -1327,8 +1327,12 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
+#if !INTEL_CUSTOMIZATION
+  // Pointer induction that are not constant are supported in intel
+  // customization.
   assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
          "Step value should be constant for pointer induction");
+#endif
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
@@ -1618,9 +1622,12 @@ bool InductionDescriptor::isInductionPHI(
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-  // Pointer induction should be a constant.
+#if !INTEL_CUSTOMIZATION
+  // Pointer induction should be a constant. Non-constant step is supported
+  // in intel customization.
   if (!ConstStep)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Always use i8 element type for opaque pointer inductions.
   PointerType *PtrTy = cast<PointerType>(PhiTy);
@@ -1630,7 +1637,9 @@ bool InductionDescriptor::isInductionPHI(
   if (!ElementType->isSized())
     return false;
 
+#if !INTEL_CUSTOMIZATION
   ConstantInt *CV = ConstStep->getValue();
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = Phi->getModule()->getDataLayout();
   TypeSize TySize = DL.getTypeAllocSize(ElementType);
   // TODO: We could potentially support this for scalable vectors if we can
@@ -1638,14 +1647,26 @@ bool InductionDescriptor::isInductionPHI(
   // the scalable type.
   if (TySize.isZero() || TySize.isScalable())
     return false;
-
   int64_t Size = static_cast<int64_t>(TySize.getFixedSize());
-  int64_t CVSize = CV->getSExtValue();
-  if (CVSize % Size)
-    return false;
-  auto *StepValue =
-      SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
-  D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
-                          /* BinOp */ nullptr, ElementType);
+
+#if INTEL_CUSTOMIZATION
+  if (ConstStep) {
+    ConstantInt *CV = ConstStep->getValue();
+#endif // INTEL_CUSTOMIZATION
+    int64_t CVSize = CV->getSExtValue();
+    if (CVSize % Size)
+      return false;
+    auto *StepValue =
+        SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
+    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
+                            /* BinOp */ nullptr, ElementType);
+#if INTEL_CUSTOMIZATION
+  } else {
+    auto *StepValue =
+        SE->getUDivExpr(Step, SE->getConstant(Step->getType(), Size));
+    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
+                            /* BinOp */ nullptr, ElementType);
+  }
+#endif // INTEL_CUSTOMIZATION
   return true;
 }

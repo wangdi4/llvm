@@ -464,8 +464,9 @@ public:
   /// Linear list contains explicit linear specifications, mapping linear values
   /// to their strides and a type of the linear.
   using LinearListTy =
-      MapVector<Value *, std::tuple<Type * /*EltType*/,
-                                    Type * /* EltPointeeTy */, int /*Step*/>>;
+      MapVector<Value *,
+                std::tuple<Type * /*EltType*/, Type * /* EltPointeeTy */,
+                           Value * /*Step*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -672,9 +673,9 @@ private:
   /// Add linear value to Linears map
   void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
                  Value *StepValue) {
-    ConstantInt *CI = cast<ConstantInt>(StepValue);
-    int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, Step);
+    assert(TheLoop->isLoopInvariant(StepValue) &&
+           "Unexpected step value in linear clause");
+    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue);
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
