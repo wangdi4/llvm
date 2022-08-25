@@ -67,13 +67,10 @@
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "llvm/ADT/STLExtras.h"
->>>>>>> f9969a3d28e738e9427e371aac06d71269220123
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
