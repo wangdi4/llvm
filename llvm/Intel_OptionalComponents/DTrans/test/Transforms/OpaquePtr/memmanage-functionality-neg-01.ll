@@ -22,10 +22,10 @@
 ; CHECK: Recognizing Constructor Functionality
 ; CHECK: Failed to recognize Constructor function
 
-; The following will be enabled as CHECKs as more functionality is implemented
-; TODO: Recognizing AllocateBlock Functionality
-; TODO: Failed to recognize AllocateBlock function
+; CHECK: Recognizing AllocateBlock Functionality
+; CHECK: Failed to recognize AllocateBlock function
 
+; The following will be enabled as CHECKs as more functionality is implemented
 ; TODO: Recognizing CommitAllocation Functionality
 ; TODO: Failed to recognize CommitAllocation function
 
