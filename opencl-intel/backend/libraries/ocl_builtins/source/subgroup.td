@@ -216,3 +216,83 @@ foreach vf = [1, 4, 8, 16, 32, 64] in {
   def : AliasMap<[["sub_group_shuffle_vf" #vf, "sub_group_shuffle"], 
                   ["sub_group_shuffle_xor_vf" #vf, "sub_group_shuffle_xor"]], [types]>;
 }
+
+// --- sub_group_reduce/scan_inclusive/scan_exclusive builtins ---
+//
+// https://registry.khronos.org/OpenCL/extensions/intel/cl_intel_subgroups.html
+//
+
+// Prototypes
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
+  // scalar
+  let Types = sub_group_types in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["add", "min", "max", "mul"] in {
+        def sub_group_#func#_#op#_vf1 : OclBuiltin<"sub_group_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$src)>;
+      }
+    }
+  }
+  // vectorized
+  foreach vf = [4, 8, 16, 32, 64] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["add", "min", "max", "mul"] in {
+        let Types = ExpandTypesByVFAndFlatten<sub_group_types, [vf]>.Tout in {
+          def sub_group_#func#_#op#_vf#vf : OclBuiltin<"sub_group_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask)>;
+        }
+        // Because half type add/mul builtins are implemented via float type builtins.
+        // So just declare float builtins here, when all builtin are migrated here,
+        // these declarations can be deleted.
+        let Types = ExpandTypesByVFAndFlatten<[v1f32], [vf]>.Tout in {
+          def : OclBuiltin<"sub_group_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask)>;
+        }
+      }
+    }
+  }
+}
+
+// Implementations
+defvar convert2float_code =
+  [{
+    float$VecLength temp = convert_float$VecLength($Arg0VarName);
+    float$VecLength result = $func(temp, $Arg1VarName);
+    return convert_half$VecLength(result);
+  }];
+
+// scalar
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach op = ["add", "min", "max", "mul"] in {
+    defvar builtin = !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf1");
+    def : OclBuiltinImpl<builtin, builtin.Types, /*IsDeclOnly*/false, ret_arg0_code>, SHARED;
+  }
+}
+// vectorized
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach vf = [4, 8, 16, 32, 64] in {
+    foreach op = ["add", "min", "max", "mul"] in {
+      defvar builtin_add = !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf"#vf);
+      def : OclBuiltinImpl<builtin_add, builtin_add.Types, /*IsDeclOnly*/false, convert2float_code, [["$func", "sub_group_"#func#"_"#op]]>, SHARED;
+    }
+  }
+}
+
+// VectInfos
+let Types = sub_group_types in {
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    foreach op = ["add", "min", "max", "mul"] in {
+      def : VectInfo<[], !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf1"), !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf4"),
+                         !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf8"), !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf16"),
+                         !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf32"), !cast<OclBuiltin>("sub_group_"#func#"_"#op#"_vf64")>;
+    }
+  }
+}
+
+// AliasMap
+// Now uniform type builtin implemented as non-uniform
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach op = ["add", "min", "max", "mul"] in {
+    foreach vf = [1, 4, 8, 16, 32, 64] in {
+      defvar types = WidenType<v1f16, vf>.Tout;
+      def : AliasMap<[["sub_group_"#func#"_"#op#"_vf"#vf, "sub_group_non_uniform_"#func#"_"#op]], [types]>;
+    }
+  }
+}
