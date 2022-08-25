@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
@@ -38,6 +39,7 @@ void FunctionWidener::run(FuncSet &Functions,
 
   for (auto *Fn : Functions) {
     LLVM_DEBUG(dbgs() << "Expanding Function: " << Fn->getName() << "\n");
+<<<<<<< HEAD
     Attribute Attr = Fn->getFnAttribute("vector-variants");
     StringRef VariantsStr = Attr.getValueAsString();
     SmallVector<StringRef, 8> VecVariants;
@@ -45,9 +47,23 @@ void FunctionWidener::run(FuncSet &Functions,
     for (VectorVariant Variant : VecVariants) {
       std::string VariantName = Variant.getName().value();
       Function *FnWiden = Fn->getParent()->getFunction(VariantName);
+=======
+
+    SmallVector<StringRef, 8> VecVariantsStr;
+    Fn->getFnAttribute("vector-variants")
+        .getValueAsString()
+        .split(VecVariantsStr, ',');
+
+    SmallVector<VFInfo, 8> VecVariants(
+        map_range(VecVariantsStr,
+                  [](StringRef S) { return VFABI::demangleForVFABI(S); }));
+
+    for (const VFInfo &Variant : VecVariants) {
+      Function *FnWiden = Fn->getParent()->getFunction(Variant.VectorName);
+>>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
       if (FnWiden != nullptr) {
         LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
-                          << "exists: " << VariantName << "\n");
+                          << "exists: " << Variant.VectorName << "\n");
         FuncMap[Fn].insert(FnWiden);
         continue;
       }
@@ -118,23 +134,23 @@ void FunctionWidener::removeByValAttr(Function &F) {
   }
 }
 
-Function *FunctionWidener::cloneFunction(Function &F, VectorVariant &V,
+Function *FunctionWidener::cloneFunction(Function &F, const VFInfo &V,
                                          ValueToValueMapTy &VMap) {
   FunctionType *OrigFunctionType = F.getFunctionType();
   Type *ReturnType = F.getReturnType();
 
   // Expand return type to vector.
   if (!ReturnType->isVoidTy())
-    ReturnType = SGHelper::getVectorType(ReturnType, V.getVlen());
+    ReturnType = SGHelper::getVectorType(ReturnType, V.getVF());
 
-  std::vector<VectorKind> ParamKinds = V.getParameters();
+  ArrayRef<VFParameter> ParamKinds = V.getParameters();
   SmallVector<Type *, 4> ParamTypes;
-  FunctionType::param_iterator ParamIt = OrigFunctionType->param_begin();
-  FunctionType::param_iterator ParamEnd = OrigFunctionType->param_end();
-  std::vector<VectorKind>::iterator VKIt = ParamKinds.begin();
-  for (; ParamIt != ParamEnd; ++ParamIt, ++VKIt) {
+  const auto *VKIt = ParamKinds.begin();
+  for (auto ParamIt = OrigFunctionType->param_begin(),
+            ParamEnd = OrigFunctionType->param_end();
+       ParamIt != ParamEnd; ++ParamIt, ++VKIt) {
     if (VKIt->isVector()) {
-      Type *WidenedParamType = SGHelper::getVectorType(*ParamIt, V.getVlen());
+      Type *WidenedParamType = SGHelper::getVectorType(*ParamIt, V.getVF());
       ParamTypes.push_back(WidenedParamType);
     } else {
       ParamTypes.push_back(*ParamIt);
@@ -144,14 +160,18 @@ Function *FunctionWidener::cloneFunction(Function &F, VectorVariant &V,
   if (V.isMasked()) {
     // TODO: Use characteristic type once built-ins updated.
     Type *MaskType =
-        FixedVectorType::get(Type::getInt32Ty(F.getContext()), V.getVlen());
+        FixedVectorType::get(Type::getInt32Ty(F.getContext()), V.getVF());
     ParamTypes.push_back(MaskType);
   }
 
   FunctionType *CloneFuncType =
       FunctionType::get(ReturnType, ParamTypes, false);
 
+<<<<<<< HEAD
   std::string VariantName = V.getName().value();
+=======
+  std::string VariantName = V.VectorName;
+>>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
   Function *Clone = Function::Create(
       CloneFuncType, GlobalValue::ExternalLinkage, VariantName, F.getParent());
 
@@ -271,15 +291,15 @@ Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
   llvm_unreachable("Can't find incoming basicblock for value");
 }
 
-void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
+void FunctionWidener::expandVectorParameters(Function *Clone, const VFInfo &V,
                                              ValueToValueMapTy &VMap) {
 
   IRBuilder<> Builder(&*Clone->getEntryBlock().begin());
-  ArrayRef<VectorKind> ParamKinds = V.getParameters();
+  ArrayRef<VFParameter> ParamKinds = V.getParameters();
 
   InstSet SyncInsts = Helper.getSyncInstsForFunction(Clone);
 
-  for (auto &ArgIt : enumerate(Clone->args())) {
+  for (const auto &ArgIt : enumerate(Clone->args())) {
     // TODO: For alloca instructions for uniform parameters, we can move the
     // alloca to SGExcludeBB.
     if (!ParamKinds[ArgIt.index()].isVector())

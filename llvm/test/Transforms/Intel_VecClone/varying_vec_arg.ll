@@ -47,4 +47,4 @@ entry:
   ret void
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4uv_"  }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4uv_vec_sum"  }

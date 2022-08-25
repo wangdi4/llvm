@@ -34,7 +34,7 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-weighted-inst-count-analysis"
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 // MAGIC NUMBERS
 
@@ -87,7 +87,7 @@ class InstCountResultImpl {
 public:
   InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
                       PostDominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
-                      VectorVariant::ISAClass ISA, bool PreVec);
+                      VFISAKind ISA, bool PreVec);
 
   void analyze();
 
@@ -179,7 +179,7 @@ private:
 
   ScalarEvolution &SE;
 
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 
   // Is this a before or after vectorization pass.
   // Affects debug printing right now, but may count some
@@ -208,7 +208,7 @@ private:
 InstCountResultImpl::InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
                                          PostDominatorTree &DT, LoopInfo &LI,
                                          ScalarEvolution &SE,
-                                         VectorVariant::ISAClass ISA,
+                                         VFISAKind ISA,
                                          bool PreVec)
     : F(F), TTI(TTI), DT(DT), LI(LI), SE(SE), ISA(ISA), PreVec(PreVec) {
   if (IsaEncodingOverride.getNumOccurrences())
@@ -390,7 +390,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
     Function &F, DenseMap<Loop *, int> &IterMap,
     DenseMap<BasicBlock *, float> &ProbMap) {
   // For SSE, this is always 4.
-  if (ISA == VectorVariant::XMM)
+  if (ISA == VFISAKind::SSE)
     return 4;
 
   // For AVX, estimate the most used type in the kernel.
@@ -398,7 +398,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
   // otherwise, 8.
   // This logic was inherited from the old heuristic, but the types
   // are computed slightly more rationally now.
-  if (ISA == VectorVariant::YMM1) {
+  if (ISA == VFISAKind::AVX) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     // For AVX, there is only x4 native sub-group implementation.
     if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
@@ -436,7 +436,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
       return 4;
   }
 
-  if (ISA != VectorVariant::ZMM)
+  if (ISA != VFISAKind::AVX512)
     return 8;
 
   return 16;
@@ -754,17 +754,17 @@ unsigned InstCountResultImpl::getOpWidth(FixedVectorType *VecType) const {
   unsigned ElemCount = VecType->getNumElements();
 
   unsigned Float, Double, LongInt, ShortInt;
-  if (ISA == VectorVariant::ZMM) {
+  if (ISA == VFISAKind::AVX512) {
     Float = 16;
     Double = 8;
     LongInt = 8;
     ShortInt = 16;
-  } else if (ISA == VectorVariant::YMM2) {
+  } else if (ISA == VFISAKind::AVX2) {
     Float = 8;
     Double = 4;
     LongInt = 4;
     ShortInt = 8;
-  } else if (ISA == VectorVariant::YMM1) {
+  } else if (ISA == VFISAKind::AVX) {
     // Only AVX, 4-wide on ints, 2-wide on i64
     Float = 8;
     Double = 4;
@@ -847,7 +847,7 @@ int InstCountResultImpl::getInstructionWeight(
     assert(OpType && "Extract from a non-vector type!");
 
     if (((OpType->getNumElements() == 4) || (OpType->getNumElements() == 8) ||
-         (ISA == VectorVariant::ZMM && (OpType->getNumElements() == 16))) &&
+         (ISA == VFISAKind::AVX512 && (OpType->getNumElements() == 16))) &&
         ((OpType->getElementType()->isFloatTy()) ||
          OpType->getElementType()->isIntegerTy(32)))
       return CheapExtractWeight;
@@ -1452,7 +1452,7 @@ void InstCountResultImpl::print(raw_ostream &OS) {
 InstCountResult::InstCountResult(Function &F, TargetTransformInfo &TTI,
                                  PostDominatorTree &DT, LoopInfo &LI,
                                  ScalarEvolution &SE,
-                                 VectorVariant::ISAClass ISA, bool PreVec) {
+                                 VFISAKind ISA, bool PreVec) {
   Impl.reset(new InstCountResultImpl(F, TTI, DT, LI, SE, ISA, PreVec));
 }
 
@@ -1492,7 +1492,7 @@ INITIALIZE_PASS_END(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
 char WeightedInstCountAnalysisLegacy::ID = 0;
 
 WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
-    VectorVariant::ISAClass ISA, bool PreVec)
+    VFISAKind ISA, bool PreVec)
     : FunctionPass(ID), ISA(ISA), PreVec(PreVec) {
   initializeWeightedInstCountAnalysisLegacyPass(
       *PassRegistry::getPassRegistry());
@@ -1519,7 +1519,7 @@ bool WeightedInstCountAnalysisLegacy::runOnFunction(Function &F) {
 }
 
 FunctionPass *
-llvm::createWeightedInstCountAnalysisLegacyPass(VectorVariant::ISAClass ISA,
+llvm::createWeightedInstCountAnalysisLegacyPass(VFISAKind ISA,
                                                 bool PreVec) {
   return new WeightedInstCountAnalysisLegacy(ISA, PreVec);
 }

@@ -14,7 +14,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -52,7 +51,7 @@ extern bool DPCPPEnableVectorizationOfByvalByrefFunctions;
 DiagnosticKind VFAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 // Always get ISA, ForceVF from the global options.
 // So that we could pass parameters to VFAnalysisInfo.
 VFAnalysisInfo::VFAnalysisInfo()
@@ -270,14 +269,14 @@ bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
 }
 
 /// Get default preferred VF according to ISA.
-static unsigned getPreferredVectorizationWidth(VectorVariant::ISAClass ISA) {
+static unsigned getPreferredVectorizationWidth(VFISAKind ISA) {
   switch (ISA) {
-  case VectorVariant::XMM:
-  case VectorVariant::YMM1:
+  case VFISAKind::SSE:
+  case VFISAKind::AVX:
     return 4;
-  case VectorVariant::YMM2:
+  case VFISAKind::AVX2:
     return 8;
-  case VectorVariant::ZMM:
+  case VFISAKind::AVX512:
     return 16;
   default:
     llvm_unreachable("unexpected ISA");

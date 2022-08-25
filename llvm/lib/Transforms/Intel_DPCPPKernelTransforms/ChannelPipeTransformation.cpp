@@ -619,7 +619,7 @@ static Argument *getFunctionArg(Function *F, const unsigned ArgNo) {
 
 static void replaceLocalChannelUses(Function *UserFunc, Type * /*ChannelTy*/,
                                     Type *PipeTy, const unsigned ArgNo,
-                                    ValueToValueMap &VMap,
+                                    ::ValueToValueMap &VMap,
                                     SmallPtrSetImpl<Instruction *> &ToDelete,
                                     WorkListType &WorkList) {
   Argument *Arg = getFunctionArg(UserFunc, ArgNo);
@@ -662,7 +662,7 @@ void findUsesToDelete(Function *F, SetVector<Function *> &UsesToDelete) {
 }
 
 static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
-                    ValueToValueMap &VMap) {
+                    ::ValueToValueMap &VMap) {
   for (auto *I : ToDelete) {
     if (!I->use_empty()) {
       assert(isa<CallInst>(I) && "Expected that only calls to user functions "
@@ -705,7 +705,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
 static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
                                      ValueToValueStableMap &GlobalVMap,
                                      RuntimeService &RTS) {
-  ValueToValueMap VMap;
+  ::ValueToValueMap VMap;
   SmallPtrSet<Instruction *, 32> ToDelete;
   // See comments about WorkListType typedef for explanations
   WorkListType WorkList;

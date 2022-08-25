@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -81,7 +81,7 @@ class Type;
 class User;
 class Value;
 class VPIntrinsic;
-class VectorVariant; // INTEL
+struct VFInfo; // INTEL
 struct KnownBits;
 template <typename T> class Optional;
 
@@ -1452,8 +1452,8 @@ public:
   /// of the attribute is recorded in \p Variants. \returns The index of the
   /// best match in \p Variants, or -1 of no match is found.
   int getMatchingVectorVariant(
-      VectorVariant &ForCall,
-      SmallVectorImpl<VectorVariant> &Variants,
+      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &Variants,
       const Module *M) const;
 
   /// Returns the appropriate "isa-set" attribute to be used in libiml_attr
@@ -1995,8 +1995,8 @@ public:
   virtual bool isVPlanVLSProfitable() const = 0;
   virtual bool isAggressiveVLSProfitable() const = 0;
   virtual int getMatchingVectorVariant(
-      VectorVariant &ForCall,
-      SmallVectorImpl<VectorVariant> &Variants,
+      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &Variants,
       const Module *M) const = 0;
   virtual bool needsStructuredCFG() const = 0;
   virtual const char *getISASetForIMLFunctions() const = 0;
@@ -2701,8 +2701,8 @@ public:
   }
 
   int getMatchingVectorVariant(
-      VectorVariant &ForCall,
-      SmallVectorImpl<VectorVariant> &Variants,
+      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &Variants,
       const Module *M) const override {
     return Impl.getMatchingVectorVariant(ForCall, Variants, M);
   }

@@ -1,6 +1,6 @@
 //==-- SetVectorizationFactor.h - Set vectorization factor ------- C++ -*---==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,7 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SET_VF_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SET_VF_H
 
-#include "llvm/IR/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 
@@ -23,7 +23,7 @@ class SetVectorizationFactorPass
     : public PassInfoMixin<SetVectorizationFactorPass> {
 public:
   explicit SetVectorizationFactorPass(
-      VectorVariant::ISAClass ISA = VectorVariant::XMM);
+      VFISAKind ISA = VFISAKind::SSE);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 

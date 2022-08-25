@@ -49,4 +49,4 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
   ret i32 %sum
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4u_" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4u_foo" }

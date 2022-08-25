@@ -20,6 +20,7 @@
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Pass.h"
@@ -192,7 +193,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
                                          .getResult()
                                          .getBuiltinModules();
   std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
-  VectorVariant::ISAClass ISA =
+  VFISAKind ISA =
       Intel::VectorizerCommon::getCPUIdISA(m_pConfig->GetCpuId());
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////

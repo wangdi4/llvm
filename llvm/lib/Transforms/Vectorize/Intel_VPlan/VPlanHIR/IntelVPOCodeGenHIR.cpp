@@ -1,6 +1,6 @@
 //===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -54,6 +54,8 @@ using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
+
+extern bool Usei1MaskForSimdFunctions;
 
 static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
@@ -2717,8 +2719,7 @@ void VPOCodeGenHIR::widenVectorVariant(const VPCallInstruction *VPCall,
   assert(CalledFunc && "Unexpected null called function.");
   (void)CalledFunc;
 
-  VectorVariant *MatchedVariant =
-      const_cast<VectorVariant *>(VPCall->getVectorVariant());
+  const VFInfo *MatchedVariant = VPCall->getVectorVariant();
   assert(MatchedVariant && "Unexpected null matched vector variant");
 
   // Create all-ones mask for masked vector variant when unmasked variant isn't
@@ -2825,7 +2826,7 @@ void VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
 }
 
 RegDDRef* VPOCodeGenHIR::generateMaskArg(RegDDRef *Mask,
-                                         VectorVariant *MatchedVariant,
+                                         const VFInfo *MatchedVariant,
                                          const VPCallInstruction *VPCall) {
   RegDDRef *NewMask = Mask;
   // For vector variants, use the characteristic type instead of i1
@@ -2867,13 +2868,13 @@ RegDDRef* VPOCodeGenHIR::generateMaskArg(RegDDRef *Mask,
 
 void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
                                   RegDDRef *Mask, Intrinsic::ID VectorIntrinID,
-                                  VectorVariant *MatchedVariant,
+                                  const VFInfo *MatchedVariant,
                                   unsigned PumpPart, unsigned PumpFactor,
                                   SmallVectorImpl<RegDDRef *> &CallArgs,
                                   SmallVectorImpl<Type *> &ArgTys,
                                   SmallVectorImpl<AttributeSet> &ArgAttrs) {
   unsigned PumpedVF = getVF() / PumpFactor;
-  std::vector<VectorKind> Parms;
+  ArrayRef<VFParameter> Parms;
   if (MatchedVariant) {
     Parms = MatchedVariant->getParameters();
   }
@@ -3026,7 +3027,7 @@ HLInst *VPOCodeGenHIR::getCombinedCallResultsForStructTy(
 
 void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
                                       unsigned PumpFactor, RegDDRef *Mask,
-                                      VectorVariant *MatchedVariant,
+                                      const VFInfo *MatchedVariant,
                                       Intrinsic::ID VectorIntrinID,
                                       SmallVectorImpl<HLInst *> &CallResults) {
   Function *Fn = VPCall->getCalledFunction();

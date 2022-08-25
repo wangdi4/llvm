@@ -1,6 +1,6 @@
 //==--- VectorizerCommon.cpp - Common Vectorizer helpers  -*- C++ -*--------==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,27 +10,28 @@
 
 #include "VectorizerCommon.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<llvm::VFISAKind> IsaEncodingOverride;
 
 namespace Intel {
 namespace VectorizerCommon {
 
-VectorVariant::ISAClass getCPUIdISA(
+llvm::VFISAKind getCPUIdISA(
     const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
   if (IsaEncodingOverride.getNumOccurrences())
     return IsaEncodingOverride.getValue();
 
   assert(CPUId && "Valid CPUDetect is expected!");
   if (CPUId->HasAVX512Core())
-    return VectorVariant::ZMM;
+    return llvm::VFISAKind::AVX512;
   if (CPUId->HasAVX2())
-    return VectorVariant::YMM2;
+    return llvm::VFISAKind::AVX2;
   if (CPUId->HasAVX1())
-    return VectorVariant::YMM1;
-  return VectorVariant::XMM;
+    return llvm::VFISAKind::AVX;
+  return llvm::VFISAKind::SSE;
 }
 
 bool skipFunction(Function *F) {

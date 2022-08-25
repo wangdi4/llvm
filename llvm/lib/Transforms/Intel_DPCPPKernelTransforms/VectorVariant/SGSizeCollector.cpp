@@ -12,8 +12,8 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
@@ -144,7 +144,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
       VarsStr.split(Variants, ",");
 
       for (StringRef Variant : Variants)
-        ExistingVars.insert(VectorVariant(Variant).getVlen());
+        ExistingVars.insert(VFABI::demangleForVFABI(Variant).getVF());
     }
 
     SmallVector<std::string, 4> Variants;
@@ -156,15 +156,13 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
       if (ExistingVars.find(VecLength) != ExistingVars.end())
         continue;
 
-      std::vector<VectorKind> Parameters(F->arg_size(), VectorKind::vector());
+      SmallVector<VFParamKind, 8> Parameters(F->arg_size(), VFParamKind::Vector);
 
-      VectorVariant VariantMasked(ISA, true, VecLength, Parameters,
-                                  F->getName().str(), "");
-      VectorVariant VariantUnmasked(ISA, false, VecLength, Parameters,
-                                    F->getName().str(), "");
+      auto VariantMasked = VFInfo::get(ISA, true, VecLength, Parameters, F->getName().str());
+      auto VariantUnmasked = VFInfo::get(ISA, false, VecLength, Parameters, F->getName().str());
 
-      Variants.push_back(VariantMasked.toString());
-      Variants.push_back(VariantUnmasked.toString());
+      Variants.push_back(VariantMasked.VectorName);
+      Variants.push_back(VariantUnmasked.VectorName);
     }
 
     F->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
@@ -188,7 +186,7 @@ class SGSizeCollectorLegacy : public ModulePass {
 public:
   static char ID;
 
-  SGSizeCollectorLegacy(VectorVariant::ISAClass ISA = VectorVariant::XMM);
+  SGSizeCollectorLegacy(VFISAKind ISA = VFISAKind::SSE);
 
   llvm::StringRef getPassName() const override {
     return "SGSizeCollectorLegacy pass";
@@ -198,11 +196,11 @@ protected:
   bool runOnModule(Module &M) override;
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 } // namespace
 
-SGSizeCollectorLegacy::SGSizeCollectorLegacy(VectorVariant::ISAClass ISA)
+SGSizeCollectorLegacy::SGSizeCollectorLegacy(VFISAKind ISA)
     : ModulePass(ID), ISA(ISA) {
   initializeSGSizeCollectorLegacyPass(*PassRegistry::getPassRegistry());
 }
@@ -216,6 +214,6 @@ char SGSizeCollectorLegacy::ID = 0;
 INITIALIZE_PASS(SGSizeCollectorLegacy, "dpcpp-kernel-sg-size-collector",
                 "Collecting subgroup size information", false, false)
 
-ModulePass *llvm::createSGSizeCollectorLegacyPass(VectorVariant::ISAClass ISA) {
+ModulePass *llvm::createSGSizeCollectorLegacyPass(VFISAKind ISA) {
   return new SGSizeCollectorLegacy(ISA);
 }

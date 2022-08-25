@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -33,7 +33,7 @@ class TargetTransformInfo;
 class TargetLibraryInfo;
 class LoopInfo;
 class Function;
-class VectorVariant;
+struct VFInfo;
 class LLVMContext;
 class OVLSGroup;
 
@@ -122,7 +122,7 @@ public:
   /// intrinsics scalarize if the arg is linear/uniform/always scalar. If the
   /// call is being pumped by \p PumpFactor times, then the appropriate
   /// sub-vector is extracted for given \p PumpPart.
-  void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
+  void vectorizeCallArgs(VPCallInstruction *VPCall, const VFInfo *VecVariant,
                          Intrinsic::ID VectorIntrinID, unsigned PumpPart,
                          unsigned PumpFactor, SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys,
@@ -130,7 +130,7 @@ public:
 
   /// Promote provided mask to a proper type and add it into
   /// vector arguments/vector argument types arrays.
-  void createVectorMaskArg(VPCallInstruction *VPCall, VectorVariant *VecVariant,
+  void createVectorMaskArg(VPCallInstruction *VPCall, const VFInfo *VecVariant,
                            SmallVectorImpl<Value *> &VecArgs,
                            SmallVectorImpl<Type *> &VecArgTys,
                            unsigned PumpedVF, Value *MaskToUse);
@@ -635,7 +635,7 @@ private:
   // library function, matched SIMD vector variant or vector intrinsics. The
   // generated call(s) are returned via \p CallResults.
   void generateVectorCalls(VPCallInstruction *VPCall, unsigned PumpFactor,
-                           bool IsMasked, VectorVariant *MatchedVariant,
+                           bool IsMasked, const VFInfo *MatchedVariant,
                            Intrinsic::ID VectorIntrinID,
                            SmallVectorImpl<Value *> &CallResults);
 

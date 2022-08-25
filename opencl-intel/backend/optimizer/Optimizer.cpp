@@ -363,8 +363,7 @@ static void populatePassesPostFailCheck(
   bool HasGatherScatter = pConfig.GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
-  VectorVariant::ISAClass ISA =
-      VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
+  VFISAKind ISA = VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
 
   if (pConfig.EnableOCLAA()) {
     PM.add(createDPCPPAliasAnalysisLegacyPass());

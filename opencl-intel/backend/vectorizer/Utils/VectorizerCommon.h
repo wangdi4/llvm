@@ -1,6 +1,6 @@
 //==---------------------- - Common  helpers  -*- C++ -*--------------------==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,8 +12,8 @@
 // this file should NOT include any environment specific data
 
 #include "cl_cpu_detect.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 
 // Maximum width (in elements) supported as input
 // An AMX tile has a maximum size of 16 rows x 64 bytes. It could be flatten to
@@ -31,7 +31,7 @@ namespace VectorizerCommon {
 
 // Get ISAClass from CPUDetect object, use command line toggle if
 // it is not available.
-VectorVariant::ISAClass getCPUIdISA(
+llvm::VFISAKind getCPUIdISA(
   const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
 
 // Skip function when traversing CallGraph in VectorVariant passes.
