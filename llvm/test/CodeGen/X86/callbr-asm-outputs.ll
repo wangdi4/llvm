@@ -120,8 +120,9 @@ define i32 @test3(i1 %cmp) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    movl %edi, %eax
 ; CHECK-NEXT:    jmp .LBB2_3 ;INTEL
-; CHECK-NEXT:  .Ltmp3: # Block address taken ;INTEL
-; CHECK-NEXT:  .LBB2_4: # %indirect ;INTEL
+; CHECK-NEXT:  .LBB2_4: # Block address taken ;INTEL
+; CHECK-NEXT:    # %indirect ;INTEL
+; CHECK-NEXT:    # Label of block must be emitted ;INTEL
 ; CHECK-NEXT:    movl $42, %eax ;INTEL
 ; CHECK-NEXT:    jmp .LBB2_3 ;INTEL
 ; CHECK-NEXT:  .LBB2_2: # %false ;INTEL
@@ -136,12 +137,6 @@ define i32 @test3(i1 %cmp) {
 ; CHECK-NEXT:    popl %edi
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl
-; CHECK-NEXT:  .LBB2_6: # Block address taken
-; CHECK-NEXT:    # %indirect
-; CHECK-NEXT:    # Label of block must be emitted
-; CHECK-NEXT:    .cfi_def_cfa_offset 12
-; CHECK-NEXT:    movl $42, %eax
-; CHECK-NEXT:    jmp .LBB2_5
 entry:
   br i1 %cmp, label %true, label %false
 
