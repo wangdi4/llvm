@@ -13,9 +13,9 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -1319,7 +1319,7 @@ static void replaceScalarKernelInMetadata(Function *ScalarFunc,
   std::string ScalarFuncName = ScalarFunc->getName().str();
   assert(ScalarFuncName.find(Suffix.str()) == std::string::npos &&
          "Invalid scalar function name having suffix!");
-  assert(!VectorVariant::isVectorVariant(ScalarFuncName) &&
+  assert(!VFInfo::isVectorVariant(ScalarFuncName) &&
          "Expect scalar function but it's vector variant.");
   std::string ScalarFuncNameWithSuffix =
       addSuffixInFunctionName(ScalarFuncName, Suffix);
@@ -1342,16 +1342,15 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
   std::string NewFName = NewF->getName().str();
   assert(NewFName.find(Suffix.str()) == std::string::npos &&
          "Invalid vectorized function name having suffix!");
-  assert(VectorVariant::isVectorVariant(NewFName) &&
-         "Expect vector variant but it's not.");
 
-  VectorVariant Variant(NewFName);
-  std::string ScalarFuncName = Variant.getBaseName();
-  Function *ScalarFunc = NewF->getParent()->getFunction(ScalarFuncName);
+  Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
+  assert(Variant.hasValue() && "Expect vector variant but it's not.");
+
+  Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
   if (ScalarFunc == nullptr)
     return;
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
-  if (!Variant.isMasked()) {
+  if (!Variant->isMasked()) {
     if (KIMD.VectorizedKernel.hasValue()) {
       assert(KIMD.VectorizedKernel.get() == OldF &&
              "Invalid vectorized masked function!");
@@ -1446,7 +1445,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // with original name of F function (now it's name of NewF function) with NewF
   // function name in the metadata for vectorized kernel, masked kernel and
   // scalar kernel
-  if (VectorVariant::isVectorVariant(NewF->getName().str()))
+  if (VFInfo::isVectorVariant(NewF->getName().str()))
     replaceVectorizedKernelInMetadata(F, NewF, Suffix);
   else
     replaceScalarKernelInMetadata(NewF, Suffix);
@@ -2027,18 +2026,14 @@ static void pushSGBlockBuiltinDivergentVectInfo(
       reflection::width::NONE};
   std::string VectorMangleName = NameMangleAPI::mangle(VectorFunc);
 
-  // Get vector variant string repr
-  llvm::VectorVariant Variant{
-      llvm::VectorVariant::ISAClass::XMM,
-      true,
-      VF,
-      std::vector<VectorKind>(v_num, VectorKind::vector()),
-      ScalarMangleName,
-      VectorMangleName};
+  std::vector<llvm::VFParamKind> ParamKinds(v_num, llvm::VFParamKind::Vector);
+
+  auto Variant = VFInfo::get(llvm::VFISAKind::SSE, true, VF, ParamKinds,
+                             ScalarMangleName, VectorMangleName);
 
   ExtendedVectInfos.push_back({ScalarMangleName,
                                std::string(KernelAttribute::CallOnce),
-                               Variant.toString()});
+                               std::move(Variant.FullName)});
 }
 
 static void pushSGBlockBuiltinDivergentVectInfo(

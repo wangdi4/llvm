@@ -52,4 +52,4 @@ define <4 x i32> @foo(<4 x i32> %a, <4 x i32> %b) #0 {
   ret <4 x i32> %add
 }
 
-attributes #0 = { "vector-variants"="_ZGVbN4vv_" }
+attributes #0 = { "vector-variants"="_ZGVbN4vv_foo" }

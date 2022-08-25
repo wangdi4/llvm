@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -60,7 +60,6 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
@@ -521,11 +520,9 @@ namespace {
       (void)llvm::createVFAnalysisLegacyPass();
       (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
       (void)llvm::createVectorVariantFillInLegacyPass();
-      (void)llvm::createVectorVariantLoweringLegacyPass(
-          llvm::VectorVariant::XMM);
-      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
-      (void)llvm::createSGSizeCollectorIndirectLegacyPass(
-          llvm::VectorVariant::XMM);
+      (void)llvm::createVectorVariantLoweringLegacyPass(llvm::VFISAKind::SSE);
+      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VFISAKind::SSE);
+      (void)llvm::createSGSizeCollectorIndirectLegacyPass(llvm::VFISAKind::SSE);
       (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
       (void)llvm::createUpdateCallAttrsLegacyPass();
       (void)llvm::createIndirectCallLoweringLegacyPass();

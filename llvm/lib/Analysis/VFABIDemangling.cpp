@@ -1,4 +1,21 @@
 //===- VFABIDemangling.cpp - Vector Function ABI demangling utilities. ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -255,7 +272,7 @@ ParseRet tryParseParameter(StringRef &ParseString, VFParamKind &PKind,
 /// sets `PKind` to the correspondent enum value, sets `StepOrPos`
 /// accordingly, and return success.  On a syntax error, it return a
 /// parsing error. If nothing is parsed, it returns None.
-ParseRet tryParseAlign(StringRef &ParseString, Align &Alignment) {
+ParseRet tryParseAlign(StringRef &ParseString, MaybeAlign &Alignment) { // INTEL
   uint64_t Val;
   //    "a" <number>
   if (ParseString.consume_front("a")) {
@@ -312,10 +329,18 @@ ElementCount getECFromSignature(FunctionType *Signature) {
 }
 } // namespace
 
-// Format of the ABI name:
-// _ZGV<isa><mask><vlen><parameters>_<scalarname>[(<redirection>)]
+#if INTEL_CUSTOMIZATION
+VFInfo VFABI::demangleForVFABI(StringRef MangledName) {
+  return VFABI::tryDemangleForVFABI(MangledName).value();
+}
 Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
                                             const Module &M) {
+  return VFABI::tryDemangleForVFABI(MangledName, &M);
+}
+
+Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                            const Module *M) {
+#endif
   const StringRef OriginalName = MangledName;
   // Assume there is no custom name <redirection>, and therefore the
   // vector name consists of
@@ -357,7 +382,7 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
       return None;
 
     if (ParamFound == ParseRet::OK) {
-      Align Alignment;
+      MaybeAlign Alignment; // INTEL
       // Look for the alignment token "a <number>".
       const ParseRet AlignFound = tryParseAlign(MangledName, Alignment);
       // Bail off if there is a syntax error in the align token.
@@ -369,10 +394,11 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
     }
   } while (ParamFound == ParseRet::OK);
 
-  // A valid MangledName must have at least one valid entry in the
-  // <parameters>.
+#if !INTEL_CUSTOMIZATION
+  // A valid mangled name can have an empty set of parameters (see VFABI docs).
   if (Parameters.empty())
     return None;
+#endif
 
   // Check for the <scalarname> and the optional <redirection>, which
   // are separated from the prefix with "_"
@@ -434,7 +460,10 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
   // need to make sure that the VF field of the VFShape class is never
   // set to 0.
   if (IsScalable) {
-    const Function *F = M.getFunction(VectorName);
+#if INTEL_CUSTOMIZATION
+    assert(M && "Can't demangle scalable variant name without a valid module!");
+    const Function *F = M->getFunction(VectorName);
+#endif
     // The declaration of the function must be present in the module
     // to be able to retrieve its signature.
     if (!F)
@@ -448,11 +477,16 @@ Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
   // present in the module.
   if (VF == 0)
     return None;
-  if (!M.getFunction(VectorName))
+  if (M && !M->getFunction(VectorName)) // INTEL
     return None;
 
   const VFShape Shape({ElementCount::get(VF, IsScalable), Parameters});
-  return VFInfo({Shape, std::string(ScalarName), std::string(VectorName), ISA});
+#if INTEL_CUSTOMIZATION
+  return VFInfo({
+      Shape, std::string(ScalarName), std::string(VectorName), ISA,
+      std::string(OriginalName)
+  });
+#endif
 }
 
 VFParamKind VFABI::getVFParamKindFromString(const StringRef Token) {

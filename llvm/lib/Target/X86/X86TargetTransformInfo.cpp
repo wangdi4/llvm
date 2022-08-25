@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -64,7 +64,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/IRBuilder.h" // INTEL
-#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/Module.h" // INTEL
 
 using namespace llvm;
@@ -1227,17 +1226,16 @@ bool X86TTIImpl::isAggressiveVLSProfitable() const {
 }
 
 bool X86TTIImpl::targetMatchesVariantISA(
-    VectorVariant::ISAClass VariantISAClass) const {
-  VectorVariant::ISAClass TargetISAClass = VectorVariant::ISAClass::NOSSE;
+    VFISAKind VariantISAClass) const {
+  Optional<VFISAKind> TargetISAClass;
   if (ST->hasAVX512())
-    TargetISAClass = VectorVariant::ISAClass::ZMM;
+    TargetISAClass = VFISAKind::AVX512;
   else if (ST->hasAVX2())
-    TargetISAClass = VectorVariant::ISAClass::YMM2;
+    TargetISAClass = VFISAKind::AVX2;
   else if (ST->hasAVX())
-    TargetISAClass = VectorVariant::ISAClass::YMM1;
+    TargetISAClass = VFISAKind::AVX;
   else if (ST->hasSSE1())
-    // All SSE targets support XMM
-    TargetISAClass = VectorVariant::ISAClass::XMM;
+    TargetISAClass = VFISAKind::SSE;
   if (UseStrictTargetISAVariantMatch)
     return VariantISAClass == TargetISAClass;
   if (VariantISAClass <= TargetISAClass)
@@ -1246,17 +1244,17 @@ bool X86TTIImpl::targetMatchesVariantISA(
 }
 
 int X86TTIImpl::getMatchingVectorVariant(
-    VectorVariant &ForCall,
-    SmallVectorImpl<VectorVariant> &Variants,
+    const VFInfo &ForCall,
+    const SmallVectorImpl<VFInfo> &Variants,
     const Module *M) const {
-  // ForCall is a VectorVariant created for the call instruction.
+  // ForCall is a VFInfo created for the call instruction.
   int BestIndex = -1;
   int CurrIndex = -1;
   // Keep track of parameter position containing the largest score. Can be
   // used as a tiebreaker when selecting the best variant.
   int BestArg = -1;
   int BestScore = 0;
-  VectorVariant::ISAClass BestISA = VectorVariant::ISAClass::NOSSE;
+  Optional<VFISAKind> BestISA;
   for (auto Variant : Variants) {
     CurrIndex++;
     if (!targetMatchesVariantISA(Variant.getISA()))
@@ -1269,13 +1267,15 @@ int X86TTIImpl::getMatchingVectorVariant(
       BestISA = Variant.getISA();
       BestArg = MaxArg;
       continue;
-    } else if (Score == BestScore) {
+    }
+    if (Score == BestScore) {
       if (Variant.getISA() > BestISA) {
         BestIndex = CurrIndex;
         BestISA = Variant.getISA();
         BestArg = MaxArg;
         continue;
-      } else if (Variant.getISA() == BestISA) {
+      }
+      if (Variant.getISA() == BestISA) {
         // Check best parameter score
         if (MaxArg > BestArg) {
           BestIndex = CurrIndex;

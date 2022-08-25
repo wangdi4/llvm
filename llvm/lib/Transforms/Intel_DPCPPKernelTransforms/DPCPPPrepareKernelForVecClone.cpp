@@ -31,6 +31,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
@@ -40,31 +41,31 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-prepare-kernel-for-vec-clone"
 
-cl::opt<VectorVariant::ISAClass> IsaEncodingOverride(
-    "dpcpp-vector-variant-isa-encoding-override", cl::init(VectorVariant::XMM),
+cl::opt<VFISAKind> IsaEncodingOverride(
+    "dpcpp-vector-variant-isa-encoding-override", cl::init(VFISAKind::SSE),
     cl::Hidden,
     cl::desc("Override target CPU ISA encoding for Vector Variant passes."),
-    cl::values(clEnumValN(VectorVariant::ZMM, "AVX512Core", "AVX512Core"),
-               clEnumValN(VectorVariant::YMM2, "AVX2", "AVX2"),
-               clEnumValN(VectorVariant::YMM1, "AVX1", "AVX1"),
-               clEnumValN(VectorVariant::XMM, "SSE42", "SSE42")));
+    cl::values(clEnumValN(VFISAKind::AVX512, "AVX512Core", "AVX512Core"),
+               clEnumValN(VFISAKind::AVX2, "AVX2", "AVX2"),
+               clEnumValN(VFISAKind::AVX, "AVX1", "AVX1"),
+               clEnumValN(VFISAKind::SSE, "SSE42", "SSE42")));
 
 namespace llvm {
 
 DPCPPPrepareKernelForVecClone::DPCPPPrepareKernelForVecClone(
-    VectorVariant::ISAClass ISA)
+    VFISAKind ISA)
     : ISA(ISA) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
 
   LLVM_DEBUG(dbgs() << "ISAEncoding: "
-                    << VectorVariant::ISAClassToString(this->ISA) << '\n';);
+                    << toString(this->ISA) << '\n';);
 }
 
 // Creates the encoding for the vector variants. The encoding is based on:
 // 1. ISA, 2. Masked operations, 3. Vector length, 4. Parameters type.
 void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
-    Function &F, unsigned VF, ArrayRef<VectorKind> ParamAttrs,
+    Function &F, unsigned VF, ArrayRef<VFParamKind> ParamKinds,
     bool NeedMaskedVariant) {
 
   assert(!F.hasFnAttribute(KernelAttribute::VectorVariants) &&
@@ -74,12 +75,10 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
   SmallVector<std::string, 2> Variants;
 
   std::string FName = F.getName().str();
-  VectorVariant Variant(ISA, false, VF, ParamAttrs, FName, "");
-  Variants.push_back(Variant.toString());
+  Variants.push_back(VFInfo::get(ISA, false, VF, ParamKinds, FName).VectorName);
 
   if (NeedMaskedVariant) {
-    VectorVariant VariantMasked(ISA, true, VF, ParamAttrs, FName, "");
-    Variants.push_back(VariantMasked.toString());
+    Variants.push_back(VFInfo::get(ISA, true, VF, ParamKinds, FName).VectorName);
   }
 
   F.addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
@@ -93,7 +92,7 @@ void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function &F) {
   unsigned VF = KIMD.RecommendedVL.get();
 
   // Use "uniform" parameter for all arguments.
-  std::vector<VectorKind> ParamsKind(F.arg_size(), VectorKind::uniform());
+  std::vector<VFParamKind> ParamsKind(F.arg_size(), VFParamKind::OMP_Uniform);
 
   // Create masked variant when there are some subgroup calls
   // in the kernel.

@@ -53,4 +53,4 @@ define i32 @bar(i32 %gid) #0 {
   ret i32 %gid
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4v_" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4v_bar" }

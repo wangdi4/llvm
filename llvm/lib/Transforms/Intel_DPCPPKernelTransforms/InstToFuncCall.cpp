@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 static cl::opt<bool> ReplaceFDivFastWithSVML(
     "dpcpp-kernel-replace-fdiv-fast-with-svml", cl::init(false), cl::Hidden,
@@ -36,7 +36,7 @@ class Inst2FunctionLookup {
 public:
   using LookupValue = std::pair<StringRef, CallingConv::ID>;
 
-  Inst2FunctionLookup(VectorVariant::ISAClass ISA) {
+  Inst2FunctionLookup(VFISAKind ISA) {
     if (IsaEncodingOverride.getNumOccurrences())
       ISA = IsaEncodingOverride.getValue();
 
@@ -73,7 +73,7 @@ public:
     SiToFpLookup[std::make_pair(Double, Integer64)] =
         std::make_pair("_Z14convert_doublel", CallingConv::C);
 
-    bool IsV16Supported = (ISA == VectorVariant::ZMM);
+    bool IsV16Supported = (ISA == VFISAKind::AVX512);
     if (IsV16Supported) {
       /// Replaces:
       /// %conv = fptoui <16 x float> %tmp2 to <16 x i64>
@@ -177,7 +177,7 @@ public:
     // in OpenCL spec. So we replace 'fdiv fast' with svml function on
     // AVX/SSE42.
     if (ReplaceFDivFastWithSVML ||
-        (ISA == VectorVariant::XMM || ISA == VectorVariant::YMM1)) {
+        (ISA == VFISAKind::SSE || ISA == VFISAKind::AVX)) {
       Type2ValueLookup FDivLookup;
       FDivLookup[{Float, Float}] = {"_Z9divide_rmff", CallingConv::C};
       FDivLookup[{V2xFloat, V2xFloat}] = {"_Z9divide_rmDv2_fS_",
@@ -299,7 +299,7 @@ private:
 
 class InstToFuncCallImpl {
 public:
-  bool run(Module &M, VectorVariant::ISAClass ISA);
+  bool run(Module &M, VFISAKind ISA);
 
 private:
   void replaceInstWithCall(Function &F, Instruction &I, StringRef FName,
@@ -308,7 +308,7 @@ private:
 
 } // namespace
 
-bool InstToFuncCallImpl::run(Module &M, VectorVariant::ISAClass ISA) {
+bool InstToFuncCallImpl::run(Module &M, VFISAKind ISA) {
   bool Changed = false;
 
   Inst2FunctionLookup I2F(ISA);
@@ -362,7 +362,7 @@ class InstToFuncCallLegacy : public ModulePass {
 public:
   static char ID;
 
-  InstToFuncCallLegacy(VectorVariant::ISAClass ISA = VectorVariant::XMM)
+  InstToFuncCallLegacy(VFISAKind ISA = VFISAKind::SSE)
       : ModulePass(ID), ISA(ISA) {
     initializeInstToFuncCallLegacyPass(*PassRegistry::getPassRegistry());
   }
@@ -375,7 +375,7 @@ public:
   }
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 };
 
 } // namespace
@@ -386,7 +386,7 @@ INITIALIZE_PASS(InstToFuncCallLegacy, "dpcpp-kernel-inst-to-func-call",
 
 char InstToFuncCallLegacy::ID = 0;
 
-ModulePass *llvm::createInstToFuncCallLegacyPass(VectorVariant::ISAClass ISA) {
+ModulePass *llvm::createInstToFuncCallLegacyPass(VFISAKind ISA) {
   return new InstToFuncCallLegacy(ISA);
 }
 

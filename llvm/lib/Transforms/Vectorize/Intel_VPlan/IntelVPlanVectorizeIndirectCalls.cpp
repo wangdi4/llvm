@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -89,7 +89,6 @@
 #include "IntelVPlanVectorizeIndirectCalls.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "IndirectCallCodeGenerator"
@@ -105,8 +104,7 @@ bool IndirectCallCodeGenerator::vectorize(VPCallInstruction *VPCallInst) {
   assert(OrigCall && "OriginalCall is expected.");
 
   // Check if there is a matched vector vaariant.
-  VectorVariant *MatchedVecVariant =
-      const_cast<VectorVariant *>(VPCallInst->getVectorVariant());
+  const VFInfo *MatchedVecVariant = VPCallInst->getVectorVariant();
   assert(MatchedVecVariant &&
          "There is not any attribute for the current indirect call. The "
          "indirect call will be serialized.");
@@ -264,8 +262,7 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
   if (IsMasked)
     FinalMask = State->Builder.CreateAnd(FuncPtrMask, MaskValue, "final_mask");
 
-  VectorVariant *MatchedVariant =
-      const_cast<VectorVariant *>(VPCallInst->getVectorVariant());
+  const VFInfo *MatchedVariant = VPCallInst->getVectorVariant();
   assert(MatchedVariant && "Unexpected null matched vector variant");
 
   // If matched vector variant has a mask, then this mask will have already been
