@@ -2284,8 +2284,6 @@ TEST_F(InstrRefLDVTest, vlocJoinDiamond) {
 
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
-  DbgOpID RspPHIInBlkBr2BlkID = DbgOpID(false, 2);
-  DbgOpID RspPHIInBlkRetBlkID = DbgOpID(false, 3);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
@@ -2470,7 +2468,6 @@ TEST_F(InstrRefLDVTest, vlocJoinLoops) {
 
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
-  DbgOpID RspPHIInBlk1ID = DbgOpID(false, 2);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
