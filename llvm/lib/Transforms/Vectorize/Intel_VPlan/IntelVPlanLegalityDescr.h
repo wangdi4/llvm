@@ -418,12 +418,14 @@ public:
 private:
   PrivateKind PrivKind;
   Type *Ty;
+  // Special flag for F90_[NONPOD|DV] incomming directive
+  bool IsF90;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV)
+  PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90)
       : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
-        PrivKind(KindV), Ty(Ty) {}
+        PrivKind(KindV), Ty(Ty), IsF90(IsF90) {}
 
   // Copy constructor
   PrivDescr(const PrivDescr &Other)
@@ -457,6 +459,8 @@ public:
   bool isCond() const { return PrivKind == PrivateKind::Conditional; }
   /// Check if private is last or conditional last private.
   bool isLast() const { return PrivKind != PrivateKind::NonLast; }
+  /// Check if private if originating from F90_* directive
+  bool isF90() const { return IsF90; }
   /// Check if private is for non-POD data type.
   virtual bool isNonPOD() const { return false; }
   /// Get the private Type.
@@ -482,16 +486,13 @@ template <typename Value> class PrivDescrNonPOD : public PrivDescr<Value> {
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
-  // TODO: Consider moving it to PrivDescr and merge with F90_DV
-  // Special flag for F90_NONPOD incomming directive
-  bool IsF90NonPod;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
-  PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, Function *Ctor,
-                  Function *Dtor, Function *CopyAssign, bool IsF90NonPod)
-      : PrivDescr<Value>(RegV, Ty, KindV), Ctor(Ctor), Dtor(Dtor),
-        CopyAssign(CopyAssign), IsF90NonPod(IsF90NonPod) {
+  PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90,
+                  Function *Ctor, Function *Dtor, Function *CopyAssign)
+      : PrivDescr<Value>(RegV, Ty, KindV, IsF90), Ctor(Ctor), Dtor(Dtor),
+        CopyAssign(CopyAssign) {
     assert(KindV != PrivateKind::Conditional &&
            "Non POD privates cannot be conditional last privates.");
   }
@@ -536,8 +537,6 @@ public:
   Function *getDtor() const { return Dtor; }
   /// Get copy assign function for nonPOD private value.
   Function *getCopyAssign() const { return CopyAssign; }
-  /// Check if non-POD private if originating from F90_NONPOD directive
-  bool isF90NonPod() const { return IsF90NonPod; }
   /// Check if private is for non-POD data type.
   bool isNonPOD() const override { return true; }
 

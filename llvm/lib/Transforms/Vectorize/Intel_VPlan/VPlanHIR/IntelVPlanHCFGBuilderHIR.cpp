@@ -1654,6 +1654,7 @@ public:
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
+    Descriptor.setIsF90(CurValue.isF90());
     if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurValue.getValidAlias()) {
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1681,7 +1682,7 @@ public:
     Descriptor.setCopyAssign(CurValue.getCopyAssign());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
-    Descriptor.setIsF90NonPod(CurValue.isF90NonPod());
+    Descriptor.setIsF90(CurValue.isF90());
   }
 };
 
