@@ -620,7 +620,8 @@ VPInstructionCost HeuristicGatherScatter::operator()(
   if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
       !CM->isUniformLoadStore(LoadStore) &&
       !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
-    return CM->getLoadStoreCost(LoadStore, VF);
+    return CM->getLoadStoreCost(LoadStore, VF,
+                                true /* only need gather/scatter cost */);
 
   return 0;
 }
