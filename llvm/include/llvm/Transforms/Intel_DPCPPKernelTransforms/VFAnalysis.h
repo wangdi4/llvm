@@ -1,6 +1,6 @@
 //==----------- VFAnalysis.h - Analyze VF related issues -------- C++ -*---==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,10 +14,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DiagnosticHandler.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
@@ -109,7 +109,7 @@ private:
   void deduceSGEmulationSize(Function *Kernel);
 
   /// ISA is used to deduce the default initial VF.
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
 
   /// Forced VF value. Has no effect when equals to zero.
   unsigned ForceVF;

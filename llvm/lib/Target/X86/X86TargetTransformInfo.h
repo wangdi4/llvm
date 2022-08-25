@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -318,8 +318,8 @@ public:
   bool isVPlanVLSProfitable() const;
   bool isAggressiveVLSProfitable() const;
   int getMatchingVectorVariant(
-      VectorVariant &ForCall,
-      SmallVectorImpl<VectorVariant> &Variants,
+      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &Variants,
       const Module *M) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
@@ -351,7 +351,7 @@ private:
   InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, Align Alignment,
                                   unsigned AddressSpace);
-  bool targetMatchesVariantISA(VectorVariant::ISAClass VariantISA) const;
+  bool targetMatchesVariantISA(VFISAKind VariantISA) const;
 #endif // INTEL_CUSTOMIZATION
   InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
                                   const Value *Ptr, Align Alignment,

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetPreferVectorWidth.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
@@ -22,7 +23,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-set-prefer-vector-width"
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 static cl::opt<unsigned> ForcedVecWidth("dpcpp-force-prefer-vector-width",
                                         cl::init(0), cl::Hidden);
@@ -33,7 +34,7 @@ class SetPreferVectorWidthLegacy : public ModulePass {
 public:
   static char ID;
 
-  SetPreferVectorWidthLegacy(VectorVariant::ISAClass ISA = VectorVariant::XMM);
+  SetPreferVectorWidthLegacy(VFISAKind ISA = VFISAKind::SSE);
 
   StringRef getPassName() const override {
     return "SetPreferVectorWidthLegacy";
@@ -56,17 +57,17 @@ INITIALIZE_PASS(
     false, false)
 
 SetPreferVectorWidthLegacy::SetPreferVectorWidthLegacy(
-    VectorVariant::ISAClass ISA)
+    VFISAKind ISA)
     : ModulePass(ID), Impl(ISA) {
   initializeSetPreferVectorWidthLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 ModulePass *
-llvm::createSetPreferVectorWidthLegacyPass(VectorVariant::ISAClass ISA) {
+llvm::createSetPreferVectorWidthLegacyPass(VFISAKind ISA) {
   return new SetPreferVectorWidthLegacy(ISA);
 }
 
-SetPreferVectorWidthPass::SetPreferVectorWidthPass(VectorVariant::ISAClass ISA)
+SetPreferVectorWidthPass::SetPreferVectorWidthPass(VFISAKind ISA)
     : ISA(ISA) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
@@ -77,17 +78,17 @@ PreservedAnalyses SetPreferVectorWidthPass::run(Module &M,
   return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
-static bool setPreferVectorWidth(Module &M, VectorVariant::ISAClass ISA) {
+static bool setPreferVectorWidth(Module &M, VFISAKind ISA) {
   bool Changed = false;
   unsigned VecWidth;
   if (ForcedVecWidth)
     VecWidth = ForcedVecWidth;
   else {
     switch (ISA) {
-    case VectorVariant::ZMM:
+    case VFISAKind::AVX512:
       VecWidth = 512;
       break;
-    case VectorVariant::YMM2:
+    case VFISAKind::AVX2:
       VecWidth = 256;
       break;
     default:

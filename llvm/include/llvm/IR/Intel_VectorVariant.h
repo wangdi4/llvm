@@ -33,7 +33,7 @@
 
 
 #if INTEL_CUSTOMIZATION
-extern llvm::cl::opt<bool> Usei1MaskForSimdFunctions;
+extern bool Usei1MaskForSimdFunctions;
 #endif
 
 namespace llvm {

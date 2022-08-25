@@ -24,7 +24,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_WEIGHTEDINSTCOUNT_H
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_WEIGHTEDINSTCOUNT_H
 
-#include "llvm/IR/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PassManager.h"
 #include <map>
 
@@ -43,7 +43,7 @@ class InstCountResult {
 public:
   InstCountResult(Function &F, TargetTransformInfo &TTI, PostDominatorTree &DT,
                   LoopInfo &LI, ScalarEvolution &SE,
-                  VectorVariant::ISAClass ISA, bool PreVec);
+                  VFISAKind ISA, bool PreVec);
 
   InstCountResult(InstCountResult &&Other);
 
@@ -87,14 +87,14 @@ class WeightedInstCountAnalysis
   friend AnalysisInfoMixin<WeightedInstCountAnalysis>;
   static AnalysisKey Key;
 
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
   // True if this pass is run before vectorizer.
   bool PreVec;
 
 public:
   using Result = InstCountResult;
 
-  WeightedInstCountAnalysis(VectorVariant::ISAClass ISA = VectorVariant::XMM,
+  WeightedInstCountAnalysis(VFISAKind ISA = VFISAKind::SSE,
                             bool PreVec = true)
       : ISA(ISA), PreVec(PreVec) {}
 
@@ -108,8 +108,8 @@ class WeightedInstCountAnalysisLegacy : public FunctionPass {
 public:
   static char ID;
 
-  WeightedInstCountAnalysisLegacy(
-      VectorVariant::ISAClass ISA = VectorVariant::XMM, bool PreVec = true);
+  WeightedInstCountAnalysisLegacy(VFISAKind ISA = VFISAKind::SSE,
+                                  bool PreVec = true);
 
   StringRef getPassName() const override {
     return "WeightedInstCountAnalysisLegacy";
@@ -127,7 +127,7 @@ public:
   }
 
 private:
-  VectorVariant::ISAClass ISA;
+  VFISAKind ISA;
   // True if this pass is run before vectorizer.
   bool PreVec;
 };

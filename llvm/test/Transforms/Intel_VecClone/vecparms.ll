@@ -14,7 +14,7 @@ entry:
   ret i32 %ext
 }
 
-attributes #0 = { "vector-variants"="_ZGVbM4uu_,_ZGVbN4uu_" }
+attributes #0 = { "vector-variants"="_ZGVbM4uu_foo,_ZGVbN4uu_foo" }
 
 ; CHECK-LABEL: <4 x i32> @_ZGVbM4uu_foo(<2 x i8> %a, <3 x i32> %b, <4 x i32> %mask)
 ; CHECK:      simd.begin.region:

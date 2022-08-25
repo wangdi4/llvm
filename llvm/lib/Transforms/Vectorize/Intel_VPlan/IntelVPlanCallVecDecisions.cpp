@@ -1,6 +1,6 @@
 //===-- IntelVPlanCallVecDecisions.cpp -------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -95,35 +95,34 @@ void VPlanCallVecDecisions::reset() {
   }
 }
 
-std::unique_ptr<VectorVariant>
-VPlanCallVecDecisions::getVectorVariantForCallParameters(
+VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     const VPCallInstruction *VPCall, bool Masked, int VF) {
   auto *DA = Plan.getVPlanDA();
-  std::vector<VectorKind> ParmKinds;
-  for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0;
-       I < VPCall->getNumArgOperands(); ++I) {
+  SmallVector<VFParameter, 8> Parameters;
+  auto SkippedArgs = VPCall->isIntelIndirectCall() ? 1 : 0;
+  for (unsigned I = SkippedArgs; I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
+    auto ParamPos = I - SkippedArgs;
     if (CallArgShape.isRandom() || CallArgShape.isUndefined())
-      ParmKinds.push_back(VectorKind::vector());
+      Parameters.push_back(VFParameter::vector(ParamPos));
     else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride())
-      ParmKinds.push_back(VectorKind::linear(CallArgShape.getStrideVal()));
+      Parameters.push_back(VFParameter::linear(ParamPos, CallArgShape.getStrideVal()));
     else if (CallArgShape.isAnyStrided() && !CallArgShape.hasKnownStride())
-      ParmKinds.push_back(VectorKind::variableStrided(I));
+      Parameters.push_back(VFParameter::variableStrided(ParamPos, ParamPos));
     else if (CallArgShape.isUniform())
-      ParmKinds.push_back(VectorKind::uniform());
+      Parameters.push_back(VFParameter::uniform(ParamPos));
     else
       llvm_unreachable("Invalid parameter kind");
   }
 
   Function *F = VPCall->getCalledFunction();
   assert(F && "Function is expected here.");
-  return std::make_unique<VectorVariant>(
-             VectorVariant::ISAClass::OTHER, Masked, VF, ParmKinds,
-             F->getName().str(), "" /* Alias not needed */);
+  return VFInfo::get(VFISAKind::Unknown, Masked, VF, Parameters,
+                     F->getName().str());
 }
 
-llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
+llvm::Optional<std::pair<VFInfo, unsigned>>
 VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           bool Masked, unsigned VF,
                                           const TargetTransformInfo *TTI) {
@@ -146,33 +145,32 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
 
   SmallVector<StringRef, 4> VariantAttributes;
   VecVariantStringValue.split(VariantAttributes, ",");
-  SmallVector<VectorVariant, 4> Variants;
 
-  for (unsigned I = 0; I < VariantAttributes.size(); ++I) {
-    // Check if the called function name is contained in vector-variant string.
-    // TODO: Do the check for all calls (not for indirect ones only) once
-    // front-end problems are removed.
-    auto *Fn = VPCall->getCalledFunction();
-    assert(VPCall->isIntelIndirectCall() ||
-           (Fn && VariantAttributes[I].contains(Fn->getName())));
-    (void)Fn;
-    Variants.push_back(VectorVariant(VariantAttributes[I]));
-  }
+  SmallVector<VFInfo, 4> Variants(
+      map_range(VariantAttributes, [VPCall](StringRef Attr) {
+        // Check if the called function name is contained in vector-variant string.
+        // TODO: Do the check for all calls (not for indirect ones only) once
+        // front-end problems are removed.
+        auto *Fn = VPCall->getCalledFunction();
+        assert(VPCall->isIntelIndirectCall() ||
+               (Fn && Attr.contains(Fn->getName())));
+        (void)Fn;
+        return VFABI::demangleForVFABI(Attr);
+      }));
 
   if (VPCall->isIntelIndirectCall())
      Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
 
-  std::unique_ptr<VectorVariant> VariantForCall =
+  const VFInfo VariantForCall =
       getVectorVariantForCallParameters(VPCall, Masked, VF);
 
-  int VariantIdx = TTI->getMatchingVectorVariant(*VariantForCall, Variants,
+  int VariantIdx = TTI->getMatchingVectorVariant(VariantForCall, Variants,
                                                  Call->getModule());
 
   if (VariantIdx >= 0) {
-    LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].encode()
+    LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].VectorName
                       << "\n\n");
-    return std::make_pair(
-        std::make_unique<VectorVariant>(Variants[VariantIdx]), (unsigned)VariantIdx);
+    return std::make_pair(Variants[VariantIdx], (unsigned)VariantIdx);
   }
 
   return {};
@@ -180,7 +178,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
 
 Type *
 VPlanCallVecDecisions::calcCharacteristicType(VPCallInstruction *VPCallInst,
-                                              VectorVariant &Variant) {
+                                              const VFInfo &Variant) {
   assert(VPCallInst && "VPCallInst should not be nullptr");
   auto Args  = VPCallInst->arg_operands();
   if (VPCallInst->isIntelIndirectCall())
@@ -223,7 +221,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (VPCall->getVectorizationScenario() ==
       VPCallInstruction::CallVecScenariosTy::UnmaskedWiden) {
     auto VecVariant = matchVectorVariant(VPCall, false, VF, TTI);
-    VPCall->setUnmaskedVectorVariant(VecVariant->first, VecVariant->second);
+    VPCall->setUnmaskedVectorVariant(std::move(VecVariant->first),
+                                     VecVariant->second);
     return;
   }
 
@@ -243,8 +242,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
+<<<<<<< HEAD
     VPCall->setVectorizeWithVectorVariant(VecVariant.value().first,
                                           VecVariant.value().second);
+=======
+    VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
+                                          VecVariant->second);
+>>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
     return;
   }
 
@@ -253,10 +257,16 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // TODO: Same optimization can be done for calls with vectorizable library
   // function.
   if (!IsMasked) {
+<<<<<<< HEAD
     auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI);
     if (MaskedVecVariant) {
       VPCall->setVectorizeWithVectorVariant(MaskedVecVariant.value().first,
                                             MaskedVecVariant.value().second,
+=======
+    if (auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI)) {
+      VPCall->setVectorizeWithVectorVariant(std::move(MaskedVecVariant->first),
+                                            MaskedVecVariant->second,
+>>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
                                             true /*UseMaskedForUnmasked*/);
       return;
     }

@@ -37,6 +37,7 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -75,7 +76,7 @@ static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
 extern bool DPCPPEnableDirectFunctionCallVectorization;
 extern bool DPCPPEnableSubgroupDirectCallVectorization;
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
@@ -109,7 +110,7 @@ public:
 
   explicit DPCPPKernelVecCloneLegacy(
       ArrayRef<VectItem> VectInfos = {},
-      VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
+      VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
 
   bool runOnModule(Module &M) override {
     auto *VD = getAnalysisIfAvailable<VectorizationDimensionAnalysisLegacy>();
@@ -142,19 +143,19 @@ INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
                     false /* not modifies CFG */, false /* is_analysis */)
 
 DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
-    ArrayRef<VectItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
+    ArrayRef<VectItem> VectInfos, VFISAKind ISA, bool IsOCL)
     : ModulePass(ID), Impl(VectInfos, ISA, IsOCL) {
   initializeDPCPPKernelVecCloneLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 ModulePass *llvm::createDPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
-                                                VectorVariant::ISAClass ISA,
+                                                VFISAKind ISA,
                                                 bool IsOCL) {
   return new DPCPPKernelVecCloneLegacy(VectInfos, ISA, IsOCL);
 }
 
 DPCPPKernelVecClonePass::DPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
-                                                 VectorVariant::ISAClass ISA,
+                                                 VFISAKind ISA,
                                                  bool IsOCL)
     : Impl(VectInfos, ISA, IsOCL) {}
 
@@ -529,7 +530,7 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 }
 
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                                                 VectorVariant::ISAClass ISA,
+                                                 VFISAKind ISA,
                                                  bool IsOCL)
     : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {
   if (IsaEncodingOverride.getNumOccurrences())
@@ -539,7 +540,7 @@ DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
 void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                                       Function *Clone,
                                                       BasicBlock *EntryBlock,
-                                                      const VectorVariant &Variant) {
+                                                      const VFInfo &Variant) {
   // The FunctionsAndActions array has only the Kernel function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
@@ -642,7 +643,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
-  const unsigned VF = Variant.getVlen();
+  const unsigned VF = Variant.getVF();
 
   if (IsKernel)
     updateKernelMetadata(F, Clone, VecDim, CanUniteWorkgroups);
@@ -674,7 +675,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
          VF](const std::tuple<std::string, std::string, std::string> &Info)
             -> bool {
           return std::get<0>(Info) == FnName &&
-                 VectorVariant(std::get<2>(Info)).getVlen() == VF;
+                 VFABI::demangleForVFABI(std::get<2>(Info)).getVF() == VF;
         });
 
     if (MatchingVariants.begin() == MatchingVariants.end())
@@ -700,7 +701,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         Variants += ',';
 
       Variants += std::get<2>(Variant);
-      if (VectorVariant(std::get<2>(Variant)).isMasked())
+      if (VFABI::demangleForVFABI(std::get<2>(Variant)).isMasked())
         NotHasMask = false;
       else
         HasMask = false;
@@ -710,7 +711,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // On avx1/sse42, only builtins with "kernel-call-once" attribute have VF 32
     // and 64 implementations.
-    if ((ISA == VectorVariant::XMM || ISA == VectorVariant::YMM1) && VF >= 32 &&
+    if ((ISA == VFISAKind::SSE || ISA == VFISAKind::AVX) && VF >= 32 &&
         !KernelCallOnce)
       continue;
 
@@ -732,7 +733,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   }
 }
 
-using ReturnInfoTy = std::vector<std::pair<std::string, VectorKind>>;
+using ReturnInfoTy = std::vector<std::pair<std::string, VFParamKind>>;
 
 static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   // sub_group_get_local_id isn't here due to special processing in VecClone
@@ -741,74 +742,74 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   ReturnInfoTy RetInfo;
 
   // Work group uniform built-ins
-  RetInfo.push_back({"_Z14work_group_alli", VectorKind::uniform()});
-  RetInfo.push_back({"_Z14work_group_anyi", VectorKind::uniform()});
+  RetInfo.push_back({"_Z14work_group_alli", VFParamKind::OMP_Uniform});
+  RetInfo.push_back({"_Z14work_group_anyi", VFParamKind::OMP_Uniform});
   const char WorkGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
   for (char Type : WorkGroupTypes) {
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "m",
-                       VectorKind::uniform()});
+                       VFParamKind::OMP_Uniform});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mm",
-                       VectorKind::uniform()});
+                       VFParamKind::OMP_Uniform});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm",
-                       VectorKind::uniform()});
+                       VFParamKind::OMP_Uniform});
 
     for (auto Op : {"add", "min", "max", "mul"})
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type,
-                         VectorKind::uniform()});
+                         VFParamKind::OMP_Uniform});
   }
   const char WorkGroupIntegerTypes[] = {'c', 'h', 's', 't', 'i', 'j', 'l', 'm'};
   for (char Type : WorkGroupIntegerTypes) {
     for (const auto *Op : {"bitwise_and", "bitwise_xor"})
       RetInfo.push_back({std::string("_Z29work_group_reduce_") + Op + Type,
-                        VectorKind::uniform()});
+                        VFParamKind::OMP_Uniform});
     RetInfo.push_back({std::string("_Z28work_group_reduce_bitwise_or") + Type,
-                  VectorKind::uniform()});
+                  VFParamKind::OMP_Uniform});
   }
   RetInfo.push_back({std::string("_Z29work_group_reduce_logical_andi"),
-                    VectorKind::uniform()});
+                    VFParamKind::OMP_Uniform});
   RetInfo.push_back({std::string("_Z28work_group_reduce_logical_ori"),
-                    VectorKind::uniform()});
+                    VFParamKind::OMP_Uniform});
   RetInfo.push_back({std::string("_Z29work_group_reduce_logical_xori"),
-                    VectorKind::uniform()});
+                    VFParamKind::OMP_Uniform});
 
   // Sub group uniform built-ins
-  RetInfo.push_back({std::string("_Z13sub_group_alli"), VectorKind::uniform()});
-  RetInfo.push_back({std::string("_Z13sub_group_anyi"), VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z13sub_group_alli"), VFParamKind::OMP_Uniform});
+  RetInfo.push_back({std::string("_Z13sub_group_anyi"), VFParamKind::OMP_Uniform});
 
   RetInfo.push_back(
-      {std::string("_Z22intel_sub_group_balloti"), VectorKind::uniform()});
+      {std::string("_Z22intel_sub_group_balloti"), VFParamKind::OMP_Uniform});
 
   const char SubGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
   for (char Type : SubGroupTypes) {
     RetInfo.push_back({std::string("_Z19sub_group_broadcast") + Type + 'j',
-                       VectorKind::uniform()});
+                       VFParamKind::OMP_Uniform});
     for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z20sub_group_reduce_") + Op + Type,
-                         VectorKind::uniform()});
+                         VFParamKind::OMP_Uniform});
   }
 
   const char IntelSubGroupTypes[] = {'c', 'h', 's', 't'};
   for (char Type : IntelSubGroupTypes) {
     RetInfo.push_back(
         {std::string("_Z25intel_sub_group_broadcast") + Type + 'j',
-         VectorKind::uniform()});
+         VFParamKind::OMP_Uniform});
     for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z26intel_sub_group_reduce_") + Op + Type,
-                         VectorKind::uniform()});
+                         VFParamKind::OMP_Uniform});
   }
 
   // Pipe functions
   RetInfo.push_back(
-      {std::string("__work_group_reserve_write_pipe"), VectorKind::uniform()});
+      {std::string("__work_group_reserve_write_pipe"), VFParamKind::OMP_Uniform});
   RetInfo.push_back(
-      {std::string("__work_group_reserve_read_pipe"), VectorKind::uniform()});
+      {std::string("__work_group_reserve_read_pipe"), VFParamKind::OMP_Uniform});
 
   return RetInfo;
 }
 
 void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   // FIXME: Longer term plan is to make the return value propery part of
-  // VectorVariant encoding
+  // VFInfo encoding
   //
   // Also, note that we're annotating declarations here. It's legal because:
   //   - The uniformity is true for all the VFs possible
@@ -822,7 +823,7 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
     if (!Fn)
       continue;
 
-    assert(Entry.second.isUniform() && "Only uniforms are supported by now!");
+    assert(Entry.second == VFParamKind::OMP_Uniform && "Only uniforms are supported by now!");
     Fn->addFnAttr("opencl-vec-uniform-return");
   }
 

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -39,7 +39,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
@@ -54,6 +53,200 @@ static cl::opt<unsigned> MaxInterleaveGroupFactor(
     "max-interleave-group-factor", cl::Hidden,
     cl::desc("Maximum factor for an interleaved access group (default = 8)"),
     cl::init(8));
+
+#if INTEL_CUSTOMIZATION
+static char encodeISAClass(VFISAKind Isa) {
+  switch (Isa) {
+  case VFISAKind::SSE:
+    return 'b';
+  case VFISAKind::AVX:
+    return 'c';
+  case VFISAKind::AVX2:
+    return 'd';
+  case VFISAKind::AVX512:
+    return 'e';
+  case VFISAKind::Unknown:
+    return 'x';
+  case VFISAKind::AdvancedSIMD:
+  case VFISAKind::SVE:
+  case VFISAKind::LLVM:
+    llvm_unreachable("unsupported kind!");
+  }
+}
+
+static char encodeMask(bool Mask) {
+  return Mask ? 'M' : 'N';
+}
+
+static void encodeParam(raw_ostream &OS, const VFParameter &Param) {
+  // Encode param kind
+  constexpr const char *LUT[] = {
+      "v",  // Vector
+      "l",  // OMP_Linear
+      "R",  // OMP_LinearRef
+      "L",  // OMP_LinearVal
+      "U",  // OMP_LinearUVal
+      "ls", // OMP_LinearPos
+      "Ls", // OMP_LinearValPos
+      "Rs", // OMP_LinearRefPos
+      "Us", // OMP_LinearUValPos
+      "u"   // OMP_Uniform
+  };
+  assert((unsigned)Param.ParamKind < sizeof(LUT) &&
+         "unsupported parameter kind!");
+  OS << LUT[(unsigned)Param.ParamKind];
+
+  // Encode associated data (for kinds that have it).
+  switch (Param.ParamKind) {
+    default:
+      break;
+    case VFParamKind::OMP_Linear:
+    case VFParamKind::OMP_LinearRef:
+    case VFParamKind::OMP_LinearVal:
+    case VFParamKind::OMP_LinearUVal:
+      // Encode linear step
+      if (Param.LinearStepOrPos == 1);
+        // Skip step if unit-strided
+      else if (Param.LinearStepOrPos < 0)
+        OS << 'n' << -Param.LinearStepOrPos;
+      else
+        OS << Param.LinearStepOrPos;
+      break;
+    case VFParamKind::OMP_LinearPos:
+    case VFParamKind::OMP_LinearRefPos:
+    case VFParamKind::OMP_LinearValPos:
+    case VFParamKind::OMP_LinearUValPos:
+      // Encode linear pos
+      OS << Param.LinearStepOrPos;
+      break;
+  }
+
+  // Encode alignment if present
+  if (Param.Alignment)
+    OS << 'a' << Param.Alignment->value();
+}
+
+std::string llvm::VFInfo::encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
+                                          ArrayRef<VFParameter> Parameters,
+                                          StringRef ScalarName) {
+  std::string VectorName;
+  raw_string_ostream OS(VectorName);
+
+  OS << VFInfo::PREFIX << encodeISAClass(Isa) << encodeMask(Mask) << VF;
+
+  const auto *It = Parameters.begin();
+  const auto *End = Parameters.end();
+
+  if (Mask)
+    --End; // mask parameter is not encoded
+
+  for (; It != End; ++It)
+    encodeParam(OS, *It);
+
+  OS << "_" << ScalarName;
+  
+  return VectorName;
+}
+
+/// Describes the caller side argument to callee side parameter matching
+/// score for simd functions. Scoring is based on the performance implications
+/// of the matching. E.g., uniform pointer arg -> vector parameter would
+/// result in gather/scatter, uniform -> vector would result in broadcast,
+/// etc.
+namespace scores {
+// Scalar2VectorScore represents either a uniform or linear match with
+// vector.
+static constexpr unsigned Scalar2VectorScore = 2;
+static constexpr unsigned Uniform2UniformScore = 3;
+static constexpr unsigned UniformPtr2UniformPtrScore = 4;
+static constexpr unsigned Vector2VectorScore = 4;
+static constexpr unsigned Linear2LinearScore = 4;
+
+// Indicate that a match was not found for a particular variant when doing
+// caller/callee variant matching.
+static constexpr int NoMatch = -1;
+
+int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
+                    const Module *M) {
+
+  // 'V1' refers to the variant for the call. Match parameters with 'V2',
+  // which represents some available variant.
+  ArrayRef<VFParameter> Params = V1.getParameters();
+  ArrayRef<VFParameter> OtherParams = V2.getParameters();
+
+  assert(Params.size() == OtherParams.size() &&
+         "Number of parameters do not match");
+
+  Function *F = M->getFunction(V1.ScalarName);
+  assert(F && "Function not found in module");
+
+  LLVM_DEBUG(dbgs() << "Attempting parameter matching of " << V1.prefix()
+                    << " with " << V2.prefix() << "\n");
+  int ParamScore = 0;
+
+  std::vector<int> ArgScores;
+  unsigned ArgIdx = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
+  for (unsigned I = 0; I < OtherParams.size(); ++I, ++ArgIdx) {
+    // Linear and uniform arguments can always safely be put into vectors, but
+    // reduce score in those cases because scalar is optimal.
+    int ArgScore;
+    if (OtherParams[I].isVector()) {
+      if (Params[I].isVector())
+        ArgScore = Vector2VectorScore;
+      else
+        ArgScore = Scalar2VectorScore; // uniform/linear -> vector
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    // linear->linear matches occur when both args are linear and have same
+    // stride.
+    if (OtherParams[I].isLinear() && Params[I].isLinear() &&
+        OtherParams[I].isConstantStrideLinear() &&
+        Params[I].isConstantStrideLinear() &&
+        OtherParams[I].getStride() == Params[I].getStride()) {
+      ArgScore = Linear2LinearScore;
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    if (OtherParams[I].isUniform() && Params[I].isUniform()) {
+      // Uniform ptr arguments are more beneficial for performance, so weight
+      // them accordingly.
+      if (isa<PointerType>(F->getArg(ArgIdx)->getType()))
+        ArgScore = UniformPtr2UniformPtrScore;
+      else
+        ArgScore = Uniform2UniformScore;
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Arg did not match variant parameter!\n");
+    return NoMatch;
+  }
+
+  LLVM_DEBUG(dbgs() << "Args matched variant parameters\n");
+  // If two args have the same max score, the 1st is selected.
+  MaxArg =
+      std::max_element(ArgScores.begin(), ArgScores.end()) - ArgScores.begin();
+  LLVM_DEBUG(dbgs() << "MaxArg: " << MaxArg << "\n");
+  LLVM_DEBUG(dbgs() << "Score: " << ParamScore << "\n");
+  return ParamScore;
+}
+} // namespace scores
+
+int VFInfo::getMatchingScore(const VFInfo &Other, int &MaxArg,
+                             const Module *M) const {
+  if (getVF() != Other.getVF())
+    return scores::NoMatch;
+  if (isMasked() != Other.isMasked())
+    return scores::NoMatch;
+  return scores::matchParameters(*this, Other, MaxArg, M);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if all of the intrinsic's arguments and return type are scalars
 /// for the scalar form of the intrinsic, and vectors for the vector form of the
@@ -838,28 +1031,21 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
   }
 }
 
-std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
-  std::vector<Attribute> RetVal;
-  AttributeSet Attributes = F.getAttributes().getFnAttrs();
-  AttributeSet::iterator ItA = Attributes.begin();
-  AttributeSet::iterator EndA = Attributes.end();
-  for (; ItA != EndA; ++ItA) {
-    if (!ItA->isStringAttribute())
-      continue;
-    StringRef AttributeKind = ItA->getKindAsString();
-    if (VectorVariant::isVectorVariant(AttributeKind))
-      RetVal.push_back(*ItA);
-  }
-  return RetVal;
+std::vector<Attribute> llvm::getVectorVariantAttributes(Function &F) {
+  auto Variants = llvm::make_filter_range(
+      F.getAttributes().getFnAttrs(), [](const Attribute &A) {
+        return A.isStringAttribute() && VFInfo::isVectorVariant(A.getKindAsString());
+      });
+  return {Variants.begin(), Variants.end()};
 }
 
-Type *llvm::calcCharacteristicType(Function &F, VectorVariant &Variant) {
+Type *llvm::calcCharacteristicType(Function &F, const VFInfo &Variant) {
   return calcCharacteristicType(F.getReturnType(), F.args(), Variant,
                                 F.getParent()->getDataLayout());
 }
 
 void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
-                               VectorVariant *VecVariant,
+                               const VFInfo *VecVariant,
                                SmallVectorImpl<Value *> &VecArgs,
                                SmallVectorImpl<Type *> &VecArgTys,
                                unsigned VF, Value *MaskToUse) {
@@ -1050,13 +1236,12 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
 Function *llvm::getOrInsertVectorVariantFunction(
     Function *OrigF, unsigned VL,
     ArrayRef<Type *> ArgTys,
-    VectorVariant *VecVariant,
+    const VFInfo *VecVariant,
     bool Masked) {
   // OrigF is the original scalar function being called.
   assert(OrigF && "Function not found for call instruction");
   assert(VecVariant && "Expect VectorVariant to be present");
 
-  StringRef FnName = OrigF->getName();
   Module *M = OrigF->getParent();
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
@@ -1068,10 +1253,15 @@ Function *llvm::getOrInsertVectorVariantFunction(
     VecRetTy = getWidenedType(RetTy, VL);
   }
 
+<<<<<<< HEAD
   // Having getName() absent means that the vector variant was in the form
   // "_ZGVbM4uu_" without the BaseName. Use function name then.
   std::string VFnName = VecVariant->getName().has_value() ?
     *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
+=======
+  std::string VFnName = VecVariant->VectorName;
+  LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
+>>>>>>> a3e6963105f344fc26d25bc29d8d27e9657f621e
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
@@ -2095,7 +2285,7 @@ void VFABI::getVectorVariantNames(
   }
 }
 
-bool VFShape::hasValidParameterList() const {
+bool VFShape::hasValidParameterList(bool Permissive) const { // INTEL
   for (unsigned Pos = 0, NumParams = Parameters.size(); Pos < NumParams;
        ++Pos) {
     assert(Parameters[Pos].ParamPos == Pos && "Broken parameter list.");
@@ -2119,6 +2309,21 @@ bool VFShape::hasValidParameterList() const {
       // parameters in the signature.
       if (Parameters[Pos].LinearStepOrPos >= int(NumParams))
         return false;
+#if INTEL_CUSTOMIZATION
+      if (Permissive && Parameters[Pos].LinearStepOrPos == int(Pos)) {
+        // This is currently explicitly allowed because we generate
+        // variable-strided params that refer to themselves during VPlan call
+        // vec decisions (when generating vector variants from a given call).
+        // While this is technically incorrect, at the present time, this is
+        // fine, because we don't actually support variable-strided params in
+        // any subsequent processing that might use the vector variant.
+        //
+        // TODO: Once we properly support variable-strided params and properly
+        // generate variable-strided params during VPlan call vec decisions,
+        // this case should be disallowed again.
+        return true;
+      }
+#endif
       // The linear step parameter must be marked as uniform.
       if (Parameters[Parameters[Pos].LinearStepOrPos].ParamKind !=
           VFParamKind::OMP_Uniform)

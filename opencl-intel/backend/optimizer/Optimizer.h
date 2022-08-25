@@ -18,7 +18,7 @@
 #include "debuggingservicetype.h"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
@@ -100,7 +100,7 @@ protected:
   /// Builtin rtl modules (not owned by this class).
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
 
-  VectorVariant::ISAClass ISA;
+  llvm::VFISAKind ISA;
 
   const intel::OptimizerConfig &Config;
 

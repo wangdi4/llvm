@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1416,7 +1416,7 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   // For vector-varant based vectorization, the matched variant function name
   // that will be used by CG is printed.
   case CallVecScenarios::VectorVariant: {
-    O << getVectorVariant()->toString();
+    O << getVectorVariant()->FullName;
     O << " [x " << getPumpFactor() << "]";
     IsMasked = IsMasked || shouldUseMaskedVariantForUnmasked();
     if (IsMasked)
@@ -1432,7 +1432,7 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   }
   case CallVecScenarios::UnmaskedWiden: {
     if (VecProperties.MatchedVecVariant) {
-      O << getVectorVariant()->toString();
+      O << getVectorVariant()->FullName;
     } else {
       O << "<VecVariant for ";
       CalledValue->printAsOperand(O);

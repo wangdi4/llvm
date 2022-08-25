@@ -1,6 +1,6 @@
 //===- IntelVPlanScalVecAnalysis.cpp --------------------------------------===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -266,9 +266,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
       // Call that will be vectorized using matching SIMD vector variant.
       // Argument nature is decided based on VectorVariant's properties.
-      VectorVariant *VecVariant =
-          const_cast<VectorVariant *>(VPCall->getVectorVariant());
-      std::vector<VectorKind> Parms = VecVariant->getParameters();
+      const VFInfo *VecVariant = VPCall->getVectorVariant();
+      ArrayRef<VFParameter> Parms = VecVariant->getParameters();
       bool IsIntelIndirectCall = VPCall->isIntelIndirectCall();
       if (IsIntelIndirectCall) {
         // For __intel_indirect_calls, first argument represents pointer to call

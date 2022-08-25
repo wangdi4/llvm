@@ -53,7 +53,7 @@ define i64 @test4(i64 %a) #3 {
   ret i64 %add2
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4u_,_ZGVbN4v_" }
-attributes #1 = { nounwind uwtable "vector-variants"="_ZGVbN4u_,_ZGVbN4v_,_ZGVbN4l_,_ZGVbN4l4_" }
-attributes #2 = { nounwind uwtable "vector-variants"="_ZGVbN4u_,_ZGVbN4v_" }
-attributes #3 = { nounwind uwtable "vector-variants"="_ZGVbN4v_" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4u_test1,_ZGVbN4v_test1" }
+attributes #1 = { nounwind uwtable "vector-variants"="_ZGVbN4u_test2,_ZGVbN4v_test2,_ZGVbN4l_test2,_ZGVbN4l4_test2" }
+attributes #2 = { nounwind uwtable "vector-variants"="_ZGVbN4u_test3,_ZGVbN4v_test3" }
+attributes #3 = { nounwind uwtable "vector-variants"="_ZGVbN4v_test4" }

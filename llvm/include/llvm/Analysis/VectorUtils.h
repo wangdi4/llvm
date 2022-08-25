@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -34,7 +34,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/IR/IRBuilder.h"           // INTEL
-#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
@@ -72,6 +71,22 @@ enum class VFISAKind {
   Unknown // Unknown ISA
 };
 
+#if INTEL_CUSTOMIZATION
+inline StringRef toString(VFISAKind Kind) {
+  switch (Kind) {
+  case VFISAKind::SSE:    return "XMM";
+  case VFISAKind::AVX:    return "YMM1";
+  case VFISAKind::AVX2:   return "YMM2";
+  case VFISAKind::AVX512: return "ZMM";
+
+  case VFISAKind::SVE:
+  case VFISAKind::AdvancedSIMD:
+  case VFISAKind::LLVM:
+  case VFISAKind::Unknown: llvm_unreachable("not supported!");
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Encapsulates information needed to describe a parameter.
 ///
 /// The description of the parameter is not linked directly to
@@ -82,7 +97,9 @@ struct VFParameter {
   unsigned ParamPos;         // Parameter Position in Scalar Function.
   VFParamKind ParamKind;     // Kind of Parameter.
   int LinearStepOrPos = 0;   // Step or Position of the Parameter.
-  Align Alignment = Align(); // Optional alignment in bytes, defaulted to 1.
+#if INTEL_CUSTOMIZATION
+  MaybeAlign Alignment = None; // Optional alignment in bytes.
+#endif
 
   // Comparison operator.
   bool operator==(const VFParameter &Other) const {
@@ -90,6 +107,101 @@ struct VFParameter {
            std::tie(Other.ParamPos, Other.ParamKind, Other.LinearStepOrPos,
                     Other.Alignment);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Create a vector parameter at the given position, with a possible alignment.
+  static VFParameter vector(unsigned Pos, MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::Vector, 0, Alignment};
+  }
+
+  // Create a linear parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linear(unsigned Pos, int Stride,
+                            MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_Linear, Stride, Alignment};
+  }
+
+  // Create a linear parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter variableStrided(unsigned Pos, int LinearPos,
+                                     MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearPos, LinearPos, Alignment};
+  }
+
+  // Create a uniform parameter at the given position, with a possible
+  // alignment.
+  static VFParameter uniform(unsigned Pos, MaybeAlign Alignment = None) {
+    return VFParameter{Pos, VFParamKind::OMP_Uniform, 0, Alignment};
+  }
+
+  // Create a mask parameter at the given position.
+  static VFParameter mask(unsigned Pos) {
+    return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, None};
+  }
+
+  /// Is this a linear parameter?
+  bool isLinear() const {
+    return ParamKind == VFParamKind::OMP_Linear ||
+           ParamKind == VFParamKind::OMP_LinearPos;
+  }
+
+  /// Is this a uniform parameter?
+  bool isUniform() const { return ParamKind == VFParamKind::OMP_Uniform; }
+
+  /// Is this a vector parameter?
+  ///
+  /// NOTE: for convenience, we consider the mask parameter to be a vector
+  /// parameter as well, since it is always vector in nature (see
+  /// `llvm::createVectorMaskArg`)
+  bool isVector() const {
+    return ParamKind == VFParamKind::Vector ||
+           ParamKind == VFParamKind::GlobalPredicate;
+  }
+
+  /// Is this a mask parameter?
+  bool isMask() const { return ParamKind == VFParamKind::GlobalPredicate; }
+
+  /// Is the stride for a linear parameter a uniform variable? (i.e.,
+  /// the stride is stored in a variable but is uniform)
+  bool isVariableStride() const {
+    return ParamKind == VFParamKind::OMP_LinearPos;
+  }
+
+  /// Is the stride for a linear parameter a compile-time constant?
+  bool isConstantStrideLinear() const {
+    return ParamKind == VFParamKind::OMP_Linear;
+  }
+
+  /// Is the stride for a linear variable non-unit stride?
+  bool isConstantNonUnitStride() const {
+    return isConstantStrideLinear() && LinearStepOrPos != 1;
+  }
+
+  /// Is the stride for a linear variable unit stride?
+  bool isUnitStride() const {
+    return isConstantStrideLinear() && LinearStepOrPos == 1;
+  }
+
+  /// Is the parameter aligned?
+  bool isAligned() const { return Alignment.hasValue(); }
+
+  /// Get the stride associated with a linear parameter.
+  int getStride() const {
+    assert(isConstantStrideLinear() && "This is not constant-stride linear!");
+    return LinearStepOrPos;
+  }
+
+  int getStrideArgumentPosition() const {
+    assert(isVariableStride() && "This is not variable-stride linear!");
+    return LinearStepOrPos;
+  }
+
+  /// Get the alignment associated with a parameter.
+  unsigned getAlignment() const {
+    assert(isAligned() && "It is not aligned!");
+    return Alignment->value();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Contains the information about the kind of vectorization
@@ -134,8 +246,14 @@ struct VFShape {
 
     return {EC, Parameters};
   }
-  /// Validation check on the Parameters in the VFShape.
-  bool hasValidParameterList() const;
+  /// Validation check on the Parameters in the VFShape,
+#if INTEL_CUSTOMIZATION
+  /// with an added parameter that controls whether to accept variable-strided
+  /// params which point to themselves. This is necessary to allow certain
+  /// vector variants that we generate during call vec decisions.
+  /// (TODO: remove once this behavior has been properly implemented.)
+  bool hasValidParameterList(bool Permissive = false) const;
+#endif
 };
 
 /// Holds the VFShape for a specific scalar to vector function mapping.
@@ -144,6 +262,164 @@ struct VFInfo {
   std::string ScalarName; /// Scalar Function Name.
   std::string VectorName; /// Vector Function Name associated to this VFInfo.
   VFISAKind ISA;          /// Instruction Set Architecture.
+
+#if INTEL_CUSTOMIZATION
+  // Notes:
+  //   - `VectorName` holds either the encoded vector name, or the aliased
+  //      vector name.
+  //   - `FullName` holds the entire (original) specification (including
+  //      possible alias.)
+  //   - Special care should be taken to not modify properties of this class
+  //     (e.g. ISA) without updating the latter two values accordingly. If
+  //     modifications are necessary, do so using corresponding setter(s) if
+  //     they exist, or make the necessary changes and then call `recomputeNames()` to update their values.
+
+  /// The full variant name (including possible alias.)
+  std::string FullName;
+
+  /// VFABI prefix
+  static constexpr const char *PREFIX = "_ZGV";
+
+public:
+  /// \brief Check to see if \p FuncName is a valid vector variant.
+  static bool isVectorVariant(StringRef FuncName) {
+    return FuncName.startswith(VFInfo::PREFIX);
+  }
+
+  /// \brief Get the ISA of the vector variant.
+  VFISAKind getISA() const {
+    return ISA;
+  }
+
+  /// \brief Set the ISA of the vector variant.
+  /// NOTE: this should *always* be used instead of directly setting ISA, as
+  /// this updates the `VectorName` and `FullName` fields.
+  void setISA(VFISAKind ISA) {
+    this->ISA = ISA;
+    recomputeNames();
+  }
+
+  /// \brief Get the vector length of the vector variant.
+  unsigned getVF() const { return Shape.VF.getFixedValue(); }
+
+  /// \brief Set the vector length of the vector variant.
+  /// NOTE: this should *always* be used instead of directly setting VF, as
+  /// this updates the `VectorName` and `FullName` fields.
+  void setVF(unsigned VF) {
+    this->Shape.VF = ElementCount::getFixed(VF);
+    recomputeNames();
+  }
+
+  /// \brief Is this a masked vector function variant?
+  bool isMasked() const {
+    return Shape.Parameters.size() > 0 && Shape.Parameters.back().isMask();
+  }
+
+  /// \brief Get the parameters of the vector variant.
+  ArrayRef<VFParameter> getParameters() const { return Shape.Parameters; }
+
+  /// \brief Get the variant's prefix (vector name without the scalar name.)
+  std::string prefix() const {
+    return encodeFromParts(getISA(), isMasked(), getVF(), getParameters(), "");
+  }
+
+  /// After making changes to any property of this class, calling
+  /// `recomputeNames()` will recompute the values of `VectorName` and
+  /// `FullName` to reflect the updated properties.
+  void recomputeNames() {
+    std::string EncodedName = encodeFromParts(getISA(), isMasked(), getVF(),
+                                              getParameters(), ScalarName);
+    if (VFInfo::isVectorVariant(VectorName)) {
+      VectorName = std::move(EncodedName);
+      FullName = VectorName;
+    } else {
+      FullName = (std::move(EncodedName) + "(" + VectorName + ")");
+    }
+  }
+
+private:
+  /// Encode the full mangled name of a vector variant from its constituent
+  /// parts (e.g. '_ZGVbM4v_foo')
+  static std::string encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
+                                     ArrayRef<VFParameter> Parameters,
+                                     StringRef ScalarName);
+
+public:
+  /// Get a new VFInfo with the given ISA, Mask, VF, parameters and
+  /// scalar name (and possible alias).
+  static VFInfo get(VFISAKind ISA, bool Masked, unsigned VF,
+                    SmallVector<VFParameter, 8> Parameters,
+                    StringRef ScalarName, StringRef Alias = "") {
+
+    assert(llvm::none_of(Parameters,
+                         [](const VFParameter &P) { return P.isMask(); }) &&
+           "Mask parameters should not be passed directly");
+
+    // Add mask param to masked variants
+    if (Masked)
+      Parameters.push_back(VFParameter::mask(Parameters.size()));
+
+    std::string EncodedName =
+        encodeFromParts(ISA, Masked, VF, Parameters, ScalarName);
+
+    std::string VectorName, FullName;
+    if (Alias.empty()) {
+      VectorName = std::move(EncodedName);
+      FullName = VectorName;
+    } else {
+      VectorName = std::string(Alias);
+      FullName = (std::move(EncodedName) + "(" + Alias + ")").str();
+    }
+
+    auto Shape = VFShape{ElementCount::getFixed(VF), std::move(Parameters)};
+    assert(Shape.hasValidParameterList(/*Permissive=*/true) &&
+           "Invalid parameter list");
+
+    return VFInfo{std::move(Shape), std::string(ScalarName),
+                  std::move(VectorName), ISA, std::move(FullName)};
+  }
+
+  /// Get a new VFInfo with the given ISA, Mask, VF, parameters and
+  /// scalar name (and possible alias).
+  static VFInfo get(VFISAKind ISA, bool Masked, unsigned VF,
+                    ArrayRef<VFParameter> Parameters, StringRef ScalarName,
+                    StringRef Alias = "") {
+    return VFInfo::get(
+        ISA, Masked, VF,
+        SmallVector<VFParameter, 8>(Parameters.begin(), Parameters.end()),
+        ScalarName, Alias);
+  }
+
+  /// Get a new VFInfo with the given ISA, Mask, VF, parameter kinds and
+  /// scalar name (and possible alias).
+  ///
+  /// NOTE: This is a convenience function only used to create variants with
+  /// Vector or Uniform parameter kinds. To generate vector variants with other
+  /// kinds of parameters, use the other overload.
+  static VFInfo get(VFISAKind ISA, bool Masked, unsigned VF,
+                    ArrayRef<VFParamKind> ParamKinds, StringRef ScalarName,
+                    StringRef Alias = "") {
+    SmallVector<VFParameter, 8> Parameters(map_range(
+        enumerate(ParamKinds), [](const auto &IndexedKind) -> VFParameter {
+          unsigned ParamPos = IndexedKind.index();
+          VFParamKind ParamKind = IndexedKind.value();
+          assert((ParamKind == VFParamKind::Vector ||
+                  ParamKind == VFParamKind::OMP_Uniform) &&
+                 // Can only add vector or uniform parameters -- other kinds
+                 // require additional data.
+                 "Can only pass vector or uniform param kinds!");
+          return VFParameter{ParamPos, ParamKind};
+        }));
+
+    return VFInfo::get(ISA, Masked, VF, std::move(Parameters), ScalarName,
+                       Alias);
+  }
+
+  /// Returns the score of the vector variant matching between 'this' and \p
+  /// Other. Returns score of 0 if no proper match was found. Places the
+  /// position of the highest scoring arg in \p MaxArg.
+  int getMatchingScore(const VFInfo &Other, int &MaxArg, const Module *M) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 namespace VFABI {
@@ -184,6 +460,11 @@ static constexpr char const *_LLVM_Scalarize_ = "_LLVM_Scalarize_";
 /// Vectorization Factor of scalable vector functions from their
 /// respective IR declarations.
 Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module &M);
+
+#if INTEL_CUSTOMIZATION
+VFInfo demangleForVFABI(StringRef MangledName);
+Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module *M = nullptr);
+#endif
 
 /// This routine mangles the given VectorName according to the LangRef
 /// specification for vector-function-abi-variant attribute and is specific to
@@ -499,7 +780,18 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 
 /// \brief Determine the characteristic type of the vector function as
 /// specified according to the vector function ABI.
-Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
+Type *calcCharacteristicType(Function &F, const VFInfo &Variant);
+
+/// \brief Some targets do not support particular types, so promote to a type
+/// that is supported.
+inline Type *promoteToSupportedType(Type *Ty, const VFInfo &Variant) {
+  // On AVX512 promote char and short to int
+  if (Variant.getISA() == VFISAKind::AVX512 &&
+      (Ty->isIntegerTy(8) || Ty->isIntegerTy(16)))
+    return Type::getInt32Ty(Ty->getContext());
+
+  return Ty;
+}
 
 /// Determine the characteristic type using the \pReturnType and argument list
 /// passed by \p ArgBegin and \p ArgEnd of the vector function as specified
@@ -507,18 +799,16 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 /// Note: For pointers, the integer type of the pointer size width is returned.
 template <typename RangeIterator>
 Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
-                             VectorVariant &Variant, const DataLayout &DL) {
+                             const VFInfo &Variant, const DataLayout &DL) {
   Type *CharacteristicDataType = nullptr;
 
   if (!ReturnType->isVoidTy())
     CharacteristicDataType = ReturnType;
 
   if (!CharacteristicDataType) {
-    std::vector<VectorKind> &ParmKinds = Variant.getParameters();
-    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-    auto ArgBegin = Args.begin();
-    auto ArgEnd = Args.end();
-    for (; ArgBegin != ArgEnd; ++ArgBegin, ++VKIt) {
+    const auto *VKIt = Variant.getParameters().begin();
+    for (auto ArgBegin = Args.begin(), ArgEnd = Args.end(); ArgBegin != ArgEnd;
+         ++ArgBegin, ++VKIt) {
       if (VKIt->isVector()) {
         CharacteristicDataType = ArgBegin->getType();
         break;
@@ -535,7 +825,7 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
 
   // Promote char/short types to int for Xeon Phi.
   CharacteristicDataType =
-      VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
+      promoteToSupportedType(CharacteristicDataType, Variant);
 
   if (CharacteristicDataType->isPointerTy()) {
     unsigned CharacteristicTypeSize =
@@ -551,7 +841,7 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
 /// \p VecVariant call and add it into vector arguments/vector argument types
 /// arrays.
 void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
-                         VectorVariant *VecVariant,
+                         const VFInfo *VecVariant,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys, unsigned VF,
                          Value *MaskToUse);
@@ -573,7 +863,7 @@ void getFunctionsToVectorize(
 /// This function will insert functions for simd functions.
 Function *getOrInsertVectorVariantFunction(
   Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
-  VectorVariant *VecVariant, bool Masked);
+  const VFInfo *VecVariant, bool Masked);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.

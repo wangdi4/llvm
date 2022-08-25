@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -40,6 +40,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
+
+extern bool Usei1MaskForSimdFunctions;
 
 static cl::opt<bool> PredicateSafeValueDivision(
     "vplan-predicate-safe-value-div", cl::init(false), cl::Hidden,
@@ -1322,8 +1324,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
     case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
       auto *NotAllZero = getMaskNotAllZero();
-      VectorVariant *MatchedVariant =
-          const_cast<VectorVariant *>(VPCall->getVectorVariant());
+      const VFInfo *MatchedVariant = VPCall->getVectorVariant();
       if (!MatchedVariant)
         report_fatal_error("No matching vector variant for an unmasked call!");
       SmallVector<Value *, 4> CallResults;
@@ -2489,14 +2490,14 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
-                                   VectorVariant *VecVariant,
+                                   const VFInfo *VecVariant,
                                    Intrinsic::ID VectorIntrinID,
                                    unsigned PumpPart, unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys,
                                    SmallVectorImpl<AttributeSet> &VecArgAttrs) {
   unsigned PumpedVF = VF / PumpFactor;
-  std::vector<VectorKind> Parms;
+  ArrayRef<VFParameter> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
   }
@@ -2617,7 +2618,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 }
 
 void VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
-                                     VectorVariant *VecVariant,
+                                     const VFInfo *VecVariant,
                                      SmallVectorImpl<Value *> &VecArgs,
                                      SmallVectorImpl<Type *> &VecArgTys,
                                      unsigned PumpedVF, Value *MaskToUse) {
@@ -3184,7 +3185,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
 
 void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
                                      unsigned PumpFactor, bool IsMasked,
-                                     VectorVariant *MatchedVariant,
+                                     const VFInfo *MatchedVariant,
                                      Intrinsic::ID VectorIntrinID,
                                      SmallVectorImpl<Value *> &CallResults) {
   Function *CalledFunc = VPCall->getCalledFunction();
@@ -3404,8 +3405,7 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
   assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
                             "functions with vector variants.");
   bool IsMasked = MaskValue != nullptr;
-  VectorVariant *MatchedVariant =
-      const_cast<VectorVariant *>(VPCall->getVectorVariant());
+  const VFInfo *MatchedVariant = VPCall->getVectorVariant();
   assert(MatchedVariant && "Unexpected null matched vector variant");
 
   // TLI is not used to check for SIMD functions for two reasons:
@@ -3417,7 +3417,7 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
     // with all-ones mask.
     IsMasked = true;
   }
-  LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode() << "\n");
+  LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->VectorName << "\n");
 
   // Generate vector calls using matched vector variant.
   SmallVector<Value *, 4> CallResults;
