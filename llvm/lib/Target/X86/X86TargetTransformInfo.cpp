@@ -355,21 +355,21 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
 
 #if INTEL_CUSTOMIZATION
   if (ISD == ISD::MUL && ST->hasSSE2() && LT.second.isVector() &&
-      Op2Info == TargetTransformInfo::OK_UniformConstantValue &&
+      Op2Kind == TargetTransformInfo::OK_UniformConstantValue &&
       (LT.second.getVectorElementType() == MVT::i8 ||
        (LT.second.getVectorElementType() == MVT::i32 && !ST->hasSSE41()) ||
        (LT.second.getVectorElementType() == MVT::i64 && !ST->hasDQI()))) {
     if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2)
-      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
-                                    Op2Info, TargetTransformInfo::OP_None,
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Kind,
+                                    Op2Kind, TargetTransformInfo::OP_None,
                                     TargetTransformInfo::OP_None);
     if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2_PlusMinus1) {
       InstructionCost Cost = getArithmeticInstrCost(
-          Instruction::Shl, Ty, CostKind, Op1Info, Op2Info,
+          Instruction::Shl, Ty, CostKind, Op1Kind, Op2Kind,
           TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
       Cost += getArithmeticInstrCost(
           Instruction::Add, Ty, CostKind, TargetTransformInfo::OK_AnyValue,
-          Op1Info, TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+          Op1Kind, TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
       return Cost;
     }
   }
@@ -451,8 +451,8 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   if (ST->hasAVX2() &&
       (ISD == ISD::SDIV || ISD == ISD::SREM || ISD == ISD::UDIV ||
        ISD == ISD::UREM) &&
-      (Op2Info == TargetTransformInfo::OK_UniformConstantValue ||
-       Op2Info == TargetTransformInfo::OK_NonUniformConstantValue) &&
+      (Op2Kind == TargetTransformInfo::OK_UniformConstantValue ||
+       Op2Kind == TargetTransformInfo::OK_NonUniformConstantValue) &&
       Opd2PropInfo != TargetTransformInfo::OP_PowerOf2) {
 
     if (const auto *Entry = CostTableLookup(AVX2DivRemNormalConstCostTable, ISD,
