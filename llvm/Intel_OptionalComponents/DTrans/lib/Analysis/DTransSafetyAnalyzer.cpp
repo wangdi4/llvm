@@ -5211,7 +5211,7 @@ public:
     // are types of interest.
     for (Value *Arg : I.args()) {
       ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
-      if (!Info)
+      if (!Info || Info->empty())
         continue;
       setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
                                             "Value passed to intrinsic", &I);
