@@ -153,14 +153,14 @@
 ; CM4: Cost 10 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM4: Cost 10 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM4: Cost 4 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
-; CM4: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+; CM4: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP12]]
 
 ; CM8: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 23 for float [[VP7:%.*]] = expand-load float* [[VP_SUBSCRIPT_1:%.*]]
 ; CM8: Cost 23 for float [[VP9:%.*]] = expand-load float* [[VP_SUBSCRIPT_2:%.*]]
 ; CM8: Cost 23 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
-; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP12]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

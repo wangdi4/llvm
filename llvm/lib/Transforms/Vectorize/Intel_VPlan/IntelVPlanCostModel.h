@@ -80,16 +80,18 @@ public:
   VPInstructionCost getAllZeroCheckInstrCost(Type *VecSrcTy, Type *DestTy);
 
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
-  // of Load/Store VPInstruction given VF and Alignment on input.
-  VPInstructionCost getLoadStoreCost(
-    const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const;
-  // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
+  // of Load/Store VPInstruction given VF and Alignment on input. For
+  // compress-store/expand-load instructions if GSCostOnly parameter is set only
+  // gather/scatter cost will be returned (usual loads/stores are not affected).
   VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadStore,
-                                     unsigned VF) const;
-  // The Cost of Compress/Expand Idiom Load/Store instruction.
-  VPInstructionCost
-  getCompressExpandLoadStoreCost(const VPLoadStoreInst *LoadStore,
-                                 unsigned VF) const;
+                                     Align Alignment, unsigned VF,
+                                     bool GSCostOnly = false) const;
+  // The Cost of Load/Store using underlying IR/HIR Inst Alignment. For
+  // compress-store/expand-load instructions if GSCostOnly parameter is set only
+  // gather/scatter cost will be returned (usual loads/stores are not affected).
+  VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                     unsigned VF,
+                                     bool GSCostOnly = false) const;
 
   const VPlanVector *const Plan;
   const unsigned VF;
@@ -168,6 +170,15 @@ protected:
 private:
   VPlanAlignmentAnalysis VPAA;
 
+  // For CompressStoreNonu and ExpandLoadNonu instructions it's required to emit
+  // mask generationg instructions. Actually such instructions are same for each
+  // instruction in a single basic block (and depend only on predicate of the
+  // block) and are being optimized out by the following passes. To accomodate
+  // that, mask generation cost is being calculated only once for each
+  // predicate.
+  // TODO: make mask code explicit in VPlan and remove this DenseSet.
+  mutable DenseSet<const VPValue *> CompressExpandMaskCostCalculated;
+
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
   unsigned getLoadStoreIndexSize(const VPLoadStoreInst *LoadStore) const;
@@ -205,6 +216,12 @@ private:
 
   // Return cost of VPConflictInsn
   VPInstructionCost getConflictInsnCost(unsigned VF, unsigned ElementSizeBits);
+
+  // The Cost of Compress/Expand Idiom Load/Store instruction.
+  // If GSCostOnly parameter is set only gather/scatter cost will be returned.
+  VPInstructionCost
+  getCompressExpandLoadStoreCost(const VPLoadStoreInst *LoadStore, unsigned VF,
+                                 bool GSCostOnly = false) const;
 };
 
 // Class HeuristicsList is designed to hold Heuristics objects. It is a
