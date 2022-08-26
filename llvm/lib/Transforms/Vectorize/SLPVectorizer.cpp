@@ -1261,7 +1261,11 @@ public:
     /// ExtractElementInst from same vector and reversed indices.
     static const int ScoreReversedExtracts = 3;
     /// Constants.
-    static const int ScoreConstants = 1; // INTEL (orig: 2)
+    static const int ScoreConstants = 2;
+#if INTEL_CUSTOMIZATION
+    // We prefer lower score for constants
+    static const int ScoreConstantsCust = 1;
+#endif // INTEL_CUSTOMIZATION
     /// Instructions with the same opcode.
     static const int ScoreSameOpcode = 2;
     /// Instructions with alt opcodes (e.g, add + sub).
@@ -1332,7 +1336,10 @@ public:
       auto *C1 = dyn_cast<Constant>(V1);
       auto *C2 = dyn_cast<Constant>(V2);
       if (C1 && C2)
-        return LookAheadHeuristics::ScoreConstants;
+#if INTEL_CUSTOMIZATION
+        return CompatibilitySLPMode ? LookAheadHeuristics::ScoreConstants
+                                    : LookAheadHeuristics::ScoreConstantsCust;
+#endif // INTEL_CUSTOMIZATION
 
       // Extracts from consecutive indexes of the same vector better score as
       // the extracts could be optimized away.
