@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1157,9 +1157,14 @@ Error LTO::runRegularLTO(AddStreamFn AddStream) {
   // visibility before whole program devirtualization in the optimizer.
   updateVCallVisibilityInModule(*RegularLTO.CombinedModule,
                                 Conf.HasWholeProgramVisibility,
-                                DynamicExportSymbols);
-  updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
-                            Conf.HasWholeProgramVisibility);
+                                DynamicExportSymbols);         
+#if INTEL_CUSTOMIZATION
+  // If using Intel WP analysis, this update will occur later in
+  // intel-fold-wp-intrinsic pass
+  if (!Conf.WPUtils.getWholeProgramRead() || Conf.HasWholeProgramVisibility) 
+    updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
+                               Conf.HasWholeProgramVisibility);
+#endif    // INTEL_CUSTOMIZATION
 
   if (Conf.PreOptModuleHook &&
       !Conf.PreOptModuleHook(0, *RegularLTO.CombinedModule))
