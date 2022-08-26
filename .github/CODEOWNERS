@@ -361,8 +361,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/IR/Intel_VectorVariant.h @mamasten @skozhukh @turinevgeny
 /llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/IR/Intel_VectorVariant.cpp @mamasten @skozhukh @turinevgeny
-/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh @mamasten @offsake
-/llvm/include/llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h @sguggill @skozhukh @mamasten @offsake
+/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh @mamasten @offsake @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/include/llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h @sguggill @skozhukh @mamasten @offsake @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt @skozhukh
