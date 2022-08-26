@@ -1,11 +1,11 @@
 // INTEL_FEATURE_SW_DTRANS
-// REQUIRES: x86-registered-target, intel_feature_sw_dtrans
-// UNSUPPORTED: enable-opaque-pointers
+// REQUIRES: x86-registered-target, intel_feature_sw_dtrans, enable-opaque-pointers
 
 /// Intel specific optimization options that are available only under
 /// INTEL FEATURE SW_DTRANS. This test case is the same as
 /// intel-opt-options.cpp but only checks that the flags guarded with
-/// INTEL FEATURE SW_DTRANS were added correctly.
+/// INTEL FEATURE SW_DTRANS were added correctly when opaque pointers
+/// are enabled.
 
 // RUN: %clang -qopt-mem-layout-trans -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT_DTRANS %s
@@ -15,6 +15,7 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT_DTRANS %s
 // RUN: %clang_cl -Qopt-mem-layout-trans:2 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT_DTRANS %s
+// LAYOUT_TRANS_DEFAULT_DTRANS: "-emit-dtrans-info"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-enable-dtrans"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-enable-npm-dtrans"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-dtrans-mem-layout-level=2"
