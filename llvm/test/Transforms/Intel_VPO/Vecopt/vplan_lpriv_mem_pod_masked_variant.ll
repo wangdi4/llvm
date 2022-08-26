@@ -146,14 +146,14 @@ define i32 @main() {
 ; HIR-NEXT:        [[ALL_ZERO_CHECK140:%.*]] = [[CMP130]]
 ; HIR-NEXT:        if ([[CMP130]] == 1)
 ; HIR-NEXT:        {
-; HIR-NEXT:           goto [[BB12]].76
+; HIR-NEXT:           goto [[BB12]].77
 ; HIR-NEXT:        }
 ; HIR-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC100]])
 ; HIR-NEXT:        [[BSF0:%.*]] = @llvm.ctlz.i16([[BSFINTMASK0]],  1)
 ; HIR-NEXT:        [[EXTLANE:%.*]] = 15 - [[BSF0]]
 ; HIR-NEXT:        [[PRIV_EXTRACT0:%.*]] = extractelement [[DOTVEC120]],  [[EXTLANE]]
 ; HIR-NEXT:        ([[X0]])[0] = [[PRIV_EXTRACT0]]
-; HIR-NEXT:        [[BB12]].76:
+; HIR-NEXT:        [[BB12]].77:
 ; HIR-NEXT:        [[PHI_TEMP50:%.*]] = 128
 ; HIR-NEXT:        final.merge.50:
 ; HIR-NEXT:  END REGION

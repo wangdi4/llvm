@@ -34,7 +34,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() #0 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i16** null), "QUAL.OMP.LINEAR:IV"(i32* undef, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() #0 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i16** null)]
   br label %omp.inner.for.body.i.i
 
 omp.inner.for.body.i.i:

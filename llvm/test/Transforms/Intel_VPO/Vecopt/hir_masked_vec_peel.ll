@@ -16,12 +16,12 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; masked peel
 ; CHECK:        + DO i1 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK:        + END LOOP
-; CHECK:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:        [[IND_FINAL0:%.*]] = 0 + [[TMP0:%.*]]
 ; CHECK:        [[PHI_TEMP0:%.*]] = [[IND_FINAL0]]
 ; main loop
 ; CHECK:        + DO i1 = [[PHI_TEMP0]], [[LOOP_UB210:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:        + END LOOP
-; CHECK:        [[IND_FINAL240:%.*]] = [[LOOP_UB210]]  +  1
+; CHECK:        [[IND_FINAL240:%.*]] = 0 + [[TMP1:%.*]]
 ; CHECK:        [[PHI_TEMP60:%.*]] = [[IND_FINAL240]]
 ; CHECK:        [[LB_TMP0:%.*]] = [[PHI_TEMP60]]
 ; scalar remainder

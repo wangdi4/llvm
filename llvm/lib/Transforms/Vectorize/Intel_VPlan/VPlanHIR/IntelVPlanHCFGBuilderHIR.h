@@ -75,11 +75,15 @@ public:
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
   struct LinearDescr : public DescrWithInitValueTy {
-    LinearDescr(RegDDRef *RegV, const RegDDRef *StepV)
-        : DescrWithInitValueTy(RegV), Step(StepV) {}
+    LinearDescr(RegDDRef *RegV, Type *LinearTyV, Type *PointeeTyV,
+                const RegDDRef *StepV)
+        : DescrWithInitValueTy(RegV), LinearTy(LinearTyV),
+          PointeeTy(PointeeTyV), Step(StepV) {}
     // Move constructor
     LinearDescr(LinearDescr &&Other) = default;
 
+    Type *LinearTy;
+    Type *PointeeTy;
     const DDRef *Step;
   };
   using LinearListTy = SmallVector<LinearDescr, 8>;
@@ -175,15 +179,10 @@ private:
   }
 
   /// Add an explicit linear.
-  void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */,
-                 Type * /* PointeeTy */, RegDDRef *Step) {
+  void addLinear(RegDDRef *LinearVal, Type *LinearTy, Type *PointeeTy,
+                 RegDDRef *Step) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
-
-    // TODO: Type information is not used thus far but is here for consistency
-    // of the legality interface(vs LLVM IR path). LinearListCvt converter has
-    // problems and is disabled. Once enabled this likely has to be revisited
-    // too.
-    LinearList.emplace_back(LinearVal, Step);
+    LinearList.emplace_back(LinearVal, LinearTy, PointeeTy, Step);
   }
   /// Add an explicit reduction variable
   void addReduction(RegDDRef *V, RecurKind Kind,

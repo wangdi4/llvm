@@ -52,6 +52,7 @@
 ; CHECK-NEXT:        [[ADJ_TC80:%.*]] = [[VEC_TC0]]  +  1
 ; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0
 ; CHECK-NEXT:        [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[SUM_070]],  0
+; CHECK-NEXT:        [[TMP0:%.*]] = [[UB_TMP0]] + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        [[PHI_TEMP90:%.*]] = [[RED_INIT_INSERT0]]
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC80]]  -  1
 
@@ -62,7 +63,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC120]])
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[ADJ_TC80]]
 ; CHECK-NEXT:        [[DOTVEC140:%.*]] = [[N0]] == [[ADJ_TC80]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP20]] = [[IND_FINAL0]]

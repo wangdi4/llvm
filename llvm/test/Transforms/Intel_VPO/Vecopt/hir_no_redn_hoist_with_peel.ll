@@ -34,7 +34,7 @@
 ;
 ; CHECK:           |   %red.init = 0;
 ; CHECK-NEXT:      |   %red.init.insert = insertelement %red.init,  %k.022,  0;
-; CHECK-NEXT:      |   %phi.temp = %red.init.insert;
+; CHECK:           |   %phi.temp = %red.init.insert;
 ;
 ; CHECK:           |   + DO i2 = %ub.tmp, %loop.ub, 4   <DO_LOOP>
 ; CHECK:           |   + END LOOP

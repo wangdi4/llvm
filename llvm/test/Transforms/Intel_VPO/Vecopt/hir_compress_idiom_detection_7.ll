@@ -114,7 +114,7 @@
 ; CHECK-NEXT:        |   [[INSERT110:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
 ; CHECK-NEXT:        |   [[PHI_TEMP50]] = [[INSERT110]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC40]]
 ; CHECK-NEXT:        [[EXTRACT_0_130:%.*]] = extractelement [[INSERT110]],  0
 ; CHECK-NEXT:        [[K_0340]] = [[EXTRACT_0_130]]
 ; CHECK-NEXT:        [[DOTVEC150:%.*]] = zext.i32.i64([[N0]]) == [[VEC_TC40]]

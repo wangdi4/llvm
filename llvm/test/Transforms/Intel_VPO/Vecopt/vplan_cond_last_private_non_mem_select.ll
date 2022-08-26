@@ -11,7 +11,7 @@ define void @main(i64 %call.i, i8* %call1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP_INDVARS_IV_NEXT115:%.*]] = add i64 [[VP_INDVARS_IV114:%.*]] i64 [[VP_INDVARS_IV114_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV114]], i64 [[VP_INDVARS_IV_NEXT115]], i64 [[VP_INDVARS_IV114_IND_INIT:%.*]], i64 [[VP_INDVARS_IV114_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV114]], i64 [[VP_INDVARS_IV_NEXT115]], i64 [[VP_INDVARS_IV114_IND_INIT:%.*]], i64 [[VP_INDVARS_IV114_IND_INIT_STEP]], i64 [[VP_INDVARS_IV114_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i16 [[VP0:%.*]] = phi  [ i16 [[VP__LCSSA109:%.*]], [[BB0]] ],  [ i16 [[VP_SPEC_SELECT_LCSSA:%.*]], [[BB1:BB[0-9]+]] ]

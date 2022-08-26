@@ -2,10 +2,10 @@
 ;
 ; CHECK-LABEL:VPlan after insertion of VPEntities instructions:
 ; CHECK:      IntInduction(+) Start: i8 %c.linear.promoted Step: i8 [[VP_ARG_STEP:%.*]] StartVal: ? EndVal: ? BinOp: i8 [[VP_IND_NEXT:%.*]] = add i8 [[VP_IND_PHI:%.*]] i8 [[VP_STEP_INIT:%.*]]
-; CHECK-NEXT:   Linked values: i8 [[VP_IND_PHI]], i8 [[VP_IND_NEXT]], i8 [[VP_IND_INIT:%.*]], i8 [[VP_IND_FINAL:%.*]],
+; CHECK-NEXT:   Linked values: i8 [[VP_IND_PHI]], i8 [[VP_IND_NEXT]], i8 [[VP_IND_INIT:%.*]], i8 [[VP_STEP_INIT:%.*]], i8 [[VP_IND_FINAL:%.*]],
 ; CHECK:      BB1: # preds: BB4
 ; CHECK:        i8 [[VP_IND_INIT]] = induction-init{add, StartVal: ?, EndVal: ?} i8 %c.linear.promoted i8 [[VP_ARG_STEP]]
-; CHECK-NEXT:   i8 [[VP_STEP_INIT:%.*]] = induction-init-step{add} i8 [[VP_ARG_STEP]]
+; CHECK-NEXT:   i8 [[VP_STEP_INIT]] = induction-init-step{add} i8 [[VP_ARG_STEP]]
 ; CHECK:      BB3: # preds: BB2
 ; CHECK:        i8 [[VP_IND_FINAL]] = induction-final{add} i8 %c.linear.promoted i8 [[VP_ARG_STEP]]
 ;

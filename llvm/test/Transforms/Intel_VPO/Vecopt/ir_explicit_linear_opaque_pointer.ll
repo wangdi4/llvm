@@ -29,13 +29,13 @@ define dso_local void @foo() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 10 BinOp: i32 [[VP_IV_NEXT:%.*]] = add i32 [[VP_IV:%.*]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP_IV]], i32 [[VP_IV_NEXT]], i32 [[VP_IV_IND_INIT:%.*]], i32 [[VP_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP_IV]], i32 [[VP_IV_NEXT]], i32 [[VP_IV_IND_INIT:%.*]], i32 [[VP_IV_IND_INIT_STEP]], i32 [[VP_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP_Y:%.*]] Step: i32 1 StartVal: ? EndVal: ? need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_Y_LINEAR_PTR:%.*]], i32 [[VP_Y_LINEAR_PTR_IND_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_Y_LINEAR_PTR_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: ptr [[VP_Y_LINEAR_PTR:%.*]], i32 [[VP_Y_LINEAR_PTR_IND_INIT:%.*]], i32 [[VP_Y_LINEAR_PTR_IND_INIT_STEP:%.*]], void [[VP_STORE:%.*]], i32 [[VP_Y_LINEAR_PTR_IND_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: ptr [[Y_LINEAR_PTR0:%.*]]
 ; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP_IV]] Step: i32 1 StartVal: ? EndVal: ? need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_I_LINEAR_IV_PTR:%.*]], i32 [[VP_I_LINEAR_IV_PTR_IND_INIT:%.*]], void [[VP_STORE_1:%.*]], i32 [[VP_I_LINEAR_IV_PTR_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: ptr [[VP_I_LINEAR_IV_PTR:%.*]], i32 [[VP_I_LINEAR_IV_PTR_IND_INIT:%.*]], i32 [[VP_I_LINEAR_IV_PTR_IND_INIT_STEP:%.*]], void [[VP_STORE_1:%.*]], i32 [[VP_I_LINEAR_IV_PTR_IND_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: ptr [[I_LINEAR_IV_PTR0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]: # preds:
@@ -51,11 +51,11 @@ define dso_local void @foo() #0 {
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[Y_LINEAR_PTR0]]
 ; CHECK-NEXT:     i32 [[VP_Y_LINEAR_PTR_IND_INIT]] = induction-init{add, StartVal: ?, EndVal: ?} i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:     store i32 [[VP_Y_LINEAR_PTR_IND_INIT]] ptr [[VP_Y_LINEAR_PTR]]
-; CHECK-NEXT:     i32 [[VP_Y_LINEAR_PTR_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32 [[VP_Y_LINEAR_PTR_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[I_LINEAR_IV_PTR0]]
 ; CHECK-NEXT:     i32 [[VP_I_LINEAR_IV_PTR_IND_INIT]] = induction-init{add, StartVal: ?, EndVal: ?} i32 [[VP_LOAD_1]] i32 1
 ; CHECK-NEXT:     store i32 [[VP_I_LINEAR_IV_PTR_IND_INIT]] ptr [[VP_I_LINEAR_IV_PTR]]
-; CHECK-NEXT:     i32 [[VP_I_LINEAR_IV_PTR_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32 [[VP_I_LINEAR_IV_PTR_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]

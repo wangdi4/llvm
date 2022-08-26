@@ -9,7 +9,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 100 BinOp: i64 [[VP_ADD5:%.*]] = add i64 [[VP__OMP_IV_LOCAL_015:%.*]] i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_015]], i64 [[VP_ADD5]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_015]], i64 [[VP_ADD5]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP]], i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i64 [[VP_RET_LCSSA26:%.*]] = phi  [ i64 [[VP_RET_LCSSA25:%.*]], [[BB0]] ],  [ i64 [[VP_RET:%.*]], [[BB1:BB[0-9]+]] ]

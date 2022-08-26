@@ -4,15 +4,15 @@
 define void @foo() {
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:               + END LOOP
-; CHECK:               %1 = @llvm.vector.reduce.fmin.v4f64(%.[[vec5:.*]]);
-; CHECK-NEXT:          %[[idxblend:.*]] = (%1 == %.[[vec5]]) ? %.[[vec4:.*]] : <i64 -1, i64 -1, i64 -1, i64 -1>;
+; CHECK:               [[TMP1:%.*]] = @llvm.vector.reduce.fmin.v4f64(%.[[vec5:.*]]);
+; CHECK-NEXT:          %[[idxblend:.*]] = ([[TMP1]] == %.[[vec5]]) ? %.[[vec4:.*]] : <i64 -1, i64 -1, i64 -1, i64 -1>;
 ; CHECK-NEXT:          %retval.sroa.2.0.copyload.sroa.speculate.load.false = @llvm.vector.reduce.umin.v4i64(%[[idxblend]]);
 ; CHECK:            }
 ;
 ; CHECK:            + DO i1 = {{.*}}, %spec.select309 + -1, 1   <DO_LOOP>
-; CHECK-NEXT:       |   %2 = (%0)[i1];
-; CHECK-NEXT:       |   %retval.sroa.2.0.copyload.sroa.speculate.load.false = (%1 > %2) ? i1 : %retval.sroa.2.0.copyload.sroa.speculate.load.false;
-; CHECK-NEXT:       |   %1 = (%1 > %2) ? %2 : %1;
+; CHECK-NEXT:       |   [[TMP2:%.*]] = (%0)[i1];
+; CHECK-NEXT:       |   %retval.sroa.2.0.copyload.sroa.speculate.load.false = ([[TMP1]] > [[TMP2]]) ? i1 : %retval.sroa.2.0.copyload.sroa.speculate.load.false;
+; CHECK-NEXT:       |   [[TMP1]] = ([[TMP1]] > [[TMP2]]) ? [[TMP2]] : [[TMP1]];
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:      END REGION
 ;
