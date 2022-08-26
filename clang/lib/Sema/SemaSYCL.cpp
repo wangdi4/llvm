@@ -128,18 +128,16 @@ public:
   /// \param Tmpl  whether the class is template instantiation or simple record
   static bool isSyclType(QualType Ty, StringRef Name, bool Tmpl = false);
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   /// Checks whether given function is
   /// cl::sycl::ext::intel::non_uniform_sub_group::invoke_unmasked API.
   static bool isSyclInvokeUnmaskedFunction(const FunctionDecl *FD);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Checks whether given clang type is a standard SYCL API accessor class,
   /// the check assumes the type is templated.
   /// \param Ty    the clang type being checked
   static bool isSyclAccessorType(QualType Ty);
->>>>>>> e4423ef4357fe544c29e877658d91a6fd5cf1f59
 
   /// Checks whether given clang type is a full specialization of the SYCL
   /// specialization constant class.
@@ -5261,7 +5259,6 @@ bool Util::isSyclType(QualType Ty, StringRef Name, bool Tmpl) {
   return matchQualifiedTypeName(Ty, Scopes);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
   const StringRef &Name = "invoke_unmasked";
@@ -5289,12 +5286,11 @@ bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
   return matchContext(DC, Scopes) || matchContext(DC, ScopesDeprecated);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 bool Util::isSyclAccessorType(QualType Ty) {
   return isSyclType(Ty, "accessor", true /* Tmpl */) ||
          isSyclType(Ty, "local_accessor", true /* Tmpl */);
 }
->>>>>>> e4423ef4357fe544c29e877658d91a6fd5cf1f59
 
 bool Util::isAccessorPropertyListType(QualType Ty) {
   std::array<DeclContextDesc, 5> Scopes = {
