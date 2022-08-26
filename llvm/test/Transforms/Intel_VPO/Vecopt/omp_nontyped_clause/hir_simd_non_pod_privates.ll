@@ -3,8 +3,7 @@
 ; and all calls appropriate constructor/destructor to initialize and deallocate
 ; the memory.
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR
 ;    BEGIN REGION { }

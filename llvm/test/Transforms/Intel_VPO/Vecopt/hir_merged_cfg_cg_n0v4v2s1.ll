@@ -18,7 +18,7 @@
 ;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;v2s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;v2s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }

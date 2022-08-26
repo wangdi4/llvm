@@ -17,15 +17,11 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefix=VEC
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefix=VEC
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefix=VEC
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -mcpu=alderlake < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
 
 
 ; Check that loop is vectorized if compiled for AVX2 target.

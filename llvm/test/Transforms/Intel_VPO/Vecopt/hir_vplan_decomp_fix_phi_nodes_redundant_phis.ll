@@ -27,10 +27,8 @@
 ; in node <42>. However both reach definitions are the same "null" values and this
 ; redundant PHI can be removed and replaced.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=1 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output -vplan-enable-new-cfg-merge-hir=1 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:

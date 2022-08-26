@@ -1,9 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 ;
 ; Test for min/max+index is not recognized.
 ;

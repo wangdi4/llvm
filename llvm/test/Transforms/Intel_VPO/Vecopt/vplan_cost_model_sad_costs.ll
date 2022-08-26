@@ -1,9 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mattr=+avx2 -disable-output \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mattr=+avx2 -disable-output \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s
 
 ; The test checks that the cost of i16 loads in CM dumps is 1 (i.e. the
 ; load is recognized to be unit stride load.

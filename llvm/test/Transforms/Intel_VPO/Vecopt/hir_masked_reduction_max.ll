@@ -18,10 +18,8 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
 
 
 ; Check that reduction is imported and lowered into corresponding VPInstructions.

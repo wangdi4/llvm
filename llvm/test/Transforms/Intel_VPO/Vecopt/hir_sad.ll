@@ -25,10 +25,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   printf("sum: %d\n", sum);
 ; }
 
-; RUN: opt %s -enable-new-pm=0 -O2 -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -mem2reg -o - -vplan-enable-new-cfg-merge-hir=0 | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
-; RUN: opt %s -enable-new-pm=0 -O2 -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -mem2reg -o - -vplan-enable-new-cfg-merge-hir=1 | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
-; RUN: opt %s -passes='default<O2>,hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,mem2reg' -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -print-after=hir-vplan-vec -o - -vplan-enable-new-cfg-merge-hir=0 | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
-; RUN: opt %s -passes='default<O2>,hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,mem2reg' -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -print-after=hir-vplan-vec -o - -vplan-enable-new-cfg-merge-hir=1 | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
+; RUN: opt %s -enable-new-pm=0 -O2 -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -mem2reg -o - | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
+; RUN: opt %s -passes='default<O2>,hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,mem2reg' -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -print-after=hir-vplan-vec -o - | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
 
 ; CHECK: VPSADBW
 

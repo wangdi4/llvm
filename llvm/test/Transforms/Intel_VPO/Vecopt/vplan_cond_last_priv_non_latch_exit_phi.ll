@@ -2,8 +2,7 @@
 ; index for conditional last private finalization by
 ; VPLoopEntities framework.
 
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 ; RUN: opt -disable-output %s -vplan-vec -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 
 define i1 @fuseki(i32 %0, i8* nocapture %board, i64* nocapture %A, i64 %idxprom11.i, i8 %1, i1* %priv) local_unnamed_addr {

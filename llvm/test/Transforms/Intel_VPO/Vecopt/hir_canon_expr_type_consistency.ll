@@ -1,9 +1,6 @@
 ; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert --vector-library=SVML -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" --vector-library=SVML -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert --vector-library=SVML -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" --vector-library=SVML -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
- 
 ; Test that the memory reference created for the masked uniform store is created
 ; correctly. We were failing to set the canon expr src type correctly which made
 ; it appear that the canon expr had an invalid bitcast. HIR CG was however still

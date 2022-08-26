@@ -4,10 +4,8 @@
 ; the liveout variable(%nz.061) is not live-in to the target loop, but live-in
 ; to the parent loop region.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 -disable-output | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details -vplan-enable-new-cfg-merge-hir < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }

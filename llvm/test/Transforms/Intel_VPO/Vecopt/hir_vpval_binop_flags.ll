@@ -5,10 +5,8 @@
 ; worked on (CMPLRLLVM-11656). Preserving the fast math flags is important for
 ; achieving performance parity with mixed code generation mode.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 define double @foo(double* nocapture readonly %darr) #0 {
 ; CHECK:      [[RED_INIT:%.*]] = 0.000000e+00

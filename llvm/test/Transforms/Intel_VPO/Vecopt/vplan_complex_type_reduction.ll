@@ -4,10 +4,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; LLVM-IR: Complex type reductions are not supported
 ; LLVM-IR: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(%complex_64bit* %sum, %complex_64bit zeroinitializer, i32 1) ]

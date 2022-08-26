@@ -2,8 +2,7 @@
 ; Test to check SVA results for a loop with VLS optimized memory accesses.
 
 ; RUN: opt -S < %s -vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-IR
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=SVA-HIR
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=SVA-HIR
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s --check-prefix=SVA-HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -2,10 +2,8 @@
 ; Test to verify VPlan's functionality and generated vector code for in-memory
 ; binop reduction.
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s
 

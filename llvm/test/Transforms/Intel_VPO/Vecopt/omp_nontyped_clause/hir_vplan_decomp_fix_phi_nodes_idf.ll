@@ -4,10 +4,8 @@
 ; missing PHI node due to lack of use. The issue is addressed when IDF based
 ; PHI node placement algorithm is executed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <50>    + DO i1 = 0, %n + -1, 1   <DO_LOOP>

@@ -3,14 +3,7 @@
 ; RUN:     -vplan-enable-peeling \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
 ; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
-; RUN: -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -vplan-force-vf=4 \
-; RUN:     -vplan-enable-peeling \
-; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
-; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
-; RUN: -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: | FileCheck %s
 ;
 ; REQUIRES: asserts
 ;

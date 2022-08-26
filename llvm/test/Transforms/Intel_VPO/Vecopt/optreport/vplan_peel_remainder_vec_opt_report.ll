@@ -2,7 +2,7 @@
 ; different types of peel and remainder loops are utilized by VPlan.
 
 ; RUN: opt -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN1
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN1
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN1
 ; SCEN1-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
@@ -21,7 +21,7 @@
 ; SCEN1-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN2
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN2
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN2
 ; SCEN2-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
 ; SCEN2-EMPTY:
 ; SCEN2-NEXT: LOOP BEGIN
@@ -36,7 +36,7 @@
 ; SCEN2-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-vec -vplan-enable-peeling -intel-ir-optreport-emitter -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN3
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN3
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-enable-peeling -hir-optreport-emitter -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN3
 ; SCEN3-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN

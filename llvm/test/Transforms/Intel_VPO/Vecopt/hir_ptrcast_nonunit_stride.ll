@@ -14,8 +14,7 @@
 ;   }
 ; }
 ;
-; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
 ;
 ; CHECK:      BEGIN REGION
 ; CHECK-NEXT:  DO i1 = 0, 127, 4

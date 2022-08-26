@@ -4,20 +4,12 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     -mattr=+avx2 -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-CM-AVX2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -mattr=+avx2 -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-CM-AVX2
+; RUN:     | FileCheck %s --check-prefix=VPLAN-CM-AVX2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     -mattr=+avx512f -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-CM-AVX512
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -mattr=+avx512f -enable-intel-advanced-opts 2>&1 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-CM-AVX512
+; RUN:     | FileCheck %s --check-prefix=VPLAN-CM-AVX512
 
 ; Expensive load/store operations in the loop should not induce register
 ; pressure high enough to cause spill/fills if they are not serialized.

@@ -2,10 +2,10 @@
 ; REQUIRES: asserts
 ; RUN: opt -enable-new-pm=0 -vplan-vec -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2 -enable-intel-advanced-opts\
 ; RUN:  -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass -vplan-force-vf=4 \
-; RUN: -vplan-all-zero-bypass-region-threshold=1 -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: -vplan-all-zero-bypass-region-threshold=1 -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vplan-vec' -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2\
 ; RUN:  -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
-; RUN:  -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN:  -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; This is a simple test inserting a single all-zero bypass region for a single block with one live-out value
 ; from the region.

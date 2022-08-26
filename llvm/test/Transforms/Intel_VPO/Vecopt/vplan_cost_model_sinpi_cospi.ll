@@ -3,8 +3,7 @@
 ; for cost-model's purpose we treat them like llvm.sin/llvm.cos intrinsics
 ; instead of unknown user calls.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 ; RUN: opt -vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL:   Cost Model for VPlan foo:{{.*}} with VF = 4:

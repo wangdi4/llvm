@@ -3,7 +3,7 @@
 ; This is enforced by planner: when scenario contains peel but peeling is disabled
 ; a static peel(1) is enforced.
 ; RUN: opt -vplan-vec-scenario="m4;v4;v2" \
-; RUN: -disable-output -vplan-vec -vplan-enable-new-cfg-merge \
+; RUN: -disable-output -vplan-vec \
 ; RUN: -print-after=vplan-vec \
 ; RUN: -vplan-enable-peeling=0 %s 2>&1 | FileCheck %s
 

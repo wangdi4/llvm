@@ -13,10 +13,8 @@
 ; }
 ;
 ; Test to check that we leave the simd directives around when we do not vectorize the explicit simd loop.
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=1 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=1 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=1 -disable-output < %s 2>&1 | FileCheck %s
 
 ;
 ; CHECK: BEGIN REGION

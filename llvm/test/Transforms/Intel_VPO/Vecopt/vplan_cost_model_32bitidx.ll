@@ -5,25 +5,13 @@
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
 ; RUN:     -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
-; RUN:     -enable-intel-advanced-opts \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
+; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
 ; RUN:     -vplan-cm-gather-scatter-threshold=93 -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | \
-; RUN:     FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8-GS93
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
-; RUN:     -vplan-cm-gather-scatter-threshold=93 -enable-intel-advanced-opts \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | \
-; RUN:     FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8-GS93
+; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8-GS93
 
 @arr.i32.0 = external local_unnamed_addr global [1024 x i32], align 16
 @arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16

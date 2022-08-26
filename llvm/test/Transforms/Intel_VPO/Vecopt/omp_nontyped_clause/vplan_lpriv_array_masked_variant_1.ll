@@ -1,7 +1,7 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -vplan-vec-scenario="n0;v2;m2" < %s | FileCheck %s -check-prefixes=CHECK,LLVMIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-create-masked-vplan -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -vplan-enable-new-cfg-merge-hir -disable-output %s 2>&1 | FileCheck %s -check-prefixes=CHECK,HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-create-masked-vplan -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -disable-output %s 2>&1 | FileCheck %s -check-prefixes=CHECK,HIR
 
-; Incomming HIR
+; Incoming HIR
 ; <0>          BEGIN REGION { }
 ; <2>                %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LASTPRIVATE(&((%b3.i.lpriv)[0])) ]
 ; <21>

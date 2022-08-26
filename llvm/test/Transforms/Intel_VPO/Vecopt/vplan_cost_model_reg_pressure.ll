@@ -3,38 +3,22 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF16-SSE2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF16-SSE2
+; RUN:     | FileCheck %s --check-prefix=CHECK-VF16-SSE2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8-SSE2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF8-SSE2
+; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-SSE2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF16-AVX2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF16-AVX2
+; RUN:     | FileCheck %s --check-prefix=CHECK-VF16-AVX2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF8-AVX2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-VF8-AVX2
+; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-AVX2
 
 ; Rhe test checks that there is additional spill/fill cost for VF = 16, but no such
 ; penalty for VF < 16 for sse2 target, and no spill/fill penalty even for VF = 16

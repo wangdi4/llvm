@@ -15,10 +15,8 @@
 ;
 ; Test that we suppress vectorization for divides in a nested blob for a masked statement
 ; until we start using SVML for masked divides.
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:      DO i1 = 0, 7, 1   <DO_LOOP>
 ; CHECK:      END LOOP

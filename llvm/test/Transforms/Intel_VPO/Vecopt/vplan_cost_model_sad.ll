@@ -1,13 +1,11 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -S -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -S -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -S | FileCheck %s
 ;
 ; Check that the test does not cause assertion fails when -vplan-enable-peeling
 ; is set to true. This switch has been modified to only affect the LLVM IR path
 ; and using this switch in the HIR path should not cause the test to fail. Once
 ; peeling is on by default for both LLVM IR and HIR paths, we need to ensure
 ; that this test continues to pass.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -vplan-enable-peeling=true -S -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -vplan-enable-peeling=true -S -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -vplan-enable-peeling=true -S | FileCheck %s
 
 ; The test is a part of hotspot of SAD benchmark.  The test verifies that it is
 ; vectorized with VF = 4.

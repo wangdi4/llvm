@@ -3,10 +3,10 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=8 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-cost-model-print-analysis-for-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local void @foo(float* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, float* noalias nocapture noundef readonly %C) local_unnamed_addr #0 {

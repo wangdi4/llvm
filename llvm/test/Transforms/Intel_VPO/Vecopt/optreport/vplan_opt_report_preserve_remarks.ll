@@ -14,7 +14,7 @@
 ; LOOP END
 
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=low -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -intel-opt-report=low -hir-optreport-emitter -vplan-enable-new-cfg-merge-hir < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -intel-opt-report=low -hir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:       LOOP BEGIN at test.cpp (2, 1)
 ; CHECK-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED

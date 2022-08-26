@@ -6,8 +6,8 @@
 ; RUN: opt -passes="vplan-vec" -disable-output -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant < %s 2>&1 | FileCheck %s
 
 ; TODO: Enable test for HIR when vectors are supported by loopopt
-; R_UN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; R_UN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; R_UN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; R_UN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
