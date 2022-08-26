@@ -2196,7 +2196,7 @@ def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
 #if INTEL_FEATURE_CPU_MTL
-def : ProcModel<"meteorlake", ADLModel,
+def : ProcModel<"meteorlake", AlderlakePModel,
                 ProcessorFeatures.MTLFeatures, ProcessorFeatures.ADLTuning>;
 #endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
