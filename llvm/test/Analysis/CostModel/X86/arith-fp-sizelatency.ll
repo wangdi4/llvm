@@ -385,10 +385,12 @@ define i32 @fcopysign(i32 %arg) {
 ; SSE1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4F32 = call <4 x float> @llvm.copysign.v4f32(<4 x float> undef, <4 x float> undef)
 ; SSE1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8F32 = call <8 x float> @llvm.copysign.v8f32(<8 x float> undef, <8 x float> undef)
 ; SSE1-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16F32 = call <16 x float> @llvm.copysign.v16f32(<16 x float> undef, <16 x float> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.copysign.f64(double undef, double undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V2F64 = call <2 x double> @llvm.copysign.v2f64(<2 x double> undef, <2 x double> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V4F64 = call <4 x double> @llvm.copysign.v4f64(<4 x double> undef, <4 x double> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %V8F64 = call <8 x double> @llvm.copysign.v8f64(<8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.copysign.f64(double undef, double undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %V2F64 = call <2 x double> @llvm.copysign.v2f64(<2 x double> undef, <2 x double> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %V4F64 = call <4 x double> @llvm.copysign.v4f64(<4 x double> undef, <4 x double> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %V8F64 = call <8 x double> @llvm.copysign.v8f64(<8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SSE2-LABEL: 'fcopysign'
@@ -472,47 +474,55 @@ define i32 @fcopysign(i32 %arg) {
 
 define i32 @fma(i32 %arg) {
 ; SSE1-LABEL: 'fma'
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SSE1-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; SSE1-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SSE2-LABEL: 'fma'
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SSE42-LABEL: 'fma'
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SSE42-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; SSE42-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; AVX-LABEL: 'fma'
-; AVX-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; AVX-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; AVX-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 432 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 167 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; AVX-NEXT:  Cost Model: Found an estimated cost of 334 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; AVX-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; AVX512-LABEL: 'fma'
@@ -527,25 +537,29 @@ define i32 @fma(i32 %arg) {
 ; AVX512-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLM-LABEL: 'fma'
-; SLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SLM-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; SLM-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; SLM-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; SLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GLM-LABEL: 'fma'
-; GLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 43 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 86 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; GLM-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; INTEL_CUSTOMIZATION
+; GLM-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 107 for instruction: %V4F32 = call <4 x float> @llvm.fma.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 214 for instruction: %V8F32 = call <8 x float> @llvm.fma.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 428 for instruction: %V16F32 = call <16 x float> @llvm.fma.v16f32(<16 x float> undef, <16 x float> undef, <16 x float> undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = call double @llvm.fma.f64(double undef, double undef, double undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 83 for instruction: %V2F64 = call <2 x double> @llvm.fma.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V4F64 = call <4 x double> @llvm.fma.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
+; GLM-NEXT:  Cost Model: Found an estimated cost of 332 for instruction: %V8F64 = call <8 x double> @llvm.fma.v8f64(<8 x double> undef, <8 x double> undef, <8 x double> undef)
+; end INTEL_CUSTOMIZATION
 ; GLM-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
   %F32 = call float @llvm.fma.f32(float undef, float undef, float undef)
