@@ -931,8 +931,12 @@ public:
     SK_Splice,           ///< Concatenates elements from the first input vector
                          ///< with elements of the second input vector. Returning
                          ///< a vector of the same type as the input vectors.
+<<<<<<< HEAD
     SK_TargetSpecific    ///< Defines target-specific shuffle kind.
 #endif // INTEL_CUSTOMIZATION
+=======
+                         ///< Index indicates start offset in first input vector.
+>>>>>>> 9317e6311f7ebc433d8ddeb5a970b95fa891dc1d
   };
 
   /// Additional information about an operand's possible values.
