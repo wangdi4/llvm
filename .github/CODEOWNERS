@@ -49,6 +49,7 @@
 
 # COMPONENT: Driver
 # JIRA: CMPLRLLVM->LLVM Driver
+/clang/include/clang/Basic/DiagnosticDriverKinds.td @intel-restricted/cmplrllvm-llvm-driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
 /clang/**/driver @intel-restricted/cmplrllvm-llvm-driver
 
