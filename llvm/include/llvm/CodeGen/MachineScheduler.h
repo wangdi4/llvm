@@ -960,7 +960,8 @@ bool tryGreater(int TryVal, int CandVal,
                 GenericSchedulerBase::CandReason Reason);
 bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
                 GenericSchedulerBase::SchedCandidate &Cand,
-                SchedBoundary &Zone);
+                SchedBoundary &Zone, // INTEL
+                const MachineFunction *MF = nullptr); // INTEL
 bool tryPressure(const PressureChange &TryP,
                  const PressureChange &CandP,
                  GenericSchedulerBase::SchedCandidate &TryCand,

@@ -72,6 +72,13 @@ static cl::opt<bool>
 X86EarlyIfConv("x86-early-ifcvt", cl::Hidden,
                cl::desc("Enable early if-conversion on X86"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableTargetSchedHeuristics(
+    "intel-x86-sched-heuristics",
+    cl::desc("Enable heuristics for X86 target in the machine instruction"
+             "scheduling pass."),
+    cl::init(true), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 
 /// Classify a blockaddress reference for the current subtarget according to how
 /// we should reference it in a non-pcrel context.
@@ -397,6 +404,10 @@ bool X86Subtarget::isPositionIndependent() const {
   return TM.isPositionIndependent();
 }
 #if INTEL_CUSTOMIZATION
+bool X86Subtarget::enableTargetSchedHeuristics() const {
+  return EnableTargetSchedHeuristics;
+}
+
 void X86Subtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
                                            unsigned NumRegionInstrs) const {
   Policy.DisableLatencyHeuristic = false;
