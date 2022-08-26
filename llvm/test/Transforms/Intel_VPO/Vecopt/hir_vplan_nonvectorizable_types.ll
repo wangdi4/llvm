@@ -1,10 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-force-vf=2 -vplan-cost-model-print-analysis-for-vf=2 \
-; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -disable-output -vplan-force-vf=2 -vplan-cost-model-print-analysis-for-vf=2 \
-; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 | FileCheck %s
 
 ; Cost of serializing select instruction with non-vectorizable operand types
 ; Here cost of serializing select instruction = cost of n extracts from vec cond + cost of n selects, where n = VF

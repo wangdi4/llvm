@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -enable-first-it-peel-me-vec=false -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -enable-first-it-peel-me-vec=false -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -allow-memory-speculation -enable-first-it-peel-me-vec=false -disable-output -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -allow-memory-speculation -enable-first-it-peel-me-vec=false -disable-output -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -enable-first-it-peel-me-vec=false -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=32 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -allow-memory-speculation -enable-first-it-peel-me-vec=false -disable-output -vplan-force-vf=32 < %s 2>&1 | FileCheck %s
 
 
 ; Verify that we properly generate code for non-linear live-outs when

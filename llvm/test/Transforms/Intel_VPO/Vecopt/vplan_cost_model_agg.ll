@@ -1,11 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     | FileCheck %s
 
 ; The test verifies that CM doesn't crush on given input and fixes the costs
 ; of load/store of aggregate data type data.

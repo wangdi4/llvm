@@ -3,10 +3,8 @@
 ; ModuleID = 't.c'
 ; RUN: opt -vplan-vec -S < %s | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -S < %s | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -hir-cg -S  < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -hir-cg -S  < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,hir-cg" -S < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,hir-cg" -S < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,hir-cg" -S < %s | FileCheck %s
 ; CHECK-NOT: load <{{.*}} x i32>
 ; CHECK-NOT: add <{{.*}} x i32>
 ; CHECK-NOT: store <{{.*}} x i32>

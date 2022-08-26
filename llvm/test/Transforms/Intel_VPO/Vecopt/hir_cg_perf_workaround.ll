@@ -19,10 +19,8 @@
 ;
 ;   return sum;
 ; }
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.

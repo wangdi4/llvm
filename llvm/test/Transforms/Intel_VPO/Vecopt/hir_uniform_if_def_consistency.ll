@@ -27,10 +27,8 @@
 ; When the CanonExpr "zext.i1.i32(trunc.i32.i1(%control.fetch))" is hoisted out of
 ; i2 loop and attached to i1 loop, it will not be LINEAR anymore.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir -vplan-enable-new-cfg-merge=false < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir < %s 2>&1 -vplan-enable-new-cfg-merge=false | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir -vplan-enable-new-cfg-merge < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir < %s 2>&1 -vplan-enable-new-cfg-merge | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -hir-details -vplan-force-vf=4 -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -4,11 +4,8 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
 
 define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, i32* noalias nocapture noundef readonly %C, i32* noalias nocapture noundef readonly %D) local_unnamed_addr #0 {
 ;

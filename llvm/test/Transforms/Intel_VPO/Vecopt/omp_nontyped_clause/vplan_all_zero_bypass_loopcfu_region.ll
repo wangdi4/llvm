@@ -3,7 +3,7 @@
 ; RUN: opt -enable-new-pm=0 -vplan-vec -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
 ; RUN: -vplan-all-zero-bypass-region-threshold=1 -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vplan-vec' -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
-; RUN: -vplan-all-zero-bypass-region-threshold=1 -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s  2>&1 | FileCheck %s
+; RUN: -vplan-all-zero-bypass-region-threshold=1 -disable-vplan-codegen -disable-output < %s  2>&1 | FileCheck %s
 
 ; Check to see that only one bypass region is inserted within the inner loop
 ; that was divergent. For loops transformed by loopcfu (divergent loops made uniform),

@@ -24,23 +24,9 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; TODO: Different checks are seen because of difference in ordering blocks between legacy and merged CFG-based CG. Scalar remainder
-; is on false branch of its top test in merged CFG-based HIR.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -vplan-force-vf=4 -hir-cg -intel-opt-report=medium < %s -S | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-force-vf=4 -hir-cg -intel-opt-report=medium < %s -S | FileCheck %s --check-prefix=MERGED-CFG
-
-; CHECK: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
-; CHECK: [[M4]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
-; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
-; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
-; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M12:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
-; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
-; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
-; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", {{.*}}}
+; TODO: There is still a small issue where the merged CFG-based HIR causes
+; the opt report layout to mismatch slightly with the loop layout.
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-opt-report=medium < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
 ; MERGED-CFG: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
 ; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}

@@ -2,10 +2,8 @@
 ; RUN: opt < %s -vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM
 ; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
 
-; RUN: opt < %s -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2  -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt < %s -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2  -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
-; RUN: opt < %s -S -hir-framework -hir-vplan-vec  -vplan-force-vf=2  -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-CG
-; RUN: opt < %s -S -hir-framework -hir-vplan-vec  -vplan-force-vf=2  -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-CG
+; RUN: opt < %s -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR
+; RUN: opt < %s -S -hir-framework -hir-vplan-vec  -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR-CG
 
 ; Check that alloca is determined as divergent and correctly serialized (and
 ; uses are properly updated in the generated code). Note, that it's hard to

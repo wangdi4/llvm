@@ -1,5 +1,4 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only="VPlan_pragma_metadata" 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only="VPlan_pragma_metadata" 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only="VPlan_pragma_metadata" 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma [no]vecremainder (!{!"llvm.loop.vector.vecremainder", i1 true|false}) metadata
