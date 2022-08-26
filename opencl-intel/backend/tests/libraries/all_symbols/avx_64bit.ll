@@ -215,11 +215,6 @@
 ; CHECK-NEXT: _Z11downConvertDv4_l
 ; CHECK-NEXT: _Z11downConvertDv8_l
 ; CHECK-NEXT: _Z11half_divideDv16_fS_
-; CHECK-NEXT: _Z11isunorderedDv16_fS_
-; CHECK-NEXT: _Z11isunorderedDv3_dS_
-; CHECK-NEXT: _Z11isunorderedDv4_dS_
-; CHECK-NEXT: _Z11isunorderedDv8_dS_
-; CHECK-NEXT: _Z11isunorderedDv8_fS_
 ; CHECK-NEXT: _Z11native_acosDv16_d
 ; CHECK-NEXT: _Z11native_acosDv16_f
 ; CHECK-NEXT: _Z11native_acosDv8_d
@@ -12584,11 +12579,6 @@
 ; CHECK-NEXT: _Z5ilogbDv8_d
 ; CHECK-NEXT: _Z5ilogbf
 ; CHECK-NEXT: _Z5isinfDv3_d
-; CHECK-NEXT: _Z5isnanDv16_f
-; CHECK-NEXT: _Z5isnanDv3_d
-; CHECK-NEXT: _Z5isnanDv4_d
-; CHECK-NEXT: _Z5isnanDv8_d
-; CHECK-NEXT: _Z5isnanDv8_f
 ; CHECK-NEXT: _Z5ldexpDv16_dDv16_i
 ; CHECK-NEXT: _Z5ldexpDv16_fDv16_i
 ; CHECK-NEXT: _Z5ldexpDv8_dDv8_i
@@ -13090,11 +13080,6 @@
 ; CHECK-NEXT: _Z7shuffleDv8_tDv2_t
 ; CHECK-NEXT: _Z7shuffleDv8_tDv4_t
 ; CHECK-NEXT: _Z7shuffleDv8_tS_
-; CHECK-NEXT: _Z7signbitDv16_f
-; CHECK-NEXT: _Z7signbitDv3_d
-; CHECK-NEXT: _Z7signbitDv4_d
-; CHECK-NEXT: _Z7signbitDv8_d
-; CHECK-NEXT: _Z7signbitDv8_f
 ; CHECK-NEXT: _Z7sub_satDv16_sS_
 ; CHECK-NEXT: _Z7sub_satDv16_tS_
 ; CHECK-NEXT: _Z7vload16mPKc
@@ -13713,11 +13698,6 @@
 ; CHECK-NEXT: _Z9half_exp2Dv16_f
 ; CHECK-NEXT: _Z9half_log2Dv16_f
 ; CHECK-NEXT: _Z9half_powrDv16_fS_
-; CHECK-NEXT: _Z9isorderedDv16_fS_
-; CHECK-NEXT: _Z9isorderedDv3_dS_
-; CHECK-NEXT: _Z9isorderedDv4_dS_
-; CHECK-NEXT: _Z9isorderedDv8_dS_
-; CHECK-NEXT: _Z9isorderedDv8_fS_
 ; CHECK-NEXT: _Z9mem_fencej
 ; CHECK-NEXT: _Z9nextafterDv16_dS_
 ; CHECK-NEXT: _Z9nextafterDv16_fS_

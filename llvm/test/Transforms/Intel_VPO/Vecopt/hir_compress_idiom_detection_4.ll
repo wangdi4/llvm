@@ -1,4 +1,8 @@
-; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=8 2>&1 | FileCheck %s
+; INTEL_FEATURE_SW_ADVANCED
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=8 2>&1 | FileCheck %s
+
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 -enable-intel-advanced-opts 2>&1 | FileCheck %s --check-prefix=CM4
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 -enable-intel-advanced-opts 2>&1 | FileCheck %s --check-prefix=CM8
 
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
@@ -171,6 +175,24 @@
 ; CHECK-NEXT:        [[FINAL_MERGE]]:
 ; CHECK-NEXT:  END REGION
 
+; CM4: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
+; CM4: Cost 10 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
+; CM4: Block total cost includes GS Cost: 8
+; CM4: Cost 4 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
+; CM4: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
+
+; CM8: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
+; CM8: Cost 14 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
+; CM8: Block total cost includes GS Cost: 16
+; CM8: Cost 6 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
+; CM8: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -234,3 +256,4 @@ attributes #0 = { mustprogress nofree norecurse nosync nounwind uwtable "approx-
 !8 = !{!"double", !5, i64 0}
 !9 = distinct !{!9, !10}
 !10 = !{!"llvm.loop.mustprogress"}
+; end INTEL_FEATURE_SW_ADVANCED

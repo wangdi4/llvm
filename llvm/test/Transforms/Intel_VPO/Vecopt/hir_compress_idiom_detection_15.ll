@@ -1,7 +1,7 @@
-; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=16 2>&1 | FileCheck %s
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=hir-vplan-vec -vplan-force-vf=16 2>&1 | FileCheck %s
 
-; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
-; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -134,18 +134,18 @@
 ; CM4: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
 ; CM4: Cost 15 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM4: Cost 15 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM4: Cost 16 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM4: Cost 4 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
+; CM4: Cost 5 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM4: Cost 4 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
-; CM4: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+; CM4: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
 ; CM8: Cost 1 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index i64 [[VP6:%.*]] i64 5
 ; CM8: Cost 16 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM8: Cost 16 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM8: Cost 20 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM8: Cost 5 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
+; CM8: Cost 9 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 6 for i32 [[VP15:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
-; CM8: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP__BLEND_BB4:%.*]]
+; CM8: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

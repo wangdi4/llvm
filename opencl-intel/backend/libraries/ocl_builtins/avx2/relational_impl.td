@@ -11,12 +11,9 @@
 // License.
 
 // Expand
-foreach name = ["isnan", "isordered", "isunordered", "signbit", "any", "all"] in {
+foreach name = ["any", "all"] in {
   defvar builtin = !cast<OclBuiltin>(name);
-  defvar num_args = !size(builtin.Ins);
-  defvar expand_code = !cond(!eq(num_args, 1): Expand1,
-                             !eq(num_args, 2): Expand2);
-  def name # _expand_avx512f_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, expand_code>;
+  def name # _expand_avx512f_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, Expand1>;
 }
 
 foreach name = ["isfinite", "isinf", "isnormal"] in {
@@ -32,28 +29,21 @@ foreach name = ["isfinite", "isinf", "isnormal"] in {
 }
 
 // Widened
-foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
+foreach name = ["isfinite", "isinf", "isnormal"] in {
   defvar builtin = !cast<OclBuiltin>(name # "_v1widen");
   defvar types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
   defvar widen_code = !cond(!eq(name, "isfinite") : isfinite_v1widen_code,
                             !eq(name, "isinf") : isinf_v1widen_code,
-                            !eq(name, "isnan") : isnan_v1widen_code,
-                            !eq(name, "isnormal") : isnormal_v1widen_code,
-                            !eq(name, "isordered") : isordered_v1widen_code,
-                            !eq(name, "isunordered") : isunordered_v1widen_code,
-                            !eq(name, "signbit") : signbit_v1widen_code);
+                            !eq(name, "isnormal") : isnormal_v1widen_code);
   def name # _v1widen_impl: OclBuiltinImpl<builtin, types, 0, widen_code>;
 }
 
 // Masked
 
-foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
+foreach name = ["isfinite", "isinf", "isnormal"] in {
   defvar builtin = !cast<OclBuiltin>(name # "_mask");
-  defvar mask_code = !cond(
-      !or(!eq(name, "isordered"), !eq(name, "isunordered")): masked_impl_code_I32_G2_M,
-      true: masked_impl_code_I32_G_M);
-  def name # _mask_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"]]>;
+  def name # _mask_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, masked_impl_code_I32_G_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 
   defvar builtin_v1widen = !cast<OclBuiltin>(name # "_v1widen_mask");
-  def name # _v1widen_mask_impl: OclBuiltinImpl<builtin_v1widen, [v32f32, v64f32, v32f64, v64f64], 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"]]>;
+  def name # _v1widen_mask_impl: OclBuiltinImpl<builtin_v1widen, [v32f32, v64f32, v32f64, v64f64], 0, masked_impl_code_I32_G_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 }

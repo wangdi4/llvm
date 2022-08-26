@@ -1,4 +1,4 @@
-; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen -vplan-enable-masked-variant=false -vplan-vec-scenario="n0;s1;n0" 2>&1 | FileCheck %s
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen -vplan-enable-masked-variant=false -vplan-vec-scenario="n0;s1;n0" 2>&1 | FileCheck %s
 
 ; Reduced lammps2021/sw code related to compress/expand idiom recognition.
 

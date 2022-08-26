@@ -288,14 +288,17 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
     TargetTransformInfo::TCK_RecipThroughput, {Op1VK, Op1VP}, {Op2VK, Op2VP});
 }
 
-VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
-  const VPLoadStoreInst *LoadStore, unsigned VF) const {
+VPInstructionCost
+VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                    unsigned VF, bool GSCostOnly) const {
   Align Alignment = getMemInstAlignment(LoadStore);
-  return getLoadStoreCost(LoadStore, Alignment, VF);
+  return getLoadStoreCost(LoadStore, Alignment, VF, GSCostOnly);
 }
 
-VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
-  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const {
+VPInstructionCost
+VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                                    Align Alignment, unsigned VF,
+                                    bool GSCostOnly) const {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as
@@ -328,7 +331,7 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
       Opcode == VPInstruction::CompressStoreNonu ||
       Opcode == VPInstruction::ExpandLoad ||
       Opcode == VPInstruction::ExpandLoadNonu)
-    return getCompressExpandLoadStoreCost(LoadStore, VF);
+    return getCompressExpandLoadStoreCost(LoadStore, VF, GSCostOnly);
 
   // Special case uniform loads/stores as we issue scalar load/store
   // instructions for them plus broadcast for loads.
@@ -387,10 +390,26 @@ VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
 }
 
 VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
-    const VPLoadStoreInst *LoadStore, unsigned VF) const {
+    const VPLoadStoreInst *LoadStore, unsigned VF, bool GSCostOnly) const {
 
-  Intrinsic::ID IntrinsicId;
   unsigned Opcode = LoadStore->getOpcode();
+  bool UnitStrided = Opcode == VPInstruction::CompressStore ||
+                     Opcode == VPInstruction::ExpandLoad;
+  Type *VecType = getWidenedType(LoadStore->getValueType(), VF);
+
+  VPInstructionCost Cost = 0;
+  if (!UnitStrided)
+    Cost += TTI.getGatherScatterOpCost(
+        Opcode == VPInstruction::CompressStoreNonu ? Instruction::Store
+                                                   : Instruction::Load,
+        VecType, getLoadStoreIndexSize(LoadStore), true,
+        LoadStore->getAlignment().value(), LoadStore->getPointerAddressSpace());
+
+  if (GSCostOnly)
+    return Cost;
+
+  // compress/expand intrinsic cost.
+  Intrinsic::ID IntrinsicId;
   switch (Opcode) {
   case VPInstruction::CompressStore:
     IntrinsicId = Intrinsic::masked_compressstore;
@@ -407,25 +426,18 @@ VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
   default:
     llvm_unreachable("Compress/Expand Store/Load opcode is expected.");
   }
-
-  // compress/expand intrinsic cost.
-  Type *VecType = getWidenedType(LoadStore->getValueType(), VF);
-  VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+  Cost += TTI.getIntrinsicInstrCost(
       IntrinsicCostAttributes(IntrinsicId, VecType, {VecType}),
       TTI::TCK_RecipThroughput);
 
-  if (Opcode == VPInstruction::CompressStore ||
-      Opcode == VPInstruction::ExpandLoad)
+  if (UnitStrided)
     return Cost;
 
-  // scatter/gather cost.
-  Cost += TTI.getGatherScatterOpCost(
-      Opcode == VPInstruction::CompressStoreNonu ? Instruction::Store
-                                                 : Instruction::Load,
-      VecType, getLoadStoreIndexSize(LoadStore), true,
-      LoadStore->getAlignment().value(), LoadStore->getPointerAddressSpace());
-
   // Mask generation cost.
+  const VPValue *Pred = LoadStore->getParent()->getPredicate();
+  if (!Pred || CompressExpandMaskCostCalculated.insert(Pred).second == false)
+    return Cost;
+
   Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
   Type *MaskTy =
       FixedVectorType::get(IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
@@ -446,6 +458,7 @@ VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
        TargetTransformInfo::OP_None});
   Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
                                TTI::CastContextHint::None);
+
   return Cost;
 }
 
