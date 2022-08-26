@@ -472,6 +472,7 @@ public:
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
 #if INTEL_CUSTOMIZATION
+  bool enableTargetSchedHeuristics() const override;
   void overrideSchedPolicy(MachineSchedPolicy &Policy,
                            unsigned NumRegionInstrs) const override;
   bool isVEXInstr(MachineInstr &MI) const override;
