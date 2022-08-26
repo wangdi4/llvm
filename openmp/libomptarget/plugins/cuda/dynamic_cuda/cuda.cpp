@@ -28,13 +28,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "cuda.h"
+#include "llvm/Support/DynamicLibrary.h"
+
 #include "Debug.h"
+#include "cuda.h"
 #include "dlwrap.h"
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
+<<<<<<< HEAD
 #include <dlfcn.h>
 
 #if INTEL_CUSTOMIZATION
@@ -97,6 +101,8 @@ DLWRAP(cuEventDestroy, 1)
 
 DLWRAP_FINALIZE()
 #else // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
 DLWRAP_INITIALIZE();
 
 DLWRAP_INTERNAL(cuInit, 1);
@@ -183,6 +189,7 @@ static bool checkForCUDA() {
   };
 
   const char *CudaLib = DYNAMIC_CUDA_PATH;
+<<<<<<< HEAD
   void *DynlibHandle = dlopen(CudaLib, RTLD_NOW);
   if (!DynlibHandle) {
 #if INTEL_COLLAB
@@ -193,6 +200,13 @@ static bool checkForCUDA() {
 #else // INTEL_COLLAB
     DP("Unable to load library '%s': %s!\n", CudaLib, dlerror());
 #endif // INTEL_COLLAB
+=======
+  std::string ErrMsg;
+  auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
+      llvm::sys::DynamicLibrary::getPermanentLibrary(CudaLib, &ErrMsg));
+  if (!DynlibHandle->isValid()) {
+    DP("Unable to load library '%s': %s!\n", CudaLib, ErrMsg.c_str());
+>>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
     return false;
   }
 
@@ -202,7 +216,7 @@ static bool checkForCUDA() {
     auto It = TryFirst.find(Sym);
     if (It != TryFirst.end()) {
       const char *First = It->second;
-      void *P = dlsym(DynlibHandle, First);
+      void *P = DynlibHandle->getAddressOfSymbol(First);
       if (P) {
         DP("Implementing %s with dlsym(%s) -> %p\n", Sym, First, P);
         *dlwrap::pointer(I) = P;
@@ -210,7 +224,7 @@ static bool checkForCUDA() {
       }
     }
 
-    void *P = dlsym(DynlibHandle, Sym);
+    void *P = DynlibHandle->getAddressOfSymbol(Sym);
     if (P == nullptr) {
       DP("Unable to find '%s' in '%s'!\n", Sym, CudaLib);
       return false;

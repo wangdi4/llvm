@@ -30,8 +30,10 @@
 #ifndef _OMPTARGET_RTL_H
 #define _OMPTARGET_RTL_H
 
-#include "omptarget.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/DynamicLibrary.h"
+
+#include "omptarget.h"
 
 #include <list>
 #include <map>
@@ -145,7 +147,7 @@ struct RTLInfoTy {
                                 // to be registered with this RTL.
   int32_t NumberOfDevices = -1; // Number of devices this RTL deals with.
 
-  void *LibraryHandler = nullptr;
+  std::unique_ptr<llvm::sys::DynamicLibrary> LibraryHandler;
 
 #ifdef OMPTARGET_DEBUG
   std::string RTLName;
