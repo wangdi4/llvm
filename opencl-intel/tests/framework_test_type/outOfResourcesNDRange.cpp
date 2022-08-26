@@ -509,8 +509,9 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRangeWithAutoMemEnabled) {
   iRet = clEnqueueNDRangeKernel(queue, clKernelShouldFailLocalMem, 1, NULL,
                                 globalSize, NULL, 1, &bufferReadyEvent,
                                 kernelReadyEvent);
-  ASSERT_EQ(CL_SUCCESS, iRet) << "Enqueueing NDRange with larger local memory "
-                                 "is failed with auto memory enabled.";
+  ASSERT_EQ(CL_OUT_OF_RESOURCES, iRet) << "Enqueuing NDRange with large local "
+                                          "memory is expected to fail with "
+                                          "CL_OUT_OF_RESOURCES error";
 
   // Check results
   bufferMap = (char *)clEnqueueMapBuffer(
