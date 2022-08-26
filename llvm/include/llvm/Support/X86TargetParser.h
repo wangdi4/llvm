@@ -140,6 +140,12 @@ enum CPUKind {
 #if INTEL_FEATURE_CPU_DMR
   CK_Diamondrapids,
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+  CK_Meteorlake,
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+  CK_Emeraldrapids,
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,

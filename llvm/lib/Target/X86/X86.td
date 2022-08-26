@@ -1699,6 +1699,24 @@ def ProcessorFeatures {
                                       TuningInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_MTL
+#define ENABLE_CPU_MTL
+  // Meteorlake
+  list<SubtargetFeature> MTLAdditionalFeatures = [
+#endif // INTEL_FEATURE_CPU_MTL
+#ifdef ENABLE_CPU_MTL
+#if INTEL_FEATURE_ISA_PREFETCHI
+                                                  FeaturePREFETCHI
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // ENABLE_CPU_MTL
+#if INTEL_FEATURE_CPU_MTL
+  ];
+  list<SubtargetFeature> MTLFeatures =
+    !listconcat(ADLFeatures, MTLAdditionalFeatures);
+#endif // INTEL_FEATURE_CPU_MTL
+#endif // INTEL_CUSTOMIZATION
+
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
                                         FeatureCX8,
@@ -2179,6 +2197,14 @@ def : ProcModel<"graniterapids", SPRModel,
 def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+def : ProcModel<"meteorlake", ADLModel,
+                ProcessorFeatures.MTLFeatures, ProcessorFeatures.ADLTuning>;
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+def : ProcModel<"emeraldrapids", SPRModel,
+                ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.

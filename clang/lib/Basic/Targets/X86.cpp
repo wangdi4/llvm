@@ -866,6 +866,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+  case CK_Meteorlake:
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+  case CK_Emeraldrapids:
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
@@ -2504,6 +2510,12 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+    case CK_Meteorlake:
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+    case CK_Emeraldrapids:
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:

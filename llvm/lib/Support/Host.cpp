@@ -847,6 +847,24 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_RAPTORLAKE;
       break;
 #endif // INTEL_FEATURE_CPU_RPL
+#if INTEL_FEATURE_CPU_MTL
+    // Meteorlake:
+    case 0xb5: // Meteorlake N
+    case 0xaa: // Meteorlake P/M
+    case 0xac: // Meteorlake S
+      CPU = "meteorlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_METEORLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+    // Emeraldrapids:
+    case 0xcf:
+      CPU = "emeraldrapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_EMERALDRAPIDS;
+      break;
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
 
     // Icelake Xeon:

@@ -406,6 +406,12 @@
 # INTEL_FEATURE_CPU_DMR
 @CPU_DMR:SECRET@
 # end INTEL_FEATURE_CPU_DMR
+# INTEL_FEATURE_CPU_MTL
+@CPU_MTL:SECRET@
+# end INTEL_FEATURE_CPU_MTL
+# INTEL_FEATURE_CPU_EMR
+@CPU_EMR:SECRET@
+# end INTEL_FEATURE_CPU_EMR
 # === New CPU section end ===
 
 # Special software features section currently consist of
