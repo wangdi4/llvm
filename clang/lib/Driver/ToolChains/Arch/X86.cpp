@@ -97,6 +97,12 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+              .CaseLower("meteorlake", "meteorlake")
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+              .CaseLower("emeraldrapids", "emeraldrapids")
+#endif // INTEL_FEATURE_CPU_EMR
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }

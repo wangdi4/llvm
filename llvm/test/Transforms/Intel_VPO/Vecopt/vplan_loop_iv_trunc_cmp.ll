@@ -16,7 +16,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
@@ -31,7 +31,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-NEXT:     i8* [[VP_COND_PRIV_BCAST:%.*]] = bitcast i32* [[VP_COND_PRIV]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_COND_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64* [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64*, OrigAlign = 8
 ; CHECK-NEXT:     store i64 -1 i64* [[VP_PRIV_IDX_MEM]]
 ; CHECK-NEXT:     i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1

@@ -125,7 +125,7 @@
 ; CHECK-NEXT:        |   [[PHI_TEMP100]] = [[INSERT170]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[R_0150]] = @llvm.vector.reduce.fadd.v8f32([[R_0150]],  [[SELECT0]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = 0 + [[VEC_TC70]]
 ; CHECK-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[INSERT170]],  0
 ; CHECK-NEXT:        [[C_0140]] = [[EXTRACT_0_210]]
 ; CHECK-NEXT:        [[DOTVEC220:%.*]] = zext.i32.i64([[N0]]) == [[VEC_TC70]]

@@ -13,16 +13,16 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K_IV_B0:%.*]] Step: i64 16 StartVal: ? EndVal: ? BinOp: ptr [[VP_K_IV_NEXT:%.*]] = phi  [ ptr [[VP_K_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ ptr [[VP_K_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_K_IV:%.*]], ptr [[VP_K_IV_NEXT]], ptr [[VP_K_IV_IND_INIT:%.*]], ptr [[VP1:%.*]], ptr [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: ptr [[VP_K_IV:%.*]], ptr [[VP_K_IV_NEXT]], ptr [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP:%.*]], ptr [[VP1:%.*]], ptr [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: ptr [[K1_IV_B0:%.*]] Step: i64 4 StartVal: ? EndVal: ? BinOp: ptr [[VP_K1_IV_NEXT:%.*]] = phi  [ ptr [[VP_K1_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ ptr [[VP_K1_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_K1_IV:%.*]], ptr [[VP_K1_IV_NEXT]], ptr [[VP_K1_IV_IND_INIT:%.*]], ptr [[VP2:%.*]], ptr [[VP_K1_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: ptr [[VP_K1_IV:%.*]], ptr [[VP_K1_IV_NEXT]], ptr [[VP_K1_IV_IND_INIT:%.*]], i64 [[VP_K1_IV_IND_INIT_STEP:%.*]], ptr [[VP2:%.*]], ptr [[VP_K1_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: ptr [[VP_K2_LOAD0:%.*]] Step: i64 4 StartVal: ? EndVal: ? need close form
-; CHECK-NEXT:    Linked values: ptr [[VP_K2_ALLOC_PRIV:%.*]], ptr [[VP_K2_IV_IND_INIT:%.*]], void [[VP_LV0:%.*]], ptr [[VP_K2_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: ptr [[VP_K2_ALLOC_PRIV:%.*]], ptr [[VP_K2_IV_IND_INIT:%.*]], i64 [[VP_K2_IV_IND_INIT_STEP:%.*]], void [[VP_LV0:%.*]], ptr [[VP_K2_IV_IND_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: ptr %k2
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -31,15 +31,15 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     ptr [[VP_K2_ALLOC_PRIV]] = allocate-priv ptr, OrigAlign = 4
 ; CHECK-NEXT:     call i64 8 ptr [[VP_K2_ALLOC_PRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     ptr [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K_IV_B0]] i64 16 
-; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 16
+; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 16
 ; CHECK-NEXT:     ptr [[VP_K1_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K1_IV_B0]] i64 4
-; CHECK-NEXT:     i64 [[VP_K1_IV_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 4
+; CHECK-NEXT:     i64 [[VP_K1_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT:     ptr [[VP_K2_LOAD:%.*]] = load ptr %k2
 ; CHECK-NEXT:     ptr [[VP_K2_IV_IND_INIT]] = induction-init{getelementptr} ptr [[VP_K2_LOAD]] i64 4
 ; CHECK-NEXT:     store ptr [[VP_K2_IV_IND_INIT]] ptr [[VP_K2_ALLOC_PRIV]]
-; CHECK-NEXT:     i64 [[VP_K2_IV_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 4
+; CHECK-NEXT:     i64 [[VP_K2_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB4]], [[BB5:BB[0-9]+]]

@@ -7,15 +7,15 @@
 ; verification errors.
 ;
 ; CHECK:                    + DO i64 i1 = 0, 1023, 1   <DO_LOOP>
-; CHECK-NEXT:               |   %0 = (%off)[i1];
+; CHECK-NEXT:               |   [[TMP0:%.*]] = (%off)[i1];
 
-; CHECK:                    |   %1 = (%lpp)[i1];
+; CHECK:                    |   [[TMP1:%.*]] = (%lpp)[i1];
 
-; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[sext.i32.i64(%0)]));
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> sext.i32.i64(%0)]) inbounds 
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 %0
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1
+; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
+; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:22}
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> [[TMP1]])[NON-LINEAR <4 x i64> sext.i32.i64([[TMP0]])]) inbounds
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 [[TMP0]]
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* [[TMP1]]
 ;
 define  void @baz(i64**  %lpp, i32* %off) {
 entry:

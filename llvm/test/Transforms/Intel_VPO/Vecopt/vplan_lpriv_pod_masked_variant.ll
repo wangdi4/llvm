@@ -172,14 +172,14 @@ define i32 @main() {
 ; HIR-NEXT:        [[PHI_TEMP190:%.*]] = [[PHI_TEMP0]]
 ; HIR-NEXT:        if ([[CMP170]] == 1)
 ; HIR-NEXT:        {
-; HIR-NEXT:           goto [[BB12:BB[0-9]+]].77
+; HIR-NEXT:           goto [[BB12:BB[0-9]+]].78
 ; HIR-NEXT:        }
 ; HIR-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<16 x i1>.i16([[DOTVEC150]])
 ; HIR-NEXT:        [[BSF0:%.*]] = @llvm.ctlz.i16([[BSFINTMASK0]],  1)
 ; HIR-NEXT:        [[EXTLANE:%.*]] = 15 - [[BSF0]]
 ; HIR-NEXT:        [[PHI_TEMP0]] = extractelement [[SELECT0]],  [[EXTLANE]]
 ; HIR-NEXT:        [[PHI_TEMP190]] = [[PHI_TEMP0]]
-; HIR-NEXT:        [[BB12]].77:
+; HIR-NEXT:        [[BB12]].78:
 ; HIR-NEXT:        [[X0]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP80:%.*]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP100:%.*]] = 128

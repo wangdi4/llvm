@@ -57,7 +57,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC170]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC130]]
 ; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
 ; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
@@ -75,6 +75,7 @@
 ; CHECK-NEXT:        [[VEC_TC300:%.*]] = [[TGU290]]  *  2
 ; CHECK-NEXT:        [[RED_INIT310:%.*]] = 0
 ; CHECK-NEXT:        [[RED_INIT_INSERT320:%.*]] = insertelement [[RED_INIT310]],  [[PHI_TEMP70]],  0
+; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP90]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT_INSERT320]]
 ; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC300]]  -  1
 
@@ -85,7 +86,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v2i32([[DOTVEC370]])
-; CHECK:             [[IND_FINAL400:%.*]] = [[LOOP_UB350]]  +  1
+; CHECK:             [[IND_FINAL400:%.*]] = 0 + [[VEC_TC300]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL400]]
 ; CHECK-NEXT:        [[MERGE_AFTER_VEC_REM]]:

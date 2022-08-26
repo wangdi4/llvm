@@ -1437,8 +1437,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         createPrivateMemory(*Induction, Builder, AI, Preheader);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
-    if (Induction->getIsMemOnly())
-      Start = Builder.createLoad(Ty, AI);
+    if (Induction->getIsMemOnly()) {
+      VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
+      updateHIROperand(AI, V); // INTEL
+      Start = V;
+    }
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
@@ -1472,8 +1475,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         Name + ".ind.init", Start, Step, Induction->getStartVal(),
         Induction->getEndVal(), Opc);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep =
-        Builder.create<VPInductionInitStep>(Name + ".ind.init.step", Step, Opc);
+    VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
+        Name + ".ind.init.step", Step, Opc);
+    // Add induction-init-step associated with this induction to linked
+    // VPValues.
+    linkValue(Induction, InitStep);
 
     if (Induction->needCloseForm()) {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
@@ -3244,6 +3250,16 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
     VPValue *V = InductionOp ? InductionOp : Start;
+    if (IsExplicitInduction && !HasAlias && UpdateVPInsts.empty() && !V) {
+      setImporting(false);
+      return;
+    }
+    // Replace original descriptor with alias if available.
+    if (!V && HasAlias) {
+      Start = Alias.getValue().Start;
+      V = Start;
+      UpdateVPInsts = Alias.getValue().UpdateVPInsts;
+    }
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPPHINode>(User))
         if (Loop->contains(Instr) && getLiveInOrConstOperand(Instr, *Loop)) {

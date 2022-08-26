@@ -4150,18 +4150,53 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::InductionInitStep: {
-    // The only expected induction currently is for the implicit IV.
-    auto *ConstStep = cast<VPConstant>(VPInst->getOperand(0));
+    const VPInductionInitStep *IndInitStep = cast<VPInductionInitStep>(VPInst);
+    if (IndInitStep->isMainLoopIV()) {
+      // Special handling done for the implicit IV.
+      auto *ConstStep = cast<VPConstant>(VPInst->getOperand(0));
 
-    assert((cast<VPInductionInitStep>(VPInst)->getBinOpcode() ==
-                Instruction::Add &&
-            ConstStep->getConstant()->isOneValue()) &&
-           "Expected an add induction with constant step of 1");
-    auto *ScalRef =
-        DDRefUtilities.createConstDDRef(ConstStep->getType(), getVF());
-    auto *WideRef = widenRef(ScalRef, getVF());
+      assert((IndInitStep->getBinOpcode() == Instruction::Add &&
+              ConstStep->getConstant()->isOneValue()) &&
+             "Expected an add induction with constant step of 1");
+      auto *ScalRef =
+          DDRefUtilities.createConstDDRef(ConstStep->getType(), getVF());
+      auto *WideRef = widenRef(ScalRef, getVF());
+      addVPValueWideRefMapping(VPInst, WideRef);
+      addVPValueScalRefMapping(VPInst, ScalRef, 0);
+      return;
+    }
+
+    // For generating step values for induction step initailization
+    // we expect: step * VF
+    unsigned Opc = IndInitStep->getBinOpcode();
+    bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                  Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                  Opc == Instruction::FDiv;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    auto *StartVal = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    RegDDRef *MulVF = StartVal;
+    HLInst *MulInst = nullptr;
+    assert(!isMult && "Mutiplication induction is not supported.");
+    (void)isMult;
+    RegDDRef *VFVal = nullptr;
+    if (IsFloat) {
+      VFVal = DDRefUtilities.createConstDDRef(VPInst->getType(), VF);
+      MulInst = HLNodeUtilities.createFPMathBinOp(
+          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFVal,
+          IndInitStep->getFastMathFlags(), "ind.step.init");
+    } else {
+      VFVal = DDRefUtilities.createConstDDRef(StartVal->getSrcType(), VF);
+      MulInst = HLNodeUtilities.createBinaryHLInst(
+          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFVal,
+          "ind.step.init");
+    }
+    addInstUnmasked(MulInst);
+    MulVF = MulInst->getLvalDDRef()->clone();
+    auto *WideRef = widenRef(MulVF, VF);
     addVPValueWideRefMapping(VPInst, WideRef);
-    addVPValueScalRefMapping(VPInst, ScalRef, 0);
+    addVPValueScalRefMapping(VPInst, MulVF, 0);
     return;
   }
 
@@ -4170,15 +4205,73 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // vector loops, so we need to generate a scalar copy of the value for 0th
     // lane.
 
+    const VPInductionInit *IndInit = cast<VPInductionInit>(VPInst);
     // Ignore induction-inits where start value is 0 since that is the default
     // lower bound we use while emitting a HLLoop.
-    if (auto *ConstInit = dyn_cast<VPConstant>(VPInst->getOperand(0))) {
-      if (ConstInit->getConstant()->isZeroValue())
-        return;
+    auto *ConstStart = dyn_cast<VPConstant>(IndInit->getOperand(0));
+    if (IndInit->isMainLoopIV() && ConstStart) {
+      assert(ConstStart->getConstant()->isZeroValue() &&
+             "Expected 0 as Start for main loop IV.");
+      return;
     }
 
-    auto *ScalRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
-    addVPValueScalRefMapping(VPInst, ScalRef, 0);
+    auto *StartVal = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    auto *VectorStart = widenRef(StartVal, VF);
+    // For generating step values for induction initailization we expect
+    // following -
+    // < 0, step, 2*step, 3*step> for +/- (or)
+    // < 1, step, step^2, step^3> for */div
+    auto *StepVal = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+
+    unsigned Opc = IndInit->getBinOpcode();
+    bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                  Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                  Opc == Instruction::FDiv;
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    int StartConst = isMult ? 1 : 0;
+    Constant *StartCoeff =
+        IsFloat ? ConstantFP::get(VPInst->getType(), StartConst)
+                : ConstantInt::get(StepVal->getSrcType(), StartConst);
+    RegDDRef *VectorStep;
+    assert(!isMult && "Mutiplication induction is not supported.");
+    // Generate sequence of vector operations:
+    // %i_seq = {0, 1, 2, 3, ...VF-1}
+    // %bcst_step = broadcast step
+    // %vector_step = mul %i_seq, %bcst_step
+    SmallVector<Constant *, 32> IndStep;
+    IndStep.push_back(StartCoeff);
+    for (unsigned I = 1; I < VF; I++) {
+      Constant *ConstVal =
+          IsFloat ? ConstantFP::get(VPInst->getType(), I)
+                  : ConstantInt::getSigned(StepVal->getSrcType(), I);
+      IndStep.push_back(ConstVal);
+    }
+    RegDDRef *VecConst =
+        DDRefUtilities.createConstDDRef(ConstantVector::get(IndStep));
+    RegDDRef *WidenStep = widenRef(StepVal, VF);
+    int64_t StepConst;
+    if (StepVal->isIntConstant(&StepConst) && StepConst == 1) {
+      VectorStep = VecConst;
+    } else {
+      HLInst *VectorStepInst = nullptr;
+      if (IsFloat) {
+        VectorStepInst = HLNodeUtilities.createFPMathBinOp(
+            static_cast<Instruction::BinaryOps>(Instruction::FMul), WidenStep,
+            VecConst, VPInst->getFastMathFlags(), "ind.vec.step");
+      } else {
+        VectorStepInst = HLNodeUtilities.createBinaryHLInst(
+            static_cast<Instruction::BinaryOps>(Instruction::Mul), WidenStep,
+            VecConst, "ind.vec.step");
+      }
+      addInstUnmasked(VectorStepInst);
+      VectorStep = VectorStepInst->getLvalDDRef()->clone();
+    }
+    HLInst *RetInst = HLNodeUtilities.createBinaryHLInst(
+        static_cast<Instruction::BinaryOps>(Opc), VectorStart, VectorStep);
+    addInstUnmasked(RetInst);
+
+    addVPValueWideRefMapping(VPInst, RetInst->getLvalDDRef()->clone());
+    addVPValueScalRefMapping(VPInst, StartVal, 0);
     return;
   }
 
@@ -4188,48 +4281,100 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // CFG merger.
       return;
     }
-    // Get upper bound of the loop that is preceding to the parent of the
-    // instruction.
-    VPLoop *L = nullptr;
-    VPBasicBlock *VPIndFinalBB =
-        *VPInst->getParent()->getPredecessors().begin();
-    L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
-    while (!L) {
-      VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
-      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
-    }
-    HLLoop *VecLoop = VPLoopHLLoopMap[L];
-    RegDDRef *UBRef = VecLoop->getUpperDDRef()->clone();
-    auto *UBCanonExpr = UBRef->getSingleCanonExpr();
-
-    // Add 1 to the upper bound.
-    // We exploit here the fact that we don't have inductions other than the
-    // main induction. Its last value is equal to the loop upper bound.
-    // TODO: account starting value and stride for other inductions.
-#if !defined(NDEBUG)
-    VPConstantInt *StartV = dyn_cast<VPConstantInt>(
-        cast<VPInductionFinal>(VPInst)->getInitOperand());
-    VPConstantInt *StepV = dyn_cast<VPConstantInt>(
-        cast<VPInductionFinal>(VPInst)->getStepOperand());
-    assert((StartV && StartV->getConstantInt()->isZero() && StepV &&
-            StepV->getConstantInt()->isOne()) &&
-           "unexpected induction final");
-#endif
-    if (!UBCanonExpr->isIntConstant()) {
-      // Drop linearity - we don't need it here, more over that leads to
-      // verification errors due to it might have definedAtLevel set to the
-      // value which is incorrect to be used here.
-      UBCanonExpr->setNonLinear();
-      HLInst *AddInst = HLNodeUtilities.createAdd(
-          UBRef, DDRefUtilities.createConstDDRef(UBRef->getDestType(), 1),
-          "ind.final");
-      addInstUnmasked(AddInst);
-      UBRef = AddInst->getLvalDDRef()->clone();
-      UBRef->getSingleCanonExpr()->setNonLinear();
+    RegDDRef *LastValue = nullptr;
+    if (VPInst->getNumOperands() == 1) {
+      // One operand - extract from vector
+      RegDDRef *VecVal = widenRef(VPInst->getOperand(0), VF);
+      HLInst *LastValueExtract = HLNodeUtilities.createExtractElementInst(
+          VecVal, getVF() - 1, "extracted.lval");
+      addInstUnmasked(LastValueExtract);
+      LastValue = LastValueExtract->getLvalDDRef()->clone();
     } else {
-      UBCanonExpr->addConstant(1, true);
+      // Otherwise calculate by formulas
+      //  for post increment liveouts LV = start + step*upper_bound,
+      //  for pre increment liveouts LV = start + step*(upper_bound-1)
+      //
+      assert(VPInst->getNumOperands() == 2 && "Incorrect number of operands");
+      const VPInductionFinal *IndFini = cast<VPInductionFinal>(VPInst);
+      unsigned Opc = IndFini->getBinOpcode();
+      assert(!(Opc == Instruction::Mul || Opc == Instruction::FMul ||
+               Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+               Opc == Instruction::FDiv) &&
+             "Unsupported induction final form");
+
+      bool IsFloat = IndFini->getType()->isFloatingPointTy();
+      auto *Step = getOrCreateScalarRef(IndFini->getOperand(1), 0);
+      auto *Start = getOrCreateScalarRef(IndFini->getOperand(0), 0);
+
+      unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+
+      // Get the latch comparison of the loop. We know that
+      // VPInductionFinal is created in the loop exit so get its parent
+      // predecessor to find a loop. The upper bound of the loop is used in the
+      // latch comparison (this is ensured either by the check for normalized IV
+      // or by emission of the new IV).
+      VPLoop *L = nullptr;
+      VPBasicBlock *VPIndFinalBB =
+          *IndFini->getParent()->getPredecessors().begin();
+      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+      while (!L) {
+        VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
+        L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+      }
+      bool ExactUB = L->exactUB();
+      VPCmpInst *Cond = L->getLatchComparison();
+      HLInst *TripInst = nullptr;
+      assert(Cond && "Latch comparison is expected.");
+      VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
+                                 ? Cond->getOperand(0)
+                                 : Cond->getOperand(1);
+      RegDDRef *TripCnt = getOrCreateScalarRef(VPTripCount, 0);
+      int64_t TripCntConst, StartConst, StepConst;
+      if (TripCnt->isIntConstant(&TripCntConst) &&
+          Start->isIntConstant(&StartConst) &&
+          Step->isIntConstant(&StepConst)) {
+        if (IndFini->isLastValPreIncrement())
+          TripCntConst -= 1;
+        if (!ExactUB)
+          TripCntConst += 1;
+        int64_t LastValueConst = StartConst + StepConst * TripCntConst;
+        LastValue = DDRefUtilities.createConstDDRef(Start->getSrcType(),
+                                                    LastValueConst);
+      } else {
+        RegDDRef *ConstOne =
+            DDRefUtilities.createConstDDRef(TripCnt->getSrcType(), 1);
+        if (IndFini->isLastValPreIncrement()) {
+          TripInst = HLNodeUtilities.createSub(TripCnt, ConstOne, "sub.tripcnt",
+                                               TripCnt);
+          addInstUnmasked(TripInst);
+        }
+        if (!ExactUB) {
+          TripInst = HLNodeUtilities.createAdd(TripCnt, ConstOne, "add.tripcnt",
+                                               TripCnt);
+          addInstUnmasked(TripInst);
+        }
+        assert(TripCnt->getSrcType() == Step->getSrcType() &&
+               "Trip count type must be equal to step type.");
+        RegDDRef *MulRef;
+        if (Step->isIntConstant(&StepConst) && StepConst == 1) {
+          MulRef = TripCnt;
+        } else {
+          HLInst *MulInst = HLNodeUtilities.createBinaryHLInst(
+              static_cast<Instruction::BinaryOps>(StepOpc), Step, TripCnt);
+          addInstUnmasked(MulInst);
+          MulRef = MulInst->getLvalDDRef()->clone();
+        }
+        assert(!VPInst->getType()->isPointerTy() &&
+               "Pointer type is not supported.");
+        HLInst *LastValInst = HLNodeUtilities.createBinaryHLInst(
+            static_cast<Instruction::BinaryOps>(Opc), Start, MulRef,
+            "ind.final");
+        addInstUnmasked(LastValInst);
+        LastValue = LastValInst->getLvalDDRef()->clone();
+      }
     }
-    addVPValueScalRefMapping(VPInst, UBRef, 0);
+    // The value is scalar
+    addVPValueScalRefMapping(VPInst, LastValue, 0);
     return;
   }
 
@@ -6835,6 +6980,8 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         continue;
 
       auto *IndInit = cast<VPInductionInit>(&Inst);
+      if (isMergedCFG() && !IndInit->isMainLoopIV())
+        continue;
       if (LoopIVCaptured)
         report_fatal_error(
             "HIR is expected to have only one loop induction variable.");

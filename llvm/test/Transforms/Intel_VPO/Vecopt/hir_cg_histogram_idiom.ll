@@ -17,9 +17,9 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               + DO i1 = {{.*}}, 1026, 1   <DO_LOOP>
-; CHECK-NEXT:          |   %0 = (%B)[i1];
-; CHECK-NEXT:          |   %add = (%A)[%0]  +  2.000000e+00;
-; CHECK-NEXT:          |   (%A)[%0] = %add;
+; CHECK-NEXT:          |   [[TMP0:%.*]] = (%B)[i1];
+; CHECK-NEXT:          |   %add = (%A)[[[TMP0]]]  +  2.000000e+00;
+; CHECK-NEXT:          |   (%A)[[[TMP0]]] = %add;
 ; CHECK-NEXT:          + END LOOP
 ; CHECK:         END REGION
 

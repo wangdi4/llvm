@@ -52,7 +52,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    Linked values: float [[VP5:%.*]], float [[VP4]], float [[VP6:%.*]], float [[VP_RED_INIT:%.*]], float [[VP_RED_FINAL:%.*]],
 ; CHECK:       Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP7:%.*]] = add i64 [[VP8:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP8]], i64 [[VP7]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP8]], i64 [[VP7]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:

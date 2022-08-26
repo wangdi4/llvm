@@ -1388,6 +1388,7 @@ public:
   void setInductionOp(VPInstruction *V) { InductionOp = V; }
   void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
+  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
 
   // Get InductionKind and default induction opcode for the data type \p IndTy.
   static std::pair<unsigned, InductionKind>
@@ -1467,7 +1468,7 @@ private:
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
   unsigned IndOpcode = Instruction::BinaryOpsEnd;
-  bool IsExplicitInduction = false; // TODO: unpopulated
+  bool IsExplicitInduction = false;
 };
 
 /// Intermediate private descriptor. Same as ReductionDescr above but for

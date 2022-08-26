@@ -11,7 +11,7 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 -2147483648 BinOp: i32 [[VP_ADD3:%.*]] = add i32 [[VP_STOREMERGE10:%.*]] i32 [[VP_STOREMERGE10_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP_STOREMERGE10]], i32 [[VP_ADD3]], i32 [[VP_STOREMERGE10_IND_INIT:%.*]], i32 [[VP_STOREMERGE10_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP_STOREMERGE10]], i32 [[VP_ADD3]], i32 [[VP_STOREMERGE10_IND_INIT:%.*]], i32 [[VP_STOREMERGE10_IND_INIT_STEP]], i32 [[VP_STOREMERGE10_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory

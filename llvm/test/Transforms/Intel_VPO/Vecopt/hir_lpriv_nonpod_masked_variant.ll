@@ -7,12 +7,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local noundef i32 @_Z3foov() local_unnamed_addr {
-; CHECK:               %1 = bitcast.<2 x i1>.i2(%.vec21);
-; CHECK-NEXT:          %cmp25 = %1 == 0;
+; CHECK:               %2 = bitcast.<2 x i1>.i2(%.vec21);
+; CHECK-NEXT:          %cmp25 = %2 == 0;
 ; CHECK-NEXT:          %all.zero.check26 = %cmp25;
 ; CHECK-NEXT:          if (%cmp25 == 1)
 ; CHECK-NEXT:          {
-; CHECK-NEXT:             goto BB19.90;
+; CHECK-NEXT:             goto BB19.91;
 ; CHECK-NEXT:          }
 ; CHECK-NEXT:          %bsfintmask = bitcast.<2 x i1>.i2(%.vec21);
 ; CHECK-NEXT:          %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
@@ -22,7 +22,7 @@ define dso_local noundef i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:          @_ZTS3str.omp.destr(&((%struct.str*)(%priv.mem13)[0]));
 ; CHECK-NEXT:          %extract.1.27 = extractelement &((<2 x %struct.str*>)(%priv.mem.bc14)[<i32 0, i32 1>]),  1;
 ; CHECK-NEXT:          @_ZTS3str.omp.destr(%extract.1.27);
-; CHECK-NEXT:          BB19.90:
+; CHECK-NEXT:          BB19.91:
 ; CHECK-NEXT:          %phi.temp10 = 9999;
 ; CHECK-NEXT:          final.merge.58:
 ;

@@ -196,12 +196,28 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
 }
 
 void VPLiveInOutCreator::addOriginalLiveInOut(
-    const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *,
+    const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *E,
     VPExtUseList &ExtUseList, ScalarInOutListHIR &ScalarInOuts) {
   // External use w/o underlying operand is created only for main loop IV.
   // TODO: Is this valid?
   for (auto ExtUse : ExtUseList) {
     bool IsMainLoopIV = !ExtUse->hasUnderlying();
+    // Carry over knowledge of MainLoopIV
+    // to explicit VPInstructions in CFG.
+    if (auto *Ind = dyn_cast<VPInduction>(E)) {
+      VPInductionInit *Init = nullptr;
+      VPInductionInitStep *InitStep = nullptr;
+      for (VPValue *Val : Ind->getLinkedVPValues()) {
+        if (!Init)
+          Init = dyn_cast<VPInductionInit>(Val);
+        if (!InitStep)
+          InitStep = dyn_cast<VPInductionInitStep>(Val);
+      }
+      assert((Init && InitStep) &&
+             "Expected non-null init and init-step for every induction.");
+      Init->setIsMainLoopIV(IsMainLoopIV);
+      InitStep->setIsMainLoopIV(IsMainLoopIV);
+    }
     // For a given VPEntity a single temp is expected to be live-in, live-out or
     // both. We rely purely on VPExternalUse here to capture the temp associated
     // with current loop entity. For main loop IV we track only the final value
@@ -235,14 +251,27 @@ void VPLiveInOutCreator::createInOutsInductions(
         getInitFinal<VPInductionInit, VPInductionFinal, VPInduction>(
             Ind, IndFinalExternalUse);
     assert((IndInit && IndFinal) && "Expected non-null init, final");
-    bool NeedAddExtUse = IndFinalExternalUse.empty();
+    VPValue *StartV = IndInit->getStartValueOperand();
+    bool ExtUseAdded = false;
     // Inductions should always have outgoing value
-    if (NeedAddExtUse) {
-      auto ExtUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
-      ExtUse->addOperand(IndFinal);
-      IndFinalExternalUse.push_back(ExtUse);
+    if (IndFinalExternalUse.empty()) {
+      if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
+        if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
+          auto ExtUse =
+              ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
+          ExtUse->addOperand(IndFinal);
+          IndFinalExternalUse.push_back(ExtUse);
+        }
+      if (IndFinalExternalUse.empty()) {
+        // That means we have a constant start value. Should be main loop IV,
+        // create ExternalUse without underlying IR.
+        auto ExtUse = ExtVals.createVPExternalUseNoIR(IndInit->getType());
+        ExtUse->addOperand(IndFinal);
+        IndFinalExternalUse.push_back(ExtUse);
+      }
+      ExtUseAdded = true;
     }
-    addInOutValues(IndInit, IndFinal, IndFinalExternalUse, NeedAddExtUse,
+    addInOutValues(IndInit, IndFinal, IndFinalExternalUse, ExtUseAdded,
                    IndInit->getStartValueOperand());
     addOriginalLiveInOut(VPLEntityList, OrigLoop, Ind, IndFinalExternalUse,
                          ScalarInOuts);

@@ -23,7 +23,7 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-NEXT:           |   ([[A0]])[i1] = ([[ADD0]] /u -2)
 ; CHECK-NEXT:           + END LOOP
 ; CHECK:                [[PHI_TEMP260:%.*]] = [[T0]] + -1
-; CHECK-NEXT:           final.merge.96:
+; CHECK-NEXT:           final.merge.{{.*}}:
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        else
 ; CHECK-NEXT:        {
@@ -38,7 +38,7 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-NEXT:           |   [[ADD0:%.*]] = i1  +  -3
 ; CHECK-NEXT:           + END LOOP
 ; CHECK:                [[PHI_TEMP660:%.*]] = [[T0]] + -1
-; CHECK-NEXT:           final.merge.181:
+; CHECK-NEXT:           final.merge.{{.*}}:
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:  END REGION
 ;

@@ -12,23 +12,23 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: i64* [[K_IV_B0:%.*]] Step: i64 2 StartVal: ? EndVal: ? BinOp: i64* [[VP_K_IV_NEXT:%.*]] = phi  [ i64* [[VP_K_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ i64* [[VP_K_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: i64* [[VP_K_IV:%.*]], i64* [[VP_K_IV_NEXT]], i64* [[VP_K_IV_IND_INIT:%.*]], i64* [[VP1:%.*]], i64* [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64* [[VP_K_IV:%.*]], i64* [[VP_K_IV_NEXT]], i64* [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP:%.*]], i64* [[VP1:%.*]], i64* [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   PtrInduction(+) Start: i32* [[K1_IV_B0:%.*]] Step: i64 1 StartVal: ? EndVal: ? BinOp: i32* [[VP_K1_IV_NEXT:%.*]] = phi  [ i32* [[VP_K1_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ i32* [[VP_K1_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
-; CHECK-NEXT:    Linked values: i32* [[VP_K1_IV:%.*]], i32* [[VP_K1_IV_NEXT]], i32* [[VP_K1_IV_IND_INIT:%.*]], i32* [[VP2:%.*]], i32* [[VP_K1_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32* [[VP_K1_IV:%.*]], i32* [[VP_K1_IV_NEXT]], i32* [[VP_K1_IV_IND_INIT:%.*]], i64 [[VP_K1_IV_IND_INIT_STEP:%.*]], i32* [[VP2:%.*]], i32* [[VP_K1_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64* [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} i64* [[K_IV_B0]] i64 2
-; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 2
+; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 2
 ; CHECK-NEXT:     i32* [[VP_K1_IV_IND_INIT]] = induction-init{getelementptr} i32* [[K1_IV_B0]] i64 1
-; CHECK-NEXT:     i64 [[VP_K1_IV_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT:     i64 [[VP_K1_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB4]], [[BB5:BB[0-9]+]]

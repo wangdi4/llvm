@@ -33,7 +33,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP6:%.*]] = add i32 [[VP7:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP6]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP6]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_INIT_STEP]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:    [[BB1:BB[0-9]+]]:
 ; CHECK:    [[BB2:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[UB_INC:%.*]] = add i32 [[VPMPLUS]] i32 1
@@ -79,10 +79,10 @@
 ;CG_ENABLE-NEXT:          %[[val025:.*]] = extractelement %.[[vec8:.*]],  %bsf;
 ;CG_ENABLE:            }
 ;CG_ENABLE:            + DO i1 = {{.*}}, %m + -1, 1   <DO_LOOP>
-;CG_ENABLE-NEXT:       |   %0 = (%ordering)[i1];
-;CG_ENABLE-NEXT:       |   %[[tmp024]] = (%0 > %[[best023]]) ? i1 : %[[tmp024]];
-;CG_ENABLE-NEXT:       |   %[[val025]] = (%0 > %[[best023]]) ? %0 + 2 : %[[val025]];
-;CG_ENABLE-NEXT:       |   %[[best023]] = (%0 > %[[best023]]) ? %0 : %[[best023]];
+;CG_ENABLE-NEXT:       |   [[TMP0:%.*]] = (%ordering)[i1];
+;CG_ENABLE-NEXT:       |   %[[tmp024]] = ([[TMP0]] > %[[best023]]) ? i1 : %[[tmp024]];
+;CG_ENABLE-NEXT:       |   %[[val025]] = ([[TMP0]] > %[[best023]]) ? [[TMP0]] + 2 : %[[val025]];
+;CG_ENABLE-NEXT:       |   %[[best023]] = ([[TMP0]] > %[[best023]]) ? [[TMP0]] : %[[best023]];
 ;CG_ENABLE-NEXT:       + END LOOP
 ;CG_ENABLE:      END REGION
 

@@ -19,7 +19,7 @@ define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noalias %intOut) local_u
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 16 BinOp: i32 [[VP_INDVAR:%.*]] = add i32 [[VP_INDEX:%.*]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP_INDEX]], i32 [[VP_INDVAR]], i32 [[VP_INDEX_IND_INIT:%.*]], i32 [[VP_INDEX_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP_INDEX]], i32 [[VP_INDVAR]], i32 [[VP_INDEX_IND_INIT:%.*]], i32 [[VP_INDEX_IND_INIT_STEP]], i32 [[VP_INDEX_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i32 [[VP_COND:%.*]] = zext i1 [[VP_TOBOOL_NOT:%.*]] to i32
