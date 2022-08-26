@@ -172,6 +172,10 @@ static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
 
 static cl::opt<bool> RewriteOpenCLBuiltins("infer-as-rewrite-opencl-bis",
                                            cl::init(false));
+
+static cl::opt<bool> UpdateDbgVarIntrinsic("infer-as-update-dbg-var-intrin",
+                                           cl::init(true));
+
 #endif // INTEL_COLLAB
 
 namespace {
@@ -1526,7 +1530,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 
 #if INTEL_COLLAB
     // Update debug variable intrinsics with the value change.
-    if (V->isUsedByMetadata()) {
+    if (UpdateDbgVarIntrinsic && V->isUsedByMetadata()) {
       if (auto *VAMD = ValueAsMetadata::getIfExists(V)) {
         if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
           ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);

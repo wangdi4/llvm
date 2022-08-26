@@ -127,6 +127,14 @@ static cl::opt<bool> PHICSEDebugHash(
     cl::desc("Perform extra assertion checking to verify that PHINodes's hash "
              "function is well-behaved w.r.t. its isEqual predicate"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> SalvageAddrSpaceCastDbgInfo(
+    "salvage-addrspacecast-dbginfo", cl::init(true), cl::Hidden,
+    cl::desc("Salvage the debug information value looking through address "
+             "space cast inst."));
+
+#endif
+
 static cl::opt<unsigned> PHICSENumPHISmallSize(
     "phicse-num-phi-smallsize", cl::init(32), cl::Hidden,
     cl::desc(
@@ -1966,7 +1974,7 @@ Value *llvm::salvageDebugInfoImpl(Instruction &I, uint64_t CurrentLocOps,
     // LLVM does not currently support encoding DWARF address space opcodes
     // into DIExpression. But for cases where the address space is flat
     // we can still salvage the debug information value.
-    if (isa<AddrSpaceCastInst>(CI))
+    if (SalvageAddrSpaceCastDbgInfo && isa<AddrSpaceCastInst>(CI))
       return FromValue;
 #endif // INTEL_CUSTOMIZATION
 
