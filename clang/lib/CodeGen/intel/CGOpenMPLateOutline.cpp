@@ -1028,7 +1028,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
       // scalar variables so they will become firstprivate instead.
       if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
           VD->hasGlobalStorage() &&
-          CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap)
+          !CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultMap)
         emitImplicit(VD, ICK_livein);
       else if (Directive.getDirectiveKind() == OMPD_target &&
                (!VD->getType()->isScalarType() ||
