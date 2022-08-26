@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.0.0 -std=c++11 -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc19.0.0 -std=c++11 -emit-llvm -o - %s | FileCheck %s
 
 // This code used to cause an assertion failure in EmitDelegateCallArg.
 
