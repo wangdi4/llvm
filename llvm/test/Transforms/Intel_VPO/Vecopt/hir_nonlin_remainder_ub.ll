@@ -34,10 +34,10 @@ define void @bas_geobas_build_(i1 %c1, i64* %p1, i64 %N) local_unnamed_addr #1 {
 ; skipping body
 ; CHECK:             |   + END LOOP
 ;
-; CHECK:             |   [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             |   [[IND_FINAL0:%.*]] = 0 + [[TMP0:%.*]]
 ; CHECK:             |   + DO i64 i2 = [[PHI_TEMP0:%.*]], [[LOOP_UB90:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK-NEXT:        |   | <RVAL-REG> LINEAR i64 %phi.temp{def@1} {sb:17}
-; CHECK-NEXT:        |   | <RVAL-REG> LINEAR i64 %loop.ub9{def@1} {sb:28}
+; CHECK-NEXT:        |   | <RVAL-REG> LINEAR i64 %loop.ub9{def@1} {sb:29}
 ; skipping body
 ; CHECK:             |   + END LOOP
 ;

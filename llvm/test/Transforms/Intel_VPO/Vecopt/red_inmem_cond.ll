@@ -34,6 +34,7 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-DAG:     [[VP0:%.*]] = {%r.red}
 ; HIR-DAG:     [[VP1:%.*]] = {%n + -1}
 ; HIR-DAG:     [[VP2:%.*]] = {%a}
+; HIR-DAG:     [[VPn:%.*]] = {%k.linear.iv}
 ; HIR-NEXT:  External Defs End:
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
@@ -96,7 +97,7 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i32 [[VP_INC:%.*]] = add i32 [[VP0:%.*]] i32 1

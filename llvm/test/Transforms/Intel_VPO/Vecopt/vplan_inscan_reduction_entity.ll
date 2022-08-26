@@ -26,6 +26,13 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    inscan ReductionKind: inclusive
 ; CHECK-NEXT:   Memory: float* [[X_RED0]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:  Induction list
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:    Linked values:
+; CHECK-EMPTY:
+; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:%.*]] Step: i32 1 StartVal: ? EndVal: ? need close form
+; CHECK-NEXT:    Linked values:
+; CHECK-NEXT:   Memory: i32* [[I_LINEAR_IV0:%.*]]
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]]
 ; CHECK:          [DA: Div, SVA: (FV )] float* [[VP_X_RED:%.*]] = allocate-priv float*, OrigAlign = 4 (SVAOpBits )
 ; CHECK:          [DA: Uni, SVA: (F  )] float [[VP_LOAD:%.*]] = load float* [[X_RED0]] (SVAOpBits 0->F )
@@ -33,12 +40,12 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:          [DA: Uni, SVA: (F  )] br [[BB0:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP_INSCAN_ACCUM:%.*]] = phi  [ float [[VP_X_REDINSCAN_RED_INIT]], [[BB2]] ],  [ float [[VP3:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = phi  [ i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]], [[BB2]] ],  [ i32 [[VP5:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP4]] i32* [[VP_I_LINEAR_IV:%.*]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float 0.000000e+00 float* [[VP_X_RED]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0]] i32* [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP6:%.*]] = load float* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
@@ -66,7 +73,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_IDXPROM6:%.*]] = sext i32 [[VP9]] to i64 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds float* [[B0:%.*]] i64 [[VP_IDXPROM6]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP8]] float* [[VP_ARRAYIDX7]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP5]] = add i32 [[VP4]] i32 [[VP_I_LINEAR_IV_IND_INIT_STEP:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB0]] (SVAOpBits 0->F 1->F 2->F )

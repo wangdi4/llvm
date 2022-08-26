@@ -13,9 +13,9 @@
 ; CHECK-NEXT:                 %[[indmax017:.*]] = @llvm.vector.reduce.smin.v4i64(%[[idxblend]]);
 ; CHECK:                   }
 ; CHECK:                   + DO i1 = {{.*}}, zext.i32.i64(%n) + -2, 1   <DO_LOOP>
-; CHECK-NEXT:              |   %1 = (%x)[i1 + 1];
-; CHECK-NEXT:              |   %[[indmax017]] = (%1 > %[[max018]]) ? i1 + 1 : %[[indmax017]];
-; CHECK-NEXT:              |   %[[max018]] = (%1 > %[[max018]]) ? %1 : %[[max018]];
+; CHECK-NEXT:              |   [[TMP:%.*]] = (%x)[i1 + 1];
+; CHECK-NEXT:              |   %[[indmax017]] = ([[TMP]] > %[[max018]]) ? i1 + 1 : %[[indmax017]];
+; CHECK-NEXT:              |   %[[max018]] = ([[TMP]] > %[[max018]]) ? [[TMP]] : %[[max018]];
 ; CHECK-NEXT:              + END LOOP
 ; CHECK:             END REGION
 ;

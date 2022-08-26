@@ -53,7 +53,7 @@
 ; CHECK:        |      |   (<4 x i64>*)([[TMP0]])[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:        |      + END LOOP
 ; CHECK:        |
-; CHECK:        |      [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:        |      [[IND_FINAL0:%.*]] = 0 + [[VEC_TC30]]
 ; CHECK:        |      [[DOTVEC40:%.*]] = [[TMP1]] == [[VEC_TC30]]
 ; CHECK:        |      <LVAL-REG> NON-LINEAR <4 x i1> [[DOTVEC40]] {sb:31}
 ; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[TMP1]] {sb:9}

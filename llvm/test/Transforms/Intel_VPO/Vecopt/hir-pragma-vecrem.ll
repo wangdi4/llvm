@@ -67,7 +67,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        |   [[PHI_TEMP130]] = [[DOTVEC160]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[S_090]] = @llvm.vector.reduce.add.v16i32([[DOTVEC160]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = 0 + [[VEC_TC120]]
 ; CHECK-NEXT:        [[TGU180:%.*]] = [[N0]]  /u  4
 ; CHECK-NEXT:        [[VEC_TC190:%.*]] = [[TGU180]]  *  4
 ; CHECK-NEXT:        [[DOTVEC200:%.*]] = [[VEC_TC190]] == [[VEC_TC120]]
@@ -85,6 +85,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        [[VEC_TC290:%.*]] = [[TGU280]]  *  4
 ; CHECK-NEXT:        [[RED_INIT300:%.*]] = 0
 ; CHECK-NEXT:        [[RED_INIT_INSERT310:%.*]] = insertelement [[RED_INIT300]],  [[PHI_TEMP60]],  0
+; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP80]] + <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:        [[PHI_TEMP320:%.*]] = [[RED_INIT_INSERT310]]
 ; CHECK-NEXT:        [[LOOP_UB340:%.*]] = [[VEC_TC290]]  -  1
 ; CHECK:             + DO i1 = [[PHI_TEMP80]], [[LOOP_UB340]], 4   <DO_LOOP>  <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <nounroll> <novectorize> <max_trip_count = 4>
@@ -93,7 +94,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC360]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[S_090]] = @llvm.vector.reduce.add.v4i32([[DOTVEC360]])
-; CHECK-NEXT:        [[IND_FINAL390:%.*]] = [[LOOP_UB340]]  +  1
+; CHECK-NEXT:        [[IND_FINAL390:%.*]] = 0 + [[VEC_TC290]]
 ; CHECK-NEXT:        [[PHI_TEMP230]] = [[S_090]]
 ; CHECK-NEXT:        [[PHI_TEMP250]] = [[IND_FINAL390]]
 ; CHECK-NEXT:        [[MERGE_BLK2]].66:
@@ -107,7 +108,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        [[EXTRACT_0_510:%.*]] = extractelement [[DOTVEC440]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_510]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto final.merge.103
+; CHECK-NEXT:           goto final.merge.104
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].23:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP10]]
@@ -118,7 +119,7 @@ define dso_local noundef i32 @_Z3fooPiii(i32* noalias nocapture noundef readonly
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[PHI_TEMP470]] = [[S_090]]
 ; CHECK-NEXT:        [[PHI_TEMP490]] = [[N0]] + -1
-; CHECK-NEXT:        final.merge.103:
+; CHECK-NEXT:        final.merge.104:
 ; CHECK-NEXT:  END REGION
 ;
 entry:

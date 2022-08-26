@@ -1486,34 +1486,64 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
-    // TODO: for opaque pointers we may need to pull type information down
-    // through the legality checker.
-    Type *IndTy = CurrValue.getRef()->getDestType();
-    const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
-    Descriptor.setStartPhi(
-        dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
+    const auto *Linear = cast<RegDDRef>(CurrValue.getRef());
+    Type *IndTy = CurrValue.LinearTy;
+    // Save data type and find opcode for the induction.
+    // Based on data type it is either Add, FAdd or GEP.
     Descriptor.setKindAndOpcodeFromTy(IndTy);
-    Descriptor.setStart(Descriptor.getStartPhi());
+
+    for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
+      auto *VPInst =
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst));
+      assert(VPInst && "Instruction updating reduction descriptor is invalid.");
+      Descriptor.addUpdateVPInst(VPInst);
+    }
+
+    if (auto *Alias =
+            cast_or_null<DescrWithInitValue<DDRef>>(
+                CurrValue.getValidAlias())) {
+      SmallVector<VPInstruction *, 2> AliasUpdates;
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      VPValue *AliasInit =
+          Decomposer.getVPExternalDefForDDRef(Alias->getInitValue());
+      Descriptor.setAlias(AliasInit, AliasUpdates);
+    }
+
+    // Set start value of descriptor (can be null)
+    if (const loopopt::DDRef *DDR = CurrValue.getInitValue())
+      Descriptor.setStart(Decomposer.getVPExternalDefForDDRef(DDR));
+    else
+      Descriptor.setStart(nullptr);
+
     int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
-    Constant *Cstep = nullptr;
     if (IndTy->isPointerTy()) {
-      Type *PointerElementType = IndTy->getPointerElementType();
-      // The pointer stride cannot be determined if the pointer element type is
-      // not sized.
-      assert(PointerElementType->isSized() &&
-             "Can't determine size of pointed-to type");
-      const DataLayout &DL =
-          CurrValue.getRef()->getDDRefUtils().getDataLayout();
-      int64_t Size =
-          static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
-      assert(Size && "Can't determine size of pointed-to type");
-      Type *IntTy = DL.getIntPtrType(IndTy);
-      Cstep = ConstantInt::get(IntTy, Stride * Size);
-    } else
-      Cstep = ConstantInt::get(IndTy, Stride);
-    Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
-    Descriptor.setInductionOp(nullptr);
-    Descriptor.setAllocaInst(Descriptor.getStart());
+      const DataLayout &DL = Linear->getDDRefUtils().getDataLayout();
+      if (IndTy->isOpaquePointerTy()) {
+        Type *PointerElementType = CurrValue.PointeeTy;
+        // The pointer stride can only be determined if the pointer element type
+        // is sized.
+        assert(PointerElementType->isSized() &&
+               "Can't determine size of pointed-to type");
+        int64_t Size =
+            static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
+        assert(Size > 0 && "Can't determine size of pointed-to type");
+        Stride = Stride * Size;
+      }
+      IndTy = DL.getIntPtrType(IndTy);
+    }
+    Descriptor.setStep(
+        Decomposer.getVPValueForConst(ConstantInt::get(IndTy, Stride)));
+
+    const DDRef *BasePtrRef = Linear->getBlobDDRef(Linear->getBasePtrBlobIndex());
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setIsExplicitInduction(true);
+    // The remaining fields to be determined later during VPInduction entity
+    // creation and based on analysis of information in the Descriptor.
+    Descriptor.setStartPhi(/*VPInstruction**/ nullptr);
+    Descriptor.setInductionOp(/*VPInstruction**/ nullptr);
   }
 };
 
@@ -1820,8 +1850,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
       // TODO: ArrayRef-based empty slice here serves as a stub because
       // LinearListCvt is not working correctly. Fix it when the converter
       // is fixed.
-      Bind(makeArrayRef(Legal->getLinears()).take_front(0),
-           LinearListCvt{Decomposer}));
+      Bind(Legal->getLinears(), LinearListCvt{Decomposer}));
 
     PrivCvt->createDescrList(HL,
       Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));

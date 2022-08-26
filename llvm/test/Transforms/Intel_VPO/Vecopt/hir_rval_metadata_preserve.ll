@@ -13,7 +13,7 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   [[DOTVEC0:%.*]] = (<4 x double>*)([[NSBGEPCOPY10]])[0][%18 + -1][i1]
 ; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x double> [[DOTVEC0]]
-; CHECK-NEXT:  |   <RVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR double* [[NSBGEPCOPY10]])[i64 0][LINEAR i64 [[TMP18:%.*]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
+; CHECK-NEXT:  |   <RVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR double* [[NSBGEPCOPY10]])[i64 0][LINEAR i64 [[TMP18:%.*]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined}
 ; CHECK-NEXT:  |      <BLOB> NON-LINEAR double* [[NSBGEPCOPY10]] 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
 ; CHECK-NEXT:  |

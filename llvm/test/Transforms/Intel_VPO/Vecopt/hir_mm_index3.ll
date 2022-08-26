@@ -26,7 +26,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP5]], i32 [[VP4]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP5]], i32 [[VP4]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_INIT_STEP]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[UB_INC:%.*]] = add i32 [[VPMPLUS]] i32 1
@@ -59,9 +59,9 @@
 ;CGCHECK-NEXT:           %[[tmp024:.*]] = @llvm.vector.reduce.smax.v4i32(%[[idxblend]]);
 ;CGCHECK:             }
 ;CGCHECK:              + DO i1 = {{.*}}, %m + -1, 1   <DO_LOOP>
-;CGCHECK-NEXT:        |   %0 = (%ordering)[i1];
-;CGCHECK-NEXT:        |   %[[tmp024]] = (%0 >= %[[best023]]) ? i1 : %[[tmp024]];
-;CGCHECK-NEXT:        |   %[[best023]] = (%0 >= %[[best023]]) ? %0 : %[[best023]];
+;CGCHECK-NEXT:        |   [[TMP0:%.*]] = (%ordering)[i1];
+;CGCHECK-NEXT:        |   %[[tmp024]] = ([[TMP0]] >= %[[best023]]) ? i1 : %[[tmp024]];
+;CGCHECK-NEXT:        |   %[[best023]] = ([[TMP0]] >= %[[best023]]) ? [[TMP0]] : %[[best023]];
 ;CGCHECK-NEXT:        + END LOOP
 ;CGCHECK:       END REGION
 ;

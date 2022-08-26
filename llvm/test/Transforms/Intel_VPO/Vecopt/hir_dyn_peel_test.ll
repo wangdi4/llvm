@@ -142,6 +142,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:             [[VEC_TC0:%.*]] = [[TGU0]]  *  4
 ; CHECK:             [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
 ; CHECK:             [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
+; CHECK:             [[TMP0:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:             [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
 ; CHECK:             + DO i64 i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
@@ -149,7 +150,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
 ; CHECK:             + END LOOP
 
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[ADJ_TC160]]
 ; CHECK:             [[DOTVEC170:%.*]] = [[N10]] == [[ADJ_TC160]]
 ; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL0]]
 ; CHECK:             [[PHI_TEMP190:%.*]] = [[IND_FINAL0]]

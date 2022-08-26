@@ -2443,6 +2443,8 @@ public:
   // Return lower/upper value ranges for the induction.
   VPValue *getStartVal() const { return StartVal; }
   VPValue *getEndVal() const { return EndVal; }
+  void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
+  bool isMainLoopIV() const { return IsMainLoopIV; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printDetails(raw_ostream &O) const {
@@ -2461,14 +2463,17 @@ public:
 protected:
   // Clones VPinductionInit.
   virtual VPInductionInit *cloneImpl() const final {
-    return new VPInductionInit(getOperand(0), getOperand(1), StartVal,
-                               EndVal, getBinOpcode());
+    auto *IndTmp = new VPInductionInit(getOperand(0), getOperand(1), StartVal,
+                                       EndVal, getBinOpcode());
+    IndTmp->setIsMainLoopIV(IsMainLoopIV);
+    return IndTmp;
   }
 
 private:
   unsigned BinOpcode;
   VPValue *StartVal;
   VPValue *EndVal;
+  bool IsMainLoopIV = false;
 };
 
 // VPInstruction to initialize vector for induction step.
@@ -2483,6 +2488,9 @@ public:
                       {Step}),
         BinOpcode(Opcode) {}
 
+  void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
+  bool isMainLoopIV() const { return IsMainLoopIV; }
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::InductionInitStep;
@@ -2495,13 +2503,16 @@ public:
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
 protected:
-  // Clones VPInductionInistStep.
+  // Clones VPInductionInitStep.
   virtual VPInductionInitStep *cloneImpl() const final {
-    return new VPInductionInitStep(getOperand(0), getBinOpcode());
+    auto *I = new VPInductionInitStep(getOperand(0), getBinOpcode());
+    I->setIsMainLoopIV(IsMainLoopIV);
+    return I;
   }
 
 private:
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  bool IsMainLoopIV = false;
 };
 
 // VPInstruction for induction last value calculation.

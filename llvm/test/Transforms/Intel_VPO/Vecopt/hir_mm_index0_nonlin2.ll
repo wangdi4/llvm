@@ -113,7 +113,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1]]: # preds:
 ; CHECK-NEXT:     br [[BB2]]
 ; CHECK-EMPTY:
@@ -181,10 +181,10 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ;CHECK-NEXT:           %[[val025:.*]] = extractelement %.[[vec13:.*]],  %[[bsf22]];
 ;CHECK:             }
 ;CHECK:             + DO i1 = {{.*}}, sext.i32.i64(%m) + -1, 1   <DO_LOOP>
-;CHECK-NEXT:        |   %0 = (%ordering)[i1];
-;CHECK-NEXT:        |   %[[tmp024]] = (%0 > %[[best023]]) ? i1 : %[[tmp024]];
-;CHECK-NEXT:        |   %[[val025]] = (%0 > %[[best023]]) ? %0 + 2 : %[[val025]];
-;CHECK-NEXT:        |   %[[best023]] = (%0 > %[[best023]]) ? %0 : %[[best023]];
+;CHECK-NEXT:        |   [[TMP0:%.*]] = (%ordering)[i1];
+;CHECK-NEXT:        |   %[[tmp024]] = ([[TMP0]] > %[[best023]]) ? i1 : %[[tmp024]];
+;CHECK-NEXT:        |   %[[val025]] = ([[TMP0]] > %[[best023]]) ? [[TMP0]] + 2 : %[[val025]];
+;CHECK-NEXT:        |   %[[best023]] = ([[TMP0]] > %[[best023]]) ? [[TMP0]] : %[[best023]];
 ;CHECK-NEXT:        + END LOOP
 ;CHECK:       END REGION
 entry:

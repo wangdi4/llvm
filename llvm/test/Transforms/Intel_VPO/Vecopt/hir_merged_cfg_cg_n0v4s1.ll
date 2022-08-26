@@ -46,7 +46,7 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC90]])
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC50]]
 ; CHECK-NEXT:        [[DOTVEC110:%.*]] = [[N0]] == [[VEC_TC50]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP20]] = [[IND_FINAL0]]

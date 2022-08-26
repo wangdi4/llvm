@@ -46,6 +46,7 @@
 ; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  4
 ; CHECK-NEXT:        [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
 ; CHECK-NEXT:        [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
+; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]]  + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
 ; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
@@ -53,7 +54,7 @@
 ; CHECK-NEXT:        |   (<4 x i64>*)([[LP0]])[i1] = [[DOTVEC170]] + 1
 ; CHECK-NEXT:        + END LOOP
 
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[ADJ_TC160]]
 ; CHECK-NEXT:        [[DOTVEC180:%.*]] = 400 == [[ADJ_TC160]]
 ; CHECK-NEXT:        [[PHI_TEMP60]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[PHI_TEMP200:%.*]] = [[IND_FINAL0]]

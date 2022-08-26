@@ -45,7 +45,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[PHI_TEMP140]] = [[DOTVEC170]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v4f32([[SUM_070]],  [[DOTVEC170]])
-; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = 0 + [[VEC_TC130]]
 ; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
 ; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
@@ -62,6 +62,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        [[TGU290:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC300:%.*]] = [[TGU290]]  *  2
 ; CHECK-NEXT:        [[RED_INIT310:%.*]] = 0.000000e+00
+; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP320:%.*]] = [[RED_INIT310]]
 ; CHECK-NEXT:        [[LOOP_UB340:%.*]] = [[VEC_TC300]]  -  1
 ; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB340]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
@@ -70,7 +71,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC360]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC360]])
-; CHECK-NEXT:        [[IND_FINAL390:%.*]] = [[LOOP_UB340]]  +  1
+; CHECK-NEXT:        [[IND_FINAL390:%.*]] = 0 + [[VEC_TC300]]
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL390]]
 ; CHECK-NEXT:        [[MERGE_BLK2]].73:
@@ -84,7 +85,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        [[EXTRACT_0_510:%.*]] = extractelement [[DOTVEC440]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_510]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto final.merge.109
+; CHECK-NEXT:           goto final.merge.110
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].31:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
@@ -95,7 +96,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[PHI_TEMP470]] = [[SUM_070]]
 ; CHECK-NEXT:        [[PHI_TEMP490]] = [[N0]] + -1
-; CHECK-NEXT:        final.merge.109:
+; CHECK-NEXT:        final.merge.110:
 ; CHECK-NEXT:  END REGION
 ;
 entry:

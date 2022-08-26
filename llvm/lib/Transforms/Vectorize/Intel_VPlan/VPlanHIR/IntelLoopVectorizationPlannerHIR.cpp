@@ -191,20 +191,18 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
       }
     }
 
-  // HIR-CG is not setup to deal with memory instructions outside the loop
-  // region like load/store from privatized memory. Check and bail out for any
-  // in-memory reduction/induction or liveout private which introduce such
-  // operations during initialization and finalization. Walking the VPlan
-  // instructions will not work as this check is done before we insert entity
-  // related instructions.
-  if (LE->hasInMemoryInduction())
-    return false;
-
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp)
       return false;
+
+  for (auto Ind : LE->vpinductions()) {
+    if (Ind->getKind() == InductionDescriptor::IK_PtrInduction) {
+      LLVM_DEBUG(dbgs() << "LVP: Pointer induction currently not supported.\n");
+      return false;
+    }
+  }
 
   // All checks passed.
   return true;

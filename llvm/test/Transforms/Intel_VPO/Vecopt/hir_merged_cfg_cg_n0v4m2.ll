@@ -87,8 +87,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        |   (<4 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        + END LOOP
 
-; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
-; CHECK:             [[DOTVEC40:%.*]] = umax(1, sext.i32.i64([[C0]])) == [[VEC_TC30]]
+; CHECK:             [[IND_FINAL0:%.*]] = 0 + [[VEC_TC30]]
+; CHECK-NEXT:        [[DOTVEC40:%.*]] = umax(1, sext.i32.i64([[C0]])) == [[VEC_TC30]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[PHI_TEMP60:%.*]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
@@ -97,6 +97,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:           goto final.merge.50
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
+; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[LOOP_UB90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  1
 ; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
@@ -106,7 +107,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        |   [[CMP120:%.*]] = [[TMP0]] == 0
 ; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP120]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[IND_FINAL130:%.*]] = [[LOOP_UB90]]  +  1
+; CHECK:             [[IND_FINAL130:%.*]] = 0 + umax(1, sext.i32.i64([[C0]]))
 ; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL130]]
 ; CHECK-NEXT:        final.merge.50:
 ; CHECK-NEXT:        ret

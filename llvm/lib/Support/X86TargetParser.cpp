@@ -454,6 +454,20 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_MTL
+#define ENABLE_CPU_MTL
+constexpr FeatureBitset FeaturesMeteorlake =
+#endif // INTEL_FEATURE_CPU_MTL
+#ifdef ENABLE_CPU_MTL
+#if INTEL_FEATURE_ISA_PREFETCHI
+    FeaturePREFETCHI |
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // ENABLE_CPU_MTL
+#if INTEL_FEATURE_CPU_MTL
+    FeaturesAlderlake;
+#endif // INTEL_FEATURE_CPU_MTL
+#endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -620,6 +634,14 @@ constexpr ProcInfo Processors[] = {
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_MTL
+  // Meteorlake microarchitecture based processors.
+  { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesMeteorlake },
+#endif // INTEL_FEATURE_CPU_MTL
+#if INTEL_FEATURE_CPU_EMR
+  // Emeraldrapids microarchitecture based processors.
+  { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
+#endif // INTEL_FEATURE_CPU_EMR
 #endif // INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },

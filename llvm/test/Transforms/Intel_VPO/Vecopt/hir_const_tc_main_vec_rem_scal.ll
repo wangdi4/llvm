@@ -68,9 +68,7 @@ define void @foo(i64* %lp) {
 ; CHECK-NEXT:          |   (<4 x i64>*)(%lp)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               %lb.tmp = 80;
-
-; CHECK:               + DO i1 = 80, 81, 1   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = 80, 81, 1  <DO_LOOP> <novectorize>
 ; CHECK-NEXT:          |   (%lp)[i1] = i1;
 ; CHECK-NEXT:          + END LOOP
 ; CHECK-NEXT:    END REGION
