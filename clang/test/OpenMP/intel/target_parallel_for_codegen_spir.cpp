@@ -90,9 +90,9 @@ void bar(int,int,...);
 void foo2() {
   // ALL: [[I:%i.*]] = alloca i32,
   // ALL: [[J:%j.*]] = alloca i32,
-  // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
-  // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // ALL-DAG: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // ALL-DAG: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // ALL-DAG: [[OMP_UB:%.omp.ub.*]] = alloca i32,
   // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[I]] to ptr addrspace(4)
   // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[J]] to ptr addrspace(4)
   // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[OMP_LB]] to ptr addrspace(4)
