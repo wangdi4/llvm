@@ -1262,6 +1262,7 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
   // TODO: Implement support for the following intrinsics:
   // uint32_t __spirv_BuiltIn NumSubgroups;
   // uint32_t __spirv_BuiltIn SubgroupId;
+  // uint32_t __spirv_BuiltIn GlobalLinearId
 
   // Translate those loads from _scalar_ SPIRV globals that can be replaced with
   // a const value here.
@@ -1274,6 +1275,8 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
              SpirvGlobalName == "SubgroupMaxSize") {
     NewInst = llvm::Constant::getIntegerValue(LI->getType(),
                                               llvm::APInt(32, 1, true));
+  } else if (SpirvGlobalName == "GlobalLinearId") {
+    NewInst = llvm::Constant::getNullValue(LI->getType());
   }
   if (NewInst) {
     LI->replaceAllUsesWith(NewInst);
