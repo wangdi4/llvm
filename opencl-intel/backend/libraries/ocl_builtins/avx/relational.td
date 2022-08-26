@@ -12,49 +12,9 @@
 
 OclBuiltinImpl isfinite_promote       =    OclBuiltinImpl    <isfinite,       [v3f64],                  0, Promote1>;
 OclBuiltinImpl isinf_promote          =    OclBuiltinImpl    <isinf,          [v3f64],                  0, Promote1>;
-OclBuiltinImpl isnan_promote          =    OclBuiltinImpl    <isnan,          [v3f64],                  0, Promote1>;
 OclBuiltinImpl isnormal_promote       =    OclBuiltinImpl    <isnormal,       [v3f64],                  0, Promote1>;
-OclBuiltinImpl isordered_promote      =    OclBuiltinImpl    <isordered,      [v3f64],                  0, Promote2>;
-OclBuiltinImpl isunordered_promote    =    OclBuiltinImpl    <isunordered,    [v3f64],                  0, Promote2>;
-OclBuiltinImpl signbit_promote        =    OclBuiltinImpl    <signbit,        [v3f64],                  0, Promote1>;
 //OclBuiltinImpl any_promote          =    OclBuiltinImpl    <any,            [v3i64],                  0, Promote1>;
 //OclBuiltinImpl all_promote          =    OclBuiltinImpl    <all,            [v3i64],                  0, Promote1>;
-
-//======v8f32 and v4f64 implementation=============================== 
-
-OclBuiltinImpl isnan_v8f32 = OclBuiltinImpl<isnan, [v8f32], 0, [{
-    return as_$ReturnType(_mm256_cmp_ps($Arg0VarName, $Arg0VarName, _CMP_UNORD_Q));
-  }]>;
-
-OclBuiltinImpl isnan_v4f64 = OclBuiltinImpl<isnan, [v4f64], 0, [{
-    return as_$ReturnType(_mm256_cmp_pd($Arg0VarName, $Arg0VarName, _CMP_UNORD_Q));
-  }]>;
-
-OclBuiltinImpl isordered_v8f32 = OclBuiltinImpl<isordered, [v8f32], 0, [{
-    return as_$ReturnType(_mm256_cmp_ps($Arg0VarName, $Arg1VarName, _CMP_ORD_Q));
-  }]>;
-
-OclBuiltinImpl isordered_v4f64 = OclBuiltinImpl<isordered, [v4f64], 0, [{
-    return  as_$ReturnType(_mm256_cmp_pd($Arg0VarName, $Arg1VarName, _CMP_ORD_Q));
-  }]>;
-
-OclBuiltinImpl isunordered_v8f32 = OclBuiltinImpl<isunordered, [v8f32], 0, [{
-    return as_$ReturnType(_mm256_cmp_ps($Arg0VarName,$Arg1VarName, _CMP_UNORD_S));
-  }]>;
-
-OclBuiltinImpl isunordered_v4f64 = OclBuiltinImpl<isunordered, [v4f64], 0, [{
-    return  as_$ReturnType(_mm256_cmp_pd($Arg0VarName, $Arg1VarName,_CMP_UNORD_S));
-  }]>;
-
-OclBuiltinImpl signbit_v8f32 = OclBuiltinImpl<signbit, [v8f32], 0, [{
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)fsign_mask);
-    return as_$ReturnType(select($Arg0VarName, as_$Arg0Type(($Arg0igentype)FFFMask8),  as_$Arg0igentype($Arg0VarName)));
-  }]>;
-
-OclBuiltinImpl signbit_v4f64 = OclBuiltinImpl<signbit, [v4f64], 0, [{
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dsign_mask);
-    return as_$ReturnType(select($Arg0VarName,  as_$Arg0Type(($Arg0igentype)FF), as_$Arg0igentype($Arg0VarName)));
-  }]>;
 
 //======v8i32\v8u32 and v4i64\v4u64 implementation=============================== 
 OclBuiltinImpl any_v8i32 = OclBuiltinImpl<any, [v8i32], 0, [{

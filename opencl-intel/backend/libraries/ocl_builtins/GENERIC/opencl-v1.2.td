@@ -734,19 +734,20 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 }
 
 // OpenCL 1.2 rev 15, Table 6.14
-// Note that isequal, isnotequal, isgreater, isgreaterequal, isless, islessequal
-// and islessgreater are handled in BuiltinCallToInst pass, so they are not
-// defined here.
+// Note that isequal, isnotequal, isgreater, isgreaterequal, isless,
+// islessequal, islessgreater, isnan, isordered, isunordered and signbit are
+// handled in BuiltinCallToInst pass, so they are not defined here.
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+  // Emit forward declarations for non-standard (not in spec) builtins so that
+  // they can be invoked by other builtins.
+  let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout in {
+    def : OclBuiltin<"isnan", (outs rf2igentype:$ret), (ins gentype:$x)>;
+  }
 }
 // Scalar version of these builtins return 1 if the relation is true, and their
 // widended version should return vector of 1. However, vector version of these
@@ -758,11 +759,7 @@ let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     NeedForwardDecl = 1 in {
 def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf_v1widen           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnan_v1widen           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnormal_v1widen        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isordered_v1widen       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def isunordered_v1widen     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def signbit_v1widen         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
@@ -788,11 +785,7 @@ let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
      NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_mask           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnan_mask           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isordered_mask       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def isunordered_mask     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
 // Following table defines vectorized masked builtins that are for scalar
 // builtin. Therefore, the return value is vector of 1 if relation is true.
@@ -801,17 +794,13 @@ let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     NeedForwardDecl = 1 in {
 def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnan_v1widen_mask           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
 
 // VectInfo for OclVecClone
 let Types = [v1f32, v1f64],
     HandleAlias = 0 in {
-  foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
+  foreach name = ["isfinite", "isinf", "isnormal"] in {
     defvar bi = name # "_v1widen";
     def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi),
                        !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;

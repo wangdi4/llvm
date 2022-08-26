@@ -47,10 +47,6 @@ defvar isinf_v1widen_code = [{
     return ($ReturnType)0 - convert_$ReturnType(isinf($Arg0VarName));
   }];
 
-defvar isnan_v1widen_code = [{
-    return ($ReturnType)0 - convert_$ReturnType(isnan($Arg0VarName));
-  }];
-
 defvar isnormal_f32_code = [{
     $Arg0VarName = __builtin_astype(__builtin_astype($Arg0VarName, $Arg0igentype) & ($Arg0igentype)abs_inf, $Arg0Type);
     $Arg0igentype res = __builtin_astype($Arg0VarName < __builtin_astype(($Arg0igentype)fnan_min, $Arg0Type), $Arg0igentype); //$Arg0VarName<INFINITY
@@ -68,18 +64,6 @@ defvar isnormal_f64_code = [{
 
 defvar isnormal_v1widen_code = [{
     return ($ReturnType)0 - convert_$ReturnType(isnormal($Arg0VarName));
-  }];
-
-defvar isordered_v1widen_code = [{
-    return ($ReturnType)0 - convert_$ReturnType(isordered($Arg0VarName, $Arg1VarName));
-  }];
-
-defvar isunordered_v1widen_code = [{
-    return ($ReturnType)0 - convert_$ReturnType(isunordered($Arg0VarName, $Arg1VarName));
-  }];
-
-defvar signbit_v1widen_code = [{
-    return ($ReturnType)0 - convert_$ReturnType(signbit($Arg0VarName));
   }];
 
 // masked
