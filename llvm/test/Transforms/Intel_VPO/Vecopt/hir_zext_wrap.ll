@@ -1,8 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Verify that vectorizer generates a scatter for this loop due to possible wraparound.
@@ -16,12 +13,12 @@
 ; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
 ; CHECK: + END LOOP
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=IGNORE-WRAP
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
 
 
-; Verify that -hir-ignore-wraparound  works as expected.
-; IGNORE-WRAP: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>
+; Verify that we get a unit-strided store with -hir-ignore-wraparound.
+; IGNORE-WRAP: + DO i32 i1 = 0, %loop.ub, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>
 ; IGNORE-WRAP: |   (<8 x i32>*)(%A)[i1] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
 ; IGNORE-WRAP: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.i3.i64(i1)]
 ; IGNORE-WRAP: + END LOOP

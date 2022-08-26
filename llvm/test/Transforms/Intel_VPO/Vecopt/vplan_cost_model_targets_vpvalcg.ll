@@ -10,20 +10,12 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-AVX2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-AVX2
+; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-AVX2
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 -vplan-force-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-SSE2
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 -vplan-force-vf=8 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-SSE2
+; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-SSE2
 
 ; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vplan-force-vf=8 -instcombine -simplifycfg  -cost-model -analyze -enable-new-pm=0 \

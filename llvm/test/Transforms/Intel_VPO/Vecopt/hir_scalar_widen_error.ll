@@ -12,10 +12,8 @@
 ; }
 ; 
 ; Check that loop is successfully vectorized
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 2>&1 < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 2>&1 < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 2>&1 < %s | FileCheck %s
 
 ; CHECK: (<4 x i32>*)(@a1)[0][i1] =
 ; CHECK: (<4 x i32>*)(@d1)[0][i1] =

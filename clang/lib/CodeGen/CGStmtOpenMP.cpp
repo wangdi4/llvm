@@ -8046,10 +8046,14 @@ namespace {
   class LoopBoundsExprChecker final :
     public ConstStmtVisitor<LoopBoundsExprChecker, void> {
     llvm::SmallDenseSet<const VarDecl *, 4> Vars;
+    bool UsesGlobalVariable = false;
   public:
     void VisitDeclRefExpr(const DeclRefExpr *E) {
-      if (const auto *VD = dyn_cast<VarDecl>(E->getDecl()))
+      if (const auto *VD = dyn_cast<VarDecl>(E->getDecl())) {
         Vars.insert(VD->getCanonicalDecl());
+        if (VD->hasGlobalStorage())
+          UsesGlobalVariable = true;
+      }
     }
     void VisitStmt(const Stmt *S) {
       for (const Stmt *C : S->children())
@@ -8076,9 +8080,15 @@ namespace {
     /// This routine checks that variables used to compute the
     /// the bounds are not used in certain clauses that would make
     /// hoisting illegal.
-    bool okayToHoistLoop(const OMPExecutableDirective &S) {
+    bool okayToHoistLoop(CodeGenFunction &CGF,
+                         const OMPExecutableDirective &S) {
       // If there is a defaultmap, don't hoist.
       if (S.hasClausesOfKind<OMPDefaultmapClause>())
+        return false;
+      // If global variabe is used, don't hoist.
+      if (UsesGlobalVariable &&
+          !CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultMap &&
+          !CGF.getLangOpts().OpenMPDeclareTargetScalarDefaultMapFirstPrivate)
         return false;
       // If the variable appears in a map clause, don't hoist.
       for (const auto *C : S.getClausesOfKind<OMPMapClause>()) {
@@ -8136,7 +8146,7 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
   }
   if (LoopDirToCheck) {
     LoopBoundsExprChecker Checker(*this, LoopDirToCheck);
-    if (Checker.okayToHoistLoop(S))
+    if (Checker.okayToHoistLoop(*this, S))
       return LoopDirToCheck;
   }
   return nullptr;

@@ -2,8 +2,7 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; XFAIL:*
 ; TODO: CMPLRLLVM-34082 fixed logic that moved the SCEX load inside the same if level as the original def. This caused the Vplan CM to not vectorize the loop. Needs investigation.
-; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-scex-cost=12 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-scex-cost=12 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-scex-cost=12 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
 
 ; The imagick loop on line 2224. Check that we are able to distribute and vectorize it.
 

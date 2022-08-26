@@ -1,27 +1,19 @@
 ; Test to verify that structptreq search loop idiom is recognized on this loop, and correct vector code with peel loop and alignment is generated.
 
 ; Check if search loop was recognized
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation  -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation  -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation  -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
 
 
 ; Check final vectorized codegen
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck --check-prefix=CG-CHECK %s
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck --check-prefix=CG-CHECK %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
 
 
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec"\
 ; RUN:     -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck --check-prefix=CG-CHECK %s
-; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec"\
-; RUN:     -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck --check-prefix=CG-CHECK %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
 
 ; REQUIRES: asserts
 

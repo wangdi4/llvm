@@ -1,12 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -S -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -S -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN:     | FileCheck %s --check-prefix=CHECK-HIR
 ; TODO: Move -hir-vec-dir-insert under new PM
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN:     | FileCheck %s --check-prefix=CHECK-HIR
 
 ; RUN: opt < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-LLVM

@@ -6,10 +6,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=50 -debug \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=50 -debug \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
@@ -19,10 +16,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=0 -debug \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VEC-ALWAYS
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=0 -debug \
-; RUN:     2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VEC-ALWAYS
+; RUN:     2>&1 | FileCheck %s --check-prefix=VEC-ALWAYS
 
 
 ; Test that VPlan Cost Model drives the VF selection.

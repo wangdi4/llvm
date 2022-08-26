@@ -3,10 +3,7 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -vplan-cost-model-use-gettype \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -vplan-cost-model-use-gettype \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=8 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s
 
 ; Many users from 'if.then' block are expected to induce register pressure high
 ; enough to spill some register(s) in 'for.body' block.

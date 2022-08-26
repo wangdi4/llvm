@@ -17,8 +17,7 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; RUN: opt -S -vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 

@@ -2,8 +2,7 @@
 ; Tests whether we emit the right metadata in vector and scalar loops.
 
 ; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR
 
 ; LLVM-IR:    br i1 [[TMP7:%.*]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ;

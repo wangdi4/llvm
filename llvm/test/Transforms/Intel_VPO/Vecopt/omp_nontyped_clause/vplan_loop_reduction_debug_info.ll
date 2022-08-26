@@ -2,17 +2,13 @@
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; Test debug location information on VPlan at specific points of vectorizer pipeline
 ; Original code source lines:

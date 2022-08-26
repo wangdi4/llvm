@@ -2,8 +2,8 @@
 ; RUN: opt -vplan-vec -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -S -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-new-cfg-merge-hir -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant-hir -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

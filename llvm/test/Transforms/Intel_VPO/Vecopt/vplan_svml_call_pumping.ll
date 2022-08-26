@@ -2,8 +2,7 @@
 ; Test to check SVML call pumping feature for simple masked and unmasked calls in LLVM-IR and HIR vector CG.
 
 ; RUN: opt -vplan-vec -S -vector-library=SVML < %s 2>&1 | FileCheck %s --check-prefix=IR
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(float* nocapture %A, float* nocapture %B, i32 %N) {

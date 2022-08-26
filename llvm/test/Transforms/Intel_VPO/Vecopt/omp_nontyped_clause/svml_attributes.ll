@@ -10,14 +10,10 @@
 ; RUN: opt -vector-library=SVML -vplan-vec -verify -S -vplan-force-vf=64 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -vector-library=SVML -vplan-vec -verify -S -vplan-force-vf=128 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -verify -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
 
 ; CHECK-LABEL: @test_sinf(
 ; CHECK: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})

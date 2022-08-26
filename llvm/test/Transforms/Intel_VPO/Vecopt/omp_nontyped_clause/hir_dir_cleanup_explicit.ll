@@ -1,5 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 -disable-output | FileCheck %s
 
 ; CHECK: BEGIN REGION
 ; CHECK-NOT: llvm.directive.region.entry

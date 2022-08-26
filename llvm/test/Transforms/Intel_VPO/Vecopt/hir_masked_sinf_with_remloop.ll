@@ -20,18 +20,6 @@
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-
 
 ; Test VPValue based code generation
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
@@ -45,18 +33,6 @@
 
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-
-; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
 
 ; Checks for generated HIR code

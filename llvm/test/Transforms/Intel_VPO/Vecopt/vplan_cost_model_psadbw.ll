@@ -3,10 +3,7 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mattr=+avx2 -disable-output -enable-intel-advanced-opts \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mattr=+avx2 -disable-output -enable-intel-advanced-opts \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN:     -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

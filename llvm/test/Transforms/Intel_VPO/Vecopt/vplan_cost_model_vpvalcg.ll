@@ -15,23 +15,13 @@
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
 ; RUN:     -enable-intel-advanced-opts \
-; RUN:     -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF4
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
-; RUN:     -enable-intel-advanced-opts \
-; RUN:     -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF4
+; RUN:     -vplan-force-vf=4 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF4
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=1 \
 ; RUN:     -enable-intel-advanced-opts \
-; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
-; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=1 \
-; RUN:     -enable-intel-advanced-opts \
-; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
+; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
 
 ; RUN: opt < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -instcombine -simplifycfg  -cost-model -analyze -enable-new-pm=0 \
