@@ -1,14 +1,17 @@
-// vim:ts=2:sw=2:et:
-// Copyright (c) 2006-2022 Intel Corporation
+// Copyright (C) 2006-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // Relational
 // OpenCL 1.2 rev 15, Table 6.14
-
-// isnan
-OclBuiltinImpl isnan_f64_v1 = OclBuiltinImpl<isnan, [v1f64], 0, [{
-    return $Arg0VarName != $Arg0VarName;
-  }]>;
-OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64], 0, Promote1>;
-OclBuiltinImpl isnan_f64_expand = OclBuiltinImpl<isnan, [v16f64], 0, Expand1>;
 
 // SOA versions of the any/all relational builtins
 // Again, 6 different implementations are required.

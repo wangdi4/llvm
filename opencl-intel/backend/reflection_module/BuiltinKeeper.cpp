@@ -1,12 +1,10 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2022 Intel Corporation.
+// Copyright (C) 2012-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -327,8 +325,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-    llvm::StringRef names[] = {"_Z7signbit*", "_Z8isfinite*","_Z5isinf*",
-      "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
+    llvm::StringRef names[] = {"_Z8isfinite*","_Z5isinf*","_Z8isnormal*"};
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
