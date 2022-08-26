@@ -1,4 +1,5 @@
-; RUN: llc -mtriple=nvptx64-nvidia-cuda < %s | FileCheck %s
+; INTEL: Added options to revert to upstream behavior
+; RUN: llc -mtriple=nvptx64-nvidia-cuda -salvage-addrspacecast-dbginfo=false -infer-as-update-dbg-var-intrin=false < %s | FileCheck %s
 ; RUN: %if ptxas %{ llc -mtriple=nvptx64-nvidia-cuda < %s | %ptxas-verify %}
 
 @GLOBAL = addrspace(1) externally_initialized global i32 0, align 4, !dbg !0
