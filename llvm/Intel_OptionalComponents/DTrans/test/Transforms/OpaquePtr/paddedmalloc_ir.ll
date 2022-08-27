@@ -1,7 +1,7 @@
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-paddedmallocop -dtrans-test-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -passes=dtrans-paddedmallocop -dtrans-test-paddedmalloc  -S 2>&1 | FileCheck %s
-; R;UN: opt < %s -opaque-pointers -whole-program-assume -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
-; R;UN: opt < %s -opaque-pointers -whole-program-assume -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
+; RUN: opt < %s -opaque-pointers -whole-program-assume -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s --check-prefix=CHECK-PROP
 
 ; Check for padded malloc counter
 
@@ -56,7 +56,7 @@
 ; CHECK-PROP-NEXT:    [[TMP1:%.*]] = tail call ptr @mallocFunc(i64 100)
 ; CHECK-PROP-NEXT:    store ptr [[TMP1]], ptr @globalStruct, align 8
 ; CHECK-PROP-NEXT:    [[T:%.*]] = load ptr, ptr @globalStruct, align 8
-; C;HECK-PROP-NEXT:    [[T1:%.*]] = call ptr @llvm.ptr.annotation.p0(ptr [[T]], ptr getelementptr inbounds ([16 x i8], ptr [[PADD]], i32 0, i32 0), ptr getelementptr inbounds ([8 x i8], ptr @1, i32 0, i32 0), i32 0, ptr null)
+; CHECK-PROP-NEXT:    [[T1:%.*]] = call ptr @llvm.ptr.annotation.p0(ptr [[T]], ptr [[PADD]], ptr @1, i32 0, ptr null)
 ; CHECK-PROP-NEXT:    tail call void @free(ptr [[TMP1]])
 ; CHECK-PROP-NEXT:    store ptr null, ptr @globalStruct, align 8
 ; CHECK-PROP-NEXT:    [[TMP2:%.*]] = call zeroext i1 @searchloop()
