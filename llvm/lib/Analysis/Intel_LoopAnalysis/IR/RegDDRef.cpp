@@ -66,14 +66,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BasePtrElementTy(nullptr),
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
-      IsCollapsed(false), Alignment(0), CanUsePointeeSize(false),
-      DummyGepLoc(nullptr) {}
+      IsCollapsed(false), Alignment(0), HighestDimNumElements(0),
+      CanUsePointeeSize(false), DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
       BitCastDestVecOrElemTy(Info.BitCastDestVecOrElemTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
       IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
       DimElementTypes(Info.DimElementTypes),
@@ -1906,6 +1907,7 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   GepInfo->DimTypes.push_back(DimTy);
   GepInfo->DimElementTypes.push_back(DimElemTy);
   GepInfo->StrideIsExactMultiple.push_back(IsExactMultiple);
+  GepInfo->HighestDimNumElements = 0;
 }
 
 void RegDDRef::addDimension(CanonExpr *IndexCE,
@@ -2117,7 +2119,10 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     return ((NextDimStride / CurDimStride) + (IsEvenlyDivisible ? 0 : 1));
   }
 
-  return 0;
+  assert(DimensionNum == getNumDimensions() && "Accessing unknown dimension!");
+
+  // Acquire num elements from array_extent metadata, set by FFE
+  return getGEPInfo()->HighestDimNumElements;
 }
 
 bool RegDDRef::hasIV(unsigned Level) const {
