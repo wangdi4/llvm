@@ -135,24 +135,15 @@ static bool checkForHSA() {
   // return true if dlopen succeeded and all functions found
 
   const char *HsaLib = DYNAMIC_HSA_PATH;
-<<<<<<< HEAD
-  void *DynlibHandle = dlopen(HsaLib, RTLD_NOW);
-  if (!DynlibHandle) {
-#if INTEL_COLLAB
-    char *ErrorMsg = dlerror();
-    if (!ErrorMsg)
-      ErrorMsg = "unknown error";
-    DP("Unable to load library '%s': %s!\n", HsaLib, ErrorMsg);
-#else // INTEL_COLLAB
-    DP("Unable to load library '%s': %s!\n", HsaLib, dlerror());
-#endif // INTEL_COLLAB
-=======
   std::string ErrMsg;
   auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
       llvm::sys::DynamicLibrary::getPermanentLibrary(HsaLib, &ErrMsg));
   if (!DynlibHandle->isValid()) {
+#if INTEL_COLLAB
+    if (ErrMsg.empty())
+      ErrMsg = "unknown error";
+#endif // INTEL_COLLAB
     DP("Unable to load library '%s': %s!\n", HsaLib, ErrMsg.c_str());
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
     return false;
   }
 

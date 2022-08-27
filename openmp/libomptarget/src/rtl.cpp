@@ -31,20 +31,15 @@
 
 #include "device.h"
 #include "private.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
 #endif // INTEL_CUSTOMIZATION
 
-#include "llvm/Object/OffloadBinary.h"
-=======
 #include "rtl.h"
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
 
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // FIXME: temporary solution for LIBDL on Windows.
 #ifdef _WIN32
@@ -57,8 +52,6 @@
 #else  // INTEL_CUSTOMIZATION
 #include <dlfcn.h>
 #endif  // INTEL_CUSTOMIZATION
-=======
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
 #include <mutex>
 #include <string>
 
@@ -311,16 +304,13 @@ void RTLsTy::loadRTLs() {
 
     if (!DynLibrary->isValid()) {
       // Library does not exist or cannot be found.
-<<<<<<< HEAD
 #if INTEL_COLLAB
       const char *DLError = dlerror();
       DP("Unable to load library '%s': %s!\n", Name, DLError ? DLError : "");
 #else // INTEL_COLLAB
       DP("Unable to load library '%s': %s!\n", Name, dlerror());
 #endif // INTEL_COLLAB
-=======
       DP("Unable to load library '%s': %s!\n", Name, ErrMsg.c_str());
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
       continue;
     }
 
@@ -425,13 +415,13 @@ void RTLsTy::loadRTLs() {
     *((void **)&R.data_exchange_async) =
         DynLibrary->getAddressOfSymbol("__tgt_rtl_data_exchange_async");
     *((void **)&R.is_data_exchangable) =
-<<<<<<< HEAD
-        dlsym(DynlibHandle, "__tgt_rtl_is_data_exchangable");
 
 #if INTEL_COLLAB
+DynLibrary->getAddressOfSymbol("__tgt_rtl_deinit_plugin");
     #define SET_OPTIONAL_INTERFACE(entry, name)                                \
       do {                                                                     \
-        if ((*((void **)&R.entry) = dlsym(DynlibHandle, "__tgt_rtl_" #name)))  \
+        if ((*((void **)&R.entry) =                                            \
+            DynLibrary->getAddressOfSymbol("__tgt_rtl_" #name)))               \
           DP("Optional interface: __tgt_rtl_" #name "\n");                     \
       } while (0)
     #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
@@ -489,12 +479,9 @@ void RTLsTy::loadRTLs() {
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-    *((void **)&R.register_lib) = dlsym(DynlibHandle, "__tgt_rtl_register_lib");
-=======
         DynLibrary->getAddressOfSymbol("__tgt_rtl_is_data_exchangable");
     *((void **)&R.register_lib) =
         DynLibrary->getAddressOfSymbol("__tgt_rtl_register_lib");
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
     *((void **)&R.unregister_lib) =
         DynLibrary->getAddressOfSymbol("__tgt_rtl_unregister_lib");
     *((void **)&R.supports_empty_images) =

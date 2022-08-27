@@ -38,9 +38,6 @@
 #include <string>
 #include <unordered_map>
 
-<<<<<<< HEAD
-#include <dlfcn.h>
-
 #if INTEL_CUSTOMIZATION
 DLWRAP_INITIALIZE()
 
@@ -101,8 +98,6 @@ DLWRAP(cuEventDestroy, 1)
 
 DLWRAP_FINALIZE()
 #else // INTEL_CUSTOMIZATION
-=======
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
 DLWRAP_INITIALIZE();
 
 DLWRAP_INTERNAL(cuInit, 1);
@@ -189,24 +184,15 @@ static bool checkForCUDA() {
   };
 
   const char *CudaLib = DYNAMIC_CUDA_PATH;
-<<<<<<< HEAD
-  void *DynlibHandle = dlopen(CudaLib, RTLD_NOW);
-  if (!DynlibHandle) {
-#if INTEL_COLLAB
-    char *DlError = dlerror();
-    if (!DlError)
-      DlError = "unknown error";
-    DP("Unable to load library '%s': %s!\n", CudaLib, DlError);
-#else // INTEL_COLLAB
-    DP("Unable to load library '%s': %s!\n", CudaLib, dlerror());
-#endif // INTEL_COLLAB
-=======
   std::string ErrMsg;
   auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
       llvm::sys::DynamicLibrary::getPermanentLibrary(CudaLib, &ErrMsg));
   if (!DynlibHandle->isValid()) {
+#if INTEL_COLLAB
+    if (ErrMsg.empty())
+      ErrMsg = "unknown error";
+#endif // INTEL_COLLAB
     DP("Unable to load library '%s': %s!\n", CudaLib, ErrMsg.c_str());
->>>>>>> 540a13652fda8b91b62b73fb9ae1e34879e8e36c
     return false;
   }
 
