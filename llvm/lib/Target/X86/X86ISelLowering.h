@@ -1172,9 +1172,9 @@ namespace llvm {
     bool canMergeStoresTo(unsigned AddressSpace, EVT MemVT,
                           const MachineFunction &MF) const override;
 
-    bool isCheapToSpeculateCttz() const override;
+    bool isCheapToSpeculateCttz(Type *Ty) const override;
 
-    bool isCheapToSpeculateCtlz() const override;
+    bool isCheapToSpeculateCtlz(Type *Ty) const override;
 
     bool isCtlzFast() const override;
 
