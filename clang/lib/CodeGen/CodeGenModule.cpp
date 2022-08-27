@@ -71,7 +71,6 @@
 #include "llvm/ADT/SmallVector.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -94,10 +93,13 @@
 #endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/xxhash.h"
+=======
+>>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
 
 using namespace clang;
 using namespace CodeGen;
@@ -675,8 +677,6 @@ void CodeGenModule::Release() {
     CodeGenFunction(*this).EmitCfiCheckFail();
     CodeGenFunction(*this).EmitCfiCheckStub();
   }
-  if (LangOpts.Sanitize.has(SanitizerKind::KCFI))
-    finalizeKCFITypes();
   emitAtAvailableLinkGuard();
   if (Context.getTargetInfo().getTriple().isWasm())
     EmitMainVoidAlias();
@@ -882,9 +882,6 @@ void CodeGenModule::Release() {
                               "CFI Canonical Jump Tables",
                               CodeGenOpts.SanitizeCfiCanonicalJumpTables);
   }
-
-  if (LangOpts.Sanitize.has(SanitizerKind::KCFI))
-    getModule().addModuleFlag(llvm::Module::Override, "kcfi", 1);
 
   if (CodeGenOpts.CFProtectionReturn &&
       Target.checkCFProtectionReturnSupported(getDiags())) {
@@ -1935,20 +1932,6 @@ llvm::ConstantInt *CodeGenModule::CreateCrossDsoCfiTypeId(llvm::Metadata *MD) {
   return llvm::ConstantInt::get(Int64Ty, llvm::MD5Hash(MDS->getString()));
 }
 
-llvm::ConstantInt *CodeGenModule::CreateKCFITypeId(QualType T) {
-  if (auto *FnType = T->getAs<FunctionProtoType>())
-    T = getContext().getFunctionType(
-        FnType->getReturnType(), FnType->getParamTypes(),
-        FnType->getExtProtoInfo().withExceptionSpec(EST_None));
-
-  std::string OutName;
-  llvm::raw_string_ostream Out(OutName);
-  getCXXABI().getMangleContext().mangleTypeName(T, Out);
-
-  return llvm::ConstantInt::get(Int32Ty,
-                                static_cast<uint32_t>(llvm::xxHash64(OutName)));
-}
-
 void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                                               const CGFunctionInfo &Info,
                                               llvm::Function *F, bool IsThunk) {
@@ -2725,6 +2708,7 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
@@ -2945,6 +2929,8 @@ void CodeGenModule::finalizeKCFITypes() {
   }
 }
 
+=======
+>>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                           bool IsIncompleteFunction,
                                           bool IsThunk) {
@@ -3039,9 +3025,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (!CodeGenOpts.SanitizeCfiCrossDso ||
       !CodeGenOpts.SanitizeCfiCanonicalJumpTables)
     CreateFunctionTypeMetadataForIcall(FD, F);
-
-  if (LangOpts.Sanitize.has(SanitizerKind::KCFI))
-    setKCFIType(FD, F);
 
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);

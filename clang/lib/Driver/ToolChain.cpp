@@ -1599,6 +1599,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
+<<<<<<< HEAD
       getTriple().isAArch64(64))
     Res |= SanitizerKind::KCFI;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
@@ -1607,6 +1608,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
       getTriple().isAArch64(64) || getTriple().isRISCV())
     Res |= SanitizerKind::ShadowCallStack;
   if (getTriple().isAArch64(64))

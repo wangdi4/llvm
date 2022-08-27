@@ -1594,8 +1594,6 @@ namespace llvm {
 
     bool supportSwiftError() const override;
 
-    bool supportKCFIBundles() const override { return true; }
-
     bool hasStackProbeSymbol(MachineFunction &MF) const override;
     bool hasInlineStackProbe(MachineFunction &MF) const override;
     StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
