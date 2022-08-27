@@ -857,6 +857,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     MLTVal = A->getValue();
     if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
 #if INTEL_FEATURE_SW_DTRANS
+      // DTrans requires the front-end to generate additional info when opaque
+      // pointers are in use.
+      if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL && !IsLink)
+        CmdArgs.push_back("-emit-dtrans-info");
+
       addllvmOption("-enable-dtrans");
       addllvmOption("-enable-npm-dtrans");
       addllvmOption(
