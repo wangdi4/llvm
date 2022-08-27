@@ -3168,6 +3168,7 @@ class DimInfo {
   SmallVector<Value *, 4> IndicesLB;
 
   bool HasZeroIndex = false;
+  unsigned Extent = 0;
 
 public:
   Type *getType() const { return Ty; }
@@ -3178,6 +3179,9 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
+
+  unsigned getExtent() const { return Extent; }
+  void setExtent(unsigned Extent) { this->Extent = Extent; }
 
   bool isStrideExactMultiple() const { return IsExactMultiple; }
   void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
@@ -3307,6 +3311,8 @@ public:
 
   unsigned getMinRank() const { return MinRank; }
   unsigned getMaxRank() const { return Dimensions.size() - 1; }
+
+  bool isEmpty() const { return Dimensions.size() == 0; }
 
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
@@ -3452,6 +3458,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
   Dim.setStrideIsExactMultiple(Sub->isExact());
+  Dim.setExtent(Sub->getExtent());
 
   return {Arr};
 }
@@ -3776,6 +3783,17 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setType(NextDim.getType());
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
+
+      // Assume FE provides extent one time per memref
+      assert(!CurDim.getExtent() || !NextDim.getExtent() ||
+             CurDim.getExtent() == NextDim.getExtent() &&
+                 "Extent metadata mistmatch!");
+
+      // Use extent metadata for the incoming DimInfo
+      if (!CurDim.getExtent() && NextDim.getExtent()) {
+        CurDim.setExtent(NextDim.getExtent());
+      }
+
       // Reset exact flag if either of two dims are not exact.
       CurDim.setStrideIsExactMultiple(CurDim.isStrideExactMultiple() &&
                                       NextDim.isStrideExactMultiple());
@@ -3896,6 +3914,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                                Dim.isStrideExactMultiple());
     }
   }
+
+  // Merge the extent using the last ArrayInfo where the metadata can exist.
+  if (!Chain.front().isEmpty())
+    Ref->setHighestDimNumElements(Chain.front().getHighestDim().getExtent());
 
   auto *BaseGEPOp = Chain.getBase();
 

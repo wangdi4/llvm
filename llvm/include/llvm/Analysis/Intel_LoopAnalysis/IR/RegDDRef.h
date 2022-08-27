@@ -212,6 +212,8 @@ private:
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
+    // Extent is passed by Fortran FE to indicate known highest dimsize.
+    unsigned HighestDimNumElements;
     // Set to true for fake pointer DD ref which access type is known.
     bool CanUsePointeeSize;
 
@@ -360,6 +362,10 @@ private:
     assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
 
     GepInfo->DimTypes[DimensionNum - 1] = Ty;
+  }
+
+  void setHighestDimNumElements(unsigned NumElements) {
+    GepInfo->HighestDimNumElements = NumElements;
   }
 
   static Type *getMorePreciseDimensionType(Type *T1, Type *T2);
@@ -666,10 +672,8 @@ public:
     getGEPInfo()->AddressOf = IsAddressOf;
   }
 
-  /// Returns alignment info for this ref.
   unsigned getAlignment() const { return getGEPInfo()->Alignment; }
 
-  /// Sets alignment for this ref.
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
