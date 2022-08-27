@@ -93,7 +93,7 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
 static std::string GetDriverName(std::string ClangDriverName) {
   std::string DriverName = llvm::StringSwitch<std::string>(ClangDriverName)
                                .Case("clang", "icx")
-                               .Case("clang-cl", "icx")
+                               .Case("clang-cl", "icx-cl")
                                .Case("clang++", "icpx")
                                .Default("icx");
   return DriverName;
@@ -534,6 +534,10 @@ int clang_main(int Argc, char **Argv) {
     if (DrBasename.str() == "clang" && DriverMode.equals_insensitive("g++")) {
       DiagClient->setPrefix(std::string("icpx"));
       TheDriver.setDriverName(std::string("icpx"));
+    } else if (DrBasename.str() == "clang" &&
+               DriverMode.equals_insensitive("cl")) {
+      DiagClient->setPrefix(std::string("icx-cl"));
+      TheDriver.setDriverName(std::string("icx-cl"));
     } else {
       DiagClient->setPrefix(GetDriverName(DrBasename.str()));
       TheDriver.setDriverName(GetDriverName(DrBasename.str()));
