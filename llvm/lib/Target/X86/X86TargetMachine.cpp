@@ -117,6 +117,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86TileConfigPass(PR);
   initializeX86FastPreTileConfigPass(PR);
   initializeX86FastTileConfigPass(PR);
+  initializeX86KCFIPass(PR);
   initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
@@ -647,7 +648,10 @@ void X86PassConfig::addPostRegAlloc() {
     addPass(createX86LoadValueInjectionLoadHardeningPass());
 }
 
-void X86PassConfig::addPreSched2() { addPass(createX86ExpandPseudoPass()); }
+void X86PassConfig::addPreSched2() {
+  addPass(createX86ExpandPseudoPass());
+  addPass(createX86KCFIPass());
+}
 
 void X86PassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None) {
@@ -716,6 +720,7 @@ void X86PassConfig::addPreEmitPass2() {
   // Insert pseudo probe annotation for callsite profiling
   addPass(createPseudoProbeInserter());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   // Convert pseudo markercount to x86 instruction
@@ -735,6 +740,20 @@ void X86PassConfig::addPreEmitPass2() {
       return M->getFunction("objc_retainAutoreleasedReturnValue") ||
              M->getFunction("objc_unsafeClaimAutoreleasedReturnValue");
     }));
+=======
+  // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
+  // also CALL_RVMARKER.
+  addPass(createUnpackMachineBundles([&TT](const MachineFunction &MF) {
+    // Only run bundle expansion if the module uses kcfi, or there are relevant
+    // ObjC runtime functions present in the module.
+    const Function &F = MF.getFunction();
+    const Module *M = F.getParent();
+    return M->getModuleFlag("kcfi") ||
+           (TT.isOSDarwin() &&
+            (M->getFunction("objc_retainAutoreleasedReturnValue") ||
+             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue")));
+  }));
+>>>>>>> cff5bef948c91e4919de8a5fb9765e0edc13f3de
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {
