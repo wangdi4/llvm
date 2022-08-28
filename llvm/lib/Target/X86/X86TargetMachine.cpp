@@ -716,7 +716,6 @@ void X86PassConfig::addPreEmitPass2() {
   // Insert pseudo probe annotation for callsite profiling
   addPass(createPseudoProbeInserter());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   // Convert pseudo markercount to x86 instruction
@@ -725,19 +724,6 @@ void X86PassConfig::addPreEmitPass2() {
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
-  // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
-  // also CALL_RVMARKER.
-  addPass(createUnpackMachineBundles([&TT](const MachineFunction &MF) {
-    // Only run bundle expansion if the module uses kcfi, or there are relevant
-    // ObjC runtime functions present in the module.
-    const Function &F = MF.getFunction();
-    const Module *M = F.getParent();
-    return M->getModuleFlag("kcfi") ||
-           (TT.isOSDarwin() &&
-            (M->getFunction("objc_retainAutoreleasedReturnValue") ||
-             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue")));
-  }));
-=======
   // On Darwin platforms, BLR_RVMARKER pseudo instructions are lowered to
   // bundles.
   if (TT.isOSDarwin())
@@ -749,7 +735,6 @@ void X86PassConfig::addPreEmitPass2() {
       return M->getFunction("objc_retainAutoreleasedReturnValue") ||
              M->getFunction("objc_unsafeClaimAutoreleasedReturnValue");
     }));
->>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {

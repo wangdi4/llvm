@@ -93,13 +93,9 @@
 #endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Support/xxhash.h"
-=======
->>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
 
 using namespace clang;
 using namespace CodeGen;
@@ -2708,7 +2704,6 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
@@ -2878,59 +2873,7 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
   return Buffer;
 }
 #endif // INTEL_COLLAB
-void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
-  if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())
-    return;
 
-  llvm::LLVMContext &Ctx = F->getContext();
-  llvm::MDBuilder MDB(Ctx);
-  F->setMetadata(llvm::LLVMContext::MD_kcfi_type,
-                 llvm::MDNode::get(
-                     Ctx, MDB.createConstant(CreateKCFITypeId(FD->getType()))));
-}
-
-static bool allowKCFIIdentifier(StringRef Name) {
-  // KCFI type identifier constants are only necessary for external assembly
-  // functions, which means it's safe to skip unusual names. Subset of
-  // MCAsmInfo::isAcceptableChar() and MCAsmInfoXCOFF::isAcceptableChar().
-  return llvm::all_of(Name, [](const char &C) {
-    return llvm::isAlnum(C) || C == '_' || C == '.';
-  });
-}
-
-void CodeGenModule::finalizeKCFITypes() {
-  llvm::Module &M = getModule();
-  for (auto &F : M.functions()) {
-    // Remove KCFI type metadata from non-address-taken local functions.
-    bool AddressTaken = F.hasAddressTaken();
-    if (!AddressTaken && F.hasLocalLinkage())
-      F.eraseMetadata(llvm::LLVMContext::MD_kcfi_type);
-
-    // Generate a constant with the expected KCFI type identifier for all
-    // address-taken function declarations to support annotating indirectly
-    // called assembly functions.
-    if (!AddressTaken || !F.isDeclaration())
-      continue;
-
-    const llvm::ConstantInt *Type;
-    if (const llvm::MDNode *MD = F.getMetadata(llvm::LLVMContext::MD_kcfi_type))
-      Type = llvm::mdconst::extract<llvm::ConstantInt>(MD->getOperand(0));
-    else
-      continue;
-
-    StringRef Name = F.getName();
-    if (!allowKCFIIdentifier(Name))
-      continue;
-
-    std::string Asm = (".weak __kcfi_typeid_" + Name + "\n.set __kcfi_typeid_" +
-                       Name + ", " + Twine(Type->getZExtValue()) + "\n")
-                          .str();
-    M.appendModuleInlineAsm(Asm);
-  }
-}
-
-=======
->>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                           bool IsIncompleteFunction,
                                           bool IsThunk) {

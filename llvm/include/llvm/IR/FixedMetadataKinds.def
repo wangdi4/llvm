@@ -66,13 +66,9 @@ LLVM_FIXED_MD_KIND(MD_func_sanitize, "func_sanitize", 32)
 LLVM_FIXED_MD_KIND(MD_exclude, "exclude", 33)
 LLVM_FIXED_MD_KIND(MD_memprof, "memprof", 34)
 LLVM_FIXED_MD_KIND(MD_callsite, "callsite", 35)
-<<<<<<< HEAD
-LLVM_FIXED_MD_KIND(MD_kcfi_type, "kcfi_type", 36)
 #if INTEL_CUSTOMIZATION
-LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 37)
-LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 38)
-LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 39)
-LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 40)
+LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 36)
+LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 37)
+LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 38)
+LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 39)
 #endif
-=======
->>>>>>> a79060e275440ccd8d403d5af5fb5b9395ea3fac
