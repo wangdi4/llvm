@@ -1317,6 +1317,18 @@ public:
       return cast<Value>(const_cast<Value *>(getArgOperand(4)));
     }
 
+    /// Get extent from metadata attached to the subscript.
+    /// If not available, returns 0.
+    uint64_t getExtent() const {
+      if (const MDNode *Extent = getMetadata("ifx.array_extent"))
+        if (Extent->getNumOperands())
+          if (const auto *CI =
+                mdconst::dyn_extract<ConstantInt>(Extent->getOperand(0)))
+            return CI->getZExtValue();
+
+      return 0;
+    }
+
     bool hasAllConstantIndices() const {
       return isa<ConstantInt>(getLowerBound()) &&
              isa<ConstantInt>(getStride()) && isa<ConstantInt>(getIndex());

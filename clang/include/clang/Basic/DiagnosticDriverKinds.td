@@ -407,6 +407,9 @@ def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qo
   InGroup<UnusedCommandLineArgument>;
 def warn_invalid_tool : Warning<"Invalid tool(%0) for the -Qoption, option ignored">,
   InGroup<UnusedCommandLineArgument>;
+def warn_drv_cl_option_with_linux : Warning<
+  "MSVC specific option '%0' encountered. Use 'icx-cl' to compile with "
+  "MSVC command line compatibility">, InGroup<InvalidCommandLineArgument>;
 #endif //INTEL_CUSTOMIZATION
 def warn_drv_unsupported_opt_for_target : Warning<
   "optimization flag '%0' is not supported for target '%1'">,

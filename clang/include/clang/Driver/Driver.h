@@ -797,9 +797,9 @@ private:
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
 
 #if INTEL_CUSTOMIZATION
-  /// Specific to DPC++, specialization function for setting the option flags
-  /// to handle dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksDpcpp(
+  /// Specific to Intel, specialization function for setting the option flags
+  /// to handle icx/dpcpp behaviors on Windows.
+  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksIntel(
       bool IsClCompatMode, bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 

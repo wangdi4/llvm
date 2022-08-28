@@ -331,7 +331,13 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
       }
     }
     std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-        getIncludeExcludeOptionFlagMasksDpcpp(IsClCompatMode, AllowAllOpts);
+        getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, AllowAllOpts);
+#ifdef _WIN32
+  // Only perform this check for Windows builds of icx.
+  } else if (IsIntelMode() && Name == "icx") {
+    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
+        getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, true);
+#endif // _WIN32
   } else
     std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
         getIncludeExcludeOptionFlagMasks(IsClCompatMode);
@@ -399,6 +405,26 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
                            diag::warn_drv_empty_joined_argument,
                            SourceLocation()) > DiagnosticsEngine::Warning;
     }
+#if INTEL_CUSTOMIZATION
+    // Emit a warning if a user is using Windows icx (Linux based) with a
+    // CL compatible option that they should be using 'icx-cl' instead.
+    auto Omatch = [&](const Arg *A) -> bool {
+      if (!A->getOption().matches(options::OPT__SLASH_O))
+        return false;
+      if (A->containsValue("1") || A->containsValue("2") ||
+          A->containsValue("3") || A->containsValue("s") ||
+          A->containsValue("x"))
+        return true;
+      return false;
+    };
+    if (IsIntelMode() && !IsCLMode() && !Omatch(A) &&
+        A->getOption().hasFlag(options::CLOption)) {
+      Diag(diag::warn_drv_cl_option_with_linux) << A->getAsString(Args);
+      ContainsError |= Diags.getDiagnosticLevel(
+                           diag::warn_drv_cl_option_with_linux,
+                           SourceLocation()) > DiagnosticsEngine::Warning;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (const Arg *A : Args.filtered(options::OPT_UNKNOWN)) {
@@ -1657,6 +1683,7 @@ bool Driver::loadConfigFile() {
                       .Case("dpcpp", "DPCPPCFG")
                       .Case("icpx", "ICPXCFG")
                       .Case("icx", "ICXCFG")
+                      .Case("icx-cl", "ICXCLCFG")
                       .Default("");
     if (Optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
@@ -1669,7 +1696,7 @@ bool Driver::loadConfigFile() {
       }
     } else {
       // Process default .cfg files.  These files are named according to the
-      // driver name used:  dpcpp.cfg, icx.cfg, icpx.cfg
+      // driver name used:  dpcpp.cfg, icx.cfg, icpx.cfg, icx-cl.cfg
       SmallString<128> CfgFileBase(Name + ".cfg");
       llvm::SmallString<128> CfgFilePath;
       // Add an alternate search directory for the default cfg file.  This is
@@ -10050,14 +10077,15 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
 
 #if INTEL_CUSTOMIZATION
 std::pair<unsigned, unsigned>
-Driver::getIncludeExcludeOptionFlagMasksDpcpp(bool IsClCompatMode,
+Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
                                               bool AllowAllOpts) const {
   unsigned IncludedFlagsBitmask = 0;
   unsigned ExcludedFlagsBitmask = options::NoDriverOption;
 
-  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
-  // accepted and parsed.  This allows for a transition period for using a more
-  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
+  // For dpcpp and icx on Windows, we are allowing both MSVC and Linux options
+  // to be accepted and parsed.  This allows for a transition period for using
+  // a more traditional set of drivers; dpcpp/icx for Linux and dpcpp-cl/icx-cl
+  // for Windows.
   if (IsClCompatMode) {
     if (!AllowAllOpts) {
       // Include CL and Core options.

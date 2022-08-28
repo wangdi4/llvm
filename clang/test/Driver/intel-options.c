@@ -889,14 +889,15 @@
 
 // Tests for binary output 'name' check
 // RUN: %clang -### --intel -help %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
-// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK_CL %s
 // HELP-CHECK: USAGE: icx [options] file...
+// HELP-CHECK_CL: USAGE: icx-cl [options] file...
 
 // RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
 // SUPPORT-CHECK: icx: error: unsupported option '---'
 
 // RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s
-// SUPPORT-CHECK-WIN: icx: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
+// SUPPORT-CHECK-WIN: icx-cl: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
 
 // -fp-model=consistent is equivalent to -fp-model=precise -fimf-arch-consistency=true -no-fma
 // RUN: %clang -### -fp-model=consistent -c %s 2>&1 \
