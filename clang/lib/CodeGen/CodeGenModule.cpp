@@ -94,13 +94,10 @@
 #endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
-=======
 #include "llvm/Support/xxhash.h"
->>>>>>> cff5bef948c91e4919de8a5fb9765e0edc13f3de
 
 using namespace clang;
 using namespace CodeGen;
@@ -2728,7 +2725,6 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
@@ -2898,7 +2894,6 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
   return Buffer;
 }
 #endif // INTEL_COLLAB
-=======
 void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
   if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())
     return;
@@ -2949,7 +2944,6 @@ void CodeGenModule::finalizeKCFITypes() {
     M.appendModuleInlineAsm(Asm);
   }
 }
->>>>>>> cff5bef948c91e4919de8a5fb9765e0edc13f3de
 
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                           bool IsIncompleteFunction,
