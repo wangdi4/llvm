@@ -117,7 +117,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86TileConfigPass(PR);
   initializeX86FastPreTileConfigPass(PR);
   initializeX86FastTileConfigPass(PR);
-  initializeX86KCFIPass(PR);
   initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
@@ -648,10 +647,7 @@ void X86PassConfig::addPostRegAlloc() {
     addPass(createX86LoadValueInjectionLoadHardeningPass());
 }
 
-void X86PassConfig::addPreSched2() {
-  addPass(createX86ExpandPseudoPass());
-  addPass(createX86KCFIPass());
-}
+void X86PassConfig::addPreSched2() { addPass(createX86ExpandPseudoPass()); }
 
 void X86PassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None) {
@@ -728,18 +724,17 @@ void X86PassConfig::addPreEmitPass2() {
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
-  // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
-  // also CALL_RVMARKER.
-  addPass(createUnpackMachineBundles([&TT](const MachineFunction &MF) {
-    // Only run bundle expansion if the module uses kcfi, or there are relevant
-    // ObjC runtime functions present in the module.
-    const Function &F = MF.getFunction();
-    const Module *M = F.getParent();
-    return M->getModuleFlag("kcfi") ||
-           (TT.isOSDarwin() &&
-            (M->getFunction("objc_retainAutoreleasedReturnValue") ||
-             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue")));
-  }));
+  // On Darwin platforms, BLR_RVMARKER pseudo instructions are lowered to
+  // bundles.
+  if (TT.isOSDarwin())
+    addPass(createUnpackMachineBundles([](const MachineFunction &MF) {
+      // Only run bundle expansion if there are relevant ObjC runtime functions
+      // present in the module.
+      const Function &F = MF.getFunction();
+      const Module *M = F.getParent();
+      return M->getFunction("objc_retainAutoreleasedReturnValue") ||
+             M->getFunction("objc_unsafeClaimAutoreleasedReturnValue");
+    }));
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {

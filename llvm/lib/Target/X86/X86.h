@@ -69,9 +69,6 @@ FunctionPass *createX86IssueVZeroUpperPass();
 /// destinations as part of CET IBT mechanism.
 FunctionPass *createX86IndirectBranchTrackingPass();
 
-/// This pass inserts KCFI checks before indirect calls.
-FunctionPass *createX86KCFIPass();
-
 /// Return a pass that pads short functions with NOOPs.
 /// This will prevent a stall when returning on the Atom.
 FunctionPass *createX86PadShortFunctions();
@@ -246,7 +243,6 @@ void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86ExpandPseudoPass(PassRegistry &);
 void initializeX86FixupSetCCPassPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
-void initializeX86KCFIPass(PassRegistry &);
 void initializeX86LoadValueInjectionLoadHardeningPassPass(PassRegistry &);
 void initializeX86LoadValueInjectionRetHardeningPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
