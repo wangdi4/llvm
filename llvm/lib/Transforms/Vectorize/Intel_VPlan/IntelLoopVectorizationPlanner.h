@@ -58,8 +58,6 @@ extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
 extern bool EnableSOAAnalysisHIR;
-extern bool EnableNewCFGMerge;
-extern bool EnableNewCFGMergeHIR;
 extern unsigned DefaultTripCount;
 // Flag to indicate if dynamic peeling is enabled. Flag is set based on
 // appropriate value of command line option for the IR kind being processed.
@@ -453,8 +451,6 @@ public:
 
   /// Perform VPlan loop unrolling if needed
   virtual bool unroll(VPlanVector &Plan);
-
-  virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.

@@ -66,10 +66,6 @@ static cl::opt<unsigned> VPlanSearchLpPtrEqForceVF(
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
-static cl::opt<bool, true>
-    EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
-                         cl::location(EnableNewCFGMerge),
-                         cl::desc("Enable the new CFG merger."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
     "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
@@ -236,8 +232,6 @@ bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = true;
-bool EnableNewCFGMerge = true;
-bool EnableNewCFGMergeHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
 bool EnableIntDivRemBlendWithSafeValue = true;
@@ -1303,10 +1297,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 void LoopVectorizationPlanner::updateVecScenario(
     VPlanPeelEvaluator const &PE, VPlanRemainderEvaluator const &RE,
     unsigned VF, unsigned UF) {
-  if (!isNewCFGMergeEnabled()) {
-    selectSimplestVecScenario(VF, UF);
-    return;
-  }
   using PeelKind = VPlanPeelEvaluator::PeelLoopKind;
   using RemKind = VPlanRemainderEvaluator::RemainderLoopKind;
   switch (PE.getPeelLoopKind()) {
@@ -1827,13 +1817,11 @@ VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
     assert(VF == 1 && "expected VF=1 for scalar VPlan");
     return getVPlanForVF(VF);
   }
-  if (isNewCFGMergeEnabled())
-    // Get either masked or non-masked main VPlan, depending on
-    // selection.
-    return VecScenario.getMain().Kind == SingleLoopVecScenario::LKVector
-               ? getVPlanForVF(VF)
-               : getMaskedVPlanForVF(VF);
-  return getVPlanForVF(VF);
+  // Get either masked or non-masked main VPlan, depending on
+  // selection.
+  return VecScenario.getMain().Kind == SingleLoopVecScenario::LKVector
+           ? getVPlanForVF(VF)
+           : getMaskedVPlanForVF(VF);
 }
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
@@ -1858,13 +1846,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if (EnableNewCFGMerge) {
-    CallVecDecisions.runForMergedCFG(TLI, TTI);
-    Label = "CallVecDecisions analysis for merged CFG";
-  } else {
-    CallVecDecisions.runForVF(getBestVF(), TLI, TTI);
-    Label = "CallVecDecisions analysis for VF=" + std::to_string(getBestVF());
-  }
+  CallVecDecisions.runForMergedCFG(TLI, TTI);
+  Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
@@ -1887,8 +1870,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
-  if (!EnableNewCFGMerge)
-    return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
   assert(Plan && "No best VPlan found.");
@@ -1896,23 +1877,18 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
   // Run CFGMerger.
-  if (!EnableNewCFGMerge)
-    CFGMerger.createSimpleVectorRemainderChain(TheLoop);
-  else
-    CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
-  if (EnableNewCFGMerge) {
-    assert(getBestVF() > 1 && "Unexpected VF");
+  assert(getBestVF() > 1 && "Unexpected VF");
 
-    VPlanVector *Plan = getBestVPlan();
-    assert(Plan && "No best VPlan found.");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
-    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
-                                *Plan, VPAF);
-  }
+  VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                              *Plan, VPAF);
 }
 
 // Return true if the compare and branch sequence guarantees the loop trip count
