@@ -1,4 +1,5 @@
-; RUN: llc < %s -march=nvptx64 -mcpu=sm_20 | FileCheck %s
+; INTEL: Added options to revert to upstream behavior
+; RUN: llc < %s -march=nvptx64 -mcpu=sm_20  -remove-same-addressspace-cast=false  -infer-as-collect-callinst-opnds=false  | FileCheck %s
 ; RUN: %if ptxas %{ llc < %s -march=nvptx64 -mcpu=sm_20 | %ptxas-verify %}
 
 ; Checks how NVPTX lowers alloca buffers and their passing to functions.
