@@ -389,6 +389,14 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(LibFunc TheLibFunc) {
 DTransFunctionType *
 DTransLibraryInfo::getDTransFunctionTypeImpl(Intrinsic::ID Id) {
   switch (Id) {
+  case Intrinsic::eh_typeid_for:
+    // i32 @llvm.eh.typeid.for(i8*)
+    return TM.getOrCreateFunctionType(DTransI32Type, {DTransI8PtrType},
+                                      /*IsVarArg=*/false);
+  case Intrinsic::icall_branch_funnel:
+    // void @llvm.icall.branch.funnel(...)
+    return TM.getOrCreateFunctionType(DTransVoidType, {}, /*IsVarArg=*/true);
+
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
     // void llvm.lifetime.end(i64, i8*)
