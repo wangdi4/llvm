@@ -297,12 +297,16 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512ER = true;
     } else if (Feature == "+avx512fp16") {
       HasAVX512FP16 = true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
     } else if (Feature == "+avx512bf16ne") {
       HasAVX512BF16NE = true;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 #endif // INTEL_CUSTOMIZATION
+=======
+      HasLegalHalfType = true;
+>>>>>>> 5def954a5b1774747bbe90a4f6879e51f341a74d
     } else if (Feature == "+avx512pf") {
       HasAVX512PF = true;
     } else if (Feature == "+avx512dq") {
