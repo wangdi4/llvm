@@ -55,6 +55,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "codegen"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    MBBOptReportOpt("mbb-optreport-opt",
+                    cl::desc("Trying to maintain better MBB->BB mapping when "
+                             "creating new BB in splitting critical edge."),
+                    cl::init(true), cl::Hidden);
+#endif
+
 static cl::opt<bool> PrintSlotIndexes(
     "print-slotindexes",
     cl::desc("When printing machine IR, annotate instructions and blocks with "
@@ -1045,6 +1053,10 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   const BasicBlock *BaseBB = getBasicBlock(); // INTEL
 
 #if INTEL_CUSTOMIZATION
+  // When MBBOptReportOpt is false, we revert to upstream behavior.
+  if (!MBBOptReportOpt) {
+    BaseBB = nullptr;
+  }
   // To be able to access opt-reports from MIR, we need a valid and
   // reasonable MBB->BB mapping.  Here we try to figure out which
   // of the two BasicBlocks (this and Succ) has to be considered
@@ -1062,7 +1074,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   // we put the new MachineBasicBlock into the outer Loop.  Thus,
   // we want to map the new MachineBasicBlock to 'this' MachineBasicBlock's
   // BasicBlock.
-  if (MachineLoopInfo *MLI = P.getAnalysisIfAvailable<MachineLoopInfo>())
+  else if (MachineLoopInfo *MLI = P.getAnalysisIfAvailable<MachineLoopInfo>())
     // If 'this' block is not in a Loop, then the new block is not either,
     // so we map the new block to the BasicBlock corresponding to 'this'
     // block.
@@ -1104,7 +1116,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
         BaseBB = Succ->getBasicBlock();
       }
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
   MF->insert(std::next(MachineFunction::iterator(this)), NMBB);
