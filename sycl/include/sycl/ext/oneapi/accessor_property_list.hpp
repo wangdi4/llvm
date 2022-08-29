@@ -31,7 +31,10 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 // Forward declaration
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
+=======
+>>>>>>> 372cc94890e4e5334b7d64e29a55eee3480a9922
 template <typename DataT, int Dimensions, access::mode AccessMode,
           access::target AccessTarget, access::placeholder IsPlaceholder,
           typename PropertyListT>
