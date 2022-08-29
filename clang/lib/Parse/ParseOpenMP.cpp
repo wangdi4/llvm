@@ -3940,6 +3940,10 @@ bool Parser::ParseOMPInteropInfo(OMPInteropInfo &InteropInfo,
     bool PreferTypeAllowed = Kind == OMPC_init &&
                              InteropInfo.PreferTypes.empty() && !IsTarget &&
                              !IsTargetSync;
+#if INTEL_COLLAB
+    if (Kind == OMPC_append_args)
+      PreferTypeAllowed = InteropInfo.PreferTypes.empty();
+#endif // INTEL_COLLAB
     if (Tok.getIdentifierInfo()->isStr("target")) {
       // OpenMP 5.1 [2.15.1, interop Construct, Restrictions]
       // Each interop-type may be specified on an action-clause at most
