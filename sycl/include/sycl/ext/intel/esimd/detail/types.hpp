@@ -51,17 +51,12 @@ template <typename BaseTy, typename RegionTy> class simd_view;
 
 namespace detail {
 
-<<<<<<< HEAD
-namespace sd = sycl::detail;
-
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 using half = sycl::detail::half_impl::StorageT;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> 2eb9d4b94e5588b4e6786a33ba3d527ef6277a39
 template <int N>
 using uint_type_t = std::conditional_t<
     N == 1, uint8_t,
