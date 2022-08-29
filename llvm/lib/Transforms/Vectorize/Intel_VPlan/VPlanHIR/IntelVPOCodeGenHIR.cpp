@@ -125,13 +125,6 @@ static cl::opt<int> PrintHIRAfterVPlan(
 
 namespace llvm {
 
-// Helper method to check if we are dealing with merged CFG in CG. This is
-// decided based on status of compiler options that control CFGMerger (with
-// exception of search loops).
-bool VPOCodeGenHIR::isMergedCFG() {
-  return !isSearchLoop() && EnableNewCFGMerge && EnableNewCFGMergeHIR;
-}
-
 // Helper method to determine if instruction is strictly identified as being
 // scalar for first lane by SVA.
 static bool instIsStrictlyFirstScalar(const VPInstruction *VPInst) {
@@ -1015,8 +1008,8 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   HLLoop *HLoop;
   if (!VPLp->getParentLoop()) {
     CurTopVPLoop = VPLp;
-    HLoop = isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
-    if (isMergedCFG()) {
+    HLoop = isSearchLoop() ? MainLoop : getMergedCFGVecHLLoop(VPLp);
+    if (!isSearchLoop()) {
       // TODO - this code is making some implicit assumptions that the first
       // VPLoop is the main vector loop and using its VF(MaxVF) to set
       // trip count estimates. This needs to be improved to get the VF
@@ -1189,10 +1182,10 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
     }
   }
 
-  if (isMergedCFG())
-    setupLoopsForMergedCFG();
-  else
+  if (isSearchLoop())
     setupLoopsForLegacyCG(VF, UF);
+  else
+    setupLoopsForMergedCFG();
 
   if (!MainLoop) {
     assert(false && "Main loop could not be setup.");
@@ -1239,7 +1232,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPOCodeGenHIR::dumpFinalHIR() {
   bool Detailed = PrintHIRAfterVPlan > 1;
-  if (isMergedCFG()) {
+  if (!isSearchLoop()) {
     MainLoop->getParent()->dump(Detailed);
     return;
   }
@@ -1382,7 +1375,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   eliminateRedundantGotosLabels();
   setupLiveInLiveOut();
 
-  if (isMergedCFG()) {
+  if (!isSearchLoop()) {
     // Set the code gen for modified region. This will ensure outgoing HIR
     // region is lowered to LLVM-IR by HIR-CG.
     assert(MainLoop->getParentRegion() &&
@@ -1448,10 +1441,10 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   }
 
   // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
-  // is done only for merged CFG-based CG today. This should be done before
+  // is done always except for search loops. This should be done before
   // complete unroll optimization below since that would lead to loss of vector
   // loop.
-  if (isMergedCFG()) {
+  if (!isSearchLoop()) {
     emitRemarksForScalarLoops();
     lowerRemarksForVectorLoops();
   }
@@ -1461,11 +1454,11 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   if (NeedRemainderLoop) {
     // Remainder loop is represented explicitly in merged CFG and we don't need
     // to repurpose OrigLoop as remainder.
-    if (isMergedCFG())
-      HLNodeUtils::remove(OrigLoop);
-    else {
+    if (isSearchLoop()) {
       HIRLoopVisitor LV(OrigLoop, this);
       LV.replaceCalls();
+    } else {
+      HLNodeUtils::remove(OrigLoop);
     }
   }
 
@@ -1485,7 +1478,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   }
 
   // Remove the OrigLoop for merged CFG approach or if remainder is not needed.
-  if ((isMergedCFG() && OrigLoop->isAttached()) || !NeedRemainderLoop)
+  if ((!isSearchLoop() && OrigLoop->isAttached()) || !NeedRemainderLoop)
     HLNodeUtils::remove(OrigLoop);
 }
 
@@ -4276,7 +4269,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::InductionFinal: {
-    if (!isMergedCFG()) {
+    if (isSearchLoop()) {
       // We use another mechanism to set upper bounds so that does not work w/o
       // CFG merger.
       return;
@@ -5338,7 +5331,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       if (VPInst->getOpcode() == Instruction::ICmp)
         return;
 
-      if (!isMergedCFG() &&
+      if (isSearchLoop() &&
           !Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()))
         return;
     }
@@ -6760,7 +6753,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case VPInstruction::PushVF: {
-    assert(isMergedCFG() && "PushVF expected only for merged CFG.");
+    assert(!isSearchLoop() && "PushVF not expected for search loops.");
     unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
     unsigned NewUF = cast<VPPushVF>(VPInst)->getUF();
     assert((NewVF != 0 && NewUF != 0) && "expected nonzero VF and UF");
@@ -6772,7 +6765,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case VPInstruction::PopVF: {
-    assert(isMergedCFG() && "PopVF expected only for merged CFG.");
+    assert(!isSearchLoop() && "PopVF not expected for search loops.");
     assert(!VFStack.empty() && "unexpected PopVF");
     auto V = VFStack.pop_back_val();
     dropExternalValsFromMaps();
@@ -6980,7 +6973,7 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
         continue;
 
       auto *IndInit = cast<VPInductionInit>(&Inst);
-      if (isMergedCFG() && !IndInit->isMainLoopIV())
+      if (!isSearchLoop() && !IndInit->isMainLoopIV())
         continue;
       if (LoopIVCaptured)
         report_fatal_error(
@@ -7306,6 +7299,7 @@ HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
 }
 
 void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
+  assert(!isSearchLoop() && "Search loop not supported here");
   HLLoop *VecLoop = VPLoopHLLoopMap[VPLp];
 
   // Upper bound for the vectorized HLLoop is obtained from VPLoop's utility.
@@ -7364,15 +7358,6 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   // VF*UF by default.
   VecLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(getVF() *
                                                                getUF());
-
-  if (!isMergedCFG()) {
-    // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
-    // This does not work with cfg merger as VectorTC became an instruction
-    // (if not constant) and VPValScalRefMap does not keep it.
-    for (auto &I : *VPLp->getExitBlock())
-      if (isa<VPInductionFinal>(&I))
-        addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
-  }
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
@@ -7390,36 +7375,29 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   if (!Label)
     Label = createBlockLabel(VPBB);
 
-  // NOTE - the implementation here still assumes few things
-  // -- that the blocks are traversed in RPO order. We start the insertion
-  // point before the MainLoop and set the same appropriately once we hit
-  // the loop header and exit blocks.
+  // NOTE - the implementation assumes that the blocks are traversed in RPO
+  // order.
+  // -- We start the insertion point before the original loop and set the same
+  // appropriately once we hit the loop header and exit blocks.
   // -- Reduction related instructions are placed either at current insertion
   // point or reduction related insertion points depending on whether
   // they are hoisted.
-  // -- We still rely on MainLoop/Remainder loops being created implicitly.
-  // This will be changed once we have CFG merger working for HIR path
-  // and the remainder loop is made explicit.
   if (!InsertPoint) {
-    if (isMergedCFG()) {
-      // We are encountering the first VPBB in merged CFG, insert its label
-      // before the original scalar loop.
-      HLNodeUtilities.insertBefore(OrigLoop, Label);
-    } else {
-      HLNodeUtilities.insertBefore(MainLoop, Label);
-    }
+    // We are encountering the first VPBB in merged CFG, insert its label
+    // before the original scalar loop.
+    HLNodeUtilities.insertBefore(OrigLoop, Label);
   } else if (LoopHeaderBlocks.count(VPBB)) {
     auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
     assert(CurVPLoop && "Non-null CurVPLoop expected.");
     setupHLLoop(CurVPLoop);
     auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
     // Main vector loop is already linked in (except in case merged CFG)
-    if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)
+    if (!isSearchLoop() || CurVPLoop->getLoopDepth() > 1)
       HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
     HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
     // Setup lower/upper bound and stride for vectorized loop i.e. outer most
     // loops.
-    if (isMergedCFG() && CurVPLoop->getLoopDepth() == 1)
+    if (!isSearchLoop() && CurVPLoop->getLoopDepth() == 1)
       setBoundsForVectorLoop(CurVPLoop);
   } else if (LoopExitBlocks.count(VPBB)) {
     auto *CurVPLoop =

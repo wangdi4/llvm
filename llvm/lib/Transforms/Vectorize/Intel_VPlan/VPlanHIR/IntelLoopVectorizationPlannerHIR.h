@@ -157,9 +157,6 @@ public:
     // FIXME: Implement this!
     return {8, 64};
   }
-  virtual bool isNewCFGMergeEnabled() const override {
-    return EnableNewCFGMergeHIR;
-  }
 
   void createMergerVPlans(VPAnalysesFactoryBase &VPAF) override;
 

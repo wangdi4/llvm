@@ -35,11 +35,6 @@ static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
-static cl::opt<bool, true>
-    EnableNewCFGMergeHIROpt("vplan-enable-new-cfg-merge-hir", cl::Hidden,
-                            cl::location(EnableNewCFGMergeHIR),
-                            cl::desc("Enable the new CFG merger for HIR."));
-
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
                                                   unsigned UF) {
   unsigned BestVF = getBestVF();
@@ -76,13 +71,8 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
-    CallVecDecisions.runForMergedCFG(TLI, TTI);
-    Label = "CallVecDecisions analysis for merged CFG";
-  } else {
-    CallVecDecisions.runForVF(BestVF, TLI, TTI);
-    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
-  }
+  CallVecDecisions.runForMergedCFG(TLI, TTI);
+  Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
@@ -269,7 +259,7 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
 
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
-  if (isSearchLoop() || !EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+  if (isSearchLoop())
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -293,15 +283,13 @@ void LoopVectorizationPlannerHIR::createMergerVPlans(
     return;
 
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
-  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
-    assert(getBestVF() > 1 && "Unexpected VF");
+  assert(getBestVF() > 1 && "Unexpected VF");
 
-    VPlanVector *Plan = getBestVPlan();
-    assert(Plan && "No best VPlan found.");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
-    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
-                                *Plan, VPAF);
-  }
+  VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                              *Plan, VPAF);
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
