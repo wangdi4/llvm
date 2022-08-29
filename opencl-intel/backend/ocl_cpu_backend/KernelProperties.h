@@ -274,6 +274,7 @@ public:
     bool          GetCanUniteWG() const { return m_canUniteWG; }
     unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
     size_t        GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
+    size_t        GetVectorizationWidth() const { return m_vectorizationWidth; }
 
     /**
      * Serialization methods for the class (used by the serialization service)

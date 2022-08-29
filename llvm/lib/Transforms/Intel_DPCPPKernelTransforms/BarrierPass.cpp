@@ -1476,7 +1476,7 @@ void KernelBarrier::updateStructureStride(Module &M,
   calculatePrivateSize(M, FunctionsWithSync, FuncToPrivSize);
 
   // Get the kernels using the barrier for work group loops.
-  for (auto Func : TodoList) {
+  for (auto *Func : TodoList) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that  Vectorized is running in all scenarios.
@@ -1508,6 +1508,10 @@ void KernelBarrier::updateStructureStride(Module &M,
       // buffer size. So need to add non barrier private memory.
       KIMD.PrivateMemorySize.set(StrideSize + PrivateSize);
     }
+    LLVM_DEBUG(dbgs() << "Set metadata for kernel " << Func->getName()
+                      << ": BarrierBufferSize=" << KIMD.BarrierBufferSize.get()
+                      << ", PrivateMemorySize=" << KIMD.PrivateMemorySize.get()
+                      << '\n');
   }
 }
 
