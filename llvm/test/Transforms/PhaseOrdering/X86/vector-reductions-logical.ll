@@ -25,10 +25,12 @@ define float @test_merge_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[SPEC_SELECT]], [[LOR_LHS_FALSE]] ]
+; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP7]], [[LOR_LHS_FALSE]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 entry:
@@ -199,10 +201,12 @@ define float @test_separate_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[SPEC_SELECT]], [[IF_END]] ]
+; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP7]], [[IF_END]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 entry:
@@ -275,7 +279,6 @@ define float @test_separate_anyof_v4sf(<4 x float> %t) {
 ; CHECK-LABEL: @test_separate_anyof_v4sf(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T_FR:%.*]] = freeze <4 x float> [[T:%.*]]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x float> [[T_FR]], i64 3
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <4 x float> [[T_FR]], i64 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <4 x float> [[T_FR]], i64 1
@@ -297,23 +300,6 @@ define float @test_separate_anyof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ [[TMP7]], [[LOR_LHS_FALSE11]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = fcmp olt <4 x float> [[T_FR]], zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i1> [[TMP0]] to i4
-; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[DOTNOT]], label [[IF_END:%.*]], label [[RETURN:%.*]]
-; CHECK:       if.end:
-; CHECK-NEXT:    [[TMP2:%.*]] = fcmp ogt <4 x float> [[T_FR]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00>
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
-; CHECK-NEXT:    [[DOTNOT6:%.*]] = icmp eq i4 [[TMP3]], 0
-; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP4:%.*]] = fadd <4 x float> [[T_FR]], [[SHIFT]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP4]], i64 0
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[DOTNOT6]], float [[ADD]], float 0.000000e+00
-; CHECK-NEXT:    br label [[RETURN]]
-; CHECK:       return:
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[SPEC_SELECT]], [[IF_END]] ]
->>>>>>> ab85996e475ceddfda82255c314229ac0c0f4994
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 ; end INTEL_CUSTOMIZATION
