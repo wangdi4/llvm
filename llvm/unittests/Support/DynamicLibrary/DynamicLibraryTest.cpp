@@ -10,7 +10,6 @@
 #include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "gtest/gtest.h"
 
@@ -65,7 +64,6 @@ std::string StdString(const char *Ptr) { return Ptr ? Ptr : ""; }
 TEST(DynamicLibrary, Overload) {
   {
     std::string Err;
-    llvm_shutdown_obj Shutdown;
     DynamicLibrary DL =
         DynamicLibrary::getPermanentLibrary(LibPath().c_str(), &Err);
     EXPECT_TRUE(DL.isValid());
@@ -113,6 +111,7 @@ TEST(DynamicLibrary, Overload) {
     EXPECT_EQ(GS, &OverloadTestA);
     EXPECT_EQ(StdString(GS()), "OverloadCall");
   }
+<<<<<<< HEAD
   EXPECT_TRUE(FuncPtr<GetString>(DynamicLibrary::SearchForAddressOfSymbol(
                   "TestA")) == nullptr);
 
@@ -183,6 +182,8 @@ TEST(DynamicLibrary, Shutdown) {
   EXPECT_EQ(Order.front(), State::SECOND_CONSTANT);
   EXPECT_EQ(Order.back(), State::FIRST_CONSTANT);
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ebbbd93e3cd8c91b5ac01540c05c619236a90289
 }
 
 #else
