@@ -9,9 +9,9 @@
 ; RUN: llc -mtriple=x86_64-- -O3 -debug-pass=Structure < %s -o /dev/null 2>&1 \
 ; RUN:   | FileCheck %s --check-prefix=FPM
 
-; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
+; INTEL_CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
 ; XFAIL: *
-; END INTEL CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 
 ; REQUIRES: asserts
 
