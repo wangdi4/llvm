@@ -12,6 +12,10 @@
 ; RUN: llc -O3 -mtriple=amdgcn--amdhsa -disable-verify -debug-pass=Structure < %s 2>&1 \
 ; RUN:   | grep -v 'Verify generated machine code' | FileCheck -match-full-lines -strict-whitespace -check-prefix=GCN-O3 %s
 
+; INTEL_CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
+; XFAIL: *
+; end INTEL_CUSTOMIZATION
+
 ; REQUIRES: asserts
 
 ; GCN-O0:Target Library Information
