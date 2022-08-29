@@ -585,8 +585,19 @@ static void instantiateOMPDeclareVariantAttr(
     NeedDevicePtrExprs.push_back(ER.get());
   }
   for (OMPInteropInfo &II : Attr.appendArgs()) {
+#if INTEL_COLLAB
+    OMPInteropInfo Info(II.IsTarget, II.IsTargetSync);
+    for (Expr *E : II.PreferTypes) {
+      ExprResult ER = Subst(E);
+      if (ER.isInvalid())
+        continue;
+      Info.PreferTypes.push_back(ER.get());
+    }
+    AppendArgs.push_back(Info);
+#else // INTEL_COLLAB
     // When prefer_type is implemented for append_args handle them here too.
     AppendArgs.emplace_back(II.IsTarget, II.IsTargetSync);
+#endif // INTEL_COLLAB
   }
 
   S.ActOnOpenMPDeclareVariantDirective(
