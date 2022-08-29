@@ -942,6 +942,20 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
       Header->getTerminator()->getDebugLocation());
     Builder.createStore(Identity, Private);
 
+    // When registerized, inscan reduction becomes partially registerized,
+    // it has the recurrence phi used in the intput phase, and memory is used
+    // in the scan phase (scan directives prevent full registerization).
+    // The load from the reduction memory would be live out, not the phi.
+    // For registerized inscan reduction the recurrence phi needs to be
+    // replaced with identity value.
+    // The replaced phi could be removed from VPlan as it's dead,
+    // however, further assumptions imply having recurrence phi for liveouts,
+    // unless it is private unconditional. Since the phi is dead, it makes more
+    // sense to leave it in the VPlan, rather than special case the assumptions.
+    VPPHINode *RecurPhi = getRecurrentVPHINode(*InscanRed);
+    if (RecurPhi)
+      RecurPhi->replaceAllUsesWith(Identity);
+
     VPValue *StartValue =
       getLinkedInstruction<VPReductionInit>(InscanRed);
     // Create a phi for the carry-over value.
