@@ -35,13 +35,9 @@ list<OclType> math_shared_types = [v1f32, v2f32, v3f32, v4f32, v8f32,
 list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
 list<OclType> math_shared_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16]>.Tout;
-list<OclType> math_half_types_v1_to_v16 = ExpandTypesByVFAndFlatten<[v1f16], [1, 2, 3, 4, 8, 16]>.Tout;
 
 // copysign
 OclBuiltinImpl copysign_impl = OclBuiltinImpl<copysign, math_shared_types_v1_to_v16, 0, copysign_code>;
-
-// fabs
-OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, math_shared_types_v1_to_v16 # math_half_types_v1_to_v16, 0, fabs_code>;
 
 // OpenCL 2.0 -cl-fast-relaxed-math functions
 // float16 is excluded from shared lib since ssse3 and sse42

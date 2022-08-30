@@ -90,10 +90,6 @@ OclBuiltinImpl exp10_svml_promote = OclBuiltinImpl<exp10, math_svml_vF_promote, 
 // expm1 f(vXfX)
 OclBuiltinImpl expm1_svml_promote = OclBuiltinImpl<expm1, math_svml_vF_promote, 0, Promote1_v3_to_v4>;
 
-// fabs
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl fabs_f32_promote = OclBuiltinImpl<fabs, [v1f32, v2f32, v3f32], 0, Promote1>;
-
 // fdim
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
 OclBuiltinImpl fdim_f32_promote = OclBuiltinImpl<fdim, [v1f32, v2f32, v3f32], 0, Promote2>;
