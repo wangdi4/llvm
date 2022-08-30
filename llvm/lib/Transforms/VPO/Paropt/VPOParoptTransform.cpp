@@ -7113,7 +7113,7 @@ void VPOParoptTransform::genPrivatizationReplacement(
     NPV = ASC->getOperand(0);
   // Then handle the various kinds of allocated private objects.
   if (auto *GV = dyn_cast<GlobalObject>(NPV)) {
-    if (GV->getAlign().hasValue())
+    if (GV->getAlign().has_value())
       MaxAlign = GV->getAlign().valueOrOne();
     else
       MaxAlign = DL.getPrefTypeAlign(GV->getType());

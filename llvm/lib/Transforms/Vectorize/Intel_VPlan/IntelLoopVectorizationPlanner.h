@@ -420,7 +420,7 @@ public:
   }
 
   bool isVecRemainderDisabled() const {
-    return IsVecRemainder.hasValue() ? !IsVecRemainder.getValue() : false;
+    return IsVecRemainder.has_value() ? !IsVecRemainder.value() : false;
   }
   bool isVecRemainderEnforced() const {
     return IsVecRemainder.value_or(false);

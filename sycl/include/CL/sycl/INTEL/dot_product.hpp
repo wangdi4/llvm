@@ -25,8 +25,8 @@
 
 #pragma once
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace intel {
 
 union Us {
@@ -87,5 +87,5 @@ int dot_acc(vec<int8_t, 4> a, vec<uint8_t, 4> b, int32_t c) {
 }
 
 } // namespace intel
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // namespace cl

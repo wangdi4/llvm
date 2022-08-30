@@ -264,8 +264,7 @@ template <class InfoClass> class DynCloneImpl {
 
   // Functor that compares Function* using alphabetical ordering of the
   // function's name.
-  struct CompareFuncPtr
-      : public std::binary_function<Function *, Function *, bool> {
+  struct CompareFuncPtr {
     bool operator()(const Function *lhs, const Function *rhs) const {
       if (lhs == nullptr || rhs == nullptr)
         return lhs < rhs;

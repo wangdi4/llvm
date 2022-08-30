@@ -72,7 +72,7 @@ void use_template() {
 //CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, ptr [[THIS]], i32 0, i32 1
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %devPtr)
-//CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
+//CHECK: "QUAL.OMP.MAP.TO"(ptr %this
 
 // CHECK-LABEL: omp_kernel
 void omp_kernel(float * __restrict xxi) {

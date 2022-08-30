@@ -30,8 +30,7 @@
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
 
-namespace lld {
-namespace elf {
+namespace lld::elf {
 
 class InputFile;
 class SharedFile;
@@ -108,7 +107,6 @@ private:
 
 extern std::unique_ptr<SymbolTable> symtab;
 
-} // namespace elf
-} // namespace lld
+} // namespace lld::elf
 
 #endif

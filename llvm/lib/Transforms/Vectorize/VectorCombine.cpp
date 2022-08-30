@@ -289,10 +289,8 @@ ExtractElementInst *VectorCombine::getShuffleExtract(
 
   Type *VecTy = Ext0->getVectorOperand()->getType();
   assert(VecTy == Ext1->getVectorOperand()->getType() && "Need matching types");
-  InstructionCost Cost0 =
-      TTI.getVectorInstrCost(Ext0->getOpcode(), VecTy, Index0);
-  InstructionCost Cost1 =
-      TTI.getVectorInstrCost(Ext1->getOpcode(), VecTy, Index1);
+  InstructionCost Cost0 = TTI.getVectorInstrCost(*Ext0, VecTy, Index0);
+  InstructionCost Cost1 = TTI.getVectorInstrCost(*Ext1, VecTy, Index1);
 
   // If both costs are invalid no shuffle is needed
   if (!Cost0.isValid() && !Cost1.isValid())
@@ -357,9 +355,9 @@ bool VectorCombine::isExtractExtractCheap(ExtractElementInst *Ext0,
   unsigned Ext1Index = Ext1IndexC->getZExtValue();
 
   InstructionCost Extract0Cost =
-      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy, Ext0Index);
+      TTI.getVectorInstrCost(*Ext0, VecTy, Ext0Index);
   InstructionCost Extract1Cost =
-      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy, Ext1Index);
+      TTI.getVectorInstrCost(*Ext1, VecTy, Ext1Index);
 
   // A more expensive extract will always be replaced by a splat shuffle.
   // For example, if Ext0 is more expensive:
@@ -777,9 +775,8 @@ bool VectorCombine::foldExtractedCmps(Instruction &I) {
   if (!VecTy)
     return false;
 
-  InstructionCost OldCost =
-      TTI.getVectorInstrCost(Ext0->getOpcode(), VecTy, Index0);
-  OldCost += TTI.getVectorInstrCost(Ext1->getOpcode(), VecTy, Index1);
+  InstructionCost OldCost = TTI.getVectorInstrCost(*Ext0, VecTy, Index0);
+  OldCost += TTI.getVectorInstrCost(*Ext1, VecTy, Index1);
   OldCost +=
       TTI.getCmpSelInstrCost(CmpOpcode, I0->getType(),
                              CmpInst::makeCmpResultType(I0->getType()), Pred) *
@@ -799,7 +796,7 @@ bool VectorCombine::foldExtractedCmps(Instruction &I) {
   NewCost += TTI.getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, CmpTy,
                                 ShufMask);
   NewCost += TTI.getArithmeticInstrCost(I.getOpcode(), CmpTy);
-  NewCost += TTI.getVectorInstrCost(Ext0->getOpcode(), CmpTy, CheapIndex);
+  NewCost += TTI.getVectorInstrCost(*Ext0, CmpTy, CheapIndex);
 
   // Aggressively form vector ops if the cost is equal because the transform
   // may enable further optimization.
@@ -1223,7 +1220,7 @@ static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
   if (!VLSOpt)
     return None;
 
-  auto VLS = VLSOpt.getValue();
+  auto VLS = VLSOpt.value();
 
   // Check if in1's type and length is equal to
   // the first vls-insert one.
@@ -1284,7 +1281,7 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
   auto FirstVLSInsertOpt = get1stVLSInsert(Shuf);
   if (!FirstVLSInsertOpt) return false;
 
-  VLSInsert FirstInsert = FirstVLSInsertOpt.getValue();
+  VLSInsert FirstInsert = FirstVLSInsertOpt.value();
 
   SmallVector<VLSInsert, 8> List;
   List.push_back(FirstInsert);
@@ -1309,7 +1306,7 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
       return false;
 
     Shuf = NextShuf;
-    List.push_back(NextVLSInsertOpt.getValue());
+    List.push_back(NextVLSInsertOpt.value());
   }
 
   if (FirstInsert.SizeInGroup <= 1)

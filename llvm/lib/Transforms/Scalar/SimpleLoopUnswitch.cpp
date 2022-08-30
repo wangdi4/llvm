@@ -33,6 +33,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/GuardUtils.h"
@@ -43,6 +44,7 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/MustExecute.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #if INTEL_CUSTOMIZATION
@@ -1611,7 +1613,7 @@ deleteDeadClonedBlocks(Loop &L, ArrayRef<BasicBlock *> ExitBlocks,
   // Find all the dead clones, and remove them from their successors.
   SmallVector<BasicBlock *, 16> DeadBlocks;
   for (BasicBlock *BB : llvm::concat<BasicBlock *const>(L.blocks(), ExitBlocks))
-    for (auto &VMap : VMaps)
+    for (const auto &VMap : VMaps)
       if (BasicBlock *ClonedBB = cast_or_null<BasicBlock>(VMap->lookup(BB)))
         if (!DT.isReachableFromEntry(ClonedBB)) {
           for (BasicBlock *SuccBB : successors(ClonedBB))
@@ -2266,7 +2268,7 @@ static void unswitchNontrivialInvariants(
       assert(SI->getDefaultDest() == RetainedSuccBB &&
              "Not retaining default successor!");
       SI->setDefaultDest(LoopPH);
-      for (auto &Case : SI->cases())
+      for (const auto &Case : SI->cases())
         if (Case.getCaseSuccessor() == RetainedSuccBB)
           Case.setSuccessor(LoopPH);
         else
@@ -2327,7 +2329,7 @@ static void unswitchNontrivialInvariants(
       SwitchInst *NewSI = cast<SwitchInst>(NewTI);
       assert(NewSI->getDefaultDest() == RetainedSuccBB &&
              "Not retaining default successor!");
-      for (auto &Case : NewSI->cases())
+      for (const auto &Case : NewSI->cases())
         Case.getCaseSuccessor()->removePredecessor(
             ParentBB,
             /*KeepOneInputPHIs*/ true);
@@ -2906,7 +2908,7 @@ static bool unswitchBestCondition(
         if (CB->isConvergent() || CB->cannotDuplicate())
           return false;
 
-      Cost += TTI.getUserCost(&I, CostKind);
+      Cost += TTI.getInstructionCost(&I, CostKind);
     }
     assert(Cost >= 0 && "Must not have negative costs!");
     LoopCost += Cost;
@@ -3087,6 +3089,7 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
 #endif // INTEL_CUSTOMIZATION
              function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
              ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
+             ProfileSummaryInfo *PSI, BlockFrequencyInfo *BFI,
              function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
   assert(L.isRecursivelyLCSSAForm(DT, LI) &&
          "Loops must be in LCSSA form before unswitching.");
@@ -3123,6 +3126,14 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
   if (L.getHeader()->getParent()->hasOptSize())
     return false;
 
+  // Skip cold loops, as unswitching them brings little benefit
+  // but increases the code size
+  if (PSI && PSI->hasProfileSummary() && BFI &&
+      PSI->isColdBlock(L.getHeader(), BFI)) {
+    LLVM_DEBUG(dbgs() << " Skip cold loop: " << L << "\n");
+    return false;
+  }
+
   // Skip non-trivial unswitching for loops that cannot be cloned.
   if (!L.isSafeToClone())
     return false;
@@ -3150,7 +3161,11 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
                                               LPMUpdater &U) {
   Function &F = *L.getHeader()->getParent();
   (void)F;
-
+  ProfileSummaryInfo *PSI = nullptr;
+  if (auto OuterProxy =
+          AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR)
+              .getCachedResult<ModuleAnalysisManagerFunctionProxy>(F))
+    PSI = OuterProxy->getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   LLVM_DEBUG(dbgs() << "Unswitching loop in " << F.getName() << ": " << L
                     << "\n");
 
@@ -3200,7 +3215,7 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
                     NonTrivial,
 #endif // INTEL_CUSTOMIZATION
                     UnswitchCB, &AR.SE, MSSAU ? MSSAU.getPointer() : nullptr,
-                    DestroyLoopCB))
+                    PSI, AR.BFI, DestroyLoopCB))
     return PreservedAnalyses::all();
 
   if (AR.MSSA && VerifyMemorySSA)
@@ -3263,7 +3278,6 @@ bool SimpleLoopUnswitchLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   LLVM_DEBUG(dbgs() << "Unswitching loop in " << F.getName() << ": " << *L
                     << "\n");
-
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
@@ -3302,9 +3316,10 @@ bool SimpleLoopUnswitchLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();
 #if INTEL_CUSTOMIZATION
-  bool Changed = unswitchLoop(*L, DT, LI, AC, AA, TLI, TTI, true, NonTrivial,
+  bool Changed =
+    unswitchLoop(*L, DT, LI, AC, AA, TLI, TTI, true, NonTrivial, UnswitchCB, SE,
 #endif // INTEL_CUSTOMIZATION
-                              UnswitchCB, SE, &MSSAU, DestroyLoopCB);
+                   &MSSAU, nullptr, nullptr, DestroyLoopCB);
 
   if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();

@@ -75,7 +75,7 @@ public:
 
   unsigned size() { return DistPPNodes.size(); }
 
-  typedef std::pointer_to_unary_function<DistPPNode *, HLNode *> DistToHNodeFun;
+  typedef std::function<HLNode *(DistPPNode *)> DistToHNodeFun;
 
   typedef mapped_iterator<SmallVectorImpl<DistPPNode *>::iterator,
                           DistToHNodeFun>
@@ -260,8 +260,7 @@ template <> struct GraphTraits<loopopt::PiGraph *> {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<loopopt::PiBlock *, loopopt::PiBlock &>
-      DerefFun;
+  typedef std::function<loopopt::PiBlock &(loopopt::PiBlock *)> DerefFun;
 
   typedef mapped_iterator<SmallVectorImpl<loopopt::PiBlock *>::iterator,
                           DerefFun>

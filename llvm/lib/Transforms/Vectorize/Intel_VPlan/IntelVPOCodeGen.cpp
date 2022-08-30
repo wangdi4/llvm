@@ -3449,7 +3449,7 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
         const DataLayout &DL =
             OrigLoop->getHeader()->getModule()->getDataLayout();
         Size =
-            Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
+            Builder.getInt64(AI->getAllocationSizeInBits(DL).value() >> 3);
       }
       // If the pointer argument is not i8* type for this function, insert a
       // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we

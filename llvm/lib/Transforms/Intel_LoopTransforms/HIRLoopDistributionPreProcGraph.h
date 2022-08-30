@@ -302,9 +302,7 @@ template <> struct GraphTraits<loopopt::DistPPGraph *> {
     return N->getGraph()->children_end(N);
   }
 
-  typedef std::pointer_to_unary_function<loopopt::DistPPNode *,
-                                         loopopt::DistPPNode &>
-      DerefFun;
+  typedef std::function<loopopt::DistPPNode &(loopopt::DistPPNode*)> DerefFun;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes(not node ptrs)
   // in the graph

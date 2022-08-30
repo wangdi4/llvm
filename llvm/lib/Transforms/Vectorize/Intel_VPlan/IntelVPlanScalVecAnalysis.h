@@ -325,17 +325,17 @@ private:
 
   SVABits getSVABitsForInst(const VPInstruction *Inst) const {
     Optional<SVABits> InstBits = findSVABitsForInst(Inst);
-    assert(InstBits && InstBits.getValue().any() &&
+    assert(InstBits && InstBits.value().any() &&
            "None of the SVA bits are set for VPInstruction.");
-    return InstBits.getValue();
+    return InstBits.value();
   }
 
   SVABits getSVABitsForOperand(const VPInstruction *Inst,
                                unsigned OpIdx) const {
     Optional<SVABits> OperandBits = findSVABitsForOperand(Inst, OpIdx);
-    assert(OperandBits && OperandBits.getValue().any() &&
+    assert(OperandBits && OperandBits.value().any() &&
            "None of the SVA bits are set for operand of VPInstruction.");
-    return OperandBits.getValue();
+    return OperandBits.value();
   }
 
   SVABits

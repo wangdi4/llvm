@@ -62,7 +62,7 @@ const Type *OpaquePointerTypeMapper::getPointerElementType(const Value *V) const
   auto IT = PtrETypeMap.find(V);
   if (IT == PtrETypeMap.end())
     return nullptr;
-  if (!IT->second.hasValue())
+  if (!IT->second.has_value())
     return nullptr;
   return IT->second.value();
 }

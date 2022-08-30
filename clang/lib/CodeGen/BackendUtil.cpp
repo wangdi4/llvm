@@ -972,8 +972,6 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
       if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
         TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
                                  CodeGenOpts.EnableSplitLTOUnit);
-      PerModulePasses.add(createWriteThinLTOBitcodePass(
-          *OS, ThinLinkOS ? &ThinLinkOS->os() : nullptr));
     } else {
       // Emit a module summary by default for Regular LTO except for ld64
       // targets

@@ -32,6 +32,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_ATTACH:
 #if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
       Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+      [[fallthrough]];
 #endif
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

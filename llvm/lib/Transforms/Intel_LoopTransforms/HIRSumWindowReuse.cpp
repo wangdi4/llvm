@@ -743,7 +743,7 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
 
   // Add these new sums to the list if there are any.
   if (NewSums)
-    LoopSums.push_back(std::move(NewSums.getValue()));
+    LoopSums.push_back(std::move(NewSums.value()));
 }
 
 /// Transforms sliding window sums in \p Sums to re-use terms across outer loop

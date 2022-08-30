@@ -181,7 +181,7 @@ public:
       else if (SIV && (*SIV != CI->getZExtValue()))
         return false;
     }
-    return SIV.hasValue();
+    return SIV.has_value();
   }
 
   void addFieldAddr(Value *V, bool IsNotForDVCP = false) {

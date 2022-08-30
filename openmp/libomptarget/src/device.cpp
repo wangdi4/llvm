@@ -695,7 +695,7 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t Ret;
-  if (!RTL->run_region || !RTL->synchronize)
+  if (!RTL->run_region_async || !RTL->synchronize)
     Ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                           TgtVarsSize);
   else
@@ -704,7 +704,7 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return Ret;
 #else // INTEL_CUSTOMIZATION
-  if (!RTL->run_region || !RTL->synchronize)
+  if (!RTL->run_region_async || !RTL->synchronize)
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                            TgtVarsSize);
   return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,

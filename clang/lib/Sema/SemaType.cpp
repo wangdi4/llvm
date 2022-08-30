@@ -460,7 +460,7 @@ static DeclaratorChunk *maybeMovePastReturnType(Declarator &declarator,
           if (onlyBlockPointers)
             continue;
 
-          LLVM_FALLTHROUGH;
+          [[fallthrough]];
 
         case DeclaratorChunk::BlockPointer:
           result = &ptrChunk;
@@ -1418,7 +1418,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       }
     }
 
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case DeclSpec::TST_int: {
     if (DS.getTypeSpecSign() != TypeSpecifierSign::Unsigned) {
       switch (DS.getTypeSpecWidth()) {
@@ -3627,7 +3627,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
           !D.getNumTypeObjects() &&
           D.getDeclSpec().getParsedSpecifiers() == DeclSpec::PQ_TypeSpecifier)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorContext::TemplateTypeArg:
       Error = 10; // Template type argument
       break;
@@ -3652,7 +3652,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
       if (SemaRef.getLangOpts().CPlusPlus2b && IsCXXAutoType &&
           !Auto->isDecltypeAuto())
         break; // auto(x)
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorContext::TypeName:
     case DeclaratorContext::Association:
       Error = 15; // Generic
@@ -3921,7 +3921,7 @@ static void warnAboutRedundantParens(Sema &S, Declarator &D, QualType T) {
     case DeclaratorChunk::Paren:
       if (&C == &Paren)
         continue;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case DeclaratorChunk::Pointer:
       StartsWithDeclaratorId = false;
       continue;
@@ -4774,7 +4774,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case DeclaratorContext::TrailingReturn:
     case DeclaratorContext::TrailingReturnVar:
       isFunctionOrMethod = true;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case DeclaratorContext::Member:
       if (state.getDeclarator().isObjCIvar() && !isFunctionOrMethod) {
@@ -4788,7 +4788,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
 
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case DeclaratorContext::File:
     case DeclaratorContext::KNRTypeList: {
@@ -4943,7 +4943,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     case CAMN_InnerPointers:
       if (NumPointersRemaining == 0)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
 
     case CAMN_Yes:
       checkNullabilityConsistency(S, pointerKind, pointerLoc, pointerEndLoc);
@@ -6188,6 +6188,8 @@ namespace {
       TL.setRParenLoc(DS.getTypeofParensRange().getEnd());
     }
     void VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
+      // FIXME: This holds only because we only have one unary transform.
+      assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType);
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
       TL.setParensRange(DS.getTypeofParensRange());
       assert(DS.getRepAsType());
@@ -7358,17 +7360,25 @@ static bool handleMSPointerTypeQualifierAttr(TypeProcessingState &State,
   }
 
   std::bitset<attr::LastAttr> Attrs;
-  attr::Kind NewAttrKind = A->getKind();
   QualType Desugared = Type;
-  const AttributedType *AT = dyn_cast<AttributedType>(Type);
-  while (AT) {
+  for (;;) {
+    if (const TypedefType *TT = dyn_cast<TypedefType>(Desugared)) {
+      Desugared = TT->desugar();
+      continue;
+    } else if (const ElaboratedType *ET = dyn_cast<ElaboratedType>(Desugared)) {
+      Desugared = ET->desugar();
+      continue;
+    }
+    const AttributedType *AT = dyn_cast<AttributedType>(Desugared);
+    if (!AT)
+      break;
     Attrs[AT->getAttrKind()] = true;
     Desugared = AT->getModifiedType();
-    AT = dyn_cast<AttributedType>(Desugared);
   }
 
   // You cannot specify duplicate type attributes, so if the attribute has
   // already been applied, flag it.
+  attr::Kind NewAttrKind = A->getKind();
   if (Attrs[NewAttrKind]) {
     S.Diag(PAttr.getLoc(), diag::warn_duplicate_attribute_exact) << PAttr;
     return true;
@@ -7389,14 +7399,11 @@ static bool handleMSPointerTypeQualifierAttr(TypeProcessingState &State,
     return true;
   }
 
-  // Pointer type qualifiers can only operate on pointer types, but not
-  // pointer-to-member types.
-  //
-  // FIXME: Should we really be disallowing this attribute if there is any
-  // type sugar between it and the pointer (other than attributes)? Eg, this
-  // disallows the attribute on a parenthesized pointer.
-  // And if so, should we really allow *any* type attribute?
+  // Check the raw (i.e., desugared) Canonical type to see if it
+  // is a pointer type.
   if (!isa<PointerType>(Desugared)) {
+    // Pointer type qualifiers can only operate on pointer types, but not
+    // pointer-to-member types.
     if (Type->isMemberPointerType())
       S.Diag(PAttr.getLoc(), diag::err_attribute_no_member_pointers) << PAttr;
     else
@@ -7923,7 +7930,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
       case EST_NoexceptTrue:
       case EST_NoThrow:
         // Exception spec doesn't conflict with nothrow, so don't warn.
-        LLVM_FALLTHROUGH;
+        [[fallthrough]];
       case EST_Unparsed:
       case EST_Uninstantiated:
       case EST_DependentNoexcept:
@@ -8668,7 +8675,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     // clang, so revert to attribute-based handling for C.
       if (!state.getSema().getLangOpts().CPlusPlus)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     FUNCTION_TYPE_ATTRS_CASELIST:
       attr.setUsedAsTypeAttr();
 

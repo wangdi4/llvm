@@ -296,7 +296,7 @@ static DeclarationName parseOpenMPReductionId(Parser &P) {
   case tok::identifier: // identifier
     if (!WithOperator)
       break;
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   default:
     P.Diag(Tok.getLocation(), diag::err_omp_expected_reduction_identifier);
     P.SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
@@ -1844,14 +1844,14 @@ void Parser::ParseOMPXDeclareTargetFunctionClauses(
     if (getOpenMPClauseKind(ClauseName) == OMPC_device_type) {
       Optional<SimpleClauseData> DevTypeData =
           parseOpenMPSimpleClause(*this, OMPC_device_type);
-      if (DevTypeData.hasValue()) {
+      if (DevTypeData.has_value()) {
         if (DeviceTypeLoc.isValid()) {
           // We already saw another device_type clause, diagnose it.
-          Diag(DevTypeData.getValue().Loc,
+          Diag(DevTypeData.value().Loc,
                diag::warn_omp_more_one_device_type_clause);
           break;
         }
-        switch (static_cast<OpenMPDeviceType>(DevTypeData.getValue().Type)) {
+        switch (static_cast<OpenMPDeviceType>(DevTypeData.value().Type)) {
         case OMPC_DEVICE_TYPE_any:
           DTCI.DT = OMPDeclareTargetDeclAttr::DT_Any;
           break;
@@ -1864,7 +1864,7 @@ void Parser::ParseOMPXDeclareTargetFunctionClauses(
         case OMPC_DEVICE_TYPE_unknown:
           llvm_unreachable("Unexpected device_type");
         }
-        DeviceTypeLoc = DevTypeData.getValue().Loc;
+        DeviceTypeLoc = DevTypeData.value().Loc;
       }
     } else {
       Diag(Tok, diag::err_omp_declare_target_unexpected_clause)
@@ -3042,7 +3042,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     }
     HasAssociatedStatement = false;
     // Fall through for further analysis.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_tile:
@@ -3661,7 +3661,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
           << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
       ErrorFound = true;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case OMPC_if:
 #if INTEL_COLLAB
     if (!FirstClause && DKind == OMPD_prefetch) {
@@ -3781,7 +3781,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       Clause = ParseOpenMPClause(CKind, WrongDirective);
       break;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case OMPC_init:
   case OMPC_use:
     Clause = ParseOpenMPInteropClause(CKind, WrongDirective);

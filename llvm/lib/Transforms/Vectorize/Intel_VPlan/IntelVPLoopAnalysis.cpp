@@ -388,8 +388,8 @@ VPReduction *VPLoopEntityList::addReduction(
     RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
     Optional<InscanReductionKind> InscanRedKind,
     VPValue *AI, bool ValidMemOnly) {
-  VPReduction *Red = InscanRedKind.hasValue() ?
-      new VPInscanReduction(InscanRedKind.getValue(), Incoming, Exit, Kind,
+  VPReduction *Red = InscanRedKind.has_value() ?
+      new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
                             FMF, RedTy, Signed, ValidMemOnly) :
       new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
@@ -2721,11 +2721,11 @@ bool ReductionDescr::replaceOrigWithAlias() {
         << "Reduction descr: Using alias instead of original descriptor.\n");
 
     // Overwrite start value of descriptor with that of the alias.
-    Start = Alias.getValue().Start;
+    Start = Alias.value().Start;
     // Add updates to linked VPValues before overwriting
     for (auto *U : UpdateVPInsts)
       LinkedVPVals.push_back(U);
-    UpdateVPInsts = Alias.getValue().UpdateVPInsts;
+    UpdateVPInsts = Alias.value().UpdateVPInsts;
   };
 
   // Cases where alias to descriptor is needed instead of original descriptor
@@ -2953,7 +2953,7 @@ void PrivateDescr::tryToCompleteByVPlan(VPlanVector *Plan,
 
   VPPHINode *VPhi = nullptr;
   if (HasAlias)
-    for (VPInstruction *It : Alias.getValue().UpdateVPInsts)
+    for (VPInstruction *It : Alias.value().UpdateVPInsts)
       UpdateVPInsts.push_back(It);
 
   // Go through update instructions to find liveout and/or header phi.

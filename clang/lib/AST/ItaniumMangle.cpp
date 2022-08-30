@@ -1681,7 +1681,7 @@ void CXXNameMangler::mangleUnqualifiedName(
         if (!MD->isStatic())
           Arity++;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case DeclarationName::CXXConversionFunctionName:
   case DeclarationName::CXXLiteralOperatorName:
     mangleOperatorName(Name, Arity);
@@ -4720,7 +4720,7 @@ recurse:
         Out << 'E';
         break;
       }
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case UETT_AlignOf:
       Out << 'a';
       MangleAlignofSizeofArg();

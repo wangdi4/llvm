@@ -1873,7 +1873,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       Value *Cmp = Builder.CreateICmpNE(I0, Zero);
       return CastInst::Create(Instruction::ZExt, Cmp, II->getType());
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::umax: {
     Value *I0 = II->getArgOperand(0), *I1 = II->getArgOperand(1);
@@ -1894,7 +1894,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     }
     // If both operands of unsigned min/max are sign-extended, it is still ok
     // to narrow the operation.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::smax:
   case Intrinsic::smin: {
@@ -2422,7 +2422,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       return FAdd;
     }
 
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::fma: {
     // fma fneg(x), fneg(y), z -> fma x, y, z
@@ -2512,7 +2512,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         return replaceOperand(*II, 0, TVal);
     }
 
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::ceil:
   case Intrinsic::floor:
@@ -3081,7 +3081,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           return replaceInstUsesWith(CI, Res);
         }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_add: {
     if (IID == Intrinsic::vector_reduce_add) {
@@ -3108,7 +3108,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           }
       }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_xor: {
     if (IID == Intrinsic::vector_reduce_xor) {
@@ -3132,7 +3132,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           }
       }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_mul: {
     if (IID == Intrinsic::vector_reduce_mul) {
@@ -3154,7 +3154,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           }
       }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_umin:
   case Intrinsic::vector_reduce_umax: {
@@ -3181,7 +3181,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           }
       }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_smin:
   case Intrinsic::vector_reduce_smax: {
@@ -3219,7 +3219,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           }
       }
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Intrinsic::vector_reduce_fmax:
   case Intrinsic::vector_reduce_fmin:
@@ -4060,7 +4060,7 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
       }
       Worklist.pushUsersToWorkList(*Caller);
     } else {
-      NV = UndefValue::get(Caller->getType());
+      NV = PoisonValue::get(Caller->getType());
     }
   }
 

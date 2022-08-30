@@ -10,8 +10,8 @@ __spirv_ControlBarrier(int, int, int) noexcept;
 #endif
 
 // Dummy runtime classes to model SYCL API.
-inline namespace cl {
 namespace sycl {
+inline namespace _V1 {
 struct sampler_impl {
 #ifdef __SYCL_DEVICE_ONLY__
   __ocl_sampler_t m_Sampler;
@@ -491,7 +491,7 @@ public:
   void __finalize() {}
 
 private:
-  cl::sycl::accessor<char, 1, cl::sycl::access::mode::read_write> Acc;
+  sycl::accessor<char, 1, sycl::access::mode::read_write> Acc;
   int FlushBufferSize;
 };
 
@@ -636,5 +636,5 @@ public:
 } // namespace intel
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
+} // inline namespace _V1
 } // namespace sycl
-} // namespace cl

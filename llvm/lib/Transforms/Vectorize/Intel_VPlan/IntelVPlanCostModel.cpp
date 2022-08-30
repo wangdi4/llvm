@@ -1137,7 +1137,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     else
       Cost += TTI.getArithmeticInstrCost(
         IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
-        TargetTransformInfo::TCK_RecipThroughput) * Log2(VF);
+        TargetTransformInfo::TCK_RecipThroughput) * log2(VF);
 
     Cost += TTI.getShuffleCost(TTI::SK_Broadcast,
                                getWidenedType(StepScalTy, VF));

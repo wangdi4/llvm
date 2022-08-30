@@ -724,7 +724,7 @@ MDNode *LoopInfo::createMetadata(
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Attrs.GlobalSYCLIVDepInfo.hasValue()) {
+  if (Attrs.GlobalSYCLIVDepInfo.has_value()) {
     EmitIVDepLoopMetadata(Ctx, LoopProperties, *Attrs.GlobalSYCLIVDepInfo);
     // The legacy metadata also needs to be emitted to provide backwards
     // compatibility with any conformant backend. This is done exclusively
@@ -802,13 +802,6 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, VC.first),
                         ConstantAsMetadata::get(ConstantInt::get(
                             llvm::Type::getInt32Ty(Ctx), VC.second))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-
-  for (auto &FP : Attrs.SYCLIntelFPGAPipeline) {
-    Metadata *Vals[] = {MDString::get(Ctx, FP.first),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx), FP.second))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
@@ -895,7 +888,6 @@ void LoopAttributes::clear() {
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
   SYCLNofusionEnable = false;
-  SYCLIntelFPGAPipeline.clear();
   MustProgress = false;
 }
 
@@ -934,7 +926,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.VectorizeScalable == LoopAttributes::Unspecified &&
-      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
+      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.has_value() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
       !Attrs.SYCLMaxConcurrencyNThreads &&
       Attrs.SYCLLoopCoalesceEnable == false &&
@@ -950,8 +942,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
-      Attrs.SYCLNofusionEnable == false &&
-      Attrs.SYCLIntelFPGAPipeline.empty() && !EndLoc && !Attrs.MustProgress)
+      Attrs.SYCLNofusionEnable == false && !EndLoc && !Attrs.MustProgress)
     return;
 
   TempLoopID = MDNode::getTemporary(Header->getContext(), None);
@@ -1508,8 +1499,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   // emitted
   // For attribute nofusion:
   // 'llvm.loop.fusion.disable' metadata will be emitted
-  // For attribute fpga_pipeline:
-  // n - 'llvm.loop.intel.pipelining.enable, i32 n' metadata will be emitted
   for (const auto *A : Attrs) {
     if (const auto *IntelFPGAIVDep = dyn_cast<SYCLIntelFPGAIVDepAttr>(A))
       addSYCLIVDepInfo(Header->getContext(), IntelFPGAIVDep->getSafelenValue(),
@@ -1574,15 +1563,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 
     if (isa<SYCLIntelFPGANofusionAttr>(A))
       setSYCLNofusionEnable();
-
-    if (const auto *IntelFPGAPipeline =
-            dyn_cast<SYCLIntelFPGAPipelineAttr>(A)) {
-      const auto *CE = cast<ConstantExpr>(IntelFPGAPipeline->getValue());
-      Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
-      unsigned int Value = ArgVal->getBoolValue() ? 1 : 0;
-      const char *Var = "llvm.loop.intel.pipelining.enable";
-      setSYCLIntelFPGAPipeline(Var, Value);
-    }
   }
 
   setMustProgress(MustProgress);

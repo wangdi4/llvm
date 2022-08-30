@@ -981,7 +981,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
       auto *OpInst = cast<VPInstruction>(Op);
       Optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
 
-      if (CurrentOpSVABits && CurrentOpSVABits.getValue() == SetBits) {
+      if (CurrentOpSVABits && CurrentOpSVABits.value() == SetBits) {
         // Nothing to do, operand already has same state as Inst.
         continue;
       }
@@ -1011,7 +1011,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
     const VPInstruction *Inst = Worklist.pop_back_val();
     SVABits OrigBits(0);
     if (auto FoundBits = findSVABitsForInst(Inst))
-      OrigBits = FoundBits.getValue();
+      OrigBits = FoundBits.value();
     assert((OrigBits.any() || SkippedPHIs.count(cast<VPPHINode>(Inst))) &&
            "Trying to back propagate to an unprocessed instruction.");
     // Compute SVA results for instruction during back propagation.
@@ -1126,11 +1126,11 @@ void VPlanScalVecAnalysis::printSVAKindForInst(raw_ostream &OS,
   // Default if inst doesn't have valid SVABits is 0.
   SVABits InstBits(0);
   if (auto InstBitsOption = findSVABitsForInst(VPI))
-    InstBits = InstBitsOption.getValue();
+    InstBits = InstBitsOption.value();
   // Default if inst doesn't have valid return value SVABits is 0.
   SVABits RetValBits(0);
   if (auto RetValBitsOption = findSVABitsForReturnValue(VPI))
-    RetValBits = RetValBitsOption.getValue();
+    RetValBits = RetValBitsOption.value();
   if (InstBits != RetValBits) {
     OS << "RetVal:(";
     if (RetValBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
@@ -1169,7 +1169,7 @@ void VPlanScalVecAnalysis::printSVAKindForOperand(raw_ostream &OS,
   // Default if operand doesn't have valid SVABits is 0.
   SVABits OpBits(0);
   if (auto OpBitsOption = findSVABitsForOperand(VPI, OpIdx))
-    OpBits = OpBitsOption.getValue();
+    OpBits = OpBitsOption.value();
   if (OpBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
     OS << "F";
   if (OpBits.test(static_cast<unsigned>(SVAKind::LastScalar)))

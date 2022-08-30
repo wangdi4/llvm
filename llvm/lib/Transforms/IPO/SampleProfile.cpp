@@ -42,6 +42,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PriorityQueue.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SmallVector.h"
@@ -379,7 +380,7 @@ private:
       FS->GUIDToFuncNameMap = Map;
       for (const auto &ICS : FS->getCallsiteSamples()) {
         const FunctionSamplesMap &FSMap = ICS.second;
-        for (auto &IFS : FSMap) {
+        for (const auto &IFS : FSMap) {
           FunctionSamples &FS = const_cast<FunctionSamples &>(IFS.second);
           FSToUpdate.push(&FS);
         }
@@ -492,7 +493,7 @@ protected:
       const SmallVectorImpl<CallBase *> &Candidates, const Function &F,
       bool Hot);
   void promoteMergeNotInlinedContextSamples(
-      DenseMap<CallBase *, const FunctionSamples *> NonInlinedCallSites,
+      MapVector<CallBase *, const FunctionSamples *> NonInlinedCallSites,
       const Function &F);
   std::vector<Function *> buildFunctionOrder(Module &M, CallGraph *CG);
   std::unique_ptr<ProfiledCallGraph> buildProfiledCallGraph(CallGraph &CG);
@@ -1124,7 +1125,7 @@ bool SampleProfileLoader::inlineHotFunctions(
          "ProfAccForSymsInList should be false when profile-sample-accurate "
          "is enabled");
 
-  DenseMap<CallBase *, const FunctionSamples *> LocalNotInlinedCallSites;
+  MapVector<CallBase *, const FunctionSamples *> LocalNotInlinedCallSites;
   bool Changed = false;
   bool LocalChanged = true;
   while (LocalChanged) {
@@ -1144,7 +1145,7 @@ bool SampleProfileLoader::inlineHotFunctions(
               AllCandidates.push_back(CB);
               if (FS->getHeadSamplesEstimate() > 0 ||
                   FunctionSamples::ProfileIsCS)
-                LocalNotInlinedCallSites.try_emplace(CB, FS);
+                LocalNotInlinedCallSites.insert({CB, FS});
               if (callsiteIsHot(FS, PSI, ProfAccForSymsInList))
                 Hot = true;
               else if (shouldInlineColdCallee(*CB))
@@ -1430,7 +1431,7 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
   if (ExternalInlineAdvisor)
     SizeLimit = std::numeric_limits<unsigned>::max();
 
-  DenseMap<CallBase *, const FunctionSamples *> LocalNotInlinedCallSites;
+  MapVector<CallBase *, const FunctionSamples *> LocalNotInlinedCallSites;
 
   // Perform iterative BFS call site prioritized inlining
   bool Changed = false;
@@ -1487,7 +1488,7 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
           ICPCount++;
           Changed = true;
         } else if (!ContextTracker) {
-          LocalNotInlinedCallSites.try_emplace(I, FS);
+          LocalNotInlinedCallSites.insert({I, FS});
         }
       }
     } else if (CalledFunction && CalledFunction->getSubprogram() &&
@@ -1500,7 +1501,7 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
         }
         Changed = true;
       } else if (!ContextTracker) {
-        LocalNotInlinedCallSites.try_emplace(I, Candidate.CalleeSamples);
+        LocalNotInlinedCallSites.insert({I, Candidate.CalleeSamples});
       }
     } else if (LTOPhase == ThinOrFullLTOPhase::ThinLTOPreLink) {
       findExternalInlineCandidate(I, findCalleeFunctionSamples(*I),
@@ -1526,11 +1527,11 @@ bool SampleProfileLoader::inlineHotFunctionsWithPriority(
 }
 
 void SampleProfileLoader::promoteMergeNotInlinedContextSamples(
-    DenseMap<CallBase *, const FunctionSamples *> NonInlinedCallSites,
+    MapVector<CallBase *, const FunctionSamples *> NonInlinedCallSites,
     const Function &F) {
   // Accumulate not inlined callsite information into notInlinedSamples
   for (const auto &Pair : NonInlinedCallSites) {
-    CallBase *I = Pair.getFirst();
+    CallBase *I = Pair.first;
     Function *Callee = I->getCalledFunction();
     if (!Callee || Callee->isDeclaration())
       continue;
@@ -1542,7 +1543,7 @@ void SampleProfileLoader::promoteMergeNotInlinedContextSamples(
         << "' into '" << ore::NV("Caller", &F) << "'");
 
     ++NumCSNotInlined;
-    const FunctionSamples *FS = Pair.getSecond();
+    const FunctionSamples *FS = Pair.second;
     if (FS->getTotalSamples() == 0 && FS->getHeadSamplesEstimate() == 0) {
       continue;
     }

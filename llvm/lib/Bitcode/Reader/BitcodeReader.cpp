@@ -2833,7 +2833,7 @@ Error BitcodeReader::resolveGlobalAndIndirectSymbolInits() {
       } else if (auto *GI = dyn_cast<GlobalIFunc>(GV)) {
         Type *ResolverFTy =
             GlobalIFunc::getResolverFunctionType(GI->getValueType());
-        // Transparently fix up the type for compatiblity with older bitcode
+        // Transparently fix up the type for compatibility with older bitcode
         GI->setResolver(
             ConstantExpr::getBitCast(C, ResolverFTy->getPointerTo()));
       } else {
@@ -3498,7 +3498,7 @@ Error BitcodeReader::parseUseLists() {
       break;
     case bitc::USELIST_CODE_BB:
       IsBB = true;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case bitc::USELIST_CODE_DEFAULT: {
       unsigned RecordLength = Record.size();
       if (RecordLength < 3)

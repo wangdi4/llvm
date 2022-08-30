@@ -1031,8 +1031,8 @@ private:
     if (auto *I = dyn_cast<Instruction>(V))
       if (auto TyFromMD =
               dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
-        llvm::Type *Ty = TyFromMD.getValue().first;
-        unsigned Level = TyFromMD.getValue().second;
+        llvm::Type *Ty = TyFromMD.value().first;
+        unsigned Level = TyFromMD.value().second;
         while (Level--)
           Ty = Ty->getPointerTo();
         Info.addPointerTypeAlias(Ty);

@@ -707,11 +707,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     if (errorCount())
       return;
 
-    // The Target instance handles target-specific stuff, such as applying
-    // relocations or writing a PLT section. It also contains target-dependent
-    // values such as a default image base address.
-    target = getTarget();
-
     link(args);
   }
 
@@ -1277,6 +1272,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->optimize = args::getInteger(args, OPT_O, 1);
   config->orphanHandling = getOrphanHandling(args);
   config->outputFile = args.getLastArgValue(OPT_o);
+  config->packageMetadata = args.getLastArgValue(OPT_package_metadata);
   config->pie = args.hasFlag(OPT_pie, OPT_no_pie, false);
   config->printIcfSections =
       args.hasFlag(OPT_print_icf_sections, OPT_no_print_icf_sections, false);
@@ -2050,7 +2046,7 @@ void LinkerDriver::doGNULTOLinking(
 
   // Load the generated object
   Optional<MemoryBufferRef> buffer = readFile(gNUOutputObj.str().str());
-  if (!buffer.hasValue())
+  if (!buffer.has_value())
     fatal("Output from GNU LTO not created: " + gNUOutputObj.str());
   MemoryBufferRef mbref = *buffer;
 
@@ -2781,19 +2777,19 @@ static uint32_t getAndFeatures() {
   return ret;
 }
 
-static void initializeLocalSymbols(ELFFileBase *file) {
+static void initSectionsAndLocalSyms(ELFFileBase *file, bool ignoreComdats) {
   switch (config->ekind) {
   case ELF32LEKind:
-    cast<ObjFile<ELF32LE>>(file)->initializeLocalSymbols();
+    cast<ObjFile<ELF32LE>>(file)->initSectionsAndLocalSyms(ignoreComdats);
     break;
   case ELF32BEKind:
-    cast<ObjFile<ELF32BE>>(file)->initializeLocalSymbols();
+    cast<ObjFile<ELF32BE>>(file)->initSectionsAndLocalSyms(ignoreComdats);
     break;
   case ELF64LEKind:
-    cast<ObjFile<ELF64LE>>(file)->initializeLocalSymbols();
+    cast<ObjFile<ELF64LE>>(file)->initSectionsAndLocalSyms(ignoreComdats);
     break;
   case ELF64BEKind:
-    cast<ObjFile<ELF64BE>>(file)->initializeLocalSymbols();
+    cast<ObjFile<ELF64BE>>(file)->initSectionsAndLocalSyms(ignoreComdats);
     break;
   default:
     llvm_unreachable("");
@@ -2944,7 +2940,9 @@ void LinkerDriver::link(opt::InputArgList &args) {
 
   // No more lazy bitcode can be extracted at this point. Do post parse work
   // like checking duplicate symbols.
-  parallelForEach(ctx->objectFiles, initializeLocalSymbols);
+  parallelForEach(ctx->objectFiles, [](ELFFileBase *file) {
+    initSectionsAndLocalSyms(file, /*ignoreComdats=*/false);
+  });
   parallelForEach(ctx->objectFiles, postParseObjectFile);
   parallelForEach(ctx->bitcodeFiles,
                   [](BitcodeFile *file) { file->postParse(); });
@@ -3028,7 +3026,9 @@ void LinkerDriver::link(opt::InputArgList &args) {
   // compileBitcodeFiles may have produced lto.tmp object files. After this, no
   // more file will be added.
   auto newObjectFiles = makeArrayRef(ctx->objectFiles).slice(numObjsBeforeLTO);
-  parallelForEach(newObjectFiles, initializeLocalSymbols);
+  parallelForEach(newObjectFiles, [](ELFFileBase *file) {
+    initSectionsAndLocalSyms(file, /*ignoreComdats=*/true);
+  });
   parallelForEach(newObjectFiles, postParseObjectFile);
   for (const DuplicateSymbol &d : ctx->duplicates)
     reportDuplicate(*d.sym, d.file, d.section, d.value);

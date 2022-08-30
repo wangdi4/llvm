@@ -341,7 +341,7 @@ static bool isValidElementType(Type *Ty) {
 /// \returns True if the value is a constant (but not globals/constant
 /// expressions).
 static bool isConstant(Value *V) {
-  return isa<Constant>(V) && !isa<ConstantExpr>(V) && !isa<GlobalValue>(V);
+  return isa<Constant>(V) && !isa<ConstantExpr, GlobalValue>(V);
 }
 
 /// Checks if \p V is one of vector-like instructions, i.e. undef,
@@ -481,7 +481,7 @@ static bool isUndefVector(const Value *V) {
 /// InstCombiner transforms this into a shuffle and vector mul
 /// Mask will return the Shuffle Mask equivalent to the extracted elements.
 /// TODO: Can we split off and reuse the shuffle mask detection from
-/// TargetTransformInfo::getInstructionThroughput?
+/// ShuffleVectorInst/getShuffleCost?
 static Optional<TargetTransformInfo::ShuffleKind>
 isFixedVectorShuffle(ArrayRef<Value *> VL, SmallVectorImpl<int> &Mask) {
   const auto *It =
@@ -780,7 +780,7 @@ static bool InTreeUserNeedToExtract(Value *Scalar, Instruction *UserInst,
       if (isVectorIntrinsicWithScalarOpAtArg(ID, i))
         return (CI->getArgOperand(i) == Scalar);
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   default:
     return false;
@@ -3123,7 +3123,7 @@ private:
     static bool hasCompatibleOpcodes(ArrayRef<Value *> VL) {
       return all_of(VL, [](Value *V) -> bool {
         auto *I = dyn_cast<Instruction>(V);
-        return I && getInverseOpcode(I->getOpcode()).hasValue();
+        return I && getInverseOpcode(I->getOpcode()).has_value();
       });
     }
 
@@ -3134,7 +3134,7 @@ private:
     // original instruction is being removed and replaced with new one.
     static Instruction *updateFrontierOpcode(Instruction *OrigI) {
       auto NewOpc = static_cast<Instruction::BinaryOps>(
-          getInverseOpcode(OrigI->getOpcode()).getValue());
+          getInverseOpcode(OrigI->getOpcode()).value());
       Instruction *NewI =
           BinaryOperator::Create(NewOpc, OrigI->getOperand(0),
                                  OrigI->getOperand(1), OrigI->getName(), OrigI);
@@ -3184,7 +3184,7 @@ private:
           if (I == OpI)
             continue;
           if (getData(I, Lane).getFrontier() == Frontier) {
-            assert(!Sibling.hasValue() && "More than one sibling match!");
+            assert(!Sibling.has_value() && "More than one sibling match!");
             Sibling = I;
 #ifdef NDEBUG
             break;
@@ -4459,7 +4459,7 @@ private:
           // okay.
           auto *In = BundleMember->Inst;
           assert(In &&
-                 (isa<ExtractValueInst>(In) || isa<ExtractElementInst>(In) ||
+                 (isa<ExtractValueInst, ExtractElementInst>(In) ||
                   In->getNumOperands() == TE->getNumOperands()) &&
                  "Missed TreeEntry operands?");
           (void)In; // fake use to avoid build failure when assertions disabled
@@ -5990,7 +5990,7 @@ BoUpSLP::rebuildBSStateUntilMultiNode(const MultiNode *MN) {
     auto *VL0 = cast<Instruction>(TE->Scalars[0]);
     InstructionsState S = getSameOpcode(TE->Scalars);
     Bundle = GetBS(VL0)->tryScheduleBundle(TE->Scalars, this, S);
-    assert(Bundle.hasValue() &&
+    assert(Bundle.has_value() &&
            "TE not checked for scheduling in buildTree_rec()?");
   }
   return Bundle;
@@ -6470,7 +6470,7 @@ static std::pair<size_t, size_t> generateKeySubkey(
   } else if (auto *I = dyn_cast<Instruction>(V)) {
     // Sort other instructions just by the opcodes except for CMPInst.
     // For CMP also sort by the predicate kind.
-    if ((isa<BinaryOperator>(I) || isa<CastInst>(I)) &&
+    if ((isa<BinaryOperator, CastInst>(I)) &&
         isValidForAlternation(I->getOpcode())) {
       if (AllowAlternate)
         Key = hash_value(isa<BinaryOperator>(I) ? 1 : 0);
@@ -6942,13 +6942,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // The Multi-Node has been built, so reorder the leaves and cleanup.
       // This is where the bulk of the reordering work is done.
       if (CurrentMultiNode->numOfTrunks() > 1)
-        reorderMultiNodeOperands(VL, Bundle.getValue());
+        reorderMultiNodeOperands(VL, Bundle.value());
 
 #ifndef NDEBUG
       auto &&GetBundleVL = [](const Optional<BoUpSLP::ScheduleData *> &Bundle) {
         ValueList VL;
         if (Bundle)
-          for (ScheduleData *Member = Bundle.getValue(); Member;
+          for (ScheduleData *Member = Bundle.value(); Member;
                Member = Member->NextInBundle)
             VL.push_back(Member->Inst);
         return VL;
@@ -7722,8 +7722,7 @@ unsigned BoUpSLP::canMapToVector(Type *T, const DataLayout &DL) const {
   unsigned N = 1;
   Type *EltTy = T;
 
-  while (isa<StructType>(EltTy) || isa<ArrayType>(EltTy) ||
-         isa<VectorType>(EltTy)) {
+  while (isa<StructType, ArrayType, VectorType>(EltTy)) {
     if (auto *ST = dyn_cast<StructType>(EltTy)) {
       // Check that struct is homogeneous.
       for (const auto *Ty : ST->elements())
@@ -8053,9 +8052,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       // Take credit for instruction that will become dead.
       if (EE->hasOneUse()) {
         Instruction *Ext = EE->user_back();
-        if ((isa<SExtInst>(Ext) || isa<ZExtInst>(Ext)) &&
-            all_of(Ext->users(),
-                   [](User *U) { return isa<GetElementPtrInst>(U); })) {
+        if (isa<SExtInst, ZExtInst>(Ext) && all_of(Ext->users(), [](User *U) {
+              return isa<GetElementPtrInst>(U);
+            })) {
           // Use getExtractWithExtendCost() to calculate the cost of
           // extractelement/ext pair.
           Cost -=
@@ -8068,8 +8067,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           continue;
         }
       }
-      Cost -= TTIRef.getVectorInstrCost(Instruction::ExtractElement,
-                                        EE->getVectorOperandType(), Idx);
+      Cost -= TTIRef.getVectorInstrCost(*EE, EE->getVectorOperandType(), Idx);
     }
     // Add a cost for subvector extracts/inserts if required.
     for (const auto &Data : ExtractVectorsTys) {
@@ -8312,9 +8310,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         for (unsigned I : E->ReuseShuffleIndices) {
           if (ShuffleOrOp == Instruction::ExtractElement) {
             auto *EE = cast<ExtractElementInst>(VL[I]);
-            CommonCost -= TTI->getVectorInstrCost(Instruction::ExtractElement,
-                                                  EE->getVectorOperandType(),
-                                                  *getExtractIndex(EE));
+            CommonCost -= TTI->getVectorInstrCost(
+                *EE, EE->getVectorOperandType(), *getExtractIndex(EE));
           } else {
             CommonCost -= TTI->getVectorInstrCost(Instruction::ExtractElement,
                                                   VecTy, Idx);
@@ -8325,9 +8322,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         for (Value *V : VL) {
           if (ShuffleOrOp == Instruction::ExtractElement) {
             auto *EE = cast<ExtractElementInst>(V);
-            CommonCost += TTI->getVectorInstrCost(Instruction::ExtractElement,
-                                                  EE->getVectorOperandType(),
-                                                  *getExtractIndex(EE));
+            CommonCost += TTI->getVectorInstrCost(
+                *EE, EE->getVectorOperandType(), *getExtractIndex(EE));
           } else {
             --Idx;
             CommonCost += TTI->getVectorInstrCost(Instruction::ExtractElement,
@@ -8341,18 +8337,18 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           // Take credit for instruction that will become dead.
           if (EI->hasOneUse()) {
             Instruction *Ext = EI->user_back();
-            if ((isa<SExtInst>(Ext) || isa<ZExtInst>(Ext)) &&
+            if (isa<SExtInst, ZExtInst>(Ext) &&
                 all_of(Ext->users(),
                        [](User *U) { return isa<GetElementPtrInst>(U); })) {
-              // Use getExtractWithExtendCost() to calculate the cost of
-              // extractelement/ext pair.
-              CommonCost -= TTI->getExtractWithExtendCost(
-                  Ext->getOpcode(), Ext->getType(), VecTy, I);
-              // Add back the cost of s|zext which is subtracted separately.
-              CommonCost += TTI->getCastInstrCost(
-                  Ext->getOpcode(), Ext->getType(), EI->getType(),
-                  TTI::getCastContextHint(Ext), CostKind, Ext);
-              continue;
+            // Use getExtractWithExtendCost() to calculate the cost of
+            // extractelement/ext pair.
+            CommonCost -= TTI->getExtractWithExtendCost(
+                Ext->getOpcode(), Ext->getType(), VecTy, I);
+            // Add back the cost of s|zext which is subtracted separately.
+            CommonCost += TTI->getCastInstrCost(
+                Ext->getOpcode(), Ext->getType(), EI->getType(),
+                TTI::getCastContextHint(Ext), CostKind, Ext);
+            continue;
             }
           }
           CommonCost -=
@@ -9893,7 +9889,7 @@ public:
 
   /// Functions adds masks, merging them into  single one.
   void addMask(ArrayRef<unsigned> SubMask) {
-    SmallVector<int, 4> NewMask(SubMask.begin(), SubMask.end());
+    SmallVector<int, 4> NewMask(SubMask);
     addMask(NewMask);
   }
 
@@ -10114,7 +10110,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
   // instructions can be part of a MultiNode (check that with inverse opcode).
   // If we did actual reordering it's safe to not propagateIRFlags at all.
   bool IsPartOfMultiNode =
-      MultiNode::getInverseOpcode(VL0->getOpcode()).hasValue() &&
+      MultiNode::getInverseOpcode(VL0->getOpcode()).has_value() &&
       any_of(MultiNodes, [VL0](const MultiNode &MN) {
         if (!MN.doneCodeGen())
           return false;
@@ -11153,7 +11149,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
       return PoisonValue::get(FixedVectorType::get(
           cast<VectorType>(V1->getType())->getElementType(), Mask.size()));
     Value *Op = V1;
-    SmallVector<int> CombinedMask(Mask.begin(), Mask.end());
+    SmallVector<int> CombinedMask(Mask);
     PeekThroughShuffles(Op, CombinedMask);
     if (!isa<FixedVectorType>(Op->getType()) ||
         !IsIdentityMask(CombinedMask, cast<FixedVectorType>(Op->getType()))) {
@@ -11400,8 +11396,8 @@ void BoUpSLP::optimizeGatherSequence() {
     for (Instruction &In : llvm::make_early_inc_range(*BB)) {
       if (isDeleted(&In))
         continue;
-      if (!isa<InsertElementInst>(&In) && !isa<ExtractElementInst>(&In) &&
-          !isa<ShuffleVectorInst>(&In) && !GatherShuffleSeq.contains(&In))
+      if (!isa<InsertElementInst, ExtractElementInst, ShuffleVectorInst>(&In) &&
+          !GatherShuffleSeq.contains(&In))
         continue;
 
       // Check if we can replace this instruction with any of the
@@ -11793,7 +11789,7 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           WorkList.push_back(DestBundle);
       };
 
-      // Any instruction which isn't safe to speculate at the begining of the
+      // Any instruction which isn't safe to speculate at the beginning of the
       // block is control dependend on any early exit or non-willreturn call
       // which proceeds it.
       if (!isGuaranteedToTransferExecutionToSuccessor(BundleMember->Inst)) {
@@ -12059,17 +12055,15 @@ unsigned BoUpSLP::getVectorElementSize(Value *V) {
 
     // If the current instruction is a load, update MaxWidth to reflect the
     // width of the loaded value.
-    if (isa<LoadInst>(I) || isa<ExtractElementInst>(I) ||
-        isa<ExtractValueInst>(I))
+    if (isa<LoadInst, ExtractElementInst, ExtractValueInst>(I))
       Width = std::max<unsigned>(Width, DL->getTypeSizeInBits(Ty));
 
     // Otherwise, we need to visit the operands of the instruction. We only
     // handle the interesting cases from buildTree here. If an operand is an
     // instruction we haven't yet visited and from the same basic block as the
     // user or the use is a PHI node, we add it to the worklist.
-    else if (isa<PHINode>(I) || isa<CastInst>(I) || isa<GetElementPtrInst>(I) ||
-             isa<CmpInst>(I) || isa<SelectInst>(I) || isa<BinaryOperator>(I) ||
-             isa<UnaryOperator>(I)) {
+    else if (isa<PHINode, CastInst, GetElementPtrInst, CmpInst, SelectInst,
+                 BinaryOperator, UnaryOperator>(I)) {
       for (Use &U : I->operands())
         if (auto *J = dyn_cast<Instruction>(U.get()))
           if (Visited.insert(J).second &&
@@ -12122,8 +12116,7 @@ static bool collectValuesToDemote(Value *V, SmallPtrSetImpl<Value *> &Expr,
     break;
   case Instruction::ZExt:
   case Instruction::SExt:
-    if (isa<ExtractElementInst>(I->getOperand(0)) ||
-        isa<InsertElementInst>(I->getOperand(0)))
+    if (isa<ExtractElementInst, InsertElementInst>(I->getOperand(0)))
       return false;
     break;
 
@@ -12719,7 +12712,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 
   InstructionCost Cost = R.getTreeCost();
 
-  LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost << " for VF =" << VF << "\n");
+  LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost << " for VF=" << VF << "\n");
   if (Cost < -SLPCostThreshold) {
     LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost = " << Cost << "\n");
 
@@ -13113,6 +13106,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
       CandidateFound = true;
       MinCost = std::min(MinCost, Cost);
 
+      LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost << " for VF=" << VF << "\n");
       if (Cost < -SLPCostThreshold) {
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing list at cost:" << Cost << ".\n");
         R.getORE()->emit(OptimizationRemark(SV_NAME, "VectorizedList",
@@ -13155,8 +13149,7 @@ bool SLPVectorizerPass::tryToVectorize(Instruction *I, BoUpSLP &R) {
   if (!I)
     return false;
 
-  if ((!isa<BinaryOperator>(I) && !isa<CmpInst>(I)) ||
-      isa<VectorType>(I->getType()))
+  if (!isa<BinaryOperator, CmpInst>(I) || isa<VectorType>(I->getType()))
     return false;
 
   Value *P = I->getParent();
@@ -13957,8 +13950,8 @@ public:
         InstructionCost ReductionCost =
             getReductionCost(TTI, VL, ReduxWidth, RdxFMF);
         InstructionCost Cost = TreeCost + ReductionCost;
+        LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost << " for reduction\n");
         if (!Cost.isValid()) {
-          LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
           return nullptr;
         }
         if (Cost >= -SLPCostThreshold) {
@@ -14284,8 +14277,7 @@ static void findBuildAggregate_rec(Instruction *LastInsertInst,
         getInsertIndex(LastInsertInst, OperandOffset);
     if (!OperandIndex)
       return;
-    if (isa<InsertElementInst>(InsertedOperand) ||
-        isa<InsertValueInst>(InsertedOperand)) {
+    if (isa<InsertElementInst, InsertValueInst>(InsertedOperand)) {
       findBuildAggregate_rec(cast<Instruction>(InsertedOperand), TTI,
                              BuildVectorOpds, InsertElts, *OperandIndex);
 
@@ -14295,8 +14287,7 @@ static void findBuildAggregate_rec(Instruction *LastInsertInst,
     }
     LastInsertInst = dyn_cast<Instruction>(LastInsertInst->getOperand(0));
   } while (LastInsertInst != nullptr &&
-           (isa<InsertValueInst>(LastInsertInst) ||
-            isa<InsertElementInst>(LastInsertInst)) &&
+           isa<InsertValueInst, InsertElementInst>(LastInsertInst) &&
            LastInsertInst->hasOneUse());
 }
 
@@ -14991,11 +14982,24 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
     // Ran into an instruction without users, like terminator, or function call
     // with ignored return value, store. Ignore unused instructions (basing on
     // instruction type, except for CallInst and InvokeInst).
-    if (it->use_empty() && (it->getType()->isVoidTy() || isa<CallInst>(it) ||
-                            isa<InvokeInst>(it))) {
+    if (it->use_empty() &&
+        (it->getType()->isVoidTy() || isa<CallInst, InvokeInst>(it))) {
       KeyNodes.insert(&*it);
       bool OpsChanged = false;
-      if (ShouldStartVectorizeHorAtStore || !isa<StoreInst>(it)) {
+      auto *SI = dyn_cast<StoreInst>(it);
+      bool TryToVectorizeRoot = ShouldStartVectorizeHorAtStore || !SI;
+      if (SI) {
+        auto I = Stores.find(getUnderlyingObject(SI->getPointerOperand()));
+        // Try to vectorize chain in store, if this is the only store to the
+        // address in the block.
+        // TODO: This is just a temporarily solution to save compile time. Need
+        // to investigate if we can safely turn on slp-vectorize-hor-store
+        // instead to allow lookup for reduction chains in all non-vectorized
+        // stores (need to check side effects and compile time).
+        TryToVectorizeRoot = (I == Stores.end() || I->second.size() == 1) &&
+                             SI->getValueOperand()->hasOneUse();
+      }
+      if (TryToVectorizeRoot) {
         for (auto *V : it->operand_values()) {
           // Try to match and vectorize a horizontal reduction.
           OpsChanged |= vectorizeRootInstruction(nullptr, V, BB, R, TTI);
@@ -15016,8 +15020,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
       }
     }
 
-    if (isa<InsertElementInst>(it) || isa<CmpInst>(it) ||
-        isa<InsertValueInst>(it))
+    if (isa<CmpInst, InsertElementInst, InsertValueInst>(it))
       PostProcessInstructions.push_back(&*it);
   }
 

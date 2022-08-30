@@ -150,8 +150,8 @@ template<class Container>
 #define _SYCL_SPAN_TEMPLATE_VIS
 #define _SYCL_SPAN_INLINE_VISIBILITY inline
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 
 // byte is unsigned char at sycl/image.hpp:58
 using byte = unsigned char;
@@ -231,6 +231,15 @@ public:
 
   constexpr span(const span &) noexcept = default;
   constexpr span &operator=(const span &) noexcept = default;
+
+  template <size_t _Sz = _Extent>
+  _SYCL_SPAN_INLINE_VISIBILITY constexpr explicit span(
+      element_type (&__arr)[_Sz])
+      : __data{__arr} {
+    (void)_Sz;
+    _SYCL_SPAN_ASSERT(_Extent == _Sz,
+                      "size mismatch in span's constructor (&_arr)[_Sz]");
+  }
 
   _SYCL_SPAN_INLINE_VISIBILITY constexpr explicit span(pointer __ptr,
                                                        size_type __count)
@@ -624,10 +633,9 @@ as_writable_bytes(span<_Tp, _Extent> __s) noexcept
 
 //  Deduction guides
 
-// array arg deduction guide. dynamic_extent arg used to select
-// the correct template. The _Sz will be used for the __size of the span.
+// array arg deduction guide
 template <class _Tp, size_t _Sz>
-span(_Tp (&)[_Sz]) -> span<_Tp, dynamic_extent>;
+span(_Tp (&)[_Sz]) -> span<_Tp, _Sz>;
 
 template <class _Tp, size_t _Sz> span(std::array<_Tp, _Sz> &) -> span<_Tp, _Sz>;
 
@@ -640,8 +648,8 @@ span(_Container &) -> span<typename _Container::value_type>;
 template <class _Container>
 span(const _Container &) -> span<const typename _Container::value_type>;
 
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)
 
 #endif // _SYCL_SPAN
 

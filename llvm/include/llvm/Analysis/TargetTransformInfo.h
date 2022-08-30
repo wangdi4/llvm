@@ -237,31 +237,6 @@ public:
     TCK_SizeAndLatency   ///< The weighted sum of size and latency.
   };
 
-  /// Query the cost of a specified instruction.
-  ///
-  /// Clients should use this interface to query the cost of an existing
-  /// instruction. The instruction must have a valid parent (basic block).
-  ///
-  /// Note, this method does not cache the cost calculation and it
-  /// can be expensive in some cases.
-  InstructionCost getInstructionCost(const Instruction *I,
-                                     enum TargetCostKind kind) const {
-    InstructionCost Cost;
-    switch (kind) {
-    case TCK_RecipThroughput:
-      Cost = getInstructionThroughput(I);
-      break;
-    case TCK_Latency:
-      Cost = getInstructionLatency(I);
-      break;
-    case TCK_CodeSize:
-    case TCK_SizeAndLatency:
-      Cost = getUserCost(I, kind);
-      break;
-    }
-    return Cost;
-  }
-
   /// Underlying constants for 'cost' values in this interface.
   ///
   /// Many APIs in this interface return a cost. This enum defines the
@@ -340,14 +315,16 @@ public:
   ///
   /// The returned cost is defined in terms of \c TargetCostConstants, see its
   /// comments for a detailed explanation of the cost values.
-  InstructionCost getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                              TargetCostKind CostKind) const;
+  InstructionCost getInstructionCost(const User *U,
+                                     ArrayRef<const Value *> Operands,
+                                     TargetCostKind CostKind) const;
 
-  /// This is a helper function which calls the two-argument getUserCost
-  /// with \p Operands which are the current operands U has.
-  InstructionCost getUserCost(const User *U, TargetCostKind CostKind) const {
+  /// This is a helper function which calls the three-argument
+  /// getInstructionCost with \p Operands which are the current operands U has.
+  InstructionCost getInstructionCost(const User *U,
+                                     TargetCostKind CostKind) const {
     SmallVector<const Value *, 4> Operands(U->operand_values());
-    return getUserCost(U, Operands, CostKind);
+    return getInstructionCost(U, Operands, CostKind);
   }
 
   /// If a branch or a select condition is skewed in one direction by more than
@@ -452,11 +429,11 @@ public:
   /// Parameters that control the generic loop unrolling transformation.
   struct UnrollingPreferences {
     /// The cost threshold for the unrolled loop. Should be relative to the
-    /// getUserCost values returned by this API, and the expectation is that
-    /// the unrolled loop's instructions when run through that interface should
-    /// not exceed this cost. However, this is only an estimate. Also, specific
-    /// loops may be unrolled even with a cost above this threshold if deemed
-    /// profitable. Set this to UINT_MAX to disable the loop body cost
+    /// getInstructionCost values returned by this API, and the expectation is
+    /// that the unrolled loop's instructions when run through that interface
+    /// should not exceed this cost. However, this is only an estimate. Also,
+    /// specific loops may be unrolled even with a cost above this threshold if
+    /// deemed profitable. Set this to UINT_MAX to disable the loop body cost
     /// restriction.
     unsigned Threshold;
     /// If complete unrolling will reduce the cost of the loop, we will boost
@@ -1213,7 +1190,19 @@ public:
 
   /// \return The expected cost of vector Insert and Extract.
   /// Use -1 to indicate that there is no information on the index value.
+  /// This is used when the instruction is not available; a typical use
+  /// case is to provision the cost of vectorization/scalarization in
+  /// vectorizer passes.
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
+                                     unsigned Index = -1) const;
+
+  /// \return The expected cost of vector Insert and Extract.
+  /// This is used when instruction is available, and implementation
+  /// asserts 'I' is not nullptr.
+  ///
+  /// A typical suitable use case is cost estimation when vector instruction
+  /// exists (e.g., from basic blocks during transformation).
+  InstructionCost getVectorInstrCost(const Instruction &I, Type *Val,
                                      unsigned Index = -1) const;
 
   /// \return The cost of replication shuffle of \p VF elements typed \p EltTy
@@ -1596,6 +1585,10 @@ public:
   /// to a stack reload.
   unsigned getGISelRematGlobalCost() const;
 
+  /// \returns the lower bound of a trip count to decide on vectorization
+  /// while tail-folding.
+  unsigned getMinTripCountTailFoldingThreshold() const;
+
   /// \returns True if the target supports scalable vectors.
   bool supportsScalableVectors() const;
 
@@ -1648,14 +1641,6 @@ public:
   /// @}
 
 private:
-  /// Estimate the latency of specified instruction.
-  /// Returns 1 as the default value.
-  InstructionCost getInstructionLatency(const Instruction *I) const;
-
-  /// Returns the expected throughput cost of the instruction.
-  /// Returns -1 if the cost is unknown.
-  InstructionCost getInstructionThroughput(const Instruction *I) const;
-
   /// The abstract base class used to type erase specific TTI
   /// implementations.
   class Concept;
@@ -1682,9 +1667,9 @@ public:
   getEstimatedNumberOfCaseClusters(const SwitchInst &SI, unsigned &JTSize,
                                    ProfileSummaryInfo *PSI,
                                    BlockFrequencyInfo *BFI) = 0;
-  virtual InstructionCost getUserCost(const User *U,
-                                      ArrayRef<const Value *> Operands,
-                                      TargetCostKind CostKind) = 0;
+  virtual InstructionCost getInstructionCost(const User *U,
+                                             ArrayRef<const Value *> Operands,
+                                             TargetCostKind CostKind) = 0;
   virtual BranchProbability getPredictableBranchThreshold() = 0;
   virtual bool hasBranchDivergence() = 0;
   virtual bool useGPUDivergenceAnalysis() = 0;
@@ -1909,6 +1894,8 @@ public:
                                              const Instruction *I) = 0;
   virtual InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
                                              unsigned Index) = 0;
+  virtual InstructionCost getVectorInstrCost(const Instruction &I, Type *Val,
+                                             unsigned Index) = 0;
 
   virtual InstructionCost
   getReplicationShuffleCost(Type *EltTy, int ReplicationFactor, int VF,
@@ -2045,11 +2032,11 @@ public:
                                                ReductionFlags) const = 0;
   virtual bool shouldExpandReduction(const IntrinsicInst *II) const = 0;
   virtual unsigned getGISelRematGlobalCost() const = 0;
+  virtual unsigned getMinTripCountTailFoldingThreshold() const = 0;
   virtual bool enableScalableVectorization() const = 0;
   virtual bool supportsScalableVectors() const = 0;
   virtual bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                                      Align Alignment) const = 0;
-  virtual InstructionCost getInstructionLatency(const Instruction *I) = 0;
   virtual VPLegalization
   getVPLegalizationStrategy(const VPIntrinsic &PI) const = 0;
 };
@@ -2084,9 +2071,10 @@ public:
   InstructionCost getMemcpyCost(const Instruction *I) override {
     return Impl.getMemcpyCost(I);
   }
-  InstructionCost getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                              TargetCostKind CostKind) override {
-    return Impl.getUserCost(U, Operands, CostKind);
+  InstructionCost getInstructionCost(const User *U,
+                                     ArrayRef<const Value *> Operands,
+                                     TargetCostKind CostKind) override {
+    return Impl.getInstructionCost(U, Operands, CostKind);
   }
   BranchProbability getPredictableBranchThreshold() override {
     return Impl.getPredictableBranchThreshold();
@@ -2531,6 +2519,10 @@ public:
                                      unsigned Index) override {
     return Impl.getVectorInstrCost(Opcode, Val, Index);
   }
+  InstructionCost getVectorInstrCost(const Instruction &I, Type *Val,
+                                     unsigned Index) override {
+    return Impl.getVectorInstrCost(I, Val, Index);
+  }
   InstructionCost
   getReplicationShuffleCost(Type *EltTy, int ReplicationFactor, int VF,
                             const APInt &DemandedDstElts,
@@ -2786,6 +2778,10 @@ public:
     return Impl.getGISelRematGlobalCost();
   }
 
+  unsigned getMinTripCountTailFoldingThreshold() const override {
+    return Impl.getMinTripCountTailFoldingThreshold();
+  }
+
   bool supportsScalableVectors() const override {
     return Impl.supportsScalableVectors();
   }
@@ -2797,10 +2793,6 @@ public:
   bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                              Align Alignment) const override {
     return Impl.hasActiveVectorLength(Opcode, DataType, Alignment);
-  }
-
-  InstructionCost getInstructionLatency(const Instruction *I) override {
-    return Impl.getInstructionLatency(I);
   }
 
   VPLegalization

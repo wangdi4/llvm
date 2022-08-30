@@ -2,7 +2,7 @@
 
 #include "sycl.hpp"
 
-using namespace cl::sycl;
+using namespace sycl;
 queue q;
 
 [[intel::device_indirectly_callable]] int bar10(int a) { return a + 20; }

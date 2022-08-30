@@ -2341,7 +2341,7 @@ void DAGTypeLegalizer::SplitVecRes_VECTOR_SHUFFLE(ShuffleVectorSDNode *N,
   // If Lo or Hi uses elements from at most two of the four input vectors, then
   // express it as a vector shuffle of those two inputs.  Otherwise extract the
   // input elements by hand and construct the Lo/Hi output using a BUILD_VECTOR.
-  SmallVector<int> OrigMask(N->getMask().begin(), N->getMask().end());
+  SmallVector<int> OrigMask(N->getMask());
   // Try to pack incoming shuffles/inputs.
   auto &&TryPeekThroughShufflesInputs = [&Inputs, &NewVT, this, NewElts,
                                          &DL](SmallVectorImpl<int> &Mask) {
@@ -3088,8 +3088,8 @@ SDValue DAGTypeLegalizer::SplitVecOp_EXTRACT_VECTOR_ELT(SDNode *N) {
   SDValue Idx = N->getOperand(1);
   EVT VecVT = Vec.getValueType();
 
-  if (isa<ConstantSDNode>(Idx)) {
-    uint64_t IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+  if (const ConstantSDNode *Index = dyn_cast<ConstantSDNode>(Idx)) {
+    uint64_t IdxVal = Index->getZExtValue();
 
     SDValue Lo, Hi;
     GetSplitVector(Vec, Lo, Hi);
@@ -3652,7 +3652,26 @@ SDValue DAGTypeLegalizer::SplitVecOp_FP_ROUND(SDNode *N) {
 SDValue DAGTypeLegalizer::SplitVecOp_FCOPYSIGN(SDNode *N) {
   // The result (and the first input) has a legal vector type, but the second
   // input needs splitting.
-  return DAG.UnrollVectorOp(N, N->getValueType(0).getVectorNumElements());
+
+  SDLoc DL(N);
+
+  EVT LHSLoVT, LHSHiVT;
+  std::tie(LHSLoVT, LHSHiVT) = DAG.GetSplitDestVTs(N->getValueType(0));
+
+  if (!isTypeLegal(LHSLoVT) || !isTypeLegal(LHSHiVT))
+    return DAG.UnrollVectorOp(N, N->getValueType(0).getVectorNumElements());
+
+  SDValue LHSLo, LHSHi;
+  std::tie(LHSLo, LHSHi) =
+      DAG.SplitVector(N->getOperand(0), DL, LHSLoVT, LHSHiVT);
+
+  SDValue RHSLo, RHSHi;
+  std::tie(RHSLo, RHSHi) = DAG.SplitVector(N->getOperand(1), DL);
+
+  SDValue Lo = DAG.getNode(ISD::FCOPYSIGN, DL, LHSLoVT, LHSLo, RHSLo);
+  SDValue Hi = DAG.getNode(ISD::FCOPYSIGN, DL, LHSHiVT, LHSHi, RHSHi);
+
+  return DAG.getNode(ISD::CONCAT_VECTORS, DL, N->getValueType(0), Lo, Hi);
 }
 
 SDValue DAGTypeLegalizer::SplitVecOp_FP_TO_XINT_SAT(SDNode *N) {
@@ -3811,7 +3830,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     // If the target has custom/legal support for the scalar FP intrinsic ops
     // (they are probably not destined to become libcalls), then widen those
     // like any other binary ops.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case ISD::FADD:
   case ISD::FMUL:
@@ -3914,7 +3933,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     // If the target has custom/legal support for the scalar FP intrinsic ops
     // (they are probably not destined to become libcalls), then widen those
     // like any other unary ops.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case ISD::ABS:
   case ISD::BITREVERSE:

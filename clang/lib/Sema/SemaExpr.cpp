@@ -349,7 +349,8 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
     // definition.
     if (FD->getTrailingRequiresClause()) {
       ConstraintSatisfaction Satisfaction;
-      if (CheckFunctionConstraints(FD, Satisfaction, Loc))
+      if (CheckFunctionConstraints(FD, Satisfaction, Loc,
+                                   /*ForOverloadResolution*/ true))
         // A diagnostic will have already been generated (non-constant
         // constraint expression, for example)
         return true;
@@ -1042,7 +1043,7 @@ void Sema::checkVariadicArgument(const Expr *E, VariadicCallType CT) {
     DiagRuntimeBehavior(
         E->getBeginLoc(), nullptr,
         PDiag(diag::warn_cxx98_compat_pass_non_pod_arg_to_vararg) << Ty << CT);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case VAK_Valid:
     if (Ty->isRecordType()) {
       // This is unlikely to be what the user intended. If the class has a
@@ -3457,7 +3458,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
       valueKind = VK_PRValue;
       break;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case Decl::ImplicitParam:
   case Decl::ParmVar: {
@@ -3554,7 +3555,7 @@ ExprResult Sema::BuildDeclarationNameExpr(
       valueKind = VK_LValue;
       break;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
   case Decl::CXXConversion:
   case Decl::CXXDestructor:
@@ -14292,8 +14293,10 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
   return getLangOpts().CPlusPlus ? LHSType : LHSType.getAtomicUnqualifiedType();
 }
 
-// Only ignore explicit casts to void.
-static bool IgnoreCommaOperand(const Expr *E) {
+// Scenarios to ignore if expression E is:
+// 1. an explicit cast expression into void
+// 2. a function call expression that returns void
+static bool IgnoreCommaOperand(const Expr *E, const ASTContext &Context) {
   E = E->IgnoreParens();
 
   if (const CastExpr *CE = dyn_cast<CastExpr>(E)) {
@@ -14308,6 +14311,8 @@ static bool IgnoreCommaOperand(const Expr *E) {
     }
   }
 
+  if (const auto *CE = dyn_cast<CallExpr>(E))
+    return CE->getCallReturnType(Context)->isVoidType();
   return false;
 }
 
@@ -14349,7 +14354,7 @@ void Sema::DiagnoseCommaOperator(const Expr *LHS, SourceLocation Loc) {
   }
 
   // Only allow some expressions on LHS to not warn.
-  if (IgnoreCommaOperand(LHS))
+  if (IgnoreCommaOperand(LHS, Context))
     return;
 
   Diag(Loc, diag::warn_comma_operator);
@@ -15299,7 +15304,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     break;
   case BO_And:
     checkObjCPointerIntrospection(*this, LHS, RHS, OpLoc);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case BO_Xor:
   case BO_Or:
     ResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc, Opc);
@@ -15351,7 +15356,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
   case BO_AndAssign:
   case BO_OrAssign: // fallthrough
     DiagnoseSelfAssignment(*this, LHS.get(), RHS.get(), OpLoc, true);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case BO_XorAssign:
     CompResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc, Opc);
     CompLHSTy = CompResultTy;
@@ -15934,6 +15939,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
              (!Context.getLangOpts().ZVector ||
               resultType->castAs<VectorType>()->getVectorKind() !=
               VectorType::AltiVecBool))
+      break;
+    else if (resultType->isVLSTBuiltinType()) // SVE vectors allow + and -
       break;
     else if (getLangOpts().CPlusPlus && // C++ [expr.unary.op]p6
              Opc == UO_Plus &&
@@ -18883,32 +18890,8 @@ static bool captureInLambda(LambdaScopeInfo *LSI, ValueDecl *Var,
   } else {
     ByRef = (LSI->ImpCaptureStyle == LambdaScopeInfo::ImpCap_LambdaByref);
   }
-  // C++20 : [expr.prim.lambda.capture]p12
-  // A bit-field or a member of an anonymous union shall
-  // not be captured by reference.
-  MemberExpr *ME = nullptr;
-  BindingDecl *BD = nullptr;
-  if (auto *V = dyn_cast<VarDecl>(Var)) {
-    if (V->getInit())
-      ME = dyn_cast<MemberExpr>(V->getInit()->IgnoreImplicit());
-  } else if ((BD = dyn_cast<BindingDecl>(Var))) {
-    ME = dyn_cast_or_null<MemberExpr>(BD->getBinding());
-  }
 
-  // Capturing a bitfield by reference is not allowed except in OpenMP.
-  if (ByRef && ME &&
-      (isa<BindingDecl>(Var) || !S.LangOpts.OpenMP ||
-       !S.isOpenMPCapturedDecl(Var))) {
-    const auto *FD = dyn_cast_or_null<FieldDecl>(ME->getMemberDecl());
-    if (FD && FD->isBitField()) {
-      if (BuildAndDiagnose) {
-        S.Diag(Loc, diag::err_bitfield_capture_by_ref) << Var;
-        S.Diag(Var->getLocation(), diag::note_entity_declared_at) << Var;
-        S.Diag(FD->getLocation(), diag::note_bitfield_decl) << FD;
-      }
-      Invalid = true;
-    }
-  }
+  BindingDecl *BD = dyn_cast<BindingDecl>(Var);
   // FIXME: We should support capturing structured bindings in OpenMP.
   if (!Invalid && BD && S.LangOpts.OpenMP) {
     if (BuildAndDiagnose) {
@@ -20050,7 +20033,8 @@ void Sema::MarkDeclRefReferenced(DeclRefExpr *E, const Expr *Base) {
 
   if (auto *FD = dyn_cast<FunctionDecl>(E->getDecl()))
     if (!isUnevaluatedContext() && !isConstantEvaluated() &&
-        FD->isConsteval() && !RebuildingImmediateInvocation)
+        FD->isConsteval() && !RebuildingImmediateInvocation &&
+        !FD->isDependentContext())
       ExprEvalContexts.back().ReferenceToConsteval.insert(E);
   MarkExprReferenced(*this, E->getLocation(), E->getDecl(), E, OdrUse,
                      RefsMinusAssignments);

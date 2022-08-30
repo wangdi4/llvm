@@ -3919,7 +3919,7 @@ Error IRLinker::run() {
         // Update the metadata tag. Remap it, if one has not been created yet.
         auto Mapping = ValueMap.getMappedMD(MD);
         if (Mapping)
-          GO->setMetadata(MDName, cast<MDNode>(Mapping.getValue()));
+          GO->setMetadata(MDName, cast<MDNode>(Mapping.value()));
         else
           GO->setMetadata(MDName, Mapper.mapMDNode(*MD));
       }
@@ -4109,7 +4109,7 @@ IRMover::IRMover(Module &M) : Composite(M) {
   // Self-map metadatas in the destination module. This is needed when
   // DebugTypeODRUniquing is enabled on the LLVMContext, since metadata in the
   // destination module may be reached from the source module.
-  for (auto *MD : StructTypes.getVisitedMetadata()) {
+  for (const auto *MD : StructTypes.getVisitedMetadata()) {
     SharedMDs[MD].reset(const_cast<MDNode *>(MD));
   }
 }

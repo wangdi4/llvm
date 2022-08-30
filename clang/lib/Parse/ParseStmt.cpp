@@ -246,7 +246,7 @@ Retry:
     }
 
     // Fall through
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
 
   default: {
@@ -508,7 +508,7 @@ Retry:
     // processing a #pragma omp clause.
     ProhibitAttributes(CXX11Attrs);
     ProhibitAttributes(GNUAttrs);
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case tok::annot_attr_openmp:
     if (isIgnoredOpenMPDirective()) // INTEL
       goto Retry; // INTEL

@@ -21,14 +21,14 @@ define void @test_mscatter_v16bf16(bfloat* %base, <16 x i32> %index, <16 x bfloa
 ; AVX512FP16-X64-NEXT:    vpsrld $16, %xmm1, %xmm3
 ; AVX512FP16-X64-NEXT:    vpextrq $1, %xmm0, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm3, (%rax)
-; AVX512FP16-X64-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm1[1,1,3,3]
+; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm3 = xmm1[1,1,3,3]
 ; AVX512FP16-X64-NEXT:    vextracti128 $1, %ymm0, %xmm4
 ; AVX512FP16-X64-NEXT:    vmovq %xmm4, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm3, (%rax)
 ; AVX512FP16-X64-NEXT:    vpsrlq $48, %xmm1, %xmm3
 ; AVX512FP16-X64-NEXT:    vpextrq $1, %xmm4, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm3, (%rax)
-; AVX512FP16-X64-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm1[1,0]
+; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm3 = xmm1[2,3,0,1]
 ; AVX512FP16-X64-NEXT:    vextracti32x4 $2, %zmm0, %xmm4
 ; AVX512FP16-X64-NEXT:    vmovq %xmm4, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm3, (%rax)
@@ -48,14 +48,14 @@ define void @test_mscatter_v16bf16(bfloat* %base, <16 x i32> %index, <16 x bfloa
 ; AVX512FP16-X64-NEXT:    vpsrld $16, %xmm0, %xmm1
 ; AVX512FP16-X64-NEXT:    vpextrq $1, %xmm2, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm1, (%rax)
-; AVX512FP16-X64-NEXT:    vmovshdup {{.*#+}} xmm1 = xmm0[1,1,3,3]
+; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[1,1,3,3]
 ; AVX512FP16-X64-NEXT:    vextracti128 $1, %ymm2, %xmm3
 ; AVX512FP16-X64-NEXT:    vmovq %xmm3, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm1, (%rax)
 ; AVX512FP16-X64-NEXT:    vpsrlq $48, %xmm0, %xmm1
 ; AVX512FP16-X64-NEXT:    vpextrq $1, %xmm3, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm1, (%rax)
-; AVX512FP16-X64-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[2,3,0,1]
 ; AVX512FP16-X64-NEXT:    vextracti32x4 $2, %zmm2, %xmm3
 ; AVX512FP16-X64-NEXT:    vmovq %xmm3, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm1, (%rax)
@@ -81,13 +81,13 @@ define void @test_mscatter_v16bf16(bfloat* %base, <16 x i32> %index, <16 x bfloa
 ; AVX512FP16-X86-NEXT:    vpsrld $16, %xmm1, %xmm2
 ; AVX512FP16-X86-NEXT:    vpextrd $1, %xmm0, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm2, (%eax)
-; AVX512FP16-X86-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
+; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm2 = xmm1[1,1,3,3]
 ; AVX512FP16-X86-NEXT:    vpextrd $2, %xmm0, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm2, (%eax)
 ; AVX512FP16-X86-NEXT:    vpsrlq $48, %xmm1, %xmm2
 ; AVX512FP16-X86-NEXT:    vpextrd $3, %xmm0, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm2, (%eax)
-; AVX512FP16-X86-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm2 = xmm1[2,3,0,1]
 ; AVX512FP16-X86-NEXT:    vextracti128 $1, %ymm0, %xmm3
 ; AVX512FP16-X86-NEXT:    vmovd %xmm3, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm2, (%eax)
@@ -107,13 +107,13 @@ define void @test_mscatter_v16bf16(bfloat* %base, <16 x i32> %index, <16 x bfloa
 ; AVX512FP16-X86-NEXT:    vpsrld $16, %xmm1, %xmm3
 ; AVX512FP16-X86-NEXT:    vpextrd $1, %xmm2, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm3, (%eax)
-; AVX512FP16-X86-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm1[1,1,3,3]
+; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm3 = xmm1[1,1,3,3]
 ; AVX512FP16-X86-NEXT:    vpextrd $2, %xmm2, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm3, (%eax)
 ; AVX512FP16-X86-NEXT:    vpsrlq $48, %xmm1, %xmm3
 ; AVX512FP16-X86-NEXT:    vpextrd $3, %xmm2, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm3, (%eax)
-; AVX512FP16-X86-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm2 = xmm1[2,3,0,1]
 ; AVX512FP16-X86-NEXT:    vextracti32x4 $3, %zmm0, %xmm0
 ; AVX512FP16-X86-NEXT:    vmovd %xmm0, %eax
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm2, (%eax)

@@ -1,7 +1,7 @@
 #include "non_cached_kernel_lock.hpp"
 
-__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
 
 NonCachedKernelLock::~NonCachedKernelLock() {}
@@ -15,5 +15,5 @@ Locked<RT::PiKernel> NonCachedKernelLock::lockKernel(RT::PiKernel &K) {
 }
 
 } // namespace detail
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
-} // __SYCL_INLINE_NAMESPACE(cl)

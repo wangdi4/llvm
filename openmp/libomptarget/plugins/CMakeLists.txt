@@ -27,6 +27,13 @@
 #
 ##===----------------------------------------------------------------------===##
 
+# Temporarily disable warnings for use of deprecated declarations
+# util libomptarget supports c++17.
+check_cxx_compiler_flag("-Wno-deprecated-declarations" DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+if (DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+endif()
+
 add_subdirectory(common)
 
 # void build_generic_elf64(string tmachine, string tmachine_name, string tmachine_libname, string elf_machine_id);
@@ -113,6 +120,9 @@ else()
 endif()
 endmacro()
 
+if(INTEL_CUSTOMIZATION)
+add_subdirectory(x86_64)
+else(INTEL_CUSTOMIZATION)
 add_subdirectory(aarch64)
 add_subdirectory(amdgpu)
 add_subdirectory(cuda)
@@ -121,6 +131,7 @@ add_subdirectory(ppc64le)
 add_subdirectory(ve)
 add_subdirectory(x86_64)
 add_subdirectory(remote)
+endif(INTEL_CUSTOMIZATION)
 
 if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_CSA

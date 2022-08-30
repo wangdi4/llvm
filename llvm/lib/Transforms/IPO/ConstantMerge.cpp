@@ -98,7 +98,7 @@ static void copyDebugLocMetadata(const GlobalVariable *From,
                                  GlobalVariable *To) {
   SmallVector<DIGlobalVariableExpression *, 1> MDs;
   From->getDebugInfo(MDs);
-  for (auto MD : MDs)
+  for (auto *MD : MDs)
     To->addDebugInfo(MD);
 }
 

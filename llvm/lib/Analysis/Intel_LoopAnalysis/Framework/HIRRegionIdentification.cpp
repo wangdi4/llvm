@@ -1539,7 +1539,7 @@ public:
     }
     auto ToLoop = LI->getLoopFor(To);
     return ToLoop && ToLoop->getHeader() == To &&
-           ToLoop->contains(From.getValue());
+           ToLoop->contains(From.value());
   }
 
 private:

@@ -516,7 +516,7 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M) {
       Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB);
       if (ProfCount == None)
         continue;
-      uint64_t NewValue = ProfCount.getValue();
+      uint64_t NewValue = ProfCount.value();
       if (ProfQueue.size() < ProfInstrumentHotCount) {
         ProfQueue.push(NewValue);
       } else if (NewValue > ProfQueue.top()) {
@@ -549,7 +549,7 @@ static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB);
   if (ProfCount == None)
     return false;
-  return ProfCount.getValue() >= Threshold;
+  return ProfCount.value() >= Threshold;
 }
 
 //
@@ -1906,7 +1906,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
   if (!Callee || !InlineForXmain)
     return None;
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall);
-  if (ProfCount && ProfCount.getValue() == 0) {
+  if (ProfCount && ProfCount.value() == 0) {
     if (!Callee->hasLinkOnceODRLinkage())
       return InlineResult::failure("not profitable")
           .setIntelInlReason(NinlrColdProfile);

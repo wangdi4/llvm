@@ -80,14 +80,14 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
   // only if 'X' and 'Y' are constants with the same value.
   auto Meet = [](Optional<uint64_t> X, Optional<uint64_t> Y) ->
       Optional<uint64_t> {
-    return !X.hasValue() || !Y.hasValue() || X.getValue() != Y.getValue() ?
+    return !X.has_value() || !Y.has_value() || X.value() != Y.value() ?
       Optional<uint64_t>() : X;
   };
 
   // Return 'true' if not all elements of the small vector 'V' are defined.
   auto IsBottom = [](SmallVectorImpl<Optional<uint64_t>> &V) -> bool {
     for (unsigned I = 0; I < V.size(); I++)
-      if (V[I].hasValue())
+      if (V[I].has_value())
         return false;
     return true;
   };
@@ -178,7 +178,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     if (!GEP2 || FR.second == DopeVectorAnalyzer::FindResult::FR_Invalid)
        return Change;
     for (unsigned I = 0; I < ArrayRank; I++) {
-      if (!Values[I].hasValue())
+      if (!Values[I].has_value())
         continue;
       // Get the Value representing an access to the lower bound, stride,
       // or extent of the specific dimension.
@@ -193,7 +193,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
         // At this point, we have proved that only loads are the users of V
         auto LI = cast<LoadInst>(W);
         Type *I64Ty = IntegerType::getInt64Ty(GEP.getContext());
-        auto CI = ConstantInt::get(I64Ty, Values[I].getValue(), false);
+        auto CI = ConstantInt::get(I64Ty, Values[I].value(), false);
         LI->replaceAllUsesWith(CI);
         LoadCount++;
         Change = true;
@@ -202,7 +202,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
         if (LoadCount > 0)
           dbgs() << "REPLACING " << LoadCount << " LOAD"
                  << (LoadCount > 1 ? "S " : " ") << "WITH "
-                 << Values[I].getValue() << "\n";
+                 << Values[I].value() << "\n";
       });
     }
     return Change;
@@ -598,12 +598,12 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
         NumFormalsDVConstProp++;
         LLVM_DEBUG({
           for (unsigned I = 0; I < ArRank; I++) {
-            if (LowerBound[I].hasValue())
-              dbgs() << "LB[" << I << "] = " << LowerBound[I].getValue() << "\n";
-            if (Stride[I].hasValue())
-              dbgs() << "ST[" << I << "] = " << Stride[I].getValue() << "\n";
-            if (Extent[I].hasValue())
-              dbgs() << "EX[" << I << "] = " << Extent[I].getValue() << "\n";
+            if (LowerBound[I].has_value())
+              dbgs() << "LB[" << I << "] = " << LowerBound[I].value() << "\n";
+            if (Stride[I].has_value())
+              dbgs() << "ST[" << I << "] = " << Stride[I].value() << "\n";
+            if (Extent[I].has_value())
+              dbgs() << "EX[" << I << "] = " << Extent[I].value() << "\n";
           }
         });
         Change |= replaceDopeVectorConstants(Arg, DVAFormal, ArRank,

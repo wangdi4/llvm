@@ -224,10 +224,9 @@ public:
   RetTy visitDbgLabelInst(DbgLabelInst &I)        { DELEGATE(DbgInfoIntrinsic);}
   RetTy visitDbgInfoIntrinsic(DbgInfoIntrinsic &I){ DELEGATE(IntrinsicInst); }
   RetTy visitMemSetInst(MemSetInst &I)            { DELEGATE(MemIntrinsic); }
+  RetTy visitMemSetInlineInst(MemSetInlineInst &I){ DELEGATE(MemSetInst); }
   RetTy visitMemCpyInst(MemCpyInst &I)            { DELEGATE(MemTransferInst); }
-  RetTy visitMemCpyInlineInst(MemCpyInlineInst &I) {
-    DELEGATE(MemTransferInst);
-  }
+  RetTy visitMemCpyInlineInst(MemCpyInlineInst &I){ DELEGATE(MemCpyInst); }
   RetTy visitMemMoveInst(MemMoveInst &I)          { DELEGATE(MemTransferInst); }
   RetTy visitMemTransferInst(MemTransferInst &I)  { DELEGATE(MemIntrinsic); }
   RetTy visitMemIntrinsic(MemIntrinsic &I)        { DELEGATE(IntrinsicInst); }
@@ -312,8 +311,12 @@ private:
       case Intrinsic::dbg_value:   DELEGATE(DbgValueInst);
       case Intrinsic::dbg_label:   DELEGATE(DbgLabelInst);
       case Intrinsic::memcpy:      DELEGATE(MemCpyInst);
+      case Intrinsic::memcpy_inline:
+        DELEGATE(MemCpyInlineInst);
       case Intrinsic::memmove:     DELEGATE(MemMoveInst);
       case Intrinsic::memset:      DELEGATE(MemSetInst);
+      case Intrinsic::memset_inline:
+        DELEGATE(MemSetInlineInst);
 #if INTEL_CUSTOMIZATION
       case Intrinsic::intel_subscript:
                                    DELEGATE(SubscriptInst);

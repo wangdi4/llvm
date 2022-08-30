@@ -4493,7 +4493,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       } else {
         // Case 1b. With InteropPosition.
         // The position is 1-based (ie, first arg is position 1, not 0).
-        uint64_t Position = InteropPosition.getValue();
+        uint64_t Position = InteropPosition.value();
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
@@ -5453,21 +5453,21 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   };
 
   assert((!AllocaAddrSpace ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL ||
-          AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL) &&
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_PRIVATE ||
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_GLOBAL ||
+          AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL) &&
          "Address space of an alloca may be either global, local or private.");
   assert(DL.getAllocaAddrSpace() == vpo::ADDRESS_SPACE_PRIVATE &&
          "Default alloca address space does not match "
          "vpo::ADDRESS_SPACE_PRIVATE.");
 
   if (AllocaAddrSpace &&
-      (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL ||
-       AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_GLOBAL)) {
+      (AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL ||
+       AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_GLOBAL)) {
     // OpenCL __local/__global variables are globalized even when declared
     // inside a kernel.
     SmallString<64> GlobalName;
-    if (AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_LOCAL)
+    if (AllocaAddrSpace.value() == vpo::ADDRESS_SPACE_LOCAL)
       (VarName + Twine(".__local")).toStringRef(GlobalName);
     else
       (VarName + Twine(".__global")).toStringRef(GlobalName);
@@ -5483,14 +5483,14 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           Constant::getNullValue(GVType), GlobalName,
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
-                          AllocaAddrSpace.getValue());
+                          AllocaAddrSpace.value());
      GV->setAlignment(OrigAlignment);
 
     if (!ValueAddrSpace)
       return GV;
 
     return AddrSpaceCastValue(
-        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
+        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.value()));
   }
 
 
@@ -5548,7 +5548,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   auto *AI = Builder.CreateAlloca(
       ElementType,
       AllocaAddrSpace ?
-          AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
+          AllocaAddrSpace.value() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
   AI->setAlignment(OrigAlignment.value_or(DL.getPrefTypeAlign(ElementType)));
 
@@ -5580,7 +5580,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     return V;
 
   auto *CastTy = PointerType::getWithSamePointeeType(
-      cast<PointerType>(V->getType()), ValueAddrSpace.getValue());
+      cast<PointerType>(V->getType()), ValueAddrSpace.value());
   auto *ASCI = dyn_cast<Instruction>(
       AddrSpaceCastValue(Builder, V, CastTy));
 
@@ -6489,8 +6489,8 @@ Function *VPOParoptUtils::genOutlineFunction(
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   if (!BBsToExtractIn ||
-      (llvm::is_contained(BBsToExtractIn.getValue(), W.getExitBBlock()) !=
-       llvm::is_contained(BBsToExtractIn.getValue(), W.getEntryBBlock())))
+      (llvm::is_contained(BBsToExtractIn.value(), W.getExitBBlock()) !=
+       llvm::is_contained(BBsToExtractIn.value(), W.getEntryBBlock())))
     // Remove the use of the entry directive in the exit directive, so that it
     // isn't considered a live-out, in case the end directive is unreachable,
     // and won't be in the outlined function.

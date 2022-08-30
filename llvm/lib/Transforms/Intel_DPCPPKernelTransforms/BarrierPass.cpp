@@ -547,7 +547,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
                                         AllocaName + ".addr", AddrInsertBefore);
     if (AI)
       AddrAI->setDebugLoc(AI->getDebugLoc());
-    uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
+    uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).value() / 8;
     AddrAI->setAlignment(assumeAligned(ASize));
     AddrAllocaSize[&F] += ASize;
 
