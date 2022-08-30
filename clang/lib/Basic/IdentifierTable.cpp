@@ -106,27 +106,6 @@ namespace {
     KEYCXX11      = 0x4,
     KEYGNU        = 0x8,
     KEYMS         = 0x10,
-<<<<<<< HEAD
-    KEYALTIVEC    = 0x20,
-    KEYNOCXX      = 0x40,
-    KEYBORLAND    = 0x80,
-    KEYOPENCLC    = 0x100,
-    KEYC2X        = 0x200,
-    KEYNOMS18     = 0x400,
-    KEYNOOPENCL   = 0x800,
-    WCHARSUPPORT  = 0x1000,
-    HALFSUPPORT   = 0x2000,
-    CHAR8SUPPORT  = 0x4000,
-    KEYOBJC       = 0x8000,
-    KEYZVECTOR    = 0x10000,
-    KEYCOROUTINES = 0x20000,
-    KEYMODULES    = 0x40000,
-    KEYCXX20      = 0x80000,
-    KEYOPENCLCXX  = 0x100000,
-    KEYMSCOMPAT   = 0x200000,
-    KEYSYCL       = 0x400000,
-    KEYCUDA       = 0x800000,
-=======
     BOOLSUPPORT   = 0x20,
     KEYALTIVEC    = 0x40,
     KEYNOCXX      = 0x80,
@@ -147,13 +126,11 @@ namespace {
     KEYMSCOMPAT   = 0x400000,
     KEYSYCL       = 0x800000,
     KEYCUDA       = 0x1000000,
-    KEYMAX        = KEYCUDA, // The maximum key
->>>>>>> be199527205dc8a8c7febc057ad6be90fac15547
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
-    KEYFLOAT128   = 0x1000000,
-    KEYMSASM      = 0x2000000,
-    KEYOPENCLCHANNEL =  0x4000000,
+    KEYFLOAT128   = 0x2000000,
+    KEYMSASM      = 0x4000000,
+    KEYOPENCLCHANNEL =  0x8000000,
     KEYMAX      = KEYOPENCLCHANNEL, // The maximum key
     KEYINTELALL = KEYFLOAT128 | KEYMSASM | KEYOPENCLCHANNEL,
 #endif // INTEL_CUSTOMIZATION
