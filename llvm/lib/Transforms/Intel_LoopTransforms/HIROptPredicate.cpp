@@ -1696,7 +1696,7 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
       };
 
   auto EquivCandidatesI = std::stable_partition(
-      Candidates.begin(), Candidates.end(), std::not1(IsEquivCandidate));
+      Candidates.begin(), Candidates.end(), std::not_fn(IsEquivCandidate));
 
   for (auto Iter = EquivCandidatesI, E = Candidates.end(); Iter != E; ++Iter) {
     LLVM_DEBUG(dbgs() << "H: ");

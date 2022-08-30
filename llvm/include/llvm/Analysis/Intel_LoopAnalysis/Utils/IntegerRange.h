@@ -32,8 +32,13 @@
 namespace llvm {
 namespace loopopt {
 
-class IntegerRangeIterator
-    : public std::iterator<std::forward_iterator_tag, int, int, int *, int> {
+class IntegerRangeIterator {
+public:
+      using iterator_category = std::forward_iterator_tag;
+      using value_type = int;
+      using difference_type = int;
+      using pointer = int*;
+      using reference = int;
 private:
   // TODO: 32bit signed integer range is enough for our main use cases.
   //       Extend it when a need arises.
