@@ -534,7 +534,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
 
     if (IsTyped) {
       const Expr *Base = getArraySectionBase(E);
-      QualType BaseT = CGF.CGM.getContext().getBaseElementType(Base->getType());
+      QualType BaseT(Base->getType()->getPointeeOrArrayElementType(), 0);
       CharUnits ElementSize = CGF.getContext().getTypeSizeInChars(BaseT);
       llvm::Value *Size = CGF.CGM.getSize(ElementSize);;
 
@@ -542,9 +542,17 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
           ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
       llvm::Value *BaseCast = nullptr;
-      if (ArraySecUsesBase)
+      if (ArraySecUsesBase) {
+        // If the array section variable is a pointer or reference, it contains
+        // the address of the first element and it differs from the address
+        // used in the first Arg. Load it here.
+        if (Base->getType()->isPointerType())
+          BaseAddr = CGF.EmitPointerWithAlignment(Base).getPointer();
+        else if (IsRef)
+          BaseAddr = CGF.EmitLValue(Base).getPointer(CGF);
         BaseCast =
             CGF.Builder.CreatePtrToInt(BaseAddr, CGF.PtrDiffTy, "sec.base.cast");
+      }
 
       llvm::Value *NumElements;
       llvm::Value *OffsetInElements;
