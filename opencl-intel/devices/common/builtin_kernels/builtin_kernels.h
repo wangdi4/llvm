@@ -119,7 +119,7 @@ protected:
                                  size_t const) const override {
         return maxWGSize;
       }
-      size_t GetMaxSubGroupSize(size_t, const size_t *) const override {
+      size_t GetMaxSubGroupSize() const override {
         return 1;
       }
       size_t GetNumberOfSubGroups(size_t, const size_t *) const override {

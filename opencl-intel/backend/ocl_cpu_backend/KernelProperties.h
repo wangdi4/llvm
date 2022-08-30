@@ -103,8 +103,7 @@ public:
 
     virtual size_t GetRequiredNumSubGroups() const override;
 
-    virtual size_t GetMaxSubGroupSize(size_t size,
-                                      const size_t *WGSizes) const override;
+    virtual size_t GetMaxSubGroupSize() const override;
 
     /**
      * @returns locals size that would give the desired number of subgroups
@@ -241,7 +240,6 @@ public:
     void SetHasNoBarrierPath(bool value) { m_hasNoBarrierPath = value; }
     void SetHasMatrixCall(bool value) { m_hasMatrixCall = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
-    void SetUseNativeSubgroups(bool value) { m_useNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
@@ -289,7 +287,6 @@ protected:
     bool m_hasNoBarrierPath;
     bool m_hasMatrixCall;
     bool m_hasGlobalSync;
-    bool m_useNativeSubgroups;
     bool m_DAZ;
     Intel::OpenCL::Utils::CPUId
         m_cpuId; // selected cpuId for current kernel codegen
