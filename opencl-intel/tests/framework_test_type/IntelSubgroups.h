@@ -18,7 +18,7 @@
 #include "CL_BASE.h"
 #include "common_utils.h"
 
-class NativeSubgroupsTest : public ::CL_base {
+class SubgroupsTest : public ::CL_base {
 protected:
   virtual void SetUp() override {
     CL_base::SetUp();

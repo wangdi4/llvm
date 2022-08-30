@@ -87,7 +87,7 @@ public:
 
     /** @returns the max possible SG size.
      */
-    virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const = 0;
+    virtual size_t GetMaxSubGroupSize() const = 0;
 
     /** @returns the number of SGs will be generated for specified local work sizes.
      */
