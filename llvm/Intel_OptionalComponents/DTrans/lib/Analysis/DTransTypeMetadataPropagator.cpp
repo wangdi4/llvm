@@ -348,5 +348,32 @@ void DTransTypeMetadataPropagator::setDevirtVarDTransMetadata(
   NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, LiteralMD);
 }
 
+// Create new intel_dtrans_type metadata for NewGV which is created by
+// GlobalOpt.
+//  Type of NewGV: [i8* x NewArrSize]
+void DTransTypeMetadataPropagator::setGlobUsedVarDTransMetadata(
+    GlobalVariable *OldGV, GlobalVariable *NewGV, uint64_t NewArrSize) {
+
+  // Skip if DTransMDNode is not attached to OldGV.
+  MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*OldGV);
+  if (!MD)
+    return;
+
+  // Get metadata for Int8Ptr.
+  LLVMContext &Ctx = NewGV->getType()->getContext();
+  auto CharPtrMD = llvm::MDNode::get(
+      Ctx, {llvm::ConstantAsMetadata::get(
+                llvm::Constant::getNullValue(llvm::Type::getInt8Ty(Ctx))),
+            llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 1))});
+
+  // Create metadata for [i8* x NewArrSize]
+  auto ArrMD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                 ConstantAsMetadata::get(ConstantInt::get(
+                                     Type::getInt32Ty(Ctx), NewArrSize)),
+                                 CharPtrMD});
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm
