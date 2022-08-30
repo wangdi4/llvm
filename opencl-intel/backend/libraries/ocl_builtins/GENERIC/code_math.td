@@ -25,10 +25,6 @@ defvar copysign_code = [{
     return __builtin_astype((ux), $Arg0Type);
   }];
 
-defvar fabs_code = [{
-    return __builtin_astype(($Arg0igentype)(__builtin_astype($Arg0VarName, $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
-  }];
-
 defvar fdim_code_vec = [{
     const $ReturnType NaNasFP = __builtin_astype($ReturnBaseType_QNAN_MASK, $ReturnBaseType);
     const $ReturnType Zero = 0;

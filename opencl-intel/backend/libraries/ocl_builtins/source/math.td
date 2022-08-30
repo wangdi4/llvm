@@ -53,7 +53,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def exp2_f16 : OclBuiltin<"exp2", (outs gentype:$ret), (ins gentype:$x)>;
     def exp10_f16 : OclBuiltin<"exp10", (outs gentype:$ret), (ins gentype:$x)>;
     def expm1_f16 : OclBuiltin<"expm1", (outs gentype:$ret), (ins gentype:$x)>;
-    // def fabs_f16 : OclBuiltin<"fabs", (outs gentype:$ret), (ins gentype:$x)>;
     def fdim_f16 : OclBuiltin<"fdim", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def floor_f16 : OclBuiltin<"floor", (outs gentype:$ret), (ins gentype:$x)>;
     def fma_f16 : OclBuiltin<"fma", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
@@ -94,6 +93,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def trunc_f16 : OclBuiltin<"trunc", (outs gentype:$ret), (ins gentype:$x)>;
   } // defset math_generic_builtins
 
+  def fabs : OclBuiltin<"fabs", (outs gentype:$ret), (ins gentype:$x)>;
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
   def nan : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode)>;
 
@@ -108,6 +108,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
 let Types = math_all_fp_vectorize_types,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = true in {
+  def fabs_mask : OclBuiltin<"fabs", (outs gentype:$ret), (ins gentype:$x, gentype:$mask)>;
   def nan_mask : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode, gentype:$mask)>;
 }
 
@@ -228,7 +229,23 @@ foreach bi = math_generic_builtins in {
   // [AMX] v3f16: call masked v4f16
 }
 
+// Relying on the fact that in the mask argument, all bits are set for the
+// active elements, and none bits is set for the inactive, we can use a simple
+// bitwise AND to fill inactive lanes with zeros.
+defvar mask_inactive_res_to_zero = [{
+  $Returnigentype _res = __builtin_astype($Func($Arg0VarName), $Returnigentype);
+  $Returnigentype _mask = __builtin_astype($Arg1VarName, $Returnigentype);
+  return __builtin_astype(($Returnigentype)(_res & _mask), $ReturnType);
+}];
+
 // Specialized implementations
+// fabs: clears the sign bit
+def : OclBuiltinImpl<fabs, fabs.Types, false, [{
+  return __builtin_astype(($Arg0igentype)(__builtin_astype($Arg0VarName, $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
+}]>, SHARED;
+// [MASKED] fabs: fill off-lanes with zero
+def : OclBuiltinImpl<fabs_mask, fabs_mask.Types, false, mask_inactive_res_to_zero>, SHARED;
+
 // mad: returns a*b+c
 def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
 
@@ -237,9 +254,7 @@ def : OclBuiltinImpl<nan, nan.Types, false, [{
   return __builtin_astype(($Arg0Type)($Arg0VarName | ($Arg0Type)$ReturnBaseType_QNAN_MASK), $ReturnType);
 }]>, SHARED;
 // [MASKED] nan: fill results with zero to avoid potential NaN propagation.
-def : OclBuiltinImpl<nan_mask, nan_mask.Types, false, [{
-  return bitselect(($ReturnType)0.0, nan($Arg0VarName), $Arg1VarName);
-}]>, SHARED;
+def : OclBuiltinImpl<nan_mask, nan_mask.Types, false, mask_inactive_res_to_zero>, SHARED;
 
 // gentype func(gentype, gentype *)
 foreach bi = math_builtins_with_pgentype_arg1 in {
@@ -373,7 +388,7 @@ foreach bi = math_builtins_with_general_vect_info in {
 // TODO: merge into the `foreach` loop above when all types are supported for
 // all builtins.
 let Types = [v1f16, v1f32, v1f64] in
-foreach bi = [nan] in {
+foreach bi = [fabs, nan] in {
   def : VectInfo<[], bi, bi, bi, bi, bi, bi>;
 
   defvar bi_mask = !cast<OclBuiltin>(bi # "_mask");

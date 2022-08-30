@@ -10724,6 +10724,12 @@
 ; CHECK-NEXT: _Z4fabsDv2_Dh
 ; CHECK-NEXT: _Z4fabsDv2_d
 ; CHECK-NEXT: _Z4fabsDv2_f
+; CHECK-NEXT: _Z4fabsDv32_Dh
+; CHECK-NEXT: _Z4fabsDv32_DhS_
+; CHECK-NEXT: _Z4fabsDv32_d
+; CHECK-NEXT: _Z4fabsDv32_dS_
+; CHECK-NEXT: _Z4fabsDv32_f
+; CHECK-NEXT: _Z4fabsDv32_fS_
 ; CHECK-NEXT: _Z4fabsDv3_Dh
 ; CHECK-NEXT: _Z4fabsDv3_d
 ; CHECK-NEXT: _Z4fabsDv3_f
@@ -10733,6 +10739,12 @@
 ; CHECK-NEXT: _Z4fabsDv4_dS_
 ; CHECK-NEXT: _Z4fabsDv4_f
 ; CHECK-NEXT: _Z4fabsDv4_fS_
+; CHECK-NEXT: _Z4fabsDv64_Dh
+; CHECK-NEXT: _Z4fabsDv64_DhS_
+; CHECK-NEXT: _Z4fabsDv64_d
+; CHECK-NEXT: _Z4fabsDv64_dS_
+; CHECK-NEXT: _Z4fabsDv64_f
+; CHECK-NEXT: _Z4fabsDv64_fS_
 ; CHECK-NEXT: _Z4fabsDv8_Dh
 ; CHECK-NEXT: _Z4fabsDv8_DhS_
 ; CHECK-NEXT: _Z4fabsDv8_d

@@ -32,7 +32,6 @@ list<OclType> math_all_types = [
   v1f64, v2f64, v3f64, v4f64, v8f64, v16f64
 ];
 
-list<OclType> math_half_types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16];
 list<OclType> math_float_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32];
 list<OclType> math_double_types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
 
@@ -75,7 +74,6 @@ OclBuiltinImpl exp_mask_svml = OclBuiltinImpl<exp_mask, math_all_types, 0, maske
 OclBuiltinImpl exp2_mask_svml = OclBuiltinImpl<exp2_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl exp10_mask_svml = OclBuiltinImpl<exp10_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl expm1_mask_svml = OclBuiltinImpl<expm1_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
-OclBuiltinImpl fabs_mask_svml = OclBuiltinImpl<fabs_mask, math_all_types # math_half_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl floor_mask_svml = OclBuiltinImpl<floor_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl lgamma_mask_svml = OclBuiltinImpl<lgamma_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;
 OclBuiltinImpl log_mask_svml = OclBuiltinImpl<log_mask, math_all_types, 0, masked_impl_code_G_G_M, [["$DEF0", "4.2"]]>;

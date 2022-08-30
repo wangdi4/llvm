@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // Expand
 foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "atan2", "atanh", "atanpi", "atan2pi", "cbrt", "ceil", "cos", "cosh",
@@ -58,7 +70,7 @@ defvar v32v64FTypes = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
 // Masked
 foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
     "atan2", "atanh", "atanpi", "atan2pi", "cbrt", "ceil", "copysign", "cos",
-    "cosh", "cospi", "erfc", "erf", "exp", "exp2", "exp10", "expm1", "fabs",
+    "cosh", "cospi", "erfc", "erf", "exp", "exp2", "exp10", "expm1",
     "fdim", "floor", "fma", "fmax", "fmin", "fmod", "fract_pas", "fract_las",
     "fract_gas", "fract_gen", "fract_pas2", "frexp_pas", "frexp_las",
     "frexp_gas", "frexp_gen", "hypot", "lgamma", "lgamma_r_pas", "lgamma_r_las",
@@ -177,12 +189,3 @@ foreach is_masked = [true, false] in {
     def : OclBuiltinImpl<builtin, v32v64F32Types, /*IsDeclOnly*/false, impl_code, [["$FUNC", "sincos_rm"]]>;
   } // foreach name
 } // foreach is_masked
-
-// Masked half
-defvar v32v64F16Types = ExpandTypesByVFAndFlatten<[v1f16], [32, 64]>.Tout;
-foreach name = ["fabs"] in {
-  defvar mask_code = masked_impl_code_G_G_M;
-  defvar def0 = "0";
-  defvar builtin = !cast<OclBuiltin>(name # "_mask");
-  def : OclBuiltinImpl<builtin, v32v64F16Types, 0, mask_code, [["$DEF0", def0]]>;
-}

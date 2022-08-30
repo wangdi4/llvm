@@ -20,11 +20,8 @@
 
 defvar v32v64FTypes = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [32, 64]>.Tout;
 defvar v32v64F32Types = ExpandTypesByVFAndFlatten<[v1f32], [32, 64]>.Tout;
-defvar v32v64F16Types = ExpandTypesByVFAndFlatten<[v1f16], [32, 64]>.Tout;
 
 OclBuiltinImpl copysign_v32v64_impl = OclBuiltinImpl<copysign, v32v64FTypes, 0, copysign_code>;
-
-OclBuiltinImpl fabs_v32v64_impl = OclBuiltinImpl<fabs, v32v64FTypes # v32v64F16Types, 0, fabs_code>;
 
 OclBuiltinImpl fdim_v32v64_impl = OclBuiltinImpl<fdim, v32v64FTypes, 0, fdim_code_vec>;
 
