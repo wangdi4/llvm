@@ -383,10 +383,9 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   };
 
   if (ST->useGLMDivSqrtCosts())
-<<<<<<< HEAD
-    if (const auto *Entry = CostTableLookup(GLMCostTable, ISD,
-                                            LT.second))
-      return LT.first * Entry->Cost;
+    if (const auto *Entry = CostTableLookup(GLMCostTable, ISD, LT.second))
+      if (auto KindCost = Entry->Cost[CostKind])
+        return LT.first * KindCost.value();
 
 #if INTEL_CUSTOMIZATION
   if (ISD == ISD::MUL && ST->hasSSE2() && LT.second.isVector() &&
@@ -409,23 +408,6 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   }
 #endif // INTEL_CUSTOMIZATION
 
-  static const CostTblEntry SLMCostTable[] = {
-    { ISD::MUL,   MVT::v4i32, 11 }, // pmulld
-    { ISD::MUL,   MVT::v8i16, 2  }, // pmullw
-    { ISD::FMUL,  MVT::f64,   2  }, // mulsd
-    { ISD::FMUL,  MVT::v2f64, 4  }, // mulpd
-    { ISD::FMUL,  MVT::v4f32, 2  }, // mulps
-    { ISD::FDIV,  MVT::f32,   17 }, // divss
-    { ISD::FDIV,  MVT::v4f32, 39 }, // divps
-    { ISD::FDIV,  MVT::f64,   32 }, // divsd
-    { ISD::FDIV,  MVT::v2f64, 69 }, // divpd
-    { ISD::FADD,  MVT::v2f64, 2  }, // addpd
-    { ISD::FSUB,  MVT::v2f64, 2  }, // subpd
-=======
-    if (const auto *Entry = CostTableLookup(GLMCostTable, ISD, LT.second))
-      if (auto KindCost = Entry->Cost[CostKind])
-        return LT.first * KindCost.value();
-
   static const CostKindTblEntry SLMCostTable[] = {
     { ISD::MUL,   MVT::v4i32, { 11 } }, // pmulld
     { ISD::MUL,   MVT::v8i16, { 2  } }, // pmullw
@@ -438,7 +420,6 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FDIV,  MVT::v2f64, { 69 } }, // divpd
     { ISD::FADD,  MVT::v2f64, { 2  } }, // addpd
     { ISD::FSUB,  MVT::v2f64, { 2  } }, // subpd
->>>>>>> 9f94240fe1bde28e3d275fade910ddde87134f44
     // v2i64/v4i64 mul is custom lowered as a series of long:
     // multiplies(3), shifts(3) and adds(2)
     // slm muldq version throughput is 2 and addq throughput 4
@@ -477,7 +458,6 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
         return LT.first * KindCost.value();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // On X86, div and rem on none-power-of-2 constants need more register
   // spilling and shifts. Currently the cost of div/rem on none-power-of-2
@@ -511,16 +491,10 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   }
 #endif // INTEL_CUSTOMIZATION
 
-  static const CostTblEntry AVX512BWUniformConstCostTable[] = {
-    { ISD::SHL,  MVT::v64i8,   2 }, // psllw + pand.
-    { ISD::SRL,  MVT::v64i8,   2 }, // psrlw + pand.
-    { ISD::SRA,  MVT::v64i8,   4 }, // psrlw, pand, pxor, psubb.
-=======
   static const CostKindTblEntry AVX512BWUniformConstCostTable[] = {
     { ISD::SHL,  MVT::v64i8, { 2 } }, // psllw + pand.
     { ISD::SRL,  MVT::v64i8, { 2 } }, // psrlw + pand.
     { ISD::SRA,  MVT::v64i8, { 4 } }, // psrlw, pand, pxor, psubb.
->>>>>>> 9f94240fe1bde28e3d275fade910ddde87134f44
   };
 
   if (Op2Info.isUniform() && Op2Info.isConstant() && ST->hasBWI())
