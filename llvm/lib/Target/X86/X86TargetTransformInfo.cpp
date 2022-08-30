@@ -292,6 +292,7 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     unsigned Op1MinSize = BaseT::minRequiredElementSize(Args[0], Op1Signed);
     unsigned Op2MinSize = BaseT::minRequiredElementSize(Args[1], Op2Signed);
     unsigned OpMinSize = std::max(Op1MinSize, Op2MinSize);
+    bool SignedMode = Op1Signed || Op2Signed;
 
     // If both are representable as i15 and at least one is constant,
     // zero-extended, or sign-extended from vXi16 (or less pre-SSE41) then we
@@ -312,6 +313,20 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
       if (IsConstant || IsZeroExtended || IsSext)
         LT.second =
             MVT::getVectorVT(MVT::i16, 2 * LT.second.getVectorNumElements());
+    }
+
+    // Check if the vXi32 operands can be shrunk into a smaller datatype.
+    // This should match the codegen from reduceVMULWidth.
+    // TODO: Make this generic (!ST->SSE41 || ST->isPMULLDSlow()).
+    if (ST->useSLMArithCosts() && LT.second == MVT::v4i32) {
+      if (OpMinSize <= 7)
+        return LT.first * 3; // pmullw/sext
+      if (!SignedMode && OpMinSize <= 8)
+        return LT.first * 3; // pmullw/zext
+      if (OpMinSize <= 15)
+        return LT.first * 5; // pmullw/pmulhw/pshuf
+      if (!SignedMode && OpMinSize <= 16)
+        return LT.first * 5; // pmullw/pmulhw/pshuf
     }
   }
 
@@ -431,32 +446,10 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::SUB,   MVT::v2i64, {  4 } },
   };
 
-  if (ST->useSLMArithCosts()) {
-    if (Args.size() == 2 && ISD == ISD::MUL && LT.second == MVT::v4i32) {
-      // Check if the operands can be shrinked into a smaller datatype.
-      // TODO: Merge this into generiic vXi32 MUL patterns above.
-      bool Op1Signed = false;
-      unsigned Op1MinSize = BaseT::minRequiredElementSize(Args[0], Op1Signed);
-      bool Op2Signed = false;
-      unsigned Op2MinSize = BaseT::minRequiredElementSize(Args[1], Op2Signed);
-
-      bool SignedMode = Op1Signed || Op2Signed;
-      unsigned OpMinSize = std::max(Op1MinSize, Op2MinSize);
-
-      if (OpMinSize <= 7)
-        return LT.first * 3; // pmullw/sext
-      if (!SignedMode && OpMinSize <= 8)
-        return LT.first * 3; // pmullw/zext
-      if (OpMinSize <= 15)
-        return LT.first * 5; // pmullw/pmulhw/pshuf
-      if (!SignedMode && OpMinSize <= 16)
-        return LT.first * 5; // pmullw/pmulhw/pshuf
-    }
-
+  if (ST->useSLMArithCosts())
     if (const auto *Entry = CostTableLookup(SLMCostTable, ISD, LT.second))
       if (auto KindCost = Entry->Cost[CostKind])
         return LT.first * KindCost.value();
-  }
 
 #if INTEL_CUSTOMIZATION
   // On X86, div and rem on none-power-of-2 constants need more register
@@ -628,6 +621,27 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
       if (auto KindCost = Entry->Cost[CostKind])
         return LT.first * KindCost.value();
 
+  static const CostKindTblEntry AVXConstCostTable[] = {
+    { ISD::SDIV, MVT::v8i32,  { 32 } }, // vpmuludq sequence
+    { ISD::SREM, MVT::v8i32,  { 38 } }, // vpmuludq+mul+sub sequence
+  };
+
+  if (Op2Info.isConstant() && ST->hasAVX())
+    if (const auto *Entry = CostTableLookup(AVXConstCostTable, ISD, LT.second))
+      if (auto KindCost = Entry->Cost[CostKind])
+        return LT.first * KindCost.value();
+
+  static const CostKindTblEntry SSE41ConstCostTable[] = {
+    { ISD::SDIV, MVT::v4i32,  { 15 } }, // vpmuludq sequence
+    { ISD::SREM, MVT::v4i32,  { 20 } }, // vpmuludq+mul+sub sequence
+  };
+
+  if (Op2Info.isConstant() && ST->hasSSE41())
+    if (const auto *Entry =
+            CostTableLookup(SSE41ConstCostTable, ISD, LT.second))
+      if (auto KindCost = Entry->Cost[CostKind])
+        return LT.first * KindCost.value();
+
   static const CostKindTblEntry SSE2ConstCostTable[] = {
     { ISD::SDIV, MVT::v32i8,  { 28+2 } }, // 4*ext+4*pmulhw sequence + split.
     { ISD::SREM, MVT::v32i8,  { 32+2 } }, // 4*ext+4*pmulhw+mul+sub sequence + split.
@@ -655,21 +669,10 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::UREM, MVT::v4i32,  {   20 } }, // pmuludq+mul+sub sequence
   };
 
-  if (Op2Info.isConstant() && ST->hasSSE2()) {
-    // pmuldq sequence.
-    if (ISD == ISD::SDIV && LT.second == MVT::v8i32 && ST->hasAVX())
-      return LT.first * 32;
-    if (ISD == ISD::SREM && LT.second == MVT::v8i32 && ST->hasAVX())
-      return LT.first * 38;
-    if (ISD == ISD::SDIV && LT.second == MVT::v4i32 && ST->hasSSE41())
-      return LT.first * 15;
-    if (ISD == ISD::SREM && LT.second == MVT::v4i32 && ST->hasSSE41())
-      return LT.first * 20;
-
+  if (Op2Info.isConstant() && ST->hasSSE2())
     if (const auto *Entry = CostTableLookup(SSE2ConstCostTable, ISD, LT.second))
       if (auto KindCost = Entry->Cost[CostKind])
         return LT.first * KindCost.value();
-  }
 
   static const CostKindTblEntry AVX512BWShiftCostTable[] = {
     { ISD::SHL,   MVT::v16i8,  {  4 } }, // extend/vpsllvw/pack sequence.
@@ -896,6 +899,16 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
         return LT.first * KindCost.value();
   }
 
+  static const CostKindTblEntry AVX2UniformShiftCostTable[] = {
+    { ISD::SRA,  MVT::v4i64,  {   4 } }, // 2*psrad + shuffle.
+  };
+
+  if (ST->hasAVX2() && Op2Info.isUniform())
+    if (const auto *Entry =
+            CostTableLookup(AVX2UniformShiftCostTable, ISD, LT.second))
+      if (auto KindCost = Entry->Cost[CostKind])
+        return LT.first * KindCost.value();
+
   static const CostKindTblEntry SSE2UniformShiftCostTable[] = {
     // Uniform splats are cheaper for the following instructions.
     { ISD::SHL,  MVT::v16i16, { 2+2 } }, // 2*psllw + split.
@@ -912,16 +925,11 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::SRA,  MVT::v4i64,  { 8+2 } }, // 2*(2*psrad + shuffle) + split.
   };
 
-  if (ST->hasSSE2() && Op2Info.isUniform()) {
-    // Handle AVX2 uniform v4i64 ISD::SRA, it's not worth a table.
-    if (ISD == ISD::SRA && LT.second == MVT::v4i64 && ST->hasAVX2())
-      return LT.first * 4; // 2*psrad + shuffle.
-
+  if (ST->hasSSE2() && Op2Info.isUniform())
     if (const auto *Entry =
             CostTableLookup(SSE2UniformShiftCostTable, ISD, LT.second))
       if (auto KindCost = Entry->Cost[CostKind])
         return LT.first * KindCost.value();
-  }
 
   if (ISD == ISD::SHL && !Op2Info.isUniform() && Op2Info.isConstant()) {
     MVT VT = LT.second;

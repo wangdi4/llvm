@@ -30,6 +30,7 @@
 
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/CharInfo.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/Specifiers.h"

@@ -270,7 +270,7 @@ public:
   template <class Function>
   auto map(const Function &F) const -> InstructionCost {
     if (isValid())
-      return F(*getValue());
+      return F(Value);
     return getInvalid();
   }
 };
