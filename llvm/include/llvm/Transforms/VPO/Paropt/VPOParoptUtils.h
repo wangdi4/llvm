@@ -1792,6 +1792,22 @@ public:
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
 
+  /// Generate a call to
+  /// \code
+  ///   int64 omp_get_interop_int(omp_interop_t interop,
+  ///                             omp_get_interop_int property_id,
+  ///                             int *return_code)
+  /// \endcode
+  static CallInst *genOmpGetInteropInt(Value *InteropObj, int PropertyID,
+                                       Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   omp_get_interop_int(interop, omp_ipr_device_num, nullptr);
+  /// \endcode
+  /// which returns the device number of the interop obj
+  static CallInst *genOmpGetInteropDeviceNum(Value *InteropObj,
+                                             Instruction *InsertPt);
 
   /// Generate a call to
   /// \code

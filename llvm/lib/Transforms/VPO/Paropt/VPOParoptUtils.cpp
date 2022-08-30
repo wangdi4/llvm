@@ -1608,18 +1608,18 @@ CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
 //   int __tgt_use_interop(omp_interop_t interop)
 CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
                                            Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    LLVMContext& C = F->getContext();
-    Type* Int32Ty = Type::getInt32Ty(C);
-    Type* Int8PtrTy = Type::getInt8PtrTy(C);
+  BasicBlock* B = InsertPt->getParent();
+  Function* F = B->getParent();
+  LLVMContext& C = F->getContext();
+  Type* Int32Ty = Type::getInt32Ty(C);
+  Type* Int8PtrTy = Type::getInt8PtrTy(C);
 
-    assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
-        "InteropObj expected to be void*");
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
 
-    CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
-                             {Int8PtrTy}, InsertPt);
-    return Call;
+  CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
+                           {Int8PtrTy}, InsertPt);
+  return Call;
 }
 
 // Generate a call to
@@ -1639,15 +1639,49 @@ CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
 // Generate a call to
 //   int omp_get_default_device()
 CallInst* VPOParoptUtils::genOmpGetDefaultDevice(Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    Module* M = F->getParent();
-    LLVMContext& C = F->getContext();
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
 
-    Type* Int32Ty = Type::getInt32Ty(C); // return type
+  Type *Int32Ty = Type::getInt32Ty(C); // return type
 
-    CallInst* Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
-    return Call;
+  CallInst *Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int64 omp_get_interop_int(omp_interop_t       interop,     // void*
+//                             omp_get_interop_int property_id, // int
+//                             int *return_code)                // (unused)
+CallInst *VPOParoptUtils::genOmpGetInteropInt(Value *InteropObj, int PropertyID,
+                                              Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  Type *Int64Ty = Builder.getInt64Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  PointerType *Int32PtrTy = PointerType::getUnqual(Int32Ty);
+
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
+
+  Value *PropertyIDVal = Builder.getInt32(PropertyID);
+
+  // Ignoring the return code argument for now. Pass a nullptr to the call.
+  Value *RetCode = Constant::getNullValue(Int32PtrTy);
+
+  CallInst *Call = genCall("omp_get_interop_int", Int64Ty,
+                           {InteropObj, PropertyIDVal, RetCode   },
+                           {Int8PtrTy,  Int32Ty,       Int32PtrTy}, InsertPt);
+  return Call;
+}
+
+// Generate a call to omp_get_interop_int(interop, omp_ipr_device_num, nullptr)
+// which extracts the device num (property_id = omp_ipr_device_num = -5) and
+// returns it as an i64 value.
+CallInst *VPOParoptUtils::genOmpGetInteropDeviceNum(Value *InteropObj,
+                                                    Instruction *InsertPt) {
+  return genOmpGetInteropInt(InteropObj, /*omp_ipr_device_num=*/ -5, InsertPt);
 }
 
 // Generate a call to
