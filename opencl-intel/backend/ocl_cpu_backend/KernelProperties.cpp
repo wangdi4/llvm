@@ -171,6 +171,13 @@ void KernelProperties::Deserialize(IInputStream &ist,
   m_kernelExecutionLength = (size_t)tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_vectorizationWidth = (size_t)tmp;
+  // There was a bug in the old compiler (OCL_CACHED_BINARY_VERSION <= 10, see
+  // commit 0db0bd83cf658d1dc3e26637b6adeb7a6ed2c098) that the vectorization
+  // width was wrongly set as 0 if the kernel is not vectorized nor
+  // subgroup-emulated. We need to materialize the unexpected zero vectorization
+  // width to 1 to keep backwards compatibility.
+  if (stats->m_binaryVersion <= 10 && m_vectorizationWidth == 0)
+    m_vectorizationWidth = 1;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_reqdSubGroupSize = (size_t)tmp;
   Serializer::DeserialString(m_kernelAttributes, ist);
