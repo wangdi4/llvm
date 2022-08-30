@@ -7935,6 +7935,24 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
     return;
   }
 
+#if INTEL_COLLAB
+  // Check prefer_type values.  These foreign-runtime-id values are either
+  // string literals or constant integral expressions.
+  for (const OMPInteropInfo &Info : AppendArgs) {
+    for (Expr *E : Info.PreferTypes) {
+      if (E->isValueDependent() || E->isTypeDependent() ||
+          E->isInstantiationDependent() || E->containsUnexpandedParameterPack())
+        continue;
+      if (isa<StringLiteral>(E))
+        continue;
+      ExprResult Val = VerifyIntegerConstantExpression(
+          E, /*Result=*/nullptr, diag::err_omp_interop_prefer_type, AllowFold);
+      if (Val.isInvalid())
+        return;
+    }
+  }
+#endif // INTEL_COLLAB
+
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
       Context, VariantRef, &TI, const_cast<Expr **>(AdjustArgsNothing.data()),
       AdjustArgsNothing.size(),

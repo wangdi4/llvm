@@ -465,12 +465,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   unsigned UF = LVP.getLoopUnrollFactor();
-  // If EnableCFGMerge is disabled, run AZB and unroll at this point in the
-  // pipeline.
-  if (!EnableNewCFGMerge) {
-    LVP.insertAllZeroBypasses(Plan, VF);
-    LVP.unroll(*Plan);
-  }
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -581,12 +575,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // Run VLS analysis before IR for the current loop is modified.
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
   applyVLSTransform(*Plan, VLSA, VF);
-
-  // Transform SOA-GEPs.
-  if (!EnableNewCFGMerge && EnableSOAAnalysis) {
-    VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
-    VPMemRefTrans.transformSOAGEPs(VF);
-  }
 
   LVP.executeBestPlan(VCodeGen);
 
@@ -1541,7 +1529,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.readLoopMetadata();
   if (isOmpSIMDLoop &&
       (LVP.isDynAlignEnabled() || LVP.isVecRemainderEnforced()) &&
-      (!EnableNewCFGMergeHIR || !VPlanEnableGeneralPeeling)) {
+      !VPlanEnableGeneralPeeling) {
     // If peeling and/or remainder vectorization are enforced,
     // bailout relying on the vplan-vec after loop opt if either
     // cfg merger or general peeling is disabled.
@@ -1615,14 +1603,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   bool TreeConflictsLowered = false;
-  // If new CFG merger is not enabled, run AZB at this point in pipeline.
-  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR) {
-    LVP.insertAllZeroBypasses(Plan, VF);
-    TreeConflictsLowered =
-        lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
-    Plan->computeDT();
-    Plan->computePDT();
-  }
 
   unsigned UF = LVP.getLoopUnrollFactor();
 

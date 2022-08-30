@@ -36,7 +36,7 @@ define float @_Z3fooPfS_i(float* %A, float* %B, i32 %N) {
 ; CHECK-NEXT:     store float 0.000000e+00 float* [[VP_X_RED]]
 ; CHECK-NEXT:     float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     float [[VP_A_LD:%.*]] = load float* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     float [[VP_ADD5:%.*]] = fadd float [[VP_RED_PHI]] float [[VP_A_LD]]
+; CHECK-NEXT:     float [[VP_ADD5:%.*]] = fadd float 0.000000e+00 float [[VP_A_LD]]
 ; CHECK-NEXT:     store float [[VP_ADD5]] float* [[VP_X_RED]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:

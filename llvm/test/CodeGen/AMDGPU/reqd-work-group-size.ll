@@ -200,8 +200,6 @@ define amdgpu_kernel void @local_size_x_8_16_2_wrong_group_id(i64 addrspace(1)* 
 ; CHECK: %group.id_x_group.size.x = shl i32 %group.id, 3
 ; CHECK: %sub = sub i32 %grid.size.x, %group.id_x_group.size.x
 ; end INTEL_CUSTOMIZATION
-; CHECK: %group.id_x_group.size.x.neg = mul i32 %group.id, -8
-; CHECK: %sub = add i32 %group.id_x_group.size.x.neg, %grid.size.x
 ; CHECK: %smin = call i32 @llvm.smin.i32(i32 %sub, i32 8)
 define amdgpu_kernel void @local_size_x_8_16_2_wrong_cmp_type(i64 addrspace(1)* %out) #0 !reqd_work_group_size !0 {
   %dispatch.ptr = tail call i8 addrspace(4)* @llvm.amdgcn.dispatch.ptr()
@@ -226,8 +224,6 @@ define amdgpu_kernel void @local_size_x_8_16_2_wrong_cmp_type(i64 addrspace(1)* 
 ; CHECK: %group.id_x_group.size.x = shl i32 %group.id, 3
 ; CHECK: %sub = sub i32 %grid.size.x, %group.id_x_group.size.x
 ; end INTEL_CUSTOMIZATION
-; CHECK: %group.id_x_group.size.x.neg = mul i32 %group.id, -8
-; CHECK: %sub = add i32 %group.id_x_group.size.x.neg, %grid.size.x
 ; CHECK: %umax = call i32 @llvm.umax.i32(i32 %sub, i32 8)
 ; CHECK: %zext = zext i32 %umax to i64
 define amdgpu_kernel void @local_size_x_8_16_2_wrong_select(i64 addrspace(1)* %out) #0 !reqd_work_group_size !0 {

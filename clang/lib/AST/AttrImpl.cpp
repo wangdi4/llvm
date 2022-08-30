@@ -286,12 +286,29 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
 
+#if INTEL_COLLAB
+  auto PrintInteropInfo = [&OS, &Policy](OMPInteropInfo *Begin,
+                                         OMPInteropInfo *End) {
+#else // INTEL_COLLAB
   auto PrintInteropInfo = [&OS](OMPInteropInfo *Begin, OMPInteropInfo *End) {
+#endif // INTEL_COLLAB
     for (OMPInteropInfo *I = Begin; I != End; ++I) {
       if (I != Begin)
         OS << ", ";
       OS << "interop(";
       OS << getInteropTypeString(I);
+#if INTEL_COLLAB
+      if (!I->PreferTypes.empty()) {
+        OS << ",prefer_type(";
+        StringRef Sep = "";
+        for (const Expr *E : I->PreferTypes) {
+          OS << Sep;
+          E->printPretty(OS, nullptr, Policy);
+          Sep = ",";
+        }
+        OS << ")";
+      }
+#endif // INTEL_COLLAB
       OS << ")";
     }
   };

@@ -874,6 +874,36 @@ namespace {
       OS << "    }\n";
     }
 
+#if INTEL_COLLAB
+    void writeASTVisitorTraversal(raw_ostream &OS) const override {
+      OS << "  {\n";
+      OS << "    OMPInteropInfo" << " *I = A->" << getLowerName()
+         << "_begin();\n";
+      OS << "    " << getType() << " *E = A->" << getLowerName()
+         << "_end();\n";
+      OS << "    for (; I != E; ++I) {\n";
+      OS << "      Expr **II = I->PreferTypes.begin();\n";
+      OS << "      Expr **EE = I->PreferTypes.end();\n";
+      OS << "      for (; II != EE; ++II) {\n";
+      OS << "        if (!getDerived().TraverseStmt(*II))\n";
+      OS << "          return false;\n";
+      OS << "      }\n";
+      OS << "    }\n";
+      OS << "  }\n";
+    }
+
+    void writeDumpChildren(raw_ostream &OS) const override {
+      OS << "    for (" << getAttrName() << "Attr::" << getLowerName()
+         << "_iterator I = SA->" << getLowerName() << "_begin(), E = SA->"
+         << getLowerName() << "_end(); I != E; ++I) {\n";
+      OS << "      Expr **II = I->PreferTypes.begin();\n";
+      OS << "      Expr **EE = I->PreferTypes.end();\n";
+      OS << "      for (; II != EE; ++II)\n";
+      OS << "        Visit(*II);\n";
+      OS << "    }\n";
+    }
+#endif // INTEL_COLLAB
+
     void writePCHReadDecls(raw_ostream &OS) const override {
       OS << "    unsigned " << getLowerName() << "Size = Record.readInt();\n";
       OS << "    SmallVector<OMPInteropInfo, 4> " << getLowerName() << ";\n";
@@ -883,8 +913,17 @@ namespace {
       OS << "I != E; ++I) {\n";
       OS << "      bool IsTarget = Record.readBool();\n";
       OS << "      bool IsTargetSync = Record.readBool();\n";
+#if INTEL_COLLAB
+      OS << "      OMPInteropInfo Info(IsTarget, IsTargetSync);\n";
+      OS << "      unsigned preferTypes_size = Record.readInt();\n";
+      OS << "      Info.PreferTypes.reserve(preferTypes_size);\n";
+      OS << "      for (unsigned I = 0; I < preferTypes_size; ++I)\n";
+      OS << "        Info.PreferTypes.push_back(Record.readExpr());\n";
+      OS << "      " << getLowerName() << ".push_back(Info);\n";
+#else // INTEL_COLLAB
       OS << "      " << getLowerName()
          << ".emplace_back(IsTarget, IsTargetSync);\n";
+#endif // INTEL_COLLAB
       OS << "    }\n";
     }
 
@@ -895,6 +934,11 @@ namespace {
          << getLowerName() << "_end(); I != E; ++I) {\n";
       OS << "      Record.writeBool(I->IsTarget);\n";
       OS << "      Record.writeBool(I->IsTargetSync);\n";
+#if INTEL_COLLAB
+      OS << "      Record.push_back(I->PreferTypes.size());\n";
+      OS << "      for (auto &E : I->PreferTypes)\n";
+      OS << "        Record.AddStmt(E);\n";
+#endif // INTEL_COLLAB
       OS << "    }\n";
     }
   };
