@@ -535,7 +535,7 @@ foobar bar;
 // CHECK-NEXT:    [[ARRAYIDX79:%.*]] = getelementptr inbounds i32, ptr [[TMP64]], i64 12
 // CHECK-NEXT:    [[SEC_UPPER_CAST80:%.*]] = ptrtoint ptr [[ARRAYIDX79]] to i64
 // CHECK-NEXT:    [[TMP65:%.*]] = sub i64 [[SEC_UPPER_CAST80]], [[SEC_LOWER_CAST78]]
-// CHECK-NEXT:    [[TMP66:%.*]] = sdiv exact i64 [[TMP65]], 8
+// CHECK-NEXT:    [[TMP66:%.*]] = sdiv exact i64 [[TMP65]], 4
 // CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS81:%.*]] = add i64 [[TMP66]], 1
 // CHECK-NEXT:    [[TMP67:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr [[ARRAYIDX77]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS81]], i32 0) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP67]]) [ "DIR.OMP.END.PREFETCH"() ]
@@ -548,7 +548,7 @@ foobar bar;
 // CHECK-NEXT:    [[ARRAYIDX84:%.*]] = getelementptr inbounds i32, ptr [[TMP71]], i64 12
 // CHECK-NEXT:    [[SEC_UPPER_CAST85:%.*]] = ptrtoint ptr [[ARRAYIDX84]] to i64
 // CHECK-NEXT:    [[TMP72:%.*]] = sub i64 [[SEC_UPPER_CAST85]], [[SEC_LOWER_CAST83]]
-// CHECK-NEXT:    [[TMP73:%.*]] = sdiv exact i64 [[TMP72]], 8
+// CHECK-NEXT:    [[TMP73:%.*]] = sdiv exact i64 [[TMP72]], 4
 // CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS86:%.*]] = add i64 [[TMP73]], 1
 // CHECK-NEXT:    [[TMP74:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr [[ARRAYIDX82]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS86]], i32 0) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP74]]) [ "DIR.OMP.END.PREFETCH"() ]
