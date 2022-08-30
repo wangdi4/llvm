@@ -2726,13 +2726,48 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 }
 
 #if INTEL_COLLAB
-static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
+static unsigned getForeignRuntimeID(StringRef Str) {
+  return llvm::StringSwitch<unsigned>(Str)
+#define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+      .Default(0);
+}
+
+static bool isSupportedForeignRuntimeID(unsigned N) {
+  switch (N) {
+#define OMP_FOREIGN_RUNTIME_ID(Id, Name)                                       \
+  case Id:                                                                     \
+    return true;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+unsigned CodeGenModule::getValidInteropPreferTypeValue(const Expr *E) {
+  if (auto const *SL = dyn_cast<StringLiteral>(E))
+    return getForeignRuntimeID(SL->getString());
+
+  // An integer constant was specified.
+  unsigned V = E->EvaluateKnownConstInt(Context).getExtValue();
+  if (isSupportedForeignRuntimeID(V))
+    return V;
+
+  return 0;
+}
+
+static std::string getAppendArgsTypes(CodeGenModule &CGM,
+                                      const OMPDeclareVariantAttr *Attr) {
   std::string Buffer;
   if (Attr->appendArgs_size()) {
     llvm::raw_string_ostream OS(Buffer);
     for (const auto &InteropInfo : Attr->appendArgs()) {
       OS << ";interop:";
       OS << OMPDeclareVariantAttr::getInteropTypeString(&InteropInfo);
+      for (const Expr *E : InteropInfo.PreferTypes) {
+        if (unsigned PrefValue = CGM.getValidInteropPreferTypeValue(E))
+          OS << "," << PrefValue;
+      }
     }
   }
   return Buffer;
@@ -2822,7 +2857,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
       }
     }
     NeedDevPtrs = CGM.getDevPtrAttrString(GD, FD, Attr);
-    AppendArgs = getAppendArgsTypes(Attr);
+    AppendArgs = getAppendArgsTypes(CGM, Attr);
     S += ";construct:";
     S += Constructs;
     S += ";arch:";
