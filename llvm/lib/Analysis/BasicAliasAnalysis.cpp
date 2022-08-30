@@ -38,13 +38,13 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -1087,6 +1087,31 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
   return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
 }
 
+#if INTEL_CUSTOMIZATION
+// Tests the operand bundles on a call, against the given Loc.
+// Returns ModRef if there may/must be an alias, Ref otherwise.
+// Does not analyze the call parameters.
+ModRefInfo BasicAAResult::getDirectiveModRefInfo(const CallBase *Call,
+                                                 const MemoryLocation &Loc,
+                                                 AAQueryInfo &AAQI) {
+  for (unsigned I = 0; I < Call->getNumOperandBundles(); ++I) {
+    OperandBundleUse BU = Call->getOperandBundleAt(I);
+    for (const Use &U : BU.Inputs) {
+      Value *V = U;
+      if (V->getType()->isPointerTy()) {
+        AliasResult AR = getBestAAResults().alias(
+            MemoryLocation::getBeforeOrAfter(V), Loc, AAQI);
+        if (AR != AliasResult::NoAlias)
+          return ModRefInfo::ModRef;
+      }
+    }
+  }
+  // Even if all are "NoAlias" (or no operand bundles), return "Ref".
+  // We want to avoid store motion across calls with operand bundles.
+  return ModRefInfo::Ref;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Checks to see if the specified callsite can clobber the specified memory
 /// object.
 ///
@@ -1100,6 +1125,14 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
          "AliasAnalysis query involving multiple functions!");
 
   const Value *Object = getUnderlyingObject(Loc.Ptr);
+
+#if INTEL_CUSTOMIZATION
+  if (vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_SIMD ||
+       vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_END_SIMD)
+    // With SIMD directives, we do not examine the parameters, just
+    // the bundle operands.
+    return getDirectiveModRefInfo(Call, Loc, AAQI);
+#endif // INTEL_CUSTOMIZATION
 
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
