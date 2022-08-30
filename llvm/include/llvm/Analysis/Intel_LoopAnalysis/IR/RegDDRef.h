@@ -211,6 +211,7 @@ private:
     bool AddressOf;
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
+    unsigned MaxVecLenAllowed; // Maximum Vector length allowed
     unsigned Alignment;
     // Extent is passed by Fortran FE to indicate known highest dimsize.
     unsigned HighestDimNumElements;
@@ -700,6 +701,16 @@ public:
   void setCollapsed(bool CollapseFlag) {
     createGEP();
     getGEPInfo()->IsCollapsed = CollapseFlag;
+  }
+
+  /// Get/Set Max Vector Length Allowed. The field is set by collapsing pass to
+  /// indicate dependence distance for collapsed refs. Value 0 means there is no
+  /// information.
+  unsigned getMaxVecLenAllowed(void) const {
+    return getGEPInfo()->MaxVecLenAllowed;
+  }
+  void setMaxVecLenAllowed(unsigned DepDistance) {
+    getGEPInfo()->MaxVecLenAllowed = DepDistance;
   }
 
   // Get/Set DebugLoc for the Load/Store instruction
