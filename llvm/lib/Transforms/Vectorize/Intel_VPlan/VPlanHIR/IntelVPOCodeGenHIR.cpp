@@ -3084,9 +3084,29 @@ HLInst *VPOCodeGenHIR::generateScalarCall(const VPCallInstruction *VPCall,
   assert(ScalarF && "Expected only direct calls.");
   FastMathFlags FMF =
       VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
+  SmallVector<OperandBundleDef, 4> Bundles;
+  SmallVector<RegDDRef *, 4> BundleOps;
+  if (ScalarF->getIntrinsicID() == Intrinsic::assume) {
+    const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
+    assert(UnderlyingCI && "Underlying call instruction expected here");
+
+    UnderlyingCI->getOperandBundlesAsDefs(Bundles);
+    unsigned NumOpBundles = UnderlyingCI->getNumOperandBundles();
+    unsigned NumNonBundleOps = UnderlyingCI->arg_size();
+
+    for (unsigned i = 0, OpBegin = NumNonBundleOps, OpEnd = 0; i < NumOpBundles;
+         ++i, OpBegin = OpEnd) {
+      unsigned NumCurrBundleOps =
+          UnderlyingCI->getOperandBundleAt(i).Inputs.size();
+      OpEnd = OpBegin + NumCurrBundleOps;
+      for (unsigned j = OpBegin; j < OpEnd; ++j)
+        BundleOps.push_back(ScalarArgs[j]);
+    }
+    ScalarArgs.resize(NumNonBundleOps);
+  }
   auto *ScalarCall = HLNodeUtilities.createCall(
-      ScalarF, ScalarArgs, ScalarF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
-      {} /*BundleOps*/, FMF);
+      ScalarF, ScalarArgs, ScalarF->getName(), nullptr /*Lval*/,
+      Bundles /*Bundle*/, BundleOps /*BundleOps*/, FMF);
   CallInst *LLVMCall = const_cast<CallInst *>(ScalarCall->getCallInst());
   LLVMCall->setCallingConv(VPCall->getOrigCallingConv());
   LLVMCall->setAttributes(VPCall->getOrigCallAttrs());

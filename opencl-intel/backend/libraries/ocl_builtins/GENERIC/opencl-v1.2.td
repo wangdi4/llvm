@@ -13,7 +13,7 @@
 // vim:ts=2:sw=2:et:
 
 // OpenCL 1.2 rev 15, Table 6.8
-let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def acos          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -39,16 +39,16 @@ def exp           : OclBuiltin<"exp",       (outs gentype:$ret), (ins gentype:$x
 def exp2          : OclBuiltin<"exp2",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def exp10         : OclBuiltin<"exp10",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def expm1         : OclBuiltin<"expm1",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def fabs          : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def fdim          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def floor         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def fma           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], 0, 1>;
 def fmax          : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmax_common   : OclBuiltin<"fmax_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def fmax_s        : OclBuiltin<"fmax",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmin          : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fmin_common   : OclBuiltin<"fmin_common", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def fmin_s        : OclBuiltin<"fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def fmod          : OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def fract_pas     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def fract_las     : OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -62,7 +62,7 @@ def frexp_gen     : OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x
 def hypot         : OclBuiltin<"hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 def ilogb         : OclBuiltin<"ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def ldexp         : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$k), [], [], 0, 1>;
-def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f16, v1f32, v1f64]>;
+def ldexp_s       : OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, si32gentype:$k), [], [], 0, 1>, Except<[v1f32, v1f64]>;
 def lgamma        : OclBuiltin<"lgamma",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def lgamma_r_pas  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def lgamma_r_las  : OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], 0, 1>, ExceptAttr<[CONSTFUNC]>, LOCAL;
@@ -111,7 +111,7 @@ def trunc         : OclBuiltin<"trunc",     (outs gentype:$ret), (ins gentype:$x
 }
 
 // OpenCL 1.2 rev 15, Table 6.8, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
 def acos_mask          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def acosh_mask         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
@@ -136,7 +136,6 @@ def exp_mask           : OclBuiltin<"exp",       (outs gentype:$ret), (ins genty
 def exp2_mask          : OclBuiltin<"exp2",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def exp10_mask         : OclBuiltin<"exp10",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def expm1_mask         : OclBuiltin<"expm1",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
-def fabs_mask          : OclBuiltin<"fabs",      (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def fdim_mask          : OclBuiltin<"fdim",      (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$mask), [], [], 0, 1>;
 def floor_mask         : OclBuiltin<"floor",     (outs gentype:$ret), (ins gentype:$x, gentype:$mask), [], [], 0, 1>;
 def fma_mask           : OclBuiltin<"fma",       (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c, gentype:$mask), [], [], 0, 1>;
@@ -478,7 +477,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
 let Types = [v1f32, v1f64] in {
   foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                 "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
-                "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
+                "exp10", "expm1", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
                 "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
                 "mad", "maxmag", "minmag", "nextafter", "pow", "pown", "powr", "remainder", "rint",
                 "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
@@ -487,20 +486,6 @@ let Types = [v1f32, v1f64] in {
     // masked version
     let HandleAlias = 0 in {
       def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-    }
-  }
-}
-
-// VectInfo for fp16 math builtins
-let Types = [v1f16] in {
-  foreach name = ["fabs"] in {
-    defvar builtin = !cast<OclBuiltin>(name);
-    defvar masked_builtin = !cast<OclBuiltin>(name#"_mask");
-
-    def : VectInfo<[], builtin, builtin, builtin, builtin, builtin, builtin>;
-    // masked version
-    let HandleAlias = 0 in {
-      def : VectInfo<[], builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin, masked_builtin>;
     }
   }
 }
