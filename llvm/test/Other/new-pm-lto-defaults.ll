@@ -184,6 +184,7 @@
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O1-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
@@ -368,6 +369,7 @@
 ; CHECK-O23SZ-NEXT:Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O23SZ-NEXT:Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O23SZ-NEXT:Running pass: OpenMPOptCGSCCPass
+; CHECK-O23SZ-NEXT:Running pass: VPOCFGRestructuringPass
 ; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 

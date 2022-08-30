@@ -2,9 +2,8 @@
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=4 -vplan-force-inscan-reduction-vectorization=true -VPODirectiveCleanup -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec,vpo-directive-cleanup" -vplan-force-vf=4 -vplan-force-inscan-reduction-vectorization=true -S < %s 2>&1 | FileCheck %s
 
-; This test demonstrates that compiler-generated fence instruction
-; is present in the loop scalar remainder together with the VPo directives.
-; A follow up patch would remove a compiler generated fence.
+; Ensure that compiler generated fence instruction between scan reduction
+; directives is removed by VPODirectiveCleanup pass.
 
 ;; void foo(float *A, float *B) {
 ;;   float x = 0.0f;
@@ -19,95 +18,98 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @omp_scan(float* %A, float* %B) {
+define void @omp_scan(ptr %A, ptr %B) {
 ;
-; CHECK:  define void @omp_scan(float* [[A0:%.*]], float* [[B0:%.*]]) {
-; CHECK-LABEL:  entry:
+; CHECK:  define void @omp_scan(ptr [[A0:%.*]], ptr [[B0:%.*]]) {
+; CHECK:       DIR.OMP.SIMD.1:
 ; CHECK:         br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-LABEL:  vector.body:
-; CHECK:         br i1 [[TMP16:%.*]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
+; CHECK-NEXT:  vector.body:
+; CHECK:         br i1 [[TMP21:%.*]], label [[VPLANNEDBB170:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-LABEL:  VPlannedBB13:
-; CHECK:         br label [[DIR_OMP_END_SCAN_3350:%.*]]
+; CHECK-NEXT:  VPlannedBB17:
+; CHECK:         br label [[DIR_OMP_END_SCAN_20:%.*]]
 ; CHECK-EMPTY:
-; CHECK-LABEL:  DIR.OMP.END.SCAN.335:
-; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ 1024, [[VPLANNEDBB130]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[DIR_OMP_END_SCAN_3350]] ]
-; CHECK-NEXT:    [[TMP18:%.*]] = trunc i64 [[INDVARS_IV0]] to i32
-; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[INDVARS_IV0]]
-; CHECK-NEXT:    [[TMP19:%.*]] = load float, float* [[ARRAYIDX0]], align 4
-; CHECK-NEXT:    [[TMP20:%.*]] = load float, float* [[X_RED0:%.*]], align 4
-; CHECK-NEXT:    [[ADD50:%.*]] = fadd fast float [[TMP20]], [[TMP19]]
-; CHECK-NEXT:    store float [[ADD50]], float* [[X_RED0]], align 4
-; CHECK-NEXT:    fence acq_rel
-; CHECK-NEXT:    [[TMP21:%.*]] = load float, float* [[X_RED0]], align 4
-; CHECK-NEXT:    [[ARRAYIDX70:%.*]] = getelementptr inbounds float, float* [[B0]], i64 [[INDVARS_IV0]]
-; CHECK-NEXT:    store float [[TMP21]], float* [[ARRAYIDX70]], align 4
+; CHECK-NEXT:  DIR.OMP.END.SCAN.2:
+; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ 1024, [[VPLANNEDBB170]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[DIR_OMP_END_SCAN_20]] ]
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr nonnull [[I_LINEAR_IV0:%.*]])
+; CHECK-NEXT:    [[TMP23:%.*]] = trunc i64 [[INDVARS_IV0]] to i32
+; CHECK-NEXT:    store i32 [[TMP23]], ptr [[I_LINEAR_IV0]], align 4
+; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds float, ptr [[A0]], i64 [[INDVARS_IV0]]
+; CHECK-NEXT:    [[TMP24:%.*]] = load float, ptr [[ARRAYIDX0]], align 4
+; CHECK-NEXT:    [[TMP25:%.*]] = load float, ptr [[X_RED0:%.*]], align 4
+; CHECK-NEXT:    [[ADD10:%.*]] = fadd fast float [[TMP25]], [[TMP24]]
+; CHECK-NEXT:    store float [[ADD10]], ptr [[X_RED0]], align 4
+; CHECK-NEXT:    [[TMP26:%.*]] = load float, ptr [[X_RED0]], align 4
+; CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[I_LINEAR_IV0]], align 4
+; CHECK-NEXT:    [[IDXPROM20:%.*]] = sext i32 [[TMP27]] to i64
+; CHECK-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds float, ptr [[B0]], i64 [[IDXPROM20]]
+; CHECK-NEXT:    store float [[TMP26]], ptr [[ARRAYIDX30]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr nonnull [[I_LINEAR_IV0]])
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[EXITCOND_NOT0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], 1025
-; CHECK-NEXT:    br i1 [[EXITCOND_NOT0]], label [[OMP_PRECOND_END0:%.*]], label [[DIR_OMP_END_SCAN_3350]], !llvm.loop !2
+; CHECK-NEXT:    br i1 [[EXITCOND_NOT0]], label [[DIR_OMP_END_SIMD_3270:%.*]], label [[DIR_OMP_END_SCAN_20]], !llvm.loop !2
 ; CHECK-EMPTY:
-; CHECK-LABEL:  omp.precond.end:
+; CHECK-NEXT:  DIR.OMP.END.SIMD.327:
 ; CHECK-NEXT:    ret void
-; CHECK-NEXT:  }
 ;
-entry:
+DIR.OMP.SIMD.1:
   %x.red = alloca float, align 4
-  br label %DIR.OMP.SIMD.1
+  %i.linear.iv = alloca i32, align 4
+  store float 0.000000e+00, ptr %x.red, align 4
+  br label %DIR.OMP.SIMD.124
 
-DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store float 0.000000e+00, float* %x.red, align 4
-  br label %DIR.OMP.SIMD.138
+DIR.OMP.SIMD.124:                                 ; preds = %DIR.OMP.SIMD.1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  br label %DIR.OMP.END.SCAN.2
 
-DIR.OMP.SIMD.138:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN"(float* %x.red, i64 1) ]
-  br label %DIR.OMP.SIMD.139
-
-DIR.OMP.SIMD.139:                                 ; preds = %DIR.OMP.SIMD.138
-  br label %DIR.OMP.END.SCAN.335
-
-DIR.OMP.END.SCAN.335:                             ; preds = %DIR.OMP.END.SCAN.3, %DIR.OMP.SIMD.139
-  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.139 ], [ %indvars.iv.next, %DIR.OMP.END.SCAN.3 ]
+DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.124, %DIR.OMP.END.SCAN.226
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.124 ], [ %indvars.iv.next, %DIR.OMP.END.SCAN.226 ]
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
   %1 = trunc i64 %indvars.iv to i32
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
-  %3 = load float, float* %x.red, align 4
-  %add5 = fadd fast float %3, %2
-  store float %add5, float* %x.red, align 4
-  br label %DIR.OMP.SCAN.3
-
-DIR.OMP.SCAN.3:                                   ; preds = %DIR.OMP.END.SCAN.335
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(float* %x.red, i64 1) ]
+  store i32 %1, ptr %i.linear.iv, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
+  %3 = load float, ptr %x.red, align 4
+  %add1 = fadd fast float %3, %2
+  store float %add1, ptr %x.red, align 4
   br label %DIR.OMP.SCAN.2
 
-DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.3
+DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.END.SCAN.2
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE:TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1) ]
+  br label %DIR.OMP.SCAN.1
+
+DIR.OMP.SCAN.1:                                   ; preds = %DIR.OMP.SCAN.2
   fence acq_rel
-  br label %DIR.OMP.END.SCAN.5
+  br label %DIR.OMP.END.SCAN.4
 
-DIR.OMP.END.SCAN.5:                               ; preds = %DIR.OMP.SCAN.2
+DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.SCAN.1
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.SCAN"() ]
-  br label %DIR.OMP.END.SCAN.3
+  br label %DIR.OMP.END.SCAN.226
 
-DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.5
-  %5 = load float, float* %x.red, align 4
-  %arrayidx7 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  store float %5, float* %arrayidx7, align 4
+DIR.OMP.END.SCAN.226:                             ; preds = %DIR.OMP.END.SCAN.4
+  %5 = load float, ptr %x.red, align 4
+  %6 = load i32, ptr %i.linear.iv, align 4
+  %idxprom2 = sext i32 %6 to i64
+  %arrayidx3 = getelementptr inbounds float, ptr %B, i64 %idxprom2
+  store float %5, ptr %arrayidx3, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1025
-  br i1 %exitcond.not, label %DIR.OMP.END.SIMD.1, label %DIR.OMP.END.SCAN.335, !llvm.loop !0
+  br i1 %exitcond.not, label %DIR.OMP.END.SIMD.3, label %DIR.OMP.END.SCAN.2
 
-DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.7
+DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SCAN.226
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  br label %omp.precond.end
+  br label %DIR.OMP.END.SIMD.327
 
-omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.4, %entry
+DIR.OMP.END.SIMD.327:                             ; preds = %DIR.OMP.END.SIMD.3
   ret void
 }
+
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-!0 = distinct !{!0, !1, !2}
-!1 = !{!"llvm.loop.vectorize.enable", i1 true}
-!2 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

@@ -75,6 +75,9 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
+; INTEL_CUSTOMIZATION
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo

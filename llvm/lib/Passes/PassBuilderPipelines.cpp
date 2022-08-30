@@ -1992,6 +1992,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
       }
     }
 
+    FPM.addPass(VPOCFGRestructuringPass());
     FPM.addPass(VPODirectiveCleanupPass());
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2093,8 +2094,10 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
       /*InsertLifetimeIntrinsics=*/false));
 
   // Clean up any SIMD directives left behind by VPlan vectorizer
-  if (OptLevel > 0)
+  if (OptLevel > 0) {
+    FPM.addPass(VPOCFGRestructuringPass());
     FPM.addPass(VPODirectiveCleanupPass());
+  }
 }
 
 void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
@@ -2315,6 +2318,7 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     // CMPLRLLVM-25935: clean-up VPO directives for targets with
     //                  LLVM IR emission enabled (hence, with proprietary
     //                  optimizations disabled).
+    FPM.addPass(VPOCFGRestructuringPass());
     FPM.addPass(VPODirectiveCleanupPass());
     return;
   }

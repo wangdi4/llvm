@@ -324,6 +324,7 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-DEFAULT-NEXT:  Running pass: AlwaysInlinerPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
 ; CHECK-DEFAULT-NEXT:  Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 

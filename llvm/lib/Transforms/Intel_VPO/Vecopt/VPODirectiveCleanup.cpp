@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -57,9 +58,12 @@ bool VPODirectiveCleanupPass::runImpl(Function &F) {
     return false;
   }
 
+  // Remove compiler generated fence between the scan directives, if present.
+  bool Changed = removeScanFence(F);
+
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
-  bool Changed = VPOUtils::stripDirectives(F);
+  Changed |= VPOUtils::stripDirectives(F);
 
   // Unset "may-have-openmp-directive" attribute for the function F, as all
   // directives have been removed.
@@ -87,6 +91,48 @@ bool VPODirectiveCleanupPass::runImpl(Function &F) {
   FPM.run(F, FAM);
 
   return true;
+}
+
+bool VPODirectiveCleanupPass::removeScanFence(Function &F) {
+  // Operate under assumption that CFGRestructuring has been run,
+  // so each of pragmas is in its own block.
+
+  // The list of begin/end basic blocks for scan pragmas.
+  SmallVector<std::pair<BasicBlock*, const BasicBlock*>, 2> WorkList;
+
+  for (Instruction &I : instructions(F)) {
+    if (VPOAnalysisUtils::isOpenMPDirective(&I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(&I);
+      if (DirID == DIR_OMP_SCAN) {
+        BasicBlock *BeginBlock = I.getParent();
+        BasicBlock *EndBlock = VPOAnalysisUtils::getEndRegionDirBB(&I);
+        WorkList.push_back(std::make_pair(BeginBlock, EndBlock));
+      }
+    }
+  }
+
+  bool Changed = false;
+  for (auto &Pair : WorkList) {
+    BasicBlock* CurrentBlock = Pair.first->getSingleSuccessor();
+    const BasicBlock* EndBlock = Pair.second;
+
+    assert(CurrentBlock && EndBlock &&
+           "Expect Begin/End blocks to be located!");
+
+    while (CurrentBlock != EndBlock) {
+      for (Instruction &I : *CurrentBlock) {
+        if (auto *Fence = dyn_cast<FenceInst>(&I)) {
+          Fence->eraseFromParent();
+          Changed |= true;
+          break;
+        }
+      }
+      CurrentBlock = CurrentBlock->getSingleSuccessor();
+      assert(CurrentBlock && "Expect to have a Single Successor block!");
+    }
+  }
+
+  return Changed;
 }
 
 INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",
