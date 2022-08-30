@@ -220,6 +220,7 @@ private:
   bool recognizeGetMemManager(Function *);
   bool recognizeConstructor(Function *);
   bool recognizeAllocateBlock(Function *);
+  bool recognizeCommitAllocation(Function *);
   bool checkConstantSize(Value *, int64_t);
   bool checkSizeValue(Value *, int64_t, Value *);
   bool processBBTerminator(BasicBlock *, Value **, Value **, BasicBlock **,
@@ -227,6 +228,7 @@ private:
   bool isStrObjPtrType(DTransType *Ty);
   BasicBlock *getSingleSucc(BasicBlock *BB);
   void collectStoreInst(BasicBlock *, SmallVectorImpl<StoreInst *> &);
+  void collectLoadInst(BasicBlock *, SmallVectorImpl<LoadInst *> &);
   Instruction *getFirstNonDbg(BasicBlock *);
   bool checkInstructionInBlock(Value *, BasicBlock *);
   bool isUnreachableOK(BasicBlock *);
@@ -253,12 +255,15 @@ private:
 
   bool identifyListEmpty(BasicBlock *, Value *, BasicBlock **, BasicBlock **,
                          LoadInst **);
+  bool identifyGetBeginEnd(BasicBlock *, Value *, PHINode **, PHINode **,
+                           BasicBlock **);
   bool identifyBlockAvailable(BasicBlock *, Value *, BasicBlock **,
                               BasicBlock **, Value *BB = nullptr);
   bool identifyCreate(BasicBlock *, Value *, BasicBlock **, Value **);
   bool identifyArenaBlockInit(BasicBlock *, Value *, Value *, Value *,
                               BasicBlock **);
   bool identifyRABAllocateBlock(BasicBlock *, Value *);
+  bool identifyPopFrontPushBack(BasicBlock *, Value *, Value *);
   bool identifyPushFront(BasicBlock *, Value *, Value *, BasicBlock *);
   bool identifyPushAtPos(SmallVectorImpl<StoreInst *> &, Value *, Value *,
                          Value *, Value *, Value *);
@@ -313,7 +318,10 @@ private:
   bool isVTableAddrInReusableArenaAllocator(Value *V, Value *ThisObj);
   bool isArenaBlockAddrFromNode(Value *V, Value *NodePtr);
   bool isArenaBlockAddrFromRAB(Value *V, Value *Obj);
-
+  bool isFirstFreeBlockAddrFromNode(Value *V, Value *NodePtr);
+  bool isFirstFreeBlockLoadFromNode(Value *V, Value *NodePtr);
+  bool isNextFreeBlockAddrFromNode(Value *V, Value *NodePtr);
+  bool isNextFreeBlockLoadFromNode(Value *V, Value *NodePtr);
   bool verifyAllInstsProcessed(Function *F);
 };
 
@@ -3084,6 +3092,70 @@ bool MemManageTransImpl::isArenaBlockAddrFromNode(Value *V, Value *NodePtr) {
   return true;
 }
 
+// Returns true if "V" represents address of FirstFreeBlock of
+// ReusableArenaBlock in "NodePtr".
+// Ex:
+//     NodePtr->ReusableArenaBlock->FirstFreeBlock
+bool MemManageTransImpl::isFirstFreeBlockAddrFromNode(Value *V,
+                                                      Value *NodePtr) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getFirstFreeBlockIndex())
+    return false;
+  if (!isNodePosReusableArenaBlockLoad(BasePtr, NodePtr))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of FirstFreeBlock of
+// ReusableArenaBlock in "NodePtr".
+// Ex:
+//     NodePtr->ReusableArenaBlock->FirstFreeBlock
+bool MemManageTransImpl::isFirstFreeBlockLoadFromNode(Value *V,
+                                                      Value *NodePtr) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isFirstFreeBlockAddrFromNode(LI->getPointerOperand(), NodePtr))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of NextFreeBlock of
+// ReusableArenaBlock in "NodePtr".
+// Ex:
+//     NodePtr->ReusableArenaBlock->NextFreeBlock
+bool MemManageTransImpl::isNextFreeBlockAddrFromNode(Value *V, Value *NodePtr) {
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNextFreeBlockIndex())
+    return false;
+  if (!isNodePosReusableArenaBlockLoad(BasePtr, NodePtr))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of NextFreeBlock of
+// ReusableArenaBlock in "NodePtr".
+// Ex:
+//     NodePtr->ReusableArenaBlock->NextFreeBlock
+bool MemManageTransImpl::isNextFreeBlockLoadFromNode(Value *V, Value *NodePtr) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isNextFreeBlockAddrFromNode(LI->getPointerOperand(), NodePtr))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
 // Returns true if "BB" terminates with conditional BranchInst.
 // Updates "LValue", "RValue", "TBlock", "FBlock" and "Predi".
 // Ex:
@@ -3347,6 +3419,17 @@ void MemManageTransImpl::collectStoreInst(
   }
 }
 
+// Load instructions in "BB" are collected in LoadVec.
+void MemManageTransImpl::collectLoadInst(BasicBlock *BB,
+                                         SmallVectorImpl<LoadInst *> &LoadVec) {
+  for (auto &I : *BB) {
+    auto *LI = dyn_cast<LoadInst>(&I);
+    if (!LI)
+      continue;
+    LoadVec.push_back(LI);
+  }
+}
+
 // Returns first NonDbg instruction (including PHINodes) in BB.
 Instruction *MemManageTransImpl::getFirstNonDbg(BasicBlock *BB) {
   return &*skipDebugIntrinsics(BB->begin()->getIterator());
@@ -3411,7 +3494,6 @@ bool MemManageTransImpl::recognizeFunctions() {
       return false;
   }
 
-#if 0 // TODO: Match the rest
   // Check functionality of CommitAllocation.
   Function *CAllocation = FunctionalityMap[CommitAllocation];
   if (!CAllocation)
@@ -3426,6 +3508,7 @@ bool MemManageTransImpl::recognizeFunctions() {
       return false;
   }
 
+#if 0 // TODO: Match the rest
   // Check functionality of Destructor.
   Function *Dtor = FunctionalityMap[Destructor];
   if (!Dtor)
@@ -3620,6 +3703,92 @@ bool MemManageTransImpl::recognizeGetMemManager(Function *F) {
   return true;
 }
 
+// Returns true if it identifies the pattern below.
+//
+// BB:
+//   if (Obj->List->listHead == nullptr) {
+//     // PredBB
+//     // CheckedPtr = Obj->List->listHead
+//     NodePtr = CreateNode()
+//     Goto SuccBB
+//   } else {
+//     // HasHeadBB
+//     NodeLI = Begin();
+//     Goto SuccBB
+//   }
+// SuccBB: (CreatedHeadBB) (TBlock)
+//   %REnd = phi [ %NodePtr, %PredBB ], [ %NodeLI, %HasHeadBB ]
+//   %RBegin = phi [ %NodePtr, %PredBB ], [ %CheckedPtr, %HasHeadBB ]
+
+bool MemManageTransImpl::identifyGetBeginEnd(BasicBlock *BB, Value *Obj,
+                                             PHINode **Begin, PHINode **End,
+                                             BasicBlock **TBlock) {
+
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *HasHeadBB = nullptr;
+  Value *NodePtr = nullptr;
+  Value *CheckedPtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr,
+                        &CheckedPtr))
+    return false;
+  BasicBlock *SuccBB = getSingleSucc(HasHeadBB);
+  if (!SuccBB)
+    return false;
+  if (SuccBB != CreatedHeadBB)
+    return false;
+  auto *BI = dyn_cast<BranchInst>(HasHeadBB->getTerminator());
+  if (!BI)
+    return false;
+  auto *NodeLI = dyn_cast_or_null<LoadInst>(BI->getPrevNonDebugInstruction());
+  if (!NodeLI)
+    return false;
+  if (!isListBegin(NodeLI, Obj))
+    return false;
+
+  BasicBlock *PredBB = cast<Instruction>(NodePtr)->getParent();
+  // If the PHInode is in a block with just an unconditional branch to another
+  // block, treat the target block as the one which will perform the
+  // initialization.
+  if (PredBB->size() == 2) {
+    PredBB = getSingleSucc(PredBB);
+    if (!PredBB)
+      return false;
+  }
+
+  PHINode *BeginPHI = nullptr;
+  PHINode *EndPHI = nullptr;
+  for (auto &I : *SuccBB) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    auto *PHI = dyn_cast<PHINode>(&I);
+    if (!PHI)
+      break;
+    if (NodePtr != PHI->getIncomingValueForBlock(PredBB))
+      return false;
+    Value *Ptr = PHI->getIncomingValueForBlock(HasHeadBB);
+    if (Ptr == CheckedPtr) {
+      if (BeginPHI)
+        return false;
+      BeginPHI = PHI;
+    } else if (Ptr == NodeLI) {
+      if (EndPHI)
+        return false;
+      EndPHI = PHI;
+    } else {
+      return false;
+    }
+  }
+  if (!BeginPHI || !EndPHI)
+    return false;
+
+  Visited.insert(BeginPHI);
+  Visited.insert(EndPHI);
+  *Begin = BeginPHI;
+  *End = EndPHI;
+  *TBlock = CreatedHeadBB;
+  return true;
+}
+
 // Returns true if "F" is recognized as "Constructor".
 // Ex:
 //  Ctor(ReusableArenaAllocator *Obj, MemManager *m, i16 bSize, i1 flag) {
@@ -3810,6 +3979,199 @@ bool MemManageTransImpl::recognizeAllocateBlock(Function *F) {
 
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
     dbgs() << "   Recognized AllocateBlock: " << F->getName() << "\n";
+  });
+  return true;
+}
+
+// This routine identifies PopFront and PushBack functionalities when
+// both of them are merged into a single basic block.
+// BB:
+//  Node = NodePtr->next;
+//  RABPtr = Node->RABPtr;
+//  NodeNext = Node->next;
+//  NodePrev = Node->prev;
+//  NodePrev->next = NodeNext;
+//  Node.next->prev = NodePrev;
+//  Node.prev = 0;
+//  identifyPushAtPos();
+bool MemManageTransImpl::identifyPopFrontPushBack(BasicBlock *BB, Value *Obj,
+                                                  Value *NodePtr) {
+
+  SmallVector<LoadInst *, 8> LoadVec;
+  collectLoadInst(BB, LoadVec);
+  if (LoadVec.size() < 7)
+    return false;
+
+  // Expect the 1st load to be to set 'Node'
+  Value *Node = LoadVec[0];
+  if (!isNodePosNextLoad(Node, NodePtr))
+    return false;
+
+  // Expect the next 3 loads to be for 'RABPtr', 'NodeNext', 'NodePrev', in any
+  // order.
+  Value *NodeNext = nullptr;
+  Value *NodePrev = nullptr;
+  Value *RABPtr = nullptr;
+  for (unsigned I = 1; I < 4; ++I) {
+    LoadInst *LI = LoadVec[I];
+    if (isNodePosReusableArenaBlockLoad(LI, Node)) {
+      if (RABPtr)
+        return false;
+      RABPtr = LI;
+    } else if (isNodePosNextLoad(LI, Node)) {
+      if (NodeNext)
+        return false;
+      NodeNext = LI;
+    } else if (isNodePosPrevLoad(LI, Node)) {
+      if (NodePrev)
+        return false;
+      NodePrev = LI;
+    } else {
+      return false;
+    }
+  }
+  if (!RABPtr || !NodeNext || !NodePrev)
+    return false;
+
+  SmallVector<StoreInst *, 10> StoreVec;
+  collectStoreInst(BB, StoreVec);
+  if (StoreVec.size() != 9)
+    return false;
+  StoreInst *SI;
+
+  // Check for NodePrev->next = NodeNext;
+  SI = StoreVec[0];
+  if (!isNodePosNext(SI->getPointerOperand(), NodePrev))
+    return false;
+  if (SI->getValueOperand() != NodeNext)
+    return false;
+  Visited.insert(SI);
+
+  // Expect the 5th load to be the 'next' field member from the first 'Node'
+  // load.
+  // Check for NewNodeNext = Node->next;
+  SI = StoreVec[1];
+  LoadInst *NewNodeNext = LoadVec[4];
+  if (!isNodePosNextLoad(NewNodeNext, Node))
+    return false;
+  // Check for NewNodeNext->prev = NodePrev;
+  if (SI->getValueOperand() != NodePrev)
+    return false;
+  if (!isNodePosPrev(SI->getPointerOperand(), NewNodeNext))
+    return false;
+  Visited.insert(SI);
+
+  // Check for Node->prev = nullptr;
+  SI = StoreVec[2];
+  Value *ValOp = SI->getValueOperand();
+  if (!isa<Constant>(ValOp) || !cast<Constant>(ValOp)->isNullValue())
+    return false;
+  if (!isNodePosPrev(SI->getPointerOperand(), Node))
+    return false;
+  Visited.insert(SI);
+
+  // Expect the 6th load to be load of field from List member of the
+  // ArenaAllocator passed into function.
+  // Check for NextFreeNode = Load of ListFreeHead.
+  LoadInst *NextFreeNode = LoadVec[5];
+  if (!isListFreeHeadLoad(NextFreeNode, Obj))
+    return false;
+
+  // The 7th and 8th loads will be checked are part of the call to
+  // identifyPushAtPos.
+  // Identify remaining stores as part of PushAtPos.
+  SmallVector<StoreInst *, 8> PushStoreVec;
+  for (unsigned I = 3; I < 9; I++)
+    PushStoreVec.push_back(StoreVec[I]);
+  if (!identifyPushAtPos(PushStoreVec, Obj, NodePtr, Node, NextFreeNode,
+                         RABPtr))
+    return false;
+
+  return true;
+}
+
+// Returns true if "F" is recognized as "CommitAllocation".
+//
+// Ex:
+//  commitAllocation(ReusableArenaAllocator *Obj, StrObj) {
+//    Obj->m_blocks.front()->commitAllocation(theObject);
+//    if(!Obj->m_blocks.front()->blockAvailable() ) {
+//       ReusableArenaBlockType* popBlock = Obj->m_blocks.front();
+//       Obj->m_blocks.pop_front();
+//       Obj->m_blocks.push_back(popBlock );
+//    }
+//  }
+bool MemManageTransImpl::recognizeCommitAllocation(Function *F) {
+  // Check for NodePtr->ReusableArenaBlock.FirstFreeBlock =
+  //                   NodePtr->ReusableArenaBlock.NextFreeBlock
+  auto CheckBlockCommit = [this](BasicBlock *BB, Value *NodePtr) {
+    SmallVector<StoreInst *, 1> StoreVec;
+    collectStoreInst(BB, StoreVec);
+    if (StoreVec.size() != 1)
+      return false;
+    StoreInst *SI = StoreVec[0];
+    if (!isNextFreeBlockLoadFromNode(SI->getValueOperand(), NodePtr))
+      return false;
+    if (!isFirstFreeBlockAddrFromNode(SI->getPointerOperand(), NodePtr))
+      return false;
+    Visited.insert(SI);
+    return true;
+  };
+
+  // IsOptimizedCommitAllocation: Identify optimized CommitAllocation.
+  //
+  auto IsOptimizedCommitAllocation = [this, &CheckBlockCommit](BasicBlock *BB,
+                                                               Value *ThisObj) {
+    Visited.clear();
+    BasicBlock *TargetBB = nullptr;
+    PHINode *ListHead = nullptr;
+    PHINode *ListHeadNext = nullptr;
+    if (!identifyGetBeginEnd(BB, ThisObj, &ListHead, &ListHeadNext, &TargetBB))
+      return false;
+    // Check for blockCommit.
+    if (!CheckBlockCommit(TargetBB, ListHeadNext))
+      return false;
+
+    BasicBlock *BlockAvailableBB = nullptr;
+    BasicBlock *NoBlockAvailableBB = nullptr;
+    if (!identifyBlockAvailable(TargetBB, ThisObj, &BlockAvailableBB,
+                                &NoBlockAvailableBB, ListHeadNext))
+      return false;
+
+    auto *Ret = dyn_cast<ReturnInst>(BlockAvailableBB->getTerminator());
+    if (!Ret)
+      return false;
+    // Both PopFront and PushBack blocks are merged.
+    if (!identifyPopFrontPushBack(NoBlockAvailableBB, ThisObj, ListHead))
+      return false;
+
+    if (BlockAvailableBB != getSingleSucc(NoBlockAvailableBB))
+      return false;
+
+    return true;
+  };
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "   Recognizing CommitAllocation Functionality " << F->getName()
+           << "\n";
+  });
+
+  assert(F->arg_size() == 2 && "Unexpected arguments");
+  Argument *ThisObj = &*F->arg_begin();
+  // Check 2nd argument doesn't have any uses.
+  Argument *StrObj = F->getArg(1);
+  if (!StrObj->hasNUses(0))
+    return false;
+
+  BasicBlock *BB = &F->getEntryBlock();
+  if (!IsOptimizedCommitAllocation(BB, ThisObj))
+    return false;
+
+  if (!verifyAllInstsProcessed(F))
+    return false;
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "   Recognized CommitAllocation: " << F->getName() << "\n";
   });
   return true;
 }
