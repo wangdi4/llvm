@@ -3920,7 +3920,7 @@ Value *VPOParoptTransform::genReductionScalarOp(ReductionItem *RedI,
 bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
-    DominatorTree *DT) {
+    DominatorTree *DT, bool NoNeedToOffsetOrDerefOldV) {
   bool UseLocalUpdates =
       isTargetSPIRV() && (isa<WRNParallelNode>(W) || W->getIsParLoop()) &&
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
@@ -3972,13 +3972,45 @@ bool VPOParoptTransform::genReductionScalarFini(
                               !IsArraySection;
   bool UseExistingGlobalLoop = UseGlobalUpdates &&
                                AtomicFreeRedGlobalUpdateInfos.count(W);
+  if (isTargetSPIRV() &&
+      ((UseLocalUpdates && !UseExistingLocalLoop) ||
+       (UseGlobalUpdates && !UseExistingGlobalLoop)) &&
+      !Builder.GetInsertBlock()->front().isTerminator() && !IsArraySection) {
+    // The reduction generation code below assumes that BB which Builder
+    // is inserting instruction into doesn't have any code that isn't supposed
+    // to be within the newly generated reduction loop, that's why
+    // we create a new empty block by separating the unrelated code
+    auto *NewBB = SplitBlock(Builder.GetInsertBlock(),
+                             &Builder.GetInsertBlock()->back(), DT, LI);
+    Builder.SetInsertPoint(&NewBB->back());
+  }
 
-  if (UseExistingLocalLoop)
+  auto HandleByRefArg = [&ReductionVar](Instruction *InsertPt) {
+    auto *LI = dyn_cast<LoadInst>(ReductionVar);
+    assert(LI && "Expected a load from byref variable");
+    LI->moveAfter(InsertPt);
+  };
+
+  // When reusing existing reduction loops need to make sure
+  // that new byref loads are hoisted outside of the loop.
+  // Since we have one byref per scalar reduction item, the very first load
+  // is handled right above where we check that no previously generated loop
+  // exists, while here we handle only the opposite case.
+  bool HasByRefLoad = RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV;
+  if (UseExistingLocalLoop) {
+    if (HasByRefLoad)
+      HandleByRefArg(&AtomicFreeRedLocalUpdateInfos.lookup(W)
+                          .LocalId->getParent()
+                          ->front());
     Builder.SetInsertPoint(
         AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->getTerminator());
-  else if (UseExistingGlobalLoop && !IsArraySection)
+  } else if (UseExistingGlobalLoop && !IsArraySection) {
+    if (HasByRefLoad)
+      HandleByRefArg(
+          &AtomicFreeRedGlobalUpdateInfos.lookup(W).EntryBB->front());
     Builder.SetInsertPoint(
         AtomicFreeRedGlobalUpdateInfos.lookup(W).UpdateBB->getTerminator());
+  }
 
   PHINode *SumPhi = !IsArraySection ? PHINode::Create(RedElemType, 0) : nullptr;
 
@@ -4122,11 +4154,12 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   Value *NewV = RedI->getNew();
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
+  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV) {
     OldV = (OldV->getType()->isOpaquePointerTy())
                ? Builder.CreateLoad(getDefaultPointerType(), OldV)
                : Builder.CreateLoad(
                      OldV->getType()->getNonOpaquePointerElementType(), OldV);
+  }
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
@@ -4164,7 +4197,8 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
           RedI->getIsComplex()) &&
          "genReductionFini: Expect incoming scalar/complex type.");
 
-  return genReductionScalarFini(W, RedI, OldV, NewV, AllocaTy, Builder, DT);
+  return genReductionScalarFini(W, RedI, OldV, NewV, AllocaTy, Builder, DT,
+                                NoNeedToOffsetOrDerefOldV);
 }
 
 // Generate the reduction initialization/update for array.
