@@ -72,6 +72,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -445,8 +447,9 @@ bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
       // Try: match GEPRef with dynamic-shape pattern
       int Level = matchMultiDimDynShapeArray(GEPRef, InnerLpLevel);
 
-      if (Level == -1)
+      if (Level == -1) {
         return false;
+      }
       CollapseLevel = Level;
 
       // If matchMultiDimDynShapeArray() returns 0 or 1, the dyn match failed.
@@ -751,6 +754,51 @@ static void mergeZttLiveIn(HLLoop *ToCollapseLp,
   }
 }
 
+// For lexically backward dependence in i1 (<), both flow and output dep
+// as in this example:
+//
+// DO  i1=1,N
+//  DO  i2=1,4
+//        A[i1+1][i2] = A[i1][i2]                           (< =) (1 0)
+//  After collapsing, we have  A[2][i1] = A[1][i1]
+//  Assuming INDEP is incorrect.  DD is expected to create  (<)   (4)
+//  Need to save the trip count in DDREF.
+//  The loop can be vectorized with vectcr Length <= 4.
+//  If the UB of i2 is non-constant, use 2 as it is unlikely that user wrote
+//  code, which uses a dimension size/extent of 1 using a variable.
+//
+//  No issue with forward flow/output dep in i1.
+void HIRLoopCollapse::setMaxVecLenAllowed(HLLoop *const OrigOutermostLp,
+                                          const unsigned OrigInnermostLevel,
+                                          const unsigned OrigOutermostLevel) {
+  const DDGraph &DDG = DDA.getGraph(OrigOutermostLp);
+
+  for (RegDDRef *Ref : GEPRefVec) {
+    if (!Ref->isLval())
+      continue;
+
+    for (auto &Edge : DDG.outgoing(Ref)) {
+      auto *SinkRef = cast<RegDDRef>(Edge->getSink());
+      if (HLNodeUtils::dominates(SinkRef->getHLDDNode(), Ref->getHLDDNode())) {
+        if (Edge->getDVAtLevel(OrigOutermostLevel) == DVKind::LT) {
+          unsigned TC = 2;
+          if (TCArry[OrigInnermostLevel].isConstant()) {
+            TC = TCArry[OrigInnermostLevel].getConstTripCount();
+          }
+          for (unsigned I = OrigInnermostLevel - 1; I > OrigOutermostLevel;
+               I--) {
+            if (TCArry[I].isConstant()) {
+              TC *= TCArry[I].getConstTripCount();
+            }
+          }
+          Ref->setMaxVecLenAllowed(TC);
+          SinkRef->setMaxVecLenAllowed(TC);
+        }
+      }
+    }
+  }
+}
+
 bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
@@ -763,16 +811,16 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
     dbgs() << "\n";
   });
 
+  setMaxVecLenAllowed(OrigOutermostLp, OrigInnermostLevel, OrigOutermostLevel);
 
   //  Save UBs to be passed to makeConsistent
-  //  Make a copy to avoid overlay 
+  //  Make a copy to avoid overlay
 
   SmallVector<const RegDDRef *, MaxLoopNestLevel> UpperBoundRefs;
   for (unsigned Level = OrigInnermostLevel, EndLevel = OrigOutermostLevel;
        Level >= EndLevel; --Level) {
     UpperBoundRefs.push_back((LoopNest[Level]->getUpperDDRef())->clone());
   }
-
 
   OrigOutermostLp->extractPreheaderAndPostexit();
   SmallVector<PredicateTuple, 8> ZTTs;
@@ -805,7 +853,6 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   auto *UBRef = ToCollapseLp->getUpperDDRef();
   UBRef->makeConsistent(UpperBoundRefs, OrigOutermostLevel);
-
 
   // *** DO Collapsing ***
   // Move loop:
@@ -843,6 +890,7 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
     // [FROM]: A[i1 + N*i2+i3]
     // [TO]  : A[i1 + r], where r is CollapsedLp's IV, and N is i3's TripCount
     //
+
     adjustIVCoeffs(GEPRef, 1,
                    std::min(GEPRef->getNumDimensions(), NumCollapsableLoops),
                    OrigInnermostLevel, OrigOutermostLevel, true);
@@ -1066,24 +1114,24 @@ int HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level) {
   for (Dim = 2; Dim <= DimMax; ++Dim) {
     --CurLevel;
     IndexCE = Ref->getDimensionIndex(Dim);
-    // Use same logic as the loop below, when hitting a structure reference that has no IV
-    // skip checking. The Strides will no longer be a multiple
-    // 
+    // Use same logic as the loop below, when hitting a structure reference that
+    // has no IV skip checking. The Strides will no longer be a multiple
+    //
     // type S1
     //  real*8 A(10,20,30)
-    //  real*4 B 
+    //  real*4 B
     // end type S1
     // type (S1)  Structure
-    // Structure%A = 1.0 
+    // Structure%A = 1.0
     // (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1"*:0)].0
     //                    [0:i1:1600([30 x [20 x [10 x double]]]:30)]
     //                    [0:i2:80([20 x [10 x double]]:20)]
-    //                    [0:i3:8([10 x double]:10)] 
+    //                    [0:i3:8([10 x double]:10)]
     unsigned TheLevel = 0;
     if (!IndexCE->isStandAloneIV(false, &TheLevel) || (TheLevel != CurLevel)) {
       break;
     }
-  
+
     CanonExpr *Stride = Ref->getDimensionStride(Dim);
     if (Stride->isConstant()) {
       int64_t StrideVal = Stride->getConstant();
@@ -1327,7 +1375,8 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printTCArry(void) const {
 
 PreservedAnalyses HIRLoopCollapsePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLoopCollapse(HIRF).run();
+
+  HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 
@@ -1347,13 +1396,15 @@ public:
       return false;
     }
 
-    return HIRLoopCollapse(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+    return HIRLoopCollapse(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
         .run();
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   }
 };
 
