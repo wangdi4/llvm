@@ -35,7 +35,7 @@ define void @test1(i64 %n, i64* %arr) {
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i64* %arr) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr, i64 0, i32 1) ]
   br label %for.body
 
 for.body:
