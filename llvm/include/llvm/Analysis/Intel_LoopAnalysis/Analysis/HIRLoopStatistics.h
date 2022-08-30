@@ -43,6 +43,7 @@ private:
   unsigned NumIndirectCalls = 0;
   unsigned NumIntrinsics = 0;
   bool HasCallsWithUnsafeSideEffects = false;
+  bool HasNonSIMDCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
   bool HasCallsWithUnknownAliasing = false;
 
@@ -88,6 +89,17 @@ public:
         (!HasCallsWithUnsafeSideEffects || hasCalls()) &&
         "Number of calls and HasCallsWithUnsafeSideEffects are out of sync!");
     return HasCallsWithUnsafeSideEffects;
+  }
+
+  // Set to true if loop has calls with side effects other than SIMD calls. This
+  // is useful for transformations which want to handle SIMD calls in a special
+  // way.
+  bool hasNonSIMDCallsWithUnsafeSideEffects() const {
+    assert((!HasNonSIMDCallsWithUnsafeSideEffects ||
+            HasCallsWithUnsafeSideEffects) &&
+           "Number of SIMD and overall calls with unsafe side effects are out "
+           "of sync!");
+    return HasNonSIMDCallsWithUnsafeSideEffects;
   }
 
   bool hasCallsWithNoDuplicate() const {

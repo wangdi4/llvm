@@ -113,11 +113,22 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       return;
     }
 
+    bool IsSIMDDir = false;
     auto *Call = HInst->getCallInst();
 
     if (Call) {
       if (isa<IntrinsicInst>(Call)) {
         SelfStats->NumIntrinsics++;
+
+        // Don't count assume as an unsafe call.
+        if (isa<AssumeInst>(Call)) {
+          return;
+        }
+
+        if (HInst->isSIMDDirective() || HInst->isSIMDEndDirective()) {
+          IsSIMDDir = true;
+        }
+
       } else {
         SelfStats->NumUserCalls++;
 
@@ -126,8 +137,13 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
         }
       }
 
-      SelfStats->HasCallsWithUnsafeSideEffects |=
-          HLInst::hasUnsafeSideEffects(Call);
+      bool HasUnsafeSideEffects = HLInst::hasUnsafeSideEffects(Call);
+
+      if (!IsSIMDDir && HasUnsafeSideEffects) {
+        SelfStats->HasNonSIMDCallsWithUnsafeSideEffects = true;
+      }
+
+      SelfStats->HasCallsWithUnsafeSideEffects |= HasUnsafeSideEffects;
 
       SelfStats->HasCallsWithNoDuplicate |= Call->cannotDuplicate();
 
@@ -173,6 +189,22 @@ void LoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
 
   Lp->indent(OS, Depth);
   OS << "Number of intrinsics: " << NumIntrinsics << "\n";
+
+  Lp->indent(OS, Depth);
+  OS << "Has unsafe calls: "
+     << (HasCallsWithUnsafeSideEffects ? "yes\n" : "no\n");
+
+  Lp->indent(OS, Depth);
+  OS << "Has non-SIMD unsafe calls: "
+     << (HasNonSIMDCallsWithUnsafeSideEffects ? "yes\n" : "no\n");
+
+  Lp->indent(OS, Depth);
+  OS << "Has noduplicate calls: "
+     << (HasCallsWithNoDuplicate ? "yes\n" : "no\n");
+
+  Lp->indent(OS, Depth);
+  OS << "Has unknown aliasing calls: "
+     << (HasCallsWithUnknownAliasing ? "yes\n" : "no\n");
 }
 
 const LoopStatistics &
