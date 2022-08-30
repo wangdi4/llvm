@@ -380,6 +380,8 @@ class DDTest {
   void setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
                   const Dependences &Result, unsigned Levels);
 
+  void setDVForCollapsedRefs(DirectionVector &BackwardDV,
+                             const Dependences &Result, unsigned Levels);
   /// Distance: from CE to INT
 
   void populateDistanceVector(const DirectionVector &ForwardDV,
@@ -406,6 +408,10 @@ class DDTest {
 
   /// Assumes no loop carried dependencies exist for all loops
   void adjustForAllAssumedDeps(Dependences &Result);
+
+  /// Assumes LT dependence with NewDist distance exist for the innermost loop
+  void adjustCollapsedDepsForInnermostLoop(Dependences &Result,
+                                           const CanonExpr *NewDist);
 
   /// Map DV to distance
 

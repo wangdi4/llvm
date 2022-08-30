@@ -79,7 +79,7 @@ public:
 
 class HIRLoopCollapse {
   HIRFramework &HIRF;
-
+  HIRDDAnalysis &DDA;
   SmallVector<RegDDRef *, 32> RefVec;    // non-MemRef Refs
   SmallVector<RegDDRef *, 32> GEPRefVec; // GEPRef Refs, include AddressOf ones
 
@@ -117,7 +117,7 @@ class HIRLoopCollapse {
   Type *IVType = nullptr;
 
 public:
-  HIRLoopCollapse(HIRFramework &HIRF) : HIRF(HIRF) {}
+  HIRLoopCollapse(HIRFramework &HIRF, HIRDDAnalysis &DDA) : HIRF(HIRF), DDA(DDA) {}
   bool run();
 
   // The only entry for all caller(s) to do HIR Loop Collapse.
@@ -423,6 +423,11 @@ private:
   void clearWorkingSetMemory(void);
 
   // *** Utility functions ***
+
+  // Set MaxVecLenAllowed during collapsing.
+  void setMaxVecLenAllowed(HLLoop *const OrigOutermostLp,
+                           const unsigned OrigInnermostLevel,
+                           const unsigned OrigOutermostLevel);
 
   // Check: if a CE has any loopnest-level [OutermostLevel .. InnermostLevel] IV
   bool hasLoopNestIV(const CanonExpr *CE) const;

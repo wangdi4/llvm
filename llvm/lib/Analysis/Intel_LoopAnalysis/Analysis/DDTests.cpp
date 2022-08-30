@@ -5110,17 +5110,29 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   NewConstraint.setAny();
 
+  bool IsCollapsedRefs = (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed());
+  bool IsCollapsedWithDifferentHigherDim = false;
   if (!ForFusion) {
     // test separable subscripts
     for (int SI = Separable.find_first(); SI >= 0;
          SI = Separable.find_next(SI)) {
-      LLVM_DEBUG(dbgs() << "testing subscript " << SI);
+      LLVM_DEBUG(dbgs() << "\ntesting subscript " << SI);
       switch (Pair[SI].Classification) {
-      case Subscript::ZIV:
+      case Subscript::ZIV: {
         LLVM_DEBUG(dbgs() << ", ZIV\n");
+        if (IsCollapsedRefs) {
+          const CanonExpr *Delta = getMinus(Pair[SI].Src, Pair[SI].Dst);
+          int64_t Distance = 0;
+          if (Delta && Delta->isIntConstant(&Distance)) {
+            IsCollapsedWithDifferentHigherDim |= (Distance != 0);
+          }
+        }
         if (testZIV(Pair[SI].Src, Pair[SI].Dst, Result))
-          return nullptr;
+          if (!IsCollapsedWithDifferentHigherDim) {
+            return nullptr;
+          }
         break;
+      }
 
       case Subscript::SIV: {
         LLVM_DEBUG(dbgs() << ", SIV\n");
@@ -5363,7 +5375,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   // LoopIndepedent init'ed as false
   // set it to true when all DV are equal
 
-  if (AllEqual) {
+  if (AllEqual && !IsCollapsedWithDifferentHigherDim) {
     Result.LoopIndependent = true;
     // If src & sink are the same ddref  and the DV are all =
     // there is no DEP.
@@ -5582,6 +5594,18 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
     return;
   }
 
+  if (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed()) {
+    int64_t VecLen1 = SrcRegDDRef->getMaxVecLenAllowed();
+    int64_t VecLen2 = DstRegDDRef->getMaxVecLenAllowed();
+    int64_t FinalVecLen = (VecLen1 < VecLen2) ? VecLen1 : VecLen2;
+    if (FinalVecLen) {
+      auto Int64Ty = Type::getInt64Ty(HNU.getContext());
+      adjustCollapsedDepsForInnermostLoop(
+          Result, getConstantWithType(Int64Ty, FinalVecLen));
+      return;
+    }
+  }
+
   //  DV cannot be overridden to (=) when
   // -   Src and Dst mem-refs are the same and
   // -   no IV and
@@ -5682,6 +5706,26 @@ void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
     if (Direction == DVKind::ALL) {
       Result.setDirection(II, DVKind::EQ);
     }
+  }
+}
+
+void DDTest::adjustCollapsedDepsForInnermostLoop(Dependences &Result,
+                                                 const CanonExpr *NewDist) {
+  if (!LCALoop) {
+    return;
+  }
+
+  if (!LCALoop->isInnermost()) {
+    return;
+  }
+
+  unsigned InnermostLoopLevel = LCALoop->getNestingLevel();
+
+  DVKind Direction = Result.getDirection(InnermostLoopLevel);
+
+  if (Direction == DVKind::EQ) {
+    Result.setDirection(InnermostLoopLevel, DVKind::LT);
+    Result.setDistance(InnermostLoopLevel, NewDist);
   }
 }
 
@@ -5790,6 +5834,14 @@ void DDTest::setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
   BackwardDV[Levels - 1] = DVKind::LT;
 }
 
+void DDTest::setDVForCollapsedRefs(DirectionVector &BackwardDV,
+                                   const Dependences &Result, unsigned Levels) {
+  for (unsigned II = 1; II < Levels; ++II) {
+    BackwardDV[II - 1] = Result.getDirection(II);
+  }
+  BackwardDV[Levels - 1] = DVKind::LT;
+}
+
 bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                               const DirectionVector &InputDV,
                               DirectionVector &ForwardDV,
@@ -5878,6 +5930,8 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   bool IsSrcRval = true;
   bool IsDstRval = true;
+  bool IsCollapsedWithBackwardDep = false;
+
 
   HLNode *SrcHIR = SrcDDRef->getHLDDNode();
   HLNode *DstHIR = DstDDRef->getHLDDNode();
@@ -5891,11 +5945,19 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
     if (RegRef->isLval()) {
       IsSrcRval = false;
     }
+    if (RegRef->isMemRef() && RegRef->isCollapsed() &&
+        RegRef->getMaxVecLenAllowed()) {
+      IsCollapsedWithBackwardDep = true;
+    }
   }
 
   if (RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef)) {
     if (RegRef->isLval()) {
       IsDstRval = false;
+    }
+    if (RegRef->isMemRef() && RegRef->isCollapsed() &&
+        RegRef->getMaxVecLenAllowed()) {
+      IsCollapsedWithBackwardDep &= true;
     }
   }
 
@@ -6021,7 +6083,9 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  (3) if leftmost non-EQ dv is <
   //      isReversed implies backward else forward
 
-  if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+  if (IsCollapsedWithBackwardDep) {
+    setDVForCollapsedRefs(BackwardDV, *Result, Levels);
+  } else if (Result->isPeelFirst(Levels) && Result->isReversed()) {
     setDVForPeelFirstAndReversed(ForwardDV, BackwardDV, *Result, Levels);
   } else if (BiDirection) {
     setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels, LTGTLevel);

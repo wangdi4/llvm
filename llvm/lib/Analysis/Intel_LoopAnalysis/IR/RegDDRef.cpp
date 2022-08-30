@@ -66,14 +66,16 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BasePtrElementTy(nullptr),
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
-      IsCollapsed(false), Alignment(0), HighestDimNumElements(0),
-      CanUsePointeeSize(false), DummyGepLoc(nullptr) {}
+      IsCollapsed(false), MaxVecLenAllowed(0), Alignment(0),
+      HighestDimNumElements(0), CanUsePointeeSize(false), DummyGepLoc(nullptr) {
+}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
       BitCastDestVecOrElemTy(Info.BitCastDestVecOrElemTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      IsCollapsed(Info.IsCollapsed), MaxVecLenAllowed(Info.MaxVecLenAllowed),
+      Alignment(Info.Alignment),
       HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
