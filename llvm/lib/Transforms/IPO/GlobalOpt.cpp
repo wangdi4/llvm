@@ -30,6 +30,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/GlobalOpt.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -2507,6 +2512,14 @@ static void setUsedInitializer(GlobalVariable &V,
                          ConstantArray::get(ATy, UsedArray), "");
   NV->takeName(&V);
   NV->setSection("llvm.metadata");
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  dtransOP::DTransTypeMetadataPropagator::setGlobUsedVarDTransMetadata(
+      &V, NV, UsedArray.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   delete &V;
 }
 

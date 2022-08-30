@@ -88,6 +88,10 @@ public:
                                          uint64_t BeforeBytesSize,
                                          uint64_t AfterBytesSize);
 
+  static void setGlobUsedVarDTransMetadata(GlobalVariable *OldGV,
+                                           GlobalVariable *NewGV,
+                                           uint64_t NewArrSize);
+
 private:
   void initialize(Module &M);
 
