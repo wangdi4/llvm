@@ -106,6 +106,7 @@ namespace {
     KEYCXX11      = 0x4,
     KEYGNU        = 0x8,
     KEYMS         = 0x10,
+<<<<<<< HEAD
     KEYALTIVEC    = 0x20,
     KEYNOCXX      = 0x40,
     KEYBORLAND    = 0x80,
@@ -125,6 +126,29 @@ namespace {
     KEYMSCOMPAT   = 0x200000,
     KEYSYCL       = 0x400000,
     KEYCUDA       = 0x800000,
+=======
+    BOOLSUPPORT   = 0x20,
+    KEYALTIVEC    = 0x40,
+    KEYNOCXX      = 0x80,
+    KEYBORLAND    = 0x100,
+    KEYOPENCLC    = 0x200,
+    KEYC2X        = 0x400,
+    KEYNOMS18     = 0x800,
+    KEYNOOPENCL   = 0x1000,
+    WCHARSUPPORT  = 0x2000,
+    HALFSUPPORT   = 0x4000,
+    CHAR8SUPPORT  = 0x8000,
+    KEYOBJC       = 0x10000,
+    KEYZVECTOR    = 0x20000,
+    KEYCOROUTINES = 0x40000,
+    KEYMODULES    = 0x80000,
+    KEYCXX20      = 0x100000,
+    KEYOPENCLCXX  = 0x200000,
+    KEYMSCOMPAT   = 0x400000,
+    KEYSYCL       = 0x800000,
+    KEYCUDA       = 0x1000000,
+    KEYMAX        = KEYCUDA, // The maximum key
+>>>>>>> be199527205dc8a8c7febc057ad6be90fac15547
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
     KEYFLOAT128   = 0x1000000,
@@ -184,6 +208,9 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
     return LangOpts.GNUKeywords ? KS_Extension : KS_Unknown;
   case KEYMS:
     return LangOpts.MicrosoftExt ? KS_Extension : KS_Unknown;
+  case BOOLSUPPORT:
+    if (LangOpts.Bool)      return KS_Enabled;
+    return !LangOpts.CPlusPlus ? KS_Future : KS_Unknown;
   case KEYALTIVEC:
     return LangOpts.AltiVec ? KS_Enabled : KS_Unknown;
   case KEYBORLAND:
