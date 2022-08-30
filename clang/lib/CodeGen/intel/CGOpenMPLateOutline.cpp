@@ -2728,35 +2728,6 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
-static unsigned getForeignRuntimeID(StringRef Str) {
-  return llvm::StringSwitch<unsigned>(Str)
-#define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
-      .Default(0);
-}
-
-static bool isSupportedForeignRuntimeID(unsigned N) {
-  switch (N) {
-#define OMP_FOREIGN_RUNTIME_ID(Id, Name)                                       \
-  case Id:                                                                     \
-    return true;
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
-  default:
-    return false;
-  }
-}
-
-static unsigned getValidInteropPrefValue(ASTContext &C, const Expr *E) {
-  if (auto const *SL = dyn_cast<StringLiteral>(E))
-    return getForeignRuntimeID(SL->getString());
-
-  // An integer constant was specified.
-  unsigned V = E->EvaluateKnownConstInt(C).getExtValue();
-  if (isSupportedForeignRuntimeID(V))
-    return V;
-
-  return 0;
-}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   const VarDecl *VD = getExplicitVarDecl(Cl->getInteropVar());
@@ -2766,7 +2737,7 @@ void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.
   SmallVector<llvm::Value *, 3> PrefValues;
   for (const Expr *PE : Cl->prefs())
-    if (unsigned PrefValue = getValidInteropPrefValue(CGF.getContext(), PE))
+    if (unsigned PrefValue = CGF.CGM.getValidInteropPreferTypeValue(PE))
       PrefValues.push_back(CGF.Builder.getInt64(PrefValue));
 
   ClauseEmissionHelper CEH(*this, OMPC_init, "QUAL.OMP.INIT");

@@ -1786,6 +1786,8 @@ public:
   std::string getDevPtrAttrString(GlobalDecl VariantFunc,
                                   const FunctionDecl *BaseFunc,
                                   const OMPDeclareVariantAttr *Attr);
+  /// Return a valid OpenMP prefer_type value from the expression.
+  unsigned getValidInteropPreferTypeValue(const Expr *E);
 #endif // INTEL_COLLAB
   /// Print the postfix for externalized static variable or kernels for single
   /// source offloading languages CUDA and HIP. The unique postfix is created
