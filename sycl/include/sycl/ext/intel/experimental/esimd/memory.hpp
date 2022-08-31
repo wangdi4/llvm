@@ -1168,6 +1168,11 @@ constexpr void check_lsc_block_2d_restrictions() {
 /// @tparam L3H is L3 cache hint.
 /// @tparam N is the data size
 /// @param Ptr is the surface base address for this operation.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+/// Must be 128B aligned on PVC XT A0.
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 /// @param SurfaceWidth is the surface width minus 1 in bytes
 /// @param SurfaceHeight is the surface height minus 1 in rows
 /// @param SurfacePitch is the surface pitch minus 1 in bytes
@@ -1229,6 +1234,11 @@ lsc_load2d(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 /// @tparam L3H is L3 cache hint.
 /// @tparam N is the data size
 /// @param Ptr is the surface base address for this operation.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+/// Must be 128B aligned on PVC XT A0.
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 /// @param SurfaceWidth is the surface width minus 1 in bytes
 /// @param SurfaceHeight is the surface height minus 1 in rows
 /// @param SurfacePitch is the surface pitch minus 1 in bytes
@@ -1271,6 +1281,11 @@ __ESIMD_API void lsc_prefetch2d(const T *Ptr, unsigned SurfaceWidth,
 /// @tparam L3H is L3 cache hint.
 /// @tparam N is the data size
 /// @param Ptr is the surface base address for this operation.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+/// Must be 128B aligned on PVC XT A0.
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 /// @param SurfaceWidth is the surface width minus 1 in bytes
 /// @param SurfaceHeight is the surface height minus 1 in rows
 /// @param SurfacePitch is the surface pitch minus 1 in bytes
