@@ -265,7 +265,14 @@ __ESIMD_INTRIN void __esimd_raw_send_nbarrier_signal(
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // Wait for val to be ready
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val);
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else  // __SYCL_DEVICE_ONLY__
+{
+  __ESIMD_UNSUPPORTED_ON_HOST;
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
