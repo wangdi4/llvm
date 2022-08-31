@@ -142,7 +142,8 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
 }
 
 static bool cloneFunctions(Module &M,
-                           function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+                           function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+                           function_ref<TargetTransformInfo &(Function &)> GetTTI) {
 
   const Triple TT{M.getTargetTriple()};
 
@@ -272,6 +273,7 @@ static bool cloneFunctions(Module &M,
       New->addFnAttr("tune-cpu", TargetCpu);
 
       New->addFnAttr("loopopt-pipeline", "full");
+      New->addFnAttr("advanced-optim", "true");
 
       New->setName(Fn.getName() + "." + getTargetSuffix(TargetCpuDealiased));
 
@@ -308,6 +310,7 @@ static bool cloneFunctions(Module &M,
     Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
     Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
     Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
+    Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
     Changed = true;
   }
 
@@ -485,8 +488,11 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
+  auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
+    return FAM.getResult<TargetIRAnalysis>(F);
+  };
 
-  if (cloneFunctions(M, GetTLI))
+  if (cloneFunctions(M, GetTLI, GetTTI))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -502,6 +508,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
@@ -509,11 +516,14 @@ public:
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
+    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
+      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+    };
 
     if (skipModule(M))
       return false;
 
-    bool anyFunctionsCloned = cloneFunctions(M, GetTLI);
+    bool anyFunctionsCloned = cloneFunctions(M, GetTLI, GetTTI);
     return anyFunctionsCloned;
   }
 };
@@ -523,6 +533,7 @@ char AutoCPUCloneLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
                       "Clone functions for Auto CPU Dispatch", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
                     "Clone functions for Auto CPU Dispatch", false, false)
 
