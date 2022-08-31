@@ -92,6 +92,11 @@ public:
                                            GlobalVariable *NewGV,
                                            uint64_t NewArrSize);
 
+  static void setGlobAppendingVarDTransMetadata(const GlobalVariable *SrcGV,
+                                                GlobalVariable *DstGV,
+                                                GlobalVariable *NewGV,
+                                                uint64_t NewArrSize);
+
 private:
   void initialize(Module &M);
 
