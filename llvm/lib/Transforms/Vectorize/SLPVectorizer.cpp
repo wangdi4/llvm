@@ -2818,8 +2818,10 @@ private:
           if (LHSOperand.isUsed())
             continue;
 
-          if (OpI == OpIdx || (!DisableReordering &&
-                               isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
+          if (OpI == OpIdx ||
+              (!DisableReordering &&
+               LHSOperand.getLeaf() != CurrLHSOperand.getLeaf() &&
+               isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
             FirstOperandCandidates.push_back(OpIdx);
         }
 
