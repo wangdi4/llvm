@@ -796,6 +796,10 @@ public:
   void AddACTypesLibArgs(const llvm::opt::ArgList &Args,
                          llvm::opt::ArgStringList &CmdArgs,
                          std::string Prefix) const;
+
+  /// detectGCCPIEDefault - detect if the gcc being used has pie enabled
+  bool detectGCCPIEDefault() const;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// If a runtime library exists that sets global flags for unsafe floating
