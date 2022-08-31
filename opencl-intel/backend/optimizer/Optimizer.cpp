@@ -761,8 +761,6 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
     OptLevel = 0;
   DPCPPForceOptnone = OptLevel == 0;
 
-  bool UnrollLoops = true;
-
   // Initialize TTI
   m_PM.add(createTargetTransformInfoWrapperPass(
       targetMachine->getTargetIRAnalysis()));
@@ -858,7 +856,7 @@ Optimizer::Optimizer(llvm::Module &M,
       m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
       m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
-      m_IsFpgaEmulator(Config.isFpgaEmulator()) {
+      m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();

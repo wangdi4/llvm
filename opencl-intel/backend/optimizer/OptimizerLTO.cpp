@@ -437,11 +437,21 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which can benefit from LoopIdiom.
-    if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
-      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(24);
-      MPM.addPass(
-          createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
+    // TODO wen can consider move this unroll into ScalarOptimizerLate callback.
+    if (UnrollLoops && Level != OptimizationLevel::O0 &&
+        Config.GetTransposeSize() != 1) {
+      // unroll loops with non-constant trip count
+      const int thresholdBase = 16;
+      int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();
+      if (RTLoopUnrollFactor > 1) {
+        LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+        const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
+        // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
+        // doesn't allow the customization.
+        UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold);
+        MPM.addPass(
+            createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
+      }
     }
 
     // Resolve __intel_indirect_call for scalar kernels.
