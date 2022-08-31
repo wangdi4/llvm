@@ -329,6 +329,7 @@ def ocl_types : TypeNameList<[
   v12u8.TypeName,  v24u8.TypeName,  v48u8.TypeName,  v96u8.TypeName,  v192u8.TypeName,
   v12i16.TypeName, v24i16.TypeName, v48i16.TypeName, v96i16.TypeName, v192i16.TypeName,
   v12u16.TypeName, v24u16.TypeName, v48u16.TypeName, v96u16.TypeName, v192u16.TypeName,
+  v12f16.TypeName, v24f16.TypeName, v48f16.TypeName, v96f16.TypeName, v192f16.TypeName,
 
   image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
   image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,
@@ -1060,6 +1061,12 @@ class VFType<list<OclType> types, string suffix> {
 
 class WidenType<OclType type, int vf> {
   OclType Tout = !cast<OclType>(!subst("v" # type.VecLength, "v" # !mul(vf, type.VecLength), !cast<string>(type)));
+}
+
+// e.g.
+// WidenTypeForList<[v1i8, v2i8], 4>.Tout == [v4i8, v8i8]
+class WidenTypeForList<list<OclType> types, int vf> {
+  list<OclType> Tout = !foreach(type, types, WidenType<type, vf>.Tout);
 }
 
 // e.g.

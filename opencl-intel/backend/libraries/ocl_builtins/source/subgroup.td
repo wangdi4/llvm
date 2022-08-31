@@ -296,3 +296,74 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     }
   }
 }
+
+// --- sub_group_broadcast builtins ---
+//
+// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroups-add-a-new-section-6.13.X-sub-group-functions
+
+defvar broadcast_type = [v1f16];
+defvar broadcast_all_type = ExpandTypesByVFAndFlatten<broadcast_type, [1, 2, 3, 4, 8, 16]>.Tout;
+
+// Prototypes
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
+  // scalar and vector
+  let Types = broadcast_all_type in {
+    def sub_group_broadcast_vf1 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id)>;
+  }
+  // vectorized
+  foreach vf = [4, 8, 16, 32, 64] in {
+    defvar mask_type = !cast<OclType>("v" # vf # "u32");
+    let Types = WidenTypeForList<broadcast_all_type, vf>.Tout in {
+      def sub_group_broadcast_vf#vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, mask_type:$vec_mask)>;
+      def sub_group_broadcast_assume_uniform_vf#vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, mask_type:$sub_group_local_ids, mask_type:$vec_mask)>;
+    }
+  }
+}
+
+// Implementations
+defvar broadcast_code =
+[{
+  return $Arg0VarName[$Arg1VarName];
+}];
+defvar broadcast_extended_code =
+[{
+  $Arg0BaseType$VSize temp = *(($Arg0BaseType$VSize*)&$Arg0VarName + $Arg1VarName);
+  return ($ReturnType)$Result;
+}];
+// Number of params = 3, assuming the second parameter as uniform
+defvar broadcast_assume_uniform_code = [{
+  return $Func($Arg0VarName, $Arg1VarName[0], $Arg2VarName);
+}];
+
+// scalar and vector input, no vectorized
+let Types = broadcast_all_type in {
+  def : OclBuiltinImpl<sub_group_broadcast_vf1, sub_group_broadcast_vf1.Types, /*IsDeclOnly*/false, ret_arg0_code>, SHARED;
+}
+
+// vectorized
+foreach vf = [4, 8, 16, 32, 64] in {
+  defvar builtin_type = WidenTypeForList<broadcast_type, vf>.Tout;
+  defvar builtin = !cast<OclBuiltin>("sub_group_broadcast_vf"#vf);
+  def : OclBuiltinImpl<builtin, builtin_type, false, broadcast_code>, SHARED;
+
+  foreach vsize = [2, 3, 4, 8, 16] in {
+    defvar builtin_extend_type = WidenTypeForList<WidenTypeForList<broadcast_type, vsize>.Tout, vf>.Tout;
+    // To generate string "(temp, temp, ...)", the number of "temp" is vf
+    defvar count = Range<0, vf>.Tout;
+    defvar result_vector = "(" # !interleave(!foreach(i, count, "temp"), ", ")# ")";
+    def : OclBuiltinImpl<builtin, builtin_extend_type, false, broadcast_extended_code, [["$VSize", !cast<string>(vsize)], ["$Result", result_vector]]>, SHARED;
+  }
+
+  defvar builtin_assume_uniform = !cast<OclBuiltin>("sub_group_broadcast_assume_uniform_vf"#vf);
+  def : OclBuiltinImpl<builtin_assume_uniform, builtin_assume_uniform.Types, false, broadcast_assume_uniform_code>, SHARED;
+}
+
+// VectInfos
+let Types = broadcast_all_type in {
+  let HandleAlias = 0 in {
+    def : VectInfo<[], sub_group_broadcast_vf1, sub_group_broadcast_vf4, sub_group_broadcast_vf8,
+                       sub_group_broadcast_vf16, sub_group_broadcast_vf32, sub_group_broadcast_vf64>;
+    def : VectInfo<[], sub_group_broadcast_vf1, sub_group_broadcast_assume_uniform_vf4, sub_group_broadcast_assume_uniform_vf8,
+                       sub_group_broadcast_assume_uniform_vf16, sub_group_broadcast_assume_uniform_vf32, sub_group_broadcast_assume_uniform_vf64>;
+  }
+}
