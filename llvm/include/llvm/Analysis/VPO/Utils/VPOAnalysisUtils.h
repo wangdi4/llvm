@@ -200,6 +200,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "VARLEN"
 ///      Id = QUAL_OMP_PRIVATE
 ///
+/// * STRICT modifier for GRAINSIZE and NUMTASKS. Example:
+///      FullName = "QUAL.OMP.GRAINSIZE:STRICT"
+///      BaseName = "QUAL.OMP.GRAINSIZE"
+///      Modifier = "STRICT"
+///      Id = QUAL_OMP_GRAINSIZE
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -254,6 +260,9 @@ private:
   bool IsInitTargetSync:1;
   bool IsInitPrefer:1;
 
+  // Modidifer for grainsize and numtasks clause of the taskloop construct
+  bool IsStrict : 1;
+
   // Modifier for reduction clause
   bool IsTask:1;
   bool IsInscan:1;
@@ -282,6 +291,7 @@ public:
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsTask()                 { IsTask = true; }
+  void setIsStrict()               { IsStrict = true; }
   void setIsInscan()               { IsInscan = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
@@ -316,6 +326,7 @@ public:
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsTask() const { return IsTask; }
+  bool getIsStrict() const { return IsStrict; }
   bool getIsInscan() const { return IsInscan; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
