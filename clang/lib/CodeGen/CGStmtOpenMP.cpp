@@ -8193,6 +8193,7 @@ void CodeGenFunction::HoistTeamsClausesIfPossible(
     case OMPD_target_teams_distribute_simd:
     case OMPD_target_teams_distribute_parallel_for:
     case OMPD_target_teams_distribute_parallel_for_simd:
+    case OMPD_target_teams_loop:
       Dir = &S;
       break;
     case OMPD_target:
