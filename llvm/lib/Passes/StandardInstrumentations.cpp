@@ -848,6 +848,47 @@ bool isIgnored(StringRef PassID) {
 #endif // INTEL_CUSTOMIZATION
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+#if INTEL_CUSTOMIZATION
+void LimitingInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  PIC.registerShouldRunLimitedPassCallback(
+      [this](StringRef P, LoopOptLimiter Limiter, Any IR) { return this->shouldRun(P, Limiter, IR); });
+}
+
+bool LimitingInstrumentation::shouldRun(StringRef PassID, LoopOptLimiter Limiter, Any IR) {
+  const Function *F = nullptr;
+  if (any_isa<const Function *>(IR)) {
+    F = any_cast<const Function *>(IR);
+  } else if (any_isa<const Loop *>(IR)) {
+    F = any_cast<const Loop *>(IR)->getHeader()->getParent();
+  }
+  if (!F)
+    return true;
+  bool ShouldRun = true;
+  switch (Limiter) {
+  case LoopOptLimiter::None:
+    return true;
+  case LoopOptLimiter::FullLoopOptOnly:
+    if (!F->hasFnAttribute("loopopt-pipeline") ||
+        F->getFnAttribute("loopopt-pipeline").getValueAsString() != "full")
+      ShouldRun = false;
+    break;
+  case LoopOptLimiter::LightLoopOptOnly:
+    if (!F->hasFnAttribute("loopopt-pipeline") ||
+        F->getFnAttribute("loopopt-pipeline").getValueAsString() != "light")
+      ShouldRun = false;
+    break;
+  default:
+    llvm_unreachable("Unknown enum value!");
+  }
+  if (!ShouldRun && DebugLogging) {
+    errs() << "Skipping pass " << PassID << " on " << F->getName()
+           << " due to incompatible " << Limiter << " limiter on pass\n";
+  }
+  return ShouldRun;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void OptNoneInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   PIC.registerShouldRunOptionalPassCallback(
@@ -2126,6 +2167,7 @@ StandardInstrumentations::StandardInstrumentations(
     bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
     : PrintPass(DebugLogging, PrintPassOpts), OptNone(DebugLogging),
 #if INTEL_CUSTOMIZATION
+      Limiter(DebugLogging),
     // The Intel customization here is only to exclude the IR printing
     // in release builds. The upstream code in the "!defined(NDEBUG)"
     // block should be accepted when it changes.
@@ -2197,6 +2239,7 @@ void StandardInstrumentations::registerCallbacks(
   PrintIR.registerCallbacks(PIC);
   PrintPass.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
+  Limiter.registerCallbacks(PIC);   // INTEL
   OptNone.registerCallbacks(PIC);
   OptBisect.registerCallbacks(PIC);
   if (FAM)

@@ -407,6 +407,21 @@ template <typename DerivedT> struct PassInfoMixin {
     auto PassName = MapClassName2PassName(ClassName);
     OS << PassName;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Enabled for ordinary passes and pass managers.
+  void setLimiter(LoopOptLimiter NewLimiter) { Limiter = NewLimiter; }
+
+  LoopOptLimiter getLimiter() const { return Limiter; }
+
+  bool isLimited() const { return Limiter != LoopOptLimiter::None; }
+
+  /// Reset Limiter to end a limiting scope. Used by pass managers only.
+  void resetLimiter() { this->Limiter = LoopOptLimiter::None; }
+
+private:
+  LoopOptLimiter Limiter = LoopOptLimiter::None;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A CRTP mix-in that provides informational APIs needed for analysis passes.
@@ -570,10 +585,16 @@ public:
   template <typename PassT>
   LLVM_ATTRIBUTE_MINSIZE
       std::enable_if_t<!std::is_same<PassT, PassManager>::value>
-      addPass(PassT &&Pass) {
+      addPass(PassT &&Pass, LoopOptLimiter NewLimiter = LoopOptLimiter::None) {  // INTEL
     using PassModelT =
         detail::PassModel<IRUnitT, PassT, PreservedAnalyses, AnalysisManagerT,
                           ExtraArgTs...>;
+#if INTEL_CUSTOMIZATION
+    if (NewLimiter != LoopOptLimiter::None) {
+      assert(this->getLimiter() == LoopOptLimiter::None && "Limited PM can't take another limiter");
+      Pass.setLimiter(NewLimiter);
+    } else Pass.setLimiter(this->getLimiter());
+#endif // INTEL_CUSTOMIZATION
     // Do not use make_unique or emplace_back, they cause too many template
     // instantiations, causing terrible compile times.
     Passes.push_back(std::unique_ptr<PassConceptT>(

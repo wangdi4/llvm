@@ -340,14 +340,21 @@ using namespace llvm::loopopt;                 // INTEL
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 
 #if INTEL_CUSTOMIZATION
+
+#define INTEL_LIMIT_BEGIN(PM, LIMITER)         \
+  {                                            \
+    PM.setLimiter(LIMITER);
+
+#define INTEL_LIMIT_END(PM)                    \
+    PM.resetLimiter();                         \
+  }
+
 // Enable the partial inlining during LTO
 static cl::opt<bool>
     RunLTOPartialInlining("enable-npm-lto-partial-inlining", cl::init(true),
                        cl::Hidden, cl::ZeroOrMore,
                        cl::desc("Run LTO Partial inlinining pass"));
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 // Partial inlining for simple functions
 static cl::opt<bool>
@@ -2106,9 +2113,11 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
   if (!isLoopOptEnabled(Level))
     return;
 
-  if (IsLTO && RunLoopOpts == LoopOptMode::Full) {
+  if (IsLTO) {
+    INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
     FPM.addPass(SimplifyCFGPass());
     FPM.addPass(ADCEPass());
+    INTEL_LIMIT_END(FPM)
   }
 
   FPM.addPass(createFunctionToLoopPassAdaptor(
@@ -2146,10 +2155,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRPropagateCastedIVPass());
 
     if (Level.getSpeedupLevel() > 2) {
-      if (RunLoopOpts == LoopOptMode::Full) {
+      INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
         FPM.addPass(HIRLoopConcatenationPass());
         FPM.addPass(HIRPMSymbolicTripCountCompleteUnrollPass());
-      }
+      INTEL_LIMIT_END(FPM)
       FPM.addPass(HIRArrayTransposePass());
     }
 
@@ -2159,21 +2168,22 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRConditionalTempSinkingPass());
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, true));
 
-      if (RunLoopOpts == LoopOptMode::Full) {
+      INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
         if (Level.getSpeedupLevel() > 2) {
           FPM.addPass(HIRLMMPass(true));
           FPM.addPass(HIRStoreResultIntoTempArrayPass());
         }
         FPM.addPass(HIRAosToSoaPass());
-      } // END LoopOptMode::Full
+      INTEL_LIMIT_END(FPM)
 
       FPM.addPass(HIRRuntimeDDPass());
       FPM.addPass(HIRMVForConstUBPass());
 
-      if (RunLoopOpts == LoopOptMode::Full && Level.getSpeedupLevel() > 2 &&
-          IsLTO) {
+      if (Level.getSpeedupLevel() > 2 && IsLTO) {
+        INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
         FPM.addPass(HIRRowWiseMVPass());
         FPM.addPass(HIRSumWindowReusePass());
+        INTEL_LIMIT_END(FPM)
       }
     }
 
@@ -2181,7 +2191,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRNonZeroSinkingForPerfectLoopnestPass());
     FPM.addPass(HIRPragmaLoopBlockingPass());
 
-    if (RunLoopOpts == LoopOptMode::Full) {
+    INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
       FPM.addPass(HIRLoopDistributionForLoopNestPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -2190,11 +2200,11 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
             ThroughputModeOpt != ThroughputMode::SingleJob));
 #endif // INTEL_FEATURE_SW_ADVANCED
       FPM.addPass(HIRLoopInterchangePass());
-    } // END LoopOptMode::Full
+    INTEL_LIMIT_END(FPM)
 
     FPM.addPass(HIRGenerateMKLCallPass());
 
-    if (RunLoopOpts == LoopOptMode::Full) {
+    INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
 #if INTEL_FEATURE_SW_ADVANCED
       if (Level.getSpeedupLevel() > 2 && IsLTO)
         FPM.addPass(HIRInterLoopBlockingPass());
@@ -2202,7 +2212,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       FPM.addPass(
           HIRLoopBlockingPass(ThroughputModeOpt != ThroughputMode::SingleJob));
-    } // END LoopOptMode::Full
+    INTEL_LIMIT_END(FPM)
 
     FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
     FPM.addPass(HIRDeadStoreEliminationPass());
@@ -2225,8 +2235,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
     FPM.addPass(HIRLoopRerollPass());
 
-    if (RunLoopOpts == LoopOptMode::Full && Level.getSizeLevel() == 0)
-      FPM.addPass(HIRLoopDistributionForMemRecPass());
+    if (Level.getSizeLevel() == 0)
+      FPM.addPass(HIRLoopDistributionForMemRecPass(), LoopOptLimiter::FullLoopOptOnly);
 
     FPM.addPass(HIRLoopReversalPass());
     FPM.addPass(HIRLoopRematerializePass());
@@ -2237,10 +2247,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRIfReversalPass());
 
     if (Level.getSizeLevel() == 0) {
-      if (RunLoopOpts == LoopOptMode::Full) {
+      INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
         FPM.addPass(HIRUnrollAndJamPass(!PTO.LoopUnrolling));
         FPM.addPass(HIRMVForVariableStridePass());
-      }
+      INTEL_LIMIT_END(FPM)
 
       FPM.addPass(HIROptVarPredicatePass());
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
@@ -2248,8 +2258,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       if (RunVPOOpt) {
         FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
         if (EnableVPlanDriverHIR) {
-          FPM.addPass(vpo::VPlanDriverHIRPass(
-            RunLoopOpts == LoopOptMode::LightWeight));
+          FPM.addPass(vpo::VPlanDriverHIRPass(true), LoopOptLimiter::LightLoopOptOnly);
+          FPM.addPass(vpo::VPlanDriverHIRPass(false), LoopOptLimiter::FullLoopOptOnly);
         }
       }
       FPM.addPass(HIRPostVecCompleteUnrollPass(Level.getSpeedupLevel(),
@@ -2259,14 +2269,14 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
     FPM.addPass(HIRScalarReplArrayPass());
 
-    if (RunLoopOpts == LoopOptMode::Full) {
+    INTEL_LIMIT_BEGIN(FPM, LoopOptLimiter::FullLoopOptOnly)
       if (Level.getSpeedupLevel() > 2) {
         if (ThroughputModeOpt != ThroughputMode::SingleJob)
           FPM.addPass(HIRNontemporalMarkingPass());
 
         FPM.addPass(HIRPrefetchingPass());
       }
-    }
+    INTEL_LIMIT_END(FPM)
 
   } // RunLoopOptFrameworkOnly
 
