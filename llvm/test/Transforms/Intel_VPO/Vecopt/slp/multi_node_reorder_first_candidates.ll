@@ -72,3 +72,41 @@ define i1 @test(i32 %a, i32 %b, i32 %k, i32 %m)  {
   %c = icmp eq i32 %n0.0, %n0.1
   ret i1 %c
 }
+
+; The following case is similar to the above with the only difference
+; lane 1 is affected rather than lane 0.
+define i1 @test2(i32 %a, i32 %b, i32 %k, i32 %m)  {
+; CHECK-LABEL: @test2(
+; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i32> poison, i32 [[K:%.*]], i32 0
+; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i32> [[TMP1]], i32 [[M:%.*]], i32 1
+; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], <i32 1, i32 3>
+; CHECK-NEXT:    [[TMP4:%.*]] = mul <2 x i32> [[TMP2]], <i32 1, i32 3>
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[TMP3]], <2 x i32> [[TMP4]], <2 x i32> <i32 0, i32 3>
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32> poison, i32 [[A:%.*]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x i32> [[TMP6]], i32 [[B:%.*]], i32 1
+; CHECK-NEXT:    [[TMP8:%.*]] = add <2 x i32> [[TMP7]], <i32 -2, i32 -2>
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    [[TMP9:%.*]] = add <2 x i32> <i32 -1, i32 -2>, [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = add <2 x i32> [[TMP9]], [[SHUFFLE]]
+; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[TMP10]], [[TMP5]]
+; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x i32> [[TMP11]], i32 0
+; CHECK-NEXT:    [[TMP13:%.*]] = extractelement <2 x i32> [[TMP11]], i32 1
+; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[TMP12]], [[TMP13]]
+; CHECK-NEXT:    ret i1 [[C]]
+;
+  %x = add i32 %k, 1
+  %mul = mul i32 %m, 3
+
+  %n3.0 = add i32 %a, -1
+  %n2.0 = add i32 %x, %n3.0
+  %n1.0 = add i32 %n2.0, %mul
+  %n0.0 = add i32 %n1.0, -2
+
+  %n3.1 = add i32 %b, -2
+  %n2.1 = add i32 %x, %n3.1
+  %n1.1 = add i32 %n2.1, %mul
+  %n0.1 = add i32 %n1.1, -2
+
+  %c = icmp eq i32 %n0.0, %n0.1
+  ret i1 %c
+}
