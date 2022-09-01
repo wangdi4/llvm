@@ -845,12 +845,15 @@ def f64gentype : OclGenType<"f64gentype"> {
   list<string> Tout = T9;
 }
 // rf2igentype: 'vNf32' -> 'vNi32', 'vNf64' -> 'vNi64', 'v1f32' -> 'v1i32', 'v1f64' -> 'v1i32'
+//   'vNf16' -> 'vNi16', 'v1f16' -> 'v1i32'
 def rf2igentype : OclGenType<"rf2igentype"> {
   list<string> Tin = Torig;
-  list<string> T0 = !foreach(n, Tin, !subst("f32", "i32", n));
-  list<string> T1 = !foreach(n,  T0, !subst("f64", "i64", n));
-  list<string> T2 = !foreach(n,  T1, !subst("v1i64", "v1i32", n));
-  list<string> Tout = T2;
+  list<string> T0 = !foreach(n, Tin, !subst("f16", "i16", n));
+  list<string> T1 = !foreach(n,  T0, !subst("f32", "i32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("f64", "i64", n));
+  list<string> T3 = !foreach(n,  T2, !subst("v1i16", "v1i32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("v1i64", "v1i32", n));
+  list<string> Tout = T4;
 }
 // up_gentype: 'vNx8' -> 'vNx16', 'vNx16' -> 'vNx32', 'vNx32' -> 'vNx64'
 def up_gentype : OclGenType<"up_gentype"> {

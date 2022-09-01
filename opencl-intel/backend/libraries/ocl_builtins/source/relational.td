@@ -14,6 +14,7 @@ defvar relational_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64,
 defvar relational_all_types = ExpandTypesByVFAndFlatten<relational_scalar_types, [1, 2, 3, 4, 8, 16, 32, 64]>.Tout;
 defvar relational_vector_types = ExpandTypesByVFAndFlatten<relational_scalar_types, [2, 3, 4, 8, 16, 32, 64]>.Tout;
 defvar relational_widen_types = ExpandTypesByVFAndFlatten<relational_scalar_types, [4, 8, 16, 32, 64]>.Tout;
+defvar relational_declare_only_types = ExpandTypeByVF<v1f16, [32, 64]>.Tout;
 
 // --- Relational functions ---
 // https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#relational-functions
@@ -44,6 +45,10 @@ let Types = relational_widen_types in {
   def uselect_v1widen: OclBuiltin<"select_v1widen", (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c)>;
   def iselect_v1widen_mask: OclBuiltin<"select_v1widen", (outs gentype:$ret), (ins gentype:$a, gentype:$b, igentype:$c, gentype:$mask)>;
   def uselect_v1widen_mask: OclBuiltin<"select_v1widen", (outs gentype:$ret), (ins gentype:$a, gentype:$b, ugentype:$c, gentype:$mask)>;
+}
+// Emit forward declarations so that they can be invoked by other builtins
+let Types = relational_declare_only_types in {
+  def : OclBuiltin<"isnan", (outs rf2igentype:$ret), (ins gentype:$x)>;
 }
 }
 
