@@ -19,7 +19,7 @@ define void @foo() {
 ; CHECK:                [[TMP1]] = @llvm.vector.reduce.smin.v4i32([[DOTVEC50]])
 ; CHECK-NEXT:           [[IDX_BLEND0:%.*]] = ([[TMP1]] == [[DOTVEC50]]) ? [[DOTVEC40]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
 ; CHECK-NEXT:           [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND0]])
-; CHECK:             + DO i1 = {{.*}}, [[SPEC_SELECT3090:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = {{.*}}, [[SPEC_SELECT3090:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[TMP2:%.*]] = ([[TMP0]])[i1]
 ; CHECK-NEXT:        |   [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0]] = ([[TMP1]] > [[TMP2]]) ? i1 : [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0]]
 ; CHECK-NEXT:        |   [[TMP1]] = ([[TMP1]] > [[TMP2]]) ? [[TMP2]] : [[TMP1]]

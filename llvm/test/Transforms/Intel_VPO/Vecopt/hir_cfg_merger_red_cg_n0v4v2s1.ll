@@ -65,7 +65,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP90]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[PHI_TEMP320:%.*]] = [[RED_INIT310]]
 ; CHECK-NEXT:        [[LOOP_UB340:%.*]] = [[VEC_TC300]]  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB340]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB340]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC350:%.*]] = (<2 x float>*)([[A0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = [[DOTVEC350]]  +  [[PHI_TEMP320]]
 ; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC360]]
@@ -90,7 +90,7 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        [[MERGE_BLK0]].31:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
 ; CHECK-NEXT:        [[SUM_070]] = [[PHI_TEMP0]]
-; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
 ; CHECK-NEXT:        + END LOOP

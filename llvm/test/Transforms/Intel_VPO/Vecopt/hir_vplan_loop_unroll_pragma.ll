@@ -81,7 +81,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:                    + END LOOP
 
 ; TODO: MAXTC estimates are off here(known issue) - they should be 11. Look into addressing the same.
-; CHECK:                         + DO i1 = [[LBTMP:%.*]], sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                         + DO i1 = [[LBTMP:%.*]], sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:                    |   [[TMP1:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:                    |   ([[A0]])[i1] = [[TMP1]] + 1
 ; CHECK-NEXT:                    + END LOOP
