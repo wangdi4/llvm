@@ -4716,57 +4716,6 @@ bool HLNodeUtils::areEqualConditions(const HLSwitch *NodeA,
                               NodeB->getConditionDDRef());
 }
 
-bool HLNodeUtils::areEqualConditions(const HLInst *SelectA,
-                                     const HLInst *SelectB) {
-  assert(isa<SelectInst>(SelectA->getLLVMInstruction()) &&
-         "First argument is not a select instruction");
-  assert(isa<SelectInst>(SelectB->getLLVMInstruction()) &&
-         "Second argument is not a select instruction");
-
-  // Select instructions have 5 DDRef:
-  //   0 -> left hand side
-  //   1 -> compare operand 1
-  //   2 -> compare operand 2
-  //   3 -> result if compare is true
-  //   4 -> result if compare is false
-
-  auto *OP1A = SelectA->getOperandDDRef(1);
-  auto *OP2A = SelectA->getOperandDDRef(2);
-  auto &PredA = SelectA->getPredicate();
-
-  auto *OP1B = SelectB->getOperandDDRef(1);
-  auto *OP2B = SelectB->getOperandDDRef(2);
-  auto &PredB = SelectB->getPredicate();
-
-  return (PredA == PredB && DDRefUtils::areEqual(OP1A, OP1B) &&
-          DDRefUtils::areEqual(OP2A, OP2B));
-}
-
-bool HLNodeUtils::areEqualConditions(const HLIf *If, const HLInst *Select) {
-  assert(isa<SelectInst>(Select->getLLVMInstruction()) &&
-       "Select argument is not a select instruction");
-
-  // NOTE: Select instructions have one condition only, therefore the HLIf
-  // must have one predicate
-  if (If->getNumPredicates() != 1)
-    return false;
-
-  auto *SelOP1 = Select->getOperandDDRef(1);
-  auto *SelOP2 = Select->getOperandDDRef(2);
-  auto &SelPred = Select->getPredicate();
-
-  auto IfPred = If->pred_begin();
-  auto *IfOP1 = If->getLHSPredicateOperandDDRef(IfPred);
-  auto *IfOP2 = If->getRHSPredicateOperandDDRef(IfPred);
-
-  return (*IfPred == SelPred && DDRefUtils::areEqual(IfOP1, SelOP1) &&
-          DDRefUtils::areEqual(IfOP2, SelOP2));
-}
-
-bool HLNodeUtils::areEqualConditions(const HLInst *Select, const HLIf *If) {
-  return areEqualConditions(If, Select);
-}
-
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
