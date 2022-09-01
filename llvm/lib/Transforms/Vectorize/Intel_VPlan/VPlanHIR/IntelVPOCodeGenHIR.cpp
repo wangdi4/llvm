@@ -4786,8 +4786,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         "compress");
     addInstUnmasked(CompressCall);
 
-    // Next, calculate mask for strided store.
-    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    // Mask for strided store is the last instruction operand.
+    RegDDRef *Mask = getOrCreateScalarRef(
+        VPInst->getOperand(VPInst->getNumOperands() - 1), 0);
 
     // Last step, store all selected elements consecutively using index/ptr
     // calculated by CompressExpandIndex.
@@ -4809,10 +4810,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ExpandLoadNonu: {
-    // First, calculate mask for strided load.
-    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    // Mask for strided load is the last instruction operand.
+    RegDDRef *Mask = getOrCreateScalarRef(
+        VPInst->getOperand(VPInst->getNumOperands() - 1), 0);
 
-    // Next, load the needed number of elements from array B.
+    // Load the needed number of elements from array B.
     //
     // %load.val = call void @llvm.masked.gather.XXXX.XXXX(<VF x type*> %ptr, i32 align, <VF x i1> %exec.mask)
     VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
@@ -4898,6 +4900,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     addInstUnmasked(InsertElementInst);
 
     addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressExpandMask: {
+    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    addVPValueScalRefMapping(VPInst, Mask, 0);
     return;
   }
 
@@ -5394,6 +5402,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::CompressExpandIndexFinal:
   case VPInstruction::CompressExpandIndex:
   case VPInstruction::CompressExpandIndexInc:
+  case VPInstruction::CompressExpandMask:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {

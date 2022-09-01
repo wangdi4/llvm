@@ -426,38 +426,10 @@ VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
   default:
     llvm_unreachable("Compress/Expand Store/Load opcode is expected.");
   }
+
   Cost += TTI.getIntrinsicInstrCost(
       IntrinsicCostAttributes(IntrinsicId, VecType, {VecType}),
       TTI::TCK_RecipThroughput);
-
-  if (UnitStrided)
-    return Cost;
-
-  // Mask generation cost.
-  const VPValue *Pred = LoadStore->getParent()->getPredicate();
-  if (!Pred || CompressExpandMaskCostCalculated.insert(Pred).second == false)
-    return Cost;
-
-  Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
-  Type *MaskTy =
-      FixedVectorType::get(IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
-  Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
-                               TTI::CastContextHint::None);
-  Cost += TTI.getIntrinsicInstrCost(
-      IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
-      TTI::TCK_RecipThroughput);
-  Cost += TTI.getArithmeticInstrCost(
-      Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-      TargetTransformInfo::OK_UniformConstantValue,
-      TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None,
-      TargetTransformInfo::OP_None);
-  Cost += TTI.getArithmeticInstrCost(
-      Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-      TargetTransformInfo::OK_AnyValue,
-      TargetTransformInfo::OK_UniformConstantValue,
-      TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
-  Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
-                               TTI::CastContextHint::None);
 
   return Cost;
 }
@@ -1305,6 +1277,31 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     VPInstructionCost Cost = 0;
     Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
     Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    return Cost;
+  }
+
+  case VPInstruction::CompressExpandMask: {
+    VPInstructionCost Cost = 0;
+    Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
+    Type *MaskTy = FixedVectorType::get(
+        IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
+    Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
+                                 TTI::CastContextHint::None);
+    Cost += TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
+        TTI::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+        TargetTransformInfo::OK_UniformConstantValue,
+        TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None,
+        TargetTransformInfo::OP_None);
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
+        TargetTransformInfo::OK_AnyValue,
+        TargetTransformInfo::OK_UniformConstantValue,
+        TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+    Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
+                                 TTI::CastContextHint::None);
     return Cost;
   }
 

@@ -653,25 +653,20 @@ public:
     PrivateLastValueNonPOD,
     CompressStore, // generate llvm.masked.compressstore intrinsic, for
                    // unit stride stores
-
     CompressStoreNonu, // generate vcompress intrinsic and masked scatter
                        // mask for scatter: (-1 >> popcnt(exec_mask))
-
     ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
                 // loads
-
     ExpandLoadNonu, // generate masked gather, and vexpand intrinsic mask for
                     // gather: (-1 >> popcnt(exec_mask))
-
     CompressExpandIndexInit,  // placeholder for initial value of index
     CompressExpandIndexFinal, // placeholder for the final value of index
-
     CompressExpandIndex,     // calculate vector of indexes for non-unit stride
                              // compress/expand
-
     CompressExpandIndexInc, // compress/expand index increment
                             // operands: index, stride, mask
                             // generate: index += stride * pocnt(mask);
+    CompressExpandMask, // generate mask for nonu load/store
     PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,

@@ -170,15 +170,6 @@ protected:
 private:
   VPlanAlignmentAnalysis VPAA;
 
-  // For CompressStoreNonu and ExpandLoadNonu instructions it's required to emit
-  // mask generationg instructions. Actually such instructions are same for each
-  // instruction in a single basic block (and depend only on predicate of the
-  // block) and are being optimized out by the following passes. To accomodate
-  // that, mask generation cost is being calculated only once for each
-  // predicate.
-  // TODO: make mask code explicit in VPlan and remove this DenseSet.
-  mutable DenseSet<const VPValue *> CompressExpandMaskCostCalculated;
-
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
   unsigned getLoadStoreIndexSize(const VPLoadStoreInst *LoadStore) const;
