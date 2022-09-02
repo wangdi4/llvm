@@ -1593,6 +1593,19 @@ example:
     define void @f() alwaysinline optsize { ... }
     define void @f() optsize { ... }
 
+.. INTEL_CUSTOMIZATION
+``"advanced-optim"``
+    This attribute tells the optimizer whether Intel Advanced optimizations are
+    enabled or not (controlled with -x or -ax). The precise effect of this
+    attribute depends on its string value, for which there currently are two
+    legal possibilities:
+
+     * ``"true"`` - enable Intel Advanced optimizations.
+     * ``"false"`` - disable Intel Advanced optimizations.
+
+    If this attribute is not specified, the default is ``"false"``.
+.. END INTEL_CUSTOMIZATION
+
 ``alignstack(<n>)``
     This attribute indicates that, when emitting the prologue and
     epilogue, the backend should forcibly align the stack pointer.

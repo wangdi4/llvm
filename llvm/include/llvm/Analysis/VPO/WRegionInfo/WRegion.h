@@ -1156,6 +1156,7 @@ private:
   // No need to represent depend clause here; it's moved to the implicit task
   IsDevicePtrClause IsDevicePtr;
   SubdeviceClause Subdevice;
+  InteropClause Interop;
   EXPR Device;
   EXPR Nocontext;
   EXPR Novariants;
@@ -1179,6 +1180,7 @@ protected:
 public:
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
+  DEFINE_GETTER(InteropClause,      getInterop,      Interop)
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const override { return Device; }
@@ -1352,6 +1354,7 @@ private:
   int Collapse;
   bool Nogroup;
   WRNLoopInfo WRNLI;
+  bool IsStrict = false;
 
   // These taskloop clauses are also clauses in the parent class WRNTaskNode
   //   SharedClause Shared;
@@ -1378,6 +1381,7 @@ protected:
   void setSchedCode(int N) override { SchedCode = N; }
   void setCollapse(int N) override { Collapse = N; }
   void setNogroup(bool B) override { Nogroup = B; }
+  void setIsStrict(bool B) override { IsStrict = B; }
 
   // Defined in parent class WRNTaskNode
   //   void setDepArray(EXPR E) override { DepArray = E; }
@@ -1400,6 +1404,7 @@ public:
   int getCollapse() const override { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   bool getNogroup() const override { return Nogroup; }
+  bool getIsStrict() const override { return IsStrict; }
 
   // Defined in parent class WRNTaskNode
   //   DEFINE_GETTER(SharedClause,       getShared,   Shared)

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -263,7 +263,8 @@ Typical components:\n\
 #if INTEL_CUSTOMIZATION
   errs() << "\
 Intel-specific options:\n\
-  --intel-features  List of all Intel features currently enabled.\n";
+  --intel-features  List of all Intel features currently enabled.\n\
+  --opaque-ptr-mode Print opaque pointer mode of LLVM tree (ON or OFF)\n";
 #endif  // INTEL_CUSTOMIZATION
   if (ExitWithFailure)
     exit(1);
@@ -602,6 +603,12 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
       } else if (Arg == "--intel-features") {
         OS << LLVM_INTEL_FEATURES << '\n';
+      } else if (Arg == "--opaque-ptr-mode") {
+#if defined(ENABLE_OPAQUE_POINTERS)
+        OS << "ON\n";
+#else
+        OS << "OFF\n";
+#endif  // ENABLE_OPAQUE_POINTERS
 #endif  // INTEL_CUSTOMIZATION
       } else if (Arg == "--host-target") {
         OS << Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE) << '\n';

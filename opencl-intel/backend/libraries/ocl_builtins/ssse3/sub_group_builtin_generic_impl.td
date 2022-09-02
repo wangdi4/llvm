@@ -20,11 +20,6 @@ code AssumeUniform3_2 = [{
     return $Func($Arg0VarName, $Arg1VarName[0], $Arg2VarName);
   }];
 
-// Number of params = 2, assuming the second parameter as uniform
-code AssumeUniform2_2 = [{
-    return $Func($Arg0VarName, $Arg1VarName[0]);
-  }];
-
 // All
 code generic_all = [{
 for (int i = 0; i < $VecLength; ++i) {
@@ -65,10 +60,11 @@ OclBuiltinImpl sub_group_broadcast_cs_generic = OclBuiltinImpl<sub_group_broadca
 // Broadcast assume uniform wrapper
 OclBuiltinImpl sub_group_broadcast_assume_uniform_vec_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec.Types, 0, AssumeUniform3_2>;
 OclBuiltinImpl sub_group_broadcast_assume_uniform_vec_cs_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended, sub_group_broadcast_assume_uniform_extended.Types, 0, AssumeUniform2_2>;
 OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx, sub_group_broadcast_assume_uniform_extended_avx.Types, 0, AssumeUniform3_2>;
 OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx2_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx2, sub_group_broadcast_assume_uniform_extended_avx2.Types, 0, AssumeUniform3_2>;
 OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx512_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx512, sub_group_broadcast_assume_uniform_extended_avx512.Types, 0, AssumeUniform3_2>;
+OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_x32_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_x32, sub_group_broadcast_assume_uniform_extended_x32.Types, 0, AssumeUniform3_2>;
+OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_x64_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_x64, sub_group_broadcast_assume_uniform_extended_x64.Types, 0, AssumeUniform3_2>;
 
 // Reduce add
 code generic_reduce_add = [{

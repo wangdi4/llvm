@@ -70,18 +70,19 @@
 ; CHECK-NEXT:     br i1 [[VP15]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
+; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP13]] = sext i32 [[VP7]] to i64
 ; CHECK-NEXT:       i64 [[VP18:%.*]] = compress-expand-index i64 [[VP13]] i64 9
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B0]] i64 [[VP18]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP10]] = add i32 [[VP7]] i32 2
 ; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP10]] i32 3
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP20:%.*]] = compress-expand-index i64 [[VP12]] i64 9
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP20]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP11]] = add i32 4 i32 [[VP9]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
@@ -120,25 +121,20 @@
 ; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC70:%.*]] = (<8 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[DOTVEC70]] != 0
-; CHECK-NEXT:        |   [[DOTVEC90]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC80]]}
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC90]],  undef,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC80]])
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i8([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST100:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
+; CHECK-NEXT:        |   [[DOTVEC90]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC80]]}
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC90]],  undef,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS0]],  &((<8 x double*>)([[B0]])[%add]),  0,  [[CAST100]])
 ; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  undef,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD120:%.*]] = [[SHUFFLE110]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
 ; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC90]],  undef,  [[DOTVEC80]])
-; CHECK-NEXT:        |   [[CAST140:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC80]])
-; CHECK-NEXT:        |   [[POPCNT150:%.*]] = @llvm.ctpop.i8([[CAST140]])
-; CHECK-NEXT:        |   [[SHL160:%.*]] = -1  <<  [[POPCNT150]]
-; CHECK-NEXT:        |   [[XOR170:%.*]] = [[SHL160]]  ^  -1
-; CHECK-NEXT:        |   [[CAST180:%.*]] = bitcast.i8.<8 x i1>([[XOR170]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST180]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST100]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP50]] + 9 : [[PHI_TEMP50]]
 ; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v8i32([[SELECT0]])
 ; CHECK-NEXT:        |   [[INSERT190:%.*]] = insertelement zeroinitializer,  [[VEC_REDUCE0]],  0
@@ -160,7 +156,7 @@
 ; CHECK-NEXT:        [[MERGE_BLK0]].40:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
 ; CHECK-NEXT:        [[J_0140]] = [[PHI_TEMP10]]
-; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK-NEXT:        |   if (([[C0]])[i1] != 0)
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[TMP1]] = ([[A0]])[i1]
@@ -176,8 +172,9 @@
 ; CHECK-NEXT:  END REGION
 
 ; CM4: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM4: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
-; CM4: Cost 10 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
 ; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
 ; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
 ; CM4: Block total cost includes GS Cost: 8
@@ -185,8 +182,9 @@
 ; CM4: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
 
 ; CM8: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
+; CM8: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
-; CM8: Cost 14 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
 ; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
 ; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
 ; CM8: Block total cost includes GS Cost: 16

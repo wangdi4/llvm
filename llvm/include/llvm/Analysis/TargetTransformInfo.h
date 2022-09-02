@@ -1417,6 +1417,11 @@ public:
     AO_TargetNumLevels // This is a sentinel to mark the end of the list
                        // and to be used as a terminator in iterators.
   };
+
+  /// \returns true if TargetOption::IntelAdvancedOptim is enabled
+  /// on the target architecture.
+  bool isIntelAdvancedOptimEnabled() const;
+
   /// \returns true if the level of optimization would be desirable
   /// based on the target architecture.
   bool isAdvancedOptEnabled(AdvancedOptLevel AO) const;
@@ -1970,6 +1975,7 @@ public:
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
 #if INTEL_CUSTOMIZATION
+  virtual bool isIntelAdvancedOptimEnabled() const = 0;
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
   virtual bool isLibIRCAllowed() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
@@ -2638,6 +2644,10 @@ public:
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
 #if INTEL_CUSTOMIZATION
+  bool isIntelAdvancedOptimEnabled() const override {
+    return Impl.isIntelAdvancedOptimEnabled();
+  }
+
   bool isAdvancedOptEnabled(AdvancedOptLevel AO) const override {
     return Impl.isAdvancedOptEnabled(AO);
   }

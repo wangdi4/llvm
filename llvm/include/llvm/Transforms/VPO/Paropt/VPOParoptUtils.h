@@ -1200,7 +1200,7 @@ public:
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
-  /// before `__kmpc_taskloop` or `__kmpc_omp_task`.
+  /// before `__kmpc_taskloop_5` or `__kmpc_omp_task`.
   static void
   genF90DVInitForItemsInTaskPrivatesThunk(WRegionNode *W, Value *KmpPrivatesGEP,
                                           StructType *KmpPrivatesTy,
@@ -1337,9 +1337,9 @@ public:
                                                int AsyncObjTySize,
                                                Instruction *InsertPt);
 
-  /// Generate a call to `__kmpc_taskloop`. Example:
+  /// Generate a call to `__kmpc_taskloop_5`. Example:
   /// \code
-  ///   void @__kmpc_taskloop(
+  ///   void @__kmpc_taskloop_5(
   ///          { i32, i32, i32, i32, i8* }* %loc,
   ///          i32 %tid,
   ///          i8* %thunk_temp,
@@ -1352,6 +1352,7 @@ public:
   ///                     // 1: grainsize is used
   ///                     // 2: num_tasks is used
   ///          i64 grainsize,
+  ///          i32 modifier,
   ///          i8* task_dup)
   /// \endcode
   static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
@@ -1792,6 +1793,22 @@ public:
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
 
+  /// Generate a call to
+  /// \code
+  ///   int64 omp_get_interop_int(omp_interop_t interop,
+  ///                             omp_get_interop_int property_id,
+  ///                             int *return_code)
+  /// \endcode
+  static CallInst *genOmpGetInteropInt(Value *InteropObj, int PropertyID,
+                                       Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   omp_get_interop_int(interop, omp_ipr_device_num, nullptr);
+  /// \endcode
+  /// which returns the device number of the interop obj
+  static CallInst *genOmpGetInteropDeviceNum(Value *InteropObj,
+                                             Instruction *InsertPt);
 
   /// Generate a call to
   /// \code

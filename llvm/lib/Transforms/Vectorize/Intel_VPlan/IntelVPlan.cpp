@@ -445,6 +445,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "compress-expand-index";
   case VPInstruction::CompressExpandIndexInc:
     return "compress-expand-index-inc";
+  case VPInstruction::CompressExpandMask:
+    return "compress-expand-mask";
   case VPInstruction::RunningInclusiveReduction:
     return "running-inclusive-reduction";
   case VPInstruction::RunningExclusiveReduction:

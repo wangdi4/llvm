@@ -131,7 +131,7 @@ define i32 @main() {
 ; HIR-NEXT:        [[EXTRACTED_PRIV0:%.*]] = extractelement [[DOTVEC20]],  15
 ; HIR-NEXT:        ([[X0]])[0] = [[EXTRACTED_PRIV0]]
 ;
-; HIR:             + DO i1 = [[PHI_TEMP0:%.*]], 127, 16   <DO_LOOP> <nounroll> <novectorize>
+; HIR:             + DO i1 = [[PHI_TEMP0:%.*]], 127, 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
 ; HIR-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u 128
 ; HIR-NEXT:        |   (<16 x i32>*)([[PRIV_MEM80:%.*]])[0] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1, Mask = @{[[DOTVEC100]]}
 ; HIR-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u 128

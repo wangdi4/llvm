@@ -246,7 +246,7 @@ protected:
   void handleQual(const ClauseSpecifier &ClauseInfo);
 
   /// Update WRN for clauses with one operand.
-  void handleQualOpnd(int ClauseID, Value *V);
+  void handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V);
 
   /// Update WRN for clauses with operand list.
   void handleQualOpndList(const Use *Args, unsigned NumArgs,
@@ -289,6 +289,7 @@ public:
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
   bool canHaveSubdevice() const;
+  bool canHaveInterop() const;
   bool canHaveInteropAction() const;
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
@@ -376,6 +377,7 @@ public:
   virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual FlushSet &getFlush()               {WRNERROR(QUAL_OMP_FLUSH);       }
+  virtual InteropClause &getInterop()        {WRNERROR(QUAL_OMP_INTEROP);     }
   virtual IsDevicePtrClause &getIsDevicePtr()
                                             {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual LastprivateClause &getLpriv()      {WRNERROR(QUAL_OMP_LASTPRIVATE); }
@@ -426,6 +428,8 @@ public:
   virtual const FirstprivateClause &getFpriv() const
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
+  virtual const InteropClause &getInterop() const
+                                           {WRNERROR(QUAL_OMP_INTEROP);     }
   virtual const IsDevicePtrClause &getIsDevicePtr() const
                                           {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual const LastprivateClause &getLpriv() const
@@ -504,6 +508,8 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
+  virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
+  virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}

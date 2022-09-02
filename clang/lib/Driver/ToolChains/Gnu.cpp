@@ -675,43 +675,6 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
   }
   addIntelLib("-lirc", TC, CmdArgs, Args);
 }
-
-bool Generic_GCC::detectGCCPIEDefault() const {
-  auto GCCBinary = llvm::sys::findProgramByName("gcc");
-
-  if (GCCBinary.getError())
-    return false;
-
-  llvm::SmallString<64> OutputFile(
-      getDriver().GetTemporaryPath("gcc-enable-pie", "txt"));
-  llvm::FileRemover OutputRemover(OutputFile.c_str());
-  llvm::Optional<llvm::StringRef> Redirects[] = {
-      {""},
-      OutputFile.str(),
-      OutputFile.str(),
-  };
-
-  std::string ErrorMessage;
-  if (int Result = llvm::sys::ExecuteAndWait(
-          GCCBinary.get(), {GCCBinary.get(), "-v"}, {}, Redirects,
-          /*SecondsToWait*/ 0, /*MemoryLimit*/ 0, &ErrorMessage)) {
-    // Could not get the information, return false
-    return false;
-  }
-
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> OutputBuf =
-      llvm::MemoryBuffer::getFile(OutputFile.c_str());
-  if (!OutputBuf) {
-    // Could not capture output, return false
-    return false;
-  }
-
-  for (llvm::line_iterator LineIt(**OutputBuf); !LineIt.is_at_end(); ++LineIt) {
-    if (LineIt->str().find("enable-default-pie") != std::string::npos)
-      return true;
-  }
-  return false;
-}
 #endif // INTEL_CUSTOMIZATION
 
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
@@ -834,6 +797,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const bool HasCRTBeginEndFiles =
       ToolChain.getTriple().hasEnvironment() ||
       (ToolChain.getTriple().getVendor() != llvm::Triple::MipsTechnologies);
+#if INTEL_CUSTOMIZATION
+  // One of the Intel Classic compiler compatibilities is to check the PIE
+  // default of the gcc that the user is using with the compilation.  When
+  // it is PIE default, link in the crt*S objects (but do not set -pie).
+  const bool IsIntelPIE = ToolChain.detectGCCPIEDefault();
+#endif // INTEL_CUSTOMIZATION
 
   // Use of -fsycl-link creates an archive.
   if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
@@ -928,7 +897,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (!Args.hasArg(options::OPT_shared)) {
         if (Args.hasArg(options::OPT_pg))
           crt1 = "gcrt1.o";
-        else if (IsPIE)
+        else if (IsPIE || IsIntelPIE) // INTEL
           crt1 = "Scrt1.o";
         else if (IsStaticPIE)
           crt1 = "rcrt1.o";
@@ -963,7 +932,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           crtbegin = isAndroid ? "crtbegin_so.o" : "crtbeginS.o";
         else if (IsStatic)
           crtbegin = isAndroid ? "crtbegin_static.o" : "crtbeginT.o";
-        else if (IsPIE || IsStaticPIE)
+        else if (IsPIE || IsStaticPIE || IsIntelPIE) // INTEL
           crtbegin = isAndroid ? "crtbegin_dynamic.o" : "crtbeginS.o";
         else
           crtbegin = isAndroid ? "crtbegin_dynamic.o" : "crtbegin.o";
@@ -1239,7 +1208,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           const char *crtend;
           if (Args.hasArg(options::OPT_shared))
             crtend = isAndroid ? "crtend_so.o" : "crtendS.o";
-          else if (IsPIE || IsStaticPIE)
+          else if (IsPIE || IsStaticPIE || IsIntelPIE) // INTEL
             crtend = isAndroid ? "crtend_android.o" : "crtendS.o";
           else
             crtend = isAndroid ? "crtend_android.o" : "crtend.o";

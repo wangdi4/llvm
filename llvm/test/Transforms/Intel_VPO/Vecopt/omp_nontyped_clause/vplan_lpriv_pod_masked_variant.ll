@@ -157,7 +157,7 @@ define i32 @main() {
 ;
 ; HIR:             [[X0:%.*]] = extractelement [[LIVEOUTCOPY40]],  15
 ;
-; HIR:             + DO i1 = [[PHI_TEMP20:%.*]], 127, 16   <DO_LOOP> <nounroll> <novectorize>
+; HIR:             + DO i1 = [[PHI_TEMP20:%.*]], 127, 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
 ; HIR-NEXT:        |   [[DOTVEC150:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u 128
 ; HIR-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC150]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1 : [[PHI_TEMP0:%.*]];
 ; HIR-NEXT:        |   [[DOTVEC160:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u 128

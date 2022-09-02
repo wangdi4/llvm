@@ -1608,18 +1608,18 @@ CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
 //   int __tgt_use_interop(omp_interop_t interop)
 CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
                                            Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    LLVMContext& C = F->getContext();
-    Type* Int32Ty = Type::getInt32Ty(C);
-    Type* Int8PtrTy = Type::getInt8PtrTy(C);
+  BasicBlock* B = InsertPt->getParent();
+  Function* F = B->getParent();
+  LLVMContext& C = F->getContext();
+  Type* Int32Ty = Type::getInt32Ty(C);
+  Type* Int8PtrTy = Type::getInt8PtrTy(C);
 
-    assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
-        "InteropObj expected to be void*");
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
 
-    CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
-                             {Int8PtrTy}, InsertPt);
-    return Call;
+  CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
+                           {Int8PtrTy}, InsertPt);
+  return Call;
 }
 
 // Generate a call to
@@ -1639,15 +1639,49 @@ CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
 // Generate a call to
 //   int omp_get_default_device()
 CallInst* VPOParoptUtils::genOmpGetDefaultDevice(Instruction* InsertPt) {
-    BasicBlock* B = InsertPt->getParent();
-    Function* F = B->getParent();
-    Module* M = F->getParent();
-    LLVMContext& C = F->getContext();
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
 
-    Type* Int32Ty = Type::getInt32Ty(C); // return type
+  Type *Int32Ty = Type::getInt32Ty(C); // return type
 
-    CallInst* Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
-    return Call;
+  CallInst *Call = genEmptyCall(M, "omp_get_default_device", Int32Ty, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int64 omp_get_interop_int(omp_interop_t       interop,     // void*
+//                             omp_get_interop_int property_id, // int
+//                             int *return_code)                // (unused)
+CallInst *VPOParoptUtils::genOmpGetInteropInt(Value *InteropObj, int PropertyID,
+                                              Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  Type *Int64Ty = Builder.getInt64Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  PointerType *Int32PtrTy = PointerType::getUnqual(Int32Ty);
+
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
+
+  Value *PropertyIDVal = Builder.getInt32(PropertyID);
+
+  // Ignoring the return code argument for now. Pass a nullptr to the call.
+  Value *RetCode = Constant::getNullValue(Int32PtrTy);
+
+  CallInst *Call = genCall("omp_get_interop_int", Int64Ty,
+                           {InteropObj, PropertyIDVal, RetCode   },
+                           {Int8PtrTy,  Int32Ty,       Int32PtrTy}, InsertPt);
+  return Call;
+}
+
+// Generate a call to omp_get_interop_int(interop, omp_ipr_device_num, nullptr)
+// which extracts the device num (property_id = omp_ipr_device_num = -5) and
+// returns it as an i64 value.
+CallInst *VPOParoptUtils::genOmpGetInteropDeviceNum(Value *InteropObj,
+                                                    Instruction *InsertPt) {
+  return genOmpGetInteropInt(InteropObj, /*omp_ipr_device_num=*/ -5, InsertPt);
 }
 
 // Generate a call to
@@ -1926,8 +1960,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
 }
 
 // This function generates a call as follows.
-//    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
-//    i64*, i64*, i64, i32, i32, i64, i8*)
+//    void @__kmpc_taskloop_5({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
+//    i64*, i64*, i64, i32, i32, i64, i32, i8*)
 // The generated code is based on the assumption that the loop is normalized
 // and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
@@ -1939,6 +1973,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Function *FnTaskDup) {
   IRBuilder<> Builder(InsertPt);
   Value *Zero = Builder.getInt32(0);
+  Value *One = Builder.getInt32(1);
   Type *Int64Ty = Builder.getInt64Ty();
   Type *Int32Ty = Builder.getInt32Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
@@ -2009,22 +2044,22 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       Loc,
       Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
       TaskAlloc,
-      Cmp == nullptr ? Builder.getInt32(1)
-                     : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
+      Cmp == nullptr ? One : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
       LBGep,
       UBGep,
       STVal,
       Zero,
       Builder.getInt32(W->getSchedCode()),
       GrainSizeV,
+      W->getIsStrict() ? One : Zero,
       (FnTaskDup == nullptr) ? ConstantPointerNull::get(Int8PtrTy)
                              : Builder.CreateBitCast(FnTaskDup, Int8PtrTy)};
   Type *TypeParams[] = {Loc->getType(), Int32Ty,    Int8PtrTy, Int32Ty,
                         Int64PtrTy,     Int64PtrTy, Int64Ty,   Int32Ty,
-                        Int32Ty,        Int64Ty,    Int8PtrTy};
+                        Int32Ty,        Int64Ty,    Int32Ty,   Int8PtrTy};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
-  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
+  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop_5";
   Function *FnTaskLoop = M->getFunction(FnName);
 
   if (!FnTaskLoop)
@@ -7013,7 +7048,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
     return true;
   };
-#endif // INTEL_CUSTOMIZATION`
+#endif // INTEL_CUSTOMIZATION
 
   if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
 #if INTEL_CUSTOMIZATION

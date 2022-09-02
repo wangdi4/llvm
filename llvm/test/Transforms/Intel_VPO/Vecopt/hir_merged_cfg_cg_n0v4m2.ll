@@ -99,7 +99,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
 ; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1>
 ; CHECK-NEXT:        [[LOOP_UB90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
 ; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC100]]}
 ; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))

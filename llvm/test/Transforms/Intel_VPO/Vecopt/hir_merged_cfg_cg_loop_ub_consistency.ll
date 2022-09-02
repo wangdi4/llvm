@@ -67,7 +67,7 @@
 ; CHECK:        |      }
 ; CHECK:        |      [[MERGE_AFTER_MAIN]]:
 ; CHECK:        |      [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
-; CHECK:        |      + DO i64 i2 = [[LB_TMP0]], [[TMP1]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:        |      + DO i64 i2 = [[LB_TMP0]], [[TMP1]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:        |      |   ([[TMP0]])[i2] = i2
 ; CHECK:        |      + END LOOP
 ; CHECK:        |

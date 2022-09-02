@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; So that *seems* to be fine.
 
 ; CHECK-DAG: @foo = ifunc i32 (%struct*), i32 (%struct*)* ()* @foo.resolver
-; CHECK-DAG: define i32 @foo.A(%struct* byval(%struct) %s) !llvm.acd.clone !0 {
+; CHECK-DAG: define i32 @foo.A(%struct* byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
 ; CHECK-DAG: define i32 @foo.b(%struct* byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
 ; CHECK-DAG: define i32 (%struct*)* @foo.resolver() {
 ; CHECK-DAG: ret i32 (%struct*)* @foo.b

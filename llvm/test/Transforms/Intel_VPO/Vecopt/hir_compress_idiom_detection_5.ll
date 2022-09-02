@@ -144,7 +144,7 @@
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP40]]
 ; CHECK-NEXT:        [[R_0150]] = [[PHI_TEMP20]]
 ; CHECK-NEXT:        [[C_0140]] = [[PHI_TEMP0]]
-; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK-NEXT:        |   if (([[A0]])[i1] != 0)
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[TMP1:%.*]] = ([[F0]])[%c.014]

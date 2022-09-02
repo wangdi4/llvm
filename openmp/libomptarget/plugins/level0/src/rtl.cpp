@@ -2973,24 +2973,43 @@ struct RTLDeviceInfoTy {
     getTLS()->setSubDeviceCode(Code);
   }
 
-  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
-     if (RegisterHostPointer) {
-       using FnTy = int (*)(ze_driver_handle_t, void *, size_t);
-       auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
-       return  Fn(Driver, Ptr, Size);
-     }
-     return false;
-  }
+ //  Prototype for Register and unRegister functions from zex_driver.h
+ //
+ //  ze_result_t ZE_APICALL
+ //  zexDriverImportExternalPointer(
+ //    ze_driver_handle_t hDriver,
+ //    void *ptr,
+ //    size_t size
+ //  );
+ //
+ //  ze_result_t ZE_APICALL
+ //  zexDriverReleaseImportedPointer(
+ //    ze_driver_handle_t hDriver,
+ //    void *ptr
+ //  );
+ //
+   bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+      if (RegisterHostPointer) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+        auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+        DP("Registering Host Pointer: " DPxMOD " Size  %zu\n", DPxPTR(Ptr), Size);
+        return  (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+      }
+      return false;
+   }
 
-  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
-     if (UnRegisterHostPointer) {
-       using FnTy = void(*)(ze_driver_handle_t, void *);
-       auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
-       Fn(Driver, Ptr);
-       return true;
-     }
-     return false;
-  }
+   bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+      if (UnRegisterHostPointer) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
+        auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+        DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
+        ze_result_t RC = Fn(Driver, Ptr);
+        if ( RC == ZE_RESULT_SUCCESS)
+           return true;
+      }
+      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
+      return false;
+   }
 
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
@@ -4888,7 +4907,7 @@ int32_t RTLDeviceInfoTy::findDevices() {
      RegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zexDriverReleaseImportExternalPointer", &UnRegisterHostPointer);
+          "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
      UnRegisterHostPointer = nullptr;
 

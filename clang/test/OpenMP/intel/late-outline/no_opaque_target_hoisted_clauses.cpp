@@ -187,4 +187,29 @@ void barfoo()
   #pragma omp target teams distribute num_teams(local) thread_limit(local+2) depend(in:local)
   for(int i=0; i<16; ++i) { }
 }
+
+struct C {
+  int NT;
+  void run0();
+  void run1();
+};
+
+//CHECK: define{{.*}}run0
+void C::run0() {
+  //CHECK: "DIR.OMP.TARGET"
+  //CHECK: "DIR.OMP.TEAMS"
+  //CHECK-SAME: "QUAL.OMP.NUM_TEAMS"(i32*
+  #pragma omp target teams loop num_teams(NT)
+  for (auto i = 0; i < NT; ++i) {
+  }
+}
+//CHECK: define{{.*}}run1
+void C::run1() {
+  //CHECK: "DIR.OMP.TARGET"
+  //CHECK: "DIR.OMP.TEAMS"
+  //CHECK-SAME: "QUAL.OMP.NUM_TEAMS"(i32*
+  #pragma omp target teams distribute parallel for num_teams(NT)
+  for (auto i = 0; i < NT; ++i) {
+  }
+}
 // end INTEL_COLLAB

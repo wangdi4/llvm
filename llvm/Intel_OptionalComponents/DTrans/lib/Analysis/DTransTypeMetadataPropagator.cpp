@@ -375,5 +375,36 @@ void DTransTypeMetadataPropagator::setGlobUsedVarDTransMetadata(
   NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
 }
 
+// Create new intel_dtrans_type metadata for NewGV which is created during
+// IRMover.
+//   Type of NewGV: [EltTy x NewArrSize]
+void DTransTypeMetadataPropagator::setGlobAppendingVarDTransMetadata(
+    const GlobalVariable *SrcGV, GlobalVariable *DstGV, GlobalVariable *NewGV,
+    uint64_t NewArrSize) {
+  // Makes sure both SrcGV and DstGV have intel_dtrans_type metadata.
+  MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*SrcGV);
+  if (!MD)
+    return;
+  if (DstGV) {
+    MDNode *DMD = dtransOP::TypeMetadataReader::getDTransMDNode(*DstGV);
+    if (!DMD)
+      return;
+  }
+  assert(isa<MDString>(MD->getOperand(0)) && "Expected MD String");
+  assert(cast<MDString>(MD->getOperand(0))->getString().equals("A") &&
+         "Expected Array");
+
+  LLVMContext &Ctx = NewGV->getType()->getContext();
+  auto *RefMD = dyn_cast<MDNode>(MD->getOperand(2));
+  assert(RefMD && "Expected metadata constant");
+
+  // Create MD for [EltTy x NewArrSize]
+  auto ArrMD = MDNode::get(Ctx, {MDString::get(Ctx, "A"),
+                                 ConstantAsMetadata::get(ConstantInt::get(
+                                     Type::getInt32Ty(Ctx), NewArrSize)),
+                                 RefMD});
+  NewGV->setMetadata(llvm::dtransOP::MDDTransTypeTag, ArrMD);
+}
+
 } // end namespace dtransOP
 } // end namespace llvm

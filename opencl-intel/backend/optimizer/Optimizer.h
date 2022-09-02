@@ -130,6 +130,8 @@ protected:
 
   intel::DebuggingServiceType m_debugType;
   bool m_UseTLSGlobals;
+
+  bool UnrollLoops;
 };
 
 /**

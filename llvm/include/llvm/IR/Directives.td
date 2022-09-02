@@ -335,6 +335,7 @@ def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
 def "QUAL.OMP.DATA" : Clause;
 def "QUAL.OMP.SIZES" : Clause;
+def "QUAL.OMP.INTEROP" : Clause;
 def "QUAL.OMP.INCLUSIVE" : Clause;
 def "QUAL.OMP.EXCLUSIVE" : Clause;
 #if INTEL_CUSTOMIZATION

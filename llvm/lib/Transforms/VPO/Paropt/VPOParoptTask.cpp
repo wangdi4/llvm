@@ -1230,7 +1230,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
 }
 
 // Save the loop lower upper bound, upper bound and stride for the use
-// by the call __kmpc_taskloop
+// by the call __kmpc_taskloop_5
 void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
                                                     AllocaInst *&LBPtr,
                                                     AllocaInst *&UBPtr,
@@ -1827,7 +1827,7 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                         InsertPt);
 }
 
-// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop or
+// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 or
 // __kmpc_omp_task and the corresponding outlined function
 //
 // Based on the presence/absence of the IF and the DEPEND clauses,

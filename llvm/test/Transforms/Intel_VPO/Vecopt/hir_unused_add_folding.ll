@@ -15,10 +15,10 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK:                + DO i1 = 0, [[LOOP_UB0:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   (<4 x i64>*)([[A0:%.*]])[i1] = (-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3> + 3)/u2
 ; CHECK-NEXT:           + END LOOP
-; CHECK:                + DO i1 = [[PHI_TEMP50:%.*]], [[LOOP_UB190:%.*]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:                + DO i1 = [[PHI_TEMP50:%.*]], [[LOOP_UB190:%.*]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:           |   (<2 x i64>*)([[A0]])[i1] = (-1 * i1 + -1 * <i64 0, i64 1> + 3)/u2
 ; CHECK-NEXT:           + END LOOP
-; CHECK:                + DO i1 = [[LB_TMP0:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                + DO i1 = [[LB_TMP0:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:           |   [[ADD0:%.*]] = i1  +  -3
 ; CHECK-NEXT:           |   ([[A0]])[i1] = ([[ADD0]] /u -2)
 ; CHECK-NEXT:           + END LOOP
@@ -30,11 +30,11 @@ define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK:                + DO i1 = 0, [[LOOP_UB450:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   [[DOTVEC460:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  -3
 ; CHECK-NEXT:           |   [[DOTSCAL0:%.*]] = i1  +  -3
-; CHECK:                + DO i1 = [[PHI_TEMP400:%.*]], [[LOOP_UB570:%.*]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK:                + DO i1 = [[PHI_TEMP400:%.*]], [[LOOP_UB570:%.*]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NEXT:           |   [[DOTVEC580:%.*]] = i1 + <i64 0, i64 1>  +  -3
 ; CHECK-NEXT:           |   [[DOTSCAL590:%.*]] = i1  +  -3
 ; CHECK-NEXT:           + END LOOP
-; CHECK:                + DO i1 = [[LB_TMP300:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                + DO i1 = [[LB_TMP300:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:           |   [[ADD0:%.*]] = i1  +  -3
 ; CHECK-NEXT:           + END LOOP
 ; CHECK:                [[PHI_TEMP660:%.*]] = [[T0]] + -1
