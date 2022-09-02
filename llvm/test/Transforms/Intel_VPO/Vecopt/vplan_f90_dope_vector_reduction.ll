@@ -16,7 +16,7 @@ define void @cq417019b_IP_test_() {
 ; CHECK-NEXT:    [[B_35_RED0:%.*]] = alloca %"QNCA_a0$i32*$rank1$", align 8
 ; CHECK-NEXT:    br label [[BB0:%.*]]
 ; CHECK:       omp.pdo.body62.preheader:
-; CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV"(%"QNCA_a0$i32*$rank1$"* [[B_35_RED0]]) ]
+; CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(%"QNCA_a0$i32*$rank1$"* [[B_35_RED0]], %"QNCA_a0$i32*$rank1$" zeroinitializer, i32 1) ]
 ; CHECK-NEXT:    br label [[OMP_PDO_BODY620:%.*]]
 ; CHECK:       omp.pdo.cond61.omp.pdo.epilog63_crit_edge:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.SIMD"() ]
@@ -49,7 +49,7 @@ omp.pdo.body62.lr.ph:                             ; preds = %DIR.OMP.LOOP.1.spli
   br label %omp.pdo.body62.preheader
 
 omp.pdo.body62.preheader:                         ; preds = %omp.pdo.body62.lr.ph
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV"(%"QNCA_a0$i32*$rank1$"* %B.35.red) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(%"QNCA_a0$i32*$rank1$"* %B.35.red, %"QNCA_a0$i32*$rank1$" zeroinitializer, i32 1) ]
   br label %omp.pdo.body62
 
 omp.pdo.body62:                                   ; preds = %omp.pdo.body62.preheader, %loop_exit71

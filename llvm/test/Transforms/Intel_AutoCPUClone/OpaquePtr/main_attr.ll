@@ -11,7 +11,7 @@
 ; CHECK-DAG: @main.a() #1 !llvm.acd.clone
 ; CHECK-DAG: @main.resolver
 
-; CHECK: attributes #0 = { mustprogress nofree norecurse nosync nounwind readnone willreturn }
+; CHECK: attributes #0 = { mustprogress nofree norecurse nosync nounwind readnone willreturn
 ; CHECK: attributes #1 = { mustprogress nofree norecurse nosync nounwind readnone willreturn 
 
 

@@ -121,6 +121,11 @@
 ;CHECK-NEXT:         Optimization Remark Emitter
 ;CHECK-NEXT:         VPO Work-Region Information
 ;CHECK-NEXT:     FunctionPass Manager
+; INTEL_CUSTOMIZATION
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT:       VPO Directive Cleanup
 ;CHECK-NEXT:       VPO CFG simplification
 ;CHECK-NEXT:       Dominator Tree Construction

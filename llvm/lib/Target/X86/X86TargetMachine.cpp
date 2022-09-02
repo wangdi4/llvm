@@ -309,6 +309,17 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   StringRef FS =
       FSAttr.isValid() ? FSAttr.getValueAsString() : (StringRef)TargetFS;
 
+#if INTEL_CUSTOMIZATION
+  // FIXME: This customizations needs to go away once TargetOptions is
+  // properly represented on the functions and not on the TargetMachines.
+
+  // Enable IntelAdvanceOptim for the auto-cpu-dispatch generated
+  // Intel-processor-targeting clones. Disable IntelAdvancedOptim
+  // for the "generic" clone if targeting "x86-64".
+  if (F.hasMetadata("llvm.acd.clone"))
+    Options.IntelAdvancedOptim = F.getFnAttribute("advanced-optim").getValueAsBool();
+#endif // INTEL_CUSTOMIZATION
+
   SmallString<512> Key;
   // The additions here are ordered so that the definitely short strings are
   // added first so we won't exceed the small size. We append the

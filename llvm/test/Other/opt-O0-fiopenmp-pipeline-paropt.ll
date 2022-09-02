@@ -146,6 +146,9 @@
 ;CHECK-NEXT:       Inliner for always_inline functions
 ;CHECK-NEXT:     A No-Op Barrier Pass
 ;CHECK-NEXT:     FunctionPass Manager
+;CHECK-NEXT:      Dominator Tree Construction
+;CHECK-NEXT:      Natural Loop Information
+;CHECK-NEXT:      VPO CFGRestructuring
 ;CHECK-NEXT:      VPO Directive Cleanup
 ;CHECK-NEXT:      VPO CFG simplification
 ;CHECK-NEXT:      Dominator Tree Construction

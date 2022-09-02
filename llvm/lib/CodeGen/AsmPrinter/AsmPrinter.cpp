@@ -3537,15 +3537,9 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
     return emitGlobalConstantStruct(DL, CVS, AP, BaseCV, Offset, AliasList);
 
   if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV)) {
-#if INTEL_CUSTOMIZATION
-    // TODO: upstream to llvm.org together with
-    // test/CodeGen/X86/ConstantGlobalBlock.ll.
-
-    // Look through bitcasts and address space casts, which might not be able
-    // to be MCExpr'ized (e.g. of vectors).
-    if (CE->getOpcode() == Instruction::BitCast ||
-        CE->getOpcode() == Instruction::AddrSpaceCast)
-#endif // INTEL_CUSTOMIZATION
+    // Look through bitcasts, which might not be able to be MCExpr'ized (e.g. of
+    // vectors).
+    if (CE->getOpcode() == Instruction::BitCast)
       return emitGlobalConstantImpl(DL, CE->getOperand(0), AP);
 
     if (Size > 8) {

@@ -2480,6 +2480,59 @@ OclBuiltinImpl sub_group_broadcast_ext_avx512_v256 =
      return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
   }]>;
 
+defvar broadcast_ext_base_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
+defvar broadcast_ext_code =
+[{
+  $Arg0BaseType$VSize temp = *(($Arg0BaseType$VSize*)&$Arg0VarName + $Arg1VarName);
+  return ($ReturnType)$Result;
+}];
+
+defvar x32_count = Range<0, 32>.Tout;
+defvar x32_result_vector = "(" # !interleave(!foreach(i, x32_count, "temp"), ", ")# ")";
+
+defvar x32_v64_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 2>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x32_v64 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v64_types, 0, broadcast_ext_code, [["$VSize", "2"], ["$Result", x32_result_vector]]>;
+
+defvar x32_v96_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 3>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x32_v96 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v96_types, 0, broadcast_ext_code, [["$VSize", "3"], ["$Result", x32_result_vector]]>;
+
+defvar x32_v128_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 4>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x32_v128 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v128_types, 0, broadcast_ext_code, [["$VSize", "4"], ["$Result", x32_result_vector]]>;
+
+defvar x32_v256_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 8>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x32_v256 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v256_types, 0, broadcast_ext_code, [["$VSize", "8"], ["$Result", x32_result_vector]]>;
+
+defvar x32_v512_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 16>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x32_v512 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v512_types, 0, broadcast_ext_code, [["$VSize", "16"], ["$Result", x32_result_vector]]>;
+
+defvar x64_count = Range<0, 64>.Tout;
+defvar x64_result_vector = "(" # !interleave(!foreach(i, x64_count, "temp"), ", ")# ")";
+
+defvar x64_v128_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 2>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x64_v128 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v128_types, 0, broadcast_ext_code, [["$VSize", "2"], ["$Result", x64_result_vector]]>;
+
+defvar x64_v192_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 3>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x64_v192 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v192_types, 0, broadcast_ext_code, [["$VSize", "3"], ["$Result", x64_result_vector]]>;
+
+defvar x64_v256_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 4>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x64_v256 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v256_types, 0, broadcast_ext_code, [["$VSize", "4"], ["$Result", x64_result_vector]]>;
+
+defvar x64_v512_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 8>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x64_v512 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v512_types, 0, broadcast_ext_code, [["$VSize", "8"], ["$Result", x64_result_vector]]>;
+
+defvar x64_v1024_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 16>.Tout;
+OclBuiltinImpl sub_group_broadcast_ext_x64_v1024 =
+  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v1024_types, 0, broadcast_ext_code, [["$VSize", "16"], ["$Result", x64_result_vector]]>;
+
 OclBuiltinImpl sub_group_shuffle_avx512v48gentype = OclBuiltinImpl<sub_group_shuffle_avx512, [v48i8, v48u8, v48i16, v48u16, v48f32,
                                                                                               v48i32, v48u32, v48i64, v48u64], 0,
   [{

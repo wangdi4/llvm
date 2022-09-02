@@ -1156,6 +1156,7 @@ private:
   // No need to represent depend clause here; it's moved to the implicit task
   IsDevicePtrClause IsDevicePtr;
   SubdeviceClause Subdevice;
+  InteropClause Interop;
   EXPR Device;
   EXPR Nocontext;
   EXPR Novariants;
@@ -1179,6 +1180,7 @@ protected:
 public:
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
+  DEFINE_GETTER(InteropClause,      getInterop,      Interop)
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const override { return Device; }

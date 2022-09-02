@@ -369,8 +369,6 @@ protected:
 #if INTEL_CUSTOMIZATION
   /// Check whether the target triple's architecture is spir.
   bool isTargetSpir() const { return getTriple().isSPIR(); }
-
-  bool detectGCCPIEDefault() const;
 #endif // INTEL_CUSTOMIZATION
 
   void PushPPaths(ToolChain::path_list &PPaths);

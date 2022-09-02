@@ -25,10 +25,10 @@
 ; CHECK: Recognizing AllocateBlock Functionality
 ; CHECK: Failed to recognize AllocateBlock function
 
-; The following will be enabled as CHECKs as more functionality is implemented
-; TODO: Recognizing CommitAllocation Functionality
-; TODO: Failed to recognize CommitAllocation function
+; CHECK: Recognizing CommitAllocation Functionality
+; CHECK: Failed to recognize CommitAllocation function
 
+; The following will be enabled as CHECKs as more functionality is implemented
 ; TODO: Recognizing Destructor Functionality
 ; TODO: Failed to recognize Destructor function
 

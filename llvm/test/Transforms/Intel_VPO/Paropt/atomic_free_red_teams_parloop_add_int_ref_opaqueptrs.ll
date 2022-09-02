@@ -25,6 +25,7 @@
 ; CHECK: store ptr addrspace(4) addrspacecast (ptr addrspace(3) @[[LOCAL_PTR:[^,]+]] to ptr addrspace(4)), ptr %[[REF_PTR]]
 ; CHECK: %[[SUM_CAST:sumref.map.ptr.tmp.ascast.red.ascast]] = addrspacecast ptr %[[SUM]] to ptr addrspace(4)
 ; CHECK: store ptr addrspace(4) %[[SUM_CAST]], ptr %[[SUM_REF]]
+; CHECK: %[[REF_VAL:[^,]+]] = load ptr addrspace(4), ptr %[[REF_PTR]]
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
@@ -35,7 +36,6 @@
 ; CHECK: %[[CMP1:[^,]+]] = icmp eq i64 %[[LOCAL_ID]], %[[IDX_PHI]]
 ; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
-; CHECK: %[[REF_VAL:[^,]+]] = load ptr addrspace(4), ptr %[[REF_PTR]]
 ; CHECK: %[[PRIV_SUM_VAL:[^,]+]] = load i32, ptr %sumref.map.ptr.tmp.ascast
 ; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, ptr addrspace(4) %[[REF_VAL]]
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_VAL]], %[[PRIV_SUM_VAL]]

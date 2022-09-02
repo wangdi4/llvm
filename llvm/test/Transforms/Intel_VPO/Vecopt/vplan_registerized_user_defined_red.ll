@@ -35,7 +35,7 @@ DIR.OMP.SIMD.0:
   br label %omp.region.entry
 
 omp.region.entry:                                 ; preds = %DIR.OMP.SIMD.0
-  %omp.token = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR"(double* %counter.red.ptr, i8* null, i8* null, void (double*, double*)* @.omp_combiner., i8* null), "QUAL.OMP.LINEAR:IV"(i32* %linear.iv.ptr, i32 1) ]
+  %omp.token = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:TYPED"(double* %counter.red.ptr, double zeroinitializer, i32 1, i8* null, i8* null, void (double*, double*)* @.omp_combiner., i8* null), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %linear.iv.ptr, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.region.entry

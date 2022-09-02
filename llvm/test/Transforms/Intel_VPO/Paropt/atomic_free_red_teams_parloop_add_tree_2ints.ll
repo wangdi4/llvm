@@ -61,10 +61,10 @@
 ; CHECK: %[[V1_LHS_FINAL:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR1:[^,]]]
 ; CHECK: %[[V1_FINAL:[^,]+]] = add i32 %[[V1_LHS_FINAL]], %[[V1_RHS_FINAL]]
 ; CHECK: store i32 %[[V1_FINAL]], ptr addrspace(3) @[[LOCAL_VAR1]]
-; CHECK: %[[LOCAL_LD1:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR1]]
-; CHECK: store i32 %[[LOCAL_LD1]], ptr addrspace(1) %[[LOCAL_SUM_GEP1]]
 ; CHECK: %[[LOCAL_LD:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR]]
 ; CHECK: store i32 %[[LOCAL_LD]], ptr addrspace(1) %[[LOCAL_SUM_GEP]]
+; CHECK: %[[LOCAL_LD1:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR1]]
+; CHECK: store i32 %[[LOCAL_LD1]], ptr addrspace(1) %[[LOCAL_SUM_GEP1]]
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
 ; CHECK: %[[SUM_PHI1:[^,]+]] = phi i32

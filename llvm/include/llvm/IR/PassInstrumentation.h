@@ -1,4 +1,21 @@
 //===- llvm/IR/PassInstrumentation.h ----------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -58,6 +75,7 @@
 
 namespace llvm {
 
+enum class LoopOptLimiter;     // INTEL
 class PreservedAnalyses;
 class StringRef;
 
@@ -76,6 +94,7 @@ public:
   // IRUnits in a safe way, and we might pursue that as soon as there is a
   // useful instrumentation that needs it.
   using BeforePassFunc = bool(StringRef, Any);
+  using BeforeLimitedPassFunc = bool(StringRef, LoopOptLimiter, Any);    // INTEL
   using BeforeSkippedPassFunc = void(StringRef, Any);
   using BeforeNonSkippedPassFunc = void(StringRef, Any);
   using AfterPassFunc = void(StringRef, Any, const PreservedAnalyses &);
@@ -91,6 +110,13 @@ public:
   /// Copying PassInstrumentationCallbacks is not intended.
   PassInstrumentationCallbacks(const PassInstrumentationCallbacks &) = delete;
   void operator=(const PassInstrumentationCallbacks &) = delete;
+
+#if INTEL_CUSTOMIZATION
+  template <typename CallableT>
+  void registerShouldRunLimitedPassCallback(CallableT C) {
+    ShouldRunLimitedPassCallbacks.emplace_back(std::move(C));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   template <typename CallableT>
   void registerShouldRunOptionalPassCallback(CallableT C) {
@@ -144,6 +170,12 @@ public:
 private:
   friend class PassInstrumentation;
 
+#if INTEL_CUSTOMIZATION
+  /// These are run on both required and optional passes. They return false when
+  /// a limited pass should be skipped.
+  SmallVector<llvm::unique_function<BeforeLimitedPassFunc>, 4>
+      ShouldRunLimitedPassCallbacks;
+#endif // INTEL_CUSTOMIZATION
   /// These are only run on passes that are not required. They return false when
   /// an optional pass should be skipped.
   SmallVector<llvm::unique_function<BeforePassFunc>, 4>
@@ -219,7 +251,14 @@ public:
       return true;
 
     bool ShouldRun = true;
-    if (!isRequired(Pass)) {
+#if INTEL_CUSTOMIZATION
+    if (Pass.isLimited()) {
+      for (auto &C : Callbacks->ShouldRunLimitedPassCallbacks)
+        ShouldRun &= C(Pass.name(), Pass.getLimiter(), llvm::Any(&IR));
+    }
+#endif // INTEL_CUSTOMIZATION
+
+    if (ShouldRun && !isRequired(Pass)) {          // INTEL
       for (auto &C : Callbacks->ShouldRunOptionalPassCallbacks)
         ShouldRun &= C(Pass.name(), llvm::Any(&IR));
     }

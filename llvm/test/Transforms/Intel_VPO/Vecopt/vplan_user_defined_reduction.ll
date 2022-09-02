@@ -192,7 +192,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
   br label %DIR.OMP.SIMD.164
 
 DIR.OMP.SIMD.164:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR"(%struct.point* %tmpcast.red, i8* null, i8* null, void (%struct.point*, %struct.point*)* @.omp_combiner., void (%struct.point*, %struct.point*)* @.omp_initializer.), "QUAL.OMP.REDUCTION.UDR"(%struct.point* %tmpcast21.red, %struct.point* (%struct.point*)* @point.omp.def_constr, void (%struct.point*)* @point.omp.destr, void (%struct.point*, %struct.point*)* @.omp_combiner..1, void (%struct.point*, %struct.point*)* @.omp_initializer..2) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:TYPED"(%struct.point* %tmpcast.red, %struct.point zeroinitializer, i32 1, i8* null, i8* null, void (%struct.point*, %struct.point*)* @.omp_combiner., void (%struct.point*, %struct.point*)* @.omp_initializer.), "QUAL.OMP.REDUCTION.UDR:TYPED"(%struct.point* %tmpcast21.red, %struct.point zeroinitializer, i32 1, %struct.point* (%struct.point*)* @point.omp.def_constr, void (%struct.point*)* @point.omp.destr, void (%struct.point*, %struct.point*)* @.omp_combiner..1, void (%struct.point*, %struct.point*)* @.omp_initializer..2) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.164

@@ -293,6 +293,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPODirectiveCleanupPass
 ; end INTEL_CUSTOMIZATION
 

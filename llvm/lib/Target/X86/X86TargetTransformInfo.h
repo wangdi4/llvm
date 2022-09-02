@@ -310,6 +310,7 @@ public:
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
+  bool isIntelAdvancedOptimEnabled() const;
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
   unsigned getMaxScale() const;

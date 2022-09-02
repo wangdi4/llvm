@@ -863,11 +863,14 @@ private:
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
-  /// reduction update code.
+  /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
+  /// means that \p RedI has no extra by-ref related loads that may require
+  /// special hoisting when atomic-free reduction is used. (default = false)
   bool genReductionScalarFini(WRegionNode *W, ReductionItem *RedI,
                               Value *ReductionVar, Value *ReductionValueLoc,
                               Type *ScalarTy, IRBuilder<> &Builder,
-                              DominatorTree *DT);
+                              DominatorTree *DT,
+                              bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction operator with the given arguments \p Rhs1
   /// and \p Rhs2 and the operator in \p RedI.

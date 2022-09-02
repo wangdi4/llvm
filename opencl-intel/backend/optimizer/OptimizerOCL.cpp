@@ -84,7 +84,6 @@ OptimizerOCL::OptimizerOCL(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
     : Optimizer(M, RtlModuleList, Config) {
   Level =
       Config.GetDisableOpt() ? OptimizationLevel::O0 : OptimizationLevel::O3;
-  UnrollLoops = true;
 }
 
 void OptimizerOCL::Optimize(raw_ostream &LogStream) {
@@ -545,9 +544,11 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;
   if (Level != OptimizationLevel::O0) {
-    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
-    FPM1.addPass(LoopUnrollPass(UnrollOpts));
+    if (UnrollLoops) {
+      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+      UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
+      FPM1.addPass(LoopUnrollPass(UnrollOpts));
+    }
 
     FPM1.addPass(OptimizeIDivAndIRemPass());
   }

@@ -5985,32 +5985,37 @@ bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
 }
 
 #if INTEL_CUSTOMIZATION
+bool X86TTIImpl::isIntelAdvancedOptimEnabled() const {
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+  return TM.Options.IntelAdvancedOptim;
+}
+
 bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
-    const TargetMachine &TM = getTLI()->getTargetMachine();
+  const TargetMachine &TM = getTLI()->getTargetMachine();
 
-    // Captures if the target is specified with -x, which will indicate
-    // that the user has enabled code generation specialized for a particular
-    // instruction set.
-    bool IntelTargetCheck = TM.Options.IntelAdvancedOptim;
+  // Captures if the target is specified with -x or -ax, which will indicate
+  // that the user has enabled code generation specialized for a particular
+  // instruction set.
+  bool IntelTargetCheck = TM.Options.IntelAdvancedOptim;
 
-    // Currently all levels rely on IntelTargetCheck, but that may not always
-    // be the case so we test in each case below rather than doing an early
-    // return.
-    switch(AO) {
-    case TTI::AdvancedOptLevel::AO_TargetHasIntelSSE42:
-      return IntelTargetCheck && ST->hasSSE42();
-    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX:
-      return IntelTargetCheck && ST->hasAVX();
-    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX2:
-      return IntelTargetCheck && ST->hasAVX2();
-    case TTI::AdvancedOptLevel::AO_TargetHasGenericAVX2:
-      return ST->hasAVX2();
-    case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512:
-      return IntelTargetCheck && ST->hasAVX512();
-    default:
-      return false;
-    }
-    llvm_unreachable("fully covered switch statement");
+  // Currently all levels rely on IntelTargetCheck, but that may not always
+  // be the case so we test in each case below rather than doing an early
+  // return.
+  switch(AO) {
+  case TTI::AdvancedOptLevel::AO_TargetHasIntelSSE42:
+    return IntelTargetCheck && ST->hasSSE42();
+  case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX:
+    return IntelTargetCheck && ST->hasAVX();
+  case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX2:
+    return IntelTargetCheck && ST->hasAVX2();
+  case TTI::AdvancedOptLevel::AO_TargetHasGenericAVX2:
+    return ST->hasAVX2();
+  case TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512:
+    return IntelTargetCheck && ST->hasAVX512();
+  default:
+    return false;
+  }
+  llvm_unreachable("fully covered switch statement");
 }
 
 bool X86TTIImpl::isLibIRCAllowed() const {

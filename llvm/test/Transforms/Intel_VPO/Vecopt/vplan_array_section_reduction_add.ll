@@ -16,7 +16,7 @@
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @foo
-; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([100 x i32]* %a.red, i64 1, i64 0, i64 100, i64 1) ]
+; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 0) ]
 
 ; HIR: Cannot handle array reductions.
 ; HIR: VD: Not vectorizing: Cannot prove legality.
@@ -33,7 +33,7 @@ DIR.OMP.SIMD.1:
   br label %DIR.OMP.SIMD.170
 
 DIR.OMP.SIMD.170:                                 ; preds = %DIR.OMP.SIMD.1
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([100 x i32]* %a.red, i64 1, i64 0, i64 100, i64 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 0) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.170, %omp.inner.for.inc

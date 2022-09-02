@@ -2475,9 +2475,10 @@ private:
         LeafData &Op1 = getData(OpIdx1, Lane);
         LeafData &Op2 = getData(OpIdx2, Lane);
 
-        assert(Op1.getLeaf() != Op2.getLeaf() && "Why reordering?");
-
         bool InvertOpcodes = Op1.getAPO() != Op2.getAPO();
+
+        assert((Op1.getLeaf() != Op2.getLeaf() || InvertOpcodes) &&
+               "Why reordering?");
         // i. Swap the leaf values.
         Op1.swapLeafWith(Op2);
         // ii. Swap the opcode.
@@ -2671,15 +2672,21 @@ private:
                          int OrigOpIdx, ArrayRef<int> BestOperandsSoFar,
                          VecMode Mode) {
         const LeafData &LHSOperand = getData(LHSOp, RHSLane - 1);
+        const LeafData &OrigRHSOperand = getData(OrigOpIdx, RHSLane);
         Value *LHS = LHSOperand.getLeaf();
         int BestScore = -1;
 
         // Go through all operands of the MultiNode looking for the best match.
         for (int OpIdx : seq<int>(0, getNumOperands())) {
           const LeafData &RHSOperand = getData(OpIdx, RHSLane);
-          if (DisableReordering) {
-            if (OpIdx != OrigOpIdx)
+          if (OpIdx != OrigOpIdx) {
+            if (DisableReordering)
               continue;
+            // Don't make a useless swap.
+            if (RHSOperand.getLeaf() == OrigRHSOperand.getLeaf() &&
+                isLegalToSwapLeaves(RHSOperand, OrigRHSOperand))
+              continue;
+          } else {
             assert(!RHSOperand.isUsed() && "Original operand already used?");
           }
           // Skip if we have already used this for this Lane.
@@ -2713,8 +2720,6 @@ private:
           }
 
           Instruction *FrontierToSwapWith = nullptr;
-
-          LeafData &OrigRHSOperand = getData(OrigOpIdx, RHSLane);
           if (OrigOpIdx != OpIdx &&
               !isLegalToSwapLeaves(RHSOperand, OrigRHSOperand)) {
             // We found the operand which is better suited than the original
@@ -2825,8 +2830,10 @@ private:
           if (LHSOperand.isUsed())
             continue;
 
-          if (OpI == OpIdx || (!DisableReordering &&
-                               isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
+          if (OpI == OpIdx ||
+              (!DisableReordering &&
+               LHSOperand.getLeaf() != CurrLHSOperand.getLeaf() &&
+               isLegalToSwapLeaves(LHSOperand, CurrLHSOperand)))
             FirstOperandCandidates.push_back(OpIdx);
         }
 

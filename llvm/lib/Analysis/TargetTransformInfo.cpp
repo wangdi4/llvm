@@ -1140,6 +1140,10 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
 }
 
 #if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::isIntelAdvancedOptimEnabled() const {
+  return TTIImpl->isIntelAdvancedOptimEnabled();
+}
+
 bool TargetTransformInfo::isAdvancedOptEnabled(AdvancedOptLevel AO) const {
   return TTIImpl->isAdvancedOptEnabled(AO);
 }

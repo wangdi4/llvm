@@ -80,6 +80,18 @@ private:
   SmallVector<PrintModuleDesc, 2> ModuleDescStack;
 };
 
+#if INTEL_CUSTOMIZATION
+class LimitingInstrumentation {
+public:
+  LimitingInstrumentation(bool DebugLogging) : DebugLogging(DebugLogging) {}
+  void registerCallbacks(PassInstrumentationCallbacks &PIC);
+
+private:
+  bool DebugLogging;
+  bool shouldRun(StringRef PassID, LoopOptLimiter Limiter, Any IR);
+};
+#endif // INTEL_CUSTOMIZATION
+
 class OptNoneInstrumentation {
 public:
   OptNoneInstrumentation(bool DebugLogging) : DebugLogging(DebugLogging) {}
@@ -529,6 +541,7 @@ class StandardInstrumentations {
   TimePassesHandler TimePasses;
   OptNoneInstrumentation OptNone;
   OptBisectInstrumentation OptBisect;
+  LimitingInstrumentation Limiter;        // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;

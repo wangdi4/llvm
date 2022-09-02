@@ -538,6 +538,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveSubdevice())
     PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
 
+  if (canHaveInterop())
+    PrintedSomething |= getInterop().print(OS, Depth, Verbosity);
+
   if (canHaveInteropAction())
     PrintedSomething |= getInteropAction().print(OS, Depth, Verbosity);
 
@@ -907,13 +910,13 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DESTROY: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsDestroy();
   } break;
   case QUAL_OMP_USE: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsUse();
   } break;
 #if INTEL_CUSTOMIZATION
@@ -1160,7 +1163,7 @@ void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
 
   Value *V = Args[0];
   InteropAction.add(V);
-  InteropItem *InteropI = InteropAction.back();
+  InteropActionItem *InteropI = InteropAction.back();
   InteropI->setIsInit();
 
   if (ClauseInfo.getIsInitTarget())
@@ -2193,6 +2196,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_OPERAND_ADDR:
     // TODO: Should anything be handled for QUAL.OMP.OPERAND.ADDR clause?
     break;
+  case QUAL_OMP_INTEROP: {
+    extractQualOpndList<InteropClause>(Args, NumArgs, ClauseID, getInterop());
+    break;
+  }
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -2481,6 +2488,15 @@ bool WRegionNode::canHaveSubdevice() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInterop() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
   case WRNDispatch:
     return true;
   }

@@ -25659,6 +25659,76 @@ static SDValue EmitAVX512Test(SDValue Op0, SDValue Op1, ISD::CondCode CC,
     return DAG.getNode(X86ISD::KTEST, dl, MVT::i32, LHS, RHS);
   }
 
+  // Transform cmp(concat_vect(a,b), 0) to kortest(a, b)
+  // since result of 'concat_vect(a,b)' will be deleted or sunk if it is not
+  // used in current BB. And concat_vect (KSHIFTLBri, KUNPCKBWrr..., 4 latency,
+  // p5) is more expensive operation than or (KORBrr, 1 latency, p0).
+  if (Op0.getOpcode() == ISD::CONCAT_VECTORS && Op0.hasOneUse()
+      && ((CC == ISD::SETEQ || CC == ISD::SETNE) && isNullConstant(Op1))) {
+    if (Op0.getNumOperands() == 2) {
+      SDValue LHS = Op0.getOperand(0);
+      SDValue RHS = Op0.getOperand(1);
+      // Stop transforming if one of operand is constant since it would
+      // be other pattern match optimization.
+      if (isConstOrConstSplat(LHS, false, true)
+          || isConstOrConstSplat(RHS, false, true)) {
+        LHS = Op0;
+        RHS = Op0;
+        X86CC = DAG.getTargetConstant(X86Cond, dl, MVT::i8);
+        return DAG.getNode(X86ISD::KORTEST, dl, MVT::i32, LHS, RHS);
+      }
+      // Expand operands from v4i1 to v8i1:
+      //      v8i1 = BUILD_VECTOR Constant:i8<0>...
+      //      a_v8i1: v8i1 = insert_subvector t0, a_v4i1, Constant:i64<0>
+      //      b_v8i1: v8i1 = insert_subvector t0, b_v4i1, Constant:i64<0>
+      if (VT == MVT::v8i1) {
+        LHS = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                          DAG.getConstant(0, dl, MVT::v8i1),
+                          LHS, DAG.getIntPtrConstant(0, dl));
+        RHS = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                          DAG.getConstant(0, dl, MVT::v8i1),
+                          RHS, DAG.getIntPtrConstant(0, dl));
+      }
+      // Transfrom c_concat: v8i1 = concat_vectors a_v4i1, b_v4i1
+      //           c: i32 = X86ISD::KORTEST c_concat, c_concat
+      // To        c: i32 = X86ISD::KORTEST a_v8i1, b_v8i1
+      X86CC = DAG.getTargetConstant(X86Cond, dl, MVT::i8);
+      return DAG.getNode(X86ISD::KORTEST, dl, MVT::i32, LHS, RHS);
+    } else if (Op0.getNumOperands() == 4) {
+        // Transform c_v16i1 = concat_vectors a0_v4i1, a1_v4i1, b0_v4i1, b1_v4i1
+        //           c: i32 = X86ISD::KORTEST c_v16i1, c_v16i1
+        // To:       t0: v8i1 = BUILD_VECTOR Constant:i8<0>...
+        //           a0_v8i1 = insert_subvector t0, a0_v4i1, Constant:i64<0>
+        //           a1_v8i1 = insert_subvector t0, a1_v4i1, Constant:i64<0>
+        //           b0_v8i1 = insert_subvector t0, b0_v4i1, Constant:i64<0>
+        //           b1_v8i1 = insert_subvector t0, b1_v4i1, Constant:i64<0>
+        //           a_v8i1 = or a0_v8i1, a1_v8i1
+        //           b_v8i1 = or b0_v8i1, b1_v8i1
+        //           c: i32 = X86ISD::KORTEST a_v8i1, b_v8i1
+        SDValue ConcatOp0 = Op0.getOperand(0);
+        SDValue ConcatOp1 = Op0.getOperand(1);
+        SDValue ConcatOp2 = Op0.getOperand(2);
+        SDValue ConcatOp3 = Op0.getOperand(3);
+        if (ConcatOp0.getSimpleValueType() == MVT::v4i1) {
+          SDValue INSERT0 = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                                        DAG.getConstant(0, dl, MVT::v8i1),
+                                        ConcatOp0, DAG.getIntPtrConstant(0, dl));
+          SDValue INSERT1 = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                                        DAG.getConstant(0, dl, MVT::v8i1),
+                                        ConcatOp1, DAG.getIntPtrConstant(0, dl));
+          SDValue INSERT2 = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                                        DAG.getConstant(0, dl, MVT::v8i1),
+                                        ConcatOp2, DAG.getIntPtrConstant(0, dl));
+          SDValue INSERT3 = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                                        DAG.getConstant(0, dl, MVT::v8i1),
+                                        ConcatOp3, DAG.getIntPtrConstant(0, dl));
+          SDValue OR0 = DAG.getNode(ISD::OR, dl, MVT::v8i1, INSERT0, INSERT1);
+          SDValue OR1 = DAG.getNode(ISD::OR, dl, MVT::v8i1, INSERT2, INSERT3);
+          X86CC = DAG.getTargetConstant(X86Cond, dl, MVT::i8);
+          return DAG.getNode(X86ISD::KORTEST, dl, MVT::i32, OR0, OR1);
+        }
+      }
+  }
   // If the input is an OR, we can combine it's operands into the KORTEST.
   SDValue LHS = Op0;
   SDValue RHS = Op0;
@@ -48582,6 +48652,39 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
   if (CmpOp.getOpcode() == ISD::TRUNCATE)
     CmpOp = CmpOp.getOperand(0);
 
+  // Peek through AND with a fixed constant.
+  // Such as AND(MOVMSK(Op), 0xAAAAAAAA).
+  // Some constant, such as 0x3, no need to do CONCAT or OR
+  // between two operands, since high bits of element is no
+  // referred.
+  SDValue AndOp;
+  SDValue AndConst;
+  if (CmpOp.getOpcode() == ISD::AND) {
+    AndOp = CmpOp;
+    SDValue Op0 = CmpOp.getOperand(0);
+    SDValue Op1 = CmpOp.getOperand(1);
+    if (dyn_cast<ConstantSDNode>(Op0)
+        && Op1.getOpcode() == X86ISD::MOVMSK) {
+      ConstantSDNode *OpC = dyn_cast<ConstantSDNode>(Op0);
+      if (OpC->getAPIntValue() == 0xAAAAAAAA) {
+        CmpOp = CmpOp.getOperand(1);
+        AndConst = Op0;
+      } else
+        return SDValue();
+    } else if (dyn_cast<ConstantSDNode>(Op1)
+               && Op0.getOpcode() == X86ISD::MOVMSK) {
+      ConstantSDNode *OpC = dyn_cast<ConstantSDNode>(Op1);
+      if (OpC->getAPIntValue() == 0xAAAAAAAA) {
+        CmpOp = CmpOp.getOperand(0);
+        AndConst = Op1;
+      } else {
+        return SDValue();
+      }
+    }
+    else
+      return SDValue();
+  }
+  SDValue  Res = CmpOp;
   // Bail if we don't find a MOVMSK.
   if (CmpOp.getOpcode() != X86ISD::MOVMSK)
     return SDValue();
@@ -48759,7 +48862,224 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
                          EFLAGS.getOperand(1));
     }
   }
+  // Identify recursive PACKSSed element and transform them to OR.
+  // Such as from:
+  //     MOVMSK(PACKSS(SHUFFLE(PACKSS(X,Y)), SHUFFLE(PACKSS(Z,U)))) == 0
+  //     ->  MOVMSK(OR(OR(X,Y), OR(Z,U))) == 0
+  if ((CC == X86::COND_E || CC == X86::COND_NE)
+      && isNullConstant(EFLAGS.getOperand(1))) {
+    // OrVec is a dequeue to record (X, Y) and (Z, U)
+    std::deque<std::pair<SDValue, SDValue>> OrVec;
+    // findORLeaffromPack is a recursive lamada function to find
+    // leaves (X, Y) and (Z, U) in a PACKSS tree.
+    std::function<void(SDValue)> findORLeaffromPack;
+    findORLeaffromPack = [&](SDValue Pack) -> void {
+      while (Pack.getOpcode() == ISD::BITCAST)
+        Pack = Pack.getOperand(0);
+      if (Pack.getOpcode() == X86ISD::PACKSS) {
+        SDValue Pack0 = Pack.getOperand(0);
+        SDValue Pack1 = Pack.getOperand(1);
+        while (Pack0.getOpcode() == ISD::BITCAST)
+          Pack0 = Pack0.getOperand(0);
+        while (Pack1.getOpcode() == ISD::BITCAST)
+          Pack1 = Pack1.getOperand(0);
+        MVT ORVT0 = Pack0.getSimpleValueType();
+        MVT ORVT1 = Pack1.getSimpleValueType();
+        if (ORVT0 == ORVT1) {
+          bool OrLeaf = true;
+          if (Pack0.getOpcode() == X86ISD::VPERMI
+              || Pack0.getOpcode() == ISD::VECTOR_SHUFFLE) {
+            // This transformation is used for cmp(concat_vect(a,b), 0),
+            // but not cmp(concat_vect(a,b), CONST).
+            // So there is no need to care about what order of concat_vect(a,b).
+            // No matter what order of VPERMI/VECTOR_SHUFFLE, it does not change
+            // result of comparison to 0.
+            // But we need check that all elements are referred.
+            // eg, X86ISD::PSHUFD t145, TargetConstant:i8<-40> is ok
+            //               (-40 means 3, 1, 2, 0)
+            //     X86ISD::PSHUFD t145, TargetConstant:i8<0> is not ok.
+            //               ( 0 means 0, 0, 0, 0)
+            SmallVector<int, 64> Mask;
+            SmallVector<SDValue, 2> Ops;
+            if (!getTargetShuffleMask(Pack0.getNode(), ORVT0, false, Ops,
+                                      Mask))
+              return;
+            if (Mask.size() != ORVT0.getVectorNumElements())
+              return;
+            size_t EleSum = 0;
+            for (size_t i = 0; i < Mask.size(); i++)
+              for (int M : Mask)
+                if (M == (int)i) { // Check each element is referred.
+                  EleSum++;
+                  continue;
+                }
+            if (EleSum != Mask.size())
+              return;
+            Pack0 = Pack0.getOperand(0);
+            while (Pack0.getOpcode() == ISD::BITCAST)
+              Pack0 = Pack0.getOperand(0);
+            if (Pack0.getOpcode() == X86ISD::PACKSS) {
+              findORLeaffromPack(Pack0); // find leaves in a left sub tree.
+              OrLeaf = false;
+            }
+          }
+          if (Pack1.getOpcode() == X86ISD::VPERMI
+              || Pack1.getOpcode() == ISD::VECTOR_SHUFFLE) {
+            SmallVector<int, 64> Mask;
+            SmallVector<SDValue, 2> Ops;
+            if (!getTargetShuffleMask(Pack1.getNode(), ORVT1, false, Ops,
+                                      Mask))
+              return;
+            if (Mask.size() != ORVT0.getVectorNumElements())
+              return;
+            size_t EleSum = 0;
+            for (size_t i = 0; i < Mask.size(); i++)
+              for (int M : Mask)
+                if (M == (int)i) { // Check each element is referred.
+                  EleSum++;
+                  continue;
+                }
+            if (EleSum != Mask.size())
+              return;
+            Pack1 = Pack1.getOperand(0);
+            while (Pack1.getOpcode() == ISD::BITCAST)
+              Pack1 = Pack1.getOperand(0);
+            if (Pack1.getOpcode() == X86ISD::PACKSS) {
+              findORLeaffromPack(Pack1); // find leaves in a right sub tree.
+              OrLeaf = false;
+            }
+          }
+          if (OrLeaf) { //If no sub tree, it would be leaves.
+            //Result of vector OR should be i8, i32/f32 or i64/f64,
+            //since X86 MOVMASK only supports this type.
+            if (ORVT0.getScalarType() == MVT::i8
+                || ORVT0.getScalarType() == MVT::i32
+                || ORVT0.getScalarType() == MVT::i64
+                || ORVT0.getScalarType() == MVT::f32
+                || ORVT0.getScalarType() == MVT::f64) {
+              // Record leaves in pairs of dequeue.
+              OrVec.push_back(std::make_pair(Pack0, Pack1));
+              return;
+            }
+          }
+        }
+      }
+      return;
+    };
+    // Find operands which could be replaced to OR from PACKSS.
+    findORLeaffromPack(CmpOp.getOperand(0));
 
+    // When only one pair of CMPs needs to be transform from concat to or.
+    if (OrVec.size() == 1) {
+      SDValue OR;
+      auto &OrPair = OrVec.back();
+      OrVec.pop_back();
+      // Check that a, b in concat(a, b) are both from CMP
+      // to exclude case of overflow in X86ISD::PACKSS(a, b).
+      // X86ISD::PCMPEQ and X86ISD::PCMPGT are for interage CMP,
+      // and X86ISD::CMPP is for float CMP.
+      if ((OrPair.first.getOpcode() == X86ISD::PCMPEQ
+           && OrPair.second.getOpcode() == X86ISD::PCMPEQ)
+          ||(OrPair.first.getOpcode() == X86ISD::PCMPGT
+             && OrPair.second.getOpcode() == X86ISD::PCMPGT)
+          ||(OrPair.first.getOpcode() == X86ISD::CMPP
+             && OrPair.second.getOpcode() == X86ISD::CMPP)) {
+        MVT ORVT = OrPair.first.getSimpleValueType();
+        if (!ORVT.isInteger()) {
+          unsigned int VctNum = ORVT.getVectorNumElements();
+          unsigned int IntBits = ORVT.getScalarSizeInBits();
+          MVT IVT = MVT::getIntegerVT(IntBits);
+          MVT IVVT = MVT::getVectorVT(IVT, VctNum);
+          SDValue BCL = DAG.getBitcast(IVVT, OrPair.first);
+          SDValue BCR = DAG.getBitcast(IVVT, OrPair.second);
+          OR = DAG.getNode(ISD::OR, SDLoc(EFLAGS), IVVT, BCL, BCR);
+        } else {
+          OR = DAG.getNode(ISD::OR, SDLoc(EFLAGS), ORVT,
+                           OrPair.first, OrPair.second);
+        }
+        SDValue NewMovMsk = DAG.getNode(X86ISD::MOVMSK, SDLoc(EFLAGS),
+                                        Res.getSimpleValueType(), OR);
+        // Add TRUNCATE SDNode if neccesary.
+        if (NewMovMsk.getSimpleValueType().getFixedSizeInBits()
+            > EFLAGS.getOperand(1).getSimpleValueType().getFixedSizeInBits())
+          NewMovMsk = DAG.getZExtOrTrunc(NewMovMsk, SDLoc(EFLAGS),
+                                         EFLAGS.getOperand(1).getSimpleValueType());
+        return DAG.getNode(X86ISD::CMP, SDLoc(EFLAGS), MVT::i32,
+                           NewMovMsk, EFLAGS.getOperand(1));
+      }
+    }
+    // When more than one pairs of CMPs need to be transfromed.
+    // Generate two OR SDNodes and front_push a pair of them
+    // to OrVec as intermediate result in each iteration.
+    // eg: ab = concat(CMP_a, CMP_b)
+    //     cd = concat(CMP_c, CMP_d)
+    //     res = concat(ab, cd)
+    //  to:
+    //     OR_ab = or(CMP_a, CMP_b)
+    //     OR_cd = or(CMP_c, CMP_d)
+    //     push_front(OR_ab, OR_cd)
+    while (OrVec.size() > 1) {
+      auto OrPairL = OrVec.back();
+      OrVec.pop_back();
+      MVT ORVT = OrPairL.first.getSimpleValueType();
+      auto &OrPairR = OrVec.back();
+      OrVec.pop_back();
+      if ((OrPairL.first.getOpcode() == X86ISD::PCMPEQ
+           && OrPairR.second.getOpcode() == X86ISD::PCMPEQ
+           && OrPairL.first.getOpcode() == X86ISD::PCMPEQ
+           && OrPairR.second.getOpcode() == X86ISD::PCMPEQ)
+          ||(OrPairL.first.getOpcode() == X86ISD::PCMPGT
+             && OrPairR.second.getOpcode() == X86ISD::PCMPGT
+             && OrPairL.first.getOpcode() == X86ISD::PCMPGT
+             && OrPairR.second.getOpcode() == X86ISD::PCMPGT)) {
+        SDValue ORL = DAG.getNode(ISD::OR, SDLoc(EFLAGS), ORVT,
+                                  OrPairL.first, OrPairL.second);
+        ORVT = OrPairR.first.getSimpleValueType();
+        SDValue ORR = DAG.getNode(ISD::OR, SDLoc(EFLAGS), ORVT,
+                                  OrPairR.first, OrPairR.second);
+        OrVec.push_front(std::make_pair(ORL, ORR)); // Record intermediate result.
+      } else if (OrPairL.first.getOpcode() == X86ISD::CMPP
+                 && OrPairR.first.getOpcode() == X86ISD::CMPP
+                 && OrPairL.second.getOpcode() == X86ISD::CMPP
+                 && OrPairR.second.getOpcode() == X86ISD::CMPP) {
+        // If it is float CMP, we need to bitcase result of CMP from
+        // float to interger.
+        unsigned int VctNum = ORVT.getVectorNumElements();
+        unsigned int IntBits = ORVT.getScalarSizeInBits();
+        MVT IVT = MVT::getIntegerVT(IntBits);
+        MVT IVVT = MVT::getVectorVT(IVT, VctNum);
+        SDValue BCL0 = DAG.getBitcast(IVVT, OrPairL.first);
+        SDValue BCL1 = DAG.getBitcast(IVVT, OrPairL.second);
+        SDValue BCR0 = DAG.getBitcast(IVVT, OrPairR.first);
+        SDValue BCR1 = DAG.getBitcast(IVVT, OrPairR.second);
+        SDValue ORL = DAG.getNode(ISD::OR, SDLoc(EFLAGS), IVVT, BCL0, BCL1);
+        ORVT = OrPairR.first.getSimpleValueType();
+        SDValue ORR = DAG.getNode(ISD::OR, SDLoc(EFLAGS), IVVT, BCR0, BCR1);
+        OrVec.push_front(std::make_pair(ORL, ORR)); // Record intermediate result.
+      } else {
+        return SDValue();
+      }
+    }
+    // Generate the root OR SDNode.
+    // eg, OR_res = or(OR_ab, OR_cd)
+    if (OrVec.size() == 1) {
+      SDValue OR;
+      auto &OrPair = OrVec.back();
+      OrVec.pop_back();
+      MVT ORVT = OrPair.first.getSimpleValueType();
+      OR = DAG.getNode(ISD::OR, SDLoc(EFLAGS), ORVT,
+                       OrPair.first, OrPair.second);
+      SDValue NewMovMsk = DAG.getNode(X86ISD::MOVMSK, SDLoc(EFLAGS),
+                                      Res.getSimpleValueType(), OR);
+      // Add TRUNCATE SDNode if neccesary.
+      if (NewMovMsk.getSimpleValueType().getFixedSizeInBits()
+          > EFLAGS.getOperand(1).getSimpleValueType().getFixedSizeInBits())
+        NewMovMsk = DAG.getZExtOrTrunc(NewMovMsk, SDLoc(EFLAGS),
+                                       EFLAGS.getOperand(1).getSimpleValueType());
+      return DAG.getNode(X86ISD::CMP, SDLoc(EFLAGS), MVT::i32,
+                         NewMovMsk, EFLAGS.getOperand(1));
+    }
+  }
   return SDValue();
 }
 

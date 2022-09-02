@@ -396,7 +396,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15551, "%s was not vectorized with \"simd assert\""},
     {15552, "%s was not vectorized with \"simd\""},
     {15553, "loop was not vectorized: outer loop is not an auto-vectorization "
-            "candidate at -O2. Consider using -O3."},
+            "candidate."},
     // Four entries below semantically belong to "vector loop memory reference
     // summary". Be sure to update their mentiones under respective section
     // above.

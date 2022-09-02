@@ -12,7 +12,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32 addrspace(1)** %alloca._arg_) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca._arg_, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
@@ -54,7 +54,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32 addrspace(1)** %alloca._arg_) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca._arg_, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region

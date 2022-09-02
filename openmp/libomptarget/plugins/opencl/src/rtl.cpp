@@ -2810,12 +2810,20 @@ static inline int32_t runTargetTeamNDRegion(
     ImplicitUSMArgs.push_back((void *)KernelDynamicMem);
     HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
   }
+#if 0
+  // After enabling kernel dynamic memory, we found an orthogonal issue caused
+  // by invoking clSetKernelExecInfo with
+  // CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL.
+  // For now, just skip setting the kernel dynamic memory pool as indirect
+  // access since the feature seems to work.
+  // We can remove/revisit this workaround once XDEPS-4933 is resolved.
   auto DynamicMemPool =
       DeviceInfo->Programs[DeviceId].back().getPGMData().DynamicMemPool;
   if (DynamicMemPool) {
     ImplicitUSMArgs.push_back((void *)DynamicMemPool);
     HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
   }
+#endif
 #endif // INTEL_CUSTOMIZATION
 
   /// Kernel-dependent implicit arguments

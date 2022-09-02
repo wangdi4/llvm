@@ -1031,26 +1031,65 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
   return 1;
 }
 
-void
-CodeGenTypes::getExpandedTypes(QualType Ty,
-                               SmallVectorImpl<llvm::Type *>::iterator &TI) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+void CodeGenTypes::getExpandedTypes(
+    QualType Ty, SmallVectorImpl<llvm::Type *>::iterator &TI,
+    SmallVectorImpl<QualType>::iterator *DFIIter) {
+#else // INTEL_FEATURE_SW_DTRANS
+void CodeGenTypes::getExpandedTypes(
+    QualType Ty, SmallVectorImpl<llvm::Type *>::iterator &TI) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   auto Exp = getTypeExpansion(Ty, Context);
   if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
     for (int i = 0, n = CAExp->NumElts; i < n; i++) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      getExpandedTypes(CAExp->EltTy, TI, DFIIter);
+#else // INTEL_FEATURE_SW_DTRANS
       getExpandedTypes(CAExp->EltTy, TI);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
     for (auto BS : RExp->Bases)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      getExpandedTypes(BS->getType(), TI, DFIIter);
+#else // INTEL_FEATURE_SW_DTRANS
       getExpandedTypes(BS->getType(), TI);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     for (auto FD : RExp->Fields)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      getExpandedTypes(FD->getType(), TI, DFIIter);
+#else // INTEL_FEATURE_SW_DTRANS
       getExpandedTypes(FD->getType(), TI);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   } else if (auto CExp = dyn_cast<ComplexExpansion>(Exp.get())) {
     llvm::Type *EltTy = ConvertType(CExp->EltTy);
     *TI++ = EltTy;
     *TI++ = EltTy;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (DFIIter) {
+      *(*DFIIter)++ = CExp->EltTy;
+      *(*DFIIter)++ = CExp->EltTy;
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   } else {
     assert(isa<NoExpansion>(Exp.get()));
     *TI++ = ConvertType(Ty);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (DFIIter)
+      *(*DFIIter)++ = Ty;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1966,12 +2005,13 @@ static void addToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
     break;
   }
   case ABIArgInfo::Expand:
+    llvm_unreachable("Expand parameter type should have been calculated earlier");
+    break;
   case ABIArgInfo::CoerceAndExpand:
-    // FIXME: Expand gets put into getExpandedTypes, no idea what that does.
     // FIXME: CoerceAndExpand is handled with getCoerceAndExpandTypeSequence, it
     // gets de-elemented.
     CGM.getDiags().Report(SourceLocation{}, diag::err_dtrans_unsupported)
-      << "Expand/CoerceAndExpand parameter type" << Ty;
+      << "CoerceAndExpand parameter type" << Ty;
   }
 }
 
@@ -2212,15 +2252,21 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 
     case ABIArgInfo::Expand:
       auto ArgTypesIter = ArgTypes.begin() + FirstIRArg;
-      getExpandedTypes(it->type, ArgTypesIter);
-      assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-      addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
-                          ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
-                          NumIRArgs);
+      SmallVectorImpl<QualType>::iterator DFIIter;
+      if (DFI) {
+        DFI->Params.resize(std::max(
+            DFI->Params.size(), static_cast<size_t>(FirstIRArg + NumIRArgs)));
+        DFIIter = DFI->Params.begin() + FirstIRArg;
+      }
+      getExpandedTypes(it->type, ArgTypesIter, DFI ? &DFIIter : nullptr);
+      assert(!DFI || DFIIter == DFI->Params.begin() + FirstIRArg + NumIRArgs);
+#else // INTEL_FEATURE_SW_DTRANS
+      getExpandedTypes(it->type, ArgTypesIter);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+      assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
       break;
     }
   }

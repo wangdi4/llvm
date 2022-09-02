@@ -38,7 +38,7 @@ define void @"_ZGVdN8uuuuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMu
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %8
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(float addrspace(1)* %0, %"class.cl::sycl::range"* %1, %"class.cl::sycl::range"* %2, %"class.cl::sycl::range"* %3, float addrspace(1)* %4, %"class.cl::sycl::range"* %5, %"class.cl::sycl::range"* %6, %"class.cl::sycl::range"* %7) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %0, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %1, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %2, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %3, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %4, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %5, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %6, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %7, %"class.cl::sycl::range" zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
