@@ -31,7 +31,7 @@ namespace llvm {
 ///   Group-A   : Alloca instructions
 ///   Group-B.1 : Values crossed barriers and the value is
 ///              related to WI-Id or initialized inside a loop
-///   Group-B.2 : Value crossed barrier but does not suit Group-B.2
+///   Group-B.2 : Value crossed barrier but does not suit Group-B.1
 /// Synchronize instructions
 ///   barrier(), fiber() and dummyBarrier() instructions.
 /// Get LID/GID instructions
