@@ -430,21 +430,6 @@ VPInstructionCost VPlanTTICostModel::getCompressExpandLoadStoreCost(
   Cost += TTI.getIntrinsicInstrCost(
       IntrinsicCostAttributes(IntrinsicId, VecType, {VecType}),
       TTI::TCK_RecipThroughput);
-<<<<<<< HEAD
-  Cost += TTI.getArithmeticInstrCost(
-      Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-      {TargetTransformInfo::OK_UniformConstantValue,
-       TargetTransformInfo::OP_None},
-      {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
-  Cost += TTI.getArithmeticInstrCost(
-      Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-      {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
-      {TargetTransformInfo::OK_UniformConstantValue,
-       TargetTransformInfo::OP_None});
-  Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
-                               TTI::CastContextHint::None);
-=======
->>>>>>> 8d3d2aaf9448e27697472322c867c8201bf3e5d6
 
   return Cost;
 }
@@ -1309,14 +1294,14 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         TTI::TCK_RecipThroughput);
     Cost += TTI.getArithmeticInstrCost(
         Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-        TargetTransformInfo::OK_UniformConstantValue,
-        TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None,
-        TargetTransformInfo::OP_None);
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     Cost += TTI.getArithmeticInstrCost(
         Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-        TargetTransformInfo::OK_AnyValue,
-        TargetTransformInfo::OK_UniformConstantValue,
-        TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None});
     Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
                                  TTI::CastContextHint::None);
     return Cost;
