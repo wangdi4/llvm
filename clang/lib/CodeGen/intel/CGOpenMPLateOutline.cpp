@@ -1225,6 +1225,9 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
     const Expr *Init = Private->getInit();
     ClauseEmissionHelper CEH(*this, OMPC_private, "QUAL.OMP.PRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (CurrentDirectiveKind == OMPD_target &&
+        VD->getType()->isVariablyModifiedType())
+      CSB.setVarLen();
     if (Init || Private->getType().isDestructedType())
       CSB.setNonPod();
     if (IsRef)
@@ -1634,6 +1637,9 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
     bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    if (CurrentDirectiveKind == OMPD_target &&
+        VD->getType()->isVariablyModifiedType())
+      CSB.setVarLen();
     if (!IsPODType)
       CSB.setNonPod();
     if (IsRef)
@@ -2145,6 +2151,9 @@ void OpenMPLateOutliner::buildMapQualifier(
         break;
       }
     }
+  if (CurrentDirectiveKind == OMPD_target && MapVar &&
+      MapVar->getType()->isVariablyModifiedType())
+    CSB.setVarLen();
 }
 
 #if INTEL_CUSTOMIZATION
