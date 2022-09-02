@@ -76,17 +76,18 @@
 ; CHECK-NEXT:     br i1 [[VP18]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
+; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP8]]
 ; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP22:%.*]] = compress-expand-index i64 [[VP12]] i64 3
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP22]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP11]] = add i32 [[VP9]] i32 3
 ; CHECK-NEXT:       i64 [[VP16]] = sext i32 [[VP13]] to i64
 ; CHECK-NEXT:       i64 [[VP24:%.*]] = compress-expand-index i64 [[VP16]] i64 2
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B20]] i64 [[VP24]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP15]] = add i32 [[VP13]] i32 2
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
@@ -117,25 +118,20 @@
 ; CHECK-NEXT:        |   [[DOTVEC50:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC40:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        |   [[DOTVEC50]] = (<4 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC40]]}
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP20]],  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD60:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9>
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4f64([[DOTVEC50]],  undef,  [[DOTVEC40]])
 ; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC40]])
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i4([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST70:%.*]] = bitcast.i4.<4 x i1>([[XOR0]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS0]],  &((<4 x double*>)([[B0]])[%add6]),  0,  [[CAST70]])
+; CHECK-NEXT:        |   [[DOTVEC50]] = (<4 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC40]]}
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP20]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[ADD60:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9>
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4f64([[DOTVEC50]],  undef,  [[DOTVEC40]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS0]],  &((<4 x double*>)([[B0]])[%add7]),  0,  [[CAST70]])
 ; CHECK-NEXT:        |   [[SHUFFLE80:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD90:%.*]] = [[SHUFFLE80]]  +  <i64 0, i64 2, i64 4, i64 6>
 ; CHECK-NEXT:        |   [[COMPRESS100:%.*]] = @llvm.x86.avx512.mask.compress.v4f64([[DOTVEC50]],  undef,  [[DOTVEC40]])
-; CHECK-NEXT:        |   [[CAST110:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC40]])
-; CHECK-NEXT:        |   [[POPCNT120:%.*]] = @llvm.ctpop.i4([[CAST110]])
-; CHECK-NEXT:        |   [[SHL130:%.*]] = -1  <<  [[POPCNT120]]
-; CHECK-NEXT:        |   [[XOR140:%.*]] = [[SHL130]]  ^  -1
-; CHECK-NEXT:        |   [[CAST150:%.*]] = bitcast.i4.<4 x i1>([[XOR140]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS100]],  &((<4 x double*>)([[B20]])[%add9]),  0,  [[CAST150]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v4f64.v4p0f64([[COMPRESS100]],  &((<4 x double*>)([[B20]])[%add9]),  0,  [[CAST70]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC40]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 2 : [[PHI_TEMP0]]
 ; CHECK-NEXT:        |   [[SELECT160:%.*]] = ([[DOTVEC40]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP20]] + 3 : [[PHI_TEMP20]]
 ; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i32([[SELECT0]])

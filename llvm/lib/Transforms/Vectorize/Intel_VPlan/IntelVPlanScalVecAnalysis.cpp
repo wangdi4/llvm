@@ -747,6 +747,11 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
     return true;
   }
+  case VPInstruction::CompressExpandMask: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
 
   case VPInstruction::SOAExtractValue: {
     // Instruction is scalar
@@ -1090,6 +1095,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::CompressExpandIndexFinal:
   case VPInstruction::CompressExpandIndex:
   case VPInstruction::CompressExpandIndexInc:
+  case VPInstruction::CompressExpandMask:
   case VPInstruction::SOAExtractValue:
     return true;
   default:
