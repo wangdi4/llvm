@@ -1142,10 +1142,12 @@ public:
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) { analyzeValue(&I); }
   void visitAtomicRMWInst(AtomicRMWInst &I) { analyzeValue(&I); }
   void visitBinaryOperator(BinaryOperator &I) {
-    // To support safety analysis on pointer arithmetic, subtract instruction
-    // need to be analyzed to see if they carry pointer information.
+    // To support safety analysis on pointer arithmetic, subtract instructions
+    // may need to be analyzed to check whether they carry pointer information.
     if (I.getOpcode() == Instruction::Sub)
-      analyzeValue(&I);
+      if (!isCompilerConstant(I.getOperand(0)) ||
+          !isCompilerConstant(I.getOperand(1)))
+        analyzeValue(&I);
   }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
@@ -4197,7 +4199,11 @@ private:
     if (!isa<ConstantInt>(BinOp->getOperand(1)))
       return;
 
-    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BinOp->getOperand(0));
+    Value *Op0 = BinOp->getOperand(0);
+    if (isCompilerConstant(Op0))
+      return;
+
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Op0);
     propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
     if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
