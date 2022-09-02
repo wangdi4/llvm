@@ -330,12 +330,6 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
     }
     std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
         getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, AllowAllOpts);
-#ifdef _WIN32
-  // Only perform this check for Windows builds of icx.
-  } else if (IsIntelMode() && Name == "icx") {
-    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-        getIncludeExcludeOptionFlagMasksIntel(IsClCompatMode, true);
-#endif // _WIN32
   } else
     std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
         getIncludeExcludeOptionFlagMasks(IsClCompatMode);
@@ -403,26 +397,6 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
                            diag::warn_drv_empty_joined_argument,
                            SourceLocation()) > DiagnosticsEngine::Warning;
     }
-#if INTEL_CUSTOMIZATION
-    // Emit a warning if a user is using Windows icx (Linux based) with a
-    // CL compatible option that they should be using 'icx-cl' instead.
-    auto Omatch = [&](const Arg *A) -> bool {
-      if (!A->getOption().matches(options::OPT__SLASH_O))
-        return false;
-      if (A->containsValue("1") || A->containsValue("2") ||
-          A->containsValue("3") || A->containsValue("s") ||
-          A->containsValue("x"))
-        return true;
-      return false;
-    };
-    if (IsIntelMode() && !IsCLMode() && !Omatch(A) &&
-        A->getOption().hasFlag(options::CLOption)) {
-      Diag(diag::warn_drv_cl_option_with_linux) << A->getAsString(Args);
-      ContainsError |= Diags.getDiagnosticLevel(
-                           diag::warn_drv_cl_option_with_linux,
-                           SourceLocation()) > DiagnosticsEngine::Warning;
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
   for (const Arg *A : Args.filtered(options::OPT_UNKNOWN)) {
@@ -1847,10 +1821,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   if (HasConfigFile)
     for (auto *Opt : *CLOptions) {
-#if INTEL_CUSTOMIZATION
-      if (Opt->getOption().matches(options::OPT_config) ||
-          Opt->getOption().matches(options::OPT_intel_config))
-#endif // INTEL_CUSTOMIZATION
+      if (Opt->getOption().matches(options::OPT_config))
         continue;
       const Arg *BaseArg = &Opt->getBaseArg();
       if (BaseArg == Opt)
@@ -7149,7 +7120,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // TODO: Consider a more generic claiming for internal Intel options
   Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
   Args.ClaimAllArgs(options::OPT_i_allow_all_opts);
-  Args.ClaimAllArgs(options::OPT_intel_config);
+  Args.ClaimAllArgs(options::OPT__icx);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);
@@ -9932,10 +9903,9 @@ Driver::getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
   unsigned IncludedFlagsBitmask = 0;
   unsigned ExcludedFlagsBitmask = options::NoDriverOption;
 
-  // For dpcpp and icx on Windows, we are allowing both MSVC and Linux options
-  // to be accepted and parsed.  This allows for a transition period for using
-  // a more traditional set of drivers; dpcpp/icx for Linux and dpcpp-cl/icx-cl
-  // for Windows.
+  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
+  // accepted and parsed.  This allows for a transition period for using a more
+  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
   if (IsClCompatMode) {
     if (!AllowAllOpts) {
       // Include CL and Core options.
