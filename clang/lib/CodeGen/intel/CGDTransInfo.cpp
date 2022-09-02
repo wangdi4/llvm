@@ -450,6 +450,23 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
           if (ClangType.isNull())
             ClangType = FixupPaddingType(LLVMType);
 
+          ClangType = ClangType.getCanonicalType();
+
+          // A group of bitfields may ALSO be represented as an llvm array of
+          // integers, so if this is the case, just do a 'padding' fixup, so the
+          // integral case should properly cover this.
+          // We don't know of any cases a non-field could be an array in this
+          // case, nor a non-bitfield.
+          if (ClangType->isIntegralOrEnumerationType() &&
+              LLVMType->isArrayTy() &&
+              LLVMType->getArrayElementType()->isIntegerTy()) {
+            assert(
+                Layout.getFieldOfLLVMFieldNum(Idx) &&
+                Layout.getFieldOfLLVMFieldNum(Idx)->isBitField() &&
+                "Unknown LLVM Array type representing a Clang integral type");
+            ClangType = FixupPaddingType(LLVMType);
+          }
+
           MD.push_back(CreateTypeMD(ClangType, LLVMType, nullptr, IsABase));
         }
       }
@@ -869,6 +886,13 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
                                         ST->getElementType(I), CurInit));
       }
     }
+  } else if (const auto *FPtr = ClangType->getAs<FunctionProtoType>()) {
+    // The only confirmed time a literal struct is used to represent a
+    // FunctionProtoType is as an empty literal struct. This seems to happen
+    // when this is a function pointer with an incomplete record type in its
+    // parameters list.
+    assert(ST->getNumElements() == 0  && "Don't know how to handle this yet");
+    // As there are no fields, there is nothing to do here.
   } else {
     assert(ClangType->getAs<MemberPointerType>() &&
            "Unknown LLVM Literal Struct type");
