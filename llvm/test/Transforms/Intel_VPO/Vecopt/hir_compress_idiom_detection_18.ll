@@ -55,10 +55,11 @@
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
+; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
 ; CHECK-NEXT:       i32 [[VP_LOAD]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[B0]] i64 [[VP15]]
-; CHECK-NEXT:       compress-store-nonu i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       compress-store-nonu i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i64 [[VP9]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
@@ -86,13 +87,13 @@
 ; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 2, i64 4, i64 6>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        |   [[DOTVEC20]] = (<4 x i32>*)([[A0]])[i1], Mask = @{[[DOTVEC10]]}
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4i32([[DOTVEC20]],  undef,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC10]])
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i4([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST30:%.*]] = bitcast.i4.<4 x i1>([[XOR0]])
+; CHECK-NEXT:        |   [[DOTVEC20]] = (<4 x i32>*)([[A0]])[i1], Mask = @{[[DOTVEC10]]}
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v4i32([[DOTVEC20]],  undef,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   @llvm.masked.scatter.v4i32.v4p0i32([[COMPRESS0]],  &((<4 x i32*>)([[B0]])[%add]),  0,  [[CAST30]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP0]] + 2 : [[PHI_TEMP0]]
 ; CHECK-NEXT:        |   [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.add.v4i64([[SELECT0]])
