@@ -538,6 +538,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveSubdevice())
     PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
 
+  if (canHaveInterop())
+    PrintedSomething |= getInterop().print(OS, Depth, Verbosity);
+
   if (canHaveInteropAction())
     PrintedSomething |= getInteropAction().print(OS, Depth, Verbosity);
 
@@ -665,7 +668,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
     Value *V = Args[0];
-    handleQualOpnd(ClauseID, V);
+    handleQualOpnd(ClauseInfo, V);
   } else {
     // The clause takes a list of arguments
     assert(NumArgs >= 1 && "This clause takes one or more arguments.");
@@ -828,10 +831,11 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   }
 }
 
-void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
+void WRegionNode::handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V) {
   // for clauses whose parameter are constant integer exprs,
   // we store the information as an int rather than a Value*,
   // so we must extract the integer N from V and store N.
+  int ClauseID = ClauseInfo.getId();
   int64_t N = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
   if (CI != nullptr)
@@ -889,12 +893,16 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_FINAL:
     setFinal(V);
     break;
-  case QUAL_OMP_GRAINSIZE:
+  case QUAL_OMP_GRAINSIZE: {
+    if (ClauseInfo.getIsStrict())
+      setIsStrict(true);
     setGrainsize(V);
-    break;
-  case QUAL_OMP_NUM_TASKS:
+  } break;
+  case QUAL_OMP_NUM_TASKS: {
+    if (ClauseInfo.getIsStrict())
+      setIsStrict(true);
     setNumTasks(V);
-    break;
+  } break;
   case QUAL_OMP_PRIORITY:
     setPriority(V);
     break;
@@ -907,13 +915,13 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DESTROY: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsDestroy();
   } break;
   case QUAL_OMP_USE: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
-    InteropItem *InteropI = InteropAction.back();
+    InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsUse();
   } break;
 #if INTEL_CUSTOMIZATION
@@ -1160,7 +1168,7 @@ void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
 
   Value *V = Args[0];
   InteropAction.add(V);
-  InteropItem *InteropI = InteropAction.back();
+  InteropActionItem *InteropI = InteropAction.back();
   InteropI->setIsInit();
 
   if (ClauseInfo.getIsInitTarget())
@@ -2193,6 +2201,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_OPERAND_ADDR:
     // TODO: Should anything be handled for QUAL.OMP.OPERAND.ADDR clause?
     break;
+  case QUAL_OMP_INTEROP: {
+    extractQualOpndList<InteropClause>(Args, NumArgs, ClauseID, getInterop());
+    break;
+  }
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -2481,6 +2493,15 @@ bool WRegionNode::canHaveSubdevice() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInterop() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
   case WRNDispatch:
     return true;
   }

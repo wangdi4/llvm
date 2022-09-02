@@ -1294,8 +1294,10 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
       CSB.setPtrToPtr();
     addArg(CSB.getString());
     if (UseTypedClauses && IsPtr) {
-      llvm::Type *ElemTy =
-          CGF.ConvertTypeForMem(E->getType()->getPointeeType());
+      QualType PointeeT = E->getType()->getPointeeType();
+      llvm::Type *ElemTy = PointeeT->isFunctionType()
+                               ? CGF.Int8Ty
+                               : CGF.ConvertTypeForMem(PointeeT);
       addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
      } else
       addTypedArg(E, IsRef);

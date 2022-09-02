@@ -56,11 +56,12 @@
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
+; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP7]] i32 3
 ; CHECK-NEXT:       i64 [[VP10]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index i64 [[VP10]] i64 3
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[D20]] i64 [[VP16]]
-; CHECK-NEXT:       i32 [[VP17:%.*]] = expand-load-nonu i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       i32 [[VP17:%.*]] = expand-load-nonu i32* [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[V20:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:       store i32 [[VP17]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       br [[BB2]]
@@ -99,14 +100,14 @@
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC70:%.*]] = (<8 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[DOTVEC70]] != 0
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]] + 3,  undef,  zeroinitializer
-; CHECK-NEXT:        |   [[ADD90:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9, i64 12, i64 15, i64 18, i64 21>
 ; CHECK-NEXT:        |   [[CAST0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC80]])
 ; CHECK-NEXT:        |   [[POPCNT0:%.*]] = @llvm.ctpop.i8([[CAST0]])
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST100:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0i32(&((<8 x i32*>)([[D20]])[%add9]),  0,  [[CAST100]],  undef)
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]] + 3,  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[ADD90:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9, i64 12, i64 15, i64 18, i64 21>
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0i32(&((<8 x i32*>)([[D20]])[%add10]),  0,  [[CAST100]],  undef)
 ; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v8i32([[GATHER0]],  undef,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   (<8 x i32>*)([[V20]])[i1] = [[EXPAND0]], Mask = @{[[DOTVEC80]]}
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[PHI_TEMP50]] + 3 : [[PHI_TEMP50]]
@@ -130,7 +131,7 @@
 ; CHECK-NEXT:        [[MERGE_BLK0]].35:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
 ; CHECK-NEXT:        [[K_0340]] = [[PHI_TEMP10]]
-; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK-NEXT:        |   if (([[A0]])[i1] != 0)
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[K_0340]] = [[K_0340]]  +  3

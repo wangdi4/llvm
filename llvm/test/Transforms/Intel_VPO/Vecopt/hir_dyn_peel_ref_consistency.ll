@@ -30,7 +30,7 @@
 ; CHECK-NEXT:        [[UB_TMP0:%.*]] = [[EXTRACT_0_90]]
 ; CHECK-NEXT:        [[PEEL_UB0:%.*]] = [[UB_TMP0]]  -  1
 
-; CHECK:             + DO i1 = 0, [[PEEL_UB0]], 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 0, [[PEEL_UB0]], 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-peel> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   ([[LP0]])[i1 + %n1] = i1
 ; CHECK-NEXT:        + END LOOP
 
@@ -68,7 +68,7 @@
 ; CHECK-NEXT:        [[MERGE_AFTER_MAIN]]:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP60]]
 
-; CHECK:             + DO i1 = [[LB_TMP0]], 399, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = [[LB_TMP0]], 399, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   ([[LP0]])[i1 + %n1] = i1
 ; CHECK-NEXT:        + END LOOP
 

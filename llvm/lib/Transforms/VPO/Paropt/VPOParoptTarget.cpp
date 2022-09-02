@@ -4733,19 +4733,26 @@ StringRef VPOParoptTransform::getVariantInfo(
                         InteropPositionOut, NeedDevicePtrStr, InteropStr);
 }
 
-static Value *genDeviceNum(WRegionNode *W, Instruction *InsertPt) {
+static Value *genDeviceNum(WRegionNode *W, Instruction *InsertPt,
+                           Value *InteropClauseObj) {
   Value *DeviceNum = W->getDevice();
-  if (!DeviceNum) {
-    IRBuilder<> Builder(InsertPt);
-    IntegerType *Int64Ty = Builder.getInt64Ty();
-    DeviceNum = Builder.CreateZExt(
-        VPOParoptUtils::genOmpGetDefaultDevice(InsertPt), Int64Ty);
-  }
-  assert(!DeviceNum->getType()->isPointerTy() &&
-         "DeviceID should not be a pointer");
-  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
 
-  return DeviceNum;
+  if (DeviceNum) {
+    assert(!DeviceNum->getType()->isPointerTy() &&
+           "DeviceID should not be a pointer");
+    return VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
+  }
+  // else device clause is unspecified.
+  //  - If interop clause is specified, get device num from it;
+  //  - otherwise, use the default device.
+
+  if (InteropClauseObj)
+    return VPOParoptUtils::genOmpGetInteropDeviceNum(InteropClauseObj,
+                                                     InsertPt);
+  IRBuilder<> Builder(InsertPt);
+  IntegerType *Int64Ty = Builder.getInt64Ty();
+  return Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
+                            Int64Ty);
 }
 
 // Emit code to check for device availability, and return %available:
@@ -5240,7 +5247,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Instruction *InsertPt = BranchBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
 
-  Value *DeviceNum = genDeviceNum(W, InsertPt);
+  Value *DeviceNum = genDeviceNum(W, InsertPt, /*InteropClauseObj=*/ nullptr);
 
   // Emit dispatch condition:
   //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType)  (1)
@@ -5544,6 +5551,26 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
     return false;
   }
 
+  InteropClause &IOClause = W->getInterop();
+  if (IOClause.size() > 1) {
+    // TODO: support multiple interop objs
+    F->getContext().diagnose(DiagnosticInfoUnsupported(
+        *F, "Multiple interop objs in INTEROP clause is not yet supported.",
+        W->getEntryDirective()->getDebugLoc()));
+    return false;
+  }
+
+  if (InteropStr.empty() && !IOClause.empty()) {
+    // TODO: when supporting multiple interop objs, InteropStr will be a vector
+    //       and the check becomes: if (InteropStrVec.size() < IOClause.size())
+    F->getContext().diagnose(DiagnosticInfoUnsupported(
+        *F,
+        "Number of interop objs in INTEROP clause cannot exceed number of "
+        "interop operations in APPEND_ARGS clause.",
+        W->getEntryDirective()->getDebugLoc()));
+    return false;
+  }
+
   LLVM_DEBUG(dbgs() << __FUNCTION__
                     << ": Found variant function name: " << VariantName);
   if (!NeedDevicePtrStr.empty())
@@ -5554,7 +5581,19 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
   Instruction *InsertPt = BaseCall;
 
-  Value *DeviceNum = genDeviceNum(W, InsertPt);
+  assert((W->getDevice() || IOClause.size() <= 1) &&
+         "If INTEROP clause has multiple objs then device clause is required");
+         // FE guarantees this
+
+  Value *InteropClauseObj = nullptr;
+  if (!IOClause.empty()) {
+    InteropItem *IOItem = IOClause.front();
+    InteropClauseObj = IOItem->getOrig();
+    assert(InteropClauseObj && "Interop clause item is null");
+    // TODO: when we support multiple interop objs, use a loop
+    //       for (InteropItem *IOItem : IOClause.items()) ...
+  }
+  Value *DeviceNum = genDeviceNum(W, InsertPt, InteropClauseObj);
 
   // Emit dispatch condition:
   //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType)  (1)
@@ -5580,15 +5619,18 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   // createInteropObj() and don't distinguish between target and targetsync.
   // TODO: Use the new-style interop obj created by #pragma omp interop
   Value *InteropObj = nullptr;
-  if (InteropStr.empty())
+  if (InteropStr.empty()) {
     assert(!W->getNowait() &&
            "Expected an interop obj for dispatch nowait");
-  else if (InteropStr == "target" || InteropStr == "targetsync" ||
-           InteropStr == "target,targetsync")
+  } else if (InteropClauseObj) {
+    InteropObj = InteropClauseObj;
+  } else if (InteropStr == "target" || InteropStr == "targetsync" ||
+           InteropStr == "target,targetsync") {
     InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm); //      (7)
-  else
+  } else {
     llvm_unreachable("Unsupported interop type in append_args");
     // We should never get here because FE should have caught it
+  }
 
   // Create and insert Variant call before ThenTerm
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());

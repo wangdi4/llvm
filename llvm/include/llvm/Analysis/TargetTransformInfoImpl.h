@@ -803,6 +803,8 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  bool isIntelAdvancedOptimEnabled() const { return false; }
+
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const { return false; }
 
   bool isLibIRCAllowed() const { return false; }

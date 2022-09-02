@@ -773,7 +773,7 @@ class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
   /// Current loop to analyse.
   HLLoop *Loop;
 
-  MapVector<unsigned, SetVector<HLInst *>> Increments;
+  MapVector<unsigned, SetVector<HLInst *>> CEIdiomCandidates;
 
 public:
   HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
@@ -792,7 +792,10 @@ public:
   bool isRecognizedConflictIndex(RegDDRef *StoreMemDDRef,
                                  const BlobDDRef *&NonLinearBlob);
   bool tryVConflictIdiom(HLDDNode *Node);
+
+  // Compress/expand idiom recognition related functions.
   void tryAddIncrementNode(HLDDNode *Node);
+  SetVector<RegDDRef *> collectLoadsStores(const SetVector<HLInst *> &Incs);
   void detectCompressExpandIdioms();
 };
 
@@ -1262,10 +1265,7 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
     return;
 
   int64_t Stride;
-  if (!HIRVectorIdioms::isIncrementInst(Inst, Stride))
-    return;
-
-  if (Stride <= 0)
+  if (!HIRVectorIdioms::isIncrementInst(Inst, Stride) || Stride <= 0)
     return;
 
   unsigned Symbase = Inst->getOperandDDRef(0)->getSymbase();
@@ -1273,7 +1273,118 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
                     << "}+" << Stride << " detected: ";
              CurNode->dump());
 
-  Increments[Symbase].insert(Inst);
+  CEIdiomCandidates[Symbase].insert(Inst);
+}
+
+SetVector<RegDDRef *>
+HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
+
+  assert(!Increments.empty() &&
+         "At least one increment instruction is expected.");
+
+#ifndef NDEBUG
+  auto Failure = [](const char *Reason, auto *Entity) {
+    LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] " << Reason << ": ");
+    LLVM_DEBUG(Entity->dump());
+    if (std::is_convertible<decltype(Entity), DDRef *>::value ||
+        std::is_convertible<decltype(Entity), CanonExpr *>::value)
+      LLVM_DEBUG(dbgs() << "\n");
+    return SetVector<RegDDRef *>();
+  };
+#else
+  auto Failure = [](...) { return SetVector<RegDDRef *>(); };
+#endif
+
+  // All the instructions of one idiom is expected to be located in the same
+  // branch of a single if statement.
+  HLInst *Increment = Increments.front();
+  auto CheckParent = [&](HLNode *Node) {
+    HLIf *IfNode = cast<HLIf>(Increment->getParent());
+    return Node->getParent() == IfNode &&
+           IfNode->isThenChild(Node) == IfNode->isThenChild(Increment);
+  };
+
+  SetVector<RegDDRef *> LoadsStores;
+  for (HLInst *Increment : Increments) {
+
+    if (!CheckParent(Increment))
+      return Failure("Inconsistent parent", Increment->getParent());
+
+    HIRSafeReductionAnalysis *SRA = Increment->getHLNodeUtils()
+                                        .getHIRFramework()
+                                        .getHIRAnalysisProvider()
+                                        .get<HIRSafeReductionAnalysis>();
+    if (SRA && SRA->isSafeReduction(Increment))
+      return Failure("No associated loads/stores found (safe reduction)",
+                     Increment);
+
+    for (DDEdge *E : DDG.outgoing(Increment->getLvalDDRef())) {
+
+      DDRef *SinkRef = E->getSink();
+      HLDDNode *SinkNode = SinkRef->getHLDDNode();
+      HLInst *SinkInst = dyn_cast<HLInst>(SinkNode);
+      if (!SinkInst)
+        return Failure("Dependency is not a HLInst", SinkNode);
+
+      if (Increments.count(SinkInst) > 0)
+        continue;
+
+      if (!CheckParent(SinkInst))
+        return Failure("Inconsistent parent of dependency", SinkInst);
+
+      if (isa<RegDDRef>(SinkRef))
+        // Filter non-increment nodes where index is used directly.
+        // E.g. a[i] = index;
+        return Failure("Unsupported DDRef dependency", SinkInst);
+
+      BlobDDRef *BlobRef = cast<BlobDDRef>(SinkRef);
+      RegDDRef *UseMemRef = BlobRef->getParentDDRef();
+      if (!UseMemRef->isMemRef())
+        return Failure("Unsupported BlobDDRef dependency", SinkInst);
+
+      if (UseMemRef->getNumDimensions() > 1)
+        return Failure("Multidimensional arrays are not supported", UseMemRef);
+
+      CanonExpr *CE = UseMemRef->getDimensionIndex(1);
+      if (CE->hasIV(Loop->getNestingLevel()))
+        return Failure("IV found in UseMemRef", UseMemRef);
+
+      if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true))
+        return Failure("Non-standalone blob found", CE);
+
+      for (auto *BRef : UseMemRef->blobs())
+        if (BRef != BlobRef && BRef->isNonLinear())
+          return Failure("Non-linear BlobRef found", BRef);
+
+      HLDDNode *Node = UseMemRef->getHLDDNode();
+      if (HLInst *Inst = dyn_cast<HLInst>(Node))
+        if (IdiomList.isIdiom(Inst))
+          return Failure("Instruction already captured as another idiom", Inst);
+
+      for (DDEdge *E : DDG.outgoing(UseMemRef)) {
+
+        DDRef *SinkRef = E->getSink();
+        if (!DDRefUtils::areEqual(SinkRef, UseMemRef))
+          return Failure("Data-dependency on other memory found", SinkRef);
+
+        HLNode *SinkNode = SinkRef->getHLDDNode();
+        if (!CheckParent(SinkNode))
+          return Failure("Data-dependency in different parents found", SinkRef);
+
+        DDEdge *NonLinBlobEdge = *DDG.incoming_edges_begin(BlobRef);
+        HLDDNode *NonLinBlobDefNode = NonLinBlobEdge->getSrc()->getHLDDNode();
+        if (HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
+          return Failure("Data-dependency on redefined index found", SinkRef);
+      }
+
+      LoadsStores.insert(UseMemRef);
+    }
+  }
+
+  if (LoadsStores.empty())
+    return Failure("No associated loads/stores found", Increment);
+
+  return LoadsStores;
 }
 
 // The function collects compress/expand idioms for further processing.
@@ -1307,205 +1418,46 @@ void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
 // recognized %j.014 = %j.014 + 2 is rejected.
 void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
 
-  auto FilterNodes = [this](auto &Nodes, auto &Cands) -> HLInst * {
-    HLInst *BaseInst = nullptr;
-    auto CheckParent = [&BaseInst](HLInst *Inst) {
-      if (!BaseInst) {
-        BaseInst = Inst;
-        return true;
-      }
+  for (auto &Cand : CEIdiomCandidates) {
 
-      HLNode *Parent = BaseInst->getParent();
-      if (Inst->getParent() != Parent)
-        return false;
-
-      HLIf *IfNode = cast<HLIf>(Parent);
-      return IfNode->isThenChild(Inst) == IfNode->isThenChild(BaseInst);
-    };
-
-    for (auto It = Nodes.begin(); It != Nodes.end(); It++) {
-
-      HLInst *Inst = *It;
-      if (!CheckParent(Inst)) {
-        LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Inconsistent parent: ";
-                   Inst->getParent()->dump());
-        return Inst;
-      }
-
-      HIRSafeReductionAnalysis *SRA = Inst->getHLNodeUtils()
-                                          .getHIRFramework()
-                                          .getHIRAnalysisProvider()
-                                          .get<HIRSafeReductionAnalysis>();
-      if (SRA && SRA->isSafeReduction(Inst)) {
-        LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] No associated "
-                             "loads/stores found (safe reduction): ";
-                   Inst->dump());
-        return Inst;
-      }
-
-      for (DDEdge *E : DDG.outgoing(Inst->getLvalDDRef())) {
-
-        DDRef *SinkRef = E->getSink();
-        HLDDNode *SinkNode = SinkRef->getHLDDNode();
-        HLInst *SinkInst = dyn_cast<HLInst>(SinkNode);
-
-        if (!SinkInst) {
-          LLVM_DEBUG(
-              dbgs() << "[Compress/Expand Idiom] Dependency is not a HLInst: ";
-              SinkNode->dump());
-          return Inst;
-        }
-
-        if (Nodes.count(SinkInst) > 0)
-          continue;
-
-        if (!CheckParent(SinkInst)) {
-          LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Inconsistent parent of "
-                               "dependency: ";
-                     SinkInst->dump());
-          return Inst;
-        }
-
-        if (isa<RegDDRef>(SinkRef)) {
-          // Filter non-increment nodes where index is used directly.
-          // E.g. a[i] = index;
-          LLVM_DEBUG(
-              dbgs()
-                  << "[Compress/Expand Idiom] Unsupported DDRef dependency: ";
-              SinkInst->dump());
-          return Inst;
-        }
-
-        BlobDDRef *BlobRef = cast<BlobDDRef>(SinkRef);
-        RegDDRef *UseMemRef = BlobRef->getParentDDRef();
-
-        if (!UseMemRef->isMemRef()) {
-          LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Unsupported BlobDDRef "
-                               "dependency: ";
-                     SinkInst->dump());
-          return Inst;
-        }
-
-        if (UseMemRef->getNumDimensions() > 1) {
-          LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Multidimensional "
-                               "arrays are not supported: ";
-                     UseMemRef->dump(); dbgs() << "\n");
-          return Inst;
-        }
-
-        CanonExpr *CE = UseMemRef->getDimensionIndex(1);
-        if (CE->hasIV(Loop->getNestingLevel())) {
-          LLVM_DEBUG(dbgs()
-                         << "[Compress/Expand Idiom] IV found in UseMemRef: ";
-                     UseMemRef->dump(); dbgs() << "\n");
-          return Inst;
-        }
-
-        if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true)) {
-          LLVM_DEBUG(
-              dbgs() << "[Compress/Expand Idiom] Non-standalone blob found: ";
-              CE->dump(); dbgs() << "\n");
-          return Inst;
-        }
-
-        for (auto *BRef : UseMemRef->blobs())
-          if (BRef != BlobRef && BRef->isNonLinear()) {
-            LLVM_DEBUG(
-                dbgs() << "[Compress/Expand Idiom] Non-linear BlobRef found: ";
-                BRef->dump(); dbgs() << "\n");
-            return Inst;
-          }
-
-        HLDDNode *Node = UseMemRef->getHLDDNode();
-        for (DDEdge *E : DDG.outgoing(UseMemRef)) {
-          DDRef *SinkRef = E->getSink();
-
-          if (!DDRefUtils::areEqual(SinkRef, UseMemRef)) {
-            LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Data-dependency on "
-                                 "other memory found: ";
-                       SinkRef->dump(); dbgs() << "\n");
-            return Inst;
-          }
-
-          HLNode *Parent = Node->getParent();
-          HLNode *SinkNode = SinkRef->getHLDDNode();
-          if (SinkNode->getParent() != Parent) {
-            LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Data-dependency in "
-                                 "different parents found: ";
-                       SinkRef->dump(); dbgs() << "\n");
-            return Inst;
-          }
-
-          HLIf *IfNode = cast<HLIf>(Parent);
-          if (IfNode->isThenChild(Node) != IfNode->isThenChild(SinkNode)) {
-            LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Data-dependncy found "
-                                 "in different IF-branches: ";
-                       SinkRef->dump(); dbgs() << "\n");
-            return Inst;
-          }
-
-          DDEdge *NonLinBlobEdge = *DDG.incoming_edges_begin(BlobRef);
-          HLDDNode *NonLinBlobDefNode = NonLinBlobEdge->getSrc()->getHLDDNode();
-          if (HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node,
-                                               SinkNode)) {
-            LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Data-dependency on "
-                                 "redefined index found: ";
-                       SinkRef->dump(); dbgs() << "\n");
-            return Inst;
-          }
-        }
-
-        Cands.insert(UseMemRef);
-      }
-
-      if (Cands.empty() && std::next(It) == Nodes.end()) {
-        LLVM_DEBUG(
-            dbgs()
-                << "[Compress/Expand Idiom] No associated loads/stores found: ";
-            Inst->dump());
-        return Inst;
-      }
-    }
-
-    return nullptr;
-  };
-
-  for (auto It = Increments.begin(); It != Increments.end(); It++) {
-
-    auto &Nodes = It->second;
-    SetVector<RegDDRef *> Cands;
-    if (HLInst *Node = FilterNodes(Nodes, Cands)) {
+    // First try to collect load/store instructions associated with the
+    // increments collected earlier.
+    SetVector<HLInst *> &Increments = Cand.second;
+    SetVector<RegDDRef *> LoadsStores = collectLoadsStores(Increments);
+    if (LoadsStores.empty()) {
       LLVM_DEBUG(dbgs() << "[Compress/Expand Idiom] Increment rejected: ";
-                 Node->dump());
+                 Increments.front()->dump());
       continue;
     }
 
+    // If succeeded - the idiom has been recognized, let's add all the
+    // increments to the list of idioms.
     HLInst *IndexIncFirst = nullptr;
-    for (auto It = Nodes.begin(); It != Nodes.end(); It++) {
-
-      HLInst *Node = *It;
-      if (IndexIncFirst)
-        IdiomList.addLinked(IndexIncFirst, Node,
-                            HIRVectorIdioms::CEIndexIncNext);
-      else {
+    for (HLInst *Node : Increments) {
+      if (!IndexIncFirst) {
         IndexIncFirst = Node;
         IdiomList.addIdiom(Node, HIRVectorIdioms::CEIndexIncFirst);
+        continue;
       }
+      IdiomList.addLinked(IndexIncFirst, Node, HIRVectorIdioms::CEIndexIncNext);
     }
 
-    for (auto It = Cands.begin(); It != Cands.end(); It++) {
+    // And finally adding all the collected load/store instructions to the
+    // idioms list.
+    for (RegDDRef *LoadStore : LoadsStores) {
 
-      RegDDRef *Cand = *It;
-      if (Cand->isLval()) {
-        HLInst *Inst = cast<HLInst>(Cand->getHLDDNode());
-        IdiomList.addLinked(IndexIncFirst, Inst, HIRVectorIdioms::CEStore);
-        IdiomList.addLinked(Inst, Cand->getDimensionIndex(1),
-                            HIRVectorIdioms::CELdStIndex);
-      } else {
-        IdiomList.addLinked(IndexIncFirst, Cand, HIRVectorIdioms::CELoad);
-        IdiomList.addLinked(Cand, Cand->getDimensionIndex(1),
-                            HIRVectorIdioms::CELdStIndex);
-      }
+      HIRVecIdiom IdiomMaster(LoadStore);
+      HIRVectorIdioms::IdiomId IdiomId = LoadStore->isLval()
+                                             ? HIRVectorIdioms::CEStore
+                                             : HIRVectorIdioms::CELoad;
+
+      // For loads we add DDRefs, but HLInsts for stores.
+      if (IdiomId == HIRVectorIdioms::CEStore)
+        IdiomMaster = cast<HLInst>(LoadStore->getHLDDNode());
+
+      IdiomList.addLinked(IndexIncFirst, IdiomMaster, IdiomId);
+      IdiomList.addLinked(IdiomMaster, LoadStore->getDimensionIndex(1),
+                          HIRVectorIdioms::CELdStIndex);
     }
   }
 }

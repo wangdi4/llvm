@@ -1657,6 +1657,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInc)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::CompressExpandMask)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InvSCEVWrapper) {
     // TODO: In this situation, we return uniform based on how InvSCEVWrapper
     // instructions are currently being used. This has to be reevaluated if how

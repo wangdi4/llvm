@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2043,6 +2043,19 @@ ChangeStatus Attributor::cleanupIR() {
     if (auto *CB = dyn_cast_or_null<CallBase>(I))
       if (CB->isCallee(U))
         return;
+
+#if INTEL_CUSTOMIZATION
+    // Do not perform modification of a ConstantExpression.
+    // (CMPLRLLVM-39584)
+    //
+    // All ConstantExpr objects are stored within a hash table based on
+    // their content. Changing the expression would cause subsequent
+    // lookups in the hash table to fail.
+    //
+    // Also ConstantExpr values may be shared by multiple functions.
+    if (isa<ConstantExpr>(U->getUser()))
+      return;
+#endif // INTEL_CUSTOMIZATION
 
     LLVM_DEBUG(dbgs() << "Use " << *NewV << " in " << *U->getUser()
                       << " instead of " << *OldV << "\n");

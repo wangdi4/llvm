@@ -79,7 +79,7 @@ define void @_Z3fooPlS_i(i64* nocapture noundef writeonly %lp1, i64* nocapture n
 ; CHECK-NEXT:        [[MERGE_BLK0]].33:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
 
-; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[K0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = [[LB_TMP0]], zext.i32.i64([[K0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:        |   [[TMP3:%.*]] = ([[L2_LINEAR0]])[0]
 ; CHECK-NEXT:        |   ([[LP10]])[i1] = [[TMP3]]
 ; CHECK-NEXT:        |   ([[L2_LINEAR0]])[0] = [[TMP3]] + 2

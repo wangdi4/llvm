@@ -138,7 +138,7 @@
 ; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_100]]
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = 12
 ; CHECK-NEXT:        [[K_0130]] = [[EXTRACT_0_100]]
-; CHECK:             + DO i1 = 12, 14, 1   <DO_LOOP> <novectorize>
+; CHECK:             + DO i1 = 12, 14, 1   <DO_LOOP> <vector-remainder> <novectorize>
 ; CHECK-NEXT:        |   if (([[C0]])[i1] != 0)
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[ADD0:%.*]] = ([[A0]])[%k.013]  +  ([[B0]])[%k.013]

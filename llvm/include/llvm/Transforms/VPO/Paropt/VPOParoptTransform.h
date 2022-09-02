@@ -948,7 +948,7 @@ private:
   bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                        StructType *&KmpSharedTy, Value *&LastIterGep);
 
-  /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+  /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 and the
   /// corresponding outlined function
   bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                           StructType *KmpSharedTy, AllocaInst *LBPtr,
@@ -1114,7 +1114,7 @@ private:
                                       Instruction *InsertBefore);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
-  /// by the call __kmpc_taskloop
+  /// by the call __kmpc_taskloop_5
   void genLoopInitCodeForTaskLoop(WRegionNode *W, AllocaInst *&LBPtr,
                                   AllocaInst *&UBPtr, AllocaInst *&STPtr);
 

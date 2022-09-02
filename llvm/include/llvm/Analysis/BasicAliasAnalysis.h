@@ -130,6 +130,11 @@ public:
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI);
+
+  // Compute modref info for a call's operand bundles.
+  ModRefInfo getDirectiveModRefInfo(const CallBase *Call,
+                                    const MemoryLocation &Loc,
+                                    AAQueryInfo &AAQI);
 #endif // INTEL_CUSTOMIZATION
 
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,

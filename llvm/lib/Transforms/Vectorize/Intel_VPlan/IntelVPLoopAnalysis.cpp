@@ -1911,6 +1911,7 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     VPBuilder &Builder, VPBasicBlock *Preheader, VPBasicBlock *PostExit) {
 
   VPBuilder::InsertPointGuard Guard(Builder);
+  DenseMap<VPBasicBlock *, VPInstruction *> Masks;
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
     // Create Init instruction using live-in instruction as an operand.
@@ -1939,31 +1940,39 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Init = Init;
     CEIdiom->Final = Final;
 
-    // Create CompressStore/CompressStoreNonu for each store.
-    for (VPLoadStoreInst *Store : CEIdiom->Stores) {
-      Builder.setInsertPoint(Store);
-      Builder.create<VPLoadStoreInst>(
-          "",
-          CEIdiom->TotalStride == 1 ? VPInstruction::CompressStore
-                                    : VPInstruction::CompressStoreNonu,
-          Store->getType(),
-          ArrayRef<VPValue *>(Store->op_begin(), Store->op_end()));
-      Store->getParent()->eraseInstruction(Store);
-    }
+    bool UnitStrided = CEIdiom->TotalStride == 1;
+    DenseMap<VPLoadStoreInst *, unsigned> LoadsStores;
+    for (VPLoadStoreInst *Store : CEIdiom->Stores)
+      LoadsStores[Store] = UnitStrided ? VPInstruction::CompressStore
+                                       : VPInstruction::CompressStoreNonu;
+    for (VPLoadStoreInst *Load : CEIdiom->Loads)
+      LoadsStores[Load] = UnitStrided ? VPInstruction::ExpandLoad
+                                      : VPInstruction::ExpandLoadNonu;
     CEIdiom->Stores.clear();
-
-    // Create ExpandLoad/ExpandLoadNonu for each load.
-    for (VPLoadStoreInst *Load : CEIdiom->Loads) {
-      Builder.setInsertPoint(Load);
-      VPLoadStoreInst *ExpandLoad = Builder.create<VPLoadStoreInst>(
-          "",
-          CEIdiom->TotalStride == 1 ? VPInstruction::ExpandLoad
-                                    : VPInstruction::ExpandLoadNonu,
-          Load->getType(), Load->getPointerOperand());
-      Load->replaceAllUsesWith(ExpandLoad);
-      Load->getParent()->eraseInstruction(Load);
-    }
     CEIdiom->Loads.clear();
+
+    for (auto &Pair : LoadsStores) {
+      VPLoadStoreInst *LoadStore = Pair.first;
+      VPBasicBlock *VPBB = LoadStore->getParent();
+
+      Builder.setInsertPoint(LoadStore);
+      VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
+          "", Pair.second, LoadStore->getType(),
+          ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
+      LoadStore->replaceAllUsesWith(CompressExpand);
+      VPBB->eraseInstruction(LoadStore);
+
+      if (UnitStrided)
+        continue;
+
+      if (Masks.count(VPBB) == 0) {
+        Builder.setInsertPointFirstNonPhi(VPBB);
+        Masks[VPBB] =
+            Builder.createNaryOp(VPInstruction::CompressExpandMask,
+                                 Type::getInt64Ty(*Plan.getLLVMContext()), {});
+      }
+      CompressExpand->addOperand(Masks[VPBB]);
+    }
 
     std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
         [&](VPUser *User) {
@@ -1980,7 +1989,7 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
 
     // If idiom's loads/stores are non-unit strided, CompressExpandIndex
     // instruction has to be created for each index instruction.
-    if (CEIdiom->TotalStride != 1) {
+    if (!UnitStrided) {
       VPConstant *Stride = Plan.getVPConstant(ConstantInt::get(
           Type::getInt64Ty(*Plan.getLLVMContext()), CEIdiom->TotalStride));
       for (VPInstruction *Index : CEIdiom->Indices) {

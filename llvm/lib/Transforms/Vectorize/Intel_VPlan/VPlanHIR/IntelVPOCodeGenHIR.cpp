@@ -995,10 +995,12 @@ static void setLoopTCEstimatesAndMarkers(HLLoop *Loop, unsigned TC) {
 }
 
 void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
-  // For merged CFG we reuse the MainLoop created earlier for first top-level
-  // loop, and for all other top-level loops (vectorized remainder for example)
-  // we use an empty clone of MainLoop.
-  auto getMergedCFGVecHLLoop = [&](const VPLoop *VLp) {
+  assert(!isSearchLoop() && "Unexpected call to setupHLLoop for search loop");
+
+  // We reuse the MainLoop created earlier for first top-level loop, and for
+  // all other top-level loops (vectorized remainder for example) we use an
+  // empty clone of MainLoop.
+  auto getHLLoopForTopVPLoop = [&](const VPLoop *VLp) {
     if (*Plan->getVPLoopInfo()->begin() == VLp)
       return MainLoop;
     return MainLoop->cloneEmpty();
@@ -1008,19 +1010,39 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   HLLoop *HLoop;
   if (!VPLp->getParentLoop()) {
     CurTopVPLoop = VPLp;
-    HLoop = isSearchLoop() ? MainLoop : getMergedCFGVecHLLoop(VPLp);
-    if (!isSearchLoop()) {
-      // TODO - this code is making some implicit assumptions that the first
-      // VPLoop is the main vector loop and using its VF(MaxVF) to set
-      // trip count estimates. This needs to be improved to get the VF
-      // information explicitly from the merger and to give better estimates
-      // for the different vector loops.
-      if (*Plan->getVPLoopInfo()->begin() == VPLp)
-        HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
-            HLoop, getVF() * getUF());
+    HLoop = getHLLoopForTopVPLoop(VPLp);
+
+    // We are dealing with vectorized peel loop if peel loop was emitted
+    // and PeelVF is not yet set(if we did not see ScalarPeelHIR yet).
+    if (NeedPeelLoop && !getPeelVF()) {
+      PeelLoop = HLoop;
+      PeelLoop->setVecTag(HLLoop::VecTagTy::PEEL);
+      setPeelVF(VF);
+    } else if (!getMainVF()) {
+      // If we have dealt with peel loop and MainVF is not yet set we are
+      // dealing with the main vector loop.
+      setMainVF(VF);
+      if (IsOmpSIMD)
+        HLoop->setVecTag(HLLoop::VecTagTy::SIMD);
       else
-        setLoopTCEstimatesAndMarkers(HLoop, MaxVF / VF);
+        HLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
+    } else {
+      // Both peel and main loops have been dealt with - we are dealing with
+      // remainder loop now.
+      setRemVF(VF);
+      HLoop->setVecTag(HLLoop::VecTagTy::REMAINDER);
     }
+
+    // TODO - this code is making some implicit assumptions that the first
+    // VPLoop is the main vector loop and using its VF(MaxVF) to set
+    // trip count estimates. This needs to be improved to get the VF
+    // information explicitly from the merger and to give better estimates
+    // for the different vector loops.
+    if (*Plan->getVPLoopInfo()->begin() == VPLp)
+      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+          HLoop, getVF() * getUF());
+    else
+      setLoopTCEstimatesAndMarkers(HLoop, MaxVF / VF);
   } else {
     Type *IVTy;
     VPValue *IVUpper = nullptr;
@@ -1127,9 +1149,14 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
       OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
       &RTChecks);
 
+  assert(!IsOmpSIMD && "Unexpected SIMD vectorization of search loop");
+  MainLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
+
   if (PeelLoop) {
     setNeedPeelLoop(NeedPeelLoop);
     setPeelLoop(PeelLoop);
+    PeelLoop->setVecTag(HLLoop::VecTagTy::PEEL);
+
     if (TripCount > 0) {
       assert(TripCount > 1 && "Expected trip-count > 1!");
       if (NeedFirstIterationPeelLoop)
@@ -4786,8 +4813,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         "compress");
     addInstUnmasked(CompressCall);
 
-    // Next, calculate mask for strided store.
-    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    // Mask for strided store is the last instruction operand.
+    RegDDRef *Mask = getOrCreateScalarRef(
+        VPInst->getOperand(VPInst->getNumOperands() - 1), 0);
 
     // Last step, store all selected elements consecutively using index/ptr
     // calculated by CompressExpandIndex.
@@ -4809,10 +4837,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ExpandLoadNonu: {
-    // First, calculate mask for strided load.
-    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    // Mask for strided load is the last instruction operand.
+    RegDDRef *Mask = getOrCreateScalarRef(
+        VPInst->getOperand(VPInst->getNumOperands() - 1), 0);
 
-    // Next, load the needed number of elements from array B.
+    // Load the needed number of elements from array B.
     //
     // %load.val = call void @llvm.masked.gather.XXXX.XXXX(<VF x type*> %ptr, i32 align, <VF x i1> %exec.mask)
     VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
@@ -4898,6 +4927,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     addInstUnmasked(InsertElementInst);
 
     addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::CompressExpandMask: {
+    RegDDRef *Mask = generateMaskForCompressExpandLoadStoreNonu();
+    addVPValueScalRefMapping(VPInst, Mask, 0);
     return;
   }
 
@@ -5394,6 +5429,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::CompressExpandIndexFinal:
   case VPInstruction::CompressExpandIndex:
   case VPInstruction::CompressExpandIndexInc:
+  case VPInstruction::CompressExpandMask:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {
@@ -5825,6 +5861,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarPeelHIR: {
     auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
     HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();
+    setPeelVF(1);
+    ScalarPeel->setVecTag(HLLoop::VecTagTy::PEEL);
     OutgoingScalarHLLoops.insert(ScalarPeel);
     OutgoingScalarHLLoopsMap[VPPeelLp] = ScalarPeel;
 
@@ -5884,6 +5922,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarRemainderHIR: {
     auto *VPRemLp = cast<VPScalarRemainderHIR>(VPInst);
     HLLoop *ScalarRem = VPRemLp->getLoop()->clone();
+    setRemVF(1);
+    ScalarRem->setVecTag(HLLoop::VecTagTy::REMAINDER);
     OutgoingScalarHLLoops.insert(ScalarRem);
     OutgoingScalarHLLoopsMap[VPRemLp] = ScalarRem;
 

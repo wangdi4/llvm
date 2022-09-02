@@ -102,7 +102,6 @@
 ; CHECK:      Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: IndirectCallLowering
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
