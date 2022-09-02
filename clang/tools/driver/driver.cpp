@@ -487,25 +487,11 @@ int clang_main(int Argc, char **Argv) {
     = new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
   FixupDiagPrefixExeName(DiagClient, Path);
 #if INTEL_CUSTOMIZATION
-  bool HasDpcppOption = false;
-  bool HasIntelOption = false;
+  bool HasDpcppOption = std::find(
+      Args.begin(), Args.end(), StringRef("--dpcpp")) != Args.end();
+  bool HasIntelOption = std::find(
+      Args.begin(), Args.end(), StringRef("--intel")) != Args.end();
 
-  std::string DpcppOpt("--dpcpp");
-  std::string IntelOpt("--intel");
-  auto CheckIntelOptions = [](std::string Arg, std::string Expected) {
-    return Expected == Arg;
-  };
-
-  for (int i = 1, size = Args.size(); i < size; ++i) {
-    if (Args[i] == nullptr)
-      continue;
-    if (CheckIntelOptions(Args[i], DpcppOpt)) {
-      HasDpcppOption = true;
-    }
-    if (CheckIntelOptions(Args[i], IntelOpt)) {
-      HasIntelOption = true;
-    }
-  }
   // Use of --intel --dpcpp is valid (icpx -fdpcpp) so in that case we
   // want the name to follow the --intel path.
   if (HasDpcppOption && !HasIntelOption)
@@ -536,8 +522,11 @@ int clang_main(int Argc, char **Argv) {
       TheDriver.setDriverName(std::string("icpx"));
     } else if (DrBasename.str() == "clang" &&
                DriverMode.equals_insensitive("cl")) {
-      DiagClient->setPrefix(std::string("icx-cl"));
-      TheDriver.setDriverName(std::string("icx-cl"));
+      bool HasICXOption = std::find(
+          Args.begin(), Args.end(), StringRef("--icx")) != Args.end();
+      std::string ICXName(HasICXOption ? "icx" : "icx-cl");
+      DiagClient->setPrefix(ICXName);
+      TheDriver.setDriverName(ICXName);
     } else {
       DiagClient->setPrefix(GetDriverName(DrBasename.str()));
       TheDriver.setDriverName(GetDriverName(DrBasename.str()));
