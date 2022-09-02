@@ -259,7 +259,7 @@ void implicit_maps_variable_length_array (int a){
 // CHECK: [[ARI:%arrayidx]] = getelementptr inbounds double, ptr [[VLA]],
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[VLA]], ptr [[ARI]], i64 [[L5]], i64 544
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM:VARLEN"(ptr [[VLA]], ptr [[ARI]], i64 [[L5]], i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc: aggregate)
   {
