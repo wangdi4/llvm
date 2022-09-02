@@ -765,7 +765,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
     if (EnableSimpleLoopUnswitch) {
       // The simple loop unswitch pass relies on separate cleanup passes.
-      // Schedule  them first so when we re-process a loop they run before
+      // Schedule them first so when we re-process a loop they run before
       // other loop passes.
       MPM.add(createLoopInstSimplifyPass());
       MPM.add(createLoopSimplifyCFGPass());
