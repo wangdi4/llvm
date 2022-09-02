@@ -578,23 +578,14 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
     return CreateFunctionTypeMD(ClangType, LLVMType);
   case llvm::Type::PointerTyID: {
 
-    if (ClangType->isMemberFunctionPointerType() &&
-        CGM.getTriple().isWindowsMSVCEnvironment()) {
-      // Pointer-to-Member Functions are represented on windows as either an
-      // i8*, or as a struct of {i8* followed by a number of i32s}.  This code
-      // path covers the former by just emitting the i8 pointer info.
-      MD.push_back(CreateElementMD(CGM.getContext().CharTy,
-                                   llvm::Type::getInt8Ty(Ctx), InitExpr));
-      MD.push_back(llvm::ConstantAsMetadata::get(
-          llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 1)));
-      return llvm::MDNode::get(Ctx, MD);
-    }
     // Pointer handling is the most particular/important here, we cannot look
     // into the LLVMType's element type, since the opaque_ptr makes that go
     // away.
     assert(!ClangType.isNull() && "Pointers should always have a field decl");
     assert((ClangType->isPointerType() || ClangType->isReferenceType() ||
-            ClangType->isVariableArrayType() || ClangType->isNullPtrType()) &&
+            ClangType->isVariableArrayType() || ClangType->isNullPtrType() ||
+            (ClangType->isMemberFunctionPointerType() &&
+             CGM.getTriple().isWindowsMSVCEnvironment())) &&
            "Not a pointer/vla/reference type?");
 
     // We need to do this as a separate step from the loop below, since the
@@ -624,6 +615,18 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
     if (ClangType->isNullPtrType()) {
       ClangType = CGM.getContext().VoidTy;
       PointerCount++;
+    }
+
+    if (ClangType->isMemberFunctionPointerType() &&
+        CGM.getTriple().isWindowsMSVCEnvironment()) {
+      // Pointer-to-Member Functions are represented on windows as either an
+      // i8*, or as a struct of {i8* followed by a number of i32s}.  This code
+      // path covers the former by just emitting the i8 pointer info.
+      MD.push_back(CreateElementMD(CGM.getContext().CharTy,
+                                   llvm::Type::getInt8Ty(Ctx), InitExpr));
+      MD.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(Ctx), 1 + PointerCount)));
+      return llvm::MDNode::get(Ctx, MD);
     }
 
     // Now re-make the LLVM Type from the Clang type.
