@@ -33,7 +33,7 @@ static int (*y_Arr_ptr)[3][4][5];
 void arrsecred_arrayptr() {
 
 //CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"
-//CHECK-SAME: (ptr{{.*}}y_Arr_ptr, [3 x [4 x [5 x i32]]] zeroinitializer,
+//CHECK-SAME: (ptr{{.*}}y_Arr_ptr, i32 0,
 //CHECK-SAME: i64 %sec.number_of_elements{{[^,]*}},
 //CHECK-SAME: i64 %sec.offset_in_elements{{[^,]*}})
   #pragma omp parallel for reduction(+:y_Arr_ptr[0][1][2][0:5])

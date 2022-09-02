@@ -535,6 +535,8 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
     if (IsTyped) {
       const Expr *Base = getArraySectionBase(E);
       QualType BaseT(Base->getType()->getPointeeOrArrayElementType(), 0);
+      if (BaseT->isArrayType())
+        BaseT = QualType(BaseT->getPointeeOrArrayElementType(), 0);
       CharUnits ElementSize = CGF.getContext().getTypeSizeInChars(BaseT);
       llvm::Value *Size = CGF.CGM.getSize(ElementSize);;
 
@@ -1472,7 +1474,10 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
         CSB.setCmplx();
       if (UseTypedClauses && BaseTy->isPointerType()) {
         CSB.setPtrToPtr();
-        ElemTy = CGF.ConvertTypeForMem(BaseTy->getPointeeType());
+        QualType PointeeTy = BaseTy->getPointeeType();
+        if (PointeeTy->isArrayType())
+          PointeeTy = QualType(PointeeTy->getPointeeOrArrayElementType(), 0);
+        ElemTy = CGF.ConvertTypeForMem(PointeeTy);
       }
     }
     if (UseTypedClauses)
