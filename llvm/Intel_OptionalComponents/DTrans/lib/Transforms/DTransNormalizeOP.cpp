@@ -20,7 +20,18 @@
 //   %ptr_to_struct.test = alloca %struct.test
 //   %dtnorm = getelementptr %struct.test, ptr %ptr_to_struct.test, i64 0, i32 0
 //   %x = load i32, ptr %dtnorm
-//
+// Example:
+// From:
+//   %struct.Y = type { [7 x ptr] }
+//   %struct.X = type { i64, %struct.Y }
+//   %x1 = getelementptr inbounds %struct.X, ptr %arg, i64 0, i32 1
+//   %y2 = getelementptr inbounds [7 x ptr], ptr %w, i64 0, i64 0
+//   %63 = phi ptr [ %x1, %B0 ], [ %y2, %B1 ]
+// To:
+//   %x1 = getelementptr inbounds %struct.X, ptr %arg, i64 0, i32 1
+//   %dtnorm = getelementptr inbounds [7 x ptr], ptr %x1, i64 0, i32 0
+//   %y2 = getelementptr inbounds [7 x ptr], ptr %w, i64 0, i64 0
+//   %63 = phi ptr [ %dtnorm, %B0 ], [ %y2, %B1 ]
 // 2: This pass could be extended in the future to support other cases, such as
 //    replacing byte-flattened GEPs.
 //===---------------------------------------------------------------------===//
@@ -108,14 +119,19 @@ public:
         Instruction *I = &*It;
         if (isa<LoadInst>(I) || isa<StoreInst>(I))
           checkPointer(I, getLoadStorePointerOperand(I));
+        else if (auto PHIN = dyn_cast<PHINode>(I))
+          checkPHI(PHIN);
       }
     }
 
-    if (InstructionsToGepify.empty())
+    if (InstructionsToGepify.empty() && PHIsToGepify.empty())
       return false;
 
     for (auto &KV : InstructionsToGepify)
       gepify(std::get<0>(KV), std::get<1>(KV), std::get<2>(KV));
+
+    for (auto &KV : PHIsToGepify)
+      gepifyPHI(KV.first, KV.second);
 
     return true;
   }
@@ -174,12 +190,89 @@ private:
     }
   }
 
+  void checkPHI(PHINode *PHIN) {
+
+    auto GetCandidateType = [this](Value *V) -> Type * {
+      if (auto PHI = dyn_cast<PHINode>(V))
+        return PHIType.lookup(PHI);
+      if (auto GEPI = dyn_cast<GetElementPtrInst>(V))
+        return GEPI->getSourceElementType();
+      return nullptr;
+    };
+
+    auto SimpleStructGEPI = [](Value *V) -> Type * {
+      auto GEPI = dyn_cast<GetElementPtrInst>(V);
+      if (!GEPI || GEPI->getNumIndices() != 2)
+        return nullptr;
+      auto CI0 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CI0 || !CI0->isZero())
+        return nullptr;
+      auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+      if (!CI1)
+        return nullptr;
+      auto Ty = dyn_cast<StructType>(GEPI->getSourceElementType());
+      if (!Ty)
+        return nullptr;
+      auto STy = dyn_cast<StructType>(Ty->getTypeAtIndex(CI1->getZExtValue()));
+      if (!STy || STy->getNumElements() == 0)
+        return nullptr;
+      return STy->getTypeAtIndex((unsigned)0);
+    };
+
+    auto TestAndInsert = [this, SimpleStructGEPI](PHINode *PHIN, unsigned Num,
+                                                  Value *GEPI0, Type *Ty) -> bool {
+      if (auto ATy0 = dyn_cast_or_null<ArrayType>(SimpleStructGEPI(GEPI0)))
+        if (auto ATy1 = dyn_cast<ArrayType>(Ty))
+          if (ATy0 == ATy1) {
+            PHIsToGepify.insert({PHIN, Num});
+            PHIType.insert({PHIN, Ty});
+            return true;
+          }
+      return false;
+    };
+
+    if (PHIN->getNumIncomingValues() != 2)
+      return;
+    auto V0 = PHIN->getIncomingValue(0);
+    auto V1 = PHIN->getIncomingValue(1);
+    auto Ty0 = GetCandidateType(V0);
+    auto Ty1 = GetCandidateType(V1);
+    if (!Ty0 || !Ty1)
+      return;
+    if (Ty0 == Ty1) {
+      PHIType.insert({PHIN, Ty0});
+      return;
+    }
+    if (TestAndInsert(PHIN, 0, V0, Ty1))
+      return;
+    if (TestAndInsert(PHIN, 1, V1, Ty0))
+      return;
+  }
+
+  void gepifyPHI(PHINode *PHIN, unsigned Num) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(PHIN->getIncomingValue(Num));
+    if (!GEPI)
+      return;
+    Type *Ty = PHIType.lookup(PHIN);
+    if (!Ty)
+      return;
+
+    SmallVector<Value *, 2> IdxList;
+    IdxList.push_back(ZeroPtrSizedInt);
+    IdxList.push_back(Zero32);
+    auto *GEP = GetElementPtrInst::Create(Ty, GEPI, IdxList, "dtnorm",
+        GEPI->getNextNonDebugInstruction());
+    PHIN->replaceUsesOfWith(PHIN->getIncomingValue(Num), GEP);
+  }
+
   ConstantInt *Zero32 = nullptr;
   ConstantInt *ZeroPtrSizedInt = nullptr;
 
   std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;
   SetVector<std::tuple<Instruction *, DTransType *, unsigned int>>
       InstructionsToGepify;
+  SmallDenseMap<PHINode *, Type *> PHIType;
+  SetVector<std::pair<PHINode *, unsigned>> PHIsToGepify;
 };
 
 } // end anonymous namespace

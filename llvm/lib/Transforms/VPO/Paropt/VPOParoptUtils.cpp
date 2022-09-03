@@ -1960,8 +1960,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
 }
 
 // This function generates a call as follows.
-//    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
-//    i64*, i64*, i64, i32, i32, i64, i8*)
+//    void @__kmpc_taskloop_5({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
+//    i64*, i64*, i64, i32, i32, i64, i32, i8*)
 // The generated code is based on the assumption that the loop is normalized
 // and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
@@ -1973,6 +1973,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Function *FnTaskDup) {
   IRBuilder<> Builder(InsertPt);
   Value *Zero = Builder.getInt32(0);
+  Value *One = Builder.getInt32(1);
   Type *Int64Ty = Builder.getInt64Ty();
   Type *Int32Ty = Builder.getInt32Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
@@ -2043,22 +2044,22 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       Loc,
       Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
       TaskAlloc,
-      Cmp == nullptr ? Builder.getInt32(1)
-                     : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
+      Cmp == nullptr ? One : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
       LBGep,
       UBGep,
       STVal,
       Zero,
       Builder.getInt32(W->getSchedCode()),
       GrainSizeV,
+      W->getIsStrict() ? One : Zero,
       (FnTaskDup == nullptr) ? ConstantPointerNull::get(Int8PtrTy)
                              : Builder.CreateBitCast(FnTaskDup, Int8PtrTy)};
   Type *TypeParams[] = {Loc->getType(), Int32Ty,    Int8PtrTy, Int32Ty,
                         Int64PtrTy,     Int64PtrTy, Int64Ty,   Int32Ty,
-                        Int32Ty,        Int64Ty,    Int8PtrTy};
+                        Int32Ty,        Int64Ty,    Int32Ty,   Int8PtrTy};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
-  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
+  StringRef FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop_5";
   Function *FnTaskLoop = M->getFunction(FnName);
 
   if (!FnTaskLoop)
@@ -7047,7 +7048,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     AddrSpace = cast<PointerType>(Orig->getType())->getAddressSpace();
     return true;
   };
-#endif // INTEL_CUSTOMIZATION`
+#endif // INTEL_CUSTOMIZATION
 
   if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
 #if INTEL_CUSTOMIZATION

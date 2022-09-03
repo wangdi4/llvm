@@ -50,7 +50,7 @@ define hidden void @diffusivities_.DIR.OMP.DISTRIBUTE.PARLOOP.27.split1714.split
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C10]] {sb:8}
 ; CHECK:        <RVAL-REG> LINEAR i32 [[C20]] {sb:10}
 ; CHECK:        + LiveIn symbases: 5, 8, 10, 11, 19, 25, 35, 36, 37
-; CHECK:        + DO i64 i1 = [[PHI_TEMP0:%.*]], [[LOOP_UB170:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:        + DO i64 i1 = [[PHI_TEMP0:%.*]], [[LOOP_UB170:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK:        + END LOOP
 DIR.OMP.DISTRIBUTE.PARLOOP.14.split:
   br label %DIR.OMP.SIMD.1

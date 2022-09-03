@@ -14,7 +14,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; masked peel
-; CHECK:        + DO i1 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:        + DO i1 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-peel> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK:        + END LOOP
 ; CHECK:        [[IND_FINAL0:%.*]] = 0 + [[TMP0:%.*]]
 ; CHECK:        [[PHI_TEMP0:%.*]] = [[IND_FINAL0]]
@@ -25,7 +25,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; CHECK:        [[PHI_TEMP60:%.*]] = [[IND_FINAL240]]
 ; CHECK:        [[LB_TMP0:%.*]] = [[PHI_TEMP60]]
 ; scalar remainder
-; CHECK:        + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:        + DO i1 = [[LB_TMP0]], zext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;

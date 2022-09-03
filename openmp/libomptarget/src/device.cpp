@@ -297,6 +297,8 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
       IsHostPtr = true;
     TargetPointer = HstPtrBegin;
+    // Lookup result becomes irrelevant in this case, and it should be ignored.
+    Entry = nullptr;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier && !managedMemorySupported()) {
 #else // INTEL_COLLAB

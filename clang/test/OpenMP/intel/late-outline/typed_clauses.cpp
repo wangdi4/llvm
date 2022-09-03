@@ -319,6 +319,8 @@ void test_ptr_array_sections(int *yp, short *zp, short (&parr)[100]) {
 // CHECK: [[ZP_ADDR:%zp.*]] = alloca ptr, align 8
 // CHECK: [[PARR_ADDR:%parr.*]] = alloca ptr, align 8
 // CHECK: [[RYP:%ryp.*]] = alloca ptr, align 8
+// CHECK: [[YARRPTR:%yarrptr.*]] = alloca ptr, align 8
+// CHECK: [[YARRPTRREF:%yarrptrref.*]] = alloca ptr, align 8
 
 // CHECK: [[TMP0:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
 // CHECK-NEXT: [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 25
@@ -457,6 +459,55 @@ void test_ptr_array_sections(int *yp, short *zp, short (&parr)[100]) {
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:parr[23])
   for(int i=0; i < 25; ++i) {}
+
+  int (*yarrptr)[20];
+  int (*&yarrptrref)[20] = yarrptr;
+
+// CHECK: [[TMP93:%.*]] = load ptr, ptr [[YARRPTR]], align 8
+// CHECK-NEXT: [[ARRAYIDX149:%.*]] = getelementptr inbounds [20 x i32], ptr [[TMP93]], i64 1
+// CHECK-NEXT: [[ARRAYIDX150:%.*]] = getelementptr inbounds [20 x i32], ptr [[ARRAYIDX149]], i64 0, i64 2
+// CHECK-NEXT: [[TMP94:%.*]] = load ptr, ptr [[YARRPTR]], align 8
+// CHECK-NEXT: [[SEC_BASE_CAST151:%.*]] = ptrtoint ptr [[TMP94]] to i64
+// CHECK-NEXT: [[SEC_LOWER_CAST152:%.*]] = ptrtoint ptr [[ARRAYIDX150]] to i64
+// CHECK-NEXT: [[TMP95:%.*]] = load ptr, ptr [[YARRPTR]], align 8
+// CHECK-NEXT: [[ARRAYIDX153:%.*]] = getelementptr inbounds [20 x i32], ptr [[TMP95]], i64 1
+// CHECK-NEXT: [[ARRAYIDX154:%.*]] = getelementptr inbounds [20 x i32], ptr [[ARRAYIDX153]], i64 0, i64 8
+// CHECK-NEXT: [[SEC_UPPER_CAST155:%.*]] = ptrtoint ptr [[ARRAYIDX154]] to i64
+// CHECK-NEXT: [[TMP96:%.*]] = sub i64 [[SEC_UPPER_CAST155]], [[SEC_LOWER_CAST152]]
+// CHECK-NEXT: [[TMP97:%.*]] = sdiv exact i64 [[TMP96]], 4
+// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS156:%.*]] = add i64 [[TMP97]], 1
+// CHECK-NEXT: [[TMP98:%.*]] = sub i64 [[SEC_LOWER_CAST152]], [[SEC_BASE_CAST151]]
+// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS157:%.*]] = sdiv exact i64 [[TMP98]], 4
+// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YARRPTR]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS156]], i64 [[SEC_OFFSET_IN_ELEMENTS157]])
+// CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  #pragma omp parallel for reduction (+: yarrptr[1][2:7])
+  for (int i = 0; i < 10; i++);
+
+// CHECK: [[TMP105:%.*]] = load ptr, ptr [[YARRPTRREF]], align 8
+// CHECK-NEXT: [[TMP106:%.*]] = load ptr, ptr [[YARRPTRREF]], align 8
+// CHECK-NEXT: [[TMP107:%.*]] = load ptr, ptr [[TMP106]], align 8
+// CHECK-NEXT: [[ARRAYIDX173:%.*]] = getelementptr inbounds [20 x i32], ptr [[TMP107]], i64 1
+// CHECK-NEXT: [[ARRAYIDX174:%.*]] = getelementptr inbounds [20 x i32], ptr [[ARRAYIDX173]], i64 0, i64 2
+// CHECK-NEXT: [[TMP108:%.*]] = load ptr, ptr [[YARRPTRREF]], align 8
+// CHECK-NEXT: [[TMP109:%.*]] = load ptr, ptr [[TMP108]], align 8
+// CHECK-NEXT: [[SEC_BASE_CAST175:%.*]] = ptrtoint ptr [[TMP109]] to i64
+// CHECK-NEXT: [[SEC_LOWER_CAST176:%.*]] = ptrtoint ptr [[ARRAYIDX174]] to i64
+// CHECK-NEXT: [[TMP110:%.*]] = load ptr, ptr [[YARRPTRREF]], align 8
+// CHECK-NEXT: [[TMP111:%.*]] = load ptr, ptr [[TMP110]], align 8
+// CHECK-NEXT: [[ARRAYIDX177:%.*]] = getelementptr inbounds [20 x i32], ptr [[TMP111]], i64 1
+// CHECK-NEXT: [[ARRAYIDX178:%.*]] = getelementptr inbounds [20 x i32], ptr [[ARRAYIDX177]], i64 0, i64 8
+// CHECK-NEXT: [[SEC_UPPER_CAST179:%.*]] = ptrtoint ptr [[ARRAYIDX178]] to i64
+// CHECK-NEXT: [[TMP112:%.*]] = sub i64 [[SEC_UPPER_CAST179]], [[SEC_LOWER_CAST176]]
+// CHECK-NEXT: [[TMP113:%.*]] = sdiv exact i64 [[TMP112]], 4
+// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS180:%.*]] = add i64 [[TMP113]], 1
+// CHECK-NEXT: [[TMP114:%.*]] = sub i64 [[SEC_LOWER_CAST176]], [[SEC_BASE_CAST175]]
+// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS181:%.*]] = sdiv exact i64 [[TMP114]], 4
+// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YARRPTRREF]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS180]], i64 [[SEC_OFFSET_IN_ELEMENTS181]])
+// CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  #pragma omp parallel for reduction (+: yarrptrref[1][2:7])
+  for (int i = 0; i < 10; i++);
 }
 
 //CHECK: define {{.*}}foo_teams_thread_limit

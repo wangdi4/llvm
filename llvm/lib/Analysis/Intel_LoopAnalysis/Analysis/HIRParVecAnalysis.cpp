@@ -1357,6 +1357,10 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
           return Failure("Non-linear BlobRef found", BRef);
 
       HLDDNode *Node = UseMemRef->getHLDDNode();
+      if (HLInst *Inst = dyn_cast<HLInst>(Node))
+        if (IdiomList.isIdiom(Inst))
+          return Failure("Instruction already captured as another idiom", Inst);
+
       for (DDEdge *E : DDG.outgoing(UseMemRef)) {
 
         DDRef *SinkRef = E->getSink();

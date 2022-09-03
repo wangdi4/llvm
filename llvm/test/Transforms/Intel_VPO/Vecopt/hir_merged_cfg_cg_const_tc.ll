@@ -23,7 +23,7 @@
 
 ; CHECK:                %lb.tmp = 100;
 
-; CHECK:                + DO i1 = 100, 100, 1   <DO_LOOP> <novectorize>
+; CHECK:                + DO i1 = 100, 100, 1   <DO_LOOP> <vector-remainder> <novectorize>
 ; CHECK-NEXT:           |   (%A)[i1] = i1;
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:     END REGION

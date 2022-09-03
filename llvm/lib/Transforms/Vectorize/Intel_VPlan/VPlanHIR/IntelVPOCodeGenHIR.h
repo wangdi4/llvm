@@ -129,6 +129,11 @@ public:
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
   unsigned getUF() const { return UF; };
+
+  unsigned getPeelVF() const { return PeelVF; }
+  unsigned getMainVF() const { return MainVF; }
+  unsigned getRemVF() const { return RemVF; }
+
   VPlanVLSAnalysis *getVLS() const { return VLSA; }
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
@@ -699,6 +704,11 @@ private:
   unsigned VF;
   unsigned MaxVF;
 
+  // Vector factors of peel, main and remainder loops.
+  unsigned PeelVF = 0;
+  unsigned MainVF = 0;
+  unsigned RemVF = 0;
+
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
 
@@ -820,6 +830,10 @@ private:
       MaxVF = VF;
   }
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
+
+  void setPeelVF(unsigned V) { PeelVF = V; }
+  void setMainVF(unsigned V) { MainVF = V; }
+  void setRemVF(unsigned V) { RemVF = V; }
 
   void insertReductionInit(HLContainerTy *List);
   void insertReductionFinal(HLContainerTy *List);

@@ -1712,9 +1712,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         if (isOmpSIMDLoop) {
           setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
           VCodeGen.setIsVecMDForHLLoops();
-          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::SIMD);
-        } else {
-          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::AUTOVEC);
         }
       }
     }

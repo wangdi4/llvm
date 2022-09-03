@@ -2463,7 +2463,7 @@ void NestedDopeVectorInfo::analyzeNestedDopeVector() {
 
 // Return true if the input BitCast operator is used for allocation
 bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
-  if (!BC || !GlobalDVInfo || GlobalDVInfo->hasAllocSite())
+  if (!BC || GlobalDVInfo->hasAllocSite())
     return false;
 
   CallBase *Call = castingUsedForDataAllocation(BC, GetTLI);
@@ -2481,7 +2481,7 @@ bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
 bool
 GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
 
-  if (!GEP || !GlobalDVInfo)
+  if (!GEP)
     return false;
 
   // Check which dope vector field is being accessed and
@@ -3993,7 +3993,7 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
       // This is needed in the opaque pointer case because we cannot 
       // find the DV allocate function through bitcasts in the 
       // opaque pointer case.
-      if (isOpaquePtr && GlobalDVInfo && !GlobalDVInfo->hasAllocSite()) {
+      if (isOpaquePtr && !GlobalDVInfo->hasAllocSite()) {
         if (isCallToAllocFunction(CB, GetTLI)) {
           GlobalDVInfo->addAllocSite(CB);
           continue;

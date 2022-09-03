@@ -12,7 +12,7 @@ int vla_test() {
   // CHECK: [[SIZE:%[0-9]+]] = mul nuw i64 %1, 8
   // CHECK-NEXT: [[ARRIDX:%.+]] = getelementptr inbounds ptr, ptr [[VLA_ADDR]], i64 0
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]], i64 34
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:VARLEN"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]], i64 34
   // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C)
   for (int i = 0; i < array_size; ++i)
@@ -34,7 +34,7 @@ int vla_test1() {
   // CHECK-NEXT: [[SIZE:%[0-9]+]] = mul nuw i64 [[L6]], 4
   // CHECK-NEXT: [[ARRIDX:%.+]] = getelementptr inbounds i32, ptr [[VLA_ADDR]], i64 0
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]], i64 34
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:VARLEN"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]], i64 34
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C)
   for (int i = 0; i < array_size; ++i)
@@ -57,7 +57,7 @@ int vla_test2() {
   // CHECK: [[L6:%[0-9]+]] = mul nuw i64 [[L2]], [[L4]]
   // CHECK-NEXT: [[SIZE:%[0-9]+]] = mul nuw i64 [[L6]], 4
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]],  i64 34
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:VARLEN"(ptr [[VLA_ADDR]], ptr [[ARRIDX]], i64 [[SIZE]],  i64 34
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C[:])
   for (int i = 0; i < array_size; ++i)
@@ -75,7 +75,7 @@ int vla_test3() {
   // CHECK: [[VLA_ADDR:%.+]] = alloca i32,
   // CHECK: [[SIZE:%[0-9]+]] = mul nuw i64 [[L2]], 4
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[VLA_ADDR]], ptr %arrayidx2, i64 [[SIZE]], i64 34
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:VARLEN"(ptr [[VLA_ADDR]], ptr %arrayidx2, i64 [[SIZE]], i64 34
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C[1])
   for (int i = 0; i < array_size; ++i)
@@ -89,7 +89,7 @@ int vla_test4() {
   auto aaa = 10;
   int C[array_size][aaa];
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr %vla, ptr %arrayidx2, i64 4, i64 34
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:VARLEN"(ptr %vla, ptr %arrayidx2, i64 4, i64 34
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C[1][1])
   for (int i = 0; i < array_size; ++i)

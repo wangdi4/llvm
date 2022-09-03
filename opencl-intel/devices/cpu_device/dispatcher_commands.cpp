@@ -18,16 +18,17 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #include "dispatcher_commands.h"
-#include "task_dispatcher.h"
-#include "cpu_logger.h"
-#include "cpu_dev_limits.h"
+#include "builtin_kernels.h"
+#include "cl_dev_backend_api.h"
 #include "cl_heap.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_user_logger.h"
-#include <builtin_kernels.h>
-#include <cl_dev_backend_api.h>
-#include <cl_sys_defines.h>
-#include <ocl_itt.h>
+#include "cpu_dev_limits.h"
+#include "cpu_logger.h"
+#include "ocl_itt.h"
+#include "task_dispatcher.h"
+#include "llvm/Support/MathExtras.h"
 
 #if defined (_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -1271,6 +1272,13 @@ cl_dev_err_code FillMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
     return CL_DEV_SUCCESS;
 }
 
+static bool getLCMSize(size_t A, size_t B) {
+    assert(A != 0 && B != 0 && "invalid size");
+    size_t Mul = A * B;
+    size_t GCD = llvm::greatestCommonDivisor(A, B);
+    return Mul / GCD;
+}
+
 bool FillMemObject::Execute()
 {
     const cl_dev_cmd_param_fill* cmdParams = (cl_dev_cmd_param_fill*)m_pCmd->params;
@@ -1302,16 +1310,37 @@ bool FillMemObject::Execute()
 
     // width, unlike height and depth, is in bytes.
     const size_t width =  cmdParams->region[0] * pMemObj->uiElementSize;
+    if (width == 0) {
+        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
+        return true;
+    }
 
-    // prepare copy buffer:
-    char* fillBuf = (char*)malloc(width);
-    if (nullptr == fillBuf) return false;
+    // 'width' could be very large in the case of 1D buffer. It is ineffcient to
+    // do CopyPattern on a temporary buffer of size 'width'. Furthermore, it may
+    // cause runfail on windows 32bit due to running out of memory.
+    // Therefore, we do CopyPattern on a smaller chunk size based on heuristic.
+    size_t minSize = 64 * 1024;
+    size_t lcm = getLCMSize(minSize, cmdParams->pattern_size);
+    size_t maxSize = 64 * 1024 * 1024;
+    while (lcm > maxSize && minSize > 1) {
+        minSize /= 2;
+        lcm = getLCMSize(minSize, cmdParams->pattern_size);
+    }
+    assert(lcm && "invalid lease common multiple");
+    size_t chunkSize = std::min(((maxSize + lcm - 1) / lcm) * lcm, width);
 
-    CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf, width);
+    // Prepare copy buffer.
+    char *fillBuf = new char[chunkSize];
+    CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf,
+                chunkSize);
 
 #ifdef _DEBUG_PRINT
-    fprintf(stderr, "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len %lu bytes\n", cmdParams->offset[0], heightStart, depthStart,
-        cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd, width);
+    fprintf(stderr,
+            "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len "
+            "%lu bytes\n",
+            cmdParams->offset[0], heightStart, depthStart,
+            cmdParams->offset[0] + cmdParams->region[0], heightEnd, depthEnd,
+            chunkSize);
     fprintf(stderr, "dim_count is %u ; pitches: %lu, %lu ; element size: %u ; color: ", cmdParams->dim_count, pMemObj->pitch[0], pMemObj->pitch[1], pMemObj->uiElementSize);
     for (size_t i=0 ; i < cmdParams->pattern_size ; ++i)
     {
@@ -1319,22 +1348,30 @@ bool FillMemObject::Execute()
     }
     fprintf(stderr, "\n");
 #endif
-    
+
     size_t offset[MAX_WORK_DIM];
     offset[0] = cmdParams->offset[0];
+    size_t remainderChunkSize = width % chunkSize;
+    if (remainderChunkSize == 0)
+        remainderChunkSize = chunkSize;
     for (size_t depth = depthStart ; depth < depthEnd ; ++depth)
     {
         offset[2] = depth;
         for (size_t height = heightStart ; height < heightEnd ; ++height)
         {
             offset[1] = height;
-             void* dst = MemoryAllocator::CalculateOffsetPointer(pMemObj->pData, cmdParams->dim_count,
-                    offset, pMemObj->pitch, pMemObj->uiElementSize);
-            memcpy(dst, fillBuf, width);
+            char *dst = (char *)MemoryAllocator::CalculateOffsetPointer(
+                pMemObj->pData, cmdParams->dim_count, offset, pMemObj->pitch,
+                pMemObj->uiElementSize);
+            size_t idx = 0;
+            for (; idx < (width - chunkSize); idx += chunkSize)
+                MEMCPY_S(dst + idx, chunkSize, fillBuf, chunkSize);
+            MEMCPY_S(dst + idx, remainderChunkSize, fillBuf,
+                     remainderChunkSize);
         }
     }
 
-    free(fillBuf);
+    delete[] fillBuf;
 
 #ifdef _DEBUG_PRINT
     printf("--> FillMemObject(end), cmdid:%p(%d)\n", m_pCmd->id, CL_DEV_SUCCESS);

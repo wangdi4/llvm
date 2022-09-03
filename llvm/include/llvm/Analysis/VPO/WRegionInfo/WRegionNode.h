@@ -246,7 +246,7 @@ protected:
   void handleQual(const ClauseSpecifier &ClauseInfo);
 
   /// Update WRN for clauses with one operand.
-  void handleQualOpnd(int ClauseID, Value *V);
+  void handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V);
 
   /// Update WRN for clauses with operand list.
   void handleQualOpndList(const Use *Args, unsigned NumArgs,
@@ -508,6 +508,8 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
+  virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
+  virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
