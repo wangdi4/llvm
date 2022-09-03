@@ -1,174 +1,60 @@
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 // REQUIRES: x86-registered-target
 
-// FIXME: enable opaque pointers support
-// UNSUPPORTED: enable-opaque-pointers
-
 //
 // Check help message.
 //
-
 // RUN: clang-offload-wrapper --help | FileCheck %s --check-prefix CHECK-HELP
-// CHECK-HELP: OVERVIEW: A tool to create a wrapper bitcode for offload target binaries.
-// CHECK-HELP: Takes offload target binaries and optional manifest files as input
-// CHECK-HELP: and produces bitcode file containing target binaries packaged as data
-// CHECK-HELP: and initialization code which registers target binaries in the offload
-// CHECK-HELP: runtime. Manifest files format and contents are not restricted and are
-// CHECK-HELP: a subject of agreement between the device compiler and the native
-// CHECK-HELP: runtime for that device. When present, manifest file name should
-// CHECK-HELP: immediately follow the corresponding device image filename on the
-// CHECK-HELP: command line. Options annotating a device binary have effect on all
-// CHECK-HELP: subsequent input, until redefined.
-// CHECK-HELP: For example:
-// CHECK-HELP:   clang-offload-wrapper                   \
-// CHECK-HELP:       -host x86_64-pc-linux-gnu           \
-// CHECK-HELP:       -kind=sycl                          \
-// CHECK-HELP:         -target=spir64                    \
-// CHECK-HELP:           -format=spirv                   \
-// CHECK-HELP:           -compile-opts=-g                \
-// CHECK-HELP:           -link-opts=-cl-denorms-are-zero \
-// CHECK-HELP:           -entries=sym.txt                \
-// CHECK-HELP:           -properties=props.txt           \
-// CHECK-HELP:           a.spv                           \
-// CHECK-HELP:           a_mf.txt                        \
-// CHECK-HELP:         -target=xxx                       \
-// CHECK-HELP:           -format=native                  \
-// CHECK-HELP:           -compile-opts=""                \
-// CHECK-HELP:           -link-opts=""                   \
-// CHECK-HELP:           -entries=""                     \
-// CHECK-HELP:           -properties=""                  \
-// CHECK-HELP:           b.bin                           \
-// CHECK-HELP:           b_mf.txt                        \
-// CHECK-HELP:       -kind=openmp                        \
-// CHECK-HELP:           c.bin\n
-// CHECK-HELP: This command generates an x86 wrapper object (.bc) enclosing the
-// CHECK-HELP: following tuples describing a single device binary each:
-// CHECK-HELP: |offload|target|data  |data |manifest|compile|entries|properties|...|
-// CHECK-HELP: |  kind |      |format|     |        |options|       |          |...|
-// CHECK-HELP: |-------|------|------|-----|--------|-------|-------|----------|---|
-// CHECK-HELP: |sycl   |spir64|spirv |a.spv|a_mf.txt|  -g   |sym.txt|props.txt |...|
-// CHECK-HELP: |sycl   |xxx   |native|b.bin|b_mf.txt|       |       |          |...|
-// CHECK-HELP: |openmp |xxx   |native|c.bin|        |       |       |          |...|
-// CHECK-HELP: |...|    link            |
-// CHECK-HELP: |...|    options         |
-// CHECK-HELP: |---|--------------------|
-// CHECK-HELP: |...|-cl-denorms-are-zero|
-// CHECK-HELP: |...|                    |
-// CHECK-HELP: |...|                    |
-// CHECK-HELP: USAGE: clang-offload-wrapper [options] <input files>
-// CHECK-HELP: OPTIONS:
-// CHECK-HELP: Generic Options:
-// CHECK-HELP:   --help                  - Display available options (--help-hidden for more)
-// CHECK-HELP:   --help-list             - Display list of available options (--help-list-hidden for more)
-// CHECK-HELP:   --version               - Display the version of this program
-// CHECK-HELP: clang-offload-wrapper options:
-// CHECK-HELP:   --batch                 - All input files are provided as cells in a file table file,
-// CHECK-HELP:                             other command-line input files are not allowed.
-// CHECK-HELP:                             Example input file table in batch mode:
-// CHECK-HELP:                             [Code|Symbols|Properties|Manifest]
-// CHECK-HELP:                             a_0.bc|a_0.sym|a_0.props|a_0.mnf
-// CHECK-HELP:                             a_1.bin|||
-// CHECK-HELP:   --compile-opts=<string> - compile options passed to the offload runtime
-// CHECK-HELP:   --desc-name=<name>      - Specifies offload descriptor symbol name: '.<offload kind>.<name>',
-// CHECK-HELP:                             and makes it globally visible
-// CHECK-HELP:   --emit-reg-funcs        - Emit [un-]registration functions
-// CHECK-HELP:   --entries=<filename>    - File listing all offload function entries, SYCL offload only
-// CHECK-HELP:   --format=<value>        - device binary image formats:
-// CHECK-HELP:     =none                 -   not set
-// CHECK-HELP:     =native               -   unknown or native
-// CHECK-HELP:     =spirv                -   SPIRV binary
-// CHECK-HELP:     =llvmbc               -   LLVMIR bitcode
-// CHECK-HELP:   --host=<triple>         - Target triple for the output module. If omitted, the host
-// CHECK-HELP:                             triple is used.
-// CHECK-HELP:   --kind=<value>          - offload kind:
-// CHECK-HELP:     =unknown              -   unknown
-// CHECK-HELP:     =host                 -   host
-// CHECK-HELP:     =openmp               -   OpenMP
-// CHECK-HELP:     =hip                  -   HIP
-// CHECK-HELP:     =sycl                 -   SYCL
-// CHECK-HELP:   --link-opts=<string>    - link options passed to the offload runtime
-// CHECK-HELP:   -o <filename>           - Output filename
-// CHECK-HELP:   --properties=<filename> - File listing device binary image properties, SYCL offload only
-// CHECK-HELP:   --target=<string>       - offload target triple
-// CHECK-HELP:   -v                      - verbose output
+// CHECK-HELP: {{.*}}OVERVIEW: A tool to create a wrapper bitcode for offload target binaries. Takes offload
+// CHECK-HELP: {{.*}}target binaries as input and produces bitcode file containing target binaries packaged
+// CHECK-HELP: {{.*}}as data and initialization code which registers target binaries in offload runtime.
+// CHECK-HELP: {{.*}}USAGE: clang-offload-wrapper [options] <input files>
+// CHECK-HELP: {{.*}}  -o <filename>               - Output filename
+// CHECK-HELP: {{.*}}  --target=<triple>           - Target triple for the output module
 
-// -------
-// Generate files to wrap.
 //
-// RUN: echo 'Content of device file1' > %t1.tgt
-// RUN: echo 'Content of device file2' > %t2.tgt
-// RUN: echo 'Content of device file3' > %t3.tgt
-// RUN: echo 'Content of manifest file1' > %t1_mf.txt
+// Generate a file to wrap.
 //
-// -------
+// RUN: echo 'Content of device file' > %t.tgt
+
+//
 // Check bitcode produced by the wrapper tool.
 //
-// RUN: clang-offload-wrapper -add-omp-offload-notes                                  \
-// RUN:   -host=x86_64-pc-linux-gnu                                                   \
-// RUN:     -kind=openmp -target=tg2                -format=native %t3.tgt %t1_mf.txt \
-// RUN:     -kind=sycl   -target=tg1 -compile-opts=-g -link-opts=-cl-denorms-are-zero \
-// RUN:                  -format spirv  %t1.tgt                                       \
-// RUN:                  -target=tg2 -compile-opts= -link-opts=                       \
-// RUN:                  -format native %t2.tgt                                       \
-// RUN:   -o %t.wrapper.bc 2>&1 | FileCheck %s --check-prefix ELF-WARNING
+// RUN: clang-offload-wrapper -add-omp-offload-notes -target=x86_64-pc-linux-gnu -o %t.wrapper.bc %t.tgt 2>&1 | FileCheck %s --check-prefix ELF-WARNING
 // RUN: llvm-dis %t.wrapper.bc -o - | FileCheck %s --check-prefix CHECK-IR
 
 // ELF-WARNING: is not an ELF image, so notes cannot be added to it.
 // CHECK-IR: target triple = "x86_64-pc-linux-gnu"
 
-// --- OpenMP device binary image descriptor structure
-// CHECK-IR-DAG: [[ENTTY:%.+]] = type { i8*, i8*, i{{32|64}}, i32, i32 }
-// CHECK-IR-DAG: [[IMAGETY:%.+]] = type { i8*, i8*, [[ENTTY]]*, [[ENTTY]]* }
-// CHECK-IR-DAG: [[DESCTY:%.+]] = type { i32, [[IMAGETY]]*, [[ENTTY]]*, [[ENTTY]]* }
-
-// --- SYCL device binary image descriptor structure
-// CHECK-IR-DAG: [[SYCL_IMAGETY:%.+]] = type { i16, i8, i8, i8*, i8*, i8*, i8*, i8*, i8*, i8*, [[ENTTY]]*, [[ENTTY]]*, [[PROPSETTY:%.+]]*, [[PROPSETTY]]* }
-// CHECK-IR-DAG: [[PROPSETTY]] = type { i8*, [[PROPTY:%.+]]*, [[PROPTY]]* }
-// CHECK-IR-DAG: [[PROPTY]] = type { i8*, i8*, i32, i64 }
-// CHECK-IR-DAG: [[SYCL_DESCTY:%.+]] = type { i16, i16, [[SYCL_IMAGETY]]*, [[ENTTY]]*, [[ENTTY]]* }
+// CHECK-IR-DAG: [[ENTTY:%.+]] = type { ptr, ptr, i{{32|64}}, i32, i32 }
+// CHECK-IR-DAG: [[IMAGETY:%.+]] = type { ptr, ptr, ptr, ptr }
+// CHECK-IR-DAG: [[DESCTY:%.+]] = type { i32, ptr, ptr, ptr }
 
 // CHECK-IR: [[ENTBEGIN:@.+]] = external hidden constant [[ENTTY]]
 // CHECK-IR: [[ENTEND:@.+]] = external hidden constant [[ENTTY]]
 
 // CHECK-IR: [[DUMMY:@.+]] = hidden constant [0 x [[ENTTY]]] zeroinitializer, section "omp_offloading_entries"
 
-// CHECK-IR: [[OMP_BIN:@.+]] = internal unnamed_addr constant [[OMP_BINTY:\[[0-9]+ x i8\]]] c"Content of device file3{{.+}}"
-// CHECK-IR: [[OMP_INFO:@.+]] = internal local_unnamed_addr constant [2 x i64] [i64 ptrtoint ([{{[0-9]+}} x i8]* [[OMP_BIN]] to i64), i64 24], section ".tgtimg", align 16
+// CHECK-IR: [[BIN:@.+]] = internal unnamed_addr constant [[BINTY:\[[0-9]+ x i8\]]] c"Content of device file{{.+}}"
 
-// CHECK-IR: [[OMP_IMAGES:@.+]] = internal unnamed_addr constant [1 x [[IMAGETY]]] [{{.+}} { i8* getelementptr inbounds ([[OMP_BINTY]], [[OMP_BINTY]]* [[OMP_BIN]], i64 0, i64 0), i8* getelementptr inbounds ([[OMP_BINTY]], [[OMP_BINTY]]* [[OMP_BIN]], i64 1, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }]
+// CHECK-IR: [[IMAGES:@.+]] = internal unnamed_addr constant [1 x [[IMAGETY]]] [{{.+}} { ptr [[BIN]], ptr getelementptr inbounds ([[BINTY]], ptr [[BIN]], i64 1, i64 0), ptr [[ENTBEGIN]], ptr [[ENTEND]] }]
 
-// CHECK-IR: [[OMP_DESC:@.+]] = internal constant [[DESCTY]] { i32 1, [[IMAGETY]]* getelementptr inbounds ([1 x [[IMAGETY]]], [1 x [[IMAGETY]]]* [[OMP_IMAGES]], i64 0, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }
+// CHECK-IR: [[DESC:@.+]] = internal constant [[DESCTY]] { i32 1, ptr [[IMAGES]], ptr [[ENTBEGIN]], ptr [[ENTEND]] }
 
-// CHECK-IR: [[SYCL_TGT0:@.+]] = internal unnamed_addr constant [4 x i8] c"tg1\00"
-// CHECK-IR: [[SYCL_COMPILE_OPTS0:@.+]] = internal unnamed_addr constant [3 x i8] c"-g\00"
-// CHECK-IR: [[SYCL_LINK_OPTS0:@.+]] = internal unnamed_addr constant [21 x i8] c"-cl-denorms-are-zero\00"
-// CHECK-IR: [[SYCL_BIN0:@.+]] = internal unnamed_addr constant [[SYCL_BIN0TY:\[[0-9]+ x i8\]]] c"Content of device file1{{.+}}"
-// CHECK-IR: [[SYCL_INFO:@.+]] = internal local_unnamed_addr constant [2 x i64] [i64 ptrtoint ([{{[0-9]+}} x i8]* [[SYCL_BIN0]] to i64), i64 24], section ".tgtimg", align 16
+// CHECK-IR: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 1, ptr [[REGFN:@.+]], ptr null }]
+// CHECK-IR: @llvm.global_dtors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 1, ptr [[UNREGFN:@.+]], ptr null }]
 
-// CHECK-IR: [[SYCL_TGT1:@.+]] = internal unnamed_addr constant [4 x i8] c"tg2\00"
-// CHECK-IR: [[SYCL_COMPILE_OPTS1:@.+]] = internal unnamed_addr constant [1 x i8] zeroinitializer
-// CHECK-IR: [[SYCL_LINK_OPTS1:@.+]] = internal unnamed_addr constant [1 x i8] zeroinitializer
-// CHECK-IR: [[SYCL_BIN1:@.+]] = internal unnamed_addr constant [[SYCL_BIN1TY:\[[0-9]+ x i8\]]] c"Content of device file2{{.+}}"
-// CHECK-IR: [[SYCL_INFO1:@.+]] = internal local_unnamed_addr constant [2 x i64] [i64 ptrtoint ([{{[0-9]+}} x i8]* [[SYCL_BIN1]] to i64), i64 24], section ".tgtimg", align 16
-
-// CHECK-IR: [[SYCL_IMAGES:@.+]] = internal unnamed_addr constant [2 x [[SYCL_IMAGETY]]] [{{.*}} { i16 2, i8 4, i8 2, i8* getelementptr inbounds ([4 x i8], [4 x i8]* [[SYCL_TGT0]], i64 0, i64 0), i8* getelementptr inbounds ([3 x i8], [3 x i8]* [[SYCL_COMPILE_OPTS0]], i64 0, i64 0), i8* getelementptr inbounds ([21 x i8], [21 x i8]* [[SYCL_LINK_OPTS0]], i64 0, i64 0), i8* null, i8* null, i8* getelementptr inbounds ([[SYCL_BIN0TY]], [[SYCL_BIN0TY]]* [[SYCL_BIN0]], i64 0, i64 0), i8* getelementptr inbounds ([[SYCL_BIN0TY]], [[SYCL_BIN0TY]]* [[SYCL_BIN0]], i64 1, i64 0), [[ENTTY]]* null, [[ENTTY]]* null, [[PROPSETTY]]* null, [[PROPSETTY]]* null }, [[SYCL_IMAGETY]] { i16 2, i8 4, i8 1, i8* getelementptr inbounds ([4 x i8], [4 x i8]* [[SYCL_TGT1]], i64 0, i64 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* [[SYCL_COMPILE_OPTS1]], i64 0, i64 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* [[SYCL_LINK_OPTS1]], i64 0, i64 0), i8* null, i8* null, i8* getelementptr inbounds ([[SYCL_BIN1TY]], [[SYCL_BIN1TY]]* [[SYCL_BIN1]], i64 0, i64 0), i8* getelementptr inbounds ([[SYCL_BIN1TY]], [[SYCL_BIN1TY]]* [[SYCL_BIN1]], i64 1, i64 0), [[ENTTY]]* null, [[ENTTY]]* null, [[PROPSETTY]]* null, [[PROPSETTY]]* null }]
-
-// CHECK-IR: [[SYCL_DESC:@.+]] = internal constant [[SYCL_DESCTY]] { i16 1, i16 2, [[SYCL_IMAGETY]]* getelementptr inbounds ([2 x [[SYCL_IMAGETY]]], [2 x [[SYCL_IMAGETY]]]* [[SYCL_IMAGES]], i64 0, i64 0), [[ENTTY]]* null, [[ENTTY]]* null }
-
-// CHECK-IR: @llvm.global_ctors = appending global [2 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 1, void ()* [[OMP_REGFN:@.+]], i8* null }, { i32, void ()*, i8* } { i32 1, void ()* [[SYCL_REGFN:@.+]], i8* null }]
-
-// CHECK-IR: @llvm.global_dtors = appending global [2 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 1, void ()* [[OMP_UNREGFN:@.+]], i8* null }, { i32, void ()*, i8* } { i32 1, void ()* [[SYCL_UNREGFN:@.+]], i8* null }]
-
-// CHECK-IR: define internal void [[OMP_REGFN]]()
-// CHECK-IR:   call void @__tgt_register_lib([[DESCTY]]* [[OMP_DESC]])
+// CHECK-IR: define internal void [[REGFN]]()
+// CHECK-IR:   call void @__tgt_register_lib(ptr [[DESC]])
 // CHECK-IR:   ret void
 
-// CHECK-IR: declare void @__tgt_register_lib([[DESCTY]]*)
+// CHECK-IR: declare void @__tgt_register_lib(ptr)
 
-// CHECK-IR: define internal void [[OMP_UNREGFN]]()
-// CHECK-IR:   call void @__tgt_unregister_lib([[DESCTY]]* [[OMP_DESC]])
+// CHECK-IR: define internal void [[UNREGFN]]()
+// CHECK-IR:   call void @__tgt_unregister_lib(ptr [[DESC]])
 // CHECK-IR:   ret void
 
+<<<<<<< HEAD
 // CHECK-IR: declare void @__tgt_unregister_lib([[DESCTY]]*)
 
 // CHECK-IR: define internal void [[SYCL_REGFN]]()
@@ -217,20 +103,23 @@
 // RUN: %clang -target x86_64-pc-linux-gnu -c %t.wrapper.bc -o %t.wrapper.o
 // RUN: clang-offload-bundler --type=o --input=%t.wrapper.o --targets=sycl-spir64-unknown-linux --output=%t1.out --unbundle
 // RUN: diff %t1.out %t1.tgt
+=======
+// CHECK-IR: declare void @__tgt_unregister_lib(ptr)
+>>>>>>> b16d2b48b425e4607eda0421689875d9c8504b75
 
 // Check that clang-offload-wrapper adds LLVMOMPOFFLOAD notes
 // into the ELF offload images:
 // RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.64le -DBITS=64 -DENCODING=LSB
-// RUN: clang-offload-wrapper -add-omp-offload-notes -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64le.bc %t.64le
+// RUN: clang-offload-wrapper -add-omp-offload-notes -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64le.bc %t.64le
 // RUN: llvm-dis %t.wrapper.elf64le.bc -o - | FileCheck %s --check-prefix OMPNOTES
 // RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.64be -DBITS=64 -DENCODING=MSB
-// RUN: clang-offload-wrapper -add-omp-offload-notes -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64be.bc %t.64be
+// RUN: clang-offload-wrapper -add-omp-offload-notes -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64be.bc %t.64be
 // RUN: llvm-dis %t.wrapper.elf64be.bc -o - | FileCheck %s --check-prefix OMPNOTES
 // RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.32le -DBITS=32 -DENCODING=LSB
-// RUN: clang-offload-wrapper -add-omp-offload-notes -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32le.bc %t.32le
+// RUN: clang-offload-wrapper -add-omp-offload-notes -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32le.bc %t.32le
 // RUN: llvm-dis %t.wrapper.elf32le.bc -o - | FileCheck %s --check-prefix OMPNOTES
 // RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.32be -DBITS=32 -DENCODING=MSB
-// RUN: clang-offload-wrapper -add-omp-offload-notes -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32be.bc %t.32be
+// RUN: clang-offload-wrapper -add-omp-offload-notes -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32be.bc %t.32be
 // RUN: llvm-dis %t.wrapper.elf32be.bc -o - | FileCheck %s --check-prefix OMPNOTES
 
 // There is no clean way for extracting the offload image
