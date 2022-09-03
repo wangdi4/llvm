@@ -64,7 +64,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
-      IsInitPrefer(false), IsTask(false), IsInscan(false), IsTyped(false) {
+      IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
+      IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -178,6 +179,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
+        else if (ModSubString[i] ==
+                 "STRICT") // for grainsize or numtasks clause
+          setIsStrict();
         else if (ModSubString[i] == "VARLEN")
           setIsVarLen();
         else if (ModSubString[i] == "UNSIGNED")    // for reduction clause

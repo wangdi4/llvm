@@ -17,14 +17,15 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
+#define DEBUG_TYPE "dpcpp-kernel-data-per-value-analysis"
+
 using namespace llvm;
 
-INITIALIZE_PASS_BEGIN(DataPerValueWrapper,
-                      "dpcpp-kernel-data-per-value-analysis",
+INITIALIZE_PASS_BEGIN(DataPerValueWrapper, DEBUG_TYPE,
                       "Barrier Pass - Collect Data per Value", false, true)
 INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
 INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper)
-INITIALIZE_PASS_END(DataPerValueWrapper, "dpcpp-kernel-data-per-value-analysis",
+INITIALIZE_PASS_END(DataPerValueWrapper, DEBUG_TYPE,
                     "Barrier Pass - Collect Data per Value", false, true)
 
 char DataPerValueWrapper::ID = 0;
@@ -156,12 +157,17 @@ void DataPerValue::runOnFunction(Function &F) {
     if (CallInst *CI = dyn_cast<CallInst>(Inst)) {
       Function *CalledFunc = CI->getCalledFunction();
       if (CalledFunc && !CalledFunc->getReturnType()->isVoidTy()) {
-        StringRef FuncName = CalledFunc->getName();
+        std::string FuncName = CalledFunc->getName().str();
+        // The __finalize_ WG function is also uniform if the original WG
+        // function is uniform. So remove the '__finalize_' prefix if any.
+        if (CompilationUtils::hasWorkGroupFinalizePrefix(FuncName))
+          FuncName = CompilationUtils::removeWorkGroupFinalizePrefix(FuncName);
         if (CompilationUtils::isWorkGroupUniform(FuncName)) {
           // Uniform WG functions always produce cross-barrier value.
           CrossBarrierValuesPerFuncMap[&F].push_back(Inst);
           continue;
-        } else if (CompilationUtils::isWorkGroupScan(FuncName)) {
+        }
+        if (CompilationUtils::isWorkGroupScan(FuncName)) {
           // Call instructions to WG functions which produce WI-specific
           // result, need to be stored in the special buffer.
           assert(WRV->isWIRelated(Inst) && "Must be work-item realted value!");
@@ -266,7 +272,13 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Instruction *Inst,
 
   // Value that is not dependent on WI-Id and initialized outside a loop
   // can not be in Group-B.1. If it cross a barrier it will be in Group-B.2.
-  bool IsGroupB1Type = IsWIRelated || DPB->getPredecessors(ValBB).count(ValBB);
+  bool IsIntializedInLoop = DPB->getPredecessors(ValBB).count(ValBB);
+  bool IsGroupB1Type = IsWIRelated || IsIntializedInLoop;
+
+  if (IsWIRelated)
+    LLVM_DEBUG(dbgs() << "[Group-B.1 : WI-related]" << *Inst << '\n');
+  if (IsIntializedInLoop)
+    LLVM_DEBUG(dbgs() << "[Group-B.1 : Initialized-in-loop]" << *Inst << '\n');
 
   return IsGroupB1Type ? SpecialValueTypeB1 : SpecialValueTypeB2;
 }

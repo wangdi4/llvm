@@ -284,6 +284,17 @@ public:
     return false;
   }
 
+  // Searches the list of fields
+  const FieldDecl *getFieldOfLLVMFieldNum(unsigned I) const {
+    auto Result = llvm::find_if(
+        FieldInfo, [I](const std::pair<const FieldDecl *, unsigned> &Entry) {
+          return Entry.second == I;
+        });
+    if (Result != FieldInfo.end())
+      return Result->first;
+    return nullptr;
+  }
+
   // Searches the various collections to find the field type for the LLVM
   // struct field.
   QualType getTypeOfLLVMFieldNum(unsigned I) const {

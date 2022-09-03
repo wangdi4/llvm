@@ -1312,8 +1312,12 @@ void vpo::printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
 
   // WRNTaskloop has a few more additional fields to print
   if (isa<WRNTaskloopNode>(W)) {
-    vpo::printVal("GRAINSIZE", W->getGrainsize(), OS, Indent, Verbosity);
-    vpo::printVal("NUM_TASKS", W->getNumTasks(), OS, Indent, Verbosity);
+    vpo::printVal((W->getIsStrict() && W->getGrainsize()) ? "GRAINSIZE:STRICT"
+                                                          : "GRAINSIZE",
+                  W->getGrainsize(), OS, Indent, Verbosity);
+    vpo::printVal((W->getIsStrict() && W->getNumTasks()) ? "NUM_TASKS:STRICT"
+                                                         : "NUM_TASKS",
+                  W->getNumTasks(), OS, Indent, Verbosity);
     vpo::printInt("COLLAPSE", W->getCollapse(), OS, Indent, Verbosity);
     vpo::printBool("NOGROUP", W->getNogroup(), OS, Indent, Verbosity);
   }

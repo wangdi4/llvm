@@ -28,10 +28,10 @@
 ; CHECK: Recognizing CommitAllocation Functionality
 ; CHECK: Failed to recognize CommitAllocation function
 
-; The following will be enabled as CHECKs as more functionality is implemented
-; TODO: Recognizing Destructor Functionality
-; TODO: Failed to recognize Destructor function
+; CHECK: Recognizing Destructor Functionality
+; CHECK: Failed to recognize Destructor function
 
+; The following will be enabled as CHECKs as more functionality is implemented
 ; TODO: Recognizing Reset Functionality
 ; TODO: Failed to recognize Reset function
 

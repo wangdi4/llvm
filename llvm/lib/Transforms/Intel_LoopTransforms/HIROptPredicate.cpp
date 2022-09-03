@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -139,13 +139,6 @@ static cl::opt<unsigned> RegionCostThreshold(
     cl::Hidden, cl::desc("Don't apply opt predicate of an If instruction if "
     "the number of inner loops is larger than this threshold."));
 
-// Disable converting Select instructions into If/Else to perform unswitching
-static cl::opt<bool> DisableUnswitchSelect("disable-" OPT_SWITCH "-select",
-                                            cl::init(false), cl::Hidden,
-                                            cl::desc("Disable " OPT_DESC
-                                                     " for select "
-                                                     "instructions"));
-
 namespace {
 
 // Partial Unswitch context
@@ -209,60 +202,26 @@ struct PUContext : PUCandidate {
 };
 
 struct HoistCandidate {
-
-  // Enum to handle which type of condition is the candidate
-  enum UnswitchType {
-    If,           // HLIf
-    Switch,       // HLSwitch
-    Select,       // HLInst where the LLVM instruction is a SelectInst
-    Bottom        // Anything else that is not supported
-  };
-
   HLDDNode *Node;
   unsigned Level;
-  UnswitchType UType;
+  bool IsIf;
 
   PUCandidate PUC;
-  bool CreatedFromSelect;
 
   HoistCandidate(HLDDNode *Node, unsigned Level, const PUCandidate &PUC)
-      : Node(Node), Level(Level), PUC(PUC), CreatedFromSelect(false) {
-    UType = Bottom;
-    if (isa<HLIf>(Node)) {
-      UType = UnswitchType::If;
-    } else if (isa<HLSwitch>(Node)) {
-      UType = UnswitchType::Switch;
-    } else {
-      auto Inst = cast<HLInst>(Node);
-      assert(isa<SelectInst>(Inst->getLLVMInstruction()) &&
-             "Trying to create a unswitch hoist candidate that is not a "
-             "select instruction");
-      (void) Inst;
-      UType = UnswitchType::Select;
-    }
-  }
+      : Node(Node), Level(Level), IsIf(isa<HLIf>(Node)), PUC(PUC) {}
 
   HoistCandidate(const HoistCandidate &Orig, HLDDNode *CloneNode,
                  const HLNodeMapper &Mapper)
-      : Node(CloneNode), Level(Orig.Level), UType(Orig.UType),
-        PUC(Orig.PUC, Mapper), CreatedFromSelect(Orig.CreatedFromSelect) {}
+      : Node(CloneNode), Level(Orig.Level), IsIf(Orig.IsIf),
+        PUC(Orig.PUC, Mapper) {}
 
   HoistCandidate() : Level(0) {}
 
-  bool isIf() const { return UType == UnswitchType::If; }
-  bool isSwitch() const { return UType == UnswitchType::Switch; }
-  bool isSelect() const { return UType == UnswitchType::Select; }
-  bool isValidCandidate() const { return UType != UnswitchType::Bottom; }
+  bool isIf() const { return IsIf; }
   HLDDNode *getNode() const { return Node; }
   HLIf *getIf() const { return cast<HLIf>(Node); }
   HLSwitch *getSwitch() const { return cast<HLSwitch>(Node); }
-  HLInst *getSelect() const { return cast<HLInst>(Node); }
-  bool createdFromSelect() const { return CreatedFromSelect; }
-
-  // If the candidate is a Select instruction, then replace the node with an
-  // HLIf and set the candidate's type as UnswitchType::If. This function is
-  // used when converting a Select instruction into If/Else to do unswitching.
-  void convertSelectToIf();
 
   bool operator==(const HoistCandidate &Arg) const { return Node == Arg.Node; }
 
@@ -272,17 +231,11 @@ struct HoistCandidate {
     dbgs() << "{";
     if (isIf()) {
       getIf()->dumpHeader();
-    } else if (isSwitch()) {
-      getSwitch()->dumpHeader();
-    } else if (isSelect()) {
-      getSelect()->dump();
     } else {
-      llvm_unreachable("Trying to print an incorrect hoist candidate");
+      getSwitch()->dumpHeader();
     }
     dbgs() << ", L: " << Level << ", PU: ";
     PUC.dump();
-    if (CreatedFromSelect)
-      dbgs() << ", S";
     dbgs() << "}";
   }
 #endif
@@ -568,27 +521,21 @@ static bool isUnswitchDisabled(HLIf *If) { return If->isUnswitchDisabled(); }
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
-  HIRLoopStatistics &HLS;
   unsigned MinLevel;
   bool TransformLoop;
   unsigned CostOfRegion;
-  // If we are analyzing a loop, then we are going to keep the first Select
-  // instruction that we found. All other Select instructions will be
-  // candidates if they have the same condition as this one.
-  HLInst *FirstSelectCandidate;
 
-  CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
-      bool TransformLoop = true, unsigned MinLevel = 0,
-      unsigned CostOfRegion = 0) : SkipNode(nullptr), Pass(Pass), HLS(HLS),
-      MinLevel(MinLevel), TransformLoop(TransformLoop),
-      CostOfRegion(CostOfRegion), FirstSelectCandidate(nullptr) {}
+  CandidateLookup(HIROptPredicate &Pass, bool TransformLoop = true,
+                  unsigned MinLevel = 0, unsigned CostOfRegion = 0)
+      : SkipNode(nullptr), Pass(Pass), MinLevel(MinLevel),
+        TransformLoop(TransformLoop), CostOfRegion(CostOfRegion) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
   void visit(HLSwitch *Switch);
   void visit(HLRegion *Reg);
   void visit(HLLoop *Loop);
-  void visit(HLInst *Inst);
+
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   void visit(const HLNode *Node) {}
@@ -635,68 +582,6 @@ HIROptPredicate::RegionSizeCalculator final : public HLNodeVisitorBase {
   unsigned getNumOfIfWithElse() { return IfWithElse; }
 };
 } // namespace
-
-// This function will traverse through the candidates that are Select
-// instructions, will convert them into If/Else, and will add the new
-// conditional into the Candidates list for unswitching. For example:
-//
-//   Original Select instruction :
-//     %sel = (operand1 PREDICATE operand2) ? true result : false result
-//
-//   Converted:
-//     if (operand1 PREDICATE operand2)
-//       %sel = true result
-//     else
-//       %sel = false result
-void HoistCandidate::convertSelectToIf() {
-  assert(isSelect() && "Trying to convert a candidate that is not a Select");
-  HLInst *Select = getSelect();
-  auto *Loop = Select->getParentLoop();
-  LLVM_DEBUG({
-    dbgs() << "Candidate for converting Select:\n";
-    Select->dump();
-  });
-
-  auto &HLNU = Loop->getHLNodeUtils();
-  // Create the true instruction
-  auto *RvalRef = Select->removeOperandDDRef(3);
-  auto *LvalRef = Select->removeOperandDDRef(0u);
-  HLInst *TrueInst =
-      RvalRef->isMemRef() ? HLNU.createLoad(RvalRef, "", LvalRef) :
-                            HLNU.createCopyInst(RvalRef, "", LvalRef);
-
-  // Create the false instruction
-  RvalRef = Select->removeOperandDDRef(4);
-  LvalRef = LvalRef->clone();
-  HLInst *FalseInst =
-      RvalRef->isMemRef() ? HLNU.createLoad(RvalRef, "", LvalRef) :
-                            HLNU.createCopyInst(RvalRef, "", LvalRef);
-
-  auto *OP1 = Select->removeOperandDDRef(1);
-  auto *OP2 = Select->removeOperandDDRef(2);
-  auto &Pred = Select->getPredicate();
-  HLIf *NewIf = HLNU.createHLIf(Pred, OP1, OP2);
-  NewIf->setDebugLoc(cast<HLInst>(Node)->getDebugLoc());
-
-  // Update the Select instruction with the new If/Else and set the
-  // children. Basically, create:
-  //
-  // if (operand1 PREDICATE operand2)
-  //   %sel = true result
-  // else
-  //   %sel = false result
-  HLNU.insertAsFirstThenChild(NewIf, TrueInst);
-  HLNU.insertAsFirstElseChild(NewIf, FalseInst);
-  HLNU.replace(Node, NewIf);
-  LLVM_DEBUG({
-    dbgs() << "Into If/Else:\n";
-    NewIf->dump();
-  });
-
-  Node = NewIf;
-  UType = UnswitchType::If;
-  CreatedFromSelect = true;
-}
 
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
@@ -1034,7 +919,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
 
   // Collect candidates within HLIf branches.
-  CandidateLookup Lookup(Pass, HLS, WillUnswitchParent, Level, CostOfRegion);
+  CandidateLookup Lookup(Pass, WillUnswitchParent, Level, CostOfRegion);
   visitChildren(Lookup, Node);
 
   if (!IsCandidate) {
@@ -1172,202 +1057,11 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     TransformCurrentLoop = false;
   }
 
-  CandidateLookup
-      Lookup(Pass, HLS, TransformCurrentLoop, MinLevel, CostOfRegion);
+  CandidateLookup Lookup(Pass, TransformCurrentLoop, MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
 }
 
-// If the instruction is a Select instruction, is in the innermost loop and the
-// condition is loop invariant, then add it as a candidate. The Select
-// instruction will be converted into an If/Else which will be unswitched.
-void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
-  if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
-      Pass.KeepLoopnestPerfect || !TransformLoop)
-    return;
-
-  // Current loop should be innermost and a Do loop
-  HLLoop *CurrLoop = Inst->getLexicalParentLoop();
-  if (!FirstSelectCandidate) {
-    if (!CurrLoop || !CurrLoop->isInnermost() || !CurrLoop->isDo())
-      return;
-
-    // Check that the immediate parent must be a Loop.
-    auto *CurrParent = Inst->getParent();
-    if (!isa<HLLoop>(CurrParent))
-      return;
-
-    // TODO: We don't support loops with Switch statements at the moment due to
-    // compile time issues. For example,
-    //
-    //    BEGIN REGION { }
-    //          + DO i1 = 0, 99, 1   <DO_LOOP>
-    //          |   switch(%x)
-    //          |   {
-    //          |   case 0:
-    //          |      (%p)[i1] = i1;
-    //          |      break;
-    //          |   case 2:
-    //          |      (%q)[i1] = i1;
-    //          |      break;
-    //          |   default:
-    //          |      (%q)[i1 + 1] = i1;
-    //          |      break;
-    //          |   }
-    //          |   %4 = (%n > 0) ? 0 : 1;
-    //          |   (%p)[i1] = i1 + %4;
-    //          + END LOOP
-    //    END REGION
-    //
-    // The example above contains a Select instruction (%4) that can be optimized
-    // and the result HIR will be the following:
-    //
-    //    BEGIN REGION { modified }
-    //        switch(%x)
-    //        {
-    //        case 0:
-    //           if (%n > 0)
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%p)[i1] = i1;
-    //              |   %6 = 0;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           else
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%p)[i1] = i1;
-    //              |   %6 = 1;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           break;
-    //        case 2:
-    //           if (%n > 0)
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%q)[i1] = i1;
-    //              |   %6 = 0;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           else
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%q)[i1] = i1;
-    //              |   %6 = 1;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           break;
-    //        default:
-    //           if (%n > 0)
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%q)[i1 + 1] = i1;
-    //              |   %6 = 0;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           else
-    //           {
-    //              + DO i1 = 0, 99, 1   <DO_LOOP>
-    //              |   (%q)[i1 + 1] = i1;
-    //              |   %6 = 1;
-    //              |   (%p)[i1] = i1 + %6;
-    //              + END LOOP
-    //           }
-    //           break;
-    //        }
-    //  END REGION
-    //
-    // The main problem is that if the cases contain more conditionals, the
-    // region is very big, and/or there is a huge number of cases, then it
-    // produces compile time issues because the opt-predicate will try to
-    // find new opportunities every time the transformation is applied for each
-    // case. For now we are going to disable optimizing the Select instructions
-    // when Switch instructions are in the same loopnest (CMPLRLLVM-39714).
-
-    // Check if the current loop contains any switch
-    auto LoopStats = HLS.getTotalLoopStatistics(CurrLoop);
-    if (LoopStats.hasSwitches())
-      return;
-
-    // If the loop has any extra IF then don't proceed with the optimization.
-    // There is a chance that the function grows big enough and it may affect
-    // code alignment.
-    if (LoopStats.hasIfs())
-      return;
-
-    // The transformation will be disabled if there are calls to unsafe
-    // functions. The reason is that we would perform unswitching to enable
-    // legal vectorization, but vectorization can't be applied if there are
-    // calls to unsafe functions.
-    if (LoopStats.hasCallsWithUnsafeSideEffects() ||
-        LoopStats.hasCallsWithUnknownAliasing())
-      return;
-
-    FirstSelectCandidate = Inst;
-  } else if (!HLNodeUtils::areEqualConditions(Inst, FirstSelectCandidate)) {
-    return;
-  }
-
-  // Select instructions have 5 DDRef:
-  //   0 -> left hand side
-  //   1 -> compare operand 1
-  //   2 -> compare operand 2
-  //   3 -> result if compare is true
-  //   4 -> result if compare is false
-
-  auto *LHSSel = Inst->getOperandDDRef(0);
-  if (!LHSSel->isSelfBlob())
-    return;
-
-  // Make sure that the operands in the condition are loop invariant
-  unsigned MaxLevel = 0;
-  unsigned LoopLevel = CurrLoop->getNestingLevel();
-  for (unsigned I = 1; I < 3; I++) {
-    auto *InstDDRef = Inst->getOperandDDRef(I);
-    PUContext PUC;
-    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, InstDDRef, PUC);
-    if (DefLevel >= LoopLevel)
-      return;
-
-    MaxLevel = std::max(DefLevel, MaxLevel);
-  }
-
-  // Disable if the LHS is used in the true or false.
-  // TODO: This is conservative. There are cases where it can produce a
-  // temp self assignment, which aren't expected in the HIR. Also, the
-  // Select instruction might be a good candidate for last value computation.
-  // For example:
-  //
-  // * Original loop:
-  //
-  //   + DO i1 = 0, zext.i32.i64(%138) + -1, 1
-  //   |   %397 = (%375 <u 1.000000e-01) ? %397 : 0;
-  //   |   %396 = ((%3)[0].12[i1] <u 1.600000e+01) ? %396 : 1;
-  //   + END LOOP
-  //
-  // Expected transformation:
-  //
-  //   + DO i1 = 0, zext.i32.i64(%138) + -1, 1
-  //   |   %396 = ((%3)[0].12[i1] <u 1.600000e+01) ? %396 : 1;
-  //   + END LOOP
-  //      %397 = (%375 <u 1.000000e-01) ? %397 : 0;
-  //
-  // Notice that the select instruction can be moved out of the loop
-  // (CMPLRLLVM-39738).
-  auto *TrueOP = Inst->getOperandDDRef(3);
-  auto *FalseOP = Inst->getOperandDDRef(4);
-  if (DDRefUtils::areEqual(LHSSel, TrueOP) ||
-      DDRefUtils::areEqual(LHSSel, FalseOP))
-    return;
-
-  PUContext PUC;
-  Pass.Candidates.emplace_back(Inst, MaxLevel, PUC);
-}
 
 bool HIROptPredicate::mustCodeGen() const {
   if (OuterLoopIfs.empty())
@@ -1426,7 +1120,7 @@ bool HIROptPredicate::run() {
 
     LLVM_DEBUG(dbgs() << "Region: " << Region->getNumber() << ":\n");
 
-    CandidateLookup Lookup(*this, HLS);
+    CandidateLookup Lookup(*this);
     HLNodeUtils::visit(Lookup, Region);
     sortCandidates();
 
@@ -1583,10 +1277,6 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
-
-    // There shouldn't be any Candidate set as Bottom.
-    assert(Candidate.isValidCandidate() &&
-           "Invalid instruction selected as candidate");
 
     HLDDNode *PilotIfOrSwitch = Candidate.getNode();
 
@@ -1858,18 +1548,8 @@ void HIROptPredicate::transformIf(
   //   END DO
   // }
 
-  // If the If/Else was created from a select instruction then we use a
-  // generic opt-report remark
-  unsigned OptReportRemark = 25423u;
-  for (auto &Candidate : IfCandidates) {
-    if (Candidate.createdFromSelect()) {
-      OptReportRemark = 25422u;
-      break;
-    }
-  }
-
-  // Invariant [If condition%s | Condition%s] hoisted out of this loop
-  addPredicateOptReportRemark(TargetLoop, IfCandidates, OptReportRemark);
+  // Invariant If condition%s hoisted out of this loop
+  addPredicateOptReportRemark(TargetLoop, IfCandidates, 25423u);
 
   // Unswitch every equivalent candidate - a pair of HLIfs. First we handle
   // original If and then its clone. removeOrHoistIf() will move HLIf before
@@ -2002,21 +1682,10 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
             // Have same condition
             ((C.isIf() &&
               HLNodeUtils::areEqualConditions(C.getIf(), Candidate.getIf())) ||
-             (C.isSwitch() && HLNodeUtils::areEqualConditions(
+             (!C.isIf() && HLNodeUtils::areEqualConditions(
                                C.getSwitch(), Candidate.getSwitch()))) &&
           // And are in the same target loop
           HLNodeUtils::contains(TargetLoop, C.getNode(), false);
-
-        // Check if the current candidate is a Select instruction that will be
-        // converted into an If. If so, then collect all the possible equal
-        // conditions
-        if (!IsEquiv && C.Level == Candidate.Level && C.isSelect() &&
-            Candidate.isIf()) {
-          IsEquiv =
-              HLNodeUtils::areEqualConditions(C.getSelect(),
-                                              Candidate.getIf()) &&
-              HLNodeUtils::contains(TargetLoop, C.getSelect(), false);
-        }
 
         if (!IsEquiv) {
           return false;
@@ -2026,12 +1695,6 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
         return !hasEqualParentNode(C.getNode(), TargetLoop);
       };
 
-
-  // The Candidate that is a Select instruction must have a temporary If
-  // at this point, convert it
-  if (Candidate.isSelect())
-    Candidate.convertSelectToIf();
-
   auto EquivCandidatesI = std::stable_partition(
       Candidates.begin(), Candidates.end(), std::not_fn(IsEquivCandidate));
 
@@ -2039,11 +1702,6 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
     LLVM_DEBUG(dbgs() << "H: ");
     LLVM_DEBUG(Iter->dump());
     LLVM_DEBUG(dbgs() << "\n");
-
-    // The equivalent candidate that is a Select instruction must have a
-    // temporary If at this point, convert it
-    if (Iter->isSelect())
-      Iter->convertSelectToIf();
 
     // Disable further unswitching in case of pass will be called more than
     // once.

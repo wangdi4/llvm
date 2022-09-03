@@ -1660,18 +1660,6 @@ public:
   // Returns true if both HLSwitches are equal.
   static bool areEqualConditions(const HLSwitch *NodeA, const HLSwitch *NodeB);
 
-  // Returns true if the conditions are equal for both input Select
-  // instructions
-  static bool areEqualConditions(const HLInst *SelectA, const HLInst *SelectB);
-
-  // Returns true if the conditions are equal for the input If and Select
-  // instructions
-  static bool areEqualConditions(const HLIf *If, const HLInst *Select);
-
-  // Returns true if the conditions are equal for the input Select and If
-  // instructions
-  static bool areEqualConditions(const HLInst *Select, const HLIf *If);
-
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination
   // container.

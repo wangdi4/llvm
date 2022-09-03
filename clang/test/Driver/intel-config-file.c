@@ -8,6 +8,9 @@
 // RUN: env ICXCFG=%S/Inputs/intel.cfg \
 // RUN: %clang -### --intel -c %s 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=INTEL_CONFIG
+// RUN: env ICXCFG=%S/Inputs/intel.cfg \
+// RUN: %clang_cl -### --intel --icx -c %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=INTEL_CONFIG
 // RUN: env ICXCLCFG=%S/Inputs/intel.cfg \
 // RUN: %clang_cl -### --intel -c %s 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=INTEL_CONFIG
