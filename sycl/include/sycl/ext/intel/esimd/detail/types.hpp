@@ -53,23 +53,6 @@ template <typename BaseTy, typename RegionTy> class simd_view;
 
 namespace detail {
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-using half = sycl::detail::half_impl::StorageT;
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
-template <int N>
-using uint_type_t = std::conditional_t<
-    N == 1, uint8_t,
-    std::conditional_t<
-        N == 2, uint16_t,
-        std::conditional_t<N == 4, uint32_t,
-                           std::conditional_t<N == 8, uint64_t, void>>>>;
-
-=======
->>>>>>> 9fdf7f1f71b7e2fda81143e4d02dcb52a4533e22
 // forward declarations of major internal simd classes
 template <typename Ty, int N> class simd_mask_impl;
 template <typename RawT, int N, class Derived, class SFINAE = void>
