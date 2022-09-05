@@ -3950,6 +3950,10 @@ X86
 .. option:: -mavx512neconvert, -mno-avx512neconvert
 
 .. end INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+.. INTEL_FEATURE_ISA_AVX512_MINMAX
+.. option:: -mavx512minmax, -mno-avx512minmax
+
+.. end INTEL_FEATURE_ISA_AVX512_MINMAX
 .. INTEL_FEATURE_ISA_AVX512_MOVGET
 .. option:: -mavx512movget, -mno-avx512movget
 
