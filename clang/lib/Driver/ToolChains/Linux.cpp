@@ -357,11 +357,7 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   if (StringRef(D.Dir).startswith(SysRoot) &&
       (D.getVFS().exists(D.Dir + "/../lib/libc++.so") ||
        Args.hasArg(options::OPT_fsycl) ||
-<<<<<<< HEAD
        D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))) {
-=======
-       D.getVFS().exists(D.Dir + "/../lib/libsycl.so")))
->>>>>>> e1a1617db5962da18c02ff43603639dd330c92c5
     addPathIfExists(D, D.Dir + "/../lib", Paths);
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
