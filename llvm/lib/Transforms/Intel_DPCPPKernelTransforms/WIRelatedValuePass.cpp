@@ -89,9 +89,13 @@ void WIRelatedValue::calculateDep(Value *Val) {
   bool OrigRelation = It.first->second;
   bool NewRelation = OrigRelation;
 
-  // LLVM does not have compile time polymorphisms.
-  // TODO: to make things faster we may want to sort the list below according
-  // to the order of their probability of appearance.
+  // TODO:
+  // For most of instructions, we can conservatively assume:
+  //   NewRelation = any_of(getWIRelation(Operand))
+  // e.g. BinaryOperator, CmpInst, ExtractElementInst, FreezeInst, ...
+  // So that we can only explicitly handle instructions that should be treated
+  // specially.
+  // e.g. CallInst, PHINode, AllocaInst, ...
   if (BinaryOperator *I = dyn_cast<BinaryOperator>(Inst)) {
     NewRelation = calculateDep(I);
   } else if (CallInst *I = dyn_cast<CallInst>(Inst)) {
@@ -125,6 +129,8 @@ void WIRelatedValue::calculateDep(Value *Val) {
   } else if (LoadInst *I = dyn_cast<LoadInst>(Inst)) {
     NewRelation = calculateDep(I);
   } else if (VAArgInst *I = dyn_cast<VAArgInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (FreezeInst *I = dyn_cast<FreezeInst>(Inst)) {
     NewRelation = calculateDep(I);
   }
 
@@ -368,6 +374,10 @@ bool WIRelatedValue::calculateDep(LoadInst *Inst) {
 bool WIRelatedValue::calculateDep(VAArgInst * /*Inst*/) {
   llvm_unreachable("Are we supporting this ?");
   return false;
+}
+
+bool WIRelatedValue::calculateDep(FreezeInst *Inst) {
+  return getWIRelation(Inst->getOperand(0));
 }
 
 void WIRelatedValue::updateArgumentsDep(Function *Func) {
