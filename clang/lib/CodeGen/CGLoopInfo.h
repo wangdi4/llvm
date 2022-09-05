@@ -247,14 +247,11 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
   llvm::Optional<unsigned> SYCLSpeculatedIterationsNIterations;
 
-<<<<<<< HEAD
   /// Value for count variant (min/max/avg) and count metadata.
   llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
       SYCLIntelFPGAVariantCount;
-=======
   // Value for llvm.loop.intel.max_reinvocation_delay metadata.
   llvm::Optional<unsigned> SYCLMaxReinvocationDelayNCycles;
->>>>>>> 90fa5bb051fff565da73ba76f4b14ae316d31966
 
   /// llvm.unroll.
   unsigned UnrollCount;
