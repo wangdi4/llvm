@@ -93,20 +93,6 @@ static const bool UseCopyEngineForInOrderQueue = [] {
           (std::stoi(CopyEngineForInOrderQueue) != 0));
 }();
 
-// To enable an experimental feature that uses immediate commandlists
-// for kernel launches and copies. The default is standard commandlists.
-// Setting a value >=1 specifies use of immediate commandlists.
-// Note: when immediate commandlists are used then device-only events
-// must be either AllHostVisible or OnDemandHostVisibleProxy.
-// (See env var SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS).
-static const bool UseImmediateCommandLists = [] {
-  const char *ImmediateFlag =
-      std::getenv("SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS");
-  if (!ImmediateFlag)
-    return false;
-  return std::stoi(ImmediateFlag) > 0;
-}();
-
 // This is an experimental option that allows the use of multiple command lists
 // when submitting barriers. The default is 0.
 static const bool UseMultipleCmdlistBarriers = [] {
@@ -252,6 +238,7 @@ static bool doEagerInit = [] {
   return EagerInit ? std::atoi(EagerInit) != 0 : false;
 }();
 
+<<<<<<< HEAD
 // Controls whether device-scope events are used, and how.
 static const enum EventsScope {
   // All events are created host-visible
@@ -282,6 +269,8 @@ static const enum EventsScope {
   return Default;
 }();
 
+=======
+>>>>>>> 2ffd50a8cf8aefec0582da0ab5908c1665dcdbb6
 // Maximum number of events that can be present in an event ZePool is captured
 // here. Setting it to 256 gave best possible performance for several
 // benchmarks.
@@ -413,8 +402,9 @@ private:
 //
 // The default value is "0".
 //
-static const std::pair<int, int> getRangeOfAllowedComputeEngines = [] {
-  const char *EnvVar = std::getenv("SYCL_PI_LEVEL_ZERO_USE_COMPUTE_ENGINE");
+static const std::pair<int, int> getRangeOfAllowedComputeEngines() {
+  static const char *EnvVar =
+      std::getenv("SYCL_PI_LEVEL_ZERO_USE_COMPUTE_ENGINE");
   // If the environment variable is not set only use "0" CCS for now.
   // TODO: allow all CCSs when HW support is complete.
   if (!EnvVar)
@@ -426,7 +416,7 @@ static const std::pair<int, int> getRangeOfAllowedComputeEngines = [] {
   }
 
   return std::pair<int, int>(0, INT_MAX);
-}();
+}
 
 // SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE can be set to an integer value, or
 // a pair of integer values of the form "lower_index:upper_index".
@@ -436,13 +426,17 @@ static const std::pair<int, int> getRangeOfAllowedComputeEngines = [] {
 // If the user specifies only a single integer, a value of 0 indicates that
 // the copy engines will not be used at all. A value of 1 indicates that all
 // available copy engines can be used.
-static const std::pair<int, int> getRangeOfAllowedCopyEngines = [] {
-  const char *EnvVar = std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE");
-  // If the environment variable is not set, only index 0 compute engine will be
-  // used when immediate commandlists are being used. For standard commandlists
-  // all are used.
-  if (!EnvVar)
-    return std::pair<int, int>(0, UseImmediateCommandLists ? 0 : INT_MAX);
+static const std::pair<int, int>
+getRangeOfAllowedCopyEngines(pi_device &Device) {
+  static const char *EnvVar = std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE");
+  // If the environment variable is not set, no copy engines are used when
+  // immediate commandlists are being used. For standard commandlists all are
+  // used.
+  if (!EnvVar) {
+    if (Device->useImmediateCommandLists())
+      return std::pair<int, int>(-1, -1);   // No copy engines can be used.
+    return std::pair<int, int>(0, INT_MAX); // All copy engines will be used.
+  }
   std::string CopyEngineRange = EnvVar;
   // Environment variable can be a single integer or a pair of integers
   // separated by ":"
@@ -463,13 +457,13 @@ static const std::pair<int, int> getRangeOfAllowedCopyEngines = [] {
     UpperCopyEngineIndex = INT_MAX;
   }
   return std::pair<int, int>(LowerCopyEngineIndex, UpperCopyEngineIndex);
-}();
+}
 
-static const bool CopyEngineRequested = [] {
-  int LowerCopyQueueIndex = getRangeOfAllowedCopyEngines.first;
-  int UpperCopyQueueIndex = getRangeOfAllowedCopyEngines.second;
+static bool CopyEngineRequested(pi_device Device) {
+  int LowerCopyQueueIndex = getRangeOfAllowedCopyEngines(Device).first;
+  int UpperCopyQueueIndex = getRangeOfAllowedCopyEngines(Device).second;
   return ((LowerCopyQueueIndex != -1) || (UpperCopyQueueIndex != -1));
-}();
+}
 
 // Global variables used in PI_Level_Zero
 // Note we only create a simple pointer variables such that C++ RT won't
@@ -697,9 +691,9 @@ inline static pi_result createEventAndAssociateQueue(
     pi_command_list_ptr_t CommandList, bool IsInternal = false,
     bool ForceHostVisible = false) {
 
-  PI_CALL(EventCreate(Queue->Context, Queue,
-                      ForceHostVisible ? true : EventsScope == AllHostVisible,
-                      Event));
+  if (!ForceHostVisible)
+    ForceHostVisible = Queue->Device->eventsScope() == AllHostVisible;
+  PI_CALL(EventCreate(Queue->Context, Queue, ForceHostVisible, Event));
 
   (*Event)->Queue = Queue;
   (*Event)->CommandType = CommandType;
@@ -769,7 +763,7 @@ pi_result _pi_device::initialize(int SubSubDeviceOrdinal,
       return PI_ERROR_UNKNOWN;
     }
 
-    if (CopyEngineRequested) {
+    if (CopyEngineRequested(this)) {
       for (uint32_t i = 0; i < numQueueGroups; i++) {
         if (((QueueGroupProperties[i].flags &
               ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0) &&
@@ -853,7 +847,62 @@ pi_result _pi_device::initialize(int SubSubDeviceOrdinal,
         ZE_CALL_NOCHECK(zeDeviceGetCacheProperties,
                         (ZeDevice, &Count, &Properties));
       };
+
+  // Check device id for PVC.
+  // TODO: change mechanism for detecting PVC once L0 provides an interface.
+  // At present even PVC doesn't automatically use immediate commandlists.
+  // Change this after more testing.
+  ImmCommandListsPreferred =
+      false; // (ZeDeviceProperties->deviceId & 0xff0) == 0xbd0;
+
   return PI_SUCCESS;
+}
+
+// Get value of device scope events env var setting or -1 if unset
+static const int DeviceEventsSetting = [] {
+  const char *DeviceEventsSettingStr =
+      std::getenv("SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS");
+  if (!DeviceEventsSettingStr)
+    return -1;
+  return std::stoi(DeviceEventsSettingStr);
+}();
+
+// Controls the scope of events.
+// If immediate commandlists are being used then use compatible event scopes.
+enum EventsScope _pi_device::eventsScope() {
+  // Set default based on type of commandlists being used.
+  auto Default = useImmediateCommandLists() ? OnDemandHostVisibleProxy
+                                            : LastCommandInBatchHostVisible;
+  // Override the default if user has explicitly chosen the events scope.
+  switch (DeviceEventsSetting) {
+  case 0:
+    return AllHostVisible;
+  case 1:
+    return OnDemandHostVisibleProxy;
+  case 2:
+    return LastCommandInBatchHostVisible;
+  }
+  return Default;
+}
+
+// Get value of immediate commandlists env var setting or -1 if unset
+static const int ImmediateCommandlistsSetting = [] {
+  const char *ImmediateCommandlistsSettingStr =
+      std::getenv("SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS");
+  if (!ImmediateCommandlistsSettingStr)
+    return -1;
+  return std::stoi(ImmediateCommandlistsSettingStr);
+}();
+
+// Whether immediate commandlists will be used for kernel launches and copies.
+// The default is standard commandlists. Setting a value >=1 specifies use of
+// immediate commandlists. Note: when immediate commandlists are used then
+// device-only events must be either AllHostVisible or OnDemandHostVisibleProxy.
+// (See env var SYCL_PI_LEVEL_ZERO_DEVICE_SCOPE_EVENTS).
+bool _pi_device::useImmediateCommandLists() {
+  if (ImmediateCommandlistsSetting == -1)
+    return ImmCommandListsPreferred;
+  return ImmediateCommandlistsSetting;
 }
 
 pi_device _pi_context::getRootDevice() const {
@@ -1190,8 +1239,8 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
     ComputeQueueGroup.NextIndex = ComputeQueueGroupInfo.ZeIndex;
   } else {
     // Set-up to round-robin across allowed range of engines.
-    uint32_t FilterLowerIndex = getRangeOfAllowedComputeEngines.first;
-    uint32_t FilterUpperIndex = getRangeOfAllowedComputeEngines.second;
+    uint32_t FilterLowerIndex = getRangeOfAllowedComputeEngines().first;
+    uint32_t FilterUpperIndex = getRangeOfAllowedComputeEngines().second;
     FilterUpperIndex = std::min((size_t)FilterUpperIndex,
                                 FilterLowerIndex + ComputeQueues.size() - 1);
     if (FilterLowerIndex <= FilterUpperIndex) {
@@ -1200,7 +1249,7 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
       ComputeQueueGroup.NextIndex = ComputeQueueGroup.LowerIndex;
       // Create space to hold immediate commandlists corresponding to the
       // ZeQueues
-      if (UseImmediateCommandLists) {
+      if (Device->useImmediateCommandLists()) {
         ComputeQueueGroup.ImmCmdLists = std::vector<pi_command_list_ptr_t>(
             ComputeQueueGroup.ZeQueues.size(), CommandListMap.end());
       }
@@ -1210,13 +1259,13 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
   }
 
   // Copy group initialization.
-  if (getRangeOfAllowedCopyEngines.first < 0 ||
-      getRangeOfAllowedCopyEngines.second < 0) {
+  if (getRangeOfAllowedCopyEngines(Device).first < 0 ||
+      getRangeOfAllowedCopyEngines(Device).second < 0) {
     // We are asked not to use copy engines, just do nothing.
     // Leave CopyQueueGroup.ZeQueues empty, and it won't be used.
   } else {
-    uint32_t FilterLowerIndex = getRangeOfAllowedCopyEngines.first;
-    uint32_t FilterUpperIndex = getRangeOfAllowedCopyEngines.second;
+    uint32_t FilterLowerIndex = getRangeOfAllowedCopyEngines(Device).first;
+    uint32_t FilterUpperIndex = getRangeOfAllowedCopyEngines(Device).second;
     FilterUpperIndex = std::min((size_t)FilterUpperIndex,
                                 FilterLowerIndex + CopyQueues.size() - 1);
     if (FilterLowerIndex <= FilterUpperIndex) {
@@ -1226,7 +1275,7 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
       CopyQueueGroup.NextIndex = CopyQueueGroup.LowerIndex;
       // Create space to hold immediate commandlists corresponding to the
       // ZeQueues
-      if (UseImmediateCommandLists) {
+      if (Device->useImmediateCommandLists()) {
         CopyQueueGroup.ImmCmdLists = std::vector<pi_command_list_ptr_t>(
             CopyQueueGroup.ZeQueues.size(), CommandListMap.end());
       }
@@ -1283,13 +1332,17 @@ pi_result resetCommandLists(pi_queue Queue) {
     std::scoped_lock Lock(Queue->Mutex);
     for (auto &&it = Queue->CommandListMap.begin();
          it != Queue->CommandListMap.end(); ++it) {
-      // It is possible that the fence was already noted as signalled and
-      // reset. In that case the ZeFenceInUse flag will be false.
-      if (it->second.ZeFence != nullptr && it->second.ZeFenceInUse) {
-        ze_result_t ZeResult =
-            ZE_CALL_NOCHECK(zeFenceQueryStatus, (it->second.ZeFence));
-        if (ZeResult == ZE_RESULT_SUCCESS) {
-          PI_CALL(Queue->resetCommandList(it, true, EventListToCleanup));
+      // Immediate commandlists don't use a fence but still need reset.
+      if (it->second.ZeFence == nullptr) {
+        PI_CALL(Queue->resetCommandList(it, true, EventListToCleanup));
+      } else {
+        // It is possible that the fence was already noted as signalled and
+        // reset. In that case the ZeFenceInUse flag will be false.
+        if (it->second.ZeFenceInUse) {
+          ze_result_t ZeResult =
+              ZE_CALL_NOCHECK(zeFenceQueryStatus, (it->second.ZeFence));
+          if (ZeResult == ZE_RESULT_SUCCESS)
+            PI_CALL(Queue->resetCommandList(it, true, EventListToCleanup));
         }
       }
     }
@@ -1303,7 +1356,7 @@ pi_result _pi_context::getAvailableCommandList(
     pi_queue Queue, pi_command_list_ptr_t &CommandList, bool UseCopyEngine,
     bool AllowBatching, ze_command_queue_handle_t *ForcedCmdQueue) {
   // Immediate commandlists have been pre-allocated and are always available.
-  if (UseImmediateCommandLists) {
+  if (Queue->Device->useImmediateCommandLists()) {
     CommandList = Queue->getQueueGroup(UseCopyEngine).getImmCmdList();
     if (auto Res = Queue->insertActiveBarriers(CommandList, UseCopyEngine))
       return Res;
@@ -1561,7 +1614,7 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
   if (!CommandList->second.EventList.empty())
     this->LastCommandEvent = CommandList->second.EventList.back();
 
-  if (!UseImmediateCommandLists) {
+  if (!Device->useImmediateCommandLists()) {
     // Batch if allowed to, but don't batch if we know there are no kernels
     // from this queue that are currently executing.  This is intended to get
     // kernels started as soon as possible when there are no kernels from this
@@ -1614,7 +1667,7 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
     CaptureIndirectAccesses();
   }
 
-  if (!UseImmediateCommandLists) {
+  if (!Device->useImmediateCommandLists()) {
     // In this mode all inner-batch events have device visibility only,
     // and we want the last command in the batch to signal a host-visible
     // event that anybody waiting for any event in the batch will
@@ -1623,7 +1676,7 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
     // in the command list is not empty, otherwise we are going to just create
     // and remove proxy event right away and dereference deleted object
     // afterwards.
-    if (EventsScope == LastCommandInBatchHostVisible &&
+    if (Device->eventsScope() == LastCommandInBatchHostVisible &&
         !CommandList->second.EventList.empty()) {
       // If there are only internal events in the command list then we don't
       // need to create host proxy event.
@@ -1697,7 +1750,7 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
 
   // Check global control to make every command blocking for debugging.
   if (IsBlocking || (ZeSerialize & ZeSerializeBlock) != 0) {
-    if (UseImmediateCommandLists) {
+    if (Device->useImmediateCommandLists()) {
       synchronize();
     } else {
       // Wait until command lists attached to the command queue are executed.
@@ -1846,7 +1899,7 @@ pi_command_list_ptr_t &_pi_queue::pi_queue_group_t::getImmCmdList() {
 pi_command_list_ptr_t _pi_queue::eventOpenCommandList(pi_event Event) {
   using IsCopy = bool;
 
-  if (UseImmediateCommandLists) {
+  if (Device->useImmediateCommandLists()) {
     // When using immediate commandlists there are no open command lists.
     return CommandListMap.end();
   }
@@ -2002,7 +2055,7 @@ pi_result _pi_ze_event_list_t::createAndRetainPiZeEventList(
           //
           // Make sure that event1.wait() will wait for a host-visible
           // event that is signalled before the command2 is enqueued.
-          if (EventsScope != AllHostVisible) {
+          if (CurQueue->Device->eventsScope() != AllHostVisible) {
             CurQueue->executeAllOpenCommandLists();
           }
         }
@@ -2338,11 +2391,6 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     *NumPlatforms = PiPlatformsCache->size();
   }
 
-  zePrint("Using events scope: %s\n",
-          EventsScope == AllHostVisible ? "all host-visible"
-          : EventsScope == OnDemandHostVisibleProxy
-              ? "on demand host-visible proxy"
-              : "only last command in a batch is host-visible");
   return PI_SUCCESS;
 }
 
@@ -3547,7 +3595,7 @@ pi_result piQueueCreate(pi_context Context, pi_device Device,
                                 uint32_t RepeatCount) -> pi_result {
       pi_command_list_ptr_t CommandList;
       while (RepeatCount--) {
-        if (UseImmediateCommandLists) {
+        if (Q->Device->useImmediateCommandLists()) {
           CommandList = Q->getQueueGroup(UseCopyEngine).getImmCmdList();
         } else {
           // Heuristically create some number of regular command-list to reuse.
@@ -3716,12 +3764,11 @@ pi_result piQueueFinish(pi_queue Queue) {
   // Wait until command lists attached to the command queue are executed.
   PI_ASSERT(Queue, PI_ERROR_INVALID_QUEUE);
 
-  if (UseImmediateCommandLists) {
+  if (Queue->Device->useImmediateCommandLists()) {
     // Lock automatically releases when this goes out of scope.
     std::scoped_lock Lock(Queue->Mutex);
 
     Queue->synchronize();
-    return PI_SUCCESS;
   } else {
     std::unique_lock Lock(Queue->Mutex);
     std::vector<ze_command_queue_handle_t> ZeQueues;
@@ -5427,7 +5474,8 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   if (IndirectAccessTrackingEnabled)
     Queue->KernelsToBeSubmitted.push_back(Kernel);
 
-  if (UseImmediateCommandLists && IndirectAccessTrackingEnabled) {
+  if (Queue->Device->useImmediateCommandLists() &&
+      IndirectAccessTrackingEnabled) {
     // If using immediate commandlists then gathering of indirect
     // references and appending to the queue (which means submission)
     // must be done together.
@@ -5507,7 +5555,7 @@ _pi_event::getOrCreateHostVisibleEvent(ze_event_handle_t &ZeHostVisibleEvent) {
   std::scoped_lock Lock(Queue->Mutex, this->Mutex);
 
   if (!HostVisibleEvent) {
-    if (EventsScope != OnDemandHostVisibleProxy)
+    if (Queue->Device->eventsScope() != OnDemandHostVisibleProxy)
       die("getOrCreateHostVisibleEvent: missing host-visible event");
 
     // Submit the command(s) signalling the proxy event to the queue.
@@ -5642,10 +5690,9 @@ static pi_result EventCreate(pi_context Context, pi_queue Queue,
   return PI_SUCCESS;
 }
 
-// Exteral PI API entry
+// External PI API entry
 pi_result piEventCreate(pi_context Context, pi_event *RetEvent) {
-  pi_result Result =
-      EventCreate(Context, nullptr, EventsScope == AllHostVisible, RetEvent);
+  pi_result Result = EventCreate(Context, nullptr, true, RetEvent);
   (*RetEvent)->RefCountExternal++;
   return Result;
 }
@@ -5901,12 +5948,13 @@ pi_result piEventsWait(pi_uint32 NumEvents, const pi_event *EventList) {
   if (NumEvents && !EventList) {
     return PI_ERROR_INVALID_EVENT;
   }
-  if (EventsScope == OnDemandHostVisibleProxy) {
-    // Make sure to add all host-visible "proxy" event signals if needed.
-    // This ensures that all signalling commands are submitted below and
-    // thus proxy events can be waited without a deadlock.
-    //
-    for (uint32_t I = 0; I < NumEvents; I++) {
+  for (uint32_t I = 0; I < NumEvents; I++) {
+    if (EventList[I]->Queue->Device->eventsScope() ==
+        OnDemandHostVisibleProxy) {
+      // Make sure to add all host-visible "proxy" event signals if needed.
+      // This ensures that all signalling commands are submitted below and
+      // thus proxy events can be waited without a deadlock.
+      //
       if (!EventList[I]->hasExternalRefs())
         die("piEventsWait must not be called for an internal event");
 
@@ -6419,7 +6467,7 @@ pi_result piEnqueueEventsWaitWithBarrier(pi_queue Queue,
 
   // Get command lists for each command queue.
   std::vector<pi_command_list_ptr_t> CmdLists;
-  if (UseImmediateCommandLists) {
+  if (Queue->Device->useImmediateCommandLists()) {
     // If immediate command lists are being used, each will act as their own
     // queue, so we must insert a barrier into each.
     CmdLists.reserve(Queue->CommandListMap.size());
@@ -6573,17 +6621,20 @@ pi_result _pi_queue::synchronize() {
       return PI_SUCCESS;
 
     pi_event Event;
-    PI_CALL(EventCreate(Queue->Context, nullptr, true, &Event));
+    pi_result Res = createEventAndAssociateQueue(
+        Queue, &Event, PI_COMMAND_TYPE_USER, ImmCmdList, false);
+    if (Res != PI_SUCCESS)
+      return Res;
     auto zeEvent = Event->ZeEvent;
     ZE_CALL(zeCommandListAppendBarrier,
             (ImmCmdList->first, zeEvent, 0, nullptr));
     ZE_CALL(zeHostSynchronize, (zeEvent));
     Event->Completed = true;
-    PI_CALL(piEventReleaseInternal(Event));
+    PI_CALL(piEventRelease(Event));
     return PI_SUCCESS;
   };
 
-  if (UseImmediateCommandLists) {
+  if (Device->useImmediateCommandLists()) {
     for (auto ImmCmdList : ComputeQueueGroup.ImmCmdLists)
       syncImmCmdList(this, ImmCmdList);
     for (auto ImmCmdList : CopyQueueGroup.ImmCmdLists)
@@ -6652,13 +6703,13 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
             (ZeCommandList, WaitList.Length, WaitList.ZeEventList));
   }
 
-  ZE_CALL(zeCommandListAppendMemoryCopy,
-          (ZeCommandList, Dst, Src, Size, ZeEvent, 0, nullptr));
-
   zePrint("calling zeCommandListAppendMemoryCopy() with\n"
           "  ZeEvent %#lx\n",
           pi_cast<std::uintptr_t>(ZeEvent));
   printZeEventList(WaitList);
+
+  ZE_CALL(zeCommandListAppendMemoryCopy,
+    (ZeCommandList, Dst, Src, Size, ZeEvent, 0, nullptr));
 
   if (auto Res =
           Queue->executeCommandList(CommandList, BlockingWrite, OkToBatch))
