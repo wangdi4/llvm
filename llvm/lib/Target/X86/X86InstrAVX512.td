@@ -15388,90 +15388,87 @@ defm VCVTTPS2IUBS : avx512_sat_cvt_sae<0x6a, "vcvttps2iubs", SchedWriteVecIMul.Z
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 
 #if INTEL_FEATURE_ISA_AVX512_MINMAX
-multiclass avx512_minmax_packed_base<string OpStr, X86VectorVTInfo VTI> {
-  let ExeDomain = VTI.ExeDomain in {
-  defm rri  :   AVX512_maskable<0x52, MRMSrcReg, VTI, (outs VTI.RC:$dst),
-                              (ins VTI.RC:$src1, VTI.RC:$src2, i32u8imm:$src3), OpStr,
-                              "$src3, $src2, $src1", "$src1, $src2, $src3",
-                              (null_frag)>, EVEX_4V;
-  defm rmi  :   AVX512_maskable<0x52, MRMSrcMem, VTI, (outs VTI.RC:$dst),
-                              (ins VTI.RC:$src1, VTI.MemOp:$src2, i32u8imm:$src3), OpStr,
-                              "$src3, $src2, $src1", "$src1, $src2, $src3",
-                              (null_frag)>, EVEX_4V;
+multiclass avx512_minmax_packed_base<string OpStr, X86VectorVTInfo VTI, SDNode OpNode> {
+  let ExeDomain = VTI.ExeDomain, mayRaiseFPException = 1 in {
+    defm rri  :   AVX512_maskable<0x52, MRMSrcReg, VTI, (outs VTI.RC:$dst),
+                                (ins VTI.RC:$src1, VTI.RC:$src2, i32u8imm:$src3), OpStr,
+                                "$src3, $src2, $src1", "$src1, $src2, $src3",
+                                (VTI.VT (OpNode VTI.RC:$src1, VTI.RC:$src2, (i32 timm:$src3)))>, EVEX_4V;
+    defm rmi  :   AVX512_maskable<0x52, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                (ins VTI.RC:$src1, VTI.MemOp:$src2, i32u8imm:$src3), OpStr,
+                                "$src3, $src2, $src1", "$src1, $src2, $src3",
+                                (VTI.VT (OpNode VTI.RC:$src1, (VTI.LdFrag addr:$src2), (i32 timm:$src3)))>, EVEX_4V;
+    defm rmbi :   AVX512_maskable<0x52, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                (ins VTI.RC:$src1, VTI.ScalarMemOp:$src2, i32u8imm:$src3),
+                                OpStr, "$src3, ${src2}"#VTI.BroadcastStr#", $src1",
+                                "$src1, ${src2}"#VTI.BroadcastStr#", $src3",
+                                (VTI.VT (OpNode VTI.RC:$src1, (VTI.BroadcastLdFrag addr:$src2), (i32 timm:$src3)))>, EVEX_4V, EVEX_B;
   }
 }
 
-
-multiclass avx512_minmax_packed_rmbi<string OpStr, X86VectorVTInfo VTI> {
-  let ExeDomain = VTI.ExeDomain in
-  defm rmbi :   AVX512_maskable<0x52, MRMSrcMem, VTI, (outs VTI.RC:$dst),
-                              (ins VTI.RC:$src1, VTI.ScalarMemOp:$src2, i32u8imm:$src3),
-                              OpStr, "$src3, ${src2}"#VTI.BroadcastStr#", $src1",
-                              "$src1, ${src2}"#VTI.BroadcastStr#", $src3",
-                              (null_frag)>, EVEX_4V, EVEX_B;
-
+multiclass avx512_minmax_packed_sae<string OpStr, X86VectorVTInfo VTI, SDNode OpNode> {
+  let Uses = [MXCSR], mayRaiseFPException = 0 in
+    defm rrib : AVX512_maskable<0x52, MRMSrcReg, VTI, (outs VTI.RC:$dst),
+                                (ins VTI.RC:$src1, VTI.RC:$src2, i32u8imm:$src3), OpStr,
+                                "$src3, {sae}, $src2, $src1", "$src1, $src2, {sae}, $src3",
+                                (VTI.VT (OpNode (VTI.VT VTI.RC:$src1), (VTI.VT VTI.RC:$src2), (i32 timm:$src3)))>,
+                                EVEX_4V, EVEX_B, EVEX_V512;
 }
 
-multiclass avx512_minmax_packed_sae<string OpStr, X86VectorVTInfo VTI> {
-  let Uses = [MXCSR] in
-  defm rrib : AVX512_maskable<0x52, MRMSrcReg, VTI, (outs VTI.RC:$dst),
-                              (ins VTI.RC:$src1, VTI.RC:$src2, i32u8imm:$src3), OpStr,
-                              "$src3, {sae}, $src2, $src1", "$src1, $src2, {sae}, $src3",
-                              (null_frag)>, EVEX_4V, EVEX_B, EVEX_V512;
-}
-
-multiclass avx512_minmax_packed<string OpStr, AVX512VLVectorVTInfo VTI> {
+multiclass avx512_minmax_packed<string OpStr, AVX512VLVectorVTInfo VTI, SDNode OpNode> {
   let Predicates = [HasAVX512MINMAX] in
-  defm Z      :   avx512_minmax_packed_base<OpStr, VTI.info512>,
-                  avx512_minmax_packed_rmbi<OpStr, VTI.info512>, EVEX_V512;
+    defm Z      :   avx512_minmax_packed_base<OpStr, VTI.info512, OpNode>, EVEX_V512;
   let Predicates = [HasAVX512MINMAX, HasVLX] in {
-    defm Z256 :   avx512_minmax_packed_base<OpStr, VTI.info256>,
-                  avx512_minmax_packed_rmbi<OpStr, VTI.info256>, EVEX_V256;
-    defm Z128 :   avx512_minmax_packed_base<OpStr, VTI.info128>,
-                  avx512_minmax_packed_rmbi<OpStr, VTI.info128>, EVEX_V128;
+    defm Z256 :   avx512_minmax_packed_base<OpStr, VTI.info256, OpNode>, EVEX_V256;
+    defm Z128 :   avx512_minmax_packed_base<OpStr, VTI.info128, OpNode>, EVEX_V128;
   }
 }
 
-multiclass avx512_minmax_scalar<string OpStr, X86VectorVTInfo _> {
-    let ExeDomain = _.ExeDomain, Predicates = [HasAVX512MINMAX] in {
-    defm rri : AVX512_maskable_scalar<0x53, MRMSrcReg, _, (outs VR128X:$dst),
-                             (ins VR128X:$src1, VR128X:$src2, i32u8imm:$src3),
-                             OpStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
-                             (null_frag)>;
-    let Uses = [MXCSR] in
-    defm rrib : AVX512_maskable_scalar<0x53, MRMSrcReg, _, (outs VR128X:$dst),
-                      (ins VR128X:$src1, VR128X:$src2, i32u8imm:$src3),
-                      OpStr, "$src3, {sae}, $src2, $src1",
-                      "$src1, $src2, {sae}, $src3",
-                      (null_frag)>, EVEX_B;
-    defm rmi : AVX512_maskable_scalar<0x53, MRMSrcMem, _, (outs VR128X:$dst),
-                     (ins VR128X:$src1, _.ScalarMemOp:$src2, i32u8imm:$src3),
-                     OpStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
-                     (null_frag)>;
+multiclass avx512_minmax_scalar<string OpStr, X86VectorVTInfo _, SDNode OpNode,
+                                SDNode OpNodeSAE> {
+  let ExeDomain = _.ExeDomain, Predicates = [HasAVX512MINMAX] in {
+    let mayRaiseFPException = 1 in {
+      defm rri : AVX512_maskable<0x53, MRMSrcReg, _, (outs VR128X:$dst),
+                               (ins VR128X:$src1, VR128X:$src2, i32u8imm:$src3),
+                                OpStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
+                                (_.VT (OpNode (_.VT _.RC:$src1), (_.VT _.RC:$src2), (i32 timm:$src3)))>;
+
+      defm rmi : AVX512_maskable<0x53, MRMSrcMem, _, (outs VR128X:$dst),
+                       (ins VR128X:$src1, _.ScalarMemOp:$src2, i32u8imm:$src3),
+                       OpStr, "$src3, $src2, $src1", "$src1, $src2, $src3",
+                       (_.VT (OpNode (_.VT _.RC:$src1), (_.ScalarIntMemFrags addr:$src2), (i32 timm:$src3)))>;
+    }
+    let Uses = [MXCSR], mayRaiseFPException = 0 in
+      defm rrib : AVX512_maskable<0x53, MRMSrcReg, _, (outs VR128X:$dst),
+                        (ins VR128X:$src1, VR128X:$src2, i32u8imm:$src3),
+                        OpStr, "$src3, {sae}, $src2, $src1",
+                        "$src1, $src2, {sae}, $src3",
+                        (_.VT (OpNodeSAE (_.VT _.RC:$src1), (_.VT _.RC:$src2), (i32 timm:$src3)))>, EVEX_B;
   }
 }
 
 
-defm VMINMAXNEPBF16 : avx512_minmax_packed<"vminmaxnepbf16", avx512vl_i16_info>,
-                      AVX512XDIi8Base, EVEX_CD8<16, CD8VF>, TA;
+let mayRaiseFPException = 0 in
+  defm VMINMAXNEPBF16 : avx512_minmax_packed<"vminmaxnepbf16", avx512vl_i16_info, X86vminmax>,
+                        AVX512XDIi8Base, EVEX_CD8<16, CD8VF>, TA;
 
-defm VMINMAXPD : avx512_minmax_packed<"vminmaxpd", avx512vl_f64_info>,
-                 avx512_minmax_packed_sae<"vminmaxpd", v8f64_info>,
+defm VMINMAXPD : avx512_minmax_packed<"vminmaxpd", avx512vl_f64_info, X86vminmax>,
+                 avx512_minmax_packed_sae<"vminmaxpd", v8f64_info, X86vminmaxSae>,
                  AVX512PDIi8Base, VEX_W, TA, EVEX_CD8<64, CD8VF>;
 
-defm VMINMAXPH : avx512_minmax_packed<"vminmaxph", avx512vl_f16_info>,
-                 avx512_minmax_packed_sae<"vminmaxph", v32f16_info>,
+defm VMINMAXPH : avx512_minmax_packed<"vminmaxph", avx512vl_f16_info, X86vminmax>,
+                 avx512_minmax_packed_sae<"vminmaxph", v32f16_info, X86vminmaxSae>,
                  AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
 
-defm VMINMAXPS : avx512_minmax_packed<"vminmaxps", avx512vl_f32_info>,
-                avx512_minmax_packed_sae<"vminmaxps", v16f32_info>,
-                AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+defm VMINMAXPS : avx512_minmax_packed<"vminmaxps", avx512vl_f32_info, X86vminmax>,
+                 avx512_minmax_packed_sae<"vminmaxps", v16f32_info, X86vminmaxSae>,
+                 AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
 
-defm VMINMAXSD : avx512_minmax_scalar<"vminmaxsd", v2f64x_info>,
+defm VMINMAXSD : avx512_minmax_scalar<"vminmaxsd", v2f64x_info, X86vminmaxs, X86vminmaxsSae>,
                  AVX512AIi8Base, VEX_LIG, EVEX_4V, EVEX_CD8<64, CD8VT1>, VEX_W;
-defm VMINMAXSH : avx512_minmax_scalar<"vminmaxsh", v8f16x_info>,
+defm VMINMAXSH : avx512_minmax_scalar<"vminmaxsh", v8f16x_info, X86vminmaxs, X86vminmaxsSae>,
                  AVX512PSIi8Base, VEX_LIG, EVEX_4V, EVEX_CD8<16, CD8VT1>, TA;
-defm VMINMAXSS : avx512_minmax_scalar<"vminmaxss", v4f32x_info>,
+defm VMINMAXSS : avx512_minmax_scalar<"vminmaxss", v4f32x_info, X86vminmaxs, X86vminmaxsSae>,
                  AVX512AIi8Base, VEX_LIG, EVEX_4V, EVEX_CD8<32, CD8VT1>;
 #endif // INTEL_FEATURE_ISA_AVX512_MINMAX
 #if INTEL_FEATURE_ISA_AVX512_COMPLEX

@@ -1345,13 +1345,13 @@ enum NodeType {
 /// FIRST_TARGET_STRICTFP_OPCODE - Target-specific pre-isel operations
 /// which cannot raise FP exceptions should be less than this value.
 /// Those that do must not be less than this value.
-static const int FIRST_TARGET_STRICTFP_OPCODE = BUILTIN_OP_END + 400;
+static const int FIRST_TARGET_STRICTFP_OPCODE = BUILTIN_OP_END + 500; // INTEL
 
 /// FIRST_TARGET_MEMORY_OPCODE - Target-specific pre-isel operations
 /// which do not reference a specific memory location should be less than
 /// this value. Those that do must not be less than this value, and can
 /// be used with SelectionDAG::getMemIntrinsicNode.
-static const int FIRST_TARGET_MEMORY_OPCODE = BUILTIN_OP_END + 500;
+static const int FIRST_TARGET_MEMORY_OPCODE = BUILTIN_OP_END + 600; // INTEL
 
 /// Whether this is bitwise logic opcode.
 inline bool isBitwiseLogicOp(unsigned Opcode) {

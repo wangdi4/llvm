@@ -4899,6 +4899,16 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_rndscalesd_round_mask:
   case X86::BI__builtin_ia32_rndscaless_round_mask:
   case X86::BI__builtin_ia32_rndscalesh_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+  case X86::BI__builtin_ia32_vminmaxpd_round_mask:
+  case X86::BI__builtin_ia32_vminmaxps_round_mask:
+  case X86::BI__builtin_ia32_vminmaxph_round_mask:
+  case X86::BI__builtin_ia32_vminmaxsd_round_mask:
+  case X86::BI__builtin_ia32_vminmaxsh_round_mask:
+  case X86::BI__builtin_ia32_vminmaxss_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 5;
     break;
   case X86::BI__builtin_ia32_vcvtsd2si64:
@@ -5983,6 +5993,32 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_dvpcaddrotsrad:
   case X86::BI__builtin_ia32_dvpunpckdq:
 #endif // INTEL_FEATURE_ISA_DSPV1
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+  case X86::BI__builtin_ia32_vminmaxnepbf16128:
+  case X86::BI__builtin_ia32_vminmaxnepbf16256:
+  case X86::BI__builtin_ia32_vminmaxnepbf16512:
+  case X86::BI__builtin_ia32_vminmaxpd128:
+  case X86::BI__builtin_ia32_vminmaxpd256:
+  case X86::BI__builtin_ia32_vminmaxph128:
+  case X86::BI__builtin_ia32_vminmaxph256:
+  case X86::BI__builtin_ia32_vminmaxps128:
+  case X86::BI__builtin_ia32_vminmaxps256:
+  case X86::BI__builtin_ia32_vminmaxnepbf16128_mask:
+  case X86::BI__builtin_ia32_vminmaxnepbf16256_mask:
+  case X86::BI__builtin_ia32_vminmaxnepbf16512_mask:
+  case X86::BI__builtin_ia32_vminmaxpd128_mask:
+  case X86::BI__builtin_ia32_vminmaxpd256_mask:
+  case X86::BI__builtin_ia32_vminmaxph128_mask:
+  case X86::BI__builtin_ia32_vminmaxph256_mask:
+  case X86::BI__builtin_ia32_vminmaxps128_mask:
+  case X86::BI__builtin_ia32_vminmaxps256_mask:
+  case X86::BI__builtin_ia32_vminmaxpd_round_mask:
+  case X86::BI__builtin_ia32_vminmaxps_round_mask:
+  case X86::BI__builtin_ia32_vminmaxph_round_mask:
+  case X86::BI__builtin_ia32_vminmaxsd_round_mask:
+  case X86::BI__builtin_ia32_vminmaxsh_round_mask:
+  case X86::BI__builtin_ia32_vminmaxss_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
 #endif // INTEL_CUSTOMIZATION
     i = 2; l = 0; u = 255;
     break;
