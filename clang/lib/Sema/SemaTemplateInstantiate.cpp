@@ -1129,6 +1129,9 @@ namespace {
         const SYCLIntelFPGASpeculatedIterationsAttr *SI);
     const SYCLIntelFPGALoopCountAttr *
     TransformSYCLIntelFPGALoopCountAttr(const SYCLIntelFPGALoopCountAttr *SI);
+    const SYCLIntelFPGAMaxReinvocationDelayAttr *
+    TransformSYCLIntelFPGAMaxReinvocationDelayAttr(
+        const SYCLIntelFPGAMaxReinvocationDelayAttr *MRD);
 
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
@@ -1726,6 +1729,14 @@ const LoopUnrollHintAttr *TemplateInstantiator::TransformLoopUnrollHintAttr(
   Expr *TransformedExpr =
       getDerived().TransformExpr(LU->getUnrollHintExpr()).get();
   return getSema().BuildLoopUnrollHintAttr(*LU, TransformedExpr);
+}
+
+const SYCLIntelFPGAMaxReinvocationDelayAttr *
+TemplateInstantiator::TransformSYCLIntelFPGAMaxReinvocationDelayAttr(
+    const SYCLIntelFPGAMaxReinvocationDelayAttr *MRD) {
+  Expr *TransformedExpr = getDerived().TransformExpr(MRD->getNExpr()).get();
+  return getSema().BuildSYCLIntelFPGAMaxReinvocationDelayAttr(*MRD,
+                                                              TransformedExpr);
 }
 
 ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(

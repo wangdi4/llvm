@@ -2404,6 +2404,9 @@ public:
                                              Expr *E);
   SYCLIntelFPGALoopCoalesceAttr *
   BuildSYCLIntelFPGALoopCoalesceAttr(const AttributeCommonInfo &CI, Expr *E);
+  SYCLIntelFPGAMaxReinvocationDelayAttr *
+  BuildSYCLIntelFPGAMaxReinvocationDelayAttr(const AttributeCommonInfo &CI, 
+                                             Expr *E);
 
   bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
 
