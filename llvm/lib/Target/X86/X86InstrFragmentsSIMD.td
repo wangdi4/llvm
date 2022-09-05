@@ -1199,6 +1199,17 @@ def X86vcvttps2iubsMaskSAE
 def X86vcvttps2iubsMaskzSAE
     : SDNode<"X86ISD::VCVTTPS2IUBSMaskZ_SAE", SDTAVX512SATCVT_PS2I_MASKZ_SAE>;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+def X86vminmax : SDNode<"X86ISD::VMINMAX", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                           SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+def X86vminmaxSae : SDNode<"X86ISD::VMINMAX_SAE", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                            SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+
+def X86vminmaxs : SDNode<"X86ISD::VMINMAXS", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                             SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+def X86vminmaxsSae : SDNode<"X86ISD::VMINMAXS_SAE", SDTypeProfile<1, 3, [SDTCisSameAs<0,1>,
+                                                    SDTCisSameAs<0,2>, SDTCisInt<3>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 def X86vcmpnepbf16 : SDNode<"X86ISD::VCMPNEPBF16",
                             SDTypeProfile<1, 4, [SDTCVecEltisVT<0, i1>, SDTCisSameAs<0, 1>, SDTCisVec<0>,
