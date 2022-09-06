@@ -8,6 +8,7 @@
 
 #include "wrapper.h"
 
+<<<<<<< HEAD
 #ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -15,6 +16,9 @@
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
+=======
+#if defined(__SPIR__) || defined(__NVPTX__)
+>>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 DEVICE_EXTERN_C_INLINE
 void *memcpy(void *dest, const void *src, size_t n) {
   return __devicelib_memcpy(dest, src, n);
@@ -70,6 +74,7 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
       __spirv_LocalInvocationId_z());
 }
 #endif
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -86,3 +91,6 @@ void *operator new[](size_t size) { return __kmpc_alloc(0, size, nullptr); }
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 #endif // __SPIR__
+=======
+#endif // __SPIR__ || __NVPTX__
+>>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
