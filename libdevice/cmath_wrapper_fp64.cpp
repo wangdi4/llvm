@@ -9,16 +9,12 @@
 
 #include "device_math.h"
 
-<<<<<<< HEAD
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#if defined(__SPIR__) || defined(__NVPTX__)
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 
 // All exported functions in math and complex device libraries are weak
 // reference. If users provide their own math or complex functions(with
