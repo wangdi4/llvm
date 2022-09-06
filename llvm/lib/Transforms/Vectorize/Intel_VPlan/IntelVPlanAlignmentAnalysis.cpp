@@ -32,7 +32,7 @@ using namespace llvm::vpo;
 /// Modular multiplicative inverse.
 static int modularMultiplicativeInverse(int Val, int Mod) {
   assert(Val > 0 && Mod > Val && "Invalid Arguments");
-  assert(greatestCommonDivisor(Val, Mod) == 1 && "Arguments are not coprime");
+  assert(std::gcd(Val, Mod) == 1 && "Arguments are not coprime");
 
   int Prev = 1;
   int Curr = Val;
