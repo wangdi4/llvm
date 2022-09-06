@@ -299,7 +299,6 @@ public:
     Image(const llvm::StringRef File_, const llvm::StringRef Manif_,
           const llvm::StringRef Tgt_, BinaryImageFormat Fmt_,
           const llvm::StringRef CompileOpts_, const llvm::StringRef LinkOpts_,
-<<<<<<< HEAD
           const llvm::StringRef EntriesFile_, const llvm::StringRef PropsFile_
 #if INTEL_CUSTOMIZATION
           ,
@@ -315,12 +314,6 @@ public:
 #endif // INTEL_CUSTOMIZATION
     {
     }
-=======
-          const llvm::StringRef EntriesFile_, const llvm::StringRef PropsFile_)
-        : File(File_.str()), Manif(Manif_.str()), Tgt(Tgt_.str()), Fmt(Fmt_),
-          CompileOpts(CompileOpts_.str()), LinkOpts(LinkOpts_.str()),
-          EntriesFile(EntriesFile_.str()), PropsFile(PropsFile_.str()) {}
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
 
     /// Name of the file with actual contents
     const std::string File;
@@ -339,7 +332,6 @@ public:
     /// File with properties
     const std::string PropsFile;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// Number of subsections in an application if the image has been read
     /// from a list for the -split-batch option. By default, there is no
@@ -347,8 +339,6 @@ public:
     const size_t SubSections;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
     friend raw_ostream &operator<<(raw_ostream &Out, const Image &Img);
   };
 
@@ -376,7 +366,6 @@ private:
   llvm::SmallVector<std::unique_ptr<MemoryBuffer>, 4> AutoGcBufs;
 
 public:
-<<<<<<< HEAD
   void
   addImage(const OffloadKind Kind, llvm::StringRef File, llvm::StringRef Manif,
            llvm::StringRef Tgt, const BinaryImageFormat Fmt,
@@ -387,27 +376,16 @@ public:
            const size_t SubSections = 0 // by default, no subsections are there
 #endif                                  // INTEL_CUSTOMIZATION
   ) {
-=======
-  void addImage(const OffloadKind Kind, llvm::StringRef File,
-                llvm::StringRef Manif, llvm::StringRef Tgt,
-                const BinaryImageFormat Fmt, llvm::StringRef CompileOpts,
-                llvm::StringRef LinkOpts, llvm::StringRef EntriesFile,
-                llvm::StringRef PropsFile) {
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
     std::unique_ptr<SameKindPack> &Pack = Packs[Kind];
     if (!Pack)
       Pack.reset(new SameKindPack());
     Pack->emplace_back(std::make_unique<Image>(
-<<<<<<< HEAD
         File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile
 #if INTEL_CUSTOMIZATION
         ,
         SubSections
 #endif // INTEL_CUSTOMIZATION
         ));
-=======
-        File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile));
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
   }
 
   std::string ToolName;
@@ -909,10 +887,7 @@ public:
     MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
 
 private:
-<<<<<<< HEAD
 
-=======
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -959,7 +934,6 @@ private:
     Constant *EntriesB = nullptr, *EntriesE = nullptr;
 
     if (Kind != OffloadKind::SYCL) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
       GlobalVariable *EntriesStart = nullptr, *EntriesStop = nullptr;
 
@@ -1037,33 +1011,6 @@ private:
         EntriesE = EntriesStop;
       }
 #endif  // INTEL_COLLAB
-=======
-      // Create external begin/end symbols for the offload entries table.
-      auto *EntriesStart = new GlobalVariable(
-          M, getEntryTy(), /*isConstant*/ true, GlobalValue::ExternalLinkage,
-          /*Initializer*/ nullptr, "__start_omp_offloading_entries");
-      EntriesStart->setVisibility(GlobalValue::HiddenVisibility);
-      auto *EntriesStop = new GlobalVariable(
-          M, getEntryTy(), /*isConstant*/ true, GlobalValue::ExternalLinkage,
-          /*Initializer*/ nullptr, "__stop_omp_offloading_entries");
-      EntriesStop->setVisibility(GlobalValue::HiddenVisibility);
-
-      // We assume that external begin/end symbols that we have created above
-      // will be defined by the linker. But linker will do that only if linker
-      // inputs have section with "omp_offloading_entries" name which is not
-      // guaranteed. So, we just create dummy zero sized object in the offload
-      // entries section to force linker to define those symbols.
-      auto *DummyInit =
-          ConstantAggregateZero::get(ArrayType::get(getEntryTy(), 0u));
-      auto *DummyEntry = new GlobalVariable(
-          M, DummyInit->getType(), true, GlobalVariable::ExternalLinkage,
-          DummyInit, "__dummy.omp_offloading.entry");
-      DummyEntry->setSection("omp_offloading_entries");
-      DummyEntry->setVisibility(GlobalValue::HiddenVisibility);
-
-      EntriesB = EntriesStart;
-      EntriesE = EntriesStop;
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
 
       if (Verbose) {
         errs() << "  global added: " << EntriesStart->getName() << "\n";
@@ -1082,10 +1029,6 @@ private:
     // Create initializer for the images array.
     SmallVector<Constant *, 4u> ImagesInits;
     unsigned ImgId = 0;
-<<<<<<< HEAD
-=======
-
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
     for (const auto &ImgPtr : Pack) {
       const BinaryWrapper::Image &Img = *(ImgPtr.get());
       if (Verbose)
@@ -1395,7 +1338,6 @@ public:
     }
     return &M;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // FIXME: move this to llvm/BinaryFormat/ELF.h:
 #define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
@@ -1680,12 +1622,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
- // The whole function body is misaligned just to simplify
-=======
-};
-
   // The whole function body is misaligned just to simplify
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
   // conflict resolutions with llorg.
   MemoryBuffer *BinaryWrapper::addELFNotes(
       MemoryBuffer *Buf,
@@ -1899,10 +1836,6 @@ public:
     AutoGcBufs.emplace_back(std::move(*BufOrErr));
     return AutoGcBufs.back().get();
   }
-<<<<<<< HEAD
-=======
-
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               const BinaryWrapper::Image &Img) {
   Out << "\n{\n";
@@ -2041,7 +1974,6 @@ private:
       std::get<N>(Prevs) = std::get<N>(Iters);
       std::get<N>(Iters)++;
     }
-<<<<<<< HEAD
   }
 
   template <int N> std::enable_if_t<N != 0> inc() {
@@ -2049,15 +1981,6 @@ private:
     inc<N - 1>();
   }
 
-=======
-  }
-
-  template <int N> std::enable_if_t<N != 0> inc() {
-    incImpl<N>();
-    inc<N - 1>();
-  }
-
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
   template <int N> std::enable_if_t<N == 0> inc() { incImpl<N>(); }
 };
 
@@ -2195,7 +2118,6 @@ int main(int argc, const char **argv) {
             return 1;
           }
           const util::SimpleTable &T = *TPtr->get();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           StringRef Manif = CurInputGroup.size() > 1 ? CurInputGroup[1] : "";
           const size_t SubSections = T.rows().size();
@@ -2212,15 +2134,6 @@ int main(int argc, const char **argv) {
                         Row.getCell(COL_PROPS, PropsFile),
                         SubSections);
 #endif // INTEL_CUSTOMIZATION
-=======
-
-          // iterate via records
-          for (const auto &Row : T.rows()) {
-            Wr.addImage(Knd, Row.getCell(COL_CODE),
-                        Row.getCell(COL_MANIFEST, ""), Tgt, Fmt, CompileOpts,
-                        LinkOpts, Row.getCell(COL_SYM, ""),
-                        Row.getCell(COL_PROPS, ""));
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
           }
         } else {
           if (Knd == OffloadKind::Unknown) {
@@ -2276,13 +2189,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (ContainerizeOpenMPImages)
     Wr.containerizeOpenMPImages();
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> a4bc2029bf0cca88a0851321f67a6761f2de365c
   // Create a wrapper for device binaries.
   Expected<const Module *> ModOrErr = Wr.wrap();
   if (!ModOrErr) {
