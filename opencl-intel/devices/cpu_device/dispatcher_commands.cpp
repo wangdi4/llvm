@@ -1326,7 +1326,7 @@ bool FillMemObject::Execute()
         minSize /= 2;
         lcm = getLCMSize(minSize, cmdParams->pattern_size);
     }
-    assert(lcm && "invalid lease common multiple");
+    assert(lcm && "invalid least common multiple");
     size_t chunkSize = std::min(((maxSize + lcm - 1) / lcm) * lcm, width);
 
     // Prepare copy buffer.

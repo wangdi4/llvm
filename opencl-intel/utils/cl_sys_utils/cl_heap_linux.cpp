@@ -212,6 +212,8 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 	return 0;
 }
 
+bool isLargeAllocSize(size_t size) { return size >= MEM_LARGE_ALLOC_TRIGGER; }
+
 ////////////////////////////////////////////////////////////////////
 //
 // On Linux when new process is created all parent memory is marked as copy-on-write.
