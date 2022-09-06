@@ -43,9 +43,9 @@
 # Temporarily removed @sndmitriev, @AlexeySachkov, @mlychkov
 
 # CFE/OpenMP
-/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git
-/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git
-/clang/**/*OpenMP* @mikerice1969 @jyu2-git
+/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @mdfazlay
+/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git @mdfazlay
+/clang/**/*OpenMP* @mikerice1969 @jyu2-git @mdfazlay
 
 # COMPONENT: Driver
 # JIRA: CMPLRLLVM->LLVM Driver
