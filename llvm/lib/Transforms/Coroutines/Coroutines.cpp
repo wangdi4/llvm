@@ -317,7 +317,7 @@ void coro::Shape::buildFrom(Function &F) {
     this->SwitchLowering.PromiseAlloca = SwitchId->getPromise();
     this->SwitchLowering.ResumeEntryBlock = nullptr;
 
-    for (auto AnySuspend : CoroSuspends) {
+    for (auto *AnySuspend : CoroSuspends) {
       auto Suspend = dyn_cast<CoroSuspendInst>(AnySuspend);
       if (!Suspend) {
 #ifndef NDEBUG
@@ -363,7 +363,7 @@ void coro::Shape::buildFrom(Function &F) {
     auto ResultTys = getRetconResultTypes();
     auto ResumeTys = getRetconResumeTypes();
 
-    for (auto AnySuspend : CoroSuspends) {
+    for (auto *AnySuspend : CoroSuspends) {
       auto Suspend = dyn_cast<CoroSuspendRetconInst>(AnySuspend);
       if (!Suspend) {
 #ifndef NDEBUG
