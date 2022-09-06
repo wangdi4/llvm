@@ -72,6 +72,7 @@ static char encodeISAClass(VFISAKind Isa) {
   case VFISAKind::LLVM:
     llvm_unreachable("unsupported kind!");
   }
+  llvm_unreachable("unsupported kind!");
 }
 
 static char encodeMask(bool Mask) {
