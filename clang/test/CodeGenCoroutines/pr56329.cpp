@@ -1,6 +1,10 @@
 // Test for PR56919. Tests the we won't contain the resumption of final suspend point.
 //
-// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 %s -O3 -S -emit-llvm -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// This test fails on xmain when -opaque-pointers is made the default, seemingly
+// becaues it trips on a getelementptr unexpectedly.
+// RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -std=c++20 %s -O3 -S -emit-llvm -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 #include "Inputs/coroutine.h"
 

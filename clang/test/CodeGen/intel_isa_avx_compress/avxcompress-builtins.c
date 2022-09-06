@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx_compress
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxcompress -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxcompress -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
