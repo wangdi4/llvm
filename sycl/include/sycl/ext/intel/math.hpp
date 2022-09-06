@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 // INTEL_CUSTOMIZATION
 //
 // Modifications, Copyright (C) 2021 Intel Corporation
@@ -15,7 +13,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
->>>>>>> 4e11128887d9fe065d744687589c42b382ab4795
 //==------------- math.hpp - Intel specific math API -----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -44,15 +41,12 @@ float __imf_saturatef(float);
 float __imf_copysignf(float, float);
 double __imf_copysign(double, double);
 _iml_half_internal __imf_copysignf16(_iml_half_internal, _iml_half_internal);
-<<<<<<< HEAD
-=======
 /* INTEL_CUSTOMIZATION */
 float __imf_erfinvf(float);
 double __imf_erfinv(double);
 float __imf_cdfnormf(float);
 double __imf_cdfnorm(double);
 /* end INTEL_CUSTOMIZATION */
->>>>>>> 4e11128887d9fe065d744687589c42b382ab4795
 };
 
 namespace sycl {
@@ -87,8 +81,6 @@ std::enable_if_t<std::is_same_v<Tp, sycl::half>, sycl::half> copysign(Tp x,
   return __builtin_bit_cast(sycl::half, __imf_copysignf16(xi, yi));
 }
 
-<<<<<<< HEAD
-=======
 /* INTEL_CUSTOMIZATION */
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> erfinv(Tp x) {
@@ -110,7 +102,6 @@ std::enable_if_t<std::is_same_v<Tp, double>, double> cdfnorm(Tp x) {
   return __imf_cdfnorm(x);
 }
 /* end INTEL_CUSTOMIZATION */
->>>>>>> 4e11128887d9fe065d744687589c42b382ab4795
 #endif
 } // namespace math
 } // namespace intel
