@@ -1,5 +1,23 @@
 //===- CallGraphUpdater.cpp - A (lazy) call graph update helper -----------===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -109,10 +127,19 @@ void CallGraphUpdater::registerOutlinedFunction(Function &OriginalFn,
 void CallGraphUpdater::removeFunction(Function &DeadFn) {
   DeadFn.deleteBody();
   DeadFn.setLinkage(GlobalValue::ExternalLinkage);
-  if (DeadFn.hasComdat())
-    DeadFunctionsInComdats.push_back(&DeadFn);
-  else
-    DeadFunctions.push_back(&DeadFn);
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-39892: In xmain, a LibFunc can have IR. Such a LibFunc
+  // could be converted into a LibFunc without IR by the Attributor.
+  // The lazy call graph requires that libFuncs not be removed as
+  // dead functions. So, do not put them on either of the dead
+  // function lists in these cases.
+  if (!LCG || !LCG->isLibFunction(DeadFn)) {
+    if (DeadFn.hasComdat())
+      DeadFunctionsInComdats.push_back(&DeadFn);
+    else
+      DeadFunctions.push_back(&DeadFn);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For the old call graph we remove the function from the SCC right away.
   if (CG && !ReplacedFunctions.count(&DeadFn)) {
