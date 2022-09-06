@@ -8,7 +8,7 @@
 
 #include "wrapper.h"
 
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -85,4 +85,4 @@ void *operator new[](size_t size) { return __kmpc_alloc(0, size, nullptr); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
+#endif // __SPIR__ || __NVPTX__

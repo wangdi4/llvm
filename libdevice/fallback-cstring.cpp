@@ -12,7 +12,7 @@
 #include <cstdint>
 #endif // INTEL_COLLAB
 
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #include <cstdint>
 #if OMP_LIBDEVICE
@@ -216,4 +216,4 @@ int __devicelib_memcmp(const void *s1, const void *s2, size_t n) {
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
+#endif // __SPIR__ || __NVPTX__
