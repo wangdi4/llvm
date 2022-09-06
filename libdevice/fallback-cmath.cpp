@@ -8,16 +8,12 @@
 
 #include "device_math.h"
 
-<<<<<<< HEAD
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#if defined(__SPIR__) || defined(__NVPTX__)
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 
 // To support fallback device libraries on-demand loading, please update the
 // DeviceLibFuncMap in llvm/tools/sycl-post-link/sycl-post-link.cpp if you add
@@ -175,13 +171,9 @@ float __devicelib_asinhf(float x) { return __spirv_ocl_asinh(x); }
 DEVICE_EXTERN_C_INLINE
 float __devicelib_atanhf(float x) { return __spirv_ocl_atanh(x); }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
-=======
 #endif // __SPIR__ || __NVPTX__
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725

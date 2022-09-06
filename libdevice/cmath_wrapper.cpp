@@ -8,16 +8,12 @@
 
 #include "device_math.h"
 
-<<<<<<< HEAD
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#if defined(__SPIR__) || defined(__NVPTX__)
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 
 DEVICE_EXTERN_C_INLINE
 int abs(int x) { return __devicelib_abs(x); }
@@ -156,7 +152,6 @@ float asinhf(float x) { return __devicelib_asinhf(x); }
 
 DEVICE_EXTERN_C_INLINE
 float atanhf(float x) { return __devicelib_atanhf(x); }
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -175,7 +170,4 @@ float atanhf(float x) { return __devicelib_atanhf(x); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
-=======
 #endif // __SPIR__ || __NVPTX__
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725

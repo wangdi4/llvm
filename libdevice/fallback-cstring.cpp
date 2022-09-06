@@ -12,17 +12,13 @@
 #include <cstdint>
 #endif // INTEL_COLLAB
 
-<<<<<<< HEAD
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #include <cstdint>
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#if defined(__SPIR__) || defined(__NVPTX__)
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 
 static void *__devicelib_memcpy_uint8_aligned(void *dest, const void *src,
                                               size_t n) {
@@ -215,13 +211,9 @@ int __devicelib_memcmp(const void *s1, const void *s2, size_t n) {
 
   return head_cmp;
 }
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
-=======
 #endif // __SPIR__ || __NVPTX__
->>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
