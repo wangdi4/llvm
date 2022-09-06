@@ -199,26 +199,6 @@ TEST(FrameworkTestType, Test_clSetKernelArgInvalidArgSizeTest)
     clSetKernelArgInvalidArgSizeTest();
 }
 
-TEST(FrameworkTestType, Test_clCreateBufferTest)
-{
-    EXPECT_TRUE(clCreateBufferTest());
-}
-
-TEST(FrameworkTestType, Test_clCreateBufferWithPropertiesINTELTest)
-{
-    EXPECT_TRUE(clCreateBufferWithPropertiesINTELTest());
-}
-
-TEST(FrameworkTestType, Test_clCreateBufferWithPropertiesTest)
-{
-    EXPECT_TRUE(clCreateBufferWithPropertiesTest());
-}
-
-TEST(FrameworkTestType, Test_clCreateSubBufferTest)
-{
-    EXPECT_TRUE(clCreateSubBufferTest());
-}
-
 TEST(FrameworkTestType, Test_clEnqueueRWBuffer)
 {
     EXPECT_TRUE(clEnqueueRWBuffer());

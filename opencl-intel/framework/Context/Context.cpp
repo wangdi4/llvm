@@ -2029,7 +2029,7 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     flags |= CL_MEM_READ_WRITE;
     if (nullptr != userPtr)
-        flags |= CL_MEM_USE_HOST_PTR;
+        flags |= CL_MEM_USE_HOST_PTR | CL_DEV_MEM_NOT_CACHE_HOST_PTR_CONTENT;
 
     // these flags aren't needed anymore
     err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,

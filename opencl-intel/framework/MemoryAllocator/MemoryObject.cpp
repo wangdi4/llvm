@@ -151,6 +151,13 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
         szSize = sizeof(cl_mem_properties) * m_clMemobjPropArrays.size();
         pValue = m_clMemobjPropArrays.data();
         break;
+    case CL_MEM_ALLOC_BASE_PTR_INTEL:
+        // CL_MEM_ALLOC_BASE_PTR_INTEL is borrowed from usm spec. Here is an
+        // internal customization which allows to get MemObj base ptr. This is
+        // for testing purpose only.
+        szSize = sizeof(m_pMemObjData);
+        pValue = &m_pMemObjData;
+        break;
 #if defined (DX_MEDIA_SHARING)
     /* We handle the following values here and not in D3DResource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
         shared object and not CL_INVALID_VALUE. */
