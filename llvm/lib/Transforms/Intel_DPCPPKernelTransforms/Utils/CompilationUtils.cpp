@@ -1631,7 +1631,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   if (!UseTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
-  unsigned int LocalMemCount = 0;
   unsigned int CurrentOffset = 0;
   Function::arg_iterator arg_it = F->arg_begin();
   for (unsigned i = 0; i < ArgsCount; ++i) {
@@ -1795,7 +1794,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
         break;
       case 3: // Local Address space
         CurArg.Ty = KRNL_ARG_PTR_LOCAL;
-        ++LocalMemCount;
         break;
 
       default:
