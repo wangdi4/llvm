@@ -9,12 +9,16 @@
 
 #include "device_math.h"
 
+<<<<<<< HEAD
 #ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+#if defined(__SPIR__) || defined(__NVPTX__)
+>>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
 
 // To support fallback device libraries on-demand loading, please update the
 // DeviceLibFuncMap in llvm/tools/sycl-post-link/sycl-post-link.cpp if you add
@@ -154,9 +158,13 @@ DEVICE_EXTERN_C_INLINE
 double __devicelib_scalbn(double x, int exp) {
   return __spirv_ocl_ldexp(x, exp);
 }
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 #endif // __SPIR__
+=======
+#endif // __SPIR__ || __NVPTX__
+>>>>>>> 1fe92c544e4fbeac8e322b882cda451fd7e5f725
