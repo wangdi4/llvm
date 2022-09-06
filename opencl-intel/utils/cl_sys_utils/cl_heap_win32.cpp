@@ -308,6 +308,8 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 	return retVal;
 }
 
+bool isLargeAllocSize(size_t size) { return size >= MEM_LARGE_ALLOC_TRIGGER; }
+
 ////////////////////////////////////////////////////////////////////
 //
 // There is no special treatment on Windows to allow DMA access to memory
