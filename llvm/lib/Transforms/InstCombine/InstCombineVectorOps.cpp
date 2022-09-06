@@ -122,7 +122,7 @@ Instruction *InstCombinerImpl::scalarizePHI(ExtractElementInst &EI,
   // 2) Possibly more ExtractElements with the same index.
   // 3) Another operand, which will feed back into the PHI.
   Instruction *PHIUser = nullptr;
-  for (auto U : PN->users()) {
+  for (auto *U : PN->users()) {
     if (ExtractElementInst *EU = dyn_cast<ExtractElementInst>(U)) {
       if (EI.getIndexOperand() == EU->getIndexOperand())
         Extracts.push_back(EU);
@@ -188,7 +188,7 @@ Instruction *InstCombinerImpl::scalarizePHI(ExtractElementInst &EI,
     }
   }
 
-  for (auto E : Extracts)
+  for (auto *E : Extracts)
     replaceInstUsesWith(*E, scalarPHI);
 
   return &EI;
@@ -876,8 +876,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
 
   // Do we know values for each element of the aggregate?
   auto KnowAllElts = [&AggElts]() {
-    return all_of(AggElts,
-                  [](Optional<Instruction *> Elt) { return Elt != NotFound; });
+    return !llvm::is_contained(AggElts, NotFound);
   };
 
   int Depth = 0;

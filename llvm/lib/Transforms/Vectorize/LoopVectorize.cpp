@@ -4785,7 +4785,7 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
   while (idx != Worklist.size()) {
     Instruction *I = Worklist[idx++];
 
-    for (auto OV : I->operand_values()) {
+    for (auto *OV : I->operand_values()) {
       // isOutOfScope operands cannot be uniform instructions.
       if (isOutOfScope(OV))
         continue;
@@ -6038,7 +6038,7 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
       SmallMapVector<unsigned, unsigned, 4> RegUsage;
 
       if (VFs[j].isScalar()) {
-        for (auto Inst : OpenIntervals) {
+        for (auto *Inst : OpenIntervals) {
           unsigned ClassID = TTI.getRegisterClassForType(false, Inst->getType());
           if (RegUsage.find(ClassID) == RegUsage.end())
             RegUsage[ClassID] = 1;
@@ -6047,7 +6047,7 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
         }
       } else {
         collectUniformsAndScalars(VFs[j]);
-        for (auto Inst : OpenIntervals) {
+        for (auto *Inst : OpenIntervals) {
           // Skip ignored values for VF > 1.
           if (VecValuesToIgnore.count(Inst))
             continue;
@@ -6085,7 +6085,7 @@ LoopVectorizationCostModel::calculateRegisterUsage(ArrayRef<ElementCount> VFs) {
   for (unsigned i = 0, e = VFs.size(); i < e; ++i) {
     SmallMapVector<unsigned, unsigned, 4> Invariant;
 
-    for (auto Inst : LoopInvariants) {
+    for (auto *Inst : LoopInvariants) {
       unsigned Usage =
           VFs[i].isScalar() ? 1 : GetRegUsage(Inst->getType(), VFs[i]);
       unsigned ClassID =
@@ -8348,12 +8348,8 @@ VPRecipeOrVPValueTy VPRecipeBuilder::tryToBlend(PHINode *Phi,
                                                 VPlanPtr &Plan) {
   // If all incoming values are equal, the incoming VPValue can be used directly
   // instead of creating a new VPBlendRecipe.
-  VPValue *FirstIncoming = Operands[0];
-  if (all_of(Operands, [FirstIncoming](const VPValue *Inc) {
-        return FirstIncoming == Inc;
-      })) {
+  if (llvm::all_equal(Operands))
     return Operands[0];
-  }
 
   unsigned NumIncoming = Phi->getNumIncomingValues();
   // For in-loop reductions, we do not need to create an additional select.

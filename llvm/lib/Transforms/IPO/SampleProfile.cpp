@@ -1004,7 +1004,7 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
 void SampleProfileLoader::emitOptimizationRemarksForInlineCandidates(
     const SmallVectorImpl<CallBase *> &Candidates, const Function &F,
     bool Hot) {
-  for (auto I : Candidates) {
+  for (auto *I : Candidates) {
     Function *CalledFunction = I->getCalledFunction();
     if (CalledFunction) {
       ORE->emit(OptimizationRemarkAnalysis(getAnnotatedRemarkPassName(),
@@ -2081,7 +2081,7 @@ bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM,
          "No empty StringRef should be added in SymbolMap");
 
   bool retval = false;
-  for (auto F : buildFunctionOrder(M, CG)) {
+  for (auto *F : buildFunctionOrder(M, CG)) {
     assert(!F->isDeclaration());
     clearFunctionData();
     retval |= runOnFunction(*F, AM);
