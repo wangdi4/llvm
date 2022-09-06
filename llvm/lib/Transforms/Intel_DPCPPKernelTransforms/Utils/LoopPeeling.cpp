@@ -16,6 +16,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include <numeric>
+
 #define DEBUG_TYPE "dpcpp-kernel-loop-peeling"
 
 namespace llvm {
@@ -24,7 +26,7 @@ namespace llvm {
 /// Modular multiplicative inverse.
 static int modularMultiplicativeInverse(int Val, int Mod) {
   assert(Val > 0 && Mod > Val && "Invalid Arguments");
-  assert(greatestCommonDivisor(Val, Mod) == 1 && "Arguments are not coprime");
+  assert(std::gcd(Val, Mod) == 1 && "Arguments are not coprime");
 
   int Prev = 1;
   int Curr = Val;
