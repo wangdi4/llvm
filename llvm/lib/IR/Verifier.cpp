@@ -3849,6 +3849,8 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
          &I);
 
   // Check for proper 'ElementType' attribute and expected size.
+  Check(I.getElementType(),
+        "llvm.intel.subscript requires elementtype attribute", &I);
   Check(I.getElementType()->isSized(),
          "llvm.intel.subscript into unsized type!", &I);
 
