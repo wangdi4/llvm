@@ -172,7 +172,15 @@ TEST_P(ParallelCopySetTest, writeBuffer) {
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
 
   // Check result.
-  ASSERT_TRUE(checkBuffer(dst));
+  void *mappedPtr = clEnqueueMapBuffer(m_queue, buffer, CL_TRUE, CL_MAP_READ, 0,
+                                       m_size, 0, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMapBuffer");
+  ASSERT_TRUE(checkBuffer((char *)mappedPtr));
+  err =
+      clEnqueueUnmapMemObject(m_queue, buffer, mappedPtr, 0, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueUnmapMemObj");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   // Check command type.
   ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_WRITE_BUFFER));
@@ -206,7 +214,15 @@ TEST_P(ParallelCopySetTest, writeBufferRetainReleaseContext) {
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
 
   // Check result.
-  ASSERT_TRUE(checkBuffer(dst));
+  void *mappedPtr = clEnqueueMapBuffer(m_queue, buffer, CL_TRUE, CL_MAP_READ, 0,
+                                       m_size, 0, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMapBuffer");
+  ASSERT_TRUE(checkBuffer((char *)mappedPtr));
+  err =
+      clEnqueueUnmapMemObject(m_queue, buffer, mappedPtr, 0, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueUnmapMemObj");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "m_queue");
 
   err = clReleaseMemObject(buffer);
   ASSERT_OCL_SUCCESS(err, "clReleaseBuffer");
@@ -275,7 +291,16 @@ TEST_P(ParallelCopySetTest, copyBuffer) {
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
   // Check result.
-  ASSERT_TRUE(checkBuffer(dst));
+  void *mappedPtr =
+      clEnqueueMapBuffer(m_queue, bufferDst2, CL_TRUE, CL_MAP_READ, 0, m_size,
+                         0, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMapBuffer");
+  ASSERT_TRUE(checkBuffer((char *)mappedPtr));
+  err = clEnqueueUnmapMemObject(m_queue, bufferDst2, mappedPtr, 0, nullptr,
+                                nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueUnmapMemObj");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   // Check command type.
   ASSERT_NO_FATAL_FAILURE(checkCmdType(event, CL_COMMAND_COPY_BUFFER));
