@@ -649,6 +649,7 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
 }
+<<<<<<< HEAD
 
 TEST(Assert, TestKernelFromSourceNegative) {
   sycl::platform Plt{sycl::default_selector()};
@@ -705,3 +706,5 @@ TEST(Assert, TestKernelFromSourceNegative) {
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
 }
+=======
+>>>>>>> 85a6833d6cfcc7625d1cd3d7513bf7f0312712f3
