@@ -55,6 +55,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <string>
@@ -6115,6 +6116,29 @@ static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
       NewPad->getTerminator()->eraseFromParent();
       Builder.SetInsertPoint(NewPad);
       Builder.CreateUnreachable();
+    } else if (auto *II = dyn_cast<InvokeInst>(Terminator)) {
+      // %r = invoke @foo(...) to label %normaldest unwind %unwinddest
+      // =>
+      // %r = call @foo(...)
+      // br label %normaldest
+      auto *UnwindDest = II->getUnwindDest();
+      bool IsCxaFunc = II->getCalledFunction() &&
+                        II->getCalledFunction()->getName().contains("__cxa_");
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has invoke:\n"
+                        << *II << "\n");
+      if (Dst != UnwindDest || IsCxaFunc) {
+        // If we are asked to break the normal successor, or any edge of a
+        // throw/catch intrinsic, the src block does
+        // not actually belong in the region. Normal control flow should not
+        // illegally exit the region. Leave the block alone. The BreakEHToBlock
+        // function should should remove this block from the region without
+        // altering it, as it is not region code.
+        LLVM_DEBUG(dbgs() << "Ignoring, not part of region.\n");
+        return;
+      }
+      // Unwind edge of invoke escapes the region. Change to call+br.
+      LLVM_DEBUG(dbgs() << "Replacing with call.\n");
+      llvm::changeToCall(II, nullptr); // create call+br
     } else {
       // unconditional branch, or call. Terminate the flow here.
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has unconditional branch:\n"
@@ -6201,13 +6225,8 @@ static void BreakEHToBlock(BasicBlock *BB, SmallSet<BasicBlock *, 8> &BBSet,
            (DeleteSet.find(PredBB) == DeleteSet.end());
   });
 
-  if (!HasPredInSet) {
+  if (!HasPredInSet)
     DeleteSet.insert(BB);
-    // Exclude any blocks that BB dominates also.
-    for (auto *SetBB : BBSet) // order doesn't make a difference
-      if (DT->dominates(BB, SetBB))
-        DeleteSet.insert(SetBB);
-  }
 }
 
 // If BB has a predecessor that is unreachable from the function entry, break
@@ -6342,6 +6361,35 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
       RemoveDeadPredecessors(BB, DT);
   }
 
+  // Close the DeleteSet. Add any blocks in BBSet that are dominated by
+  // DeleteSet blocks, or blocks where all predecessors are in the DeleteSet.
+  if (!DeleteSet.empty()) {
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (auto *BB : BBVec) {
+        // in the DeleteSet already, skip it
+        if (DeleteSet.find(BB) != DeleteSet.end())
+          continue;
+        // dominated by any DeleteSet block, delete it
+        if (std::any_of(
+                DeleteSet.begin(), DeleteSet.end(),
+                [&](BasicBlock *DelBB) { return DT->dominates(DelBB, BB); })) {
+          DeleteSet.insert(BB);
+          changed = true;
+        }
+        // all preds are in the DeleteSet, delete it
+        else if (std::all_of(pred_begin(BB), pred_end(BB),
+                             [&](BasicBlock *PredBB) {
+                               return DeleteSet.find(PredBB) != DeleteSet.end();
+                             })) {
+          DeleteSet.insert(BB);
+          changed = true;
+        }
+      }
+    }
+  }
+
   // If we need to modify the region blocks, copy the new set to OutputVec.
   if (!AddSet.empty() || !DeleteSet.empty()) {
     // Copy BBVec to OutputVec, excluding the former shared blocks that are
@@ -6349,7 +6397,6 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
     LLVM_DEBUG(for (auto *BB
                     : DeleteSet) dbgs()
                    << "Removing block from region: " << BB->getName() << "\n";);
-
     llvm::copy_if(BBVec, std::back_inserter(OutputVec),
                   [&](BasicBlock *R) { return DeleteSet.count(R) == 0; });
     // Add any new handler blocks to the region.
