@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_convert
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-convert -emit-llvm -o - -Wall -Werror -pedantic \
+// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-convert -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>
