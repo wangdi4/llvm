@@ -1622,7 +1622,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
- // The whole function body is misaligned just to simplify
+  // The whole function body is misaligned just to simplify
   // conflict resolutions with llorg.
   MemoryBuffer *BinaryWrapper::addELFNotes(
       MemoryBuffer *Buf,
