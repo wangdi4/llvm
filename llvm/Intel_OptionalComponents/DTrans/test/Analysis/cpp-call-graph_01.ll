@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -S < %s -whole-program-assume -dtransanalysis -disable-output -dtrans-print-types 2>&1 | FileCheck %s
 ; RUN: opt -S < %s -whole-program-assume -passes='require<dtransanalysis>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
 

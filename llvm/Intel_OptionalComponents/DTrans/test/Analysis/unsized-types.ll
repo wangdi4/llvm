@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -dtransanalysis  -disable-output %s 2>/dev/null
 ; RUN: opt -passes='require<dtransanalysis>'  -disable-output %s 2>/dev/null
 
