@@ -473,6 +473,11 @@ void VPWidenCallRecipe::print(raw_ostream &O, const Twine &Indent,
 #endif // INTEL_CUSTOMIZATION
   printOperands(O, SlotTracker);
   O << ")";
+
+  if (VectorIntrinsicID)
+    O << " (using vector intrinsic)";
+  else
+    O << " (using library function)";
 }
 
 void VPWidenSelectRecipe::print(raw_ostream &O, const Twine &Indent,
