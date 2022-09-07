@@ -5077,6 +5077,9 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     bool NestingProhibited = false;
     bool CloseNesting = true;
     bool OrphanSeen = false;
+#if INTEL_COLLAB
+    bool UnSupportedNesting = false;
+#endif // INTEL_COLLAB
     enum {
       NoRecommend,
       ShouldBeInParallelRegion,
@@ -5337,10 +5340,34 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
           false /* don't skip top directive */);
       CloseNesting = false;
     }
+#if INTEL_COLLAB
+    if (!NestingProhibited && isOpenMPTaskingDirective(CurrentRegion) &&
+        SemaRef.getLangOpts().OpenMPLateOutline) {
+      if (Stack->hasDirective(
+              [&OffendingRegion](OpenMPDirectiveKind K,
+                                 const DeclarationNameInfo &, SourceLocation) {
+                if (K == OMPD_target) {
+                  OffendingRegion = K;
+                  return true;
+                }
+                return false;
+              },
+              false)) {
+        NestingProhibited = true;
+        UnSupportedNesting = true;
+      }
+    }
+#endif // INTEL_COLLAB
     if (NestingProhibited) {
       if (OrphanSeen) {
         SemaRef.Diag(StartLoc, diag::err_omp_orphaned_device_directive)
             << getOpenMPDirectiveName(CurrentRegion) << Recommend;
+#if INTEL_COLLAB
+      } else if (UnSupportedNesting) {
+        SemaRef.Diag(StartLoc, diag::err_omp_unsupported_region)
+            << getOpenMPDirectiveName(CurrentRegion)
+            << getOpenMPDirectiveName(OffendingRegion);
+#endif // INTEL_COLLAB
       } else {
         SemaRef.Diag(StartLoc, diag::err_omp_prohibited_region)
             << CloseNesting << getOpenMPDirectiveName(OffendingRegion)

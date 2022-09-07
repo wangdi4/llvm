@@ -367,7 +367,7 @@ void baz() {
 }
 
 void bar() {
-#pragma omp target
+#pragma omp target parallel
   {
 
     //TARG: --- !Missed
