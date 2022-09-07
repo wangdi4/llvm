@@ -6709,6 +6709,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   };
   SmallVector<unsigned> SortedIndices;
   BasicBlock *BB = nullptr;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Customization note.
   // The condition for AreAllSameInsts in community code was added specifically
@@ -6725,6 +6726,15 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   bool AreAllSameInsts =
       !ProcessingScatterOperands || (S.getOpcode() && allSameBlock(VL)) ||
       (S.OpValue->getType()->isPointerTy() && VL.size() > 2 &&
+=======
+  bool IsScatterVectorizeUserTE =
+      UserTreeIdx.UserTE &&
+      UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
+  bool AreAllSameInsts =
+      (S.getOpcode() && allSameBlock(VL)) ||
+      (S.OpValue->getType()->isPointerTy() && IsScatterVectorizeUserTE &&
+       VL.size() > 2 &&
+>>>>>>> ec06df9459136ed538c07d32db16163999c350fe
        all_of(VL,
               [&BB](Value *V) {
                 auto *I = dyn_cast<GetElementPtrInst>(V);
@@ -6795,10 +6805,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   // Check that none of the instructions in the bundle are already in the tree.
   for (Value *V : VL) {
-    auto *I = dyn_cast<Instruction>(V);
-    if (!I)
+    if (!IsScatterVectorizeUserTE && !isa<Instruction>(V))
       continue;
-    if (getTreeEntry(I)) {
+    if (getTreeEntry(V)) {
       LLVM_DEBUG(dbgs() << "SLP: The instruction (" << *V
                         << ") is already in tree.\n");
       if (TryToFindDuplicates(S))
@@ -7411,9 +7420,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 
-      bool IsScatterUser =
-          UserTreeIdx.UserTE &&
-          UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
       // We don't combine GEPs with non-constant indexes.
       Type *Ty1 = VL0->getOperand(1)->getType();
       for (Value *V : VL) {
@@ -7421,9 +7427,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         if (!I)
           continue;
         auto *Op = I->getOperand(1);
-        if ((!IsScatterUser && !isa<ConstantInt>(Op)) ||
+        if ((!IsScatterVectorizeUserTE && !isa<ConstantInt>(Op)) ||
             (Op->getType() != Ty1 &&
-             ((IsScatterUser && !isa<ConstantInt>(Op)) ||
+             ((IsScatterVectorizeUserTE && !isa<ConstantInt>(Op)) ||
               Op->getType()->getScalarSizeInBits() >
                   DL->getIndexSizeInBits(
                       V->getType()->getPointerAddressSpace())))) {
