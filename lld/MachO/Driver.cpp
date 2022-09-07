@@ -1120,6 +1120,11 @@ static void gatherInputSections() {
         if (auto *isec = dyn_cast<ConcatInputSection>(subsection.isec)) {
           if (isec->isCoalescedWeak())
             continue;
+          if (config->emitInitOffsets &&
+              sectionType(isec->getFlags()) == S_MOD_INIT_FUNC_POINTERS) {
+            in.initOffsets->addInput(isec);
+            continue;
+          }
           isec->outSecOff = inputOrder++;
           if (!osec)
             osec = ConcatOutputSection::getOrCreateForInput(isec);
@@ -1454,6 +1459,7 @@ bool macho::link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
   config->emitBitcodeBundle = args.hasArg(OPT_bitcode_bundle);
   config->emitDataInCodeInfo =
       args.hasFlag(OPT_data_in_code_info, OPT_no_data_in_code_info, true);
+  config->emitInitOffsets = args.hasArg(OPT_init_offsets);
   config->icfLevel = getICFLevel(args);
   config->dedupLiterals =
       args.hasFlag(OPT_deduplicate_literals, OPT_icf_eq, false) ||

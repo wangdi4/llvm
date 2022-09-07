@@ -53,6 +53,7 @@ Using Clang as a Compiler
    SafeStack
    ShadowCallStack
    SourceBasedCodeCoverage
+   StandardCPlusPlusModules
    Modules
    MSVCCompatibility
    MisExpect
