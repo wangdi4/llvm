@@ -30,7 +30,7 @@
 ; CHECK-NEXT:   ret i32 %add.i
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define ptr @bar.resolver() {
+; CHECK-NEXT: define ptr @bar.resolver() #0 {
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   call void @__intel_cpu_features_init_x()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator_x, align 8

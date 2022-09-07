@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @bar(i32 %a) {
+; CHECK-NEXT: define i32 @bar(i32 %a) #0 {
 ; CHECK-NEXT:   %ret = call i32 @foo(i32 42)
 ; CHECK-NEXT:   ret i32 %ret
 ; CHECK-NEXT: }
@@ -31,7 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 (i32)* @baz.resolver() {
+; CHECK-NEXT: define i32 (i32)* @baz.resolver() #0 {
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   call void @__intel_cpu_features_init_x()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
@@ -54,7 +54,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 (i32)* @foo.resolver() {
+; CHECK-NEXT: define i32 (i32)* @foo.resolver() #0 {
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   call void @__intel_cpu_features_init_x()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
