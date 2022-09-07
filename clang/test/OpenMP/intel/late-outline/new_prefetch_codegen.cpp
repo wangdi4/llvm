@@ -620,5 +620,80 @@ void test_prefetch(unsigned long n) {
   #pragma ompx prefetch data(4:bar.d2[1:2][:])
   #pragma ompx prefetch data(4:bar.d2[6][8])
 }
+
+float mathfunc(float);
+// CHECK-32-LABEL: @_Z14test_with_simdPfS_(
+// CHECK-32-NEXT:  entry:
+// CHECK-32-NEXT:    [[PTR_ADDR:%.*]] = alloca ptr, align 4
+// CHECK-32-NEXT:    [[A_ADDR:%.*]] = alloca ptr, align 4
+// CHECK-32-NEXT:    [[TMP:%.*]] = alloca i32, align 4
+// CHECK-32-NEXT:    [[DOTOMP_IV:%.*]] = alloca i32, align 4
+// CHECK-32-NEXT:    [[DOTOMP_LB:%.*]] = alloca i32, align 4
+// CHECK-32-NEXT:    [[DOTOMP_UB:%.*]] = alloca i32, align 4
+// CHECK-32-NEXT:    [[I:%.*]] = alloca i32, align 4
+// CHECK-32-NEXT:    store ptr [[PTR:%.*]], ptr [[PTR_ADDR]], align 4
+// CHECK-32-NEXT:    store ptr [[A:%.*]], ptr [[A_ADDR]], align 4
+// CHECK-32-NEXT:    store i32 0, ptr [[DOTOMP_LB]], align 4
+// CHECK-32-NEXT:    store i32 31, ptr [[DOTOMP_UB]], align 4
+// CHECK-32-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr [[PTR_ADDR]], ptr null, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[A_ADDR]], ptr null, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[DOTOMP_LB]], i32 0, i32 1), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]], i32 0, i32 1) ]
+// CHECK-32-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 1) ]
+// CHECK-32-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_LB]], align 4
+// CHECK-32-NEXT:    store i32 [[TMP2]], ptr [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
+// CHECK-32:       omp.inner.for.cond:
+// CHECK-32-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    [[TMP4:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
+// CHECK-32-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP3]], [[TMP4]]
+// CHECK-32-NEXT:    br i1 [[CMP]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
+// CHECK-32:       omp.inner.for.body:
+// CHECK-32-NEXT:    [[TMP5:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP5]], 1
+// CHECK-32-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
+// CHECK-32-NEXT:    store i32 [[ADD]], ptr [[I]], align 4
+// CHECK-32-NEXT:    [[TMP6:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-32-NEXT:    [[TMP7:%.*]] = load ptr, ptr [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[TMP7]], i32 [[TMP6]]
+// CHECK-32-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i32
+// CHECK-32-NEXT:    [[TMP8:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-32-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i32 [[TMP8]], 31
+// CHECK-32-NEXT:    [[TMP9:%.*]] = load ptr, ptr [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, ptr [[TMP9]], i32 [[LB_ADD_LEN]]
+// CHECK-32-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX1]] to i32
+// CHECK-32-NEXT:    [[TMP10:%.*]] = sub i32 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
+// CHECK-32-NEXT:    [[TMP11:%.*]] = sdiv exact i32 [[TMP10]], 4
+// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i32 [[TMP11]], 1
+// CHECK-32-NEXT:    [[TMP12:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(ptr [[ARRAYIDX]], float 0.000000e+00, i32 [[SEC_NUMBER_OF_ELEMENTS]], i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP12]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP13:%.*]] = load ptr, ptr [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[TMP14:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds float, ptr [[TMP13]], i32 [[TMP14]]
+// CHECK-32-NEXT:    [[TMP15:%.*]] = load float, ptr [[ARRAYIDX2]], align 4
+// CHECK-32-NEXT:    [[CALL:%.*]] = call noundef float @_Z8mathfuncf(float noundef [[TMP15]]) #[[ATTR1:[0-9]+]]
+// CHECK-32-NEXT:    [[TMP16:%.*]] = load ptr, ptr [[PTR_ADDR]], align 4
+// CHECK-32-NEXT:    [[TMP17:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds float, ptr [[TMP16]], i32 [[TMP17]]
+// CHECK-32-NEXT:    store float [[CALL]], ptr [[ARRAYIDX3]], align 4
+// CHECK-32-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
+// CHECK-32:       omp.body.continue:
+// CHECK-32-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
+// CHECK-32:       omp.inner.for.inc:
+// CHECK-32-NEXT:    [[TMP18:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    [[ADD4:%.*]] = add nsw i32 [[TMP18]], 1
+// CHECK-32-NEXT:    store i32 [[ADD4]], ptr [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP4:![0-9]+]]
+// CHECK-32:       omp.inner.for.end:
+// CHECK-32-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
+// CHECK-32:       omp.loop.exit:
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP1]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+// CHECK-32-NEXT:    ret void
+//
+void test_with_simd(float *ptr, float a[]) {
+  #pragma omp parallel for simd
+  for (int i = 0; i < 32; ++i) {
+    #pragma ompx prefetch data(a[i:32])
+    ptr[i] = mathfunc(a[i]);
+  }
+}
 #endif
 // end INTEL_COLLAB
