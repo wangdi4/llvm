@@ -6709,7 +6709,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   };
   SmallVector<unsigned> SortedIndices;
   BasicBlock *BB = nullptr;
-<<<<<<< HEAD
+  bool IsScatterVectorizeUserTE =
+      UserTreeIdx.UserTE &&
+      UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
 #if INTEL_CUSTOMIZATION
   // Customization note.
   // The condition for AreAllSameInsts in community code was added specifically
@@ -6726,15 +6728,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   bool AreAllSameInsts =
       !ProcessingScatterOperands || (S.getOpcode() && allSameBlock(VL)) ||
       (S.OpValue->getType()->isPointerTy() && VL.size() > 2 &&
-=======
-  bool IsScatterVectorizeUserTE =
-      UserTreeIdx.UserTE &&
-      UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
-  bool AreAllSameInsts =
-      (S.getOpcode() && allSameBlock(VL)) ||
-      (S.OpValue->getType()->isPointerTy() && IsScatterVectorizeUserTE &&
-       VL.size() > 2 &&
->>>>>>> ec06df9459136ed538c07d32db16163999c350fe
        all_of(VL,
               [&BB](Value *V) {
                 auto *I = dyn_cast<GetElementPtrInst>(V);
