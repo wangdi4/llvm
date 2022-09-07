@@ -6,9 +6,14 @@
 ; casting, unsafe pointer stores, and mismatched element accesses, but requires
 ; the addition of tests in some functions.
 
-; This includes some complex conditionals in function  @init_with_coder1 which
-; should not inhibit recognizing the bad casting, unsafe pointer stores, and
-; mismatched element accesses as conditional 
+; This test case has a zero-element access %i2 in the function @init_with_coder1
+; which should not inhibit the removal of unconditional bad casting, unsafe
+; pointer store, and  mismatched element access safety checks.
+
+; The test case also has a modified version of @init_with_coder1 with a loop.
+; The bad casting analyzer should not get into an infinite recursion while checking
+; whether a basic block is conditionally dead or alloc store dominated,
+; as in CMPLRLLVM-39915.
 
 ; CHECK: LLVMType: %struct._ZTS11mynextcoder.mynextcoder
 ; CHECK: Safety data: Global instance | Has function ptr | Bad casting (conditional) | Mismatched element access (conditional){{ *$}}
@@ -59,7 +64,13 @@ entry:
   %field0 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 0
   %i = load ptr, ptr %field0, align 8
   %tobool.not = icmp eq ptr %i, null
-  br i1 %tobool.not, label %if.then, label %if.end
+  br i1 %tobool.not, label %if.then, label %if.loop
+
+if.loop: 
+  %field01 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 0
+  %i3 = load ptr, ptr %field01, align 8
+  %tobool.not.1 = icmp eq ptr %i, null
+  br i1 %tobool.not.1, label %if.loop, label %if.end
 
 if.then:                                          ; preds = %entry
   %call = tail call align 16 dereferenceable_or_null(16) ptr @malloc(i64 16)
@@ -71,25 +82,12 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  %i1 = phi ptr [ %call, %if.then ], [ %i, %entry ]
+  %i1 = phi ptr [ %call, %if.then ], [ %i3, %if.loop ]
   %field03 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 0
   store i32 15, ptr %field03, align 8
-  %field14 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
-  store ptr @myglobalint1, ptr %field14, align 8
-  br i1 %tobool.not, label %if.realthen, label %if.realend
-
-if.realthen:
-  %field05 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 0
-  store i32 15, ptr %field05, align 8
-  %field15 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
-  store ptr @myglobalint1, ptr %field15, align 8
-  br label %if.realend
-
-if.realend:
-  %field06 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 0
-  store i32 15, ptr %field06, align 8
-  %field16 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
-  store ptr @myglobalint1, ptr %field16, align 8
+  %i2 = load ptr, ptr %field0, align 8
+  %field15 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i2, i64 0, i32 1
+  store ptr null, ptr %field15, align 8
   ret void
 }
 

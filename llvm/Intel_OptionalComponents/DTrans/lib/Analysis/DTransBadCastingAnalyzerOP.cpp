@@ -898,10 +898,15 @@ DTransBadCastingAnalyzerOP::allocStoreInst(BasicBlock *BB) {
 bool
 DTransBadCastingAnalyzerOP::condDeadOrAllocStoreDominated(BasicBlock *BB,
                                                           bool &IsCondDead) {
-  std::function<bool(BasicBlock *, BasicBlock *, bool &)>
-      CondDeadOrAllocStoreBlock = [this, &CondDeadOrAllocStoreBlock]
-                                  (BasicBlock *PBB, BasicBlock *BB,
-                                   bool &IsCondDead) {
+  std::function<bool(BasicBlock *, BasicBlock *, bool &,
+                     SmallPtrSetImpl<BasicBlock *> &)>
+      CondDeadOrAllocStoreBlock = [this, &CondDeadOrAllocStoreBlock](
+                                      BasicBlock *PBB, BasicBlock *BB,
+                                      bool &IsCondDead,
+                                      SmallPtrSetImpl<BasicBlock *> &Visited) {
+    if (Visited.count(PBB))
+      return true; 
+    Visited.insert(PBB);
     if (isSpecialGuardConditional(PBB) &&
         getNotTakenPathOfSpecialGuardConditional(PBB) == BB) {
       IsCondDead = true;
@@ -910,13 +915,15 @@ DTransBadCastingAnalyzerOP::condDeadOrAllocStoreDominated(BasicBlock *BB,
     if (allocStoreInst(BB))
       return true;
     for (BasicBlock *NPBB : predecessors(PBB))
-      if (!CondDeadOrAllocStoreBlock(NPBB, BB, IsCondDead))
+      if (!CondDeadOrAllocStoreBlock(NPBB, BB, IsCondDead, Visited))
         return false;
     return true;
   };
 
+  SmallPtrSet<BasicBlock *, 10> Visited;
+  Visited.insert(BB);
   for (BasicBlock *PBB : predecessors(BB))
-    if (!CondDeadOrAllocStoreBlock(PBB, BB, IsCondDead))
+    if (!CondDeadOrAllocStoreBlock(PBB, BB, IsCondDead, Visited))
       return false;
   return true;
 }
