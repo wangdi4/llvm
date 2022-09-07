@@ -89,13 +89,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
-<<<<<<< HEAD
 #include "llvm/Support/MD5.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Support/ScopedPrinter.h"
 #endif  // INTEL_CUSTOMIZATION
-=======
->>>>>>> db18f26567be47ec1da7fba48179a3001f0d34ab
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
 #if INTEL_CUSTOMIZATION
