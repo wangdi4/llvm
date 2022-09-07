@@ -3068,7 +3068,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // keep one copy of each constant.
   MPM.addPass(ConstantMergePass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   if (DTransEnabled) {
@@ -3080,8 +3079,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 9599393eebf7b5ef46a144938f593e812dd01a18
   // Remove unused arguments from functions.
   MPM.addPass(DeadArgumentEliminationPass());
 
