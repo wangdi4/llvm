@@ -888,9 +888,14 @@
 // NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"
 
 // Tests for binary output 'name' check
+// RUN: ln -fs %clang %t_dir/clang-cl
+// Note: use -- in front of the filename so it's not mistaken for an option on
+// filesystems that use slashes for dir separators.
 // RUN: %clang -### --intel -help %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
 // RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK_CL %s
 // RUN: %clang_cl -### --intel --icx -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %t_dir/clang-cl -### --intel -help -- %s 2>&1 | FileCheck -check-prefix=HELP-CHECK_CL %s
+// RUN: %t_dir/clang-cl -### --intel --icx -help -- %s 2>&1 | FileCheck -check-prefix=HELP-CHECK %s
 // HELP-CHECK: USAGE: icx [options] file...
 // HELP-CHECK_CL: USAGE: icx-cl [options] file...
 
