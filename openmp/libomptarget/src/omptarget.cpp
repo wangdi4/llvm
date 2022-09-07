@@ -1293,6 +1293,26 @@ TableMap *getTableMap(void *HostPtr) {
   return nullptr;
 }
 
+/// Get loop trip count
+/// FIXME: This function will not work right if calling
+/// __kmpc_push_target_tripcount_mapper in one thread but doing offloading in
+/// another thread, which might occur when we call task yield.
+uint64_t getLoopTripCount(int64_t DeviceId) {
+  DeviceTy &Device = *PM->Devices[DeviceId];
+  uint64_t LoopTripCount = 0;
+
+  {
+    std::lock_guard<std::mutex> TblMapLock(PM->TblMapMtx);
+    auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
+    if (I != Device.LoopTripCnt.end()) {
+      LoopTripCount = I->second;
+      Device.LoopTripCnt.erase(I);
+    }
+  }
+
+  return LoopTripCount;
+}
+
 /// A class manages private arguments in a target region.
 class PrivateArgumentManagerTy {
   /// A data structure for the information of first-private arguments. We can
