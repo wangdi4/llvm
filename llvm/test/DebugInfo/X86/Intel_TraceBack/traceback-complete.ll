@@ -22,7 +22,7 @@
 ; CHECK-NEXT:    .ascii    "traceback-complete_a.c"       # TB_AT_FileName
 ; CHECK-NEXT:    .short    22                             # TB_AT_NameLength
 ; CHECK-NEXT:    .ascii    "traceback-complete_b.c"       # TB_AT_FileName
-; CHECK-NEXT:    .p2align    3                            # Align to boundary 8
+; CHECK-NEXT:    .p2align    3, 0x0                       # Align to boundary 8
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    4                              # TB_AT_NameLength
@@ -36,7 +36,7 @@
 ; CHECK-NEXT:    .byte    1                               # TB_AT_LN1
 ; CHECK-NEXT:    .byte    9                               # TB_TAG_PC4
 ; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
-; CHECK-NEXT:    .p2align    3                            # Align to boundary 8
+; CHECK-NEXT:    .p2align    3, 0x0                       # Align to boundary 8
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    5                              # TB_AT_NameLength
@@ -60,7 +60,7 @@
 ; CHECK-NEXT:    .long    (.L{{.*}}-.L{{.*}})-1           # TB_AT_PC4
 ; CHECK-NEXT:    .byte    3                               # TB_TAG_File
 ; CHECK-NEXT:    .long    1                               # TB_AT_FileIdx
-; CHECK-NEXT:    .p2align    3                            # Align to boundary 8
+; CHECK-NEXT:    .p2align    3, 0x0                       # Align to boundary 8
 ; CHECK-NEXT:    .byte    12                              # TB_TAG_RTN64
 ; CHECK-NEXT:    .byte    0                               # TB_AT_Padding
 ; CHECK-NEXT:    .short    5                              # TB_AT_NameLength

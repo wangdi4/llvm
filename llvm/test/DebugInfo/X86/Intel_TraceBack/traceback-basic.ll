@@ -1,11 +1,11 @@
 ; Check the appropriate routine tag is selected for different platforms
 ; RUN: llc -O0 -mtriple x86_64-linux-gnu %s -o %t1
 ; RUN: FileCheck < %t1 %s --check-prefixes=ALIGN-64
-; ALIGN-64:      .p2align    3               # Align to boundary 8
+; ALIGN-64:      .p2align    3, 0x0          # Align to boundary 8
 ; ALIGN-64-NEXT: .byte      12               # TB_TAG_RTN64
 ; RUN: llc -O0 -mtriple i386-linux-gnu %s -o  %t2
 ; RUN: FileCheck < %t2 %s --check-prefixes=ALIGN-32
-; ALIGN-32:      .p2align    2               # Align to boundary 4
+; ALIGN-32:      .p2align    2, 0x0          # Align to boundary 4
 ; ALIGN-32-NEXT: .byte       2               # TB_TAG_RTN32
 
 ; Check the entry's size of the function
