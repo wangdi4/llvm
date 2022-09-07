@@ -801,7 +801,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // One of the Intel Classic compiler compatibilities is to check the PIE
   // default of the gcc that the user is using with the compilation.  When
   // it is PIE default, link in the crt*S objects (but do not set -pie).
-  const bool IsIntelPIE = ToolChain.detectGCCPIEDefault();
+  const bool IsIntelPIE = !IsStatic && ToolChain.detectGCCPIEDefault();
 #endif // INTEL_CUSTOMIZATION
 
   // Use of -fsycl-link creates an archive.
