@@ -141,7 +141,8 @@ public:
 };
 
 struct LoopContext {
-  HLLoop *Loop;
+  HLLoop *Loop = nullptr;
+  HLLoop *InnermostLoop = nullptr;
   RefGroupVecTy Groups;
   SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   SmallVector<PredicateTuple, 8> PreConditions;
@@ -177,8 +178,6 @@ class HIRRuntimeDD {
 
   bool EnableLibraryCallMethod = true;
 
-  typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
-
 public:
   static char ID;
 
@@ -188,6 +187,8 @@ public:
       : HIRF(HIRF), DDA(DDA), HLS(HLS), TLI(TLI), TTI(TTI), SRA(SRA) {}
 
   bool run();
+
+  typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
 private:
 #ifndef NDEBUG
