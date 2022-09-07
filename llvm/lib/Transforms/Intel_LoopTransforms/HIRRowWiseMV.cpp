@@ -536,12 +536,18 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
       return {};
     }
 
-    // Figure out which field is being accessed.
-    const auto *const FieldIdxC = dyn_cast<ConstantInt>(BaseGEP->getOperand(2));
-    if (!FieldIdxC) {
-      report_fatal_error("Non-constant index in struct access??");
+    // Figure out which field is being accessed. If the GEP does not have a
+    // third operand for the struct index (which can happen with opaque
+    // pointers), this is field zero.
+    unsigned FieldIdx = 0;
+    if (BaseGEP->getNumOperands() > 2) {
+      const auto *const FieldIdxC =
+          dyn_cast<ConstantInt>(BaseGEP->getOperand(2));
+      if (!FieldIdxC) {
+        report_fatal_error("Non-constant index in struct access??");
+      }
+      FieldIdx = FieldIdxC->getLimitedValue();
     }
-    const unsigned FieldIdx = FieldIdxC->getLimitedValue();
 
     // Retrieve the possible values.
     const auto *const LikelyValues =

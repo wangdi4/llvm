@@ -15,6 +15,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -38,24 +40,28 @@ FunctionPass *llvm::createHIRLoopStatisticsWrapperPass() {
 AnalysisKey HIRLoopStatisticsAnalysis::Key;
 HIRLoopStatistics HIRLoopStatisticsAnalysis::run(Function &F,
                                                  FunctionAnalysisManager &AM) {
-  return HIRLoopStatistics(AM.getResult<HIRFrameworkAnalysis>(F));
+  return HIRLoopStatistics(AM.getResult<HIRFrameworkAnalysis>(F),
+                           AM.getResult<TargetLibraryAnalysis>(F));
 }
 
 char HIRLoopStatisticsWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopStatisticsWrapperPass, "hir-loop-statistics",
                       "Loop Statistics Analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(HIRLoopStatisticsWrapperPass, "hir-loop-statistics",
                     "Loop Statistics Analysis", false, true)
 
 void HIRLoopStatisticsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<HIRFrameworkWrapperPass>();
+  AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
 }
 
 bool HIRLoopStatisticsWrapperPass::runOnFunction(Function &F) {
-  HLS.reset(
-      new HIRLoopStatistics(getAnalysis<HIRFrameworkWrapperPass>().getHIR()));
+  HLS.reset(new HIRLoopStatistics(
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F)));
   return false;
 }
 
@@ -117,12 +123,17 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
     auto *Call = HInst->getCallInst();
 
     if (Call) {
-      if (isa<IntrinsicInst>(Call)) {
+      if (auto *Intr = dyn_cast<IntrinsicInst>(Call)) {
         SelfStats->NumIntrinsics++;
 
         // Don't count assume as an unsafe call.
         if (isa<AssumeInst>(Call)) {
           return;
+        }
+
+        auto IntrinsicId = Intr->getIntrinsicID();
+        if (isTriviallyVectorizable(IntrinsicId)) {
+          SelfStats->NumProfitableVectorizableCalls++;
         }
 
         if (HInst->isSIMDDirective() || HInst->isSIMDEndDirective()) {
@@ -132,7 +143,11 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       } else {
         SelfStats->NumUserCalls++;
 
-        if (!Call->getCalledFunction()) {
+        if (auto *Func = Call->getCalledFunction()) {
+          if (HLS.TLI.isFunctionVectorizable(Func->getName())) {
+            SelfStats->NumProfitableVectorizableCalls++;
+          }
+        } else {
           SelfStats->NumIndirectCalls++;
         }
       }
@@ -189,6 +204,10 @@ void LoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
 
   Lp->indent(OS, Depth);
   OS << "Number of intrinsics: " << NumIntrinsics << "\n";
+
+  Lp->indent(OS, Depth);
+  OS << "Number of profitable vectorizable calls: "
+     << NumProfitableVectorizableCalls << "\n";
 
   Lp->indent(OS, Depth);
   OS << "Has unsafe calls: "
