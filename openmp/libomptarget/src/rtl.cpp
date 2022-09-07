@@ -99,7 +99,6 @@ static const char *RTLNames[] = {
 
 PluginManager *PM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 OmptGlobalTy *OmptGlobal;
 #endif // INTEL_CUSTOMIZATION
@@ -113,9 +112,8 @@ OmptGlobalTy *OmptGlobal;
 #endif // INTEL_CUSTOMIZATION
 
 #if OMPTARGET_PROFILE_ENABLED
-=======
->>>>>>> 04ae35e592c1e7e99bb3894420b6ff2117ace78a
 static char *ProfileTraceFile = nullptr;
+#endif
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
@@ -134,19 +132,17 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
 
   PM = new PluginManager(UseEventsForAtomicTransfers);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OmptGlobal = new OmptGlobalTy();
   XPTIRegistry = new XPTIRegistryTy();
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef OMPTARGET_PROFILE_ENABLED
-=======
->>>>>>> 04ae35e592c1e7e99bb3894420b6ff2117ace78a
   ProfileTraceFile = getenv("LIBOMPTARGET_PROFILE");
   // TODO: add a configuration option for time granularity
   if (ProfileTraceFile)
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
+#endif
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
@@ -170,15 +166,12 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
 
   delete PM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   delete OmptGlobal;
   delete XPTIRegistry;
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef OMPTARGET_PROFILE_ENABLED
-=======
->>>>>>> 04ae35e592c1e7e99bb3894420b6ff2117ace78a
   if (ProfileTraceFile) {
     // TODO: add env var for file output
     if (auto E = timeTraceProfilerWrite(ProfileTraceFile, "-"))
@@ -186,6 +179,7 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
 
     timeTraceProfilerCleanup();
   }
+#endif
 }
 
 #if INTEL_CUSTOMIZATION
