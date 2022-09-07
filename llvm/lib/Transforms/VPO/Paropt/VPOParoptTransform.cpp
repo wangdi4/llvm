@@ -100,6 +100,7 @@
 #endif  // INTEL_CUSTOMIZATION
 
 #include <algorithm>
+#include <numeric>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -11027,7 +11028,7 @@ unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
         GEP->accumulateConstantOffset(DL, ConstOffset);
         unsigned Offset = ConstOffset.getZExtValue();
         return ((Offset == 0) ? BaseAlignment
-                              : greatestCommonDivisor(BaseAlignment, Offset));
+                              : std::gcd(BaseAlignment, Offset));
       }
     }
   }

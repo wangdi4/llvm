@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
-// RUN: -fenable-variant-virtual-calls \
+// RUN: -fenable-variant-virtual-calls -no-opaque-pointers \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
 template <typename name, typename Func>

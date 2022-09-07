@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx512_rao_fp
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +avx512f -target-feature +avx512raofp -target-feature +avx512vl \
+// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +avx512f -target-feature +avx512raofp -target-feature +avx512vl \
 // RUN: -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>

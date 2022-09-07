@@ -73,6 +73,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     list(APPEND opencl_flags_spirv
       -DINTEL_CUSTOMIZATION=1
       -disable-intel-proprietary-opts
+      -no-opaque-pointers # SPIR-V is not quite ready with opaque pointers
     )
     list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
   endif(INTEL_CUSTOMIZATION)

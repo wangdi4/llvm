@@ -3,6 +3,7 @@
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -fsycl-is-device -finclude-default-header\
 // RUN:  -debug-info-kind=limited -gno-column-info \
+// RUN:  -no-opaque-pointers \
 // RUN:  | FileCheck %s
 
 #define KERNEL __attribute__((sycl_kernel))

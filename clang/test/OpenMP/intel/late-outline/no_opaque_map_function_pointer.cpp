@@ -1,6 +1,6 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:   -fopenmp-typed-clauses \
+// RUN:   -fopenmp-typed-clauses -no-opaque-pointers \
 // RUN:   -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s
 
 extern void foo(void);

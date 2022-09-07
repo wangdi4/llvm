@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx_memadvise
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxmemadvise -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxmemadvise -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 __m128i test_mm_vmovadvisew_load_epi8(__m128i const *a) {
