@@ -10728,6 +10728,10 @@ def note_omp_referenced : Note<
   "previously referenced here">;
 def err_omp_reduction_in_task : Error<
   "reduction variables may not be accessed in an explicit task">;
+#if INTEL_COLLAB
+def err_omp_unsupported_region : Error<
+  "region '%0' is not yet supported inside '%1' region">;
+#endif // INTEL_COLLAB
 def err_omp_reduction_id_not_compatible : Error<
   "list item of type %0 is not valid for specified reduction operation: unable to provide default initialization value">;
 def err_omp_reduction_identifier_mismatch : Error<
