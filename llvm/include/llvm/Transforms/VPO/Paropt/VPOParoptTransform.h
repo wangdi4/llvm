@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -99,38 +99,6 @@ enum DeviceArch : uint64_t {
   DeviceArch_XeLP   = 0x0002, // DG1
   DeviceArch_XeHP   = 0x0004, // ATS
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
-};
-
-enum TgtOffloadMappingFlags : uint64_t {
-  TGT_MAP_TO = 0x01,
-  // instructs the runtime to copy the host data to the device.
-  TGT_MAP_FROM = 0x02,
-  // instructs the runtime to copy the device data to the host.
-  TGT_MAP_ALWAYS = 0x04,
-  // forces the copying regardless of the reference
-  // count associated with the map.
-  TGT_MAP_DELETE = 0x08,
-  // forces the unmapping of the object in a target data.
-  TGT_MAP_PTR_AND_OBJ = 0x10,
-  // forces the runtime to map the pointer variable as
-  // well as the pointee variable.
-  TGT_MAP_TARGET_PARAM = 0x20,
-  // instructs the runtime that it is the first
-  // occurrence of this mapped variable within this construct.
-  TGT_MAP_RETURN_PARAM = 0x40,
-  // instructs the runtime to return the base
-  // device address of the mapped variable.
-  TGT_MAP_PRIVATE = 0x80,
-  // informs the runtime that the variable is a private variable.
-  TGT_MAP_LITERAL = 0x100,
-  // instructs the runtime to forward the value to target construct.
-  TGT_MAP_IMPLICIT = 0x200,
-  TGT_MAP_CLOSE = 0x400,
-  // The close map-type-modifier is a hint to the runtime to
-  // allocate memory close to the target device.
-  TGT_MAP_ND_DESC = 0x800,
-  // indicates that the parameter is loop descriptor struct.
-  TGT_MAP_MEMBER_OF = 0xffff000000000000
 };
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;

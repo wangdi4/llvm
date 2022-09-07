@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -46,6 +46,9 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/VPOParoptConstants.h"
+#endif // INTEL_COLLAB
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
@@ -110,6 +113,11 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
+#if INTEL_COLLAB
+static cl::opt<bool> PrettyPrintDirectives(
+    "pretty-print-directives", cl::init(false), cl::Hidden,
+    cl::desc("Improve printing of region.entrty/exit directives."));
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> PrintDbgLoc(
     "print-debug-loc", cl::init(false), cl::Hidden,
@@ -2761,6 +2769,85 @@ void AssemblyWriter::writeParamOperand(const Value *Operand,
   auto WriterCtx = getContext();
   WriteAsOperandInternal(Out, Operand, WriterCtx);
 }
+#if INTEL_COLLAB
+
+// If the bundle BU is for a "QUAL.OMP.MAP", then try to extract its map-type
+// and print its description as a comment.
+//
+// For example, for the map:
+//   "QUAL.OMP.MAP.TOFROM"(ptr @y, ptr @y, i64 16, i64 33)
+//
+// The printed map type comment is:
+//   ; MAP type: 33 = 0x21 | PARAM (0x20) | TO (0x1)
+//
+static void printMapTypeAsComment(raw_ostream &Out,
+                                  const OperandBundleUse &&BU) {
+  if (!BU.getTagName().startswith("QUAL.OMP.MAP"))
+    return;
+
+  if (BU.Inputs.size() < 4)
+    return;
+
+  ConstantInt *MapTypeV = dyn_cast<ConstantInt>(BU.Inputs[3]);
+  if (!MapTypeV)
+    return;
+
+  uint64_t MapType = MapTypeV->getZExtValue();
+  Out << " ; MAP type: " << MapType << " = " << format_hex(MapType, 0);
+
+  if (!MapType)
+    return;
+
+  Out << " = ";
+
+  // Decode map-type bits next.
+  bool FirstMapType = true;
+
+  if (MapType & vpo::TGT_MAP_MEMBER_OF) {
+    FirstMapType = false;
+    uint64_t MemberValue = MapType & vpo::TGT_MAP_MEMBER_OF;
+    Out << "MEMBER_OF_" << (MemberValue >> 48) << " ("
+        << format_hex(MemberValue, 0) << ")";
+    MapType &= ~vpo::TGT_MAP_MEMBER_OF;
+  }
+
+#define TEST_MAPTYPE(type)                                                     \
+  if (!MapType)                                                                \
+    return;                                                                    \
+                                                                               \
+  if (MapType & vpo::TGT_MAP_##type) {                                         \
+    if (!FirstMapType)                                                         \
+      Out << " | ";                                                            \
+    FirstMapType = false;                                                      \
+    Out << #type " (" << format_hex(vpo::TGT_MAP_##type, 0) << ")";            \
+    MapType &= ~vpo::TGT_MAP_##type;                                           \
+  }
+
+  TEST_MAPTYPE(NON_CONTIG);
+  TEST_MAPTYPE(OMPX_HOLD);
+  TEST_MAPTYPE(PRESENT);
+  TEST_MAPTYPE(ND_DESC);
+  TEST_MAPTYPE(CLOSE);
+  TEST_MAPTYPE(IMPLICIT);
+  TEST_MAPTYPE(LITERAL);
+  TEST_MAPTYPE(PRIVATE);
+  TEST_MAPTYPE(RETURN_PARAM);
+  TEST_MAPTYPE(TARGET_PARAM);
+  TEST_MAPTYPE(PTR_AND_OBJ);
+  TEST_MAPTYPE(DELETE);
+  TEST_MAPTYPE(ALWAYS);
+  TEST_MAPTYPE(FROM);
+  TEST_MAPTYPE(TO);
+#undef TEST_MAPTYPE
+
+  if (!MapType)
+    return;
+
+  if (!FirstMapType)
+    Out << " | ";
+  Out << "UNKNOWN (" << format_hex(MapType, 0) << ")";
+}
+#endif // INTEL_COLLAB
 
 void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   if (!Call->hasOperandBundles())
@@ -2769,11 +2856,32 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   Out << " [ ";
 
   bool FirstBundle = true;
+#if INTEL_COLLAB
+  bool DoDirectiveSpecificPrinting =
+      PrettyPrintDirectives &&
+      Call->getOperandBundleAt(0).getTagName().startswith("DIR.");
+#endif // INTEL_COLLAB
   for (unsigned i = 0, e = Call->getNumOperandBundles(); i != e; ++i) {
     OperandBundleUse BU = Call->getOperandBundleAt(i);
 
+#if INTEL_COLLAB
+    // TODO: We might need to move the isOpenMPDirective method from VPOAnalysis
+    // library to the Code library, if we want to call it here. Until then, we
+    // have to string match the bundle name's prefix to "DIR.".
+    if (!FirstBundle) {
+      if (DoDirectiveSpecificPrinting) {
+        Out << ",";
+        // If the previous bundle was for a map QUAL, print its maptypes.
+        printMapTypeAsComment(Out, Call->getOperandBundleAt(i - 1));
+        Out << "\n    ";
+      } else {
+        Out << ", ";
+      }
+    }
+#else
     if (!FirstBundle)
       Out << ", ";
+#endif // INTEL_COLLAB
     FirstBundle = false;
 
     Out << '"';
@@ -2798,6 +2906,14 @@ void AssemblyWriter::writeOperandBundles(const CallBase *Call) {
   }
 
   Out << " ]";
+#if INTEL_COLLAB
+  if (DoDirectiveSpecificPrinting) {
+    // If the last bundle was for a map QUAL, print its maptypes.
+    printMapTypeAsComment(
+        Out, Call->getOperandBundleAt(Call->getNumOperandBundles() - 1));
+    Out << "\n";
+  }
+#endif // INTEL_COLLAB
 }
 
 void AssemblyWriter::printModule(const Module *M) {
