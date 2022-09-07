@@ -90,10 +90,10 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
 }
 
 #if INTEL_CUSTOMIZATION
-static std::string GetDriverName(std::string ClangDriverName) {
+static std::string GetDriverName(std::string ClangDriverName, bool ICXOpt) {
   std::string DriverName = llvm::StringSwitch<std::string>(ClangDriverName)
                                .Case("clang", "icx")
-                               .Case("clang-cl", "icx-cl")
+                               .Case("clang-cl", ICXOpt ? "icx" : "icx-cl")
                                .Case("clang++", "icpx")
                                .Default("icx");
   return DriverName;
@@ -517,19 +517,19 @@ int clang_main(int Argc, char **Argv) {
   if (HasIntelOption) {
     StringRef DrBasename(llvm::sys::path::stem(Args[0]));
     auto DriverMode = getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1));
+    bool HasICXOption = std::find(
+        Args.begin(), Args.end(), StringRef("--icx")) != Args.end();
     if (DrBasename.str() == "clang" && DriverMode.equals_insensitive("g++")) {
       DiagClient->setPrefix(std::string("icpx"));
       TheDriver.setDriverName(std::string("icpx"));
     } else if (DrBasename.str() == "clang" &&
                DriverMode.equals_insensitive("cl")) {
-      bool HasICXOption = std::find(
-          Args.begin(), Args.end(), StringRef("--icx")) != Args.end();
       std::string ICXName(HasICXOption ? "icx" : "icx-cl");
       DiagClient->setPrefix(ICXName);
       TheDriver.setDriverName(ICXName);
     } else {
-      DiagClient->setPrefix(GetDriverName(DrBasename.str()));
-      TheDriver.setDriverName(GetDriverName(DrBasename.str()));
+      DiagClient->setPrefix(GetDriverName(DrBasename.str(), HasICXOption));
+      TheDriver.setDriverName(GetDriverName(DrBasename.str(), HasICXOption));
     }
   } else if (HasDpcppOption)
     TheDriver.setDriverName(std::string("dpcpp"));

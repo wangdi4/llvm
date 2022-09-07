@@ -316,7 +316,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // Enable IntelAdvanceOptim for the auto-cpu-dispatch generated
   // Intel-processor-targeting clones. Disable IntelAdvancedOptim
   // for the "generic" clone if targeting "x86-64".
-  if (F.hasMetadata("llvm.acd.clone"))
+  if (F.hasFnAttribute("advanced-optim"))
     Options.IntelAdvancedOptim = F.getFnAttribute("advanced-optim").getValueAsBool();
 #endif // INTEL_CUSTOMIZATION
 

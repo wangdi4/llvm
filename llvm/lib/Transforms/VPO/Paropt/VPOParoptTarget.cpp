@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
+#include "llvm/Analysis/VPO/VPOParoptConstants.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"

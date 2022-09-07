@@ -10,7 +10,7 @@
 ; CHECK-DAG: @foo = ifunc i32 (ptr), ptr @foo.resolver
 ; CHECK-DAG: define i32 @foo.A(ptr byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
 ; CHECK-DAG: define i32 @foo.b(ptr byval(%struct) %s) #{{[0-9]*}} !llvm.acd.clone !0 {
-; CHECK-DAG: define ptr @foo.resolver() {
+; CHECK-DAG: define ptr @foo.resolver()
 ; CHECK-DAG: ret ptr @foo.b
 ; CHECK-DAG: ret ptr @foo.A
 

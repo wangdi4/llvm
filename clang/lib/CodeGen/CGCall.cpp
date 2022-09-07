@@ -1923,12 +1923,12 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
 static void addInallocaToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
                                         CodeGenTypes::DTransFuncInfo *DFI,
                                         llvm::StructType *ST, llvm::Type *ArgTy,
-                                        unsigned Idx, QualType RetType) {
+                                        unsigned Idx, QualType Ty) {
   if (!CGT.getCodeGenOpts().EmitDTransInfo || !DFI)
     return;
-  // FIXME: When this shows up in a reproducer, implement this.
-  CGM.getDiags().Report(SourceLocation{}, diag::err_dtrans_unsupported)
-      << "inalloca return type" << RetType;
+  // An Inalloca parameter is always just a pointer to the original type.
+  DFI->Params.resize(std::max(DFI->Params.size(), static_cast<size_t>(Idx + 1)));
+  DFI->Params[Idx] = CGM.getContext().getPointerType(Ty);
 }
 
 static void addSRetToDTransFuncInfo(CodeGenTypes &CGT,
@@ -2053,13 +2053,17 @@ static void addToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
     // Nothing to do, llvm type is void.
     break;
   case ABIArgInfo::InAlloca:
+    // Inalloca && Fi.getReturnInfo().getInAllocaSRet() means we have the
+    // return type wrapped in a pointer, else it is 'void', so we have nothing
+    // to do.
+    if (ArgInfo.getInAllocaSRet())
+      DFI->ResultTypes[0] = CGM.getContext().getPointerType(Ty);
+    break;
   case ABIArgInfo::CoerceAndExpand:
-    // FIXME: Inalloca && Fi.getReturnInfo().getInAllocaSRet() means we have the
-    // return type wrapped in a pointer.
     // FIXME: CoerceAndExpand means we have to figure out how to separately
     // augment each element.
     CGM.getDiags().Report(SourceLocation{}, diag::err_dtrans_unsupported)
-        << "InAlloca/CoerceAndExpand return type" << Ty;
+        << "CoerceAndExpand return type" << Ty;
   }
 }
 

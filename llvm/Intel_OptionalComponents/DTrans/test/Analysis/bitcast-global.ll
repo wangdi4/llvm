@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='internalize,require<dtransanalysis>,require<wholeprogram>' -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
 

@@ -282,8 +282,8 @@ class LegalityChecker final : public HLNodeVisitorBase {
   /// Returns true if it is legal to permute LoopLevel DV element with innermost
   /// level DV element. This is same as checking whether the two loops can be
   /// interchanged.
-  bool isLegalToPermute(const DirectionVector &DV,
-                        bool IsInnermostLoopDV) const;
+  bool isLegalToPermute(const DirectionVector &DV, const RegDDRef *SrcRef,
+                        const HLLoop *SrcLoop) const;
 
   /// Returns true if Ref can be ignored for legality purposes.
   bool canIgnoreRef(const RegDDRef *Ref, const HLLoop *ParentLoop) const;
@@ -314,7 +314,8 @@ bool LegalityChecker::isLegal() {
 }
 
 bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
-                                       bool IsInnermostLoopDV) const {
+                                       const RegDDRef *SrcRef,
+                                       const HLLoop *SrcLoop) const {
   // Legality check is the same as interchanging CandidateLoop with the
   // innermost loop so we check whether swapping the corresponding DV elements
   // yields a legal DV.
@@ -324,20 +325,40 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];
 
-  // Consider edges in outer loops as permuting LoopLevel with (*) after the
-  // last level DV.
-  if (!IsInnermostLoopDV) {
-    LastLevel++;
-    InnermostDV = DVKind::ALL;
+  // 1. If the DV is independent at the candidate loop level (=), we can unroll
+  // if-
+  //
+  // a) SrcRef is a temp ref which can be renamed, Or
+  //
+  // b) SrcRef is a memref which yields a distinct memory location in each
+  // unrolled iteration. This is the same as checking whether the memref has
+  // loop level IV. For example, for a candidate i1 loop, A[i1][i2] is a valid
+  // ref but A[0][i2] is not, Or
+  //
+  // c) Edge is innermost loop level. What happens to innermost loop body is
+  // more akin to unrolling rather than unroll & jam so it doesn't require a)
+  // or b) above.
+  if (LoopLevelDV == DVKind::EQ) {
+    return (SrcRef->isTerminalRef() ||
+            (SrcRef->isMemRef() && SrcRef->hasIV(LoopLevel))) ||
+           (SrcLoop->isInnermost() &&
+            (LastLevel == SrcLoop->getNestingLevel()));
+  }
 
-  } else if (InnermostDV == DVKind::NONE) {
+  // 2. Any candidate loop edge other than (=) (handled in #1 above) should
+  // prevent unroll & jam.
+  if (LastLevel == LoopLevel) {
+    return false;
+  }
+
+  if (InnermostDV == DVKind::NONE) {
     // Ideally, we should treat NONE the same as EQ as either of them shouldn't
     // prevent unroll & jam but NONE seems to be incorrectly derived using
     // noalias metadata so we use conservative ALL DV.
     InnermostDV = DVKind::ALL;
   }
 
-  // 1. We can always permute these combinations-
+  // 3. We can always permute these combinations-
   // (<, <)
   // (=, =)
   // (>, >)
@@ -348,13 +369,13 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
     }
   }
 
-  // 2. Check if dependence is carried by an outer loop which makes interchange
+  // 4. Check if dependence is carried by an outer loop which makes interchange
   // legal.
   if (DV.isIndepFromLevel(LoopLevel)) {
     return true;
   }
 
-  // 3. We cannot permute outer and inner DV elements if the direction is
+  // 5. We cannot permute outer and inner DV elements if the direction is
   // reversed in any combination after the permutation. For example (*, <)
   // yields (<, <), (=, <) and (<, >) after decomposing. The direction of (<, >)
   // gets reversed after permutation.
@@ -365,7 +386,7 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
 
   DVKind ValidDV, InvalidDV;
 
-  // 4. Now we check if any of the DV elements between LoopLevel to innermost
+  // 6. Now we check if any of the DV elements between LoopLevel to innermost
   // level preserve the direction of the DV after permutation.
   if ((LoopLevelDV == DVKind::ALL) || (InnermostDV == DVKind::ALL)) {
     // (*, =) and (=, *) can only be permuted if all intervening levels are (=).
@@ -446,25 +467,9 @@ bool LegalityChecker::canIgnoreRef(const RegDDRef *Ref,
   return true;
 }
 
-/// Returns true if the edge is between two sibling loops.
-static bool isInnerSiblingLoopEdge(const HLLoop *SrcLoop,
-                                   const HLLoop *SinkLoop) {
-
-  // If the LCALoop is different than both src/sink loops, then loops are in
-  // sibling loopnests.
-  auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, SinkLoop);
-
-  if ((SrcLoop != LCALoop) && (SinkLoop != LCALoop)) {
-    return true;
-  }
-
-  return false;
-}
-
 void LegalityChecker::visit(const HLDDNode *Node) {
 
   auto *ParentLoop = Node->getLexicalParentLoop();
-  bool IsInnermostLoop = ParentLoop->isInnermost();
 
   for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
        ++RefIt) {
@@ -477,18 +482,8 @@ void LegalityChecker::visit(const HLDDNode *Node) {
 
     for (auto *Edge : DDG.outgoing(Ref)) {
 
-      auto *SinkLoop = Edge->getSink()->getLexicalParentLoop();
-
-      if (isInnerSiblingLoopEdge(ParentLoop, SinkLoop)) {
-        LLVM_DEBUG(dbgs() << "Illegal to unroll & jam due to dependence "
-                             "between inner sibling loops\n");
-        LLVM_DEBUG(Edge->dump());
-        IsLegal = false;
-        return;
-      }
-
-      if (!isLegalToPermute(Edge->getDV(),
-                            (IsInnermostLoop || SinkLoop->isInnermost()))) {
+      if (!isLegalToPermute(Edge->getDV(), Ref, ParentLoop)) {
+        LLVM_DEBUG(dbgs() << "Illegal edge found: ");
         LLVM_DEBUG(Edge->dump());
         IsLegal = false;
         return;

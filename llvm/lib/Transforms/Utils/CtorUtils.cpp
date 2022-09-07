@@ -1,4 +1,21 @@
 //===- CtorUtils.cpp - Helpers for working with global_ctors ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,6 +28,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/CtorUtils.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/BitVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -50,6 +72,13 @@ static void removeGlobalCtors(GlobalVariable *GCL, const BitVector &CtorsToRemov
                          CA, "", GCL->getThreadLocalMode());
   GCL->getParent()->getGlobalList().insert(GCL->getIterator(), NGV);
   NGV->takeName(GCL);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  dtransOP::DTransTypeMetadataPropagator::setGlobAppendingVarDTransMetadata(
+      GCL, nullptr, NGV, CAList.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Nuke the old list, replacing any uses with the new one.
   if (!GCL->use_empty()) {

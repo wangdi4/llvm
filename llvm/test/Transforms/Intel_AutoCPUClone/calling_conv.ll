@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; transformation (because mismatch is UB and DCE'd later).
 
 ; CHECK-DAG: @foo = ifunc i32 (i32), i32 (i32)* ()* @foo.resolver
-; CHECK-DAG: define i32 (i32)* @foo.resolver() {
+; CHECK-DAG: define i32 (i32)* @foo.resolver()
 ; CHECK-DAG: define fastcc i32 @foo.A(i32 %a)
 ; CHECK-DAG: define fastcc i32 @foo.P(i32 %a)
 

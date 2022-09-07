@@ -310,7 +310,10 @@ static bool cloneFunctions(Module &M,
     Orig2MultiFuncs[&Fn] = {Resolver, Dispatcher, std::move(Clones)};
     Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
     Fn.setMetadata("llvm.acd.clone", MDNode::get(Fn.getContext(), {}));
-    Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+
+    std::string FnAttr = GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
+    Fn.addFnAttr("advanced-optim", FnAttr);
+    Resolver->addFnAttr("advanced-optim", FnAttr);
     Changed = true;
   }
 
@@ -476,6 +479,18 @@ static bool cloneFunctions(Module &M,
       if (const Constant *C = GA.getAliasee())
         GA.setAliasee(MapValue(C, VMap));
     }
+  }
+
+  for (Function &Fn : M) {
+    if (Fn.isDeclaration())
+      continue;
+    // Remove "llvm.auto.cpu.dispatch" metadata from functions that're skipped and
+    // not multi-versioned.
+    if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+      Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    // Add "advanced-optim" attribute on functions that are skipped and not multi-versioned.
+    if (!Fn.hasFnAttribute("advanced-optim"))
+      Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
   }
 
   // If we are here then we have done modifications.

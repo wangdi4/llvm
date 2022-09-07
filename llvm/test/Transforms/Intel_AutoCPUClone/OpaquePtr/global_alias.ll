@@ -8,7 +8,7 @@
 ; CHECK: define dso_local noundef i32 @main.A() #1 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.A(ptr noundef nonnull align 4 dereferenceable(4) %f)
 
-; CHECK: define dso_local noundef i32 @main.a() #3 !llvm.acd.clone !0 {
+; CHECK: define dso_local noundef i32 @main.a() #4 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.a(ptr noundef nonnull align 4 dereferenceable(4) %f)
 
 

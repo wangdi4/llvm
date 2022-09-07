@@ -8,7 +8,7 @@
 ; CHECK: define dso_local noundef i32 @main.A() #1 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.A(%class.foo* noundef nonnull align 4 dereferenceable(4) %f)
 
-; CHECK: define dso_local noundef i32 @main.a() #3 !llvm.acd.clone !0 {
+; CHECK: define dso_local noundef i32 @main.a() #4 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.a(%class.foo* noundef nonnull align 4 dereferenceable(4) %f)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s

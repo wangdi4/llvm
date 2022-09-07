@@ -5,7 +5,7 @@
 ; transformation (because mismatch is UB and DCE'd later).
 
 ; CHECK-DAG: @foo = ifunc i32 (i32), ptr @foo.resolver
-; CHECK-DAG: define ptr @foo.resolver() {
+; CHECK-DAG: define ptr @foo.resolver()
 ; CHECK-DAG: define fastcc i32 @foo.A(i32 %a)
 ; CHECK-DAG: define fastcc i32 @foo.P(i32 %a)
 
