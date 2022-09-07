@@ -208,8 +208,7 @@ Instruction *InstCombinerImpl::foldBitcastExtElt(ExtractElementInst &Ext) {
 
   // If we are casting an integer to vector and extracting a portion, that is
   // a shift-right and truncate.
-  // TODO: Allow FP dest type by casting the trunc to FP?
-  if (X->getType()->isIntegerTy() && DestTy->isIntegerTy() &&
+  if (X->getType()->isIntegerTy() &&
       isDesirableIntType(X->getType()->getPrimitiveSizeInBits())) {
     assert(isa<FixedVectorType>(Ext.getVectorOperand()->getType()) &&
            "Expected fixed vector type for bitcast from scalar integer");
@@ -222,6 +221,12 @@ Instruction *InstCombinerImpl::foldBitcastExtElt(ExtractElementInst &Ext) {
     unsigned ShiftAmountC = ExtIndexC * DestTy->getPrimitiveSizeInBits();
     if (!ShiftAmountC || Ext.getVectorOperand()->hasOneUse()) {
       Value *Lshr = Builder.CreateLShr(X, ShiftAmountC, "extelt.offset");
+      if (DestTy->isFloatingPointTy()) {
+        Type *DstIntTy = IntegerType::getIntNTy(
+            Lshr->getContext(), DestTy->getPrimitiveSizeInBits());
+        Value *Trunc = Builder.CreateTrunc(Lshr, DstIntTy);
+        return new BitCastInst(Trunc, DestTy);
+      }
       return new TruncInst(Lshr, DestTy);
     }
   }

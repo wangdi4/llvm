@@ -25,22 +25,22 @@ B b;
 // CHECK-LABEL: define {{.*}}BD1Ev
 // CHECK: call void {{.*}}BD2Ev
 // CHECK: call void {{.*}}AD2Ev
-// CHECK: call void @__sanitizer_dtor_callback{{.*}}, !dbg ![[DI1:[0-9]+]]
+// CHECK: call void @__sanitizer_dtor_callback({{.*}}, !dbg ![[DI1:[0-9]+]]
 // CHECK: ret void
 
 // Since no virtual bases, poison vtable ptr here.
 // CHECK-LABEL: define {{.*}}AD2Ev
-// CHECK: call void @__sanitizer_dtor_callback{{.*}}, !dbg ![[DI2:[0-9]+]]
-// CHECK: call void @__sanitizer_dtor_callback{{.*}}, !dbg ![[DI2]]
+// CHECK: call void @__sanitizer_dtor_callback({{.*}}, !dbg ![[DI2:[0-9]+]]
+// CHECK: call void @__sanitizer_dtor_callback({{.*}}, !dbg ![[DI2]]
 // CHECK: ret void
 
 // Poison members
 // CHECK-LABEL: define {{.*}}BD2Ev
-// CHECK: call void @__sanitizer_dtor_callback{{.*}}, !dbg ![[DI4:[0-9]+]]
+// CHECK: call void @__sanitizer_dtor_callback({{.*}}, !dbg ![[DI4:[0-9]+]]
 // CHECK: ret void
 
 // CHECK-LABEL: !DIFile{{.*}}cpp
 
-// CHECK: ![[DI1]] = {{.*}}line: [[@LINE-28]]
-// CHECK: ![[DI2]] = {{.*}}line: [[@LINE-37]]
-// CHECK: ![[DI4]] = {{.*}}line: [[@LINE-30]]
+// CHECK-DAG: ![[DI1]] = {{.*}}line: [[@LINE-28]]
+// CHECK-DAG: ![[DI2]] = {{.*}}line: [[@LINE-37]]
+// CHECK-DAG: ![[DI4]] = {{.*}}line: [[@LINE-30]]
