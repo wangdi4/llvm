@@ -163,7 +163,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1151,7 +1151,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
   };
   SmallVector<ShadowOriginAndInsertPoint, 16> InstrumentationList;
   bool InstrumentLifetimeStart = ClHandleLifetimeIntrinsics;
-  SmallSet<AllocaInst *, 16> AllocaSet;
+  SmallSetVector<AllocaInst *, 16> AllocaSet;
   SmallVector<std::pair<IntrinsicInst *, AllocaInst *>, 16> LifetimeStartList;
   SmallVector<StoreInst *, 16> StoreList;
 
@@ -1426,7 +1426,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     if (InstrumentLifetimeStart) {
       for (auto Item : LifetimeStartList) {
         instrumentAlloca(*Item.second, Item.first);
-        AllocaSet.erase(Item.second);
+        AllocaSet.remove(Item.second);
       }
     }
     // Poison the allocas for which we didn't instrument the corresponding
