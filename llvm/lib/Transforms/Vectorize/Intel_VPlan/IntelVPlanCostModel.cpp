@@ -959,44 +959,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::SMax: {
     assert(VPInst->getNumOperands() == 2 &&
            "Unsupported form of [S|U][Min|Max]");
-    // UMinSeq instruction is lowered as:
-    // %cond.or = (%op1 == 0) || (%op2 == 0)
-    // select %cond.or == true ? 0 : UMin(%op1, %op2)
-    //
-    // Initialize Cost with vanilla UMin/SMin/UMax/SMax cost which is
-    // lowered into select.
-    Type *OpTy = VPInst->getOperand(0)->getType();
-    Type *VecOpTy = getWidenedType(OpTy, VF);
-
-    // Pick any condition code here frpm possible conditions for operation in
-    // question for the simplicity. We expect the cost doesn't depend on it.
-    VPInstructionCost Cost = TTI.getCmpSelInstrCost(
-      Instruction::Select, VecOpTy, VecOpTy, CmpInst::ICMP_ULT,
-      TTI::TCK_RecipThroughput);
-
-    // TODO: The entry condition to be extended once more Sequential operations
-    // are introduced.
-    if (Opcode == VPInstruction::UMinSeq) {
-      // Add Cost of extra instructions for Sequential operation.
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::ICmp, VecOpTy, VecOpTy, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput) * VPInst->getNumOperands();
-
-      Type *VecInt1Ty =
-        getWidenedType(Type::getInt1Ty(*Plan->getLLVMContext()), VF);
-
-      // Select is used to implement logical (non commutative) OR operation.
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::Select, VecInt1Ty, VecInt1Ty, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput);
-
-      Cost += TTI.getCmpSelInstrCost(
-        Instruction::Select, VecOpTy, VecInt1Ty, CmpInst::ICMP_EQ,
-        TTI::TCK_RecipThroughput);
-    }
-
-    return Cost;
+    return getIntMinMaxInstCost(
+      Opcode, getWidenedType(VPInst->getOperand(0)->getType(), VF));
   }
+
   case VPInstruction::InductionInit: {
     // Add based InductionInit lowering scheme:
     // 1. StartValBCast = bcast(StartVal)
@@ -1252,7 +1218,82 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         Cost += TTI.getArithmeticInstrCost(
           Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
           IndInitVK, MultVK);
+    return Cost;
+  }
 
+  case VPInstruction::ReductionInit: {
+    VectorType *VTy = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VTy);
+    if (VPInst->getNumOperands() > 1) {
+      auto *StartVal = VPInst->getOperand(1);
+      if (dyn_cast<VPLiveInValue>(StartVal))
+        StartVal = Plan->getExternals().getOriginalIncomingValue(
+          cast<VPLiveInValue>(StartVal)->getMergeId());
+
+      // Predict constant folding.
+      if (!isa<VPConstant>(StartVal))
+        Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VTy, 0);
+    }
+    return Cost;
+  }
+
+  case VPInstruction::ReductionFinal: {
+    auto *VPRedFinal = cast<VPReductionFinal>(VPInst);
+    bool CmpReduction =
+      VPRedFinal->getBinOpcode() == Instruction::ICmp ||
+      VPRedFinal->getBinOpcode() == Instruction::FCmp;
+
+    auto *IDVecTy = getWidenedType(VPRedFinal->getOperand(0)->getType(), VF);
+    Intrinsic::ID Intrin;
+    VPInstructionCost Cost = 0;
+    // Special case Cmp Reduction as it is implemented in CG using OR
+    // reduction.
+    if (CmpReduction) {
+      auto *Op1VecTy = getWidenedType(VPRedFinal->getOperand(1)->getType(), VF);
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast, Op1VecTy);
+      Cost += TTI.getCmpSelInstrCost(
+        VPRedFinal->getBinOpcode(), IDVecTy, nullptr, /* CondTy */
+        CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+      Intrin = Intrinsic::vector_reduce_or;
+    }
+    else
+      Intrin = VPRedFinal->getVectorReduceIntrinsic();
+
+    bool IsFAddMul = (Intrin == Intrinsic::vector_reduce_fadd ||
+                      Intrin == Intrinsic::vector_reduce_fmul);
+    SmallVector<Type *> ParamTys;
+
+    // TTI expects the second argument of vector type for float add/mul
+    // reduction only.
+    if (VPRedFinal->getNumOperands() > 1 && IsFAddMul)
+      ParamTys.push_back(VPRedFinal->getOperand(1)->getType());
+    ParamTys.push_back(IDVecTy);
+
+    FastMathFlags FMF;
+    if (VPRedFinal->hasFastMathFlags())
+      FMF = VPRedFinal->getFastMathFlags();
+
+    Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrin, VPInst->getType(), ParamTys, FMF),
+      TTI::TCK_RecipThroughput);
+
+    // Scalar extra operation to allow Acc to make its contribution for
+    // non float add/mul reductions. Float add/mul reductions passes their Acc
+    // as an argument to reduce intrinsics and no additional operation is
+    // issued for them.
+    if (!IsFAddMul && VPRedFinal->getNumOperands() > 1) {
+      if (isIntMinMaxOpcode(VPRedFinal->getBinOpcode()))
+        Cost += getIntMinMaxInstCost(VPRedFinal->getBinOpcode(), IDVecTy);
+      else if (CmpReduction)
+        Cost += TTI.getCmpSelInstrCost(
+          Instruction::Select, VPRedFinal->getOperand(1)->getType(),
+          IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
+          CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+      else
+        Cost += TTI.getArithmeticInstrCost(
+          VPRedFinal->getBinOpcode(), VPInst->getType(),
+          TargetTransformInfo::TCK_RecipThroughput);
+    }
     return Cost;
   }
 
@@ -1517,6 +1558,48 @@ VPInstructionCost VPlanTTICostModel::getConflictInsnCost(
     llvm_unreachable("Unreachable code during VPCONFLICT handling.");
 }
 
+VPInstructionCost VPlanTTICostModel::getIntMinMaxInstCost(
+  unsigned Opcode, FixedVectorType *VecTy) const
+{
+  assert(isIntMinMaxOpcode(Opcode) &&
+         "Unexpected VPInstruction in getIntMinMaxVPInstCost.");
+
+  // UMinSeq instruction is lowered as:
+  // %cond.or = (%op1 == 0) || (%op2 == 0)
+  // select %cond.or == true ? 0 : UMin(%op1, %op2)
+  //
+  // Initialize Cost with vanilla UMin/SMin/UMax/SMax cost which is
+  // lowered into select.
+  //
+  // Pick any condition code here frpm possible conditions for operation in
+  // question for the simplicity. We expect the cost doesn't depend on it.
+  VPInstructionCost Cost = TTI.getCmpSelInstrCost(
+    Instruction::Select, VecTy, VecTy, CmpInst::ICMP_ULT,
+    TTI::TCK_RecipThroughput);
+
+  // TODO: The entry condition to be extended once more Sequential operations
+  // are introduced.
+  if (Opcode == VPInstruction::UMinSeq) {
+    // Add Cost of extra instructions for Sequential operation.
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::ICmp, VecTy, VecTy, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput) * 2;
+
+    Type *VecInt1Ty =
+      getWidenedType(Type::getInt1Ty(*Plan->getLLVMContext()),
+                     VecTy->getNumElements());
+
+    // Select is used to implement logical (non commutative) OR operation.
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::Select, VecInt1Ty, VecInt1Ty, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::Select, VecTy, VecInt1Ty, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+  }
+  return Cost;
+}
 
 } // namespace vpo
 

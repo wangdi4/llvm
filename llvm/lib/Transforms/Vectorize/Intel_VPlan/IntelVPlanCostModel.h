@@ -208,6 +208,17 @@ private:
   // Return cost of VPConflictInsn
   VPInstructionCost getConflictInsnCost(unsigned VF, unsigned ElementSizeBits);
 
+  // Predicate to filter out Integer min/max VPInstructions Opcodes.
+  inline bool isIntMinMaxOpcode(unsigned Opcode) const {
+    return Opcode == VPInstruction::SMin || Opcode == VPInstruction::UMin ||
+           Opcode == VPInstruction::UMax || Opcode == VPInstruction::SMax ||
+           Opcode == VPInstruction::UMinSeq;
+  }
+
+  // The cost of Integer min/max idioms.
+  VPInstructionCost getIntMinMaxInstCost(
+    unsigned Opcode, FixedVectorType *VecTy) const;
+
   // The Cost of Compress/Expand Idiom Load/Store instruction.
   // If GSCostOnly parameter is set only gather/scatter cost will be returned.
   VPInstructionCost
