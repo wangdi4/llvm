@@ -214,6 +214,7 @@
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLSpecialClass (SubjectMatchRule_record)
 // if INTEL_CUSTOMIZATION
+// CHECK-NEXT: SYCLType (SubjectMatchRule_record, SubjectMatchRule_enum)
 // CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
 // CHECK-NEXT: SYCLUsesAspects (SubjectMatchRule_record, SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
