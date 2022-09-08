@@ -78,6 +78,10 @@ static cl::opt<unsigned, true> SpirvOffloadEntryAddSpaceOpt(
     cl::location(SpirvOffloadEntryAddSpace),
     cl::init(vpo::ADDRESS_SPACE_GLOBAL));
 
+static cl::opt<bool> UseRoundToNearestEven(
+  "vpo-paropt-spirv-offload-rne", cl::Hidden, cl::init(false),
+  cl::desc("Round function in spirv offload is emitted as round-to-nearest-even"));
+
 // This table is used to change math function names (left column) to the
 // OCL builtin format (right column).
 //
@@ -271,6 +275,12 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 
   if (Map != OCLBuiltin.end()) {
     StringRef NewName = Map->second;
+    if (UseRoundToNearestEven) {
+      if (NewName == "_Z17__spirv_ocl_roundf")
+        NewName =    "_Z19__spirv_ocl_roundnef";
+      else if (NewName == "_Z17__spirv_ocl_roundd")
+        NewName =         "_Z19__spirv_ocl_roundned";
+    }
     if (!PreserveDeviceIntrin ||
         !OldName.consume_front(LLVM_INTRIN_PREF0)) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
