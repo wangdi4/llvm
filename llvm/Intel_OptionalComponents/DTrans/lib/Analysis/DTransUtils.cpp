@@ -542,6 +542,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Bad memfunc manipulation (related types)";
   if (SafetyInfo & dtrans::UnsafePtrMergeRelatedTypes)
     return "Unsafe pointer merge (related types)";
+  if (SafetyInfo & dtrans::MultiStructMemFunc)
+    return "Multi-struct memfunc";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -583,6 +585,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::StructCouldBeBaseABIPadding |
       dtrans::BadMemFuncManipulationForRelatedTypes |
       dtrans::UnsafePtrMergeRelatedTypes |
+      dtrans::MultiStructMemFunc |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -617,6 +620,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::StructCouldBeBaseABIPadding ^
            dtrans::BadMemFuncManipulationForRelatedTypes ^
            dtrans::UnsafePtrMergeRelatedTypes ^
+           dtrans::MultiStructMemFunc ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 

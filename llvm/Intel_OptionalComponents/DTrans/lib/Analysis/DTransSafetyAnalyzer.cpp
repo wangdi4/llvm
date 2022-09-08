@@ -5330,9 +5330,13 @@ public:
         if (analyzeMemfuncStructureMemberParam(
                 I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDescVec,
                 IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
-          for (auto RegionDesc : RegionDescVec)
+          for (auto RegionDesc : RegionDescVec) {
             createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
-
+            if (RegionDescVec.size() > 1)
+              setBaseTypeInfoSafetyData(RegionDesc.first,
+                                        dtrans::MultiStructMemFunc,
+                                        "multi-struct mem func", &I);
+          }
         return;
       }
 
@@ -5443,8 +5447,13 @@ public:
               /*PrePadBytes=*/0, SetSize, RegionDescVec,
               IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
-        for (auto RegionDesc : RegionDescVec)
+        for (auto RegionDesc : RegionDescVec) {
           createMemsetCallInfo(I, RegionDesc.first, RegionDesc.second);
+          if (RegionDescVec.size() > 1)
+            setBaseTypeInfoSafetyData(RegionDesc.first,
+                                      dtrans::MultiStructMemFunc,
+                                      "multi-struct mem func", &I);
+        }
         return;
       }
     }
@@ -5597,13 +5606,13 @@ public:
                 // Mark the fields written, starting from the embedded
                 // structure field of the outer structure.
                 markStructFieldsWritten(OuterInfo, FieldNum, FieldNum, I,
-                                        FWT_ExistingValue);
+                                        FWT_ExistingValue, true);
 
                 if (ElemTy->isStructTy())
                   markStructFieldReaders(
                       cast<dtrans::StructInfo>(ElemInfo), 0,
                       cast<DTransStructType>(ElemTy)->getNumFields() - 1,
-                      I.getFunction());
+                      I.getFunction(), true);
 
               } else {
                 // Mark the fields in the embedded structure as written.
@@ -5616,7 +5625,7 @@ public:
                 // FieldInfo to record that the field may be referenced for the
                 // FieldModRef analysis.
                 markStructFieldReaders(OuterInfo, FieldNum, FieldNum,
-                                       I.getFunction());
+                                       I.getFunction(), true);
               }
               return;
             }
@@ -5722,6 +5731,7 @@ public:
       }
 
       // The call is safe for the ElementPointee.
+      bool FirstTime = true;
       for (auto RegionDesc : RegionDescVec) {
         createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
                                       /*RegionDescDest=*/RegionDesc.second,
@@ -5737,8 +5747,14 @@ public:
         auto *SI = cast_or_null<dtrans::StructInfo>(TyInfo);
         assert(SI && "visitModule() should create all TypeInfo objects");
         markStructFieldReaders(SI, RegionDesc.second.FirstField,
-                               RegionDesc.second.LastField, I.getFunction());
-      }
+                               RegionDesc.second.LastField, I.getFunction(),
+                               FirstTime);
+        if (RegionDescVec.size() > 1)
+          setBaseTypeInfoSafetyData(RegionDesc.first,
+                                    dtrans::MultiStructMemFunc,
+                                    "multi-struct mem func", &I);
+        FirstTime = false;
+       }
       return;
     }
 
@@ -5865,7 +5881,8 @@ public:
         auto *SI = cast_or_null<dtrans::StructInfo>(
             DTInfo.getTypeInfo(SrcPointeeType));
         assert(SI && "visitModule() should create all TypeInfo objects");
-        markStructFieldReaders(SI, 0, SI->getNumFields() - 1, I.getFunction());
+        markStructFieldReaders(SI, 0, SI->getNumFields() - 1, I.getFunction(),
+                               true);
       }
 
       return;
@@ -5880,6 +5897,7 @@ public:
                                              RegionDescVec,
                                              FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
+        bool FirstTime = true;
         for (auto RegionDesc : RegionDescVec) {
           createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
                                         /*RegionDescDest=*/RegionDesc.second,
@@ -5895,8 +5913,13 @@ public:
             assert(SI && "visitModule() should create all TypeInfo objects");
             markStructFieldReaders(SI, RegionDesc.second.FirstField,
                                    RegionDesc.second.LastField,
-                                   I.getFunction());
+                                   I.getFunction(), FirstTime);
           }
+          if (RegionDescVec.size() > 1)
+            setBaseTypeInfoSafetyData(RegionDesc.first,
+                                      dtrans::MultiStructMemFunc,
+                                      "multi-struct mem func", &I);
+          FirstTime = false;
         }
         return;
       }
@@ -6029,7 +6052,8 @@ public:
                                           FieldWriteType WriteType) {
     // Try to determine if a set of fields in a structure is being written.
     if (analyzePartialStructUse(DL, StructTy, FieldNum, PrePadBytes, SetSize,
-                                /*AllowRecurse=*/false, RegionDescVec)) {
+                                /*AllowRecurse=*/true, RegionDescVec)) {
+      bool FirstTime = true;
       for (auto RegionDesc : RegionDescVec) {
         // If not all members of the structure were set, mark it as a partial
         // write.
@@ -6040,7 +6064,9 @@ public:
         }
         dtrans::TypeInfo *LParentTI = DTInfo.getTypeInfo(RegionDesc.first);
         markStructFieldsWritten(LParentTI, RegionDesc.second.FirstField,
-                                RegionDesc.second.LastField, I, WriteType);
+                                RegionDesc.second.LastField, I, WriteType,
+                                FirstTime);
+        FirstTime = false;
       }
       return true;
     }
@@ -6912,6 +6938,7 @@ private:
     case dtrans::LocalInstance:
     case dtrans::LocalPtr:
     case dtrans::MemFuncPartialWrite:
+    case dtrans::MultiStructMemFunc:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
@@ -6980,6 +7007,7 @@ private:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
     case dtrans::MismatchedElementAccessRelatedTypes:
+    case dtrans::MultiStructMemFunc:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
@@ -7352,10 +7380,13 @@ private:
 
   // A specialized form of the MarkAllFieldsWritten that is used to mark a
   // subset of fields of a structure type as written. Any contained aggregates
-  // within the subset are marked as completely written.
+  // within the subset are marked as completely written for all fields
+  // except the last and for the last also if 'MarkLastFieldContainedAggregates'
+  // is true.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
                                unsigned int LastField, Instruction &I,
-                               FieldWriteType WriteType) {
+                               FieldWriteType WriteType,
+                               bool MarkLastFieldContainedAggregates) {
     assert(TI && isa<dtrans::StructInfo>(TI) &&
            "markStructFieldsWritten requires Structure type");
 
@@ -7379,16 +7410,21 @@ private:
       // TODO: Update frequency count for field info
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
       assert(ComponentTI && "visitModule() should create all TypeInfo objects");
-      markAllFieldsWritten(ComponentTI, I, WriteType);
+      if (Idx < LastField || MarkLastFieldContainedAggregates)
+        markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
   // Update the fields of the structure \p StInfo from \p FirstField to \p
   // LastField to indicate that a read occurs via a memcpy or memmove call
-  // within the function containing Instruction \p I.
+  // within the function containing Instruction \p I. Any contained aggregates
+  // within the subset are marked as completely read for all fields
+  // except the last and for the last also if 'MarkLastFieldContainedAggregates'
+  // is true.
   void markStructFieldReaders(dtrans::StructInfo *StInfo,
                               unsigned int FirstField, unsigned int LastField,
-                              Function *F) {
+                              Function *F,
+                              bool MarkLastFieldContainedAggregates) {
     assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
            "markStructFieldsRead with invalid field index");
 
@@ -7396,9 +7432,10 @@ private:
       auto &FI = StInfo->getField(Idx);
       FI.addReader(F);
       dtrans::TypeInfo *FieldInfo = DTInfo.getTypeInfo(FI.getDTransType());
-      if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
-        markStructFieldReaders(FieldStInfo, 0, FieldStInfo->getNumFields() - 1,
-                               F);
+      if (Idx < LastField || MarkLastFieldContainedAggregates)
+        if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
+          markStructFieldReaders(FieldStInfo, 0,
+                                 FieldStInfo->getNumFields() - 1, F, true);
     }
   }
 
