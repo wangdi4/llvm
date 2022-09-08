@@ -1,9 +1,6 @@
-<<<<<<< HEAD
 // RUN: %clang_cc1 -fsyntax-only -verify %s
 // RUN: %clang_cc1 -fsyntax-only -DINTEL_CUSTOMIZATION -verify %s
-=======
 // RUN: %clang_cc1 -fsyntax-only -verify %std_cxx98-14 %s
->>>>>>> 83ea47acd7116bf50274534ba9b3bd3035c01da6
 
 // This is a test for an egregious hack in Clang that works around
 // issues with GCC's evolution. libstdc++ 4.2.x uses __is_pod as an
