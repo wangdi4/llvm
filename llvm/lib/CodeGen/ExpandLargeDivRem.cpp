@@ -18,6 +18,10 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+<<<<<<< HEAD
+=======
+#include "llvm/Analysis/TargetTransformInfo.h"
+>>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -30,6 +34,7 @@
 using namespace llvm;
 
 static cl::opt<unsigned>
+<<<<<<< HEAD
     ExpandDivRemBits("expand-div-rem-bits", cl::Hidden, cl::init(128),
                      cl::desc("div and rem instructions on integers with "
                               "more than <N> bits are expanded."));
@@ -38,6 +43,39 @@ static bool runImpl(Function &F) {
   SmallVector<BinaryOperator *, 4> Replace;
   bool Modified = false;
 
+=======
+    ExpandDivRemBits("expand-div-rem-bits", cl::Hidden,
+                     cl::init(llvm::IntegerType::MAX_INT_BITS),
+                     cl::desc("div and rem instructions on integers with "
+                              "more than <N> bits are expanded."));
+
+static bool isConstantPowerOfTwo(llvm::Value *V, bool SignedOp) {
+  auto *C = dyn_cast<ConstantInt>(V);
+  if (!C)
+    return false;
+
+  APInt Val = C->getValue();
+  if (SignedOp && Val.isNegative())
+    Val = -Val;
+  return Val.isPowerOf2();
+}
+
+static bool isSigned(unsigned int Opcode) {
+  return Opcode == Instruction::SDiv || Opcode == Instruction::SRem;
+}
+
+static bool runImpl(Function &F, const TargetTransformInfo &TTI) {
+  SmallVector<BinaryOperator *, 4> Replace;
+  bool Modified = false;
+
+  unsigned MaxLegalDivRemBitWidth = TTI.maxLegalDivRemBitWidth();
+  if (ExpandDivRemBits != llvm::IntegerType::MAX_INT_BITS)
+    MaxLegalDivRemBitWidth = ExpandDivRemBits;
+
+  if (MaxLegalDivRemBitWidth >= llvm::IntegerType::MAX_INT_BITS)
+    return false;
+
+>>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
   for (auto &I : instructions(F)) {
     switch (I.getOpcode()) {
     case Instruction::UDiv:
@@ -46,7 +84,15 @@ static bool runImpl(Function &F) {
     case Instruction::SRem: {
       // TODO: This doesn't handle vectors.
       auto *IntTy = dyn_cast<IntegerType>(I.getType());
+<<<<<<< HEAD
       if (!IntTy || IntTy->getIntegerBitWidth() <= ExpandDivRemBits)
+=======
+      if (!IntTy || IntTy->getIntegerBitWidth() <= MaxLegalDivRemBitWidth)
+        continue;
+
+      // The backend has peephole optimizations for powers of two.
+      if (isConstantPowerOfTwo(I.getOperand(1), isSigned(I.getOpcode())))
+>>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
         continue;
 
       Replace.push_back(&cast<BinaryOperator>(I));
@@ -77,7 +123,12 @@ static bool runImpl(Function &F) {
 
 PreservedAnalyses ExpandLargeDivRemPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {
+<<<<<<< HEAD
   bool Changed = runImpl(F);
+=======
+  TargetTransformInfo &TTI = AM.getResult<TargetIRAnalysis>(F);
+  bool Changed = runImpl(F, TTI);
+>>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
 
   if (Changed)
     return PreservedAnalyses::none();
@@ -93,9 +144,19 @@ public:
     initializeExpandLargeDivRemLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
+<<<<<<< HEAD
   bool runOnFunction(Function &F) override { return runImpl(F); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+=======
+  bool runOnFunction(Function &F) override {
+    auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+    return runImpl(F, TTI);
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+>>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
     AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
