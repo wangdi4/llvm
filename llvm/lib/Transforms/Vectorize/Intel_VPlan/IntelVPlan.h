@@ -1537,6 +1537,9 @@ protected:
 /// RegDDRef. It also stores explicit type information as that is needed due to
 /// the opaque pointers for the StructOffsets address computation. (dimensional
 /// accesses are computed using explicit strides in bytes).
+///
+/// A VPSubscriptInst is allowed to have zero dimensions. This is used to
+/// represent SelfAddressOf address/memory references such as &baseptr[0].
 class VPSubscriptInst final : public VPInstruction {
 public:
   struct DimInfo {
@@ -1688,6 +1691,10 @@ public:
   static bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == VPInstruction::Subscript;
   }
+
+  /// Return true if the instruction is a SelfAddressOf instruction by
+  /// checking for number of dimensions being zero.
+  bool isSelfAddressOfInst() const { return getNumDimensions() == 0; }
 
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));

@@ -390,6 +390,11 @@ public:
   // Return the scalar ref corresponding to VPVal for specified Lane if found
   // in VPValScalRefMap, return null otherwise.
   RegDDRef *getScalRefForVPVal(const VPValue *VPVal, unsigned Lane) const {
+    // If we are dealing with a uniform value, use lane 0 to get the scalar
+    // value.
+    if (!Plan->getVPlanDA()->isDivergent(*VPVal))
+      Lane = 0;
+
     auto It = VPValScalRefMap.find(VPVal);
     if (It == VPValScalRefMap.end())
       return nullptr;

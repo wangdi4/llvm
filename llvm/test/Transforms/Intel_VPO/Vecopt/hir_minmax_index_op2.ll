@@ -5,6 +5,7 @@ define void @foo() {
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:       + DO i1 = 0, 159, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   [[DOTVEC0:%.*]] = inttoptr.<4 x i64>.<4 x i8*>(i1 + <i64 0, i64 1, i64 2, i64 3>)
+; CHECK-NEXT:       |   [[EXTRACT0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:       |   [[DOTVEC10:%.*]] = (undef >u [[DOTVEC0]]) ? [[DOTVEC0]] : undef
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:            [[TMP2:%.*]] = extractelement [[DOTVEC10]],  3

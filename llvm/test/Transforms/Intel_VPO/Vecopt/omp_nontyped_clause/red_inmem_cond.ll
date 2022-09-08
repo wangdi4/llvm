@@ -49,7 +49,8 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; HIR-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
-; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_R_RED]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_R_RED]]
 ; HIR-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP4]]
 ; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call float* [[VP_SUBSCRIPT]] i32 (float*)* @_Z4predPf
 ; HIR-NEXT:     i1 [[VP6:%.*]] = icmp ne i32 [[VP_CALL]] i32 0
@@ -63,13 +64,16 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-NEXT:       float [[VP9:%.*]] = sitofp i32 [[VP8]] to float
 ; HIR-NEXT:       float [[VP10:%.*]] = fadd float [[VP_LOAD_2]] float [[VP9]]
 ; HIR-NEXT:       i32 [[VP11:%.*]] = fptosi float [[VP10]] to i32
-; HIR-NEXT:       store i32 [[VP11]] i32* [[VP_R_RED]]
+; HIR-NEXT:       i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
+; HIR-NEXT:       store i32 [[VP11]] i32* [[VP_SUBSCRIPT_R_RED]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_R_RED]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_R_RED]]
 ; HIR-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP_LOAD_3]] i32 1
-; HIR-NEXT:     store i32 [[VP12]] i32* [[VP_R_RED]]
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
+; HIR-NEXT:     store i32 [[VP12]] i32* [[VP_SUBSCRIPT_R_RED]]
 ; HIR-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
 ; HIR-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
 ; HIR-NEXT:     br i1 [[VP13]], [[BB2]], [[BB5:BB[0-9]+]]

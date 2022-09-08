@@ -30,17 +30,22 @@
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = trunc i64 [[VP2]] to i32
-; CHECK-NEXT:     store i32 [[VP4]] i32* [[I_LPRIV0:%.*]]
-; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[B_PRIV0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[I_LPRIV0:%.*]]
+; CHECK-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[B_PRIV0:%.*]]
+; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     store i32 0 i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     store i32 0 i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = subscript inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 (i32)* [[VP8:%.*]] = load i32 (i32)** [[VP7]]
 ; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = call i32 [[VP10]] i32 (i32)* [[VP8]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[B_PRIV0]]
-; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[I_LPRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[I_LPRIV0]]
+; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = sext i32 [[VP13]] to i64
 ; CHECK-NEXT:     i32* [[VP15:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP14]]
 ; CHECK-NEXT:     i32 [[VP16:%.*]] = load i32* [[VP15]]
@@ -48,7 +53,8 @@
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP16]]
 ; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
-; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[B_PRIV0]]
+; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp slt i64 [[VP3]] i64 [[VP1:%vp.*]]

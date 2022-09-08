@@ -28,7 +28,8 @@ define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[LP0:%.*]]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_LP0:%.*]] = subscript inbounds i64* [[LP0:%.*]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT_LP0]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]

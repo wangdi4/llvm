@@ -58,11 +58,13 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-NEXT:     br i1 [[VP2]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       store i32 0 i32* null
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* null
+; CHECK-NEXT:       store i32 0 i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]], [[BB5]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP7]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP7]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP4]] i64 100
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB7:BB[0-9]+]]

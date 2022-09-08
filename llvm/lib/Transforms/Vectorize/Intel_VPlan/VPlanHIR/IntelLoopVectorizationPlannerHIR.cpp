@@ -170,8 +170,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
             (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
           // Check if sin/cos value pointer operands are marked as SIMD
           // privates.
-          if (LE->getPrivate(VPCall->getOperand(1)) ||
-              LE->getPrivate(VPCall->getOperand(2))) {
+          if (LE->getPrivate(getPtrThroughCast(VPCall->getOperand(1))) ||
+              LE->getPrivate(getPtrThroughCast(VPCall->getOperand(2)))) {
             LLVM_DEBUG(dbgs() << "LVP: sincos calls using private sin/cos "
                                  "pointer operands not supported.\n"
                               << Inst << "\n");

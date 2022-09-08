@@ -1770,8 +1770,11 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
     if (auto *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VPI))
       if (AllocaPriv->isSOASafe() && AllocaPriv->isSOAProfitable() &&
           !isSOACodegenSupported() &&
-          AllocaPriv->getAllocatedType()->isArrayTy())
+          AllocaPriv->getAllocatedType()->isArrayTy()) {
+        LLVM_DEBUG(dbgs() << "LVP: Bail out for SOA private not handled in CG\n"
+                          << VPI << "\n");
         return false;
+      }
   }
 
   // All checks passed.

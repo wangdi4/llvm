@@ -41,7 +41,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; HIR-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
-; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[VP_S_RED]]
+; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_SUBSCRIPT]] i32 (i32*)* @_Z3gooRi
 ; HIR-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; HIR-NEXT:     i1 [[VP3:%.*]] = icmp slt i64 [[VP2]] i64 1025
 ; HIR-NEXT:     br i1 [[VP3]], [[BB2]], [[BB3:BB[0-9]+]]

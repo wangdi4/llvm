@@ -162,7 +162,7 @@ Align VPlanTTICostModel::getMemInstAlignment(
 bool VPlanTTICostModel::isUniformLoadStore(
   const VPLoadStoreInst *LoadStore) const {
   assert (Plan->getVPlanDA() && "DA is not established.");
-  return Plan->getVPlanDA()->isAlwaysUniform(*LoadStore->getPointerOperand());
+  return !Plan->getVPlanDA()->isDivergent(*LoadStore->getPointerOperand());
 }
 
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,

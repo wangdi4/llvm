@@ -580,37 +580,33 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   unsigned NumDims = Ref->getNumDimensions();
   assert(NumDims > 0 && "Number of dimensions in memory operand is 0.");
 
-  // If Ref is of the form a[0] or &a[0], subscript instructions are not needed.
-  // TODO: This is needed for correctness of any analysis with opaque types.
-  // However HIR codegen should be aware of this lack of subscript for Refs of
-  // form a[0] and &a[0] and generate them if needed during codegen. For example
-  // check Transforms/Intel_VPO/Vecopt/hir_vector_opaque_type.ll
-  if (NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero())
-    MemOpVPI = DecompBaseCE;
-  else {
-    // Determine resulting type of the subscript instruction
-    //
-    // Example: float a[1024];
-    //
-    // @a[0][i] will be decomposed as -
-    // float* %vp = subscript [1024 x float]* %a, i64 0, i64 %i
-    //
-    // Here -
-    // SubscriptResultType = float*
-    //
-    // NOTE: Type information about pointer type or pointer element type can be
-    // retrieved anytime from the pointer operand of subscript instruction.
-    //
+  // If Ref is of the form a[0] or &a[0], create a subscript instruction with no
+  // dimensions.
+  bool SkipDims = NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
+                  (*Ref->canon_begin())->isZero();
 
-    Type *SubscriptResultType = Ref->getSrcType();
+  // Determine resulting type of the subscript instruction
+  //
+  // Example: float a[1024];
+  //
+  // @a[0][i] will be decomposed as -
+  // float* %vp = subscript [1024 x float]* %a, i64 0, i64 %i
+  //
+  // Here -
+  // SubscriptResultType = float*
+  //
+  // NOTE: Type information about pointer type or pointer element type can be
+  // retrieved anytime from the pointer operand of subscript instruction.
+  //
+  Type *SubscriptResultType = Ref->getSrcType();
 
-    // For store/load references we need to convert to PointerType
-    if (!Ref->isAddressOf())
-      SubscriptResultType =
-          PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
+  // For store/load references we need to convert to PointerType
+  if (!Ref->isAddressOf())
+    SubscriptResultType =
+        PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
 
-    SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
+  SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
+  if (!SkipDims) {
     for (unsigned I = NumDims; I > 0; --I) {
       VPValue *DecompLower = decomposeCanonExpr(Ref, Ref->getDimensionLower(I));
       VPValue *DecompStride =
@@ -638,11 +634,11 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                               Ref->getDimensionType(I),
                               Ref->getDimensionElementType(I), HIRDimOffsets);
     }
-    auto *Subscript = Builder.create<VPSubscriptInst>(
-        "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
-    Subscript->setIsInBounds(Ref->isInBounds());
-    MemOpVPI = Subscript;
   }
+  auto *Subscript = Builder.create<VPSubscriptInst>(
+      "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
+  Subscript->setIsInBounds(Ref->isInBounds());
+  MemOpVPI = Subscript;
 
   // Create a bitcast instruction if needed
   auto *BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();

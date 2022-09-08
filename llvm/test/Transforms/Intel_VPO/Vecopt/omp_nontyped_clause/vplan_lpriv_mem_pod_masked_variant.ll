@@ -85,7 +85,8 @@ define i32 @main() {
 ; HIR:       VPlan after emitting masked variant
 ; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
 ; HIR:          [DA: Div] i32* [[VP5:%.*]] = allocate-priv i32*, OrigAlign = 4
-; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP5]]
+; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP5]]
+; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR:          [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP5]]
 ; HIR-NEXT:     [DA: Uni] i32 [[VP16:%.*]] = private-final-masked-mem i32 [[VP15]] i1 [[VP10:%.*]]
 ; HIR-NEXT:     [DA: Uni] store i32 [[VP16]] i32* [[X0]]
@@ -104,7 +105,8 @@ define i32 @main() {
 ;
 ; HIR:            [DA: Div] i1 [[VP19:%.*]] = block-predicate i1 [[VP10]]
 ; HIR-NEXT:       [DA: Div] i32 [[VP11]] = add i32 [[VP8]] i32 1
-; HIR-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP5]]
+; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2]] = subscript inbounds i32* [[VP5]]
+; HIR-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:       [DA: Uni] br new_latch
 ;
 ; HIR:           new_latch:

@@ -13,7 +13,7 @@ define dso_local void @foo(i32* nocapture noalias readonly %ptr1,
 ; CHECK:    Cost 2 for i32 [[VP_LOAD:%.*]] = load i32* [[PTR10:%.*]]
 ; TODO: the second load is not broadcast but CM doesn't check SVA yet.
 ; The cost should be 1 for this load when CM is fixed.
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_1:%.*]] = load i32* [[PTR20:%.*]]
+; CHECK:    Cost 2 for i32 [[VP_LOAD_1:%.*]] = load i32* [[PTR20:%.*]]
 ; CHECK:    Cost 2 for store i32 [[VP_LOAD_1]] i32* [[PTR40:%.*]]
 ; CHECK:    Cost 2 for store i32 [[VP4:%.*]] i32* [[PTR30:%.*]]
 ;

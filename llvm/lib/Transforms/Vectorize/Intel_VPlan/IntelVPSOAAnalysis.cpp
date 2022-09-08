@@ -155,6 +155,9 @@ bool VPSOAAnalysis::isSafeGEPInst(const VPGEPInstruction *VPGEP,
 bool VPSOAAnalysis::isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
                                           Type *AllocatedType,
                                           Type *PrivElemSize) const {
+  if (isSelfAddressOfInst(VPS))
+    return true;
+
   // For supported privates we should have 2-dim VPSubscript.
   if (VPS->getNumDimensions() != 2)
     return false;

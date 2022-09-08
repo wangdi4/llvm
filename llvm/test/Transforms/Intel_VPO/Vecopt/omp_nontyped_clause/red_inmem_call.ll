@@ -41,7 +41,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; HIR-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
-; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[VP_S_RED]]
+; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_SUBSCRIPT]] i32 (i32*)* @_Z3gooRi
 ; HIR-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; HIR-NEXT:     i1 [[VP3:%.*]] = icmp slt i64 [[VP2]] i64 1025
 ; HIR-NEXT:     br i1 [[VP3]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -67,7 +68,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1025 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
