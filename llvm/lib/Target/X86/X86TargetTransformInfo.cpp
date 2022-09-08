@@ -367,10 +367,10 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   }
 
   static const CostKindTblEntry GLMCostTable[] = {
-    { ISD::FDIV,  MVT::f32,   { 18 } }, // divss
-    { ISD::FDIV,  MVT::v4f32, { 35 } }, // divps
-    { ISD::FDIV,  MVT::f64,   { 33 } }, // divsd
-    { ISD::FDIV,  MVT::v2f64, { 65 } }, // divpd
+    { ISD::FDIV,  MVT::f32,   { 18, 19, 1, 1 } }, // divss
+    { ISD::FDIV,  MVT::v4f32, { 35, 36, 1, 1 } }, // divps
+    { ISD::FDIV,  MVT::f64,   { 33, 34, 1, 1 } }, // divsd
+    { ISD::FDIV,  MVT::v2f64, { 65, 66, 1, 1 } }, // divpd
   };
 
   if (ST->useGLMDivSqrtCosts())
@@ -402,13 +402,14 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
   static const CostKindTblEntry SLMCostTable[] = {
     { ISD::MUL,   MVT::v4i32, { 11 } }, // pmulld
     { ISD::MUL,   MVT::v8i16, { 2  } }, // pmullw
-    { ISD::FMUL,  MVT::f64,   { 2  } }, // mulsd
-    { ISD::FMUL,  MVT::v2f64, { 4  } }, // mulpd
-    { ISD::FMUL,  MVT::v4f32, { 2  } }, // mulps
-    { ISD::FDIV,  MVT::f32,   { 17 } }, // divss
-    { ISD::FDIV,  MVT::v4f32, { 39 } }, // divps
-    { ISD::FDIV,  MVT::f64,   { 32 } }, // divsd
-    { ISD::FDIV,  MVT::v2f64, { 69 } }, // divpd
+    { ISD::FMUL,  MVT::f64,   {  2,  5, 1, 1 } }, // mulsd
+    { ISD::FMUL,  MVT::f32,   {  1,  4, 1, 1 } }, // mulss
+    { ISD::FMUL,  MVT::v2f64, {  4,  7, 1, 1 } }, // mulpd
+    { ISD::FMUL,  MVT::v4f32, {  2,  5, 1, 1 } }, // mulps
+    { ISD::FDIV,  MVT::f32,   { 17, 19, 1, 1 } }, // divss
+    { ISD::FDIV,  MVT::v4f32, { 39, 39, 1, 6 } }, // divps
+    { ISD::FDIV,  MVT::f64,   { 32, 34, 1, 1 } }, // divsd
+    { ISD::FDIV,  MVT::v2f64, { 69, 69, 1, 6 } }, // divpd
     { ISD::FADD,  MVT::v2f64, {  2,  4, 1, 1 } }, // addpd
     { ISD::FSUB,  MVT::v2f64, {  2,  4, 1, 1 } }, // subpd
     // v2i64/v4i64 mul is custom lowered as a series of long:
@@ -803,22 +804,30 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FADD,    MVT::v4f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v8f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v4f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
-    { ISD::FMUL,    MVT::v8f64,   {  1 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::f64,     {  4 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v2f64,   {  4 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v4f64,   {  8 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v8f64,   { 16 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v8f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v4f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v2f64,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::f64,     {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+
+    { ISD::FDIV,    MVT::f64,     {  4, 14, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v2f64,   {  4, 14, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f64,   {  8, 14, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v8f64,   { 16, 23, 1, 3 } }, // Skylake from http://www.agner.org/
 
     { ISD::FNEG,    MVT::v16f32,  {  1,  1, 1, 2 } }, // Skylake from http://www.agner.org/
     { ISD::FADD,    MVT::v16f32,  {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
     { ISD::FADD,    MVT::v8f32,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v16f32,  {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v8f32,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
-    { ISD::FMUL,    MVT::v16f32,  {  1 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::f32,     {  3 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v4f32,   {  3 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v8f32,   {  5 } }, // Skylake from http://www.agner.org/
-    { ISD::FDIV,    MVT::v16f32,  { 10 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v16f32,  {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v8f32,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::v4f32,   {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FMUL,    MVT::f32,     {  1,  4, 1, 1 } }, // Skylake from http://www.agner.org/
+
+    { ISD::FDIV,    MVT::f32,     {  3, 11, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f32,   {  3, 11, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v8f32,   {  5, 11, 1, 1 } }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v16f32,  { 10, 18, 1, 3 } }, // Skylake from http://www.agner.org/
   };
 
   if (ST->hasAVX512())
@@ -1000,17 +1009,19 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FSUB, MVT::v4f64,   {  1,  4, 1, 2 } }, // vsubpd
     { ISD::FSUB, MVT::v8f32,   {  1,  4, 1, 2 } }, // vsubps
 
-    { ISD::FMUL, MVT::f64,     {  1 } }, // Haswell from http://www.agner.org/
-    { ISD::FMUL, MVT::v2f64,   {  1 } }, // Haswell from http://www.agner.org/
-    { ISD::FMUL, MVT::v4f64,   {  1 } }, // Haswell from http://www.agner.org/
-    { ISD::FMUL, MVT::v8f32,   {  1 } }, // Haswell from http://www.agner.org/
+    { ISD::FMUL, MVT::f64,     {  1,  5, 1, 1 } }, // vmulsd
+    { ISD::FMUL, MVT::f32,     {  1,  5, 1, 1 } }, // vmulss
+    { ISD::FMUL, MVT::v2f64,   {  1,  5, 1, 1 } }, // vmulpd
+    { ISD::FMUL, MVT::v4f32,   {  1,  5, 1, 1 } }, // vmulps
+    { ISD::FMUL, MVT::v4f64,   {  1,  5, 1, 2 } }, // vmulpd
+    { ISD::FMUL, MVT::v8f32,   {  1,  5, 1, 2 } }, // vmulps
 
-    { ISD::FDIV, MVT::f32,     {  7 } }, // Haswell from http://www.agner.org/
-    { ISD::FDIV, MVT::v4f32,   {  7 } }, // Haswell from http://www.agner.org/
-    { ISD::FDIV, MVT::v8f32,   { 14 } }, // Haswell from http://www.agner.org/
-    { ISD::FDIV, MVT::f64,     { 14 } }, // Haswell from http://www.agner.org/
-    { ISD::FDIV, MVT::v2f64,   { 14 } }, // Haswell from http://www.agner.org/
-    { ISD::FDIV, MVT::v4f64,   { 28 } }, // Haswell from http://www.agner.org/
+    { ISD::FDIV, MVT::f32,     {  7, 13, 1, 1 } }, // vdivss
+    { ISD::FDIV, MVT::v4f32,   {  7, 13, 1, 1 } }, // vdivps
+    { ISD::FDIV, MVT::v8f32,   { 14, 21, 1, 3 } }, // vdivps
+    { ISD::FDIV, MVT::f64,     { 14, 20, 1, 1 } }, // vdivsd
+    { ISD::FDIV, MVT::v2f64,   { 14, 20, 1, 1 } }, // vdivpd
+    { ISD::FDIV, MVT::v4f64,   { 28, 35, 1, 3 } }, // vdivpd
   };
 
   // Look for AVX2 lowering tricks for custom cases.
@@ -1090,16 +1101,19 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FSUB,    MVT::v4f64,   {  2,  5, 1, 2 } }, // BDVER2 from http://www.agner.org/
     { ISD::FSUB,    MVT::v8f32,   {  2,  5, 1, 2 } }, // BDVER2 from http://www.agner.org/
 
-    { ISD::FMUL,    MVT::f64,     {  2 } }, // BTVER2 from http://www.agner.org/
-    { ISD::FMUL,    MVT::v2f64,   {  2 } }, // BTVER2 from http://www.agner.org/
-    { ISD::FMUL,    MVT::v4f64,   {  4 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::f64,     {  2,  5, 1, 1 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::f32,     {  1,  5, 1, 1 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::v2f64,   {  2,  5, 1, 1 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::v4f32,   {  1,  5, 1, 1 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::v4f64,   {  4,  5, 1, 2 } }, // BTVER2 from http://www.agner.org/
+    { ISD::FMUL,    MVT::v8f32,   {  2,  5, 1, 2 } }, // BTVER2 from http://www.agner.org/
 
-    { ISD::FDIV,    MVT::f32,     { 14 } }, // SNB from http://www.agner.org/
-    { ISD::FDIV,    MVT::v4f32,   { 14 } }, // SNB from http://www.agner.org/
-    { ISD::FDIV,    MVT::v8f32,   { 28 } }, // SNB from http://www.agner.org/
-    { ISD::FDIV,    MVT::f64,     { 22 } }, // SNB from http://www.agner.org/
-    { ISD::FDIV,    MVT::v2f64,   { 22 } }, // SNB from http://www.agner.org/
-    { ISD::FDIV,    MVT::v4f64,   { 44 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::f32,     { 14, 14, 1, 1 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f32,   { 14, 14, 1, 1 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::v8f32,   { 28, 29, 1, 3 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::f64,     { 22, 22, 1, 1 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::v2f64,   { 22, 22, 1, 1 } }, // SNB from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f64,   { 44, 45, 1, 3 } }, // SNB from http://www.agner.org/
   };
 
   if (ST->hasAVX())
@@ -1118,15 +1132,15 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FSUB, MVT::v2f64,  {  1,  3, 1, 1 } }, // Nehalem from http://www.agner.org/
     { ISD::FSUB, MVT::v4f32,  {  1,  3, 1, 1 } }, // Nehalem from http://www.agner.org/
 
-    { ISD::FMUL, MVT::f64,    {  1 } }, // Nehalem from http://www.agner.org/
-    { ISD::FMUL, MVT::f32,    {  1 } }, // Nehalem from http://www.agner.org/
-    { ISD::FMUL, MVT::v2f64,  {  1 } }, // Nehalem from http://www.agner.org/
-    { ISD::FMUL, MVT::v4f32,  {  1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FMUL, MVT::f64,    {  1,  5, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FMUL, MVT::f32,    {  1,  5, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FMUL, MVT::v2f64,  {  1,  5, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FMUL, MVT::v4f32,  {  1,  5, 1, 1 } }, // Nehalem from http://www.agner.org/
 
-    { ISD::FDIV,  MVT::f32,   { 14 } }, // Nehalem from http://www.agner.org/
-    { ISD::FDIV,  MVT::v4f32, { 14 } }, // Nehalem from http://www.agner.org/
-    { ISD::FDIV,  MVT::f64,   { 22 } }, // Nehalem from http://www.agner.org/
-    { ISD::FDIV,  MVT::v2f64, { 22 } }, // Nehalem from http://www.agner.org/
+    { ISD::FDIV,  MVT::f32,   { 14, 14, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FDIV,  MVT::v4f32, { 14, 14, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FDIV,  MVT::f64,   { 22, 22, 1, 1 } }, // Nehalem from http://www.agner.org/
+    { ISD::FDIV,  MVT::v2f64, { 22, 22, 1, 1 } }, // Nehalem from http://www.agner.org/
 
     { ISD::MUL,   MVT::v2i64, {  6 } }  // 3*pmuludq/3*shift/2*add
   };
@@ -1194,10 +1208,10 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::MUL,  MVT::v4i32,  {  6 } }, // 3*pmuludq/4*shuffle
     { ISD::MUL,  MVT::v2i64,  {  8 } }, // 3*pmuludq/3*shift/2*add
 
-    { ISD::FDIV, MVT::f32,    { 23 } }, // Pentium IV from http://www.agner.org/
-    { ISD::FDIV, MVT::v4f32,  { 39 } }, // Pentium IV from http://www.agner.org/
-    { ISD::FDIV, MVT::f64,    { 38 } }, // Pentium IV from http://www.agner.org/
-    { ISD::FDIV, MVT::v2f64,  { 69 } }, // Pentium IV from http://www.agner.org/
+    { ISD::FDIV, MVT::f32,    { 23, 23, 1, 1 } }, // Pentium IV from http://www.agner.org/
+    { ISD::FDIV, MVT::v4f32,  { 39, 39, 1, 1 } }, // Pentium IV from http://www.agner.org/
+    { ISD::FDIV, MVT::f64,    { 38, 38, 1, 1 } }, // Pentium IV from http://www.agner.org/
+    { ISD::FDIV, MVT::v2f64,  { 69, 69, 1, 1 } }, // Pentium IV from http://www.agner.org/
 
     { ISD::FNEG, MVT::f32,    {  1,  1, 1, 1 } }, // Pentium IV from http://www.agner.org/
     { ISD::FNEG, MVT::f64,    {  1,  1, 1, 1 } }, // Pentium IV from http://www.agner.org/
@@ -1211,6 +1225,9 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FSUB, MVT::f32,    {  2,  3, 1, 1 } }, // Pentium IV from http://www.agner.org/
     { ISD::FSUB, MVT::f64,    {  2,  3, 1, 1 } }, // Pentium IV from http://www.agner.org/
     { ISD::FSUB, MVT::v2f64,  {  2,  3, 1, 1 } }, // Pentium IV from http://www.agner.org/
+
+    { ISD::FMUL, MVT::f64,    {  2,  5, 1, 1 } }, // Pentium IV from http://www.agner.org/
+    { ISD::FMUL, MVT::v2f64,  {  2,  5, 1, 1 } }, // Pentium IV from http://www.agner.org/
   };
 
   if (ST->hasSSE2())
@@ -1219,8 +1236,8 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
         return LT.first * KindCost.value();
 
   static const CostKindTblEntry SSE1CostTable[] = {
-    { ISD::FDIV, MVT::f32,   { 17 } }, // Pentium III from http://www.agner.org/
-    { ISD::FDIV, MVT::v4f32, { 34 } }, // Pentium III from http://www.agner.org/
+    { ISD::FDIV, MVT::f32,   { 17, 18, 1, 1 } }, // Pentium III from http://www.agner.org/
+    { ISD::FDIV, MVT::v4f32, { 34, 48, 1, 1 } }, // Pentium III from http://www.agner.org/
 
     { ISD::FNEG, MVT::f32,   {  2,  2, 1, 2 } }, // Pentium III from http://www.agner.org/
     { ISD::FNEG, MVT::v4f32, {  2,  2, 1, 2 } }, // Pentium III from http://www.agner.org/
@@ -1230,6 +1247,9 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
 
     { ISD::FSUB, MVT::f32,   {  1,  3, 1, 1 } }, // Pentium III from http://www.agner.org/
     { ISD::FSUB, MVT::v4f32, {  2,  3, 1, 1 } }, // Pentium III from http://www.agner.org/
+
+    { ISD::FMUL, MVT::f32,   {  2,  5, 1, 1 } }, // Pentium III from http://www.agner.org/
+    { ISD::FMUL, MVT::v4f32, {  2,  5, 1, 1 } }, // Pentium III from http://www.agner.org/
   };
 
   if (ST->hasSSE1())
@@ -1257,14 +1277,11 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::SUB,  MVT::i16, {  1 } }, // Pentium III from http://www.agner.org/
     { ISD::SUB,  MVT::i32, {  1 } }, // Pentium III from http://www.agner.org/
 
-    { ISD::FNEG, MVT::f32, {  2,  2, 1, 3 } }, // (x87)
     { ISD::FNEG, MVT::f64, {  2,  2, 1, 3 } }, // (x87)
-
-    { ISD::FADD, MVT::f32, {  2,  3, 1, 1 } }, // (x87)
     { ISD::FADD, MVT::f64, {  2,  3, 1, 1 } }, // (x87)
-
-    { ISD::FSUB, MVT::f32, {  2,  3, 1, 1 } }, // (x87)
     { ISD::FSUB, MVT::f64, {  2,  3, 1, 1 } }, // (x87)
+    { ISD::FMUL, MVT::f64, {  2,  5, 1, 1 } }, // (x87)
+    { ISD::FDIV, MVT::f64, { 38, 38, 1, 1 } }, // (x87)
   };
 
   if (const auto *Entry = CostTableLookup(X86CostTbl, ISD, LT.second))
@@ -6455,6 +6472,15 @@ bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
 bool X86TTIImpl::hasDivRemOp(Type *DataType, bool IsSigned) {
   EVT VT = TLI->getValueType(DL, DataType);
   return TLI->isOperationLegal(IsSigned ? ISD::SDIVREM : ISD::UDIVREM, VT);
+}
+
+bool X86TTIImpl::isExpensiveToSpeculativelyExecute(const Instruction* I) {
+  // FDIV is always expensive, even if it has a very low uop count.
+  // TODO: Still necessary for recent CPUs with low latency/throughput fdiv?
+  if (I->getOpcode() == Instruction::FDiv)
+    return true;
+
+  return BaseT::isExpensiveToSpeculativelyExecute(I);
 }
 
 bool X86TTIImpl::isFCmpOrdCheaperThanFCmpZero(Type *Ty) {
