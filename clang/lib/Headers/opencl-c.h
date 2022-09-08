@@ -12401,12 +12401,7 @@ void __ovld vstorea_half16_rtn(double16, size_t, __private half *);
  * is committed to the shared memory buffer.
  */
 
-<<<<<<< HEAD
-
-void __ovld __conv barrier(cl_mem_fence_flags flags);
-=======
 void __ovld __conv barrier(cl_mem_fence_flags);
->>>>>>> f2c17a130a27cadd9d204bef09fd4ad64518c9da
 
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 void __ovld __conv work_group_barrier(cl_mem_fence_flags, memory_scope);
