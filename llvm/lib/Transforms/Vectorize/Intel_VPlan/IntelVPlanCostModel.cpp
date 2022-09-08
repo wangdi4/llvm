@@ -1217,16 +1217,11 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       // TODO: GEP is to be modelled once supported in TTI.
       if (!IsPtr)
         Cost += TTI.getArithmeticInstrCost(
-<<<<<<< HEAD
             Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
             {IndInitVK, TargetTransformInfo::OP_None},
             {MultVK, TargetTransformInfo::OP_None});
-=======
-          Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
-          IndInitVK, MultVK);
     return Cost;
   }
->>>>>>> cd7bc1dcb79984a0a4dacf918d8c88408856c6cd
 
   case VPInstruction::ReductionInit: {
     VectorType *VTy = getWidenedType(VPInst->getType(), VF);
