@@ -67,9 +67,13 @@ LLVM_FIXED_MD_KIND(MD_exclude, "exclude", 33)
 LLVM_FIXED_MD_KIND(MD_memprof, "memprof", 34)
 LLVM_FIXED_MD_KIND(MD_callsite, "callsite", 35)
 LLVM_FIXED_MD_KIND(MD_kcfi_type, "kcfi_type", 36)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 37)
 LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 38)
 LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 39)
 LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 40)
 #endif
+=======
+LLVM_FIXED_MD_KIND(MD_pcsections, "pcsections", 37)
+>>>>>>> c70f6e1362e38f36dceca0342490d659aa45a1a5
