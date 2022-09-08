@@ -320,6 +320,8 @@ public:
 
   bool enableOrderedReductions() const { return true; }
 
+  unsigned maxLegalDivRemBitWidth() const { return 128; }
+
   InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,

@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=aarch64-linux-gnuabi < %s | FileCheck %s
+; RUN: llc -mtriple=arm-eabi < %s | FileCheck %s
 
 define i65 @udiv65(i65 %a, i65 %b) nounwind {
 ; CHECK-LABEL: udiv65:

@@ -6234,6 +6234,10 @@ bool X86TTIImpl::hasDivRemOp(Type *DataType, bool IsSigned) {
   return TLI->isOperationLegal(IsSigned ? ISD::SDIVREM : ISD::UDIVREM, VT);
 }
 
+unsigned X86TTIImpl::maxLegalDivRemBitWidth() const {
+  return ST->is64Bit() ? 128 : 64;
+}
+
 bool X86TTIImpl::isFCmpOrdCheaperThanFCmpZero(Type *Ty) {
   return false;
 }
