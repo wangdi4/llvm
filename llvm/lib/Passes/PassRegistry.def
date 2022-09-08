@@ -961,7 +961,6 @@ LOOP_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 #if INTEL_CUSTOMIZATION
 LOOP_ANALYSIS("dpcpp-kernel-loop-wi-analysis", LoopWIAnalysis())
 #endif // INTEL_CUSTOMIZATION
-LOOP_ANALYSIS("loop-nest", LoopNestAnalysis())
 #undef LOOP_ANALYSIS
 
 #ifndef LOOP_PASS
