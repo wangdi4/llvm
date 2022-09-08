@@ -78,6 +78,12 @@ bool forcePrintModuleIR();
 std::vector<std::string> printBeforePasses();
 std::vector<std::string> printAfterPasses();
 
+// Returns true if we should always print the entire module.
+bool forcePrintModuleIR();
+
+// Return true if -filter-passes is empty or contains the pass name.
+bool isPassInPrintList(StringRef PassName);
+
 // Returns true if we should print the function.
 bool isFunctionInPrintList(StringRef FunctionName);
 
