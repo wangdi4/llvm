@@ -4193,6 +4193,7 @@ bool InnerLoopVectorizer::useOrderedReductions(
   return Cost->useOrderedReductions(RdxDesc);
 }
 
+<<<<<<< HEAD
 void InnerLoopVectorizer::widenCallInstruction(
     CallInst &CI, VPValue *Def, VPUser &ArgOperands, VPTransformState &State,
     Intrinsic::ID VectorIntrinsicID) {
@@ -4257,6 +4258,8 @@ void InnerLoopVectorizer::widenCallInstruction(
   }
 }
 
+=======
+>>>>>>> 408ebe5e3aae3cfa1e960f74998b02e277591663
 void LoopVectorizationCostModel::collectLoopScalars(ElementCount VF) {
   // We should not collect Scalars more than once per VF. Right now, this
   // function is called from collectUniformsAndScalars(), which already does
@@ -9405,11 +9408,6 @@ void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
   }
 }
 #endif
-
-void VPWidenCallRecipe::execute(VPTransformState &State) {
-  State.ILV->widenCallInstruction(*cast<CallInst>(getUnderlyingInstr()), this,
-                                  *this, State, VectorIntrinsicID);
-}
 
 void VPWidenIntOrFpInductionRecipe::execute(VPTransformState &State) {
   assert(!State.Instance && "Int or FP induction being replicated.");
