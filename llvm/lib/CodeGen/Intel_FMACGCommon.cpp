@@ -946,7 +946,8 @@ bool GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB) {
     LLVM_DEBUG(FMADbg::dbgs() << "\n");
   }
 
-  FMABB.setIsKilledAttributeForTerms();
+  MachineRegisterInfo *MRI = &(FMABB.getMBB().getParent()->getRegInfo());
+  FMABB.updateIsKilledAttributeForTerms(MRI);
 
   LLVM_DEBUG(FMADbg::dbgs() << "\nFMA-STEP3 IS DONE. Machine basic block IS "
                             << (EverMadeChangeInBB ? "" : "NOT ")

@@ -974,17 +974,17 @@ public:
   /// having uses that are not recognized as FMAExpr operations.
   unsigned parseBasicBlock(MachineRegisterInfo *MRI);
 
-  /// Sets the <isKill> attribute to machine operands associated with the
+  /// Updates the <isKill> attribute to machine operands associated with the
   /// last uses of terms.
-  void setIsKilledAttributeForTerms() override {
+  void updateIsKilledAttributeForTerms(MachineRegisterInfo *MRI) override {
     for (auto &T : RegisterToFMARegisterTerm)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : MIToFMAMemoryTerm)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : ZeroTerms)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
     for (auto &T : OneTerms)
-      T.second->setIsKilledAttribute();
+      T.second->updateIsKilledAttribute(MRI);
   }
 
   /// Prints the basic block to the given stream \p OS.

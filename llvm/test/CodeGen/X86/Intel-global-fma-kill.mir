@@ -1,0 +1,145 @@
+# RUN: llc -o - %s -mtriple=x86_64-- -run-pass=global-fma --verify-machineinstrs | FileCheck %s
+
+--- |
+  declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
+
+  declare double @llvm.exp.f64(double) #1
+
+  define void @widget(double %arg, <8 x double> %arg1, <8 x double> %arg2, <8 x double> %arg3, <8 x double> %arg4, <8 x double> %arg5, <8 x double> %arg6, <8 x double> %arg7, <8 x double> %arg8, <8 x double> %arg9, <8 x double> %arg10, <8 x double> %arg11, <8 x double> %arg12, <8 x double> %arg13, <8 x double> %arg14, <8 x double> %arg15, <8 x double> %arg16, <8 x double> %arg17, <8 x double> %arg18, <8 x double> %arg19, <8 x double> %arg20, <8 x double> %arg21, <8 x double> %arg22, <8 x double> %arg23, <8 x double> %arg24, <8 x double> %arg25, <8 x double> %arg26, <8 x double> %arg27, <8 x double> %arg28, <8 x double> %arg29, <8 x double> %arg30, <8 x double> %arg31, <8 x double> %arg32, <8 x double> %arg33, <8 x double> %arg34, <8 x double> %arg35, <8 x double> %arg36, <8 x double> %arg37, <8 x double> %arg38, <8 x double> %arg39, <8 x double> %arg40, <8 x double> %arg41, <8 x double> %arg42, <8 x double> %arg43, <8 x double> %arg44, <8 x double> %arg45, <8 x double> %arg46, <8 x double> %arg47, <8 x double> %arg48, <8 x double> %arg49, <8 x double> %arg50, <8 x double> %arg51, <8 x double> %arg52, <8 x double> %arg53, <8 x double> %arg54, <8 x double> %arg55, <8 x double> %arg56, <8 x double> %arg57, <8 x double> %arg58, <8 x double> %arg59, <8 x double> %arg60, <8 x double> %arg61, <8 x double> %arg62, <8 x double> %arg63, <8 x double> %arg64, <8 x double> %arg65, <8 x double> %arg66, <8 x double> %arg67, <8 x double> %arg68, <8 x double> %arg69, <8 x double> %arg70, <8 x double> %arg71, <8 x double> %arg72, <8 x double> %arg73, <8 x double> %arg74, <8 x double> %arg75, <8 x double> %arg76, <8 x double> %arg77, <8 x double> %arg78, <8 x double> %arg79, <8 x double> %arg80, <8 x double> %arg81, <8 x double> %arg82) #2 {
+  bb:
+    ret void
+  bb107:
+    ret void
+  bb3734:
+    ret void
+  }
+  
+  declare i64 @llvm.smin.i64(i64, i64) #1
+  
+  declare void @llvm.prefetch.p0i8(i8* nocapture readonly, i32 immarg, i32 immarg, i32) #3
+  
+  attributes #0 = { argmemonly nocallback nofree nounwind willreturn writeonly }
+  attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
+  attributes #2 = { "target-cpu"="skylake-avx512" }
+  attributes #3 = { inaccessiblemem_or_argmemonly nocallback nofree nosync nounwind willreturn }
+
+...
+---
+name:            widget
+alignment:       16
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+hasWinCFI:       false
+callsEHReturn:   false
+callsUnwindInit: false
+hasEHCatchret:   false
+hasEHScopes:     false
+hasEHFunclets:   false
+failsVerification: false
+tracksDebugUserValues: false
+registers:
+  - { id: 0, class: fr64x, preferred-register: '' }
+  - { id: 1, class: vr512, preferred-register: '' }
+  - { id: 2, class: vr512, preferred-register: '' }
+  - { id: 3, class: vr512, preferred-register: '' }
+  - { id: 4, class: vr512, preferred-register: '' }
+  - { id: 5, class: vr512, preferred-register: '' }
+  - { id: 6, class: vr512, preferred-register: '' }
+  - { id: 7, class: vr512, preferred-register: '' }
+  - { id: 8, class: gr32, preferred-register: '' }
+  - { id: 9, class: gr8, preferred-register: '' }
+  - { id: 10, class: vr512, preferred-register: '' }
+  - { id: 11, class: vr128x, preferred-register: '' }
+  - { id: 12, class: vr512, preferred-register: '' }
+  - { id: 13, class: vr512, preferred-register: '' }
+  - { id: 14, class: gr64, preferred-register: '' }
+  - { id: 15, class: vr512, preferred-register: '' }
+  - { id: 16, class: vr512, preferred-register: '' }
+  - { id: 17, class: vr512, preferred-register: '' }
+  - { id: 18, class: vr512, preferred-register: '' }
+  - { id: 19, class: vr512, preferred-register: '' }
+  - { id: 20, class: vr512, preferred-register: '' }
+  - { id: 21, class: vr512, preferred-register: '' }
+  - { id: 22, class: vr512, preferred-register: '' }
+  - { id: 23, class: gr64, preferred-register: '' }
+liveins:
+  - { reg: '$zmm1', virtual-reg: '%1' }
+frameInfo:
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    64
+  adjustsStack:    false
+  hasCalls:        true
+  stackProtector:  ''
+  functionContext: ''
+  maxCallFrameSize: 4294967295
+  cvBytesOfCalleeSavedRegisters: 0
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  hasTailCall:     false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+stack:           []
+callSites:       []
+debugValueSubstitutions: []
+constants:
+  - id:              0
+    value:           'double 6.000000e+00'
+    alignment:       8
+    isTargetSpecific: false
+machineFunctionInfo: {}
+body:             |
+  bb.0.bb:
+    successors: %bb.3(0x40000000), %bb.2(0x40000000)
+    liveins: $zmm1
+  
+    %1:vr512 = COPY $zmm1
+    %8:gr32 = MOV32r0 implicit-def dead $eflags
+    %9:gr8 = COPY %8.sub_8bit
+    TEST8rr %9, %9, implicit-def $eflags
+    JCC_1 %bb.2, 5, implicit $eflags
+    JMP_1 %bb.3
+  
+  bb.2.bb107:
+    successors: %bb.3(0x80000000)
+  
+    ; CHECK: %13:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr %1, %12, implicit $mxcsr
+    ; CHECK: %25:vr512 = nofpexcept VFMADD213PDZr %10, killed %12, %17, implicit $mxcsr
+    %10:vr512 = AVX512_512_SET0
+    %11:vr128x = COPY %1.sub_xmm
+    %12:vr512 = VBROADCASTSDZrr killed %11
+    %13:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr %1, killed %12, implicit $mxcsr
+    ADJCALLSTACKDOWN64 0, 0, 0, implicit-def dead $rsp, implicit-def dead $eflags, implicit-def dead $ssp, implicit $rsp, implicit $ssp
+    $zmm0 = COPY %10
+    %14:gr64 = IMPLICIT_DEF
+    CALL64r %14, CustomRegMask($bh,$bl,$bp,$bph,$bpl,$bx,$di,$dih,$dil,$ebp,$ebx,$edi,$esi,$hbp,$hbx,$hdi,$hsi,$rbp,$rbx,$rdi,$rsi,$si,$sih,$sil,$r12,$r13,$r14,$r15,$xmm8,$xmm9,$xmm10,$xmm11,$xmm12,$xmm13,$xmm14,$xmm15,$r12b,$r13b,$r14b,$r15b,$r12bh,$r13bh,$r14bh,$r15bh,$r12d,$r13d,$r14d,$r15d,$r12w,$r13w,$r14w,$r15w,$r12wh,$r13wh,$r14wh,$r15wh), implicit $rsp, implicit $ssp, implicit $zmm0, implicit-def $rsp, implicit-def $ssp, implicit-def $zmm0
+    ADJCALLSTACKUP64 0, 0, implicit-def dead $rsp, implicit-def dead $eflags, implicit-def dead $ssp, implicit $rsp, implicit $ssp
+    %16:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr %1, %13, implicit $mxcsr
+    %17:vr512 = VBROADCASTSDZrm $rip, 1, $noreg, %const.0, $noreg :: (load (s64) from constant-pool)
+    %18:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr %1, %17, implicit $mxcsr
+    %19:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFNMADD213PDZr %17, %13, %1, implicit $mxcsr
+    %20:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PDZr %10, %13, killed %18, implicit $mxcsr
+    %21:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr killed %20, %1, implicit $mxcsr
+    %22:vr512 = nofpexcept VFNMADD213PDZr %1, killed %19, killed %21, implicit $mxcsr
+    VMOVUPDZmr $noreg, 1, $noreg, 0, $noreg, killed %16 :: (store (s512) into `<8 x double>* null`, align 8)
+    %23:gr64 = IMPLICIT_DEF
+    VMOVUPDZmr %23, 1, $noreg, 0, $noreg, killed %22 :: (store (s512) into `<8 x double>* undef`, align 8)
+    VMOVUPDZmr $noreg, 1, $noreg, 0, $noreg, %10 :: (store (s512) into `<8 x double>* null`, align 8)
+  
+  bb.3.bb3734:
+    successors: %bb.3(0x80000000)
+  
+    MOV64mi32 $noreg, 1, $noreg, 0, $noreg, 0 :: (store (s64) into `double* null`)
+    JMP_1 %bb.3
+
+...
