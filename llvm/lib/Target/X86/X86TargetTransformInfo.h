@@ -332,11 +332,8 @@ public:
   bool isLegalAltInstr(VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
                        const SmallBitVector &OpcodeMask) const;
   bool hasDivRemOp(Type *DataType, bool IsSigned);
-<<<<<<< HEAD
   bool isExpensiveToSpeculativelyExecute(const Instruction *I);
-=======
   unsigned maxLegalDivRemBitWidth() const;
->>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;

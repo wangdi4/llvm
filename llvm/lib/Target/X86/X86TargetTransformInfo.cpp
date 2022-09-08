@@ -6539,7 +6539,6 @@ bool X86TTIImpl::hasDivRemOp(Type *DataType, bool IsSigned) {
   return TLI->isOperationLegal(IsSigned ? ISD::SDIVREM : ISD::UDIVREM, VT);
 }
 
-<<<<<<< HEAD
 bool X86TTIImpl::isExpensiveToSpeculativelyExecute(const Instruction* I) {
   // FDIV is always expensive, even if it has a very low uop count.
   // TODO: Still necessary for recent CPUs with low latency/throughput fdiv?
@@ -6547,10 +6546,10 @@ bool X86TTIImpl::isExpensiveToSpeculativelyExecute(const Instruction* I) {
     return true;
 
   return BaseT::isExpensiveToSpeculativelyExecute(I);
-=======
+}
+
 unsigned X86TTIImpl::maxLegalDivRemBitWidth() const {
   return ST->is64Bit() ? 128 : 64;
->>>>>>> 4b4e6d8bada98270cb94509d9f04acc7d6f4a0a8
 }
 
 bool X86TTIImpl::isFCmpOrdCheaperThanFCmpZero(Type *Ty) {
