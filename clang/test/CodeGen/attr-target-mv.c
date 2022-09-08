@@ -18,11 +18,8 @@ int __attribute__((target("arch=tigerlake"))) foo(void) {return 9;}
 int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
-<<<<<<< HEAD
-int __attribute__((target("arch=gracemont"))) foo(void) {return 13;}  // INTEL
-=======
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
->>>>>>> 66f332bc1ac04430580a8498ab5537b392f3ea1e
+int __attribute__((target("arch=gracemont"))) foo(void) {return 14;}  // INTEL
 int __attribute__((target("default"))) foo(void) { return 2; }
 
 int bar(void) {
@@ -155,15 +152,12 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 11
 // LINUX: define{{.*}} i32 @foo.arch_rocketlake()
 // LINUX: ret i32 12
-<<<<<<< HEAD
-// if INTEL_CUSTOMIZATION
-// LINUX: define{{.*}} i32 @foo.arch_gracemont()
-// LINUX: ret i32 13
-// endif // INTEL_CUSTOMIZATION
-=======
 // LINUX: define{{.*}} i32 @foo.arch_core2()
 // LINUX: ret i32 13
->>>>>>> 66f332bc1ac04430580a8498ab5537b392f3ea1e
+// if INTEL_CUSTOMIZATION
+// LINUX: define{{.*}} i32 @foo.arch_gracemont()
+// LINUX: ret i32 14
+// endif // INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo()
 // LINUX: ret i32 2
 // LINUX: define{{.*}} i32 @bar()
@@ -193,15 +187,12 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 11
 // WINDOWS: define dso_local i32 @foo.arch_rocketlake()
 // WINDOWS: ret i32 12
-<<<<<<< HEAD
-// if INTEL_CUSTOMIZATION
-// WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
-// WINDOWS: ret i32 13
-// endif // INTEL_CUSTOMIZATION
-=======
 // WINDOWS: define dso_local i32 @foo.arch_core2()
 // WINDOWS: ret i32 13
->>>>>>> 66f332bc1ac04430580a8498ab5537b392f3ea1e
+// if INTEL_CUSTOMIZATION
+// WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
+// WINDOWS: ret i32 14
+// endif // INTEL_CUSTOMIZATION
 // WINDOWS: define dso_local i32 @foo()
 // WINDOWS: ret i32 2
 // WINDOWS: define dso_local i32 @bar()
