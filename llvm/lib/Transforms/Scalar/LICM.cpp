@@ -1987,9 +1987,14 @@ bool llvm::promoteLoopAccessesToScalars(
   // store is never executed, but the exit blocks are not executed either.
 
   bool DereferenceableInPH = false;
-  bool SafeToInsertStore = false;
   bool StoreIsGuanteedToExecute = false;
   bool FoundLoadToPromote = false;
+  // Goes from Unknown to either Safe or Unsafe, but can't switch between them.
+  enum {
+    StoreSafe,
+    StoreUnsafe,
+    StoreSafetyUnknown,
+  } StoreSafety = StoreSafetyUnknown;
 
   SmallVector<Instruction *, 64> LoopUses;
 
@@ -2011,7 +2016,7 @@ bool llvm::promoteLoopAccessesToScalars(
     // after return and thus can't possibly load from the object.
     Value *Object = getUnderlyingObject(SomePtr);
     if (!isNotVisibleOnUnwindInLoop(Object, CurLoop, DT))
-      return false;
+      StoreSafety = StoreUnsafe;
   }
 
   // Check that all accesses to pointers in the alias set use the same type.
@@ -2070,7 +2075,8 @@ bool llvm::promoteLoopAccessesToScalars(
         StoreIsGuanteedToExecute |= GuaranteedToExecute;
         if (GuaranteedToExecute) {
           DereferenceableInPH = true;
-          SafeToInsertStore = true;
+          if (StoreSafety == StoreSafetyUnknown)
+            StoreSafety = StoreSafe;
           Alignment = std::max(Alignment, InstAlignment);
         }
 
@@ -2080,10 +2086,11 @@ bool llvm::promoteLoopAccessesToScalars(
         // introducing stores on paths that did not have them.
         // Note that this only looks at explicit exit blocks. If we ever
         // start sinking stores into unwind edges (see above), this will break.
-        if (!SafeToInsertStore)
-          SafeToInsertStore = llvm::all_of(ExitBlocks, [&](BasicBlock *Exit) {
-            return DT->dominates(Store->getParent(), Exit);
-          });
+        if (StoreSafety == StoreSafetyUnknown &&
+            llvm::all_of(ExitBlocks, [&](BasicBlock *Exit) {
+              return DT->dominates(Store->getParent(), Exit);
+            }))
+          StoreSafety = StoreSafe;
 
         // If the store is not guaranteed to execute, we may still get
         // deref info through it.
@@ -2135,16 +2142,17 @@ bool llvm::promoteLoopAccessesToScalars(
   // Check whether the location is thread-local. If it is, then we can insert
   // stores along paths which originally didn't have them without violating the
   // memory model.
-  if (!SafeToInsertStore) {
+  if (StoreSafety == StoreSafetyUnknown) {
     Value *Object = getUnderlyingObject(SomePtr);
-    SafeToInsertStore =
-        (isNoAliasCall(Object) || isa<AllocaInst>(Object) ||
+    if ((isNoAliasCall(Object) || isa<AllocaInst>(Object) ||
          (isa<Argument>(Object) && cast<Argument>(Object)->hasByValAttr())) &&
-        isNotCapturedBeforeOrInLoop(Object, CurLoop, DT);
+        isNotCapturedBeforeOrInLoop(Object, CurLoop, DT))
+      StoreSafety = StoreSafe;
   }
 
   // If we've still failed to prove we can sink the store, hoist the load
   // only, if possible.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Don't promote the load without the store when AVX512 HIR is enabled,
   // it will create an extra loop carried phi, which HIR will try to break.
@@ -2157,11 +2165,14 @@ bool llvm::promoteLoopAccessesToScalars(
 
   if (!SafeToInsertStore && (!FoundLoadToPromote || NoNewLCDeps))
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (StoreSafety != StoreSafe && !FoundLoadToPromote)
+>>>>>>> 639d9122825d2f697d2dadc396c2f872f2a97921
     // If we cannot hoist the load either, give up.
     return false;
 
   // Lets do the promotion!
-  if (SafeToInsertStore)
+  if (StoreSafety == StoreSafe)
     LLVM_DEBUG(dbgs() << "LICM: Promoting load/store of the value: " << *SomePtr
                       << '\n');
   else
@@ -2187,7 +2198,7 @@ bool llvm::promoteLoopAccessesToScalars(
   LoopPromoter Promoter(SomePtr, LoopUses, SSA, PointerMustAliases, ExitBlocks,
                         InsertPts, MSSAInsertPts, PIC, MSSAU, *LI, DL,
                         Alignment, SawUnorderedAtomic, AATags, *SafetyInfo,
-                        SafeToInsertStore);
+                        StoreSafety == StoreSafe);
 
   // Set up the preheader to have a definition of the value.  It is the live-out
   // value from the preheader that uses in the loop will use.
