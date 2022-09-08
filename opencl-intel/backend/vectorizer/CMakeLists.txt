@@ -31,11 +31,7 @@ add_custom_target(VectorizationInfoGen ALL
   VERBATIM
 )
 
-include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "Utils")
-include_directories(BEFORE "Predication")
-include_directories(BEFORE "OCLBranchProbability")
-include_directories(BEFORE "ChooseVectorizationDimension")
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
@@ -53,60 +49,14 @@ include_directories(
   ${OCL_BINARY_DIR}/include
 )
 
-set(TARGET_EXTRA_SOURCE_FILES
-  Resolver/AVX512Resolver.cpp
-)
-set(TARGET_EXTRA_INCLUDE_FILES
-  Resolver/AVX512Resolver.h
-)
-
 set(TARGET_INCLUDE_FILES
-  ChooseVectorizationDimension/ChooseVectorizationDimension.h
-  Heuristic/InstCounter.h
-  IRPrinter/IRPrinter.h
-  LoopHandler/CLStreamSampler.h
-  OCLBranchProbability/OCLBranchProbability.h
-  Packetizer/Packetizer.h
-  Predication/Linearizer.h
-  Predication/PhiCanon.h
-  Predication/Predicator.h
-  Predication/Specializer.h
-  PreVectorization/OCLBuiltinPreVectorizationPass.h
-  Resolver/Resolver.h
-  Resolver/SpecialCaseBuiltinResolver.h
-  Scalarizer/Scalarize.h
-  Utils/FakeExtractInsert.h
-  Utils/SimplifyGEP.h
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
-  Utils/VectorizerCore.h
-  VolcanoWrapper/Main.h
-  ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
 set(TARGET_SOURCE_FILES
-  ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
-  Heuristic/InstCounter.cpp
-  IRPrinter/IRPrinter.cpp
-  LoopHandler/CLStreamSampler.cpp
-  OCLBranchProbability/OCLBranchProbability.cpp
-  Packetizer/Packetizer.cpp
-  Packetizer/PacketizerInstData.cpp
-  Predication/Linearizer.cpp
-  Predication/PhiCanon.cpp
-  Predication/Predicator.cpp
-  Predication/Specializer.cpp
-  PreVectorization/OCLBuiltinPreVectorizationPass.cpp
-  Resolver/Resolver.cpp
-  Resolver/SpecialCaseBuiltinResolver.cpp
-  Scalarizer/PreScalarizeScan.cpp
-  Scalarizer/Scalarize.cpp
-  Utils/SimplifyGEP.cpp
   Utils/VecConfig.cpp
-  Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
-  VolcanoWrapper/Main.cpp
-  ${TARGET_EXTRA_SOURCE_FILES}
 )
 
 add_opencl_library(

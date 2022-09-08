@@ -1187,21 +1187,6 @@ class AliasMap<list<list<string>> aliasList, list<OclType> types>{
   list<OclType> Types = types;
 }
 
-//Reflection module map cell
-class MapCell<OclBuiltin bi, OclType ty>{
-  OclBuiltin builtin = bi;
-  OclType type = ty;
-}
-
-def nullCell : MapCell<?, ?>;
-
-class MapRow< list<MapCell> cl, bit is, bit ip>{
-  list<MapCell> cellList = cl;
-  bit isScalarizable = is;
-  bit isPacketaizable= ip;
-}
-
-
 class FuncProto<OclBuiltin bi, list<OclType> tys>{
   OclBuiltin builtin = bi;
   list<OclType> types = tys;

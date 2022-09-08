@@ -179,7 +179,6 @@ BuiltinKeeper::BuiltinKeeper(){
   m_soaStrategy.setTypeMap(&m_fdToRetTy);
   initNullStrategyEntries();
   initSoaStrategyEntries();
-  initHardCodeStrategy();
   //the rest of the functions are versioned by the 'default' strategy, which is
   //to follow the tblgen generated tables
 }
@@ -360,27 +359,6 @@ static void convertToRef(const char* from[width::OCL_VERSIONS],
   llvm::StringRef to[width::OCL_VERSIONS]){
   for (unsigned i=0 ; i<width::OCL_VERSIONS ; ++i)
     to[i] = llvm::StringRef(from[i]);
-}
-
-#include "CustomVersionMaping.h"
-
-void BuiltinKeeper::initHardCodeStrategy(){
-  width::V sizes[] = {width::SCALAR, width::TWO, width::THREE, width::FOUR,
-    width::EIGHT, width::SIXTEEN};
-  llvm::ArrayRef<width::V> arrSizes(sizes);
-  size_t SIZE = sizeof(mappings)/(sizeof(mappings[0]));
-  for(size_t i=0 ; i<SIZE ; ++i){
-    m_hardCodedStrategy.assumeResponsability(mappings+i);
-    llvm::StringRef strraw[width::OCL_VERSIONS];
-    convertToRef(mappings[i].names, strraw);
-    llvm::ArrayRef<llvm::StringRef> arr(strraw);
-    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(arr, arrSizes);
-    do{
-      auto pair = pairs.get();
-      PairSW key(std::make_pair(std::string(pair.first), pair.second));
-      m_exceptionsMap.insert(std::make_pair(key, &m_hardCodedStrategy));
-    } while(pairs.next());
-  }
 }
 
 void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,

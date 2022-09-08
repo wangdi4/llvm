@@ -83,12 +83,16 @@ DTransType *unwrapDTransType(DTransType *Ty) {
 // If so, also updated the RegionDesc to set the starting index into
 // 'FirstField' and the ending index of affected fields into 'LastField'.
 // Otherwise, return 'false'.
+//
+// Because of the way the code in the DTransSafetyAnalyzer.cpp has been
+// modified to require the results in a specific order, 'RegionDescVec'
+// must be generated to list the regions from innermost to outermost aggregate
+// type.
 static bool analyzeStructFieldAccess(const DataLayout &DL,
                                      DTransStructType *StructTy,
                                      size_t FieldNum, uint64_t PrePadBytes,
                                      uint64_t AccessSize, bool AllowRecurse,
                                      MFTypeRegionVec &RegionDescVec) {
-  assert(!AllowRecurse && "Recursion not yet implemented");
   llvm::StructType *LLVMSTy = cast<llvm::StructType>(StructTy->getLLVMType());
   uint64_t TypeSize = DL.getTypeAllocSize(LLVMSTy);
 
@@ -111,17 +115,26 @@ static bool analyzeStructFieldAccess(const DataLayout &DL,
   if (AccessEnd > TypeSize || AccessEnd < FieldOffset)
     return false;
 
+  // If the last field was not completely read or written, mark it
+  // conservatively for reading and writing analyses like field single/
+  // multiple value. For now, we will not do transformations that will
+  // need to transform the memfuncs.
   unsigned int LF = SL->getElementContainingOffset(AccessEnd);
-
-  // Check if the last field was completely covered. If not, we do not
-  // support it. It could be safe, but could complicate transforms that need
-  // to work with nested structures.
   uint64_t LastFieldStart = SL->getElementOffset(LF);
   uint64_t LastFieldSize = DL.getTypeStoreSize(FieldTypes[LF]);
-  if (AccessEnd < (LastFieldStart + LastFieldSize - 1))
-    return false;
-
   uint64_t PostPadBytes = AccessEnd - (LastFieldStart + LastFieldSize - 1);
+  if (AccessEnd < (LastFieldStart + LastFieldSize - 1)) {
+    if (!AllowRecurse)
+      return false;
+    auto LTy = dyn_cast<DTransStructType>(StructTy->getFieldType(LF));
+    if (!LTy)
+      return false;
+    if (!analyzeStructFieldAccess(DL, LTy, 0, 0,
+        AccessEnd + 1 - LastFieldStart, true, RegionDescVec))
+      return false;
+    if (LF < FieldNum)
+      return false;
+  }
   
   dtrans::MemfuncRegion RegionDesc;
   RegionDesc.PrePadBytes = PrePadBytes;

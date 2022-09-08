@@ -16,25 +16,11 @@
 #include "InitializePasses.h"
 
 static void initializeOCLPasses(llvm::PassRegistry &Registry) {
-    intel::initializePhiCanonPass(Registry);
-    intel::initializePredicatorPass(Registry);
-    intel::initializeScalarizeFunctionPass(Registry);
-    intel::initializeSimplifyGEPPass(Registry);
-    intel::initializePacketizeFunctionPass(Registry);
-    intel::initializeX86ResolverPass(Registry);
-    intel::initializeAVX512ResolverPass(Registry);
-    intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
-    intel::initializeSpecialCaseBuiltinResolverPass(Registry);
-    intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
-    intel::initializeCLStreamSamplerPass(Registry);
-
     intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializePrefetchPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
-    intel::initializeScalarizeFunctionPass(Registry);
-    intel::initializeChooseVectorizationDimensionPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

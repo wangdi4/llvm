@@ -13,15 +13,12 @@
 // This file is used for migration purpose only.
 // 1. Invoke `ocl-tblgen -gen-ocl-biheader` to generate `BuiltinList.inc` for
 // all builtin declarations under `GENERIC` and `source` folders.
-// 2. Invoke `ocl-tblgen -gen-vectorizer-map` to generate `CustomMappings.gen`
-// for all Volcano vectorization info records under `GENERIC` and `source`
-// folders.
-// 3. Invoke `ocl-tblgen -gen-vectorization-info` to generate `VectInfo.gen`
+// 2. Invoke `ocl-tblgen -gen-vectorization-info` to generate `VectInfo.gen`
 // for all VPlan vectorization info records under `GENERIC` and `source` folders.
 
 // TODO: remove this file when all related records are migrated into `source`.
 
-// Include all files that contain OclBuiltin, MapRow, VectInfo defs
+// Include all files that contain OclBuiltin, VectInfo defs
 
 // Migrated
 include "source/main.td"

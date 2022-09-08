@@ -107,8 +107,6 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const
 
     if ("vpo" == VType) {
         return VPO_VECTORIZER;
-    } else if ("volcano" == VType) {
-        return VOLCANO_VECTORIZER;
     }
     return DEFAULT_VECTORIZER;
 }

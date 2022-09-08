@@ -36,33 +36,16 @@ add_custom_target(builtin_list_target
   DEPENDS ${BUILT_IN_LIST_INC}
 )
 
-add_custom_command(
-  OUTPUT CustomMappings.gen
-  COMMAND ocl-tblgen -gen-vectorizer-map
-  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
-  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/misc_main.td
-  -o ${CMAKE_CURRENT_BINARY_DIR}/CustomMappings.gen
-  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
-  COMMENT "generating custom mapping ..."
-  VERBATIM
-)
-
-set(CUSTOM_MAPPINGS_GEN
-  CustomMappings.gen
-)
-
 set(TARGET_SOURCE_FILES
   Mangler.cpp
   BuiltinKeeper.cpp
   VersionStrategy.cpp
   BuiltinMap.cpp
-  ${CUSTOM_MAPPINGS_GEN}
 )
 
 set(TARGET_INCLUDE_FILES
   Mangler.h
   BuiltinKeeper.h
-  CustomVersionMaping.h
   VersionStrategy.h
   ${BUILT_IN_LIST_INC}
   BuiltinMap.h

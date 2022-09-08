@@ -79,7 +79,6 @@ cl::opt<bool> VerifyEachPass("verify-each-pass", cl::Hidden,
 extern bool DPCPPForceOptnone;
 
 extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EmitKernelVectorizerSignOn;
 extern cl::opt<bool> EnableO0Vectorization;
 
 using namespace llvm;

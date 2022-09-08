@@ -552,8 +552,8 @@ static void initWorkInfo(cl_work_description_type* workInfo, const OpenCLKernelC
     // in validation mode. Adjusting is mainly selecting the appropriate
     // local work group size if one was not selected by user. We need
     // to adjust to be able to use the same value as a reference runner.
-    // In Performance mode no adjustment is needed and we let the Volcano
-    // engine to select one
+    // In Performance mode no adjustment is needed and we let the backend
+    // to select one
     if( !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
         for (size_t i = 0; i < workInfo->workDimension; ++i)

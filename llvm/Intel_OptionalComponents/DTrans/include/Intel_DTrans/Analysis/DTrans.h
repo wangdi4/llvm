@@ -698,6 +698,10 @@ const SafetyData BadMemFuncManipulationForRelatedTypes = 0x0000'8000'0000'0000;
 /// StructCouldBeBaseABIPadding above.
 const SafetyData UnsafePtrMergeRelatedTypes = 0x0001'0000'0000'0000;
 
+/// Multiple structures are modified via a single memory function intrinsic
+// (memcpy, memmove, or memset).
+const SafetyData MultiStructMemFunc = 0x0002'0000'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -745,7 +749,8 @@ const SafetyData SDDeleteField =
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
     StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
-    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes |
+    MultiStructMemFunc;
 
 const SafetyData SDReuseField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -806,7 +811,7 @@ const SafetyData SDReorderFields =
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
     StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
-    UnsafePtrMergeRelatedTypes;
+    UnsafePtrMergeRelatedTypes | MultiStructMemFunc;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -875,7 +880,7 @@ const SafetyData SDAOSToSOA =
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
     StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
-    UnsafePtrMergeRelatedTypes;
+    UnsafePtrMergeRelatedTypes | MultiStructMemFunc;
 
 //
 // Safety conditions for a structure type that contains a pointer to a

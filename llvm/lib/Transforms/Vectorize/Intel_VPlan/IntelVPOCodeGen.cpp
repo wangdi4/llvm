@@ -3113,9 +3113,6 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   }
 
   // General case. We generate a SExt(VectorMask != 0).
-  // TODO: Look at Volcano vectorizer, file OCLBuiltinPreVectorizationPass.cpp.
-  // It is doing something different, creating a fake call to a built-in
-  // intrinsic. I don't know if that approach is applicable here at this point.
   Value *VectorMask = getVectorValue(ScalarMask);
   Constant *Zero = Constant::getNullValue(VecTy);
 

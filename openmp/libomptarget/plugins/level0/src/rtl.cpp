@@ -4994,7 +4994,7 @@ int32_t LevelZeroProgramTy::addModule(
   // module does not contain any kernels or globals.
   // FIXME: module build with "-library-compilation" does not work on iGPU now.
   // Keep the device check until XDEPS-3954 is resolved.
-  if (IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId))
+  if (IsLibModule)
     BuildOptions += " -library-compilation ";
 
   ze_module_desc_t ModuleDesc{ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, Format};
@@ -5073,8 +5073,12 @@ int32_t LevelZeroProgramTy::addModule(
   bool BuildFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
   // Suppress build log if it is due to -library-compilation
-  bool SuppressLog =
-      !BuildFailed && IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId);
+#if INTEL_INTERNAL_BUILD
+  // Track IsLibModule-related error only in the internal build.
+  bool SuppressLog = !BuildFailed && IsLibModule;
+#else // INTEL_INTERNAL_BUILD
+  bool SuppressLog = IsLibModule;
+#endif // INTEL_INTERNAL_BUILD
   if (!SuppressLog && (BuildFailed || ShowBuildLog)) {
     if (BuildFailed)
       DP("Error: module creation failed\n");
@@ -5098,6 +5102,11 @@ int32_t LevelZeroProgramTy::addModule(
   CALL_ZE_RET_FAIL(zeModuleBuildLogDestroy, BuildLog);
 
   if (BuildFailed) {
+    // We have an IGC issue related with "-library-compilation" in the latest
+    // driver affecting all OpenMP programs that do not have kernels. We just
+    // discard such cases for now to reduce the exposure of the issue.
+    if (IsLibModule)
+      return OFFLOAD_SUCCESS;
     return OFFLOAD_FAIL;
   } else {
     // Check if module link is required
