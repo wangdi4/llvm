@@ -13877,6 +13877,56 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, const CallExpr *E,
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_mask3:
     IID = llvm::Intrinsic::x86_avx512_vfmaddsub_pd_512;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case clang::X86::BI__builtin_ia32_vfmsubph256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddph256;
+    break;
+  case clang::X86::BI__builtin_ia32_vfmsubaddph256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddsubph256;
+    break;
+  case clang::X86::BI__builtin_ia32_vfmsubps256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddps256; break;
+  case clang::X86::BI__builtin_ia32_vfmsubpd256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddpd256; break;
+  case clang::X86::BI__builtin_ia32_vfmsubaddps256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddsubps256;
+    break;
+  case clang::X86::BI__builtin_ia32_vfmsubaddpd256_round_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_mask3:
+    IID = llvm::Intrinsic::x86_avx256p_vfmaddsubpd256;
+    break;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   }
 
   Value *A = Ops[0];
@@ -13916,6 +13966,16 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, const CallExpr *E,
   case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     MaskFalseVal = Ops[0];
     break;
   case clang::X86::BI__builtin_ia32_vfmaddph512_maskz:
@@ -13924,6 +13984,16 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, const CallExpr *E,
   case clang::X86::BI__builtin_ia32_vfmaddsubph512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_maskz:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     MaskFalseVal = Constant::getNullValue(Ops[0]->getType());
     break;
   case clang::X86::BI__builtin_ia32_vfmsubph512_mask3:
@@ -13938,6 +14008,22 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, const CallExpr *E,
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmsubaddpd512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case clang::X86::BI__builtin_ia32_vfmsubph256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddph256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmsubps256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddps256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmsubpd256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddpd256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmsubaddph256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmsubaddps256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddsubps256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmsubaddpd256_round_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddsubpd256_round_mask3:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     MaskFalseVal = Ops[2];
     break;
   }
@@ -14607,6 +14693,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vcvtw2ph512_mask:
   case X86::BI__builtin_ia32_vcvtdq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vcvtdq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtdq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtw2ph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return EmitX86ConvertIntToFp(*this, E, Ops, /*IsSigned*/ true);
   case X86::BI__builtin_ia32_cvtudq2ps512_mask:
   case X86::BI__builtin_ia32_cvtuqq2ps512_mask:
@@ -14614,6 +14710,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vcvtuw2ph512_mask:
   case X86::BI__builtin_ia32_vcvtudq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vcvtudq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtudq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuw2ph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return EmitX86ConvertIntToFp(*this, E, Ops, /*IsSigned*/ false);
 
   case X86::BI__builtin_ia32_vfmaddss3:
@@ -14657,6 +14763,22 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddpd512_mask3:
   case X86::BI__builtin_ia32_vfmsubpd512_mask3:
   case X86::BI__builtin_ia32_vfmsubph512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vfmaddph256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddph256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddps256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddps256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddpd256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddpd256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubph256_round_mask3:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, E, Ops, BuiltinID, /*IsAddSub*/ false);
   case X86::BI__builtin_ia32_vfmaddsubph512_mask:
   case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
@@ -14670,6 +14792,22 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubpd512_mask3:
   case X86::BI__builtin_ia32_vfmsubaddpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddpd256_round_mask3:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, E, Ops, BuiltinID, /*IsAddSub*/ true);
 
   case X86::BI__builtin_ia32_movdqa32store128_mask:
@@ -16384,6 +16522,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmppd128_mask:
   case X86::BI__builtin_ia32_cmppd256_mask:
   case X86::BI__builtin_ia32_cmppd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vcmppd256_round_mask:
+  case X86::BI__builtin_ia32_vcmpps256_round_mask:
+  case X86::BI__builtin_ia32_vcmpph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     IsMaskFCmp = true;
     [[fallthrough]];
   case X86::BI__builtin_ia32_cmpps:
@@ -16897,6 +17042,20 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
     return EmitX86Select(*this, Ops[3], Call, Ops[0]);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vfcmaddcph256_round_mask:
+    IsConjFMA = true;
+    LLVM_FALLTHROUGH;
+  case X86::BI__builtin_ia32_vfmaddcph256_round_mask: {
+    Intrinsic::ID IID = IsConjFMA
+                            ? Intrinsic::x86_avx256p_mask_vfcmaddcph256
+                            : Intrinsic::x86_avx256p_mask_vfmaddcph256;
+    Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
+    return EmitX86Select(*this, Ops[3], Call, Ops[0]);
+  }
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfcmaddcsh_round_mask:
     IsConjFMA = true;
     [[fallthrough]];

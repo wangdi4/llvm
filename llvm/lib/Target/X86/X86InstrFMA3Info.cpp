@@ -1,5 +1,19 @@
 //===-- X86InstrFMA3Info.cpp - X86 FMA3 Instruction Information -----------===//
 //
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -89,10 +103,22 @@ static const X86InstrFMA3Group Groups[] = {
   FMA3GROUP_PACKED_AVX512_WIDTHS(Name, PH, Suf, Attrs) \
   FMA3GROUP_PACKED_AVX512_WIDTHS(Name, PS, Suf, Attrs)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#define FMA3GROUP_PACKED_AVX512_ROUND(Name, Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PDZ256##Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PDZ##Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PHZ256##Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PHZ##Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PSZ256##Suf, Attrs) \
+  FMA3GROUP_MASKED(Name, PSZ##Suf, Attrs)
+#else // INTEL_FEATURE_ISA_AVX256P
 #define FMA3GROUP_PACKED_AVX512_ROUND(Name, Suf, Attrs) \
   FMA3GROUP_MASKED(Name, PDZ##Suf, Attrs) \
   FMA3GROUP_MASKED(Name, PHZ##Suf, Attrs) \
   FMA3GROUP_MASKED(Name, PSZ##Suf, Attrs)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 #define FMA3GROUP_SCALAR_AVX512_ROUND(Name, Suf, Attrs) \
   FMA3GROUP(Name, SDZ##Suf, Attrs) \

@@ -240,7 +240,14 @@ public:
   bool hasSSE42() const { return X86SSELevel >= SSE42; }
   bool hasAVX() const { return X86SSELevel >= AVX; }
   bool hasAVX2() const { return X86SSELevel >= AVX2; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Should change the name to hasEVEX?
+  bool hasAVX512() const { return X86SSELevel >= AVX512 || hasAVX256P(); }
+#else // INTEL_FEATURE_ISA_AVX256P
   bool hasAVX512() const { return X86SSELevel >= AVX512; }
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool hasInt256() const { return hasAVX2(); }
   bool hasMMX() const { return X863DNowLevel >= MMX; }
   bool hasThreeDNow() const { return X863DNowLevel >= ThreeDNow; }

@@ -4812,6 +4812,16 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_minps512:
   case X86::BI__builtin_ia32_maxph512:
   case X86::BI__builtin_ia32_minph512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vmaxpd256_round:
+  case X86::BI__builtin_ia32_vmaxps256_round:
+  case X86::BI__builtin_ia32_vminpd256_round:
+  case X86::BI__builtin_ia32_vminps256_round:
+  case X86::BI__builtin_ia32_vmaxph256_round:
+  case X86::BI__builtin_ia32_vminph256_round:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 2;
     break;
   case X86::BI__builtin_ia32_vcvtph2pd512_mask:
@@ -4844,10 +4854,25 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcomiss:
   case X86::BI__builtin_ia32_vcomish:
   case X86::BI__builtin_ia32_vcvtph2ps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vgetexppd256_round_mask:
+  case X86::BI__builtin_ia32_vgetexpps256_round_mask:
+  case X86::BI__builtin_ia32_vgetexpph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 3;
     break;
   case X86::BI__builtin_ia32_cmppd512_mask:
   case X86::BI__builtin_ia32_cmpps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_cmpph512_mask:
+  case X86::BI__builtin_ia32_vcmppd256_round_mask:
+  case X86::BI__builtin_ia32_vcmpps256_round_mask:
+  case X86::BI__builtin_ia32_vcmpph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cmpsd_mask:
   case X86::BI__builtin_ia32_cmpss_mask:
   case X86::BI__builtin_ia32_cmpsh_mask:
@@ -4860,6 +4885,13 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_getmantpd512_mask:
   case X86::BI__builtin_ia32_getmantps512_mask:
   case X86::BI__builtin_ia32_getmantph512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vgetmantpd256_round_mask:
+  case X86::BI__builtin_ia32_vgetmantps256_round_mask:
+  case X86::BI__builtin_ia32_vgetmantph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_maxsd_round_mask:
   case X86::BI__builtin_ia32_maxss_round_mask:
   case X86::BI__builtin_ia32_maxsh_round_mask:
@@ -4874,6 +4906,16 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_rndscalepd_mask:
   case X86::BI__builtin_ia32_rndscaleps_mask:
   case X86::BI__builtin_ia32_rndscaleph_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vreducepd256_round_mask:
+  case X86::BI__builtin_ia32_vreduceps256_round_mask:
+  case X86::BI__builtin_ia32_vreduceph256_round_mask:
+  case X86::BI__builtin_ia32_vrndscalepd256_round_mask:
+  case X86::BI__builtin_ia32_vrndscaleps256_round_mask:
+  case X86::BI__builtin_ia32_vrndscaleph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rsqrt28sd_round_mask:
   case X86::BI__builtin_ia32_rsqrt28ss_round_mask:
     ArgNum = 4;
@@ -4882,6 +4924,14 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_fixupimmpd512_maskz:
   case X86::BI__builtin_ia32_fixupimmps512_mask:
   case X86::BI__builtin_ia32_fixupimmps512_maskz:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vfixupimmpd256_round_mask:
+  case X86::BI__builtin_ia32_vfixupimmpd256_round_maskz:
+  case X86::BI__builtin_ia32_vfixupimmps256_round_mask:
+  case X86::BI__builtin_ia32_vfixupimmps256_round_maskz:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_fixupimmsd_mask:
   case X86::BI__builtin_ia32_fixupimmsd_maskz:
   case X86::BI__builtin_ia32_fixupimmss_mask:
@@ -4891,6 +4941,12 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_getmantsh_round_mask:
   case X86::BI__builtin_ia32_rangepd512_mask:
   case X86::BI__builtin_ia32_rangeps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vrangepd256_round_mask:
+  case X86::BI__builtin_ia32_vrangeps256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rangesd128_round_mask:
   case X86::BI__builtin_ia32_rangess128_round_mask:
   case X86::BI__builtin_ia32_reducesd_mask:
@@ -4926,6 +4982,13 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_sqrtpd512:
   case X86::BI__builtin_ia32_sqrtps512:
   case X86::BI__builtin_ia32_sqrtph512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vsqrtpd256_round:
+  case X86::BI__builtin_ia32_vsqrtps256_round:
+  case X86::BI__builtin_ia32_vsqrtph256_round:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 1;
     HasRC = true;
     break;
@@ -4941,6 +5004,23 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_mulps512:
   case X86::BI__builtin_ia32_subpd512:
   case X86::BI__builtin_ia32_subps512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vaddpd256_round:
+  case X86::BI__builtin_ia32_vaddph256_round:
+  case X86::BI__builtin_ia32_vaddps256_round:
+  case X86::BI__builtin_ia32_vcvtne2ps2ph256_round:
+  case X86::BI__builtin_ia32_vdivpd256_round:
+  case X86::BI__builtin_ia32_vdivph256_round:
+  case X86::BI__builtin_ia32_vdivps256_round:
+  case X86::BI__builtin_ia32_vmulpd256_round:
+  case X86::BI__builtin_ia32_vmulph256_round:
+  case X86::BI__builtin_ia32_vmulps256_round:
+  case X86::BI__builtin_ia32_vsubpd256_round:
+  case X86::BI__builtin_ia32_vsubph256_round:
+  case X86::BI__builtin_ia32_vsubps256_round:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtsi2sd64:
   case X86::BI__builtin_ia32_cvtsi2ss32:
   case X86::BI__builtin_ia32_cvtsi2ss64:
@@ -4984,6 +5064,54 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vcvtph2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2psx256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvttpd2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttpd2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttpd2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttpd2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttps2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttps2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttps2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttps2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2w256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2uw256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvttph2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtdq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtudq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2phx256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtpd2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtps2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2pd256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ps256_round_mask:
+  case X86::BI__builtin_ia32_vcvtdq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtudq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtw2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuw2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2w256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2uw256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2dq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2udq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2qq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtph2uqq256_round_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ph256_round_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   case X86::BI__builtin_ia32_vcvtbf162ph512_mask:
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
@@ -5006,6 +5134,13 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_scalefph512_mask:
   case X86::BI__builtin_ia32_scalefpd512_mask:
   case X86::BI__builtin_ia32_scalefps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vscalefph256_round_mask:
+  case X86::BI__builtin_ia32_vscalefpd256_round_mask:
+  case X86::BI__builtin_ia32_vscalefps256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_scalefsd_round_mask:
   case X86::BI__builtin_ia32_scalefss_round_mask:
   case X86::BI__builtin_ia32_scalefsh_round_mask:
@@ -5048,6 +5183,42 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
   case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vfmaddpd256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddpd256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddps256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddps256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddph256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddph256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddpd256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddps256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmaddcph256_round_mask:
+  case X86::BI__builtin_ia32_vfmaddcph256_round_maskz:
+  case X86::BI__builtin_ia32_vfmaddcph256_round_mask3:
+  case X86::BI__builtin_ia32_vfcmaddcph256_round_mask:
+  case X86::BI__builtin_ia32_vfcmaddcph256_round_maskz:
+  case X86::BI__builtin_ia32_vfcmaddcph256_round_mask3:
+  case X86::BI__builtin_ia32_vfmulcph256_round_mask:
+  case X86::BI__builtin_ia32_vfcmulcph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddcsh_mask:
   case X86::BI__builtin_ia32_vfmaddcsh_round_mask:
   case X86::BI__builtin_ia32_vfmaddcsh_round_mask3:
@@ -5716,6 +5887,13 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_getmantph128_mask:
   case X86::BI__builtin_ia32_getmantph256_mask:
   case X86::BI__builtin_ia32_getmantph512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vgetmantpd256_round_mask:
+  case X86::BI__builtin_ia32_vgetmantps256_round_mask:
+  case X86::BI__builtin_ia32_vgetmantph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_ext_v16qi:
   case X86::BI__builtin_ia32_vec_ext_v16hi:
     i = 1; l = 0; u = 15;
@@ -5732,6 +5910,12 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_rangeps128_mask:
   case X86::BI__builtin_ia32_rangeps256_mask:
   case X86::BI__builtin_ia32_rangeps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_vrangepd256_round_mask:
+  case X86::BI__builtin_ia32_vrangeps256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_getmantsd_round_mask:
   case X86::BI__builtin_ia32_getmantss_round_mask:
   case X86::BI__builtin_ia32_getmantsh_round_mask:
@@ -5754,6 +5938,14 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmppd256_mask:
   case X86::BI__builtin_ia32_cmpps512_mask:
   case X86::BI__builtin_ia32_cmppd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  case X86::BI__builtin_ia32_cmpph512_mask:
+  case X86::BI__builtin_ia32_vcmppd256_round_mask:
+  case X86::BI__builtin_ia32_vcmpps256_round_mask:
+  case X86::BI__builtin_ia32_vcmpph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cmpsd_mask:
   case X86::BI__builtin_ia32_cmpss_mask:
   case X86::BI__builtin_ia32_vec_set_v32qi:
@@ -5798,6 +5990,16 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_reduceph256_mask:
   case X86::BI__builtin_ia32_reduceph512_mask:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: We may use it later.
+  // case X86::BI__builtin_ia32_vcvtps2ph256_round_mask:
+  case X86::BI__builtin_ia32_vreducepd256_round_mask:
+  case X86::BI__builtin_ia32_vreduceps256_round_mask:
+  case X86::BI__builtin_ia32_vreduceph256_round_mask:
+  case X86::BI__builtin_ia32_vrndscalepd256_round_mask:
+  case X86::BI__builtin_ia32_vrndscaleps256_round_mask:
+  case X86::BI__builtin_ia32_vrndscaleph256_round_mask:
+#endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   case X86::BI__builtin_ia32_avxcompress_vprold128:
   case X86::BI__builtin_ia32_avxcompress_vprold256:

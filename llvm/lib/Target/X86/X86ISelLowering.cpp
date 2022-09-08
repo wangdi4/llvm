@@ -1662,7 +1662,13 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!Subtarget.useSoftFloat() && !Subtarget.hasFP16() && !Subtarget.hasAVX256P() &&
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!Subtarget.useSoftFloat() && !Subtarget.hasFP16() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       Subtarget.hasF16C()) {
     for (MVT VT : { MVT::f16, MVT::v2f16, MVT::v4f16, MVT::v8f16 }) {
       setOperationAction(ISD::FP_ROUND,           VT, Custom);
@@ -2200,7 +2206,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!Subtarget.useSoftFloat() && (Subtarget.hasFP16() || Subtarget.hasAVX256P())) {
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!Subtarget.useSoftFloat() && Subtarget.hasFP16()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
     auto setGroup = [&] (MVT VT) {
       setOperationAction(ISD::FADD,               VT, Legal);
       setOperationAction(ISD::STRICT_FADD,        VT, Legal);
@@ -2387,7 +2397,13 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setTruncStoreAction(MVT::v8i16,   MVT::v8i8,  Legal);
     }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (Subtarget.hasFP16() || Subtarget.hasAVX256P()) {
+#else // INTEL_FEATURE_ISA_AVX256P
     if (Subtarget.hasFP16()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       // vcvttph2[u]dq v4f16 -> v4i32/64, v2f16 -> v2i32/64
       setOperationAction(ISD::FP_TO_SINT,        MVT::v2f16, Custom);
       setOperationAction(ISD::STRICT_FP_TO_SINT, MVT::v2f16, Custom);
@@ -14792,7 +14808,13 @@ static bool isShuffleFoldableLoad(SDValue V) {
 
 template<typename T>
 static bool isSoftFP16(T VT, const X86Subtarget &Subtarget) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16() && !Subtarget.hasAVX256P();
+#else // INTEL_FEATURE_ISA_AVX256P
   return VT.getScalarType() == MVT::f16 && !Subtarget.hasFP16();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 template<typename T>
@@ -20515,7 +20537,13 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
     // we're going to zero extend the register or fold the store (SSE41 only).
     if (IdxVal == 0 && !X86::mayFoldIntoZeroExtend(Op) &&
         !(Subtarget.hasSSE41() && X86::mayFoldIntoStore(Op))) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (Subtarget.hasFP16() || Subtarget.hasAVX256P())
+#else // INTEL_FEATURE_ISA_AVX256P
       if (Subtarget.hasFP16())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         return Op;
 
       return DAG.getNode(ISD::TRUNCATE, dl, MVT::i16,
@@ -47827,6 +47855,11 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
   // Since SKX these selects have a proper lowering.
   if (Subtarget.hasAVX512() && !Subtarget.hasBWI() && CondVT.isVector() &&
       CondVT.getVectorElementType() == MVT::i1 &&
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      !Subtarget.hasAVX256P() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       (VT.getVectorElementType() == MVT::i8 ||
        VT.getVectorElementType() == MVT::i16)) {
     Cond = DAG.getNode(ISD::SIGN_EXTEND, DL, VT, Cond);

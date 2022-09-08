@@ -3025,7 +3025,13 @@ multiclass avx512_vcmp<X86SchedWriteWidths sched, AVX512VLVectorVTInfo _,
     defm Z    : avx512_vcmp_common<sched.ZMM, _.info512, NAME>,
                 avx512_vcmp_sae<sched.ZMM, _.info512>, EVEX_V512;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [!if (!eq (Pred, HasAVX512), HasAVX256P_Or_HasVLX, !cast<Predicate>("HasAVX256P_Or_"#Pred))] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [Pred,HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
    defm Z128 : avx512_vcmp_common<sched.XMM, _.info128, NAME>, EVEX_V128;
    defm Z256 : avx512_vcmp_common<sched.YMM, _.info256, NAME>, EVEX_V256;
   }
@@ -3258,17 +3264,35 @@ multiclass avx512_mask_mov_gpr<bits<8> opc_kr, bits<8> opc_rk,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasDQI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm KMOVB : avx512_mask_mov<0x90, 0x90, 0x91, "kmovb", VK8, v8i1, i8mem>,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovb", VK8, GR32>,
                VEX, PD;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasAVX512] in
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm KMOVW : avx512_mask_mov<0x90, 0x90, 0x91, "kmovw", VK16, v16i1, i16mem>,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovw", VK16, GR32>,
                VEX, PS;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem>,
                VEX, PD, VEX_W;
   defm KMOVD : avx512_mask_mov_gpr<0x92, 0x93, "kmovd", VK32, GR32>,
