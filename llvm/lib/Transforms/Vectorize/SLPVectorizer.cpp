@@ -6722,11 +6722,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   // and we are not supposed to modify its behavior. We differentiate between
   // these cases with ProcessingScatterOperands flag.
 
-  bool ProcessingScatterOperands =
-      UserTreeIdx.UserTE &&
-      UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize;
   bool AreAllSameInsts =
-      !ProcessingScatterOperands || (S.getOpcode() && allSameBlock(VL)) ||
+      !IsScatterVectorizeUserTE || (S.getOpcode() && allSameBlock(VL)) ||
       (S.OpValue->getType()->isPointerTy() && VL.size() > 2 &&
        all_of(VL,
               [&BB](Value *V) {
@@ -6742,7 +6739,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                        SortedIndices));
 
   if (allConstant(VL) || isSplat(VL) ||
-      (!ProcessingScatterOperands && !allSameBlock(VL)) || !AreAllSameInsts ||
+      (!IsScatterVectorizeUserTE && !allSameBlock(VL)) || !AreAllSameInsts ||
       (S.getOpcode() &&
        isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
