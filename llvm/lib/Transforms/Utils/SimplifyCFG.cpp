@@ -1613,23 +1613,12 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
           !isSafeToHoistInstr(I2, SkipFlagsBB2))
         return Changed;
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // Do not hoist llvm.directive.region.entry/exit intrinsics.
     if (IntrinsicUtils::isDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
 
-    if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
-      return Changed;
-
-    // If any of the two call sites has nomerge attribute, stop hoisting.
-    if (const auto *CB1 = dyn_cast<CallBase>(I1))
-      if (CB1->cannotMerge())
-        return Changed;
-    if (const auto *CB2 = dyn_cast<CallBase>(I2))
-      if (CB2->cannotMerge())
-=======
       // If we're going to hoist a call, make sure that the two instructions
       // we're commoning/hoisting are both marked with musttail, or neither of
       // them is marked as such. Otherwise, we might end up in a situation where
@@ -1643,7 +1632,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
           return Changed;
 
       if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
->>>>>>> 078899cd64cd2fb787c2c5356e16dd818ee3ad23
         return Changed;
 
       // If any of the two call sites has nomerge attribute, stop hoisting.
