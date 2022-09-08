@@ -1952,38 +1952,36 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Final = Final;
 
     bool UnitStrided = CEIdiom->TotalStride == 1;
-    DenseMap<VPLoadStoreInst *, unsigned> LoadsStores;
-    for (VPLoadStoreInst *Store : CEIdiom->Stores)
-      LoadsStores[Store] = UnitStrided ? VPInstruction::CompressStore
-                                       : VPInstruction::CompressStoreNonu;
-    for (VPLoadStoreInst *Load : CEIdiom->Loads)
-      LoadsStores[Load] = UnitStrided ? VPInstruction::ExpandLoad
-                                      : VPInstruction::ExpandLoadNonu;
-    CEIdiom->Stores.clear();
-    CEIdiom->Loads.clear();
+    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode,
+                                  unsigned OpcodeNonu) {
+      for (VPLoadStoreInst *LoadStore : LoadsStores) {
 
-    for (auto &Pair : LoadsStores) {
-      VPLoadStoreInst *LoadStore = Pair.first;
-      VPBasicBlock *VPBB = LoadStore->getParent();
+        Builder.setInsertPoint(LoadStore);
+        VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
+            "", UnitStrided ? Opcode : OpcodeNonu, LoadStore->getType(),
+            ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
+        LoadStore->replaceAllUsesWith(CompressExpand);
 
-      Builder.setInsertPoint(LoadStore);
-      VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
-          "", Pair.second, LoadStore->getType(),
-          ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
-      LoadStore->replaceAllUsesWith(CompressExpand);
-      VPBB->eraseInstruction(LoadStore);
+        VPBasicBlock *VPBB = LoadStore->getParent();
+        VPBB->eraseInstruction(LoadStore);
+        if (UnitStrided)
+          continue;
 
-      if (UnitStrided)
-        continue;
-
-      if (Masks.count(VPBB) == 0) {
-        Builder.setInsertPointFirstNonPhi(VPBB);
-        Masks[VPBB] =
-            Builder.createNaryOp(VPInstruction::CompressExpandMask,
-                                 Type::getInt64Ty(*Plan.getLLVMContext()), {});
+        if (Masks.count(VPBB) == 0) {
+          Builder.setInsertPointFirstNonPhi(VPBB);
+          Masks[VPBB] = Builder.createNaryOp(
+              VPInstruction::CompressExpandMask,
+              Type::getInt64Ty(*Plan.getLLVMContext()), {});
+        }
+        CompressExpand->addOperand(Masks[VPBB]);
       }
-      CompressExpand->addOperand(Masks[VPBB]);
-    }
+      LoadsStores.clear();
+    };
+
+    ProcessLoadsStores(CEIdiom->Stores, VPInstruction::CompressStore,
+                       VPInstruction::CompressStoreNonu);
+    ProcessLoadsStores(CEIdiom->Loads, VPInstruction::ExpandLoad,
+                       VPInstruction::ExpandLoadNonu);
 
     std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
         [&](VPUser *User) {
