@@ -2152,7 +2152,6 @@ bool llvm::promoteLoopAccessesToScalars(
 
   // If we've still failed to prove we can sink the store, hoist the load
   // only, if possible.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Don't promote the load without the store when AVX512 HIR is enabled,
   // it will create an extra loop carried phi, which HIR will try to break.
@@ -2163,11 +2162,8 @@ bool llvm::promoteLoopAccessesToScalars(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
   bool NoNewLCDeps = TTI && TTI->isAdvancedOptEnabled(TTIAVX512);
 
-  if (!SafeToInsertStore && (!FoundLoadToPromote || NoNewLCDeps))
+  if (StoreSafety != StoreSafe && (!FoundLoadToPromote || NoNewLCDeps))
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (StoreSafety != StoreSafe && !FoundLoadToPromote)
->>>>>>> 639d9122825d2f697d2dadc396c2f872f2a97921
     // If we cannot hoist the load either, give up.
     return false;
 
