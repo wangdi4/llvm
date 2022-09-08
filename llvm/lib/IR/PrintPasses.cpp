@@ -187,7 +187,6 @@ std::vector<std::string> llvm::printAfterPasses() {
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
 
-<<<<<<< HEAD
 #else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 #if INTEL_CUSTOMIZATION
 std::vector<std::string> llvm::printBeforePasses() {
@@ -200,14 +199,12 @@ std::vector<std::string> llvm::printAfterPasses() {
 #endif // INTEL_CUSTOMIZATION
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
-=======
 bool llvm::isPassInPrintList(StringRef PassName) {
   static std::unordered_set<std::string> Set(FilterPasses.begin(),
                                              FilterPasses.end());
   return Set.empty() || Set.count(std::string(PassName));
 }
 
->>>>>>> 8d95fd7e56bed7d3a3260bed7117023968f8be3c
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #if defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
   return false;
