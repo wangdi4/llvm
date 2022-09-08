@@ -31,9 +31,10 @@
 ; CHECK: Recognizing Destructor Functionality
 ; CHECK: Failed to recognize Destructor function
 
+; CHECK: Recognizing Reset Functionality
+; CHECK: Failed to recognize Reset function
+
 ; The following will be enabled as CHECKs as more functionality is implemented
-; TODO: Recognizing Reset Functionality
-; TODO: Failed to recognize Reset function
 
 ; TODO: Recognizing DestroyObject Functionality
 ; TODO: Failed to recognize DestroyObject function
