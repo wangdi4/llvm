@@ -459,9 +459,13 @@ private:
    BlockedRange  m_cols;    
 };
 
+struct NoProportionalSplit : std::false_type {};
+struct HasProportionalSplit : std::true_type {};
+
 //
 //  Just wrapper above default TBB blocked range
 //
+template<typename T = NoProportionalSplit>
 class BlockedRangeByDefaultTBB1d : public tbb::blocked_range<size_t>
 {
 public:
@@ -484,8 +488,16 @@ public:
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB1d( BlockedRangeByDefaultTBB1d& o, tbb::split ) : 
         tbb::blocked_range<size_t> ( o, tbb::split() ) {};
+
+    // proportional_split ctor for static/affinity partitioner.
+    template<typename S = T,
+             typename = typename std::enable_if<T::value, S>::type>
+    BlockedRangeByDefaultTBB1d(BlockedRangeByDefaultTBB1d &o,
+                               tbb::proportional_split &splitObj)
+        : tbb::blocked_range<size_t>(o, splitObj) {}
 };
 
+template<typename T = NoProportionalSplit>
 class BlockedRangeByDefaultTBB2d : public tbb::blocked_range2d<size_t> 
 {
 public:
@@ -514,8 +526,16 @@ public:
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB2d( BlockedRangeByDefaultTBB2d& o, tbb::split ) : 
         tbb::blocked_range2d<size_t> ( o, tbb::split() ) {};
+
+    // proportional_split ctor for static/affinity partitioner.
+    template<typename S = T,
+             typename = typename std::enable_if<T::value, S>::type>
+    BlockedRangeByDefaultTBB2d(BlockedRangeByDefaultTBB2d &o,
+                               tbb::proportional_split &splitObj)
+        : tbb::blocked_range2d<size_t>(o, splitObj) {}
 };
 
+template<typename T = NoProportionalSplit>
 class BlockedRangeByDefaultTBB3d : public tbb::blocked_range3d<size_t> 
 {
 public:
@@ -547,7 +567,13 @@ public:
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB3d( BlockedRangeByDefaultTBB3d& o, tbb::split ) : 
         tbb::blocked_range3d<size_t> ( o, tbb::split() ) {};
-};
 
+    // proportional_split ctor for static/affinity partitioner.
+    template<typename S = T,
+             typename = typename std::enable_if<T::value, S>::type>
+    BlockedRangeByDefaultTBB3d(BlockedRangeByDefaultTBB3d &o,
+                               tbb::proportional_split &splitObj)
+        : tbb::blocked_range3d<size_t>(o, splitObj) {}
+};
 }}}
 
