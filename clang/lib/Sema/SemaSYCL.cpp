@@ -84,12 +84,9 @@ static constexpr llvm::StringLiteral LibstdcxxFailedAssertion =
     "__failed_assertion";
 constexpr unsigned MaxKernelArgsSize = 2048;
 
-static bool isSyclType(QualType Ty, SYCLTypeAttr::SYCLType TypeName) {
-  const auto *RD = Ty->getAsCXXRecordDecl();
-  if (!RD)
-    return false;
+namespace {
 
-<<<<<<< HEAD
+#ifdef INTEL_CUSTOMIZATION
 /// Various utilities.
 class Util {
 public:
@@ -132,11 +129,9 @@ public:
   /// \param Tmpl  whether the class is template instantiation or simple record
   static bool isSyclType(QualType Ty, StringRef Name, bool Tmpl = false);
 
-#ifdef INTEL_CUSTOMIZATION
   /// Checks whether given function is
   /// cl::sycl::ext::intel::non_uniform_sub_group::invoke_unmasked API.
   static bool isSyclInvokeUnmaskedFunction(const FunctionDecl *FD);
-#endif // INTEL_CUSTOMIZATION
 
   /// Checks whether given clang type is a standard SYCL API accessor class,
   /// the check assumes the type is templated.
@@ -170,7 +165,15 @@ public:
   static bool matchQualifiedTypeName(QualType Ty,
                                      ArrayRef<Util::DeclContextDesc> Scopes);
 };
-=======
+#endif // INTEL_CUSTOMIZATION
+
+} // anonymous namespace
+
+static bool isSyclType(QualType Ty, SYCLTypeAttr::SYCLType TypeName) {
+  const auto *RD = Ty->getAsCXXRecordDecl();
+  if (!RD)
+    return false;
+
   if (const auto *Attr = RD->getAttr<SYCLTypeAttr>())
     return Attr->getType() == TypeName;
 
@@ -201,7 +204,6 @@ static bool isAccessorPropertyType(QualType Ty,
 
   return false;
 }
->>>>>>> 257edf00f71d9214708f84997cf27c60720c1a10
 
 static bool isSyclSpecialType(QualType Ty, Sema &S) {
   return S.isTypeDecoratedWithDeclAttribute<SYCLSpecialClassAttr>(Ty);
@@ -5219,7 +5221,6 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
   }
   return true;
 }
-<<<<<<< HEAD
 
 // -----------------------------------------------------------------------------
 // Utility class methods
@@ -5382,5 +5383,3 @@ bool Util::matchQualifiedTypeName(QualType Ty,
   const auto *Ctx = cast<DeclContext>(RecTy);
   return Util::matchContext(Ctx, Scopes);
 }
-=======
->>>>>>> 257edf00f71d9214708f84997cf27c60720c1a10

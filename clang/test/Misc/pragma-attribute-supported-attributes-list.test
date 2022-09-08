@@ -213,12 +213,9 @@
 // CHECK-NEXT: SYCLSimd (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLSpecialClass (SubjectMatchRule_record)
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
-// CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
-=======
 // CHECK-NEXT: SYCLType (SubjectMatchRule_record, SubjectMatchRule_enum)
->>>>>>> 257edf00f71d9214708f84997cf27c60720c1a10
+// CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
 // CHECK-NEXT: SYCLUsesAspects (SubjectMatchRule_record, SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: ScopedLockable (SubjectMatchRule_record)
