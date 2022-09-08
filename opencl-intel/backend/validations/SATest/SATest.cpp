@@ -198,7 +198,7 @@ void SATest::LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunR
 void SATest::ValidateEnvironment()
 {
     // fail if environment variable OCLBACKEND_PLUGINS is enabled
-    // this will cause improper functionality of Volcano backend 
+    // this will cause improper functionality of backend 
     // Variable string is defined in trunk/src/backend/ocl_cpu_backend/plugin_manager.cpp
     std::string Env;
     if (Intel::OpenCL::Utils::getEnvVar(Env, "OCLBACKEND_PLUGINS")) {

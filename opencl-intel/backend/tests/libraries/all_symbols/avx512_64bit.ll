@@ -15260,14 +15260,6 @@
 ; CHECK-NEXT: __get_pipe_max_packets_wo
 ; CHECK-NEXT: __get_pipe_num_packets_ro
 ; CHECK-NEXT: __get_pipe_num_packets_wo
-; CHECK-NEXT: __ocl_allOne
-; CHECK-NEXT: __ocl_allOne_v16
-; CHECK-NEXT: __ocl_allOne_v4
-; CHECK-NEXT: __ocl_allOne_v8
-; CHECK-NEXT: __ocl_allZero
-; CHECK-NEXT: __ocl_allZero_v16
-; CHECK-NEXT: __ocl_allZero_v4
-; CHECK-NEXT: __ocl_allZero_v8
 ; CHECK-NEXT: __ocl_gather_transpose_char_4x16
 ; CHECK-NEXT: __ocl_gather_transpose_char_4x4
 ; CHECK-NEXT: __ocl_gather_transpose_char_4x8

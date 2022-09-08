@@ -72,7 +72,6 @@ extern cl::opt<DebugLogging> DebugPM;
 extern cl::opt<bool> VerifyEachPass;
 extern bool DPCPPForceOptnone;
 extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EmitKernelVectorizerSignOn;
 extern cl::opt<bool> EnableO0Vectorization;
 
 namespace Intel {
@@ -446,9 +445,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     FunctionPassManager FPM1;
     FPM1.addPass(SinCosFoldPass());
 
-    if (EmitKernelVectorizerSignOn)
-      dbgs() << "Kernel Vectorizer\n";
-
     // Replace 'div' and 'rem' instructions with calls to optimized library
     // functions
     FPM1.addPass(MathLibraryFunctionsReplacementPass());
@@ -612,7 +608,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
                          /*AllowSpeculation*/ true));
     LPM.addPass(BuiltinLICMPass());
     LPM.addPass(LoopStridedCodeMotionPass());
-    //    LPM.addPass(CLStreamSamplerPass());
     FPM2.addPass(
         createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
                                         /*UseBlockFrequencyInfo=*/true));

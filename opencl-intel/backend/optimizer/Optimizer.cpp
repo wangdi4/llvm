@@ -77,13 +77,6 @@ cl::opt<bool> EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
                           cl::Hidden,
                           cl::desc("Enable VPlan Kernel Vectorizer"));
 
-// Enables kernel vectorizer identification message.
-cl::opt<bool>
-    EmitKernelVectorizerSignOn("emit-kernel-vectorizer-sign-on",
-                               cl::init(false), cl::Hidden,
-                               cl::desc("Emit which vectorizer is used "
-                                        "(Volcano or Vplan)"));
-
 // Enable vectorization at O0 optimization level.
 cl::opt<bool> EnableO0Vectorization(
     "enable-o0-vectorization", cl::init(false), cl::Hidden,
@@ -96,12 +89,6 @@ extern bool DPCPPForceOptnone;
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
-
-llvm::Pass *createVectorizerPass(SmallVectorImpl<Module *> &builtinModules,
-                                 const intel::OptimizerConfig *pConfig);
-llvm::Pass *createCLStreamSamplerPass();
-llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
-                                     std::string type);
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
@@ -465,9 +452,6 @@ static void populatePassesPostFailCheck(
 
     if (!pRtlModuleList.empty()) {
       if (UseVplan) {
-        if (EmitKernelVectorizerSignOn)
-          dbgs() << "Kernel Vectorizer\n";
-
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
         PM.add(createMathLibraryFunctionsReplacementPass());
@@ -534,10 +518,6 @@ static void populatePassesPostFailCheck(
         if (!IsSYCL && !DisableVPlanCM &&
             pConfig.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
           PM.add(llvm::createVectorKernelEliminationLegacyPass());
-      } else {
-        if (EmitKernelVectorizerSignOn)
-          dbgs() << "OpenCL Kernel Vectorizer\n";
-        PM.add(createVectorizerPass(pRtlModuleList, &pConfig));
       }
     }
 
@@ -619,7 +599,6 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createLICMPass());
     PM.add(llvm::createBuiltinLICMLegacyPass());
     PM.add(llvm::createLoopStridedCodeMotionLegacyPass());
-    PM.add(createCLStreamSamplerPass());
   }
 
   if (pConfig.GetRelaxedMath()) {
@@ -773,7 +752,6 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
     if (m_IsSYCL)
       m_PM.add(createSPIRVToOCL20Legacy());
     m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
-    m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass());
     Triple TargetTriple(m_M.getTargetTriple());
     if (TargetTriple.isArch64Bit()) {

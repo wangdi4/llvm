@@ -25,18 +25,6 @@ namespace llvm {
 }
 
 namespace intel {
-void initializePhiCanonPass(llvm::PassRegistry&);
-void initializePredicatorPass(llvm::PassRegistry&);
-void initializeOCLBranchProbabilityPass(llvm::PassRegistry&);
-void initializeScalarizeFunctionPass(llvm::PassRegistry&);
-void initializeSimplifyGEPPass(llvm::PassRegistry&);
-void initializePacketizeFunctionPass(llvm::PassRegistry&);
-void initializeX86ResolverPass(llvm::PassRegistry&);
-void initializeAVX512ResolverPass(llvm::PassRegistry&);
-void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
-void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
-void initializeCLStreamSamplerPass(llvm::PassRegistry &);
-
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
@@ -46,8 +34,6 @@ void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry &);
 void initializeStripIntelIPPass(llvm::PassRegistry &);
-void initializeScalarizeFunctionPass(llvm::PassRegistry &);
-void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 }
 

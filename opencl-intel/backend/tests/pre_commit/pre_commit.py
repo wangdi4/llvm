@@ -96,11 +96,7 @@ class PreCheckinTestSuite(unittest.TestCase):
     def test_check(self):
         """LLVM Regression Suite"""
         self.helper_run_suite('check')
-        
-    def test_check_vectorizer(self):
-        """LLVM Vectorizer Suite"""
-        self.helper_run_suite('check_vectorizer')
-        
+   
     def test_check_regression(self):
         """LLVM Regression Suite"""
         self.helper_run_suite('check_regression')

@@ -303,9 +303,6 @@ RuntimeServices("runtime",
                   cl::desc("Runtime services type (ocl)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
-extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList,
-                                          std::string type);
-
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
                                  llvm::legacy::PassManager& passMgr) {
   //---=== Post Command Line Initialization ===---
@@ -334,7 +331,6 @@ static void addMustHaveOCLPasses(llvm::LLVMContext& context,
 
   // Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoAnalysisLegacyPass(runtimeModuleList));
-  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisLegacyPass());
 }
 
