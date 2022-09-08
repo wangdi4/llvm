@@ -624,6 +624,7 @@ bool Symbol::compare(const Defined &other, StringRef otherName) const {
   if (!isDefined())
     return true;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check if the current symbol (*this) and the input symbol (other)
   // are associated with a "gnu.linkonce.t" section
@@ -651,6 +652,8 @@ bool Symbol::compare(const Defined &other, StringRef otherName) const {
       return false;
   }
 
+=======
+>>>>>>> 1e402f02f0a555721d6f6598c6c64201cd2abc15
   // Incoming STB_GLOBAL overrides STB_WEAK/STB_GNU_UNIQUE. -fgnu-unique changes
   // some vague linkage data in COMDAT from STB_WEAK to STB_GNU_UNIQUE. Treat
   // STB_GNU_UNIQUE like STB_WEAK so that we prefer the first among all
