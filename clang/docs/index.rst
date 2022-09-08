@@ -111,6 +111,7 @@ Design Documents
 .. toctree::
    :maxdepth: 1
 
+   CodeOwners
    InternalsManual
    DriverInternals
    OffloadingDesign
