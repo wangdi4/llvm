@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -62,6 +62,14 @@ using namespace llvm;
 using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "instsimplify"
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableGEP0Removal("xmain-enable-gep0-removal", cl::Hidden,
+                      cl::init(false),
+                      cl::desc("Enable removal of GEP with zero indices"));
+#endif // INTEL_CUSTOMIZATION
+
 
 enum { RecursionLimit = 3 };
 
@@ -4609,15 +4617,14 @@ static Value *simplifyGEPInst(Type *SrcTy, Value *Ptr,
   }
 
 #if INTEL_CUSTOMIZATION
-#if 0
   // CMPLRLLVM-36462: Need to retain GEPs for DTrans analysis.
   // For opaque pointers an all-zero GEP is a no-op. For typed pointers,
   // it may be equivalent to a bitcast.
-  if (Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
+  if (EnableGEP0Removal &&
+      Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
       Ptr->getType() == GEPTy &&
       all_of(Indices, [](const auto *V) { return match(V, m_Zero()); }))
     return Ptr;
-#endif
 #endif // INTEL_CUSTOMIZATION
 
   // getelementptr poison, idx -> poison

@@ -1,5 +1,8 @@
 ; Tests that we'll generate the store to the final suspend index if we see the unwind coro end.
-; RUN: opt < %s -passes='cgscc(coro-split),simplifycfg,early-cse' -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; In xmain, the GEP(X,0,0) removal is off by default.
+; RUN: opt < %s -xmain-enable-gep0-removal -passes='cgscc(coro-split),simplifycfg,early-cse' -S | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 define ptr @unwind_coro_end() presplitcoroutine personality i32 3 {
 entry:

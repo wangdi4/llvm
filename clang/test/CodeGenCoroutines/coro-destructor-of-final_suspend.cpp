@@ -1,6 +1,10 @@
 // This addresses https://github.com/llvm/llvm-project/issues/57339
+// INTEL_CUSTOMIZATION
+// In xmain, removal of GEP(X,0,0) is off by default.
 // RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 -fcxx-exceptions \
-// RUN:     -fexceptions -S -emit-llvm -o - %s -O1 | FileCheck %s
+// RUN:     -fexceptions -mllvm -xmain-enable-gep0-removal -S -emit-llvm \
+// RUN:     -o - %s -O1 | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 #include "Inputs/coroutine.h"
 
