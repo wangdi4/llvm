@@ -1322,7 +1322,7 @@ define i32 @and31_add_sexts(i1 %x, i1 %y) {
 ; begin INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[X:%.*]], i32 31, i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[Y:%.*]], i32 31, i32 0
-; CHECK-NEXT:    [[SUB:%.*]] = add nuw nsw i32 [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[SUB:%.*]] = add nuw nsw i32 [[TMP2]], [[TMP1]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[R:%.*]] = and i32 [[SUB]], 31
 ; CHECK-NEXT:    ret i32 [[R]]
