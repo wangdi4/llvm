@@ -30,12 +30,12 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
+; CMCHECK-NEXT:    Cost 2 for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB1]]: base cost: 0
-; CMCHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
+; CMCHECK-NEXT:  [[BB1]]: base cost: 2
+; CMCHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 2
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -54,14 +54,14 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB2]]: base cost: 30
 ; CMCHECK-NEXT:  Base Cost: 30
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CMCHECK-NEXT:    Cost 3 for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CMCHECK-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB3]]: base cost: 0
+; CMCHECK-NEXT:  [[BB3]]: base cost: 3
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 4 resulted Cost = 0
+; CMCHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 4 resulted Cost = 3
 ;
 ; HIRCHECK:       Function: foo
 ; HIRCHECK-EMPTY:

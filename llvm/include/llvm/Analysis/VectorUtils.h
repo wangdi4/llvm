@@ -847,7 +847,7 @@ void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
                          Value *MaskToUse);
 
 /// Helper function that returns widened type of given type \p Ty.
-inline VectorType *getWidenedType(const Type *Ty, unsigned VF) {
+inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
   unsigned NumElts =
       Ty->isVectorTy() ? cast<FixedVectorType>(Ty)->getNumElements() * VF : VF;
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
