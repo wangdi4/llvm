@@ -51,6 +51,7 @@ struct MemorySanitizerOptions {
   bool EagerChecks;
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Insert MemorySanitizer instrumentation (detection of uninitialized reads)
 FunctionPass *
@@ -75,6 +76,8 @@ private:
   MemorySanitizerOptions Options;
 };
 
+=======
+>>>>>>> e7bac3b9fa739f8d167a390a547068aad1d424a7
 /// A module pass for msan instrumentation.
 ///
 /// Instruments functions to detect unitialized reads. This function pass
@@ -85,6 +88,8 @@ struct ModuleMemorySanitizerPass : public PassInfoMixin<ModuleMemorySanitizerPas
   ModuleMemorySanitizerPass(MemorySanitizerOptions Options) : Options(Options) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
   static bool isRequired() { return true; }
 
 private:
