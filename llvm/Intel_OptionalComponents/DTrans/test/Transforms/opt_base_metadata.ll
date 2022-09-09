@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -whole-program-assume -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.test01a  | FileCheck %s
 

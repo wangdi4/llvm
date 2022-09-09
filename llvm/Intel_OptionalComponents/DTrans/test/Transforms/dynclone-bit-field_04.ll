@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that fields 1 and 4 of %struct.test.01 are NOT packed using
 ; bit-fields because values of field 4 don't fit in 2-bits. It verifies that
 ; transformations are done correctly for the following

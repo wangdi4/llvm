@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies no candidate is qualified for DynClone transformation
 ; due to multiple reasons like large constant assignment, non-candidate
 ; field assignment etc.

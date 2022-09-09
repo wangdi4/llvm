@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone handles MultiElem load/store instructions
 ; correctly during transformation when all fields involved in load/store are
 ; marked with aostosoa index fields and analysis able to detect all fields

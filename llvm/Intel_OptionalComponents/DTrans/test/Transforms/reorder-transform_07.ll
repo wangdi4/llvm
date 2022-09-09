@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that Field-reordering transformation applied
 ; correctly to realloc with constant and non-constant sizes with and
 ; without sext/zext related to %struct.test.

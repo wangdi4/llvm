@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that reordering transformation applied to struct.test
 ; and a new struct is created with different layout.
 

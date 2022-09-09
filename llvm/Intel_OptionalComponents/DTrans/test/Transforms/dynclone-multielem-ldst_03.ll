@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone is not triggered if a load involves
 ; multiple struct fields that all are not marked as aostosoa index
 ; fields.

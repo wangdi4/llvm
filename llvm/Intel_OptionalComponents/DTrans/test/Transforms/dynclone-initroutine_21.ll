@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is qualified as InitRoutine
 ; for DynClone transformation even though user defined printf routine
 ; is called before "init" is called. printf routine calls another user

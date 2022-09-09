@@ -2,6 +2,7 @@
 ; global counter and the interface correctly, and modified the malloc
 ; function successfully when -fiopenmp is used.
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -vpo-paropt -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -passes='vpo-paropt,dtrans-paddedmalloc' -S 2>&1 | FileCheck %s
 

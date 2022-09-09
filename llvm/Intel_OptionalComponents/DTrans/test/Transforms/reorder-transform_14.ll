@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that reorder-field transformation (DFR)'s supplementary legal test on dependent types will
 ; skip any one that is NOT a Inclusive Struct Type (IST).
 ;

@@ -6,6 +6,7 @@
 
 ; REQUIRES: system-windows
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:    -passes='require<dtransanalysis>,require<soatoaos-approx>,function(require<soatoaos-array-methods>)'  \

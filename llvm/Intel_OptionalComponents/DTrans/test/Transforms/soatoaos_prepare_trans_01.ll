@@ -1,6 +1,7 @@
 ; This test verifies that SOAToAOSPrepare transformations are
 ; done correctly.
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -dtrans-soatoaos-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-soatoaos-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 

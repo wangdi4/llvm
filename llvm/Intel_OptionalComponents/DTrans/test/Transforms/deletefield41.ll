@@ -6,6 +6,7 @@
 ; RUN: opt < %s -whole-program-assume -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Check that the optimization was rejected in all structures and
 ; that the type %struct.B won't be modified since the enclosing

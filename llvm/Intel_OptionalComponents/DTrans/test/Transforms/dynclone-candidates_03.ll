@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that possible candidate fields are pruned with
 ; compile-time analysis for DynClone transformation.
 

@@ -1,8 +1,9 @@
 ; This test verifies that reordering transformation will NOT be
 ; enabled for struct.test based on profitability heuristic.
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
 
 ; CHECK: %struct.test = type { i8, i8, i64 }
 

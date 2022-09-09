@@ -1,5 +1,5 @@
-
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
 ; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
 

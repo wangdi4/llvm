@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -S 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -S 2>&1 | FileCheck %s
 

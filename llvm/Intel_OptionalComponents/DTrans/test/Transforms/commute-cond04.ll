@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that CommuteCond transformation is triggered for
 ; this test when -dtrans-commute-cond-ignore-heuristic is passed.
 ; Verified that the Condition and TrueValue operands of %sel1 are swapped.

@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; With the old pass manager run, we need to run the aos-to-soa pass followed by
 ; the dynclone pass in order to trigger the analysis of the modified structures
 ; to occur, because it is being lazily recomputed when invalidated by a

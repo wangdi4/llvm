@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-test-paddedmalloc -dtrans-print-types -padded-pointer-prop -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>,padded-pointer-prop,dtrans-paddedmalloc' -dtrans-test-paddedmalloc -dtrans-print-types  -S 2>&1 | FileCheck %s
 

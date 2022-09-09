@@ -15,6 +15,7 @@
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | %lli
 ; REQUIRES: x86_64-linux
+; UNSUPPORTED: enable-opaque-pointers
 
 ; -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays,dtrans-soatoaos-struct
 

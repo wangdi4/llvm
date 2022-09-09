@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-9285 & CMPLRLLVM-9343 (Klocworks issue): SOAToAOS shouldn't
 ; crash when it doesn't find use of stored pointer as Call instruction
 ; (constructor). Commenting out "call void @_ZN3ArrIPiEC2Ei()" call in

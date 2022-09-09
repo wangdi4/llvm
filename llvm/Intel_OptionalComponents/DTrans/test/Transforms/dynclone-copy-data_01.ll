@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that data is copied correctly from original layout
 ; to new layout in "init" routine for DynClone transformation.
 

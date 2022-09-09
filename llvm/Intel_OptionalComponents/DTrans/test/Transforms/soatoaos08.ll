@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that SOAToAOS is triggered when member functions have
 ; llvm.assume and llvm.type.test intrinsic calls.
 

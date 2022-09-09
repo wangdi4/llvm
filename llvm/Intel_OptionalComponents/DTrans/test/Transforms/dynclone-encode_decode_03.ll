@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that encoding/decoding is skipped for load/store
 ; instructions related to arguments if possible when DynClone transformation
 ; is triggered.

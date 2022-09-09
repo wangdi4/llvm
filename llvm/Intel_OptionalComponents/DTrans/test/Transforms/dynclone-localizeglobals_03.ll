@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test checks that the GlobalVariables @opt is not split during dynamic
 ; cloning because it appears in a non-cloned function that does not meet the
 ; special extra clone function criterion. Also that @myglobal does not get

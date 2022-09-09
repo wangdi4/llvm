@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-23920: This test verifies that SOAToAOS is triggered without
 ; compfail.
 
