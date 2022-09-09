@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that identifies that the DTrans padded malloc optimization was applied
 ; outside the OpenMP region.

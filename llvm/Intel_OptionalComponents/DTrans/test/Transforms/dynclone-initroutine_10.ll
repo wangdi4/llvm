@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is not qualified as InitRoutine
 ; for DynClone transformation since memory is allocated for %struct.test.01
 ; before "init" is called in main.

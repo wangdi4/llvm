@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=dtrans-aostosoa -dtrans-ignore-bfi=true -dtrans-aostosoa-frequency-threshold=20 -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 

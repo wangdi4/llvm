@@ -9,6 +9,7 @@
 ; RUN:      -dtrans-free-functions=struct.Mem,1 \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.Arr.0 = type <{ %struct.Mem*, i32, [4 x i8], i8**, i32, [4 x i8] }>

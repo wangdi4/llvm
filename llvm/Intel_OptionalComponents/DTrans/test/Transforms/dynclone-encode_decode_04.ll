@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-27767: This test is almost same as dynclone-encode_decode_01.ll
 ; except -20000000 is stored to the field1 of %struct.test.01 in "init" routine
 ; as follows. Using FSV, we can find %S3 is always -20000000.

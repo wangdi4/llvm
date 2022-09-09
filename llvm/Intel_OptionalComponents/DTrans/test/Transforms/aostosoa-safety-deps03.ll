@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-outofboundsok=false -passes=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 

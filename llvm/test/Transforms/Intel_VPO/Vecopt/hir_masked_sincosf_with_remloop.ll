@@ -34,10 +34,10 @@
 ; CHECK:         + DO i1 = 0, {{.*}}, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
-; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;
-; CHECK-NEXT:    |   %sincos.cos = extractvalue [[RET_UNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[i1] = %sincos.sin;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[i1] = %sincos.cos;
+; CHECK-NEXT:    |   %vp.sincos.sin = extractvalue [[RET_UNIT]], 0;
+; CHECK-NEXT:    |   %vp.sincos.cos = extractvalue [[RET_UNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[i1] = %vp.sincos.sin;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[i1] = %vp.sincos.cos;
 ; CHECK-128:     |   [[MASK_EXT_UNIT:%.*]] = sext.<[[#VL]] x i1>.<[[#VL]] x i32>([[MASK_UNIT:%.*]]);
 ; CHECK-128:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf4_mask([[SRC_UNIT]], [[MASK_EXT_UNIT]]);
 ; CHECK-512:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_UNIT:%.*]], [[SRC_UNIT]]);
@@ -76,17 +76,17 @@
 ; CHECK:         + DO i1 = 0, {{.*}}, [[#VL]]   <DO_LOOP>
 ; CHECK-NEXT:    |   [[SRC_NONUNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK:         |   [[RET_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_NONUNIT]]);
-; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_NONUNIT]], 0;
-; CHECK-NEXT:    |   %sincos.cos = extractvalue [[RET_NONUNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = %sincos.sin;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = %sincos.cos;
+; CHECK-NEXT:    |   %vp.sincos.sin = extractvalue [[RET_NONUNIT]], 0;
+; CHECK-NEXT:    |   %vp.sincos.cos = extractvalue [[RET_NONUNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3{{.*}}>] = %vp.sincos.sin;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3{{.*}}>] = %vp.sincos.cos;
 ; CHECK-128:     |   [[MASK_EXT_NONUNIT:%.*]] = sext.<[[#VL]] x i1>.<[[#VL]] x i32>([[MASK_NONUNIT:%.*]]);
 ; CHECK-128:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf4_mask([[SRC_NONUNIT]], [[MASK_EXT_NONUNIT]]);
 ; CHECK-512:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_NONUNIT:%.*]], [[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   [[SIN_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 0;
 ; CHECK-NEXT:    |   [[COS_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3{{.*}}>] = [[SIN_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3{{.*}}>] = [[COS_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
 ; CHECK-NEXT:    + END LOOP
 ; CHECK:      }
 

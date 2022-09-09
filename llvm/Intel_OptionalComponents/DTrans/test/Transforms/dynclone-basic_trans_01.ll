@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that basic transformations are done correctly for
 ; GEP/ByteFlattenedGEP/Load/Store instructions when DynClone transformation
 ; is triggered.

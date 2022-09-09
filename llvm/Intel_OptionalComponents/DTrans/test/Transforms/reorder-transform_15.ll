@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-26277: Test to make sure the reorder fields pass does not crash when
 ; examining the pattern of a subtract instruction followed by a division
 ; instruction for a case that is not computing the distance between two

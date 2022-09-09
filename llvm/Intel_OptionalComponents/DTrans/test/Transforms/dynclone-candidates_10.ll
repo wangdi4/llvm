@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test is same as dynclone-candidates_09.ll except one additional call
 ; "call void @proc3(i64 %bc1, %struct.test.01* %tp3)", which passes value of
 ; field_0 as first argument, in "proc2" routine. Since it is not safe to

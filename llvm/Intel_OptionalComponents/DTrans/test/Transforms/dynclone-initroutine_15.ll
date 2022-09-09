@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is not qualified as InitRoutine
 ; for DynClone transformation because init routine has call
 ; (i.e candidateAccessCall) that access candidate struct.

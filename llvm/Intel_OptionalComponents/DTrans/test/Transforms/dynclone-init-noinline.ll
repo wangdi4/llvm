@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that noinline is set for "init" call when DynClone
 ; transformation is triggered.
 

@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test checks that the GlobalVariable @opt is split during dynamic cloning
 ; because it appears in only functions dynamic cloning will clone (@proc1 and
 ; @proc2), and one extra special function @proc3, which is forced to be cloned.

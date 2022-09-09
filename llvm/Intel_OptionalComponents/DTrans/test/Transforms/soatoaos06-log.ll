@@ -19,6 +19,7 @@
 ; RUN:          -debug-only=dtrans-soatoaos-deps                                                    \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Check that approximations work as expected.
 ; CHECK-DEP-WF-NOT: ; {{.*}}Unknown{{.*}}Dep

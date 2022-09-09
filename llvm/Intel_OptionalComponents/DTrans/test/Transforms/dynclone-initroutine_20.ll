@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; It verifies that code is generated correctly to initialize/set/
 ; reset/test allocation of unsafe flag correctly for DynClone
 ; transformation even though init routine has two user calls

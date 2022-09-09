@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is not qualified as InitRoutine
 ; for DynClone transformation since unsafecall, which accesses pointer of
 ; struct.test.01 that is saved (in 2nd field of @glob) in init routine, is

@@ -9,6 +9,7 @@
 ; RUN:          -dtrans-soatoaos-array-dtor=_ZN3ArrIPfED2Ev                                                             \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %class.F = type { %struct.Arr*, %struct.Arr.0* }

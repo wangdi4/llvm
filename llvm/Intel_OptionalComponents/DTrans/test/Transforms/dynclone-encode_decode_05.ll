@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that simple DynClone is triggered but not Reencoding
 ; transformation because this test has more than 8 large constants.
 ; Verifies that simple DynClone is triggered and __DYN_encoder/__DYN_decoder

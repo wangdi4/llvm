@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is qualified as InitRoutine
 ; for DynClone transformation even though it has safecall1 and safecall2
 ; user calls. Analysis finds those two calls are safe because they don't

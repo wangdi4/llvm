@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone+Reencoding transformation is not
 ; triggered because there are too many large constants to be reencoded
 ; when -dtrans-simple-dynclone-enable=false.

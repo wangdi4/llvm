@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is not qualified as InitRoutine
 ; for DynClone transformation because all allocation calls for %struct.test.01
 ; are not in the same basic block.

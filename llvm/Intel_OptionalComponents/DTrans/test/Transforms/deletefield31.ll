@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; Test check that delete fields optimization
 ; does NOT happen with 4 unknown function calls
 ; DOES happen when unknown funcitons are classified

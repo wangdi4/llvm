@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt  < %s -whole-program-assume -disable-output -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s

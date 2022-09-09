@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that verifies that padded malloc wasn't applied because there was
 ; no search loop and no use of malloc.

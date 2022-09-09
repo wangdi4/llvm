@@ -641,6 +641,10 @@ public:
   // "llvm.loop.vectorize.enable" metadata.
   void setIsVecMDForHLLoops();
 
+  // Replace calls in scalar peel/remainder loops that were library vectorized
+  // in the main loop.
+  void replaceLibCallsInScalarLoops();
+
   // Set flag that indicates tree conflict instructions were lowered to double
   // permute tree reduction.
   void setTreeConflictsLowered(bool Lowered);
@@ -822,6 +826,11 @@ private:
   // Set of scalar HLLoops generated for outgoing HIR.
   SmallDenseMap<const VPInstruction *, HLLoop *> OutgoingScalarHLLoopsMap;
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
+
+  // Keep track of which scalar call instructions got replaced with a call to a
+  // library function. We need this so we can ensure these calls are also
+  // replaced in any scalar peel or remainder loops.
+  SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

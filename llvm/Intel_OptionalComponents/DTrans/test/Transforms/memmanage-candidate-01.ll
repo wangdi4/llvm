@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; This test verifies that %"XStringCachedAllocator" is considered as
 ; candidate for MemManageTrans.

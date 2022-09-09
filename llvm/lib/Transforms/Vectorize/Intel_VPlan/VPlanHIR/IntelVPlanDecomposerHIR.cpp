@@ -638,6 +638,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   auto *Subscript = Builder.create<VPSubscriptInst>(
       "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
   Subscript->setIsInBounds(Ref->isInBounds());
+  Subscript->HIR().setSymbase(Ref->getSymbase());
   MemOpVPI = Subscript;
 
   // Create a bitcast instruction if needed

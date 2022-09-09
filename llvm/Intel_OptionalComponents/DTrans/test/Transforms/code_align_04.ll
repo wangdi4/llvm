@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that codealign doesn't crash and no change of alignment
 ; of @bar with opaque pointers.
 ; This test is same as code_align_01.ll.

@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone can handle argument assignments to
 ; possible candidate fields while pruning candidate fields. First argument
 ; of proc3 routine is assigned to field_1 of %struct.test.01. Possible values

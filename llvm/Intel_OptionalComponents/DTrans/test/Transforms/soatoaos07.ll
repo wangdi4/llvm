@@ -1,4 +1,5 @@
 ; REQUIRES: system-windows
+; UNSUPPORTED: enable-opaque-pointers
 
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.

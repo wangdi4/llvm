@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; CMPLRLLVM-27768: This test is same as soatoaos_prepare_trans_02.ll
 ; except the following. This test verifies that SOAToAOSPrepare transformations
 ; occur when pre-header is missing for loops in _ZN6RefArrIPsED2Ev and

@@ -25,6 +25,7 @@ static bool hasSymbase(const VPInstruction &Inst) {
   case Instruction::Load:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSStore:
+  case VPInstruction::Subscript:
     return true;
   }
 }

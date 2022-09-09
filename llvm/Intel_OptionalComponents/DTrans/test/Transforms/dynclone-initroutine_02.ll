@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that "init" routine is not qualified as InitRoutine
 ; for DynClone transformation since user-defined routine is called before
 ; "init" is called.

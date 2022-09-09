@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that Field-reordering transformation applied
 ; correctly to GEP and calloc instructions related to %struct.test.
 

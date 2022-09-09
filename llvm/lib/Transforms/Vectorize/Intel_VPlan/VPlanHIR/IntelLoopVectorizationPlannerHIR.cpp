@@ -21,6 +21,7 @@
 #include "../IntelVPlanVLSTransform.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
+#include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlannerHIR"
 
@@ -74,6 +75,10 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   CallVecDecisions.runForMergedCFG(TLI, TTI);
   Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Transform lib calls (like 'sincos') that need additional processing.
+  VPTransformLibraryCalls VPTransLibCalls(*Plan, *TLI);
+  VPTransLibCalls.transform();
 
   // Compute SVA results for final VPlan which will be used by CG.
   Plan->runSVA(BestVF);
@@ -163,20 +168,6 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
           LLVM_DEBUG(dbgs() << "LVP: unsupported nested begin directive. "
                             << *UnderlyingCall << "\n");
           return false;
-        }
-
-        LibFunc CallF;
-        if (TLI->getLibFunc(*CalledF, CallF) &&
-            (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
-          // Check if sin/cos value pointer operands are marked as SIMD
-          // privates.
-          if (LE->getPrivate(getPtrThroughCast(VPCall->getOperand(1))) ||
-              LE->getPrivate(getPtrThroughCast(VPCall->getOperand(2)))) {
-            LLVM_DEBUG(dbgs() << "LVP: sincos calls using private sin/cos "
-                                 "pointer operands not supported.\n"
-                              << Inst << "\n");
-            return false;
-          }
         }
       }
     }

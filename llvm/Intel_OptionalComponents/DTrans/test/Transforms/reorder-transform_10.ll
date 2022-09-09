@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; RUN: opt -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
 ; RUN: opt -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 

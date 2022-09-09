@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that DynClone is not triggered when analysis
 ; is not able to detect all fields involved in MultiElem load in
 ; proc1.
