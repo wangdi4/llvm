@@ -188,9 +188,15 @@ public:
   }
 
   unsigned getSymbase() const { return getDDRef()->getSymbase(); }
-  unsigned getRvalSymbase() const {
+
+  unsigned getRvalTempSymbase() const {
     assert(!isLoad() && "Attempt to access load temp's rval symbase!");
     return DefInst->getBlobUtils().getTempBlobSymbase(getRvalBlobIndex());
+  }
+
+  unsigned getLoadSymbase() const {
+    assert(isLoad() && "Please use getRvalTempSymbase() instead!");
+    return getRvalDDRef()->getSymbase();
   }
 
   // Replaces liveout temp by its copy in the Node represented by \p UseRef. It
@@ -379,7 +385,7 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   auto *DefLoop = getDefLoop();
   auto *UseLoop = isa<HLLoop>(UseNode) ? cast<HLLoop>(UseNode)
                                        : UseRef->getLexicalParentLoop();
-  unsigned RvalSymbase = getRvalSymbase();
+  unsigned RvalSymbase = getRvalTempSymbase();
   unsigned LvalSymbase = getSymbase();
 
   auto LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
@@ -799,10 +805,19 @@ void TempSubstituter::visit(HLDDNode *Node) {
 void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
   bool InvalidateLoads = false;
-  auto Inst = HInst->getLLVMInstruction();
+  bool InvalidateAliasingLoadsOnly = false;
+  auto *Inst = HInst->getLLVMInstruction();
+  auto *Call = dyn_cast<CallInst>(Inst);
 
   if (Inst->mayWriteToMemory()) {
-    InvalidateLoads = true;
+    assert((Call || isa<StoreInst>(Inst)) &&
+           "Unexpected instruction which writes to memory!");
+
+    if (!Call || !Call->onlyAccessesInaccessibleMemory()) {
+      InvalidateLoads = true;
+    }
+
+    InvalidateAliasingLoadsOnly = (!Call || Call->onlyAccessesArgMemory());
   }
 
   unsigned LvalBlobIndex = HInst->getLvalBlobIndex();
@@ -818,7 +833,28 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
     }
 
     if (InvalidateLoads && Temp.isLoad()) {
-      Temp.markNonSubstitutableOrInvalid(HInst);
+
+      if (InvalidateAliasingLoadsOnly) {
+        unsigned LoadSB = Temp.getLoadSymbase();
+
+        if (!Call) {
+          if (HInst->getLvalDDRef()->getSymbase() == LoadSB) {
+            Temp.markNonSubstitutableOrInvalid(HInst);
+          }
+        } else {
+          for (auto *FakeMemRef :
+               make_range(HInst->fake_ddref_begin(), HInst->fake_ddref_end())) {
+            if (FakeMemRef->isLval() && (FakeMemRef->getSymbase() == LoadSB)) {
+              Temp.markNonSubstitutableOrInvalid(HInst);
+              break;
+            }
+          }
+        }
+
+      } else {
+        Temp.markNonSubstitutableOrInvalid(HInst);
+      }
+
       continue;
     }
 
@@ -843,7 +879,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
           auto LCALoop =
               HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
 
-          auto NewSymbase = Temp.getRvalSymbase();
+          auto NewSymbase = Temp.getRvalTempSymbase();
 
           while (TempLoop != LCALoop) {
             TempLoop->addLiveOutTemp(NewSymbase);
@@ -964,7 +1000,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       Temp.processInnerLoopUses(nullptr);
 
       unsigned Symbase = Temp.getSymbase();
-      unsigned NewSymbase = Temp.getRvalSymbase();
+      unsigned NewSymbase = Temp.getRvalTempSymbase();
       HLLoop *ParentLoop = Temp.getDefLoop();
       HLLoop *LCALoop = nullptr;
       bool SkipLiveouts = false;
