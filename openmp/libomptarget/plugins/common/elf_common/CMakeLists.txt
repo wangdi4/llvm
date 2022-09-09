@@ -26,16 +26,11 @@
 # Common ELF functionality for target plugins
 #
 ##===----------------------------------------------------------------------===##
-<<<<<<< HEAD
 if(INTEL_COLLAB)
 add_library(elf_common OBJECT elf_common.cpp elf_light.cpp)
 else(INTEL_COLLAB)
-add_library(elf_common OBJECT elf_common.cpp)
-endif(INTEL_COLLAB)
-=======
-
 add_library(elf_common OBJECT elf_common.cpp ELFSymbols.cpp)
->>>>>>> 894531f59beb03c17a6e11e5b9c9995182b8d727
+endif(INTEL_COLLAB)
 
 # Build elf_common with PIC to be able to link it with plugin shared libraries.
 set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)
