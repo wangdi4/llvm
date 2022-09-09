@@ -2053,7 +2053,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
           return cast<VPConstantInt>(Arg)->getZExtValue();
         }));
 
-    VPWidenMap[VPInst] = Builder.CreateExtractValue(Aggregate, Indices);
+    VPWidenMap[VPInst] = Builder.CreateExtractValue(Aggregate, Indices, VPInst->getName());
     return;
   }
   default: {

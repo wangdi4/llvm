@@ -2,30 +2,21 @@
 ; RUN: -vplan-print-after-transformed-library-calls -S %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after transforming library calls
-; CHECK:       [[BB0:BB[0-9]+]]
-; CHECK-NEXT:    br [[BB1:BB[0-9]+]]
-; CHECK:       [[BB1]]:
-; CHECK:         i64 [[IV_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK:         i64 [[IV_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK:         br [[BB2:BB[0-9]+]]
-; CHECK:       [[BB2]]:
-; CHECK:         i64 [[IV:%.*]] = phi [ i64 [[IV_INIT]], [[BB1]] ], [ i64 [[IV_NEXT:.*]], [[BB2]] ]
-; CHECK:         double* [[SIN_ADDR:%.*]] = getelementptr inbounds [256 x double]* [[SIN_ARR:%.*]] i64 0 i64 [[IV]]
-; CHECK:         double* [[COS_ADDR:%.*]] = getelementptr inbounds [256 x double]* [[COS_ARR:%.*]] i64 0 i64 [[IV]]
+; CHECK:       [[BODY:BB[0-9]+]]:
+; CHECK:         double* [[SIN_ADDR:%.*]] = getelementptr inbounds [256 x double]* [[SIN_ARR:%.*]] i64 0 i64 {{.*}}
+; CHECK:         double* [[COS_ADDR:%.*]] = getelementptr inbounds [256 x double]* [[COS_ARR:%.*]] i64 0 i64 {{.*}}
 ; CHECK:         %.vplan.sincos = type { double, double } [[VP_RES:%.*]] = transform-lib-call double [[VAL:.*]] __svml_sincos2
 ; CHECK-NEXT:    double [[VP_SIN:%.*]] = soa-extract-value %.vplan.sincos = type { double, double } [[VP_RES]] i64 0
 ; CHECK-NEXT:    double [[VP_COS:%.*]] = soa-extract-value %.vplan.sincos = type { double, double } [[VP_RES]] i64 1
 ; CHECK-NEXT:    store double [[VP_SIN]] double* [[SIN_ADDR]]
 ; CHECK-NEXT:    store double [[VP_COS]] double* [[COS_ADDR]]
-; CHECK:         i64 [[IV_NEXT]] = add i64 [[IV]] i64 [[IV_STEP]]
 
 ; CHECK-LABEL: define dso_local void @test_sincos_transform() {
 ; CHECK-NEXT:    [[SIN_ARR]] = alloca [256 x double], align 16
 ; CHECK-NEXT:    [[COS_ARR]] = alloca [256 x double], align 16
 ; CHECK:       vector.body:
-; CHECK:         [[IV:%.*]] = phi i64 [ 0, {{.*}} ], [ [[IV_NEXT:%.*]], %vector.body ]
-; CHECK:         [[SIN_GEP:%.*]] = getelementptr inbounds [256 x double], [256 x double]* [[SIN_ARR]], i64 0, i64 [[IV]]
-; CHECK:         [[COS_GEP:%.*]] = getelementptr inbounds [256 x double], [256 x double]* [[COS_ARR]], i64 0, i64 [[IV]]
+; CHECK:         [[SIN_GEP:%.*]] = getelementptr inbounds [256 x double], [256 x double]* [[SIN_ARR]], i64 0, i64 {{.*}}
+; CHECK:         [[COS_GEP:%.*]] = getelementptr inbounds [256 x double], [256 x double]* [[COS_ARR]], i64 0, i64 {{.*}}
 ; CHECK:         [[RES:%.*]] = call svml_cc { <2 x double>, <2 x double> } @__svml_sincos2(<2 x double> <double [[VAL]], double [[VAL]]>)
 ; CHECK-NEXT:    [[SIN:%.*]] = extractvalue { <2 x double>, <2 x double> } [[RES]], 0
 ; CHECK-NEXT:    [[COS:%.*]] = extractvalue { <2 x double>, <2 x double> } [[RES]], 1
@@ -33,7 +24,19 @@
 ; CHECK-NEXT:    store <2 x double> [[SIN]], <2 x double>* [[SIN_WIDE]], align 8
 ; CHECK-NEXT:    [[COS_WIDE:%.*]] = bitcast double* [[COS_GEP]] to <2 x double>*
 ; CHECK-NEXT:    store <2 x double> [[COS]], <2 x double>* [[COS_WIDE]], align 8
-; CHECK:         [[IV_NEXT]] = add nuw nsw i64 [[IV]], 2
+
+; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -vplan-force-vf=2 -vector-library=SVML \
+; RUN: -vplan-print-after-transformed-library-calls -disable-output -S %s 2>&1 | FileCheck %s --check-prefix=HIR
+
+; HIR-LABEL: VPlan after transforming library calls
+; HIR:       [[BODY:BB[0-9]+]]:
+; HIR:         double* [[SIN_ADDR:%.*]] = subscript inbounds [256 x double]* [[SIN_ARR:%.*]] i64 0 i64 {{.*}}
+; HIR:         double* [[COS_ADDR:%.*]] = subscript inbounds [256 x double]* [[COS_ARR:%.*]] i64 0 i64 {{.*}}
+; HIR:         %.vplan.sincos = type { double, double } [[VP_RES:%.*]] = transform-lib-call double [[VAL:.*]] __svml_sincos2
+; HIR-NEXT:    double [[VP_SIN:%.*]] = soa-extract-value %.vplan.sincos = type { double, double } [[VP_RES]] i64 0
+; HIR-NEXT:    double [[VP_COS:%.*]] = soa-extract-value %.vplan.sincos = type { double, double } [[VP_RES]] i64 1
+; HIR-NEXT:    store double [[VP_SIN]] double* [[SIN_ADDR]]
+; HIR-NEXT:    store double [[VP_COS]] double* [[COS_ADDR]]
 
 define dso_local void @test_sincos_transform() {
   %sin.arr = alloca [256 x double], align 16
@@ -67,4 +70,6 @@ for.end:
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
 
-declare dso_local void @sincos(double noundef, double* noundef, double* noundef)
+; Function Attrs: nounwind
+declare dso_local void @sincos(double noundef, double* noundef, double* noundef) local_unnamed_addr #1
+attributes #1 = { nounwind }

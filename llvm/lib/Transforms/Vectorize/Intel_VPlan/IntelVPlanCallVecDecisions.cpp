@@ -192,6 +192,10 @@ VPlanCallVecDecisions::calcCharacteristicType(VPCallInstruction *VPCallInst,
 void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
                                         const TargetLibraryInfo *TLI,
                                         const TargetTransformInfo *TTI) {
+  assert(
+      !isa<VPTransformLibraryCall>(VPCall) &&
+      "VPTransformLibraryCalls should only be run *after* call vec decisions.");
+
   const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
 
   // Reset decisions that were taken for any previous VF as they will be

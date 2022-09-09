@@ -1415,7 +1415,8 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     // For non-merged CFG path, just track the scalar HLLoops emitted -
     // remainder is stored in OrigLoop.
     OutgoingScalarHLLoops.insert(OrigLoop);
-    OutgoingScalarHLLoops.insert(PeelLoop);
+    if (PeelLoop)
+      OutgoingScalarHLLoops.insert(PeelLoop);
   }
 
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
@@ -1476,15 +1477,16 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     lowerRemarksForVectorLoops();
   }
 
+  // Replace lib calls in scalar peel and remainder loops. We defer this until
+  // after vectorizing the main loop, as it is then that we record which calls
+  // received library vectorization.
+  replaceLibCallsInScalarLoops();
+
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
-  // Replace calls in remainderloop for FP consistency
   if (NeedRemainderLoop) {
-    // Remainder loop is represented explicitly in merged CFG and we don't need
-    // to repurpose OrigLoop as remainder.
-    if (isSearchLoop()) {
-      HIRLoopVisitor LV(OrigLoop, this);
-      LV.replaceCalls();
-    } else {
+    if (!isSearchLoop()) {
+      // Remainder loop is represented explicitly in the non search loop case
+      // and we don't need to repurpose OrigLoop as remainder.
       HLNodeUtils::remove(OrigLoop);
     }
   }
@@ -1554,6 +1556,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
 // <14>  + END LOOP
 
 void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
+  assert(!isSearchLoop() && "search loops shouldn't have call instructions!");
 
   // Used to remove the original math calls after iterating over them.
   SmallVector<HLInst *, 1> InstsToRemove;
@@ -1564,8 +1567,11 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
 
-  // Check to see if the call was vectorized in the main loop.
-  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF))) {
+  // Check to see if the call was library vectorized in the main loop.
+  if (VectorizedLibraryCalls.count(Call)) {
+    assert(TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF)) &&
+           "non-vectorizable call vectorized in main loop?");
+
     // TODO: Call is vectorized in scalar remainder loop, currently ignored
     // since we don't have corresponding VPLoop.
     ++NonLoopInstStats.VectorMathCalls;
@@ -2802,24 +2808,14 @@ void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
   assert(CombinedResult->isAttached() &&
          "Combined result for calls is expected to be attached.");
 
-  // Handle results of SVML sincos function calls
-  // sincos function has two return values. The scalar sincos function uses
-  // pointers as out-parameters. SVML sincos function, instead, returns them in
-  // a struct directly. This bridges the gap between these two approaches.
-  const class CallInst *Call = CallResults[0]->getCallInst();
-  assert(Call && Call->getCalledFunction() &&
-         "Unexpected null CalledFunction.");
-  if (Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-    // TODO: sincos handling uses underlying HLInst since it's designed to work
-    // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
-    auto *UnderlyingHLInst = cast<HLInst>(VPCall->HIR().getUnderlyingNode());
-    generateStoreForSinCos(UnderlyingHLInst, CombinedResult, Mask,
-                           false /* IsRemainderLoop */);
-    return;
-  }
-
   // Update wide-ref mapping.
   addVPValueWideRefMapping(VPCall, CombinedResult->getLvalDDRef());
+
+  // Record that the original call was vectorized with a library func.
+  // TODO: if we record the actual vectorized function here, can we remove the
+  // logic in 'replaceLibCallsInRemainderLoop' to determine the vectorized
+  // function signature?
+  VectorizedLibraryCalls.insert(VPCall->getOriginalCall());
 }
 
 void VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
@@ -2901,15 +2897,9 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
 
   Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
-  StringRef FnName = Fn->getName();
 
   // Widen all arg operands of the call and adjust them based on masking.
   unsigned ArgIgnored = 0;
-  // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
-  // functions return the results directly in a struct. The pointers should be
-  // omitted in vectorized call.
-  if (FnName == "sincos" || FnName == "sincosf")
-    ArgIgnored = 2;
 
   AttributeList Attrs = VPCall->getOrigCallAttrs();
 
@@ -3253,19 +3243,6 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     if (WideInst->getLvalDDRef()->isTerminalRef())
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
-
-  // Handle results of SVML sincos function calls
-  // sincos function has two return values. The scalar sincos function uses
-  // pointers as out-parameters. SVML sincos function, instead, returns them in
-  // a struct directly. This bridges the gap between these two approaches.
-  if (const CallInst *Call = WideInst->getCallInst())
-    if (const Function *Fn = Call->getCalledFunction())
-      if (Fn->getName().startswith("__svml_sincos")) {
-        addInst(WideInst, nullptr);
-        generateStoreForSinCos(INode, WideInst, Mask,
-                               false /* IsRemainderLoop */);
-        return;
-      }
 
   addInst(WideInst, Mask);
 }
@@ -5933,8 +5910,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // As we peel maximum for the size of one register, the max TC for peel
     // can be MaxVF.
     setLoopTCEstimatesAndMarkers(ScalarPeel, MaxVF - 1);
-    HIRLoopVisitor LV(ScalarPeel, this);
-    LV.replaceCalls();
     return;
   }
 
@@ -6001,8 +5976,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // remainder, we should be able to use remainder VF - 1 for
     // the trip count estimates. To be done later.
     setLoopTCEstimatesAndMarkers(ScalarRem, MaxVF * UF - 1);
-    HIRLoopVisitor LV(ScalarRem, this);
-    LV.replaceCalls();
     return;
   }
 
@@ -6629,6 +6602,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::TransformLibraryCall: {
+    auto *TransformedCall = cast<VPTransformLibraryCall>(VPInst);
+    // Calls need to be masked with current mask value if Mask is null.
+    if (!Mask)
+      Mask = CurMaskValue;
+    widenLibraryCall(TransformedCall, Mask);
+    ++OptRptStats.VectorMathCalls;
+    return;
+  }
+
   // CG support for opcodes that operate on VectorType.
   case Instruction::ExtractElement: {
     assert(isa<VectorType>(RefOp0->getDestType()) &&
@@ -6850,6 +6833,25 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     dropExternalValsFromMaps();
     setVF(V.first);
     setUF(V.second);
+    return;
+  }
+
+  case VPInstruction::SOAExtractValue: {
+    // We know our first operand is an aggregate in SOA layout. Emit a single
+    // ExtractValue to get the widened value.
+
+    // First operand is our SOA aggregate
+    RegDDRef *Aggregate = widenRef(VPInst->getOperand(0), getVF());
+
+    // Subsequent operands are ExtractValue indices
+    SmallVector<unsigned, 1> Indices(
+        map_range(drop_begin(VPInst->operands(), 1), [](const VPValue *Arg) {
+          return cast<VPConstantInt>(Arg)->getZExtValue();
+        }));
+
+    HLInst *Extract = HLNodeUtilities.createExtractValueInst(Aggregate, Indices, VPInst->getName());
+    addInst(Extract, Mask);
+    addVPValueWideRefMapping(VPInst, Extract->getLvalDDRef());
     return;
   }
 
@@ -7684,6 +7686,13 @@ void VPOCodeGenHIR::setIsVecMDForHLLoops() {
       if (HLp->getLoopStringMetadata("llvm.loop.vectorize.enable") != nullptr)
         setHLLoopMD(HLp, "llvm.loop.isvectorized");
     }
+  }
+}
+
+void VPOCodeGenHIR::replaceLibCallsInScalarLoops() {
+  for (auto *HLp : OutgoingScalarHLLoops) {
+    HIRLoopVisitor LV(HLp, this);
+    LV.replaceCalls();
   }
 }
 

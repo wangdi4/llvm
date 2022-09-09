@@ -10,13 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK-LABEL: @_Z1cv(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[T20:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[T24:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[T23:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[T22:%.*]] = alloca <4 x float>, align 16
+; CHECK-NEXT:    [[T21:%.*]] = alloca <4 x float>, align 16
+; CHECK-NEXT:    [[T20:%.*]] = alloca { <4 x float>, <4 x float> }, align 16
 ; CHECK-NEXT:    [[T19:%.*]] = alloca float, align 4
-; CHECK-NEXT:    [[T18:%.*]] = alloca <4 x float>, align 16
-; CHECK-NEXT:    [[T17:%.*]] = alloca <4 x float>, align 16
-; CHECK-NEXT:    [[T16:%.*]] = alloca { <4 x float>, <4 x float> }, align 16
-; CHECK-NEXT:    [[T15:%.*]] = alloca float, align 4
 ; CHECK-NEXT:    [[T11:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[T18:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[T16:%.*]] = alloca float, align 4
 ; CHECK-NEXT:    [[T14:%.*]] = alloca <4 x float>, align 16
 ; CHECK-NEXT:    [[T13:%.*]] = alloca <4 x float>, align 16
 ; CHECK-NEXT:    [[T12:%.*]] = alloca { <4 x float>, <4 x float> }, align 16
@@ -41,9 +43,15 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[SINCOS_COS9:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T12_8]], 1
 ; CHECK-NEXT:    store <4 x float> [[SINCOS_COS9]], <4 x float>* [[T14]], align 16
 ; CHECK-NEXT:    [[T13_:%.*]] = load <4 x float>, <4 x float>* [[T13]], align 16
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4f32.v4p0f32(<4 x float> [[T13_]], <4 x float*> <float* @a, float* @a, float* @a, float* @a>, i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[ELEM39:%.*]] = extractelement <4 x float> [[T13_]], i64 3
+; CHECK-NEXT:    store float [[ELEM39]], float* [[T16]], align 4
+; CHECK-NEXT:    [[T16_:%.*]] = load float, float* [[T16]], align 4
+; CHECK-NEXT:    store float [[T16_]], float* @a, align 4
 ; CHECK-NEXT:    [[T14_:%.*]] = load <4 x float>, <4 x float>* [[T14]], align 16
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4f32.v4p0f32(<4 x float> [[T14_]], <4 x float*> <float* @b, float* @b, float* @b, float* @b>, i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[ELEM310:%.*]] = extractelement <4 x float> [[T14_]], i64 3
+; CHECK-NEXT:    store float [[ELEM310]], float* [[T18]], align 4
+; CHECK-NEXT:    [[T18_:%.*]] = load float, float* [[T18]], align 4
+; CHECK-NEXT:    store float [[T18_]], float* @b, align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_18:%.*]] = add nuw nsw i32 [[TMP1]], 4
 ; CHECK-NEXT:    store i32 [[NEXTIVLOOP_18]], i32* [[I1_I32]], align 4
@@ -53,35 +61,35 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK-NEXT:    store i32 100, i32* [[T11]], align 4
 ; CHECK-NEXT:    store i32 100, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    br label [[LOOP_37:%.*]]
-; CHECK:       loop.37:
-; CHECK-NEXT:    store float 5.000000e-01, float* [[T15]], align 4
-; CHECK-NEXT:    [[T15_:%.*]] = load float, float* [[T15]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[T15_]], i32 0
+; CHECK:       loop.39:
+; CHECK-NEXT:    store float 5.000000e-01, float* [[T19]], align 4
+; CHECK-NEXT:    [[T19_:%.*]] = load float, float* [[T19]], align 4
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[T19_]], i32 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x float> [[DOTSPLATINSERT]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> noundef [[DOTSPLAT]]) #[[ATTR5]]
-; CHECK-NEXT:    store { <4 x float>, <4 x float> } [[TMP2]], { <4 x float>, <4 x float> }* [[T16]], align 16
-; CHECK-NEXT:    [[T16_:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T16]], align 16
-; CHECK-NEXT:    [[SINCOS_SIN410:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T16_]], 0
-; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN410]], <4 x float>* [[T17]], align 16
-; CHECK-NEXT:    [[T16_11:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T16]], align 16
-; CHECK-NEXT:    [[SINCOS_COS512:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T16_11]], 1
-; CHECK-NEXT:    store <4 x float> [[SINCOS_COS512]], <4 x float>* [[T18]], align 16
-; CHECK-NEXT:    [[T17_:%.*]] = load <4 x float>, <4 x float>* [[T17]], align 16
-; CHECK-NEXT:    [[ELEM13:%.*]] = extractelement <4 x float> [[T17_]], i64 0
-; CHECK-NEXT:    store float [[ELEM13]], float* [[T19]], align 4
-; CHECK-NEXT:    [[T19_:%.*]] = load float, float* [[T19]], align 4
-; CHECK-NEXT:    store float [[T19_]], float* @a, align 4
-; CHECK-NEXT:    [[T18_:%.*]] = load <4 x float>, <4 x float>* [[T18]], align 16
-; CHECK-NEXT:    [[ELEM614:%.*]] = extractelement <4 x float> [[T18_]], i64 0
-; CHECK-NEXT:    store float [[ELEM614]], float* [[T20]], align 4
-; CHECK-NEXT:    [[T20_:%.*]] = load float, float* [[T20]], align 4
-; CHECK-NEXT:    store float [[T20_]], float* @b, align 4
+; CHECK-NEXT:    store { <4 x float>, <4 x float> } [[TMP2]], { <4 x float>, <4 x float> }* [[T20]], align 16
+; CHECK-NEXT:    [[T20_:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T20]], align 16
+; CHECK-NEXT:    [[SINCOS_SIN410:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T20_]], 0
+; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN410]], <4 x float>* [[T21]], align 16
+; CHECK-NEXT:    [[T20_11:%.*]] = load { <4 x float>, <4 x float> }, { <4 x float>, <4 x float> }* [[T20]], align 16
+; CHECK-NEXT:    [[SINCOS_COS512:%.*]] = extractvalue { <4 x float>, <4 x float> } [[T20_11]], 1
+; CHECK-NEXT:    store <4 x float> [[SINCOS_COS512]], <4 x float>* [[T22]], align 16
+; CHECK-NEXT:    [[T21_:%.*]] = load <4 x float>, <4 x float>* [[T21]], align 16
+; CHECK-NEXT:    [[ELEM13:%.*]] = extractelement <4 x float> [[T21_]], i64 0
+; CHECK-NEXT:    store float [[ELEM13]], float* [[T23]], align 4
+; CHECK-NEXT:    [[T23_:%.*]] = load float, float* [[T23]], align 4
+; CHECK-NEXT:    store float [[T23_]], float* @a, align 4
+; CHECK-NEXT:    [[T22_:%.*]] = load <4 x float>, <4 x float>* [[T22]], align 16
+; CHECK-NEXT:    [[ELEM614:%.*]] = extractelement <4 x float> [[T22_]], i64 0
+; CHECK-NEXT:    store float [[ELEM614]], float* [[T24]], align 4
+; CHECK-NEXT:    [[T24_:%.*]] = load float, float* [[T24]], align 4
+; CHECK-NEXT:    store float [[T24_]], float* @b, align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_37:%.*]] = add nuw nsw i32 [[TMP3]], 1
 ; CHECK-NEXT:    store i32 [[NEXTIVLOOP_37]], i32* [[I1_I32]], align 4
 ; CHECK-NEXT:    [[CONDLOOP_37:%.*]] = icmp ne i32 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[CONDLOOP_37]], label [[LOOP_37]], label [[AFTERLOOP_37:%.*]], !llvm.loop [[LOOP11:![0-9]+]]
-; CHECK:       afterloop.37:
+; CHECK:       afterloop.39:
 ; CHECK-NEXT:    br label [[FOR_END_SPLIT:%.*]]
 ;
 ; CHECK:       declare noundef { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> noundef)

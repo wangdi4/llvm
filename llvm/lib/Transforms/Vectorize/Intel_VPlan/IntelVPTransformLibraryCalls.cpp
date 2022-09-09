@@ -13,6 +13,8 @@
 /// This file implements the VPTransformLibraryCalls class.
 //===---------------------------------------------------------------------===//
 #include "IntelVPTransformLibraryCalls.h"
+#include "Intel_VPlan/IntelVPlan.h"
+#include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -72,10 +74,10 @@ void VPTransformLibraryCalls::transformSincosCalls() {
   // ==>
   //
   //   {double, double} %res = transform-library-call double %x @__svml_sincos
-  //   %sin.value = soa-extract-value {double, double} %res, 0
-  //   store double %sin.value double* %sin.out
-  //   %cos.value = soa-extract-value {double, double} %res, 1
-  //   store double %cos.value double* %cos.out
+  //   %sincos.sin = soa-extract-value {double, double} %res, 0
+  //   %sincos.cos = soa-extract-value {double, double} %res, 1
+  //   store double %sincos.sin double* %sin.out
+  //   store double %sincos.cos double* %cos.out
   //
   for (auto &SincosCall : Calls) {
     LLVM_DEBUG(dbgs() << "Transforming call:\n" << *SincosCall << '\n';);
@@ -87,8 +89,7 @@ void VPTransformLibraryCalls::transformSincosCalls() {
     // and arguments.
     Type *ArgTy = SincosCall->getArgOperand(0)->getType();
 
-    auto *RetTy = StructType::create({ArgTy, ArgTy}, ".vplan.sincos",
-                                     /*isPacked*/ false);
+    auto *RetTy = StructType::create({ArgTy, ArgTy}, ".vplan.sincos");
     auto *TransformedFnTy =
         FunctionType::get(RetTy, {ArgTy}, /*IsVarArg=*/false);
     auto *TransformedCall = Builder.create<VPTransformLibraryCall>(
@@ -105,6 +106,7 @@ void VPTransformLibraryCalls::transformSincosCalls() {
       auto *IdxValue = Plan.getVPConstant(ConstantInt::get(IdxTy, Idx));
       auto *Value = Builder.createNaryOp(VPInstruction::SOAExtractValue, ArgTy,
                                          {TransformedCall, IdxValue});
+      Value->setName(Idx == 0 ? "sincos.sin" : "sincos.cos");
       DA.markDivergent(*Value);
       ReturnValues.push_back(Value);
     }
@@ -112,10 +114,15 @@ void VPTransformLibraryCalls::transformSincosCalls() {
     // Lastly, store the return values back to their respective storage (the
     // 'sin.out' and 'cos.out' arg ptrs to the original 'sincos' call).
     for (auto It : enumerate(ReturnValues)) {
-      auto *Store = Builder.createStore(
-          It.value(), SincosCall->getArgOperand(It.index() + 1));
+      auto *ArgValue = SincosCall->getArgOperand(It.index() + 1);
+      auto *Store = Builder.createStore(It.value(), ArgValue);
       Store->setAlignment(Plan.getDataLayout()->getPrefTypeAlign(ArgTy));
       DA.markDivergent(*Store);
+
+      if (auto *Subscript = dyn_cast<VPSubscriptInst>(ArgValue)) {
+        // In the HIR path, our operands should always be subscript insts.
+        Store->HIR().setSymbase(Subscript->HIR().getSymbase());
+      }
     }
 
     SincosCall->getParent()->eraseInstruction(SincosCall);
