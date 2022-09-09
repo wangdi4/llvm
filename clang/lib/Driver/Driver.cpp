@@ -7420,9 +7420,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // TODO: Do not use the new offloading driver at this time. Offloading
   // support for spir64 targets is not in place with this new path.
   bool UseNewOffloadingDriver =
+<<<<<<< HEAD
       (C.isOffloadingHostKind(Action::OFK_OpenMP) &&
        Args.hasFlag(options::OPT_fopenmp_new_driver,
                     options::OPT_no_offload_new_driver, false)) || // INTEL
+=======
+      C.isOffloadingHostKind(Action::OFK_OpenMP) ||
+>>>>>>> 9810b62313967b91a75a7bd02ee7b2bf8c9e103e
       Args.hasFlag(options::OPT_offload_new_driver,
                    options::OPT_no_offload_new_driver, false);
 
