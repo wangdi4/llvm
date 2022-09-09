@@ -941,15 +941,9 @@ void X86AsmPrinter::emitEndOfAsmFile(Module &M) {
       OutStreamer->emitSymbolAttribute(S, MCSA_Global);
       return;
     }
-<<<<<<< HEAD
     emitNotifyTable(M); // INTEL
-    emitStackMaps(SM);
   } else if (TT.isOSBinFormatELF()) {
     emitNotifyTable(M); // INTEL
-    emitStackMaps(SM);
-=======
-  } else if (TT.isOSBinFormatELF()) {
->>>>>>> f049b2c3fcbae739ac965f97fd6855ca1aab77b8
     FM.serializeToFaultMapSection();
   }
 
