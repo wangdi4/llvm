@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies dtrans field reordering transformation doesn't select
 ; a structure as candidate due to safety conditions.
 

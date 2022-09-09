@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: sed -e s/.T1:// %s | \
 ; RUN:   opt -whole-program-assume -dtrans-identify-unused-values=false  -dtrans-deletefield -debug-only=dtrans-deletefield \
 ; RUN:       -disable-output 2>&1 | FileCheck --check-prefix=CHECK1 %s

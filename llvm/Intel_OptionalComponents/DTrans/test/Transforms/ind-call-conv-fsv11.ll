@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv -intel-ind-call-conv-max-target=3 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -passes=indirectcallconv -intel-ind-call-conv-max-target=3 < %s  -S 2>&1 | FileCheck %s
 

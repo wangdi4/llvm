@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='dtrans-deletefield' -S -o - %s | FileCheck %s
 

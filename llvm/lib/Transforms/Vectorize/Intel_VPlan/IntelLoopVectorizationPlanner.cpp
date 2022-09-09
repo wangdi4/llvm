@@ -33,6 +33,7 @@
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
+#include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1852,6 +1853,10 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   CallVecDecisions.runForMergedCFG(TLI, TTI);
   Label = "CallVecDecisions analysis for merged CFG";
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Transform lib calls (like 'sincos') that need additional processing.
+  VPTransformLibraryCalls VPTransLibCalls(*Plan, *TLI);
+  VPTransLibCalls.transform();
 
   // Compute SVA results for final VPlan which will be used by CG.
   Plan->runSVA(getBestVF());

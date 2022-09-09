@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies only i64 type fields are selected as candidates for
 ; DynClone transformation.
 

@@ -5,6 +5,7 @@
 ; The forms of the functions here are taken from the new pass manager IR
 ; at the time of the dtrans-force-inline transformation.
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -S -dtrans-force-inline -inline -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='module(dtrans-force-inline),cgscc(inline)' -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck %s
 

@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that call-graph cloning is done correctly for
 ; DynClone transformation.
 

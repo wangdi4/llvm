@@ -4,6 +4,7 @@
 ; memset in the _ZN7BaseArrIPsE6resizeEi function is computed using
 ; different pattern, which is usually generated with 32-bit compiler.
 
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -dtrans-soatoaos-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-soatoaos-prepare  -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 

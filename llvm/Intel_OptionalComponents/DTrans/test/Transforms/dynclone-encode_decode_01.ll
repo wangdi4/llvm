@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that basic transformations are done correctly for
 ; Load/Store instructions when DynClone+Reencoding transformation
 ; is triggered.

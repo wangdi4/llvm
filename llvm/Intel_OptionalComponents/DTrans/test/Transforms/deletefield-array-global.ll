@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: opt < %s -whole-program-assume -passes="internalize,dtrans-deletefield" -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -S 2>&1 | FileCheck %s
 

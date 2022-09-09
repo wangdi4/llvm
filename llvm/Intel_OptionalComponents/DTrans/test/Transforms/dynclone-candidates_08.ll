@@ -1,4 +1,6 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that frequency heuristic is used to select candidate
 ; for DynClone transformation.
 

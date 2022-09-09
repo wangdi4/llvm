@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that reorder-field transformation supports limited form of byte-flatten GEP on a structure that
 ; contains a complete copy of the struct being reordered.
 ;

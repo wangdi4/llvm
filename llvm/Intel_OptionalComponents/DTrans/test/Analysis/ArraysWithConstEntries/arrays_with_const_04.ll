@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -dtransanalysis -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s

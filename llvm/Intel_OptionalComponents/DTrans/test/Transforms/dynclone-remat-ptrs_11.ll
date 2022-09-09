@@ -4,8 +4,9 @@
 ; expected location like AOSTOSOA glob variable.
 
 ; REQUIRES: asserts
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone  -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
 
 ; CHECK: Track uses of AllocCalls Failed
 ; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__

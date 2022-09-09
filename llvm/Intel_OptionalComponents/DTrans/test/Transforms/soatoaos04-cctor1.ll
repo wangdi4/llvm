@@ -12,6 +12,7 @@
 ; RUN:        -dtrans-malloc-functions="XalanDummyMemoryManager::allocate(unsigned long)"                   \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test checks allocation functions handling after devirtualization.
 ; The test is similar to soatoaos04-cctor.ll.

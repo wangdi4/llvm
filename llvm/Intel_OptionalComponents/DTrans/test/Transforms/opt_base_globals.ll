@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This set of tests is to verify the functionality of the DTransOptBase class
 ; via the DTransOptBaseTest derivation to verify that global variables
 ; that need to be remapped to new types due to type replacement get

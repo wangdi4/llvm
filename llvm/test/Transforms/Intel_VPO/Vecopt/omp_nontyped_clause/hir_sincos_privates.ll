@@ -1,18 +1,39 @@
-; Test to verify that VPlan HIR vectorizer bails out for a loop with SIMD
-; privates construct. Support to correctly handle privates end-to-end in
-; HIR vectorizer is WIP.
+; Test to verify that VPlan HIR vectorizer correctly handles a loop with a call
+; to 'sincos' with SIMD private arguments.
 
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vector-library=SVML -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK:            + DO i1 = 0, 129, 1   <DO_LOOP> <simd> <vectorize>
-; CHECK-NEXT:       |   %0 = (%a)[i1 + sext.i32.i64(%i)];
-; CHECK-NEXT:       |   @sincosf(%0,  &((%vsin)[0]),  &((%vcos)[0]));
-; CHECK-NEXT:       |   %sin.load = (%vsin)[0];
-; CHECK-NEXT:       |   %cos.load = (%vcos)[0];
-; CHECK-NEXT:       |   %res = %sin.load  +  %cos.load;
-; CHECK-NEXT:       |   (%b)[i1 + sext.i32.i64(%i)] = %res;
-; CHECK-NEXT:       + END LOOP
+; CHECK:             BEGIN REGION { modified }
+; CHECK:                   + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:              |   %.vec = (<4 x float>*)(%a)[i1 + sext.i32.i64(%i)];
+; CHECK-NEXT:              |   %__svml_sincosf4 = @__svml_sincosf4(%.vec);
+; CHECK-NEXT:              |   %vp.sincos.sin = extractvalue %__svml_sincosf4, 0;
+; CHECK-NEXT:              |   %vp.sincos.cos = extractvalue %__svml_sincosf4, 1;
+; CHECK-NEXT:              |   (<4 x float>*)(%priv.mem2)[0] = %vp.sincos.sin;
+; CHECK-NEXT:              |   (<4 x float>*)(%priv.mem)[0] = %vp.sincos.cos;
+; CHECK-NEXT:              |   %.vec4 = (<4 x float>*)(%priv.mem2)[0];
+; CHECK-NEXT:              |   %.vec5 = (<4 x float>*)(%priv.mem)[0];
+; CHECK-NEXT:              |   %.vec6 = %.vec4  +  %.vec5;
+; CHECK-NEXT:              |   (<4 x float>*)(%b)[i1 + sext.i32.i64(%i)] = %.vec6;
+; CHECK-NEXT:              + END LOOP
+
+; CHECK:                   + DO i1 = 128, 129, 1   <DO_LOOP> <vector-remainder> <novectorize>
+; CHECK-NEXT:              |   %0 = (%a)[i1 + sext.i32.i64(%i)];
+; CHECK-NEXT:              |   %copy = %0;
+; CHECK-NEXT:              |   %__svml_sincosf47 = @__svml_sincosf4(%copy);
+; CHECK-NEXT:              |   %sincos.sin = extractvalue %__svml_sincosf47, 0;
+; CHECK-NEXT:              |   %sincos.cos = extractvalue %__svml_sincosf47, 1;
+; CHECK-NEXT:              |   %elem = extractelement %sincos.sin,  0;
+; CHECK-NEXT:              |   (%vsin)[0] = %elem;
+; CHECK-NEXT:              |   %elem8 = extractelement %sincos.cos,  0;
+; CHECK-NEXT:              |   (%vcos)[0] = %elem8;
+; CHECK-NEXT:              |   %sin.load = (%vsin)[0];
+; CHECK-NEXT:              |   %cos.load = (%vcos)[0];
+; CHECK-NEXT:              |   %res = %sin.load  +  %cos.load;
+; CHECK-NEXT:              |   (%b)[i1 + sext.i32.i64(%i)] = %res;
+; CHECK-NEXT:              + END LOOP
+; CHECK-NEXT:        END REGION
 
 define void @test_sincosf(float* noalias nocapture readonly %a, float* noalias nocapture readonly %b, i32 %i) {
 entry:

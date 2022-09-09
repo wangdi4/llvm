@@ -1,4 +1,5 @@
 ; REQUIRES: system-windows
+; UNSUPPORTED: enable-opaque-pointers
 
 ; This is similar to meminit-transform_01.ll except IR has windows
 ; specific things like EH, return types for ctor, cctor etc.

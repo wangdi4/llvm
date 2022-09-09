@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that the base class clones functions which have parameter
 ; types or return values modified as a result of replacing types.
 ; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01a,struct.type02a 2>&1 | FileCheck %s

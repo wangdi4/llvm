@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that CommuteCond transformation is triggered
 ; using DTrans heuristic, which checks that %ident is a field of a struct
 ; and number of possible constant values for the field is less than 4.

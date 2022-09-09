@@ -8,6 +8,7 @@
 ; RUN:        -dtrans-free-functions="XalanDummyMemoryManager::deallocate(void*)"                           \
 ; RUN:        2>&1 | FileCheck %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test checks allocation/deallocation functions handling after devirtualization.
 ; The test is similar to soatoaos04-realloc.ll.

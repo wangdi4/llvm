@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that alignment of "bar" is NOT increased to 64.
 ; This test is same as code_align_01.ll except annotation for
 ; SOAToAOS transformation is missing.

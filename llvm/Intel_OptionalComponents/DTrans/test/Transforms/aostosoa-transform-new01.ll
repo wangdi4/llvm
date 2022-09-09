@@ -1,3 +1,4 @@
+; UNSUPPORTED: enable-opaque-pointers
 ; RUN: sed -e s/^.malloc:// %s | \
 ; RUN:  opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test 2>&1 | FileCheck --check-prefix=CHECK-malloc %s
 ; RUN: sed -e s/^.malloc-exc:// %s | \

@@ -31,7 +31,7 @@ public:
   VPTransformLibraryCalls(const VPTransformLibraryCalls &) = delete;
   VPTransformLibraryCalls &operator=(const VPTransformLibraryCalls &) = delete;
 
-  VPTransformLibraryCalls(VPlanVector &Plan, TargetLibraryInfo &TLI)
+  VPTransformLibraryCalls(VPlanVector &Plan, const TargetLibraryInfo &TLI)
       : Plan(Plan), DA(*Plan.getVPlanDA()), TLI(TLI) {}
 
   /// \brief Perform all library transforms.
@@ -42,10 +42,10 @@ private:
   void transformSincosCalls();
 
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
   VPlanDivergenceAnalysis &DA;
   VPBuilder Builder;
-  TargetLibraryInfo &TLI;
+  const TargetLibraryInfo &TLI;
 };
 
 } // namespace vpo

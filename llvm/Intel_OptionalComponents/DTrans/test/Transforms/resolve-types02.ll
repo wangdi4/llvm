@@ -3,6 +3,7 @@
 ; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes \
 ; RUN:      -debug-only=dtrans-resolvetypes-verbose,dtrans-resolvetypes-compat %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Verify that types which are similar but not compatible or equivalent are
 ; not incorrectly merged.

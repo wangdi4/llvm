@@ -524,9 +524,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
           VPMemRefTransform VPMemRefTrans(*VPlan);
           VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
         }
-
-        VPTransformLibraryCalls VPTransLibCall(*VPlan, *TLI);
-        VPTransLibCall.transform();
       }
 
       // Capture opt-report remarks for main VPLoop.

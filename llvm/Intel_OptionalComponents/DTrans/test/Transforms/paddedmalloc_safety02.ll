@@ -1,4 +1,5 @@
 ; REQUIRES: asserts
+; UNSUPPORTED: enable-opaque-pointers
 
 ; Test that identifies if the DTrans padded malloc optimization identified
 ; a malloc function but there is no search loop.

@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that struct.test is not selected as candidate
 ; due to reordering restrictions since struct.test has vector type.
 

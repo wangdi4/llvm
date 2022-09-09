@@ -1,3 +1,5 @@
+; UNSUPPORTED: enable-opaque-pointers
+
 ; This test verifies that size of fields that are marked with aostosoa index
 ; will be reduced to 2 bytes with a runtime check on number of elements
 ; allocated with aostosoa allocation call when DynClone is triggered (in

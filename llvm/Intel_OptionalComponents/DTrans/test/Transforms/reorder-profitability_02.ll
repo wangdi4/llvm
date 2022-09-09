@@ -1,8 +1,9 @@
 ; This test verifies that Field-reordering transformation is applied
 ; to struct.test based on profitability heuristic.
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S  2>&1 | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
+; UNSUPPORTED: enable-opaque-pointers
+; RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S  2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
 
 ; CHECK: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 
