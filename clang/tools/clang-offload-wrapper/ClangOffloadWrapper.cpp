@@ -997,12 +997,19 @@ private:
         // will be defined by the linker. But linker will do that only if linker
         // inputs have section with "omp_offloading_entries" name which is not
         // guaranteed. So, we just create dummy zero sized object in the offload
-        // entries section to force linker to define those symbols.
+        // entries section to force linker to define those symbols. For
+        // OffloadKind::Host, if multiple files need the dummy entry need to
+        // make them unique as windows linker complains about multiple
+        // definitions.
         auto *DummyInit =
             ConstantAggregateZero::get(ArrayType::get(getEntryTy(), 0u));
+        assert(!Pack.empty() && "No inputs for this offloading kind?");
+        const auto LastSlash = Pack.front()->File.find_last_of("/\\");
+        const std::string FileBaseName = Pack.front()->File.substr(
+            (LastSlash == std::string::npos) ? 0 : LastSlash + 1);
         auto *DummyEntry = new GlobalVariable(
             M, DummyInit->getType(), true, GlobalVariable::ExternalLinkage,
-            DummyInit, "__dummy.omp_offloading.entry");
+            DummyInit, "__" + FileBaseName + ".dummy.omp_offloading.entry");
         DummyEntry->setSection("omp_offloading_entries");
         DummyEntry->setVisibility(GlobalValue::HiddenVisibility);
 
