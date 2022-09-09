@@ -377,7 +377,8 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[C0:%.*]]
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
 ; CHECK-NEXT:       i32 [[VP14:%.*]] = trunc i64 [[VP6]] to i32
 ; CHECK-NEXT:       i32 [[VP15:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP14]]
 ; CHECK-NEXT:       i32 [[VP16:%.*]] = hir-copy i32 [[VP15]] , OriginPhiId: -1
@@ -487,7 +488,8 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[C0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[E0:%.*]] i64 2
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 3

@@ -1705,12 +1705,23 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
   Builder.createStore(IncomingVal, IdxMem);
 
   // Go through all stores and create stores to index variable.
-  for (auto U : PrivateMem->users()) {
-    auto *StoreI = dyn_cast<VPLoadStoreInst>(U);
-    if (!StoreI || StoreI->getOpcode() == Instruction::Load)
-      continue;
-    Builder.setInsertPoint(StoreI);
-    Builder.createStore(InductionHeaderPhi, IdxMem);
+  SmallVector<VPValue *, 4> Worklist;
+  Worklist.push_back(PrivateMem);
+
+  while (!Worklist.empty()) {
+    const VPValue *PrivMem = Worklist.pop_back_val();
+    for (auto U : PrivMem->users()) {
+      if (isSelfAddressOfInst(U)) {
+        Worklist.push_back(U);
+        continue;
+      }
+
+      auto *StoreI = dyn_cast<VPLoadStoreInst>(U);
+      if (!StoreI || StoreI->getOpcode() == Instruction::Load)
+        continue;
+      Builder.setInsertPoint(StoreI);
+      Builder.createStore(InductionHeaderPhi, IdxMem);
+    }
   }
 
   Builder.setInsertPoint(PostExit);
@@ -1941,38 +1952,36 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Final = Final;
 
     bool UnitStrided = CEIdiom->TotalStride == 1;
-    DenseMap<VPLoadStoreInst *, unsigned> LoadsStores;
-    for (VPLoadStoreInst *Store : CEIdiom->Stores)
-      LoadsStores[Store] = UnitStrided ? VPInstruction::CompressStore
-                                       : VPInstruction::CompressStoreNonu;
-    for (VPLoadStoreInst *Load : CEIdiom->Loads)
-      LoadsStores[Load] = UnitStrided ? VPInstruction::ExpandLoad
-                                      : VPInstruction::ExpandLoadNonu;
-    CEIdiom->Stores.clear();
-    CEIdiom->Loads.clear();
+    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode,
+                                  unsigned OpcodeNonu) {
+      for (VPLoadStoreInst *LoadStore : LoadsStores) {
 
-    for (auto &Pair : LoadsStores) {
-      VPLoadStoreInst *LoadStore = Pair.first;
-      VPBasicBlock *VPBB = LoadStore->getParent();
+        Builder.setInsertPoint(LoadStore);
+        VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
+            "", UnitStrided ? Opcode : OpcodeNonu, LoadStore->getType(),
+            ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
+        LoadStore->replaceAllUsesWith(CompressExpand);
 
-      Builder.setInsertPoint(LoadStore);
-      VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
-          "", Pair.second, LoadStore->getType(),
-          ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
-      LoadStore->replaceAllUsesWith(CompressExpand);
-      VPBB->eraseInstruction(LoadStore);
+        VPBasicBlock *VPBB = LoadStore->getParent();
+        VPBB->eraseInstruction(LoadStore);
+        if (UnitStrided)
+          continue;
 
-      if (UnitStrided)
-        continue;
-
-      if (Masks.count(VPBB) == 0) {
-        Builder.setInsertPointFirstNonPhi(VPBB);
-        Masks[VPBB] =
-            Builder.createNaryOp(VPInstruction::CompressExpandMask,
-                                 Type::getInt64Ty(*Plan.getLLVMContext()), {});
+        if (Masks.count(VPBB) == 0) {
+          Builder.setInsertPointFirstNonPhi(VPBB);
+          Masks[VPBB] = Builder.createNaryOp(
+              VPInstruction::CompressExpandMask,
+              Type::getInt64Ty(*Plan.getLLVMContext()), {});
+        }
+        CompressExpand->addOperand(Masks[VPBB]);
       }
-      CompressExpand->addOperand(Masks[VPBB]);
-    }
+      LoadsStores.clear();
+    };
+
+    ProcessLoadsStores(CEIdiom->Stores, VPInstruction::CompressStore,
+                       VPInstruction::CompressStoreNonu);
+    ProcessLoadsStores(CEIdiom->Loads, VPInstruction::ExpandLoad,
+                       VPInstruction::ExpandLoadNonu);
 
     std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
         [&](VPUser *User) {
@@ -2477,16 +2486,26 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 // Helper utility to check if given VPValue is used by any call or is stored-to
 // inside the provided VPLoop.
 static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
-  for (auto *U : V->users()) {
-    if (auto *UserI = dyn_cast<VPInstruction>(U)) {
-      if (!Lp->contains(UserI))
-        continue;
+  SmallVector<VPValue *, 4> Worklist;
+  Worklist.push_back(V);
+  while (!Worklist.empty()) {
+    const VPValue *VPVal = Worklist.pop_back_val();
+    for (auto *U : VPVal->users()) {
+      if (auto *UserI = dyn_cast<VPInstruction>(U)) {
+        if (!Lp->contains(UserI))
+          continue;
 
-      if (isa<VPCallInstruction>(UserI))
-        return true;
-      if (UserI->getOpcode() == Instruction::Store &&
-          cast<VPLoadStoreInst>(UserI)->getPointerOperand() == V)
-        return true;
+        if (isSelfAddressOfInst(UserI)) {
+          Worklist.push_back(UserI);
+          continue;
+        }
+
+        if (isa<VPCallInstruction>(UserI))
+          return true;
+        if (UserI->getOpcode() == Instruction::Store &&
+            cast<VPLoadStoreInst>(UserI)->getPointerOperand() == VPVal)
+          return true;
+      }
     }
   }
 
@@ -2760,19 +2779,6 @@ bool ReductionDescr::replaceOrigWithAlias() {
   return true; // Successful analysis
 }
 
-static const VPValue * getPtrThroughCast(const VPValue* Op) {
-  // Look at the pointers only.
-  assert(Op->getType()->isPointerTy() && "expected pointer");
-  while (isa<VPInstruction>(Op)) {
-    auto Inst = cast<VPInstruction>(Op);
-    if (Inst->getOpcode() != Instruction::BitCast &&
-        Inst->getOpcode() != Instruction::AddrSpaceCast)
-      break;
-    Op = Inst->getOperand(0);
-  }
-  return Op;
-}
-
 VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   LLVM_DEBUG(dbgs() << "ReductionDescr: Start: "; Start->dump();
              dbgs() << "\n");
@@ -3019,7 +3025,8 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
     if (!Loop->contains(I) && I->getParent() != Loop->getLoopPreheader())
       continue;
     if (I->getOpcode() == Instruction::BitCast ||
-        I->getOpcode() == Instruction::AddrSpaceCast) {
+        I->getOpcode() == Instruction::AddrSpaceCast ||
+        isSelfAddressOfInst(I)) {
       WorkList.append(I->user_begin(), I->user_end());
       continue;
     }
@@ -3069,16 +3076,27 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
     // TODO: for inductions, this situation can be handled using close-form
     // re-calculation at the beginning of the loop.
     VPValue *LdStInstr = nullptr;
-    for (auto *User : Start->users()) {
-      auto *Instr = dyn_cast<VPLoadStoreInst>(User);
-      if (!Instr || !Loop->contains(Instr))
-        continue;
+    SmallVector<VPValue *, 4> Worklist;
+    Worklist.push_back(Start);
 
-      if (Instr->getOpcode() == Instruction::Load)
-        LdStInstr = Instr;
-      else
-        LdStInstr = Instr->getOperand(0);
-      break;
+    while (!LdStInstr && !Worklist.empty()) {
+      const VPValue *CurWorkItem = Worklist.pop_back_val();
+      for (auto *User : CurWorkItem->users()) {
+        auto *InstUser = dyn_cast<VPInstruction>(User);
+        if (!InstUser || !Loop->contains(InstUser))
+          continue;
+
+        auto *LdStUser = dyn_cast<VPLoadStoreInst>(User);
+        if (LdStUser) {
+          if (LdStUser->getOpcode() == Instruction::Load)
+            LdStInstr = LdStUser;
+          else
+            LdStInstr = LdStUser->getOperand(0);
+          break;
+        } else if (isSelfAddressOfInst(InstUser)) {
+          Worklist.push_back(InstUser);
+        }
+      }
     }
     if (!LdStInstr) {
       // No able to find load/store. Assert in debug mode and don't

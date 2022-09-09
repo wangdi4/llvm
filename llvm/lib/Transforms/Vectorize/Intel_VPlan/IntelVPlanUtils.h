@@ -395,6 +395,35 @@ iterator_range<sese_df_iterator<BlockTy>> sese_depth_first(BlockTy Begin,
                                                            BlockTy End) {
   return make_range(sese_df_begin(Begin, End), sese_df_end(Begin, End));
 }
+
+// Return true if VPInst is equivalent to &ptrOp[0]. Currently, this is
+// the case if we are dealing with a VPSubscriptInst with no dimensions.
+// TODO - the issue can also arise for GEPs and we need to account for
+// the same.
+static bool isSelfAddressOfInst(const VPValue *VPVal) {
+  if (auto *VPSubscrInst = dyn_cast<VPSubscriptInst>(VPVal))
+    return VPSubscrInst->isSelfAddressOfInst();
+
+  return false;
+}
+
+static const VPValue *getPtrThroughCast(const VPValue *Op) {
+  // Look at the pointers only.
+  assert(Op->getType()->isPointerTy() && "expected pointer");
+  while (isa<VPInstruction>(Op)) {
+    auto Inst = cast<VPInstruction>(Op);
+
+    // We also treat SelfAddressOfInst as a no-op cast.
+    if (Inst->getOpcode() != Instruction::BitCast &&
+        Inst->getOpcode() != Instruction::AddrSpaceCast &&
+        !isSelfAddressOfInst(Inst))
+      break;
+    Op = Inst->getOperand(0);
+  }
+
+  return Op;
+}
+
 } // namespace vpo
 } // namespace llvm
 

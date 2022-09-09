@@ -86,7 +86,8 @@ define void @bar(ptr %p1, ptr %p2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     double [[VP_LOAD:%.*]] = load ptr [[P10:%.*]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[P10:%.*]]
+; CHECK-NEXT:     double [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     double [[VP4:%.*]] = fadd double [[VP_LOAD]] double [[VP_LOAD]]
 ; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript ptr [[P20:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     store double [[VP4]] ptr [[VP_SUBSCRIPT]]

@@ -167,7 +167,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-EMPTY:
+; CHECKHIRPCFG-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
@@ -182,7 +185,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0]]
+; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-EMPTY:
+; CHECKHIRPCFG-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8
@@ -234,7 +240,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-EMPTY:
+; CHECKHIRVPE-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
@@ -249,7 +258,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0]]
+; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-EMPTY:
+; CHECKHIRVPE-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8

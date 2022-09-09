@@ -1168,8 +1168,22 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
       TransformCurrentLoop = false;
   }
 
+  // We will only process SIMD loops if the SIMD intrinsics are the only
+  // instructions in the pre-header and post-exit nodes of the loop. The
+  // reason is because they get cloned automatically without handling any
+  // special transformation.
   if (Loop->isSIMD()) {
-    TransformCurrentLoop = false;
+    if (!Loop->isInnermost()) {
+      TransformCurrentLoop = false;
+    } else if (Loop->getNumPreheader() != 1 || Loop->getNumPostexit() != 1) {
+      TransformCurrentLoop = false;
+    } else {
+      auto *PreHeaderInst = cast<HLInst>(Loop->getFirstPreheaderNode());
+      auto *PostExitInst = cast<HLInst>(Loop->getFirstPostexitNode());
+      if (!PreHeaderInst->isSIMDDirective() ||
+          !PostExitInst->isSIMDEndDirective())
+        TransformCurrentLoop = false;
+    }
   }
 
   CandidateLookup
@@ -1680,8 +1694,14 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     HIRInvalidationUtils::invalidateBody(ParentLoop);
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
-    // TODO: check if candidate is defined in preheader
-    TargetLoop->extractZttPreheaderAndPostexit();
+    // If the loop is SIMD then do not extract the pre-header and post-exit
+    // nodes of the loop. We need to duplicate the SIMD intrinsics. This will
+    // only happen if the SIMD intrinsics are part of the loop pre-header and
+    // loop post-exit, and these are the only instructions in both lists.
+    if (!TargetLoop->isSIMD()) {
+      // TODO: check if candidate is defined in preheader
+      TargetLoop->extractZttPreheaderAndPostexit();
+    }
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);

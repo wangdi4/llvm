@@ -97,6 +97,8 @@ VPLAN_OPTRPT_HANDLE_MEM(15554u, UnmaskedVLSLoads)
 VPLAN_OPTRPT_HANDLE_MEM(15555u, MaskedVLSLoads)
 VPLAN_OPTRPT_HANDLE_MEM(15556u, UnmaskedVLSStores)
 VPLAN_OPTRPT_HANDLE_MEM(15557u, MaskedVLSStores)
+VPLAN_OPTRPT_HANDLE_MEM(15497u, CompressStores)
+VPLAN_OPTRPT_HANDLE_MEM(15498u, ExpandLoads)
 
 // TODO: No entry for serialized atomic/volatile loads/stores.
 // TODO: No entry for loads from uniform address (O0/kernel vectorization).

@@ -40,17 +40,20 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; HIR-NEXT:     i64 [[VP2]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP1]], [[BB3]] ]
-; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[VP_S_RED]]
+; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call i32* [[VP_SUBSCRIPT]] i32 (i32*)* @_Z3gooRi
 ; HIR-NEXT:     i1 [[VP3:%.*]] = icmp eq i32 [[VP_CALL]] i32 50
 ; HIR-NEXT:     br i1 [[VP3]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB5]]: # preds: [[BB0]]
-; HIR-NEXT:       i32 [[VP_CALL2:%.*]] = call i32* [[VP_S_RED]] i32 (i32*)* @_Z3gooRi
+; HIR-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP_S_RED]]
+; HIR-NEXT:       i32 [[VP_CALL2:%.*]] = call i32* [[VP_SUBSCRIPT_1]] i32 (i32*)* @_Z3gooRi
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; HIR-NEXT:       i32 [[VP4:%.*]] = add i32 [[VP_CALL]] i32 10
-; HIR-NEXT:       store i32 [[VP4]] i32* [[VP_S_RED]]
+; HIR-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP_S_RED]]
+; HIR-NEXT:       store i32 [[VP4]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
@@ -86,7 +89,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     i32* [[VP_S_RED]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
+; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[S_RED0]]
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_INIT]] = reduction-init i32 0 i32 [[VP_LOAD]]
 ; CHECK-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
@@ -119,7 +122,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; CHECK-NEXT:     i32 [[VP_S_REDRED_FINAL]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0]]
 ; CHECK-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
+; CHECK-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:

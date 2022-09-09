@@ -57,7 +57,8 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       store i32 [[ADD0:%.*]] i32* @s
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* @s
+; CHECK-NEXT:       store i32 [[ADD0:%.*]] i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP10:%.*]] = hir-copy i32 [[ADD0]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:

@@ -1082,6 +1082,9 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+    // Return pointer operand shape for SelfAddressOf instruction
+    if (isSelfAddressOfInst(Subscript))
+      return PtrShape;
     ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not

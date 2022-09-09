@@ -217,6 +217,7 @@ public:
 
   /// Returns true if this type is supported.
   static bool isSupported(Type *Ty, bool IsGEPRelated,
+                          const Instruction *Inst = nullptr,
                           const Loop *Lp = nullptr);
 
   /// Returns true if \p GEPOp contains a type not supported by HIR.

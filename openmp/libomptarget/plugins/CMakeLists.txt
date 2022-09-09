@@ -60,8 +60,20 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
         target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
         set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
-      endif(INTEL_CUSTOMIZATION)
 
+        # Do not build it as LLVM library for product build
+        add_library("omptarget.rtl.${tmachine_libname}" SHARED
+          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp)
+
+        target_link_libraries(
+          "omptarget.rtl.${tmachine_libname}"
+          elf_common
+          ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+          dl
+          ${OPENMP_PTHREAD_LIB}
+          "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
+      else(INTEL_CUSTOMIZATION)
       add_llvm_library("omptarget.rtl.${tmachine_libname}"
         SHARED
 
@@ -82,6 +94,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
 
         NO_INSTALL_RPATH
       )
+      endif(INTEL_CUSTOMIZATION)
 
       # Install plugin under the lib destination folder.
       install(TARGETS "omptarget.rtl.${tmachine_libname}"

@@ -72,8 +72,13 @@
 ; CHECK-NEXT:   call %struct.point* [[PVT2]] %struct.point* %tmpcast21.red void (%struct.point*, %struct.point*)* @.omp_initializer..2
 
 ; In-loop instructions
-; CHECK:        call %struct.point* [[PVT1]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
-; CHECK:        call %struct.point* [[PVT2]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
+; IR:        call %struct.point* [[PVT1]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
+; IR:        call %struct.point* [[PVT2]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
+; HIR:       %struct.point* [[PVT1SUB:%.*]] = subscript inbounds %struct.point* [[PVT1]]
+; HIR:       call %struct.point* [[PVT1SUB]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
+; HIR:       %struct.point* [[PVT2SUB:%.*]] = subscript inbounds %struct.point* [[PVT2]]
+; HIR:       call %struct.point* [[PVT2SUB]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
+ 
 
 ; Finalization
 ; CHECK:        reduction-final-udr %struct.point* [[PVT1]] %struct.point* %tmpcast.red, Combiner: .omp_combiner.

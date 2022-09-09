@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test is to check that structure types can be reconstructed based on metadata.
 
@@ -10,14 +10,12 @@
 ; CHECK: StructType: %struct.test01 = type { i32, i32 }
 
 ; Test structure with pointers and pointers to pointers
-; With opaque pointers, this will change to "type { ptr, ptr }",
-; but the metadata will be able to produce the original form.
-%struct.test02 = type { i64**, i8* }
+; The metadata will be able to produce the typed pointer form.
+%struct.test02 = type { ptr, ptr }
 ; CHECK: StructType: %struct.test02 = type { i64**, i8* }
 
 ; Test structure which also contains pointers to structures
-; With opaque pointers, this will change to "type {ptr, ptr, ptr}"
-%struct.test03 = type { %struct.test01*, %struct.test02*, %struct.test03* }
+%struct.test03 = type { ptr, ptr, ptr }
 ; CHECK: StructType: %struct.test03  = type { %struct.test01*, %struct.test02*, %struct.test03* }
 
 ; Test structure with nested structures. For this structure, it is not
@@ -27,11 +25,11 @@
 ; CHECK: StructType: %struct.test04 = type { %struct.test01, %struct.test02 }
 
 ; Test structure with function pointer containing pointer to structure type, and void type.
-%struct.test05 = type { i32, void (%struct.test05*)* }
+%struct.test05 = type { i32, ptr }
 ; CHECK: StructType: %struct.test05 = type { i32, void (%struct.test05*)* }
 
 ; Test structure with arrays, and arrays of pointers
-%struct.test06 = type {[ 256 x i8], [128 x i16]*, [64 x i8**] }
+%struct.test06 = type {[ 256 x i8], ptr, [64 x ptr] }
 ; CHECK: StructType: %struct.test06 = type { [256 x i8], [128 x i16]*, [64 x i8**] }
 
 ; Test structure with literal struct
@@ -47,7 +45,7 @@
 ; CHECK: StructType: %struct.test09 = type {}
 
 ; Test with base/derived class with vtable
-%struct.test10base = type { i32 (...)** }
+%struct.test10base = type { ptr }
 %struct.test10derived = type { %struct.test10base }
 ; CHECK: StructType: %struct.test10base = type { i32 (...)** }
 ; CHECK: StructType: %struct.test10derived = type { %struct.test10base }

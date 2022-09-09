@@ -26,8 +26,10 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i6
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD_1:%.*]] = load i32* [[B0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds i32* [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_B0:%.*]] = subscript inbounds i32* [[B0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_B0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[C0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD_2:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP2:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD]] (SVAOpBits 0->F 1->F )
@@ -147,7 +149,8 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP1:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32* [[VP_SUBSCRIPT_A0:%.*]] = subscript inbounds i32* [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_A0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP5:%.*]] = add i32 [[VP1]] i32 [[VP_LOAD]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP4]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP6:%.*]] = icmp slt i64 [[VP4]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )

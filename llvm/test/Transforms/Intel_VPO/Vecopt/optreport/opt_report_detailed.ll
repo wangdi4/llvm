@@ -342,6 +342,8 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
+; LLVM-NEXT:      remark #15497: vector compress: 0
+; LLVM-NEXT:      remark #15498: vector expand: 0
 ; LLVM-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
@@ -398,6 +400,8 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
+; HIR-NEXT:      remark #15497: vector compress: 0
+; HIR-NEXT:      remark #15498: vector expand: 0
 ; HIR-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================

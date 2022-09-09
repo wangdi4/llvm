@@ -31,7 +31,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_LOAD:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
+; VPLAN-NEXT:     [DA: Uni] i1* [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds i1* [[UNIFORM_PTR0:%.*]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_LOAD:%.*]] = load i1* [[VP_SUBSCRIPT_0]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp ne i1 [[VP_LOAD]] i1 false
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP9]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]

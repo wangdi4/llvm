@@ -96,7 +96,8 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[C0:%.*]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none

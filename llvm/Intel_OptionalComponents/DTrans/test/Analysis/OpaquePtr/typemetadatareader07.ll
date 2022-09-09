@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-values -dtrans-typemetadatareader-strict-check=false -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test checks that the DTrans type metadata reader can reconstruct
 ; missing types when metadata is missing, and there are interdependencies
@@ -11,7 +11,7 @@
 ; %struct.test03 because these are simple types that can be recreated
 ; without metadata.
 
-%struct.test01 = type { i32, %struct.test02* }
+%struct.test01 = type { i32, ptr }
 %struct.test02 = type { %struct.test03, i32 }
 %struct.test03 = type { i32 }
 !intel.dtrans.types = !{ !10 }

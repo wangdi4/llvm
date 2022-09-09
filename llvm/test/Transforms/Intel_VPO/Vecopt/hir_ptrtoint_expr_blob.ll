@@ -25,7 +25,8 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:     i64* [[VP_LOAD:%.*]] = load i64** [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = ptrtoint i64* [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 [[VP4]] i64 42
-; CHECK-NEXT:     store i64 [[VP5]] i64* [[P20:%.*]]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[P20:%.*]]
+; CHECK-NEXT:     store i64 [[VP5]] i64* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]

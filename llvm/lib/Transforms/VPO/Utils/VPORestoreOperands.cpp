@@ -209,9 +209,9 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///          ---------------------------+---------------------------
 ///   %y.addr = alloca i32*             |
 ///                                     |
-///   %y.addr.cast = bitcast %y.addr    |
+///   %y.addr.cst = bitcast %y.addr    (1)
 ///                          to i8*     |
-///   @llvm.lifetime.start(%y.addr.cast)|
+///   @llvm.lifetime.start(%y.addr.cst)(2)
 ///                                     |
 ///   store i32* %y, i32** %y.addr      |
 ///   %1 = begin_region[... %y...       |   %1 = begin_region[... %y...]
@@ -225,9 +225,11 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///                                     |
 ///   end_region(%1)                    |   end_region(%1)
 ///                                     |
-///   %y.addr.cast  = bitcast %y.addr   |
+///   %y.addr.cst1  = bitcast %y.addr  (3)
 ///                           to i8*    |
-///   @llvm.lifetime.end(%y.addr.cast1) |
+///   @llvm.lifetime.end(%y.addr.cst1) (4)
+///   @llvm.lifetime.end(%y.addr.cst1) (5)
+///   @llvm.lifetime.end(%y.addr.cst1) (6)
 /// \endcode
 ///
 /// (H)
@@ -237,7 +239,7 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///          ---------------------------+---------------------------
 ///   %y.addr = alloca ptr              |
 ///                                     |
-///   @llvm.lifetime.start(%y.addr)     |
+///   @llvm.lifetime.start(%y.addr)    (7)
 ///                                     |
 ///   store ptr %y, ptr %y.addr         |
 ///   %1 = begin_region[... %y...       |   %1 = begin_region[... %y...]
@@ -251,7 +253,9 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///                                     |
 ///   end_region(%1)                    |   end_region(%1)
 ///                                     |
-///   @llvm.lifetime.end(%y.addr)       |
+///   @llvm.lifetime.end(%y.addr)      (8)
+///   @llvm.lifetime.end(%y.addr)      (9)
+///   @llvm.lifetime.end(%y.addr)      (10)
 /// \endcode
 ///
 ///
@@ -265,8 +269,8 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 // D: rename_and_restore_int_addrcast.ll,rename_and_restore_struct_castinside.ll
 // E: rename_and_restore_struct_castsame.ll
 // F: rename_and_restore_struct_castboth.ll
-// G: restore_remove_lifetime_of_addr.ll
-// H: restore_remove_lifetime_of_addr_opqptr.ll
+// G: restore_remove_lifetime_of_temps.ll
+// H: restore_remove_lifetime_of_temps_nocast_opaqueptrs.ll
 bool VPOUtils::restoreOperands(Function &F) {
   LLVM_DEBUG(dbgs() << "VPO Restore Operands \n");
 
@@ -305,13 +309,21 @@ bool VPOUtils::restoreOperands(Function &F) {
         Instruction *VAddrLoadCast = nullptr;
         SmallVector<Instruction *, 4> VAddrUsersInLifetimeMarkers;
 
+        auto userIsLifetimeMarker = [&](User *U) -> bool {
+          auto *II = dyn_cast<IntrinsicInst>(U);
+          if (!II)
+            return false;
+
+          assert((II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                  II->getIntrinsicID() == Intrinsic::lifetime_end) &&
+                 "Unexpected intrinsic using the ADDR operand (or a cast on "
+                 "it) of 'QUAL.OMP.OPERAND.ADDR'.");
+          return true;
+        };
+
         auto collectLifetimeMarkerUsers = [&](User *U) -> bool {
-          if (auto *II = dyn_cast<IntrinsicInst>(U)) {
-            assert((II->getIntrinsicID() == Intrinsic::lifetime_start ||
-                    II->getIntrinsicID() == Intrinsic::lifetime_end) &&
-                   "Unexpected intrinsic using the ADDR operand (or a cast on "
-                   "it) of 'QUAL.OMP.OPERAND.ADDR'.");
-            VAddrUsersInLifetimeMarkers.push_back(II);
+          if (userIsLifetimeMarker(U)) {
+            VAddrUsersInLifetimeMarkers.push_back(cast<IntrinsicInst>(U));
             return true;
           }
           return false;
@@ -334,7 +346,7 @@ bool VPOUtils::restoreOperands(Function &F) {
           }
 
           if (VAddr->getType()->isOpaquePointerTy() &&
-              collectLifetimeMarkerUsers(U)) {
+              collectLifetimeMarkerUsers(U)) { // H: (7)(8)(9)(10)
             continue;
           }
 
@@ -342,22 +354,26 @@ bool VPOUtils::restoreOperands(Function &F) {
                  "Unexpected use of ADDR operand of 'QUAL.OMP.OPERAND.ADDR'.");
           // Reaching here means that U is a pointer cast / zero-offset GEP.
 
-          assert((U->hasOneUse() || U->hasNUses(2)) &&
+          assert((U->getNumUses() <=
+                  llvm::count_if(U->users(), userIsLifetimeMarker) + 2) &&
                  "Unexpected number of uses of a bitcast on operand addr.");
           Instruction *CastI = cast<Instruction>(U);
           bool CastIsUsedInLifetimeMarkers = false;
 
           for (User *CastUser : CastI->users()) {
             if (isa<LoadInst>(CastUser)) {
+              assert(!VRenamed && "Unexpected second load from operand addr.");
               VRenamed = cast<LoadInst>(CastUser); // D, E, F: %y1
               VAddrLoadCast = CastI; // D, E: %y.addr.cast; F: %y.addr.cast1
             } else if (auto *CastUserStore = dyn_cast<StoreInst>(CastUser)) {
               assert(CastUserStore->getPointerOperand() == CastI &&
                      "QUAL.OMP.OPERAND.ADDR addr operand is stored somewhere.");
+              assert(!VAddrStore && "Unexpected second store to operand addr.");
               VAddrStoreCast = CastI;     // C, E, F: %y.addr.cast
               VAddrStore = CastUserStore; // C, E, F: store %y, %y.addr.cast
-            } else if (collectLifetimeMarkerUsers(CastUser)) {
-              CastIsUsedInLifetimeMarkers = true;
+            } else if (collectLifetimeMarkerUsers(
+                           CastUser)) {           // G: (2)(4)(5)(6)
+              CastIsUsedInLifetimeMarkers = true; // G: (1)(3)
             } else
               llvm_unreachable("Unexpected use of a cast on ADDR operand of "
                                "'QUAL.OMP.OPERAND.ADDR'.");

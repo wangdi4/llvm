@@ -4751,6 +4751,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::CompressStore: {
+    getOptReportStats(VPInst).CompressStores++;
+
     // Just generate compress-store intrinsic, mask is the current execution
     // mask.
     //
@@ -4774,6 +4776,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ExpandLoad: {
+    getOptReportStats(VPInst).ExpandLoads++;
+
     // Just generate expand-load intrinsic, mask is the current execution mask.
     //
     // type %ld = expand-load type, type* %ptr
@@ -4796,6 +4800,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::CompressStoreNonu: {
+    getOptReportStats(VPInst).CompressStores++;
+
     // First, compress value to store, mask is the current execution mask.
     //
     // compress-store-nonu %value, %ptr
@@ -4837,6 +4843,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ExpandLoadNonu: {
+    getOptReportStats(VPInst).ExpandLoads++;
+
     // Mask for strided load is the last instruction operand.
     RegDDRef *Mask = getOrCreateScalarRef(
         VPInst->getOperand(VPInst->getNumOperands() - 1), 0);
@@ -5208,6 +5216,17 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                                             RegDDRef *Mask, bool Widen,
                                             unsigned ScalarLaneID) {
+  // If we are dealing with a SelfAddressOfInst, it is enough to set the ref
+  // corresponding to the pointer operand as the corresponding HIR value.
+  if (isSelfAddressOfInst(VPSubscript)) {
+    RegDDRef *PointerRef = getOrCreateRefForVPVal(
+        VPSubscript->getPointerOperand(), Widen, ScalarLaneID);
+    SmallVector<const RegDDRef *, 4> AuxRefs;
+    makeConsistentAndAddToMap(PointerRef, VPSubscript, AuxRefs, Widen,
+                              ScalarLaneID);
+    return;
+  }
+
   auto Dim0 = VPSubscript->dim(0);
   Type *DestTy = Dim0.DimElementType;
   assert(DestTy && "Expected an actual destination type.");

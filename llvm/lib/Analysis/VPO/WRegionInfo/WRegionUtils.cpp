@@ -1123,10 +1123,14 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
-  auto collectSizeIfAlloca = [&](Value *V, bool CollectEvenIfConstant = false) {
-    // Skip AddrSpaceCastInsts in hope to reach the underlying value.
+  auto collectSizeIfAlloca = [&](Value *V, bool CollectEvenIfConstant = false,
+                                 bool StripPointerCastsToReachAlloca = false) {
+    // Skip Pointer/AddrSpaceCasts in hope to reach the underlying value.
     while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
       V = ASCI->getPointerOperand();
+
+    if (StripPointerCastsToReachAlloca)
+      V = V->stripPointerCasts();
 
     if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
       if (AI->isArrayAllocation())
@@ -1230,7 +1234,8 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
         if (!FPI->getIsTyped())
           continue;
 
-      collectSizeIfAlloca(MapI->getOrig(), collectEvenIfConstant(MapI));
+      collectSizeIfAlloca(MapI->getOrig(), collectEvenIfConstant(MapI),
+                          /*StripPointerCastsToReachAlloca=*/true);
     }
   }
 

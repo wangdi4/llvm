@@ -3,6 +3,8 @@
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
 
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, 14, 1   <DO_LOOP>
 ; <7>                |   if ((%c)[i1] != 0)
@@ -161,6 +163,9 @@
 ; CM8: Cost 23 for compress-store float [[VP10:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 6 for i32 [[VP12:%.*]] = compress-expand-index-inc i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP14:%.*]] = compress-expand-index-final i32 [[VP12]]
+
+; OPTREPORT: remark #15497: vector compress: 1
+; OPTREPORT: remark #15498: vector expand: 2
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

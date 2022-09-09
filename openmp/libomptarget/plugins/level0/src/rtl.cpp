@@ -2779,8 +2779,10 @@ struct RTLDeviceInfoTy {
   void *GitsIndirectAllocationOffsets = nullptr;
 
   /// function addresses for registering and unregistering host pointer
+  /// and testing if a host malloced pointer is registered
   void *RegisterHostPointer = nullptr;
   void *UnRegisterHostPointer = nullptr;
+  void *GetHostPointerBaseAddress = nullptr;
 
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
@@ -2988,6 +2990,13 @@ struct RTLDeviceInfoTy {
  //    void *ptr
  //  );
  //
+ // ze_result_t ZE_APICALL
+ // zexDriverGetHostPointerBaseAddress(
+ //   ze_driver_handle_t hDriver,
+ //   void *ptr,
+ //   void **baseAddress
+ // );
+
    bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
       if (RegisterHostPointer) {
         using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
@@ -3008,6 +3017,21 @@ struct RTLDeviceInfoTy {
            return true;
       }
       DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
+      return false;
+   }
+
+   bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
+      if (GetHostPointerBaseAddress) {
+        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
+        auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
+        void *BaseAddress = NULL;
+        ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
+        if ( RC == ZE_RESULT_SUCCESS) {
+          DP("Host Pointer: " DPxMOD " is registered with BaseAddress : " DPxMOD " \n",
+                         DPxPTR(Ptr),DPxPTR(BaseAddress));
+          return true;
+        }
+      }
       return false;
    }
 
@@ -3574,7 +3598,9 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     void *SrcPtr = HstPtr;
     if (DiscreteDevice &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        // Check if host pointer is registered
+        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
       SrcPtr = DeviceInfo->getStagingBuffer().get();
       std::copy_n(
           static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
@@ -3616,7 +3642,9 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     void *DstPtr = HstPtr;
     if (DiscreteDevice &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        // Check if host pointer is registered
+        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
       DstPtr = DeviceInfo->getStagingBuffer().get();
     }
     if (OFFLOAD_SUCCESS !=
@@ -4910,6 +4938,11 @@ int32_t RTLDeviceInfoTy::findDevices() {
           "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
      UnRegisterHostPointer = nullptr;
+
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
+  if (Rc != ZE_RESULT_SUCCESS)
+     GetHostPointerBaseAddress  = nullptr;
 
   return NumRootDevices;
 }

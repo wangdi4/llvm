@@ -4,6 +4,8 @@
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 -enable-intel-advanced-opts 2>&1 | FileCheck %s --check-prefix=CM4
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -hir-vplan-vec -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 -enable-intel-advanced-opts 2>&1 | FileCheck %s --check-prefix=CM8
 
+; RUN: opt %s -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -disable-output -hir-vplan-vec -hir-optreport-emitter -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ; <6>                |   if ((%C)[i1] != 0)
@@ -190,6 +192,9 @@
 ; CM8: Block total cost includes GS Cost: 16
 ; CM8: Cost 6 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
 ; CM8: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
+
+; OPTREPORT: remark #15497: vector compress: 2
+; OPTREPORT: remark #15498: vector expand: 0
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
