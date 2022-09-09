@@ -34,6 +34,12 @@ static cl::opt<bool, true> EnableMaskedVectorizedRemainderOpt(
     cl::location(llvm::vpo::EnableMaskedVectorizedRemainder),
     cl::desc("Enable masked vectorized remainder."));
 
+static cl::opt<bool> EnableEvaluatorsCostModelDumps(
+    "vplan-enable-evaluators-cost-model-dumps",
+    cl::init(false), cl::Hidden,
+    cl::desc("Enable Cost Model dumps for loop peel & reminder for "
+             "every VF tried."));
+
 namespace llvm {
 namespace vpo {
 bool EnableVectorizedPeel = false;
@@ -48,11 +54,14 @@ using namespace llvm::vpo;
 // Calculates the cost of \p Plan for given \p VF. If \p Plan is not available
 // (nullptr) then this function returns an invalid VPInstructionCost.
 VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF,
-                                                 VPlanVector *Plan) {
+                                                VPlanVector *Plan) {
   if (Plan) {
-    // TODO: no peeling should be accounted here, update after interface
-    // changes.
-    return Planner.createCostModel(Plan, VF)->getCost();
+    raw_ostream *OS = nullptr;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    OS = EnableEvaluatorsCostModelDumps ? &outs() : nullptr;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    return Planner.createCostModel(Plan, VF)->getCost(
+      nullptr /* PeelingVariant */, OS);
   }
   return std::make_pair(VPInstructionCost::getInvalid(),
                         VPInstructionCost::getInvalid());
