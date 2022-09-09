@@ -2746,10 +2746,6 @@ void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
-  const VarDecl *VD = getExplicitVarDecl(Cl->getInteropVar());
-  assert(VD && "expected VarDecl in init clause");
-  addExplicit(VD, OMPC_init);
-
   // Gather any valid preferences first.
   SmallVector<llvm::Value *, 3> PrefValues;
   for (const Expr *PE : Cl->prefs())
@@ -2771,22 +2767,15 @@ void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPUseClause(const OMPUseClause *Cl) {
-  const VarDecl *VD = getExplicitVarDecl(Cl->getInteropVar());
-  assert(VD && "expected VarDecl in use clause");
-  addExplicit(VD, OMPC_use);
   ClauseEmissionHelper CEH(*this, OMPC_use, "QUAL.OMP.USE");
   addArg(CEH.getBuilder().getString());
   addArg(Cl->getInteropVar());
 }
 
 void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *Cl) {
-  if (const VarDecl *VD = getExplicitVarDecl(Cl->getInteropVar())) {
-    assert(VD && "expected VarDecl in use clause");
-    addExplicit(VD, OMPC_destroy);
-    ClauseEmissionHelper CEH(*this, OMPC_use, "QUAL.OMP.DESTROY");
-    addArg(CEH.getBuilder().getString());
-    addArg(Cl->getInteropVar());
-  }
+  ClauseEmissionHelper CEH(*this, OMPC_use, "QUAL.OMP.DESTROY");
+  addArg(CEH.getBuilder().getString());
+  addArg(Cl->getInteropVar());
 }
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
