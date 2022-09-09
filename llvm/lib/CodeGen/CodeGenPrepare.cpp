@@ -286,6 +286,10 @@ static cl::opt<bool>
     OptimizePhiTypes("cgp-optimize-phi-types", cl::Hidden, cl::init(false),
                      cl::desc("Enable converting phi types in CodeGenPrepare"));
 
+static cl::opt<unsigned>
+    HugeFuncThresholdInCGPP("cgpp-huge-func", cl::init(10000), cl::Hidden,
+                            cl::desc("Least BB number of huge function."));
+
 namespace {
 
 enum ExtType {
@@ -295,6 +299,15 @@ enum ExtType {
                  // ZeroExtension had been set, or if we saw zext after
                  // SignExtension had been set. It makes the type
                  // information of a promoted instruction invalid.
+};
+
+enum ModifyDT {
+  NotModifyDT, // Not Modify any DT.
+  ModifyBBDT,  // Modify the Basic Block Dominator Tree.
+  ModifyInstDT // Modify the Instruction Dominator in a Basic Block,
+               // This usually means we move/delete/insert instruction
+               // in a Basic Block. So we should re-iterate instructions
+               // in such Basic Block.
 };
 
 using SetOfInstrs = SmallPtrSet<Instruction *, 16>;
@@ -369,6 +382,15 @@ class CodeGenPrepare : public FunctionPass {
   std::unique_ptr<DominatorTree> DT;
 
 public:
+  /// If encounter huge function, we need to limit the build time.
+  bool IsHugeFunc = false;
+
+  /// FreshBBs is like worklist, it collected the updated BBs which need
+  /// to be optimized again.
+  /// Note: Consider building time in this pass, when a BB updated, we need
+  /// to insert such BB into FreshBBs for huge function.
+  SmallSet<BasicBlock *, 32> FreshBBs;
+
   static char ID; // Pass identification, replacement for typeid
 
   CodeGenPrepare() : FunctionPass(ID) {
@@ -408,74 +430,72 @@ private:
     }
   }
 
-    // Get the DominatorTree, building if necessary.
-    DominatorTree &getDT(Function &F) {
-      if (!DT)
-        DT = std::make_unique<DominatorTree>(F);
-      return *DT;
-    }
+  // Get the DominatorTree, building if necessary.
+  DominatorTree &getDT(Function &F) {
+    if (!DT)
+      DT = std::make_unique<DominatorTree>(F);
+    return *DT;
+  }
 
-    void removeAllAssertingVHReferences(Value *V);
-    bool eliminateAssumptions(Function &F);
-    bool eliminateFallThrough(Function &F);
-    bool eliminateMostlyEmptyBlocks(Function &F);
-    BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
-    bool canMergeBlocks(const BasicBlock *BB, const BasicBlock *DestBB) const;
-    void eliminateMostlyEmptyBlock(BasicBlock *BB);
-    bool isMergingEmptyBlockProfitable(BasicBlock *BB, BasicBlock *DestBB,
-                                       bool isPreheader);
-    bool makeBitReverse(Instruction &I);
-    bool optimizeBlock(BasicBlock &BB, bool &ModifiedDT);
-    bool optimizeInst(Instruction *I, bool &ModifiedDT);
-    bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
-                            Type *AccessTy, unsigned AddrSpace);
-    bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
-    bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
-    bool optimizeInlineAsmInst(CallInst *CS);
-    bool optimizeCallInst(CallInst *CI, bool &ModifiedDT);
-    bool optimizeExt(Instruction *&I);
-    bool optimizeExtUses(Instruction *I);
-    bool optimizeLoadExt(LoadInst *Load);
-    bool optimizeShiftInst(BinaryOperator *BO);
-    bool optimizeFunnelShift(IntrinsicInst *Fsh);
-    bool optimizeSelectInst(SelectInst *SI);
-    bool optimizeShuffleVectorInst(ShuffleVectorInst *SVI);
-    bool optimizeSwitchType(SwitchInst *SI);
-    bool optimizeSwitchPhiConstants(SwitchInst *SI);
-    bool optimizeSwitchInst(SwitchInst *SI);
-    bool optimizeExtractElementInst(Instruction *Inst);
-    bool dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT);
-    bool fixupDbgValue(Instruction *I);
-    bool placeDbgValues(Function &F);
-    bool placePseudoProbes(Function &F);
-    bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
-                      LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
-    bool tryToPromoteExts(TypePromotionTransaction &TPT,
-                          const SmallVectorImpl<Instruction *> &Exts,
-                          SmallVectorImpl<Instruction *> &ProfitablyMovedExts,
-                          unsigned CreatedInstsCost = 0);
-    bool mergeSExts(Function &F);
-    bool splitLargeGEPOffsets();
-    bool optimizePhiType(PHINode *Inst, SmallPtrSetImpl<PHINode *> &Visited,
-                         SmallPtrSetImpl<Instruction *> &DeletedInstrs);
-    bool optimizePhiTypes(Function &F);
-    bool performAddressTypePromotion(
-        Instruction *&Inst,
-        bool AllowPromotionWithoutCommonHeader,
-        bool HasPromoted, TypePromotionTransaction &TPT,
-        SmallVectorImpl<Instruction *> &SpeculativelyMovedExts);
-    bool splitBranchCondition(Function &F, bool &ModifiedDT);
-    bool simplifyOffsetableRelocate(GCStatepointInst &I);
+  void removeAllAssertingVHReferences(Value *V);
+  bool eliminateAssumptions(Function &F);
+  bool eliminateFallThrough(Function &F);
+  bool eliminateMostlyEmptyBlocks(Function &F);
+  BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
+  bool canMergeBlocks(const BasicBlock *BB, const BasicBlock *DestBB) const;
+  void eliminateMostlyEmptyBlock(BasicBlock *BB);
+  bool isMergingEmptyBlockProfitable(BasicBlock *BB, BasicBlock *DestBB,
+                                     bool isPreheader);
+  bool makeBitReverse(Instruction &I);
+  bool optimizeBlock(BasicBlock &BB, ModifyDT &ModifiedDT);
+  bool optimizeInst(Instruction *I, ModifyDT &ModifiedDT);
+  bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr, Type *AccessTy,
+                          unsigned AddrSpace);
+  bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
+  bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
+  bool optimizeInlineAsmInst(CallInst *CS);
+  bool optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT);
+  bool optimizeExt(Instruction *&I);
+  bool optimizeExtUses(Instruction *I);
+  bool optimizeLoadExt(LoadInst *Load);
+  bool optimizeShiftInst(BinaryOperator *BO);
+  bool optimizeFunnelShift(IntrinsicInst *Fsh);
+  bool optimizeSelectInst(SelectInst *SI);
+  bool optimizeShuffleVectorInst(ShuffleVectorInst *SVI);
+  bool optimizeSwitchType(SwitchInst *SI);
+  bool optimizeSwitchPhiConstants(SwitchInst *SI);
+  bool optimizeSwitchInst(SwitchInst *SI);
+  bool optimizeExtractElementInst(Instruction *Inst);
+  bool dupRetToEnableTailCallOpts(BasicBlock *BB, ModifyDT &ModifiedDT);
+  bool fixupDbgValue(Instruction *I);
+  bool placeDbgValues(Function &F);
+  bool placePseudoProbes(Function &F);
+  bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
+                    LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
+  bool tryToPromoteExts(TypePromotionTransaction &TPT,
+                        const SmallVectorImpl<Instruction *> &Exts,
+                        SmallVectorImpl<Instruction *> &ProfitablyMovedExts,
+                        unsigned CreatedInstsCost = 0);
+  bool mergeSExts(Function &F);
+  bool splitLargeGEPOffsets();
+  bool optimizePhiType(PHINode *Inst, SmallPtrSetImpl<PHINode *> &Visited,
+                       SmallPtrSetImpl<Instruction *> &DeletedInstrs);
+  bool optimizePhiTypes(Function &F);
+  bool performAddressTypePromotion(
+      Instruction *&Inst, bool AllowPromotionWithoutCommonHeader,
+      bool HasPromoted, TypePromotionTransaction &TPT,
+      SmallVectorImpl<Instruction *> &SpeculativelyMovedExts);
+  bool splitBranchCondition(Function &F, ModifyDT &ModifiedDT);
+  bool simplifyOffsetableRelocate(GCStatepointInst &I);
 
-    bool tryToSinkFreeOperands(Instruction *I);
-    bool replaceMathCmpWithIntrinsic(BinaryOperator *BO, Value *Arg0,
-                                     Value *Arg1, CmpInst *Cmp,
-                                     Intrinsic::ID IID);
-    bool optimizeCmp(CmpInst *Cmp, bool &ModifiedDT);
-    bool combineToUSubWithOverflow(CmpInst *Cmp, bool &ModifiedDT);
-    bool combineToUAddWithOverflow(CmpInst *Cmp, bool &ModifiedDT);
-    void verifyBFIUpdates(Function &F);
-  };
+  bool tryToSinkFreeOperands(Instruction *I);
+  bool replaceMathCmpWithIntrinsic(BinaryOperator *BO, Value *Arg0, Value *Arg1,
+                                   CmpInst *Cmp, Intrinsic::ID IID);
+  bool optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT);
+  bool combineToUSubWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
+  bool combineToUAddWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
+  void verifyBFIUpdates(Function &F);
+};
 
 } // end anonymous namespace
 
@@ -504,6 +524,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // Clear per function information.
   InsertedInsts.clear();
   PromotedInsts.clear();
+  FreshBBs.clear();
 
   TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
   SubtargetInfo = TM->getSubtargetImpl(F);
@@ -604,7 +625,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // unconditional branch.
   EverMadeChange |= eliminateMostlyEmptyBlocks(F);
 
-  bool ModifiedDT = false;
+  ModifyDT ModifiedDT = ModifyDT::NotModifyDT;
   if (!DisableBranchOpts)
     EverMadeChange |= splitBranchCondition(F, ModifiedDT);
 
@@ -618,18 +639,51 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
                                    DontSplitColdCriticalEdge);
 #endif // INTEL_CUSTOMIZATION
 
+  // If we are optimzing huge function, we need to consider the build time.
+  // Because the basic algorithm's complex is near O(N!).
+  IsHugeFunc = F.size() > HugeFuncThresholdInCGPP;
+
   bool MadeChange = true;
+  bool FuncIterated = false;
   while (MadeChange) {
     MadeChange = false;
     DT.reset();
-    for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
-      bool ModifiedDTOnIteration = false;
-      MadeChange |= optimizeBlock(BB, ModifiedDTOnIteration);
 
-      // Restart BB iteration if the dominator tree of the Function was changed
-      if (ModifiedDTOnIteration)
-        break;
+    for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
+      if (FuncIterated && !FreshBBs.contains(&BB))
+        continue;
+
+      ModifyDT ModifiedDTOnIteration = ModifyDT::NotModifyDT;
+      bool Changed = optimizeBlock(BB, ModifiedDTOnIteration);
+
+      MadeChange |= Changed;
+      if (IsHugeFunc) {
+        // If the BB is updated, it may still has chance to be optimized.
+        // This usually happen at sink optimization.
+        // For example:
+        //
+        // bb0：
+        // %and = and i32 %a, 4
+        // %cmp = icmp eq i32 %and, 0
+        //
+        // If the %cmp sink to other BB, the %and will has chance to sink.
+        if (Changed)
+          FreshBBs.insert(&BB);
+        else if (FuncIterated)
+          FreshBBs.erase(&BB);
+
+        if (ModifiedDTOnIteration == ModifyDT::ModifyBBDT)
+          DT.reset();
+      } else {
+        // For small/normal functions, we restart BB iteration if the dominator
+        // tree of the Function was changed.
+        if (ModifiedDTOnIteration != ModifyDT::NotModifyDT)
+          break;
+      }
     }
+    // We have iterated all the BB in the (only work for huge) function.
+    FuncIterated = IsHugeFunc;
+
     if (EnableTypePromotionMerge && !ValToSExtendedUses.empty())
       MadeChange |= mergeSExts(F);
     if (!LargeOffsetGEPMap.empty())
@@ -800,6 +854,12 @@ bool CodeGenPrepare::eliminateFallThrough(Function &F) {
       // Merge BB into SinglePred and delete it.
       MergeBlockIntoPredecessor(BB);
       Preds.insert(SinglePred);
+
+      if (IsHugeFunc) {
+        // Update FreshBBs to optimize the merged BB.
+        FreshBBs.insert(SinglePred);
+        FreshBBs.erase(BB);
+      }
     }
   }
 
@@ -1034,6 +1094,22 @@ bool CodeGenPrepare::canMergeBlocks(const BasicBlock *BB,
   return true;
 }
 
+/// Replace all old uses with new ones, and push the updated BBs into FreshBBs.
+static void replaceAllUsesWith(Value *Old, Value *New,
+                               SmallSet<BasicBlock *, 32> &FreshBBs,
+                               bool IsHuge) {
+  auto *OldI = dyn_cast<Instruction>(Old);
+  if (OldI) {
+    for (Value::user_iterator UI = OldI->user_begin(), E = OldI->user_end();
+         UI != E; ++UI) {
+      Instruction *User = cast<Instruction>(*UI);
+      if (IsHuge)
+        FreshBBs.insert(User->getParent());
+    }
+  }
+  Old->replaceAllUsesWith(New);
+}
+
 /// Eliminate a basic block that has only phi's and an unconditional branch in
 /// it.
 void CodeGenPrepare::eliminateMostlyEmptyBlock(BasicBlock *BB) {
@@ -1054,6 +1130,12 @@ void CodeGenPrepare::eliminateMostlyEmptyBlock(BasicBlock *BB) {
       // Note: BB(=SinglePred) will not be deleted on this path.
       // DestBB(=its single successor) is the one that was deleted.
       LLVM_DEBUG(dbgs() << "AFTER:\n" << *SinglePred << "\n\n\n");
+
+      if (IsHugeFunc) {
+        // Update FreshBBs to optimize the merged BB.
+        FreshBBs.insert(SinglePred);
+        FreshBBs.erase(DestBB);
+      }
       return;
     }
   }
@@ -1521,12 +1603,12 @@ bool CodeGenPrepare::replaceMathCmpWithIntrinsic(BinaryOperator *BO,
   Value *MathOV = Builder.CreateBinaryIntrinsic(IID, Arg0, Arg1);
   if (BO->getOpcode() != Instruction::Xor) {
     Value *Math = Builder.CreateExtractValue(MathOV, 0, "math");
-    BO->replaceAllUsesWith(Math);
+    replaceAllUsesWith(BO, Math, FreshBBs, IsHugeFunc);
   } else
     assert(BO->hasOneUse() &&
            "Patterns with XOr should use the BO only in the compare");
   Value *OV = Builder.CreateExtractValue(MathOV, 1, "ov");
-  Cmp->replaceAllUsesWith(OV);
+  replaceAllUsesWith(Cmp, OV, FreshBBs, IsHugeFunc);
   Cmp->eraseFromParent();
   BO->eraseFromParent();
   return true;
@@ -1564,7 +1646,8 @@ static bool matchUAddWithOverflowConstantEdgeCases(CmpInst *Cmp,
 
 /// Try to combine the compare into a call to the llvm.uadd.with.overflow
 /// intrinsic. Return true if any changes were made.
-bool CodeGenPrepare::combineToUAddWithOverflow(CmpInst *Cmp, bool &ModifiedDT) {
+bool CodeGenPrepare::combineToUAddWithOverflow(CmpInst *Cmp,
+                                               ModifyDT &ModifiedDT) {
   Value *A, *B;
   BinaryOperator *Add;
   if (!match(Cmp, m_UAddWithOverflow(m_Value(A), m_Value(B), m_BinOp(Add)))) {
@@ -1591,11 +1674,12 @@ bool CodeGenPrepare::combineToUAddWithOverflow(CmpInst *Cmp, bool &ModifiedDT) {
     return false;
 
   // Reset callers - do not crash by iterating over a dead instruction.
-  ModifiedDT = true;
+  ModifiedDT = ModifyDT::ModifyInstDT;
   return true;
 }
 
-bool CodeGenPrepare::combineToUSubWithOverflow(CmpInst *Cmp, bool &ModifiedDT) {
+bool CodeGenPrepare::combineToUSubWithOverflow(CmpInst *Cmp,
+                                               ModifyDT &ModifiedDT) {
   // We are not expecting non-canonical/degenerate code. Just bail out.
   Value *A = Cmp->getOperand(0), *B = Cmp->getOperand(1);
   if (isa<Constant>(A) && isa<Constant>(B))
@@ -1653,7 +1737,7 @@ bool CodeGenPrepare::combineToUSubWithOverflow(CmpInst *Cmp, bool &ModifiedDT) {
     return false;
 
   // Reset callers - do not crash by iterating over a dead instruction.
-  ModifiedDT = true;
+  ModifiedDT = ModifyDT::ModifyInstDT;
   return true;
 }
 
@@ -1810,7 +1894,7 @@ static bool foldICmpWithDominatingICmp(CmpInst *Cmp,
   return true;
 }
 
-bool CodeGenPrepare::optimizeCmp(CmpInst *Cmp, bool &ModifiedDT) {
+bool CodeGenPrepare::optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT) {
   if (sinkCmpExpression(Cmp, *TLI))
     return true;
 
@@ -2115,7 +2199,9 @@ static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
 /// If the transform is performed, return true and set ModifiedDT to true.
 static bool despeculateCountZeros(IntrinsicInst *CountZeros,
                                   const TargetLowering *TLI,
-                                  const DataLayout *DL, bool &ModifiedDT) {
+                                  const DataLayout *DL, ModifyDT &ModifiedDT,
+                                  SmallSet<BasicBlock *, 32> &FreshBBs,
+                                  bool IsHugeFunc) {
   // If a zero input is undefined, it doesn't make sense to despeculate that.
   if (match(CountZeros->getOperand(1), m_One()))
     return false;
@@ -2140,12 +2226,16 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
   // The intrinsic will be sunk behind a compare against zero and branch.
   BasicBlock *StartBlock = CountZeros->getParent();
   BasicBlock *CallBlock = StartBlock->splitBasicBlock(CountZeros, "cond.false");
+  if (IsHugeFunc)
+    FreshBBs.insert(CallBlock);
 
   // Create another block after the count zero intrinsic. A PHI will be added
   // in this block to select the result of the intrinsic or the bit-width
   // constant if the input to the intrinsic is zero.
   BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(CountZeros));
   BasicBlock *EndBlock = CallBlock->splitBasicBlock(SplitPt, "cond.end");
+  if (IsHugeFunc)
+    FreshBBs.insert(EndBlock);
 
   // Set up a builder to create a compare, conditional branch, and PHI.
   IRBuilder<> Builder(CountZeros->getContext());
@@ -2166,7 +2256,7 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
   // or the bit width of the operand.
   Builder.SetInsertPoint(&EndBlock->front());
   PHINode *PN = Builder.CreatePHI(Ty, 2, "ctz");
-  CountZeros->replaceAllUsesWith(PN);
+  replaceAllUsesWith(CountZeros, PN, FreshBBs, IsHugeFunc);
   Value *BitWidth = Builder.getInt(APInt(SizeInBits, SizeInBits));
   PN->addIncoming(BitWidth, StartBlock);
   PN->addIncoming(CountZeros, CallBlock);
@@ -2175,11 +2265,11 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
   // undefined zero argument to 'true'. This will also prevent reprocessing the
   // intrinsic; we only despeculate when a zero input is defined.
   CountZeros->setArgOperand(1, Builder.getTrue());
-  ModifiedDT = true;
+  ModifiedDT = ModifyDT::ModifyBBDT;
   return true;
 }
 
-bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
+bool CodeGenPrepare::optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT) {
   BasicBlock *BB = CI->getParent();
 
   // Lower inline assembly if we can.
@@ -2318,14 +2408,15 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
         LargeOffsetGEPMap.erase(II);
       }
 
-      II->replaceAllUsesWith(ArgVal);
+      replaceAllUsesWith(II, ArgVal, FreshBBs, IsHugeFunc);
       II->eraseFromParent();
       return true;
     }
     case Intrinsic::cttz:
     case Intrinsic::ctlz:
       // If counting zeros is expensive, try to avoid it.
-      return despeculateCountZeros(II, TLI, DL, ModifiedDT);
+      return despeculateCountZeros(II, TLI, DL, ModifiedDT, FreshBBs,
+                                   IsHugeFunc);
     case Intrinsic::fshl:
     case Intrinsic::fshr:
       return optimizeFunnelShift(II);
@@ -2342,7 +2433,8 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
         auto *One = ConstantInt::getSigned(II->getType(), 1);
         auto *CGep =
             ConstantExpr::getGetElementPtr(ScalableVectorTy, Null, One);
-        II->replaceAllUsesWith(ConstantExpr::getPtrToInt(CGep, II->getType()));
+        replaceAllUsesWith(II, ConstantExpr::getPtrToInt(CGep, II->getType()),
+                           FreshBBs, IsHugeFunc);
         II->eraseFromParent();
         return true;
       }
@@ -2386,7 +2478,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
   FortifiedLibCallSimplifier Simplifier(TLInfo, true);
   IRBuilder<> Builder(CI);
   if (Value *V = Simplifier.optimizeCall(CI, Builder)) {
-    CI->replaceAllUsesWith(V);
+    replaceAllUsesWith(CI, V, FreshBBs, IsHugeFunc);
     CI->eraseFromParent();
     return true;
   }
@@ -2425,7 +2517,10 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
 ///   ret i32 %tmp2
 /// @endcode
 bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
-                                                bool &ModifiedDT) {
+                                                ModifyDT &ModifiedDT) {
+  if (!BB->getTerminator())
+    return false;
+
   ReturnInst *RetI = dyn_cast<ReturnInst>(BB->getTerminator());
   if (!RetI)
     return false;
@@ -2519,7 +2614,8 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
     BFI->setBlockFreq(
         BB,
         (BFI->getBlockFreq(BB) - BFI->getBlockFreq(TailCallBB)).getFrequency());
-    ModifiedDT = Changed = true;
+    ModifiedDT = ModifyDT::ModifyBBDT;
+    Changed = true;
     ++NumRetsDup;
   }
 
@@ -5975,7 +6071,7 @@ bool CodeGenPrepare::mergeSExts(Function &F) {
       bool inserted = false;
       for (auto &Pt : CurPts) {
         if (getDT(F).dominates(Inst, Pt)) {
-          Pt->replaceAllUsesWith(Inst);
+          replaceAllUsesWith(Pt, Inst, FreshBBs, IsHugeFunc);
           RemovedInsts.insert(Pt);
           Pt->removeFromParent();
           Pt = Inst;
@@ -5987,7 +6083,7 @@ bool CodeGenPrepare::mergeSExts(Function &F) {
           // Give up if we need to merge in a common dominator as the
           // experiments show it is not profitable.
           continue;
-        Inst->replaceAllUsesWith(Pt);
+        replaceAllUsesWith(Inst, Pt, FreshBBs, IsHugeFunc);
         RemovedInsts.insert(Inst);
         Inst->removeFromParent();
         inserted = true;
@@ -6139,7 +6235,7 @@ bool CodeGenPrepare::splitLargeGEPOffsets() {
         if (GEP->getType() != I8PtrTy)
           NewGEP = Builder.CreatePointerCast(NewGEP, GEP->getType());
       }
-      GEP->replaceAllUsesWith(NewGEP);
+      replaceAllUsesWith(GEP, NewGEP, FreshBBs, IsHugeFunc);
       LargeOffsetGEPID.erase(GEP);
       LargeOffsetGEP = LargeOffsetGEPs.erase(LargeOffsetGEP);
       GEP->eraseFromParent();
@@ -6276,7 +6372,7 @@ bool CodeGenPrepare::optimizePhiType(
   for (Instruction *U : Uses) {
     if (isa<BitCastInst>(U)) {
       DeletedInstrs.insert(U);
-      U->replaceAllUsesWith(ValMap[U->getOperand(0)]);
+      replaceAllUsesWith(U, ValMap[U->getOperand(0)], FreshBBs, IsHugeFunc);
     } else {
       U->setOperand(0,
                     new BitCastInst(ValMap[U->getOperand(0)], PhiTy, "bc", U));
@@ -6304,7 +6400,7 @@ bool CodeGenPrepare::optimizePhiTypes(Function &F) {
 
   // Remove any old phi's that have been converted.
   for (auto *I : DeletedInstrs) {
-    I->replaceAllUsesWith(PoisonValue::get(I->getType()));
+    replaceAllUsesWith(I, PoisonValue::get(I->getType()), FreshBBs, IsHugeFunc);
     I->eraseFromParent();
   }
 
@@ -6719,7 +6815,7 @@ bool CodeGenPrepare::optimizeLoadExt(LoadInst *Load) {
 
   // Replace all uses of load with new and (except for the use of load in the
   // new and itself).
-  Load->replaceAllUsesWith(NewAnd);
+  replaceAllUsesWith(Load, NewAnd, FreshBBs, IsHugeFunc);
   NewAnd->setOperand(0, Load);
 
   // Remove any and instructions that are now redundant.
@@ -6727,7 +6823,7 @@ bool CodeGenPrepare::optimizeLoadExt(LoadInst *Load) {
     // Check that the and mask is the same as the one we decided to put on the
     // new and.
     if (cast<ConstantInt>(And->getOperand(1))->getValue() == DemandBits) {
-      And->replaceAllUsesWith(NewAnd);
+      replaceAllUsesWith(And, NewAnd, FreshBBs, IsHugeFunc);
       if (&*CurInstIterator == And)
         CurInstIterator = std::next(And->getIterator());
       And->eraseFromParent();
@@ -6837,7 +6933,7 @@ bool CodeGenPrepare::optimizeShiftInst(BinaryOperator *Shift) {
   Value *NewTVal = Builder.CreateBinOp(Opcode, Shift->getOperand(0), TVal);
   Value *NewFVal = Builder.CreateBinOp(Opcode, Shift->getOperand(0), FVal);
   Value *NewSel = Builder.CreateSelect(Cond, NewTVal, NewFVal);
-  Shift->replaceAllUsesWith(NewSel);
+  replaceAllUsesWith(Shift, NewSel, FreshBBs, IsHugeFunc);
   Shift->eraseFromParent();
   return true;
 }
@@ -6872,7 +6968,7 @@ bool CodeGenPrepare::optimizeFunnelShift(IntrinsicInst *Fsh) {
   Value *NewTVal = Builder.CreateIntrinsic(Opcode, Ty, {X, Y, TVal});
   Value *NewFVal = Builder.CreateIntrinsic(Opcode, Ty, {X, Y, FVal});
   Value *NewSel = Builder.CreateSelect(Cond, NewTVal, NewFVal);
-  Fsh->replaceAllUsesWith(NewSel);
+  replaceAllUsesWith(Fsh, NewSel, FreshBBs, IsHugeFunc);
   Fsh->eraseFromParent();
   return true;
 }
@@ -6959,6 +7055,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   BasicBlock *StartBlock = SI->getParent();
   BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(LastSI));
   BasicBlock *EndBlock = StartBlock->splitBasicBlock(SplitPt, "select.end");
+  if (IsHugeFunc)
+    FreshBBs.insert(EndBlock);
   BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock).getFrequency());
 
   // Delete the unconditional branch that was just created by the split.
@@ -6979,6 +7077,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
         TrueBlock = BasicBlock::Create(SI->getContext(), "select.true.sink",
                                        EndBlock->getParent(), EndBlock);
         TrueBranch = BranchInst::Create(EndBlock, TrueBlock);
+        if (IsHugeFunc)
+          FreshBBs.insert(TrueBlock);
         TrueBranch->setDebugLoc(SI->getDebugLoc());
       }
       auto *TrueInst = cast<Instruction>(SI->getTrueValue());
@@ -6988,6 +7088,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
       if (FalseBlock == nullptr) {
         FalseBlock = BasicBlock::Create(SI->getContext(), "select.false.sink",
                                         EndBlock->getParent(), EndBlock);
+        if (IsHugeFunc)
+          FreshBBs.insert(FalseBlock);
         FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
         FalseBranch->setDebugLoc(SI->getDebugLoc());
       }
@@ -7004,6 +7106,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
 
     FalseBlock = BasicBlock::Create(SI->getContext(), "select.false",
                                     EndBlock->getParent(), EndBlock);
+    if (IsHugeFunc)
+      FreshBBs.insert(FalseBlock);
     auto *FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
     FalseBranch->setDebugLoc(SI->getDebugLoc());
   }
@@ -7043,7 +7147,7 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
     PN->addIncoming(getTrueOrFalseValue(SI, false, INS), FalseBlock);
     PN->setDebugLoc(SI->getDebugLoc());
 
-    SI->replaceAllUsesWith(PN);
+    replaceAllUsesWith(SI, PN, FreshBBs, IsHugeFunc);
     SI->eraseFromParent();
     INS.erase(SI);
     ++NumSelectsExpanded;
@@ -7081,7 +7185,7 @@ bool CodeGenPrepare::optimizeShuffleVectorInst(ShuffleVectorInst *SVI) {
   Value *Shuffle = Builder.CreateVectorSplat(NewVecType->getNumElements(), BC1);
   Value *BC2 = Builder.CreateBitCast(Shuffle, SVIVecType);
 
-  SVI->replaceAllUsesWith(BC2);
+  replaceAllUsesWith(SVI, BC2, FreshBBs, IsHugeFunc);
   RecursivelyDeleteTriviallyDeadInstructions(
       SVI, TLInfo, nullptr,
       [&](Value *V) { removeAllAssertingVHReferences(V); });
@@ -7134,6 +7238,18 @@ bool CodeGenPrepare::tryToSinkFreeOperands(Instruction *I) {
   for (Use *U : ToReplace) {
     auto *UI = cast<Instruction>(U->get());
     Instruction *NI = UI->clone();
+
+    if (IsHugeFunc) {
+      // Now we clone an instruction, its operands' defs may sink to this BB
+      // now. So we put the operands defs' BBs into FreshBBs to do optmization.
+      for (unsigned I = 0; I < NI->getNumOperands(); ++I) {
+        auto *OpDef = dyn_cast<Instruction>(NI->getOperand(I));
+        if (!OpDef)
+          continue;
+        FreshBBs.insert(OpDef->getParent());
+      }
+    }
+
     NewInstructions[UI] = NI;
     MaybeDead.insert(UI);
     LLVM_DEBUG(dbgs() << "Sinking " << *UI << " to user " << *I << "\n");
@@ -7973,7 +8089,9 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
   return true;
 }
 
-static bool optimizeBranch(BranchInst *Branch, const TargetLowering &TLI) {
+static bool optimizeBranch(BranchInst *Branch, const TargetLowering &TLI,
+                           SmallSet<BasicBlock *, 32> &FreshBBs,
+                           bool IsHugeFunc) {
   // Try and convert
   //  %c = icmp ult %x, 8
   //  br %c, bla, blb
@@ -8014,7 +8132,7 @@ static bool optimizeBranch(BranchInst *Branch, const TargetLowering &TLI) {
                                         ConstantInt::get(UI->getType(), 0));
       LLVM_DEBUG(dbgs() << "Converting " << *Cmp << "\n");
       LLVM_DEBUG(dbgs() << " to compare on zero: " << *NewCmp << "\n");
-      Cmp->replaceAllUsesWith(NewCmp);
+      replaceAllUsesWith(Cmp, NewCmp, FreshBBs, IsHugeFunc);
       return true;
     }
     if (Cmp->isEquality() &&
@@ -8027,14 +8145,14 @@ static bool optimizeBranch(BranchInst *Branch, const TargetLowering &TLI) {
                                         ConstantInt::get(UI->getType(), 0));
       LLVM_DEBUG(dbgs() << "Converting " << *Cmp << "\n");
       LLVM_DEBUG(dbgs() << " to compare on zero: " << *NewCmp << "\n");
-      Cmp->replaceAllUsesWith(NewCmp);
+      replaceAllUsesWith(Cmp, NewCmp, FreshBBs, IsHugeFunc);
       return true;
     }
   }
   return false;
 }
 
-bool CodeGenPrepare::optimizeInst(Instruction *I, bool &ModifiedDT) {
+bool CodeGenPrepare::optimizeInst(Instruction *I, ModifyDT &ModifiedDT) {
   // Bail out if we inserted the instruction to prevent optimizations from
   // stepping on each other's toes.
   if (InsertedInsts.count(I))
@@ -8047,7 +8165,7 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, bool &ModifiedDT) {
     // trivial PHI, go ahead and zap it here.
     if (Value *V = simplifyInstruction(P, {*DL, TLInfo})) {
       LargeOffsetGEPMap.erase(P);
-      P->replaceAllUsesWith(V);
+      replaceAllUsesWith(P, V, FreshBBs, IsHugeFunc);
       P->eraseFromParent();
       ++NumPHIsElim;
       return true;
@@ -8136,7 +8254,7 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, bool &ModifiedDT) {
       Instruction *NC = new BitCastInst(GEPI->getOperand(0), GEPI->getType(),
                                         GEPI->getName(), GEPI);
       NC->setDebugLoc(GEPI->getDebugLoc());
-      GEPI->replaceAllUsesWith(NC);
+      replaceAllUsesWith(GEPI, NC, FreshBBs, IsHugeFunc);
       GEPI->eraseFromParent();
       ++NumGEPsElim;
       optimizeInst(NC, ModifiedDT);
@@ -8169,7 +8287,7 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, bool &ModifiedDT) {
           F->takeName(FI);
           CmpI->setOperand(Const0 ? 1 : 0, F);
         }
-        FI->replaceAllUsesWith(CmpI);
+        replaceAllUsesWith(FI, CmpI, FreshBBs, IsHugeFunc);
         FI->eraseFromParent();
         return true;
       }
@@ -8196,7 +8314,7 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, bool &ModifiedDT) {
   case Instruction::ExtractElement:
     return optimizeExtractElementInst(cast<ExtractElementInst>(I));
   case Instruction::Br:
-    return optimizeBranch(cast<BranchInst>(I), *TLI);
+    return optimizeBranch(cast<BranchInst>(I), *TLI, FreshBBs, IsHugeFunc);
   }
 
   return false;
@@ -8214,7 +8332,7 @@ bool CodeGenPrepare::makeBitReverse(Instruction &I) {
   if (!recognizeBSwapOrBitReverseIdiom(&I, false, true, Insts))
     return false;
   Instruction *LastInst = Insts.back();
-  I.replaceAllUsesWith(LastInst);
+  replaceAllUsesWith(&I, LastInst, FreshBBs, IsHugeFunc);
   RecursivelyDeleteTriviallyDeadInstructions(
       &I, TLInfo, nullptr,
       [&](Value *V) { removeAllAssertingVHReferences(V); });
@@ -8224,16 +8342,29 @@ bool CodeGenPrepare::makeBitReverse(Instruction &I) {
 // In this pass we look for GEP and cast instructions that are used
 // across basic blocks and rewrite them to improve basic-block-at-a-time
 // selection.
-bool CodeGenPrepare::optimizeBlock(BasicBlock &BB, bool &ModifiedDT) {
+bool CodeGenPrepare::optimizeBlock(BasicBlock &BB, ModifyDT &ModifiedDT) {
   SunkAddrs.clear();
   bool MadeChange = false;
 
-  CurInstIterator = BB.begin();
-  while (CurInstIterator != BB.end()) {
-    MadeChange |= optimizeInst(&*CurInstIterator++, ModifiedDT);
-    if (ModifiedDT)
-      return true;
-  }
+  do {
+    CurInstIterator = BB.begin();
+    ModifiedDT = ModifyDT::NotModifyDT;
+    while (CurInstIterator != BB.end()) {
+      MadeChange |= optimizeInst(&*CurInstIterator++, ModifiedDT);
+      if (ModifiedDT != ModifyDT::NotModifyDT) {
+        // For huge function we tend to quickly go though the inner optmization
+        // opportunities in the BB. So we go back to the BB head to re-optimize
+        // each instruction instead of go back to the function head.
+        if (IsHugeFunc) {
+          DT.reset();
+          getDT(*BB.getParent());
+          break;
+        } else {
+          return true;
+        }
+      }
+    }
+  } while (ModifiedDT == ModifyDT::ModifyInstDT);
 
   bool MadeBitReverse = true;
   while (MadeBitReverse) {
@@ -8393,7 +8524,7 @@ static void scaleWeights(uint64_t &NewTrue, uint64_t &NewFalse) {
 ///
 /// FIXME: Remove the (equivalent?) implementation in SelectionDAG.
 ///
-bool CodeGenPrepare::splitBranchCondition(Function &F, bool &ModifiedDT) {
+bool CodeGenPrepare::splitBranchCondition(Function &F, ModifyDT &ModifiedDT) {
   if (!TM->Options.EnableFastISel || TLI->isJumpExpensive())
     return false;
 
@@ -8444,6 +8575,8 @@ bool CodeGenPrepare::splitBranchCondition(Function &F, bool &ModifiedDT) {
     auto *TmpBB =
         BasicBlock::Create(BB.getContext(), BB.getName() + ".cond.split",
                            BB.getParent(), BB.getNextNode());
+    if (IsHugeFunc)
+      FreshBBs.insert(TmpBB);
 
     // Update original basic block by using the first condition directly by the
     // branch instruction and removing the no longer needed and/or instruction.
@@ -8560,7 +8693,7 @@ bool CodeGenPrepare::splitBranchCondition(Function &F, bool &ModifiedDT) {
       }
     }
 
-    ModifiedDT = true;
+    ModifiedDT = ModifyDT::ModifyBBDT;
     MadeChange = true;
 
     LLVM_DEBUG(dbgs() << "After branch condition splitting\n"; BB.dump();
