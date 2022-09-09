@@ -1624,8 +1624,6 @@ Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
         I->setIsExact();
     } else {
       switch (BC->Opcode) {
-      case BitcodeConstant::ConstantStructOpcode:
-      case BitcodeConstant::ConstantArrayOpcode:
       case BitcodeConstant::ConstantVectorOpcode: {
         Type *IdxTy = Type::getInt32Ty(BC->getContext());
         Value *V = PoisonValue::get(BC->getType());
@@ -1634,6 +1632,15 @@ Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
           V = InsertElementInst::Create(V, Pair.value(), Idx, "constexpr.ins",
                                         InsertBB);
         }
+        I = cast<Instruction>(V);
+        break;
+      }
+      case BitcodeConstant::ConstantStructOpcode:
+      case BitcodeConstant::ConstantArrayOpcode: {
+        Value *V = PoisonValue::get(BC->getType());
+        for (auto Pair : enumerate(Ops))
+          V = InsertValueInst::Create(V, Pair.value(), Pair.index(),
+                                      "constexpr.ins", InsertBB);
         I = cast<Instruction>(V);
         break;
       }
