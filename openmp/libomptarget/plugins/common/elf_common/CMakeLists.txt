@@ -29,7 +29,7 @@
 if(INTEL_COLLAB)
 add_library(elf_common OBJECT elf_common.cpp elf_light.cpp)
 else(INTEL_COLLAB)
-add_library(elf_common OBJECT elf_common.cpp)
+add_library(elf_common OBJECT elf_common.cpp ELFSymbols.cpp)
 endif(INTEL_COLLAB)
 
 # Build elf_common with PIC to be able to link it with plugin shared libraries.
