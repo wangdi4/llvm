@@ -430,76 +430,6 @@ private:
     }
   }
 
-<<<<<<< HEAD
-    // Get the DominatorTree, building if necessary.
-    DominatorTree &getDT(Function &F) {
-      if (!DT)
-        DT = std::make_unique<DominatorTree>(F);
-      return *DT;
-    }
-
-    void removeAllAssertingVHReferences(Value *V);
-    bool eliminateAssumptions(Function &F);
-    bool eliminateFallThrough(Function &F);
-    bool eliminateMostlyEmptyBlocks(Function &F);
-    BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
-    bool canMergeBlocks(const BasicBlock *BB, const BasicBlock *DestBB) const;
-    void eliminateMostlyEmptyBlock(BasicBlock *BB);
-    bool isMergingEmptyBlockProfitable(BasicBlock *BB, BasicBlock *DestBB,
-                                       bool isPreheader);
-    bool makeBitReverse(Instruction &I);
-    bool optimizeBlock(BasicBlock &BB, bool &ModifiedDT);
-    bool optimizeInst(Instruction *I, bool &ModifiedDT);
-    bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
-                            Type *AccessTy, unsigned AddrSpace);
-    bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
-    bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
-    bool optimizeInlineAsmInst(CallInst *CS);
-    bool optimizeCallInst(CallInst *CI, bool &ModifiedDT);
-    bool optimizeExt(Instruction *&I);
-    bool optimizeExtUses(Instruction *I);
-    bool optimizeLoadExt(LoadInst *Load);
-    bool optimizeShiftInst(BinaryOperator *BO);
-    bool optimizeFunnelShift(IntrinsicInst *Fsh);
-    bool optimizeSelectInst(SelectInst *SI);
-    bool optimizeShuffleVectorInst(ShuffleVectorInst *SVI);
-    bool optimizeSwitchType(SwitchInst *SI);
-    bool optimizeSwitchPhiConstants(SwitchInst *SI);
-    bool optimizeSwitchInst(SwitchInst *SI);
-    bool optimizeExtractElementInst(Instruction *Inst);
-    bool dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT);
-    bool fixupDbgValue(Instruction *I);
-    bool placeDbgValues(Function &F);
-    bool placePseudoProbes(Function &F);
-    bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
-                      LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
-    bool tryToPromoteExts(TypePromotionTransaction &TPT,
-                          const SmallVectorImpl<Instruction *> &Exts,
-                          SmallVectorImpl<Instruction *> &ProfitablyMovedExts,
-                          unsigned CreatedInstsCost = 0);
-    bool mergeSExts(Function &F);
-    bool splitLargeGEPOffsets();
-    bool optimizePhiType(PHINode *Inst, SmallPtrSetImpl<PHINode *> &Visited,
-                         SmallPtrSetImpl<Instruction *> &DeletedInstrs);
-    bool optimizePhiTypes(Function &F);
-    bool performAddressTypePromotion(
-        Instruction *&Inst,
-        bool AllowPromotionWithoutCommonHeader,
-        bool HasPromoted, TypePromotionTransaction &TPT,
-        SmallVectorImpl<Instruction *> &SpeculativelyMovedExts);
-    bool splitBranchCondition(Function &F, bool &ModifiedDT);
-    bool simplifyOffsetableRelocate(GCStatepointInst &I);
-
-    bool tryToSinkFreeOperands(Instruction *I);
-    bool replaceMathCmpWithIntrinsic(BinaryOperator *BO, Value *Arg0,
-                                     Value *Arg1, CmpInst *Cmp,
-                                     Intrinsic::ID IID);
-    bool optimizeCmp(CmpInst *Cmp, bool &ModifiedDT);
-    bool combineToUSubWithOverflow(CmpInst *Cmp, bool &ModifiedDT);
-    bool combineToUAddWithOverflow(CmpInst *Cmp, bool &ModifiedDT);
-    void verifyBFIUpdates(Function &F);
-  };
-=======
   // Get the DominatorTree, building if necessary.
   DominatorTree &getDT(Function &F) {
     if (!DT)
@@ -522,6 +452,7 @@ private:
   bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr, Type *AccessTy,
                           unsigned AddrSpace);
   bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
+  bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
   bool optimizeInlineAsmInst(CallInst *CS);
   bool optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT);
   bool optimizeExt(Instruction *&I);
@@ -565,7 +496,6 @@ private:
   bool combineToUAddWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
   void verifyBFIUpdates(Function &F);
 };
->>>>>>> 16743c953441e8a5aad53069e9a13b14ff5ac09a
 
 } // end anonymous namespace
 
