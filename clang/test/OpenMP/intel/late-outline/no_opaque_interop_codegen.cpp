@@ -105,5 +105,42 @@ void foo1(int dev) {
   #pragma omp interop \
     init(prefer_type(6,12,"sycl","foobar",3),target,targetsync:obj5)
 }
+
+struct Obj {
+  Obj(); ~Obj(); void use();
+private:
+  omp_interop_t interop_;
+};
+
+Obj::Obj() {
+  //CHECK: [[GEP:%.+]] = getelementptr inbounds %struct.Obj, %struct.Obj* %this1, i32 0, i32 0
+  //CHECK-NEXT: DIR.OMP.INTEROP
+  //CHECK-SAME: "QUAL.OMP.INIT:TARGETSYNC.PREFER"([[T]]* [[GEP]], i64 4)
+  //CHECK: DIR.OMP.END.INTEROP
+  #pragma omp interop device(0) \
+      init(prefer_type("sycl"), targetsync : interop_)
+}
+
+Obj::~Obj() {
+  //CHECK: [[GEP:%.+]] = getelementptr inbounds %struct.Obj, %struct.Obj* %this1, i32 0, i32 0
+  //CHECK-NEXT: DIR.OMP.INTEROP
+  //CHECK-SAME: "QUAL.OMP.DESTROY"([[T]]* [[GEP]])
+  //CHECK: DIR.OMP.END.INTEROP
+  #pragma omp interop destroy(interop_)
+}
+
+void Obj::use() {
+  //CHECK: [[GEP:%.+]] = getelementptr inbounds %struct.Obj, %struct.Obj* %this1, i32 0, i32 0
+  //CHECK-NEXT: DIR.OMP.INTEROP
+  //CHECK-SAME: "QUAL.OMP.USE"([[T]]* [[GEP]])
+  //CHECK: DIR.OMP.END.INTEROP
+  #pragma omp interop use(interop_)
+}
+
+void foo2()
+{
+  Obj o;
+  o.use();
+}
 #endif // HEADER
 // end INTEL_COLLAB
