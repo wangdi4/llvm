@@ -1065,6 +1065,9 @@ void SelectionDAG::DeallocateNode(SDNode *N) {
   // If any of the SDDbgValue nodes refer to this SDNode, invalidate
   // them and forget about that node.
   DbgInfo->erase(N);
+
+  // Invalidate extra info.
+  SDEI.erase(N);
 }
 
 #ifndef NDEBUG
@@ -1373,7 +1376,7 @@ void SelectionDAG::clear() {
   ExternalSymbols.clear();
   TargetExternalSymbols.clear();
   MCSymbols.clear();
-  SDCallSiteDbgInfo.clear();
+  SDEI.clear();
   std::fill(CondCodeNodes.begin(), CondCodeNodes.end(),
             static_cast<CondCodeSDNode*>(nullptr));
   std::fill(ValueTypeNodes.begin(), ValueTypeNodes.end(),
@@ -10251,6 +10254,8 @@ void SelectionDAG::ReplaceAllUsesWith(SDValue FromN, SDValue To) {
 
   // Preserve Debug Values
   transferDbgValues(FromN, To);
+  // Preserve extra info.
+  copyExtraInfo(From, To.getNode());
 
   // Iterate over all the existing uses of From. New uses will be added
   // to the beginning of the use list, which we avoid visiting.
@@ -10312,6 +10317,8 @@ void SelectionDAG::ReplaceAllUsesWith(SDNode *From, SDNode *To) {
       assert((i < To->getNumValues()) && "Invalid To location");
       transferDbgValues(SDValue(From, i), SDValue(To, i));
     }
+  // Preserve extra info.
+  copyExtraInfo(From, To);
 
   // Iterate over just the existing users of From. See the comments in
   // the ReplaceAllUsesWith above.
@@ -10354,9 +10361,12 @@ void SelectionDAG::ReplaceAllUsesWith(SDNode *From, const SDValue *To) {
   if (From->getNumValues() == 1)  // Handle the simple case efficiently.
     return ReplaceAllUsesWith(SDValue(From, 0), To[0]);
 
-  // Preserve Debug Info.
-  for (unsigned i = 0, e = From->getNumValues(); i != e; ++i)
+  for (unsigned i = 0, e = From->getNumValues(); i != e; ++i) {
+    // Preserve Debug Info.
     transferDbgValues(SDValue(From, i), To[i]);
+    // Preserve extra info.
+    copyExtraInfo(From, To[i].getNode());
+  }
 
   // Iterate over just the existing users of From. See the comments in
   // the ReplaceAllUsesWith above.
@@ -10409,6 +10419,7 @@ void SelectionDAG::ReplaceAllUsesOfValueWith(SDValue From, SDValue To){
 
   // Preserve Debug Info.
   transferDbgValues(From, To);
+  copyExtraInfo(From.getNode(), To.getNode());
 
   // Iterate over just the existing users of From. See the comments in
   // the ReplaceAllUsesWith above.
@@ -10562,6 +10573,7 @@ void SelectionDAG::ReplaceAllUsesOfValuesWith(const SDValue *From,
     return ReplaceAllUsesOfValueWith(*From, *To);
 
   transferDbgValues(*From, *To);
+  copyExtraInfo(From->getNode(), To->getNode());
 
   // Read up all the uses and make records of them. This helps
   // processing new uses that are introduced during the
@@ -12005,6 +12017,14 @@ SDValue SelectionDAG::getNeutralElement(unsigned Opcode, const SDLoc &DL,
     return getConstantFP(NeutralAF, DL, VT);
   }
   }
+}
+
+void SelectionDAG::copyExtraInfo(SDNode *From, SDNode *To) {
+  assert(From && To && "Invalid SDNode; empty source SDValue?");
+  auto I = SDEI.find(From);
+  if (I == SDEI.end())
+    return;
+  SDEI[To] = I->second;
 }
 
 #ifndef NDEBUG
