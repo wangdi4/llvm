@@ -66,7 +66,7 @@ using namespace llvm;
 
 X86AsmPrinter::X86AsmPrinter(TargetMachine &TM,
                              std::unique_ptr<MCStreamer> Streamer)
-    : AsmPrinter(TM, std::move(Streamer)), SM(*this), FM(*this) {}
+    : AsmPrinter(TM, std::move(Streamer)), FM(*this) {}
 
 //===----------------------------------------------------------------------===//
 // Primitive Helper Functions.
@@ -911,8 +911,7 @@ void X86AsmPrinter::emitEndOfAsmFile(Module &M) {
     // global table for symbol lookup.
     emitNonLazyStubs(MMI, *OutStreamer);
 
-    // Emit stack and fault map information.
-    emitStackMaps(SM);
+    // Emit fault map information.
     FM.serializeToFaultMapSection();
 
     // This flag tells the linker that no global symbols contain code that fall
@@ -943,10 +942,8 @@ void X86AsmPrinter::emitEndOfAsmFile(Module &M) {
       return;
     }
     emitNotifyTable(M); // INTEL
-    emitStackMaps(SM);
   } else if (TT.isOSBinFormatELF()) {
     emitNotifyTable(M); // INTEL
-    emitStackMaps(SM);
     FM.serializeToFaultMapSection();
   }
 
