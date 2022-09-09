@@ -3739,26 +3739,18 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
         X86::VK4PAIRRegClass.hasSubClassEq(RC) ||
         X86::VK8PAIRRegClass.hasSubClassEq(RC) ||
         X86::VK16PAIRRegClass.hasSubClassEq(RC))
-<<<<<<< HEAD
-      return load ? X86::MASKPAIR16LOAD : X86::MASKPAIR16STORE;
-    if ((X86::FR16RegClass.hasSubClassEq(RC) ||
-         X86::FR16XRegClass.hasSubClassEq(RC)) &&
-        STI.hasFP16())
-      return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
+      return Load ? X86::MASKPAIR16LOAD : X86::MASKPAIR16STORE;
+    if (X86::FR16RegClass.hasSubClassEq(RC) ||
+        X86::FR16XRegClass.hasSubClassEq(RC))
+      return getLoadStoreOpcodeForFP16(Load, STI);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
     if ((X86::BFR16RegClass.hasSubClassEq(RC) ||
          X86::BFR16XRegClass.hasSubClassEq(RC)) &&
         STI.hasFP16())
-      return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
+      return Load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-=======
-      return Load ? X86::MASKPAIR16LOAD : X86::MASKPAIR16STORE;
-    if (X86::FR16RegClass.hasSubClassEq(RC) ||
-        X86::FR16XRegClass.hasSubClassEq(RC))
-      return getLoadStoreOpcodeForFP16(Load, STI);
->>>>>>> c836ddaf721c9ef691d24dc265822b267e7e89de
     llvm_unreachable("Unknown 4-byte regclass");
   case 8:
     if (X86::GR64RegClass.hasSubClassEq(RC))
@@ -4050,41 +4042,6 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   assert(MFI.getObjectSize(FrameIdx) >= TRI->getSpillSize(*RC) &&
          "Stack slot too small for store");
-<<<<<<< HEAD
-  if (RC->getID() == X86::TILERegClassID) {
-    unsigned Opc = X86::TILESTORED;
-    // tilestored %tmm, (%sp, %idx)
-    Register VirtReg = RegInfo.createVirtualRegister(&X86::GR64_NOSPRegClass);
-    BuildMI(MBB, MI, DebugLoc(), get(X86::MOV64ri), VirtReg).addImm(64);
-    MachineInstr *NewMI =
-        addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc)), FrameIdx)
-            .addReg(SrcReg, getKillRegState(isKill));
-    MachineOperand &MO = NewMI->getOperand(2);
-    MO.setReg(VirtReg);
-    MO.setIsKill(true);
-  } else if ((RC->getID() == X86::FR16RegClassID ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-              RC->getID() == X86::FR16XRegClassID ||
-              RC->getID() == X86::BFR16RegClassID ||
-              RC->getID() == X86::BFR16XRegClassID) &&
-#else // INTEL_FEATURE_ISA_BF16_BASE
-              RC->getID() == X86::FR16XRegClassID) &&
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-             !Subtarget.hasFP16()) {
-    unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZmr
-                   : Subtarget.hasAVX()  ? X86::VMOVSSmr
-                                         : X86::MOVSSmr;
-    addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc)), FrameIdx)
-        .addReg(SrcReg, getKillRegState(isKill));
-  } else {
-    unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
-    bool isAligned =
-        (Subtarget.getFrameLowering()->getStackAlign() >= Alignment) ||
-        (RI.canRealignStack(MF) && !MFI.isFixedObjectIndex(FrameIdx));
-    unsigned Opc = getStoreRegOpcode(SrcReg, RC, isAligned, Subtarget);
-=======
 
   unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
   bool isAligned =
@@ -4095,7 +4052,6 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   if (isAMXOpcode(Opc))
     loadStoreTileReg(MBB, MI, Opc, SrcReg, FrameIdx, isKill);
   else
->>>>>>> c836ddaf721c9ef691d24dc265822b267e7e89de
     addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc)), FrameIdx)
         .addReg(SrcReg, getKillRegState(isKill));
 }
@@ -4109,42 +4065,6 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   assert(MFI.getObjectSize(FrameIdx) >= TRI->getSpillSize(*RC) &&
          "Load size exceeds stack slot");
-<<<<<<< HEAD
-  if (RC->getID() == X86::TILERegClassID) {
-    unsigned Opc = X86::TILELOADD;
-    // tileloadd (%sp, %idx), %tmm
-    MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();
-    Register VirtReg = RegInfo.createVirtualRegister(&X86::GR64_NOSPRegClass);
-    MachineInstr *NewMI =
-        BuildMI(MBB, MI, DebugLoc(), get(X86::MOV64ri), VirtReg).addImm(64);
-    NewMI = addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg),
-                              FrameIdx);
-    MachineOperand &MO = NewMI->getOperand(3);
-    MO.setReg(VirtReg);
-    MO.setIsKill(true);
-  } else if ((RC->getID() == X86::FR16RegClassID ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-              RC->getID() == X86::FR16XRegClassID ||
-              RC->getID() == X86::BFR16RegClassID ||
-              RC->getID() == X86::BFR16XRegClassID) &&
-#else // INTEL_FEATURE_ISA_BF16_BASE
-              RC->getID() == X86::FR16XRegClassID) &&
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-             !Subtarget.hasFP16()) {
-    unsigned Opc = Subtarget.hasAVX512() ? X86::VMOVSSZrm
-                   : Subtarget.hasAVX()  ? X86::VMOVSSrm
-                                         : X86::MOVSSrm;
-    addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg),
-                      FrameIdx);
-  } else {
-    unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
-    bool isAligned =
-        (Subtarget.getFrameLowering()->getStackAlign() >= Alignment) ||
-        (RI.canRealignStack(MF) && !MFI.isFixedObjectIndex(FrameIdx));
-    unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
-=======
   unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
   bool isAligned =
       (Subtarget.getFrameLowering()->getStackAlign() >= Alignment) ||
@@ -4154,7 +4074,6 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   if (isAMXOpcode(Opc))
     loadStoreTileReg(MBB, MI, Opc, DestReg, FrameIdx);
   else
->>>>>>> c836ddaf721c9ef691d24dc265822b267e7e89de
     addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg),
                       FrameIdx);
 }
