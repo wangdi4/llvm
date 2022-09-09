@@ -431,9 +431,7 @@ const RefTuple *MemRefGroup::getByDist(unsigned Dist) const {
 }
 
 bool MemRefGroup::belongs(RegDDRef *Ref) const {
-  // Check: Symbase and BaseCE must match
-  if (!((Symbase == Ref->getSymbase()) &&
-        CanonExprUtils::areEqual(BaseCE, Ref->getBaseCE()))) {
+  if (!CanonExprUtils::areEqual(BaseCE, Ref->getBaseCE())) {
     return false;
   }
 
@@ -564,6 +562,11 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
     for (const DDEdge *Edge :
          (IsIncoming ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
       LLVM_DEBUG(Edge->print(dbgs()););
+
+      // Ignore outer loop dependencies.
+      if (Edge->getDV().isIndepFromLevel(LoopLevel)) {
+        continue;
+      }
 
       if (IsIncoming) {
         OtherRef = Edge->getSrc();
