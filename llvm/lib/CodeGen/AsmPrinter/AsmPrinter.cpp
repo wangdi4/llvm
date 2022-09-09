@@ -1599,7 +1599,6 @@ void AsmPrinter::emitPCSections(const MachineFunction &MF) {
 /// Returns true if function begin and end labels should be emitted.
 static bool needFuncLabels(const MachineFunction &MF) {
   MachineModuleInfo &MMI = MF.getMMI();
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1611,12 +1610,9 @@ static bool needFuncLabels(const MachineFunction &MF) {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-  if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI.hasDebugInfo())
-=======
   if (!MF.getLandingPads().empty() || MF.hasEHFunclets() ||
       MMI.hasDebugInfo() ||
       MF.getFunction().hasMetadata(LLVMContext::MD_pcsections))
->>>>>>> 343700358feb45ccc15182462ddf63a368623040
     return true;
 
   // We might emit an EH table that uses function begin and end labels even if
