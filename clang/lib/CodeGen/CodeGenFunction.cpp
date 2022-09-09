@@ -1949,7 +1949,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
 #if INTEL_CUSTOMIZATION
   OpenMPOptReportHandler &OpenMPOptReport = CGM.getDiags().OpenMPOptReport;
-  if (Fn && OpenMPOptReport.HasOpenMPReportInfo(FD)) {
+  if (OpenMPOptReport.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
     for (auto &ORI : OpenMPOptReport.GetClangInfo(FD)) {
       llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
