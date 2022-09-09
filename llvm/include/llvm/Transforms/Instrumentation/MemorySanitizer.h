@@ -57,24 +57,6 @@ FunctionPass *
 createMemorySanitizerLegacyPassPass(MemorySanitizerOptions Options = {});
 #endif // INTEL_CUSTOMIZATION
 
-/// A function pass for msan instrumentation.
-///
-/// Instruments functions to detect unitialized reads. This function pass
-/// inserts calls to runtime library functions. If the functions aren't declared
-/// yet, the pass inserts the declarations. Otherwise the existing globals are
-/// used.
-struct MemorySanitizerPass : public PassInfoMixin<MemorySanitizerPass> {
-  MemorySanitizerPass(MemorySanitizerOptions Options) : Options(Options) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
-  void printPipeline(raw_ostream &OS,
-                     function_ref<StringRef(StringRef)> MapClassName2PassName);
-  static bool isRequired() { return true; }
-
-private:
-  MemorySanitizerOptions Options;
-};
-
 /// A module pass for msan instrumentation.
 ///
 /// Instruments functions to detect unitialized reads. This function pass
@@ -85,6 +67,8 @@ struct ModuleMemorySanitizerPass : public PassInfoMixin<ModuleMemorySanitizerPas
   ModuleMemorySanitizerPass(MemorySanitizerOptions Options) : Options(Options) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
   static bool isRequired() { return true; }
 
 private:
