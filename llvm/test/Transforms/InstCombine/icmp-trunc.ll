@@ -344,13 +344,13 @@ define <2 x i1> @trunc_eq_v2i32_v2i8(<2 x i32> %x) {
 }
 
 define i1 @trunc_ne_i64_i10(i64 %x) {
-; CHECK-LABEL: @trunc_ne_i64_i10(
 ; INTEL_CUSTOMIZATION
 ; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
+; CHECK-LABEL: @trunc_ne_i64_i10(
 ; CHECK-NEXT:    [[T:%.*]] = trunc i64 [[X:%.*]] to i10
 ; CHECK-NEXT:    [[R:%.*]] = icmp eq i10 [[T]], 42
-; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
 ; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %t = trunc i64 %x to i10
   %r = icmp eq i10 %t, 42
@@ -358,15 +358,14 @@ define i1 @trunc_ne_i64_i10(i64 %x) {
 }
 
 define i1 @shl1_trunc_eq0(i32 %a) {
-; DL64-LABEL: @shl1_trunc_eq0(
-; DL64-NEXT:    [[R:%.*]] = icmp ugt i32 [[A:%.*]], 15
-; DL64-NEXT:    ret i1 [[R]]
-;
-; DL8-LABEL: @shl1_trunc_eq0(
-; DL8-NEXT:    [[SHL:%.*]] = shl i32 1, [[A:%.*]]
-; DL8-NEXT:    [[T:%.*]] = trunc i32 [[SHL]] to i16
-; DL8-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 0
-; DL8-NEXT:    ret i1 [[R]]
+; INTEL_CUSTOMIZATION
+; DL8/64 checks removed
+; CHECK-LABEL: @shl1_trunc_eq0(
+; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[A:%.*]]
+; CHECK-NEXT:    [[T:%.*]] = trunc i32 [[SHL]] to i16
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 0
+; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %shl = shl i32 1, %a
   %t = trunc i32 %shl to i16
@@ -389,9 +388,13 @@ define <2 x i1> @shl1_trunc_ne0(<2 x i8> %a) {
 
 define i1 @shl1_trunc_eq0_use1(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_eq0_use1(
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i8 1, [[A:%.*]]
 ; CHECK-NEXT:    call void @use(i8 [[SHL]])
-; CHECK-NEXT:    [[R:%.*]] = icmp ugt i8 [[A]], 5
+; CHECK-NEXT:    [[T:%.*]] = trunc i8 [[SHL]] to i6
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i6 [[T]], 0
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i8 1, %a
@@ -461,8 +464,11 @@ define i1 @shl1_trunc_ne32(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_ne32(
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i8 1, [[A:%.*]]
 ; CHECK-NEXT:    call void @use(i8 [[SHL]])
-; CHECK-NEXT:    [[TMP1:%.*]] = and i8 [[SHL]], 63
-; CHECK-NEXT:    [[R:%.*]] = icmp ne i8 [[TMP1]], 32
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
+; CHECK-NEXT:    [[T:%.*]] = trunc i8 [[SHL]] to i6
+; CHECK-NEXT:    [[R:%.*]] = icmp ne i6 [[T]], -32
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i8 1, %a
@@ -473,17 +479,14 @@ define i1 @shl1_trunc_ne32(i8 %a) {
 }
 
 define i1 @shl2_trunc_eq8_i32(i32 %a) {
-; DL64-LABEL: @shl2_trunc_eq8_i32(
-; DL64-NEXT:    [[SHL:%.*]] = shl i32 2, [[A:%.*]]
-; DL64-NEXT:    [[TMP1:%.*]] = and i32 [[SHL]], 65534
-; DL64-NEXT:    [[R:%.*]] = icmp eq i32 [[TMP1]], 8
-; DL64-NEXT:    ret i1 [[R]]
-;
-; DL8-LABEL: @shl2_trunc_eq8_i32(
-; DL8-NEXT:    [[SHL:%.*]] = shl i32 2, [[A:%.*]]
-; DL8-NEXT:    [[T:%.*]] = trunc i32 [[SHL]] to i16
-; DL8-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 8
-; DL8-NEXT:    ret i1 [[R]]
+; INTEL_CUSTOMIZATION
+; DL8/64 checks removed
+; CHECK-LABEL: @shl2_trunc_eq8_i32(
+; CHECK-NEXT:    [[SHL:%.*]] = shl i32 2, [[A:%.*]]
+; CHECK-NEXT:    [[T:%.*]] = trunc i32 [[SHL]] to i16
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 8
+; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %shl = shl i32 2, %a
   %t = trunc i32 %shl to i16
