@@ -6444,6 +6444,12 @@ public:
     return;
   }
 
+  void visitInsertValueInst(InsertValueInst &I) {
+    // This instruction results in a type containing a pointer, but there are no
+    // safety flags affected.
+    return;
+  }
+
   void visitFreezeInst(FreezeInst &I) {
     // This instruction may result in a type containing a pointer, but there are
     // no safety flags affected.
