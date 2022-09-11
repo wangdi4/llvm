@@ -18,12 +18,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <ffi.h>
+<<<<<<< HEAD
 #include <gelf.h>
 #if INTEL_COLLAB
 #include <limits>
 #include <unordered_set>
 #include <mutex>
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 8d2a447bf92700e576e037c5f6495f74153cf5e9
 #include <link.h>
 #include <list>
 #include <string>
