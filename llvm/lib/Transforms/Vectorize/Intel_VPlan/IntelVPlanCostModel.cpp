@@ -1353,6 +1353,76 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::CompressStoreNonu:
   case VPInstruction::ExpandLoadNonu:
     return getCompressExpandLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);
+
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond: {
+    auto *OpTy = VPInst->getOperand(0)->getType();
+    auto *VecTy = getWidenedType(OpTy, VF);
+    if (OpTy->isVectorTy())
+      return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
+                                None /* Mask */, VF - 1 /* Index */,
+                                cast<FixedVectorType>(OpTy));
+    else
+      return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                    VF - 1 /* Index */);
+  }
+
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // An example of pseudo IR generated to finalize conditional last private
+    // entity for VF = 2 follows.
+    //
+    // %priv.final = private-final-c %exit, %idx, %orig
+    // ; Find max index where condition was true
+    // %idx.reduce = llvm.vector.reduce.smax.v2i64(%idx.vec)
+    // ; Identify where max index is set in final vector
+    // %max.idx.cmp = %idx.reduce == %idx.vec
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%max.idx.cmp);
+    // %lane = @llvm.cttz.i2(%bsfintmask,  1);
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit.vec, %lane
+    //
+    auto *Ty = VPInst->getOperand(1)->getType();
+    auto *VecTy = getWidenedType(Ty, VF);
+    VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::vector_reduce_smax, Ty, {VecTy}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+    Cost += TTI.getCmpSelInstrCost(
+      Instruction::ICmp, VecTy, VecTy, CmpInst::ICMP_EQ,
+      TTI::TCK_RecipThroughput);
+
+    auto *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+    auto *IntVFTy = Type::getIntNTy(*Plan->getLLVMContext(), VF);
+
+    Cost += TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   -1U /* Non-immediate Index */);
+    return Cost;
+  }
+
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem: {
+    auto *VecTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
+    auto *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+    auto *IntVFTy = Type::getIntNTy(*Plan->getLLVMContext(), VF);
+
+    VPInstructionCost Cost = TTI.getIntrinsicInstrCost(
+      IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
+      TTI::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+      Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
+      TargetTransformInfo::OK_UniformConstantValue,
+      TargetTransformInfo::OK_AnyValue,
+      TargetTransformInfo::OP_PowerOf2_PlusMinus1,
+      TargetTransformInfo::OP_None);
+    Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   -1U /* Non-immediate Index */);
+    return Cost;
+  }
   }
 }
 
