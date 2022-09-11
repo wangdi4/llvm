@@ -1360,7 +1360,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     auto *VecTy = getWidenedType(OpTy, VF);
     if (OpTy->isVectorTy())
       return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
-                                None /* Mask */, VF - 1 /* Index */,
+                                None /* Mask */, TTI::TCK_RecipThroughput,
+                                VF - 1 /* Index */,
                                 cast<FixedVectorType>(OpTy));
     else
       return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
@@ -1414,11 +1415,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
       TTI::TCK_RecipThroughput);
     Cost += TTI.getArithmeticInstrCost(
-      Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
-      TargetTransformInfo::OK_UniformConstantValue,
-      TargetTransformInfo::OK_AnyValue,
-      TargetTransformInfo::OP_PowerOf2_PlusMinus1,
-      TargetTransformInfo::OP_None);
+        Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_PowerOf2_PlusMinus1},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
                                    -1U /* Non-immediate Index */);
     return Cost;
