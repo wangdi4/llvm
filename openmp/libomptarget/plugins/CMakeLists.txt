@@ -53,7 +53,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     # Define macro with the ELF ID for this target.
     add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
 
-<<<<<<< HEAD
       if(INTEL_CUSTOMIZATION)
         add_library(ffi-stub SHARED
           ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
@@ -69,17 +68,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
           "omptarget.rtl.${tmachine_libname}"
           elf_common
           ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
           dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
       else(INTEL_CUSTOMIZATION)
       add_llvm_library("omptarget.rtl.${tmachine_libname}"
         SHARED
-=======
-    add_llvm_library("omptarget.rtl.${tmachine_libname}"
-      SHARED
->>>>>>> 300155911a6d6060414919b8b3b5a43ac59d43d9
 
       ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
 
@@ -94,7 +88,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         ${OPENMP_PTHREAD_LIB}
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
 
-<<<<<<< HEAD
         NO_INSTALL_RPATH
       )
       endif(INTEL_CUSTOMIZATION)
@@ -110,8 +103,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
 
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
+        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
 
       list(APPEND LIBOMPTARGET_TESTED_PLUGINS
         "omptarget.rtl.${tmachine_libname}")
@@ -127,38 +119,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
       libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
     endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-  else(LIBOMPTARGET_DEP_LIBELF_FOUND)
-    libomptarget_say("Not building ${tmachine_name} offloading plugin: libelf dependency not found.")
-  endif(LIBOMPTARGET_DEP_LIBELF_FOUND)
-=======
-      NO_INSTALL_RPATH
-    )
-
-    # Install plugin under the lib destination folder.
-    install(TARGETS "omptarget.rtl.${tmachine_libname}"
-      LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-    set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES
-      INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
-
-    target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
-      ${LIBOMPTARGET_INCLUDE_DIR}
-      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
-
-    list(APPEND LIBOMPTARGET_TESTED_PLUGINS
-      "omptarget.rtl.${tmachine_libname}")
-
-    # Report to the parent scope that we are building a plugin.
-    set(LIBOMPTARGET_SYSTEM_TARGETS
-      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-oldDriver" PARENT_SCOPE)
-    set(LIBOMPTARGET_SYSTEM_TARGETS
-      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
-    set(LIBOMPTARGET_TESTED_PLUGINS
-      "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
-
-  else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-    libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
-  endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
->>>>>>> 300155911a6d6060414919b8b3b5a43ac59d43d9
 else()
   libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
 endif()
