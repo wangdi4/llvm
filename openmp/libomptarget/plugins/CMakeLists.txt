@@ -43,16 +43,15 @@ add_subdirectory(common)
 # - tmachine_libname: machine name to be appended to the plugin library name.
 macro(build_generic_elf64 tmachine tmachine_name tmachine_libname tmachine_triple elf_machine_id)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
-  if(LIBOMPTARGET_DEP_LIBELF_FOUND)
-    if(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+  if(LIBOMPTARGET_DEP_LIBFFI_FOUND)
 
-      libomptarget_say("Building ${tmachine_name} offloading plugin.")
+    libomptarget_say("Building ${tmachine_name} offloading plugin.")
 
-      # Define macro to be used as prefix of the runtime messages for this target.
-      add_definitions("-DTARGET_NAME=${tmachine_name}")
+    # Define macro to be used as prefix of the runtime messages for this target.
+    add_definitions("-DTARGET_NAME=${tmachine_name}")
 
-      # Define macro with the ELF ID for this target.
-      add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
+    # Define macro with the ELF ID for this target.
+    add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
 
       if(INTEL_CUSTOMIZATION)
         add_library(ffi-stub SHARED
@@ -69,7 +68,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
           "omptarget.rtl.${tmachine_libname}"
           elf_common
           ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
           dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
@@ -77,18 +75,16 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       add_llvm_library("omptarget.rtl.${tmachine_libname}"
         SHARED
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
 
-        ADDITIONAL_HEADER_DIRS
-        ${LIBOMPTARGET_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR}
+      ADDITIONAL_HEADER_DIRS
+      ${LIBOMPTARGET_INCLUDE_DIR}
+      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
 
         LINK_LIBS 
         PRIVATE
         elf_common
         ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-        ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
         ${OPENMP_PTHREAD_LIB}
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
 
@@ -107,8 +103,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
 
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
+        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
 
       list(APPEND LIBOMPTARGET_TESTED_PLUGINS
         "omptarget.rtl.${tmachine_libname}")
@@ -124,9 +119,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
       libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
     endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-  else(LIBOMPTARGET_DEP_LIBELF_FOUND)
-    libomptarget_say("Not building ${tmachine_name} offloading plugin: libelf dependency not found.")
-  endif(LIBOMPTARGET_DEP_LIBELF_FOUND)
 else()
   libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
 endif()
