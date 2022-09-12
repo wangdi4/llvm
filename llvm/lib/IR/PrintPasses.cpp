@@ -193,6 +193,8 @@ bool llvm::isPassInPrintList(StringRef PassName) {
   return Set.empty() || Set.count(std::string(PassName));
 }
 
+bool llvm::isFilterPassesEmpty() { return FilterPasses.empty(); }
+
 #else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 #if INTEL_CUSTOMIZATION
 std::vector<std::string> llvm::printBeforePasses() {
