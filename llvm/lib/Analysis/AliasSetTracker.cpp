@@ -280,7 +280,7 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
 }
 
 #if INTEL_COLLAB
-bool AliasSet::aliases(const AliasSet &AS, AliasAnalysis &AA) const {
+bool AliasSet::aliases(const AliasSet &AS, AAResults &AA) const {
   if (AliasAny)
     return true;
 
@@ -290,9 +290,11 @@ bool AliasSet::aliases(const AliasSet &AS, AliasAnalysis &AA) const {
 
   if (!UnknownInsts.empty())
     for (unsigned I = 0, E = UnknownInsts.size(); I < E; ++I)
-      if (const Instruction *Inst = getUnknownInst(I))
-        if (AS.aliasesUnknownInst(Inst, AA))
+      if (const Instruction *Inst = getUnknownInst(I)) {
+        BatchAAResults BatchAA(AA);
+        if (AS.aliasesUnknownInst(Inst, BatchAA))
           return true;
+      }
 
   return false;
 }
