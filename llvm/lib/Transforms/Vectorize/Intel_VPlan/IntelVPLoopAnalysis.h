@@ -964,6 +964,10 @@ private:
   // original PHI.
   SmallVector<std::pair<VPPHINode *, VPPHINode *>, 4> DuplicateInductionPHIs;
 
+  // Flag to track if memory motion guard directives have already been removed
+  // while lowering UDR VPEntities.
+  bool RemovedGuardsForUDRMemMotion = false;
+
   // Find an item in the map defined as T<K,item>
   template <typename T, class K>
   typename T::mapped_type find(T &Map, K Key) const {

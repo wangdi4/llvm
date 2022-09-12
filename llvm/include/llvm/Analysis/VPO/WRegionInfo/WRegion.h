@@ -1885,10 +1885,27 @@ public:
 class WRNGuardMemMotionNode : public WRegionNode {
 private:
   LiveinClause Livein;
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNGuardMemMotionNode(BasicBlock *BB);
+#if INTEL_CUSTOMIZATION
+  // constructor for HIR representation
+  WRNGuardMemMotionNode(loopopt::HLNode *EntryHLN);
+
+  void setEntryHLNode(loopopt::HLNode *E) override { EntryHLNode = E; }
+  void setExitHLNode(loopopt::HLNode *X) override { ExitHLNode = X; }
+#endif // INTEL_CUSTOMIZATION
+
   DEFINE_GETTER(LiveinClause, getLivein, Livein)
+
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *getEntryHLNode() const override { return EntryHLNode; }
+  loopopt::HLNode *getExitHLNode() const override { return ExitHLNode; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {

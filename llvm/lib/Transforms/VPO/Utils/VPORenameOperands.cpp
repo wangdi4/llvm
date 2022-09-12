@@ -29,7 +29,7 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-rename-operands"
 
-static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable VPO Rename Operands pass"));
 

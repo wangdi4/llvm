@@ -332,6 +332,9 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
     case DIR_VPO_AUTO_VEC:
       W = new WRNVecLoopNode(EntryHLNode, true /* auto vec */);
       break;
+    case DIR_VPO_GUARD_MEM_MOTION:
+      W = new WRNGuardMemMotionNode(EntryHLNode);
+      break;
   }
   if (W) {
     W->setLevel(NestingLevel);
