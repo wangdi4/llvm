@@ -11,17 +11,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Input HIR
 ;   BEGIN REGION { }
-;         %r.red.promoted = (%r.red)[0];
-;         %1 = %r.red.promoted;
+;         %1 =  (%r.red)[0];
 ;
 ;         + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <simd> <ivdep>
 ;         |   %1 = %1  +  i1;
 ;         |   %call = @_Z4predPf(&((%a)[i1]));
 ;         |   if (%call != 0)
 ;         |   {
-;         |      %3 = (%a)[i1];
 ;         |      %conv = sitofp.i32.float(%1);
-;         |      %add6 = %3  +  %conv;
+;         |      %add6 = (%a)[i1]  +  %conv;
 ;         |      %1 = fptosi.float.i32(%add6);
 ;         |   }
 ;         |   %1 = %1  +  1;
@@ -35,10 +33,6 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-LABEL:  HIRLegality Descriptor Lists
 ; HIR:       HIRLegality ReductionList:
 ; HIR-NEXT:  Ref: &(([[R_RED0:%.*]])[0])
-; HIR-NEXT:    UpdateInstructions:
-; HIR-NEXT:    none
-; HIR-EMPTY:
-; HIR-NEXT:    AliasRef: [[R_RED_PROMOTED0:%.*]]
 ; HIR-NEXT:    UpdateInstructions:
 ; HIR-NEXT:    none
 ; HIR-EMPTY:
@@ -77,9 +71,9 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-NEXT:     br i1 [[VP10]], [[BB4:BB[0-9]+]], [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB4]]: # preds: [[BB2]]
+; HIR-NEXT:       float [[VP11:%.*]] = sitofp i32 [[VP9]] to float
 ; HIR-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
 ; HIR-NEXT:       float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; HIR-NEXT:       float [[VP11:%.*]] = sitofp i32 [[VP9]] to float
 ; HIR-NEXT:       float [[VP12:%.*]] = fadd float [[VP_LOAD]] float [[VP11]]
 ; HIR-NEXT:       i32 [[VP13:%.*]] = fptosi float [[VP12]] to i32
 ; HIR-NEXT:       br [[BB3]]

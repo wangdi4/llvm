@@ -8,8 +8,8 @@
 ; Incoming HIR
 ; BEGIN REGION { }
 ;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(4),  QUAL.OMP.REDUCTION.ADD(&((%ret.red)[0])),  QUAL.OMP.LINEAR:IV(&((%i.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
-;       %ret.red.promoted = (%ret.red)[0];
-;       %1 = %ret.red.promoted;
+;       %1 = (%ret.red)[0];
+;
 ;       + DO i1 = 0, %n + -1, 1   <DO_LOOP> <simd>
 ;       |   %2 = (%ub)[i1];
 ;       |   if (%2 > 42)
@@ -26,11 +26,11 @@
 ;       |      }
 ;       |      else
 ;       |      {
-;       |         %3 = (%ub)[i1 + -1];
-;       |         %1 = %1  +  %3;
+;       |         %1 = %1  +  (%ub)[i1 + -1];
 ;       |      }
 ;       |   }
 ;       + END LOOP
+;
 ;       (%i.linear.iv)[0] = %n;
 ;       (%ret.red)[0] = %1;
 ;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
@@ -47,15 +47,11 @@ define dso_local i64 @foo(i64 noundef %n, i64* nocapture noundef %ub) local_unna
 ; CHECK-NEXT:    UpdateInstructions:
 ; CHECK-NEXT:    none
 ; CHECK-EMPTY:
-; CHECK-NEXT:    AliasRef: [[RET_RED_PROMOTED0:%.*]]
-; CHECK-NEXT:    UpdateInstructions:
-; CHECK-NEXT:    none
-; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef: [[TMP1:%.*]]
 ; CHECK-NEXT:    UpdateInstructions:
 ; CHECK-NEXT:    [[TMP1:%.*]] = [[TMP1]]  +  [[TMP2:%.*]]
 ; CHECK-NEXT:    [[TMP1]] = [[TMP1]]  +  -10
-; CHECK-NEXT:    [[TMP1]] = [[TMP1]]  +  [[TMP3:%.*]]
+; CHECK-NEXT:    [[TMP1]] = [[TMP1]]  +  (%ub)[i1 + -1]
 ; CHECK-NEXT:      InitValue: [[TMP1]]
 ;
 ; CHECK:       VPlan after insertion of VPEntities instructions:
@@ -152,5 +148,3 @@ declare void @llvm.directive.region.exit(token) #1
 
 attributes #0 = { nounwind "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
-
-

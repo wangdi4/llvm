@@ -57,11 +57,11 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB4]]: # preds: [[BB2]]
-; HIR-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
-; HIR-NEXT:       float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_1]]
 ; HIR-NEXT:       i32 [[VP7:%.*]] = trunc i64 [[VP4]] to i32
 ; HIR-NEXT:       i32 [[VP8:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP7]]
 ; HIR-NEXT:       float [[VP9:%.*]] = sitofp i32 [[VP8]] to float
+; HIR-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; HIR-NEXT:       float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_1]]
 ; HIR-NEXT:       float [[VP10:%.*]] = fadd float [[VP_LOAD_2]] float [[VP9]]
 ; HIR-NEXT:       i32 [[VP11:%.*]] = fptosi float [[VP10]] to i32
 ; HIR-NEXT:       i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
@@ -214,4 +214,3 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 declare dso_local i32 @_Z4predPf(float*) local_unnamed_addr
-
