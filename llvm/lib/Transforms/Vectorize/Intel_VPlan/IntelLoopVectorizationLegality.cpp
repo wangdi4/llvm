@@ -739,6 +739,12 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           continue;
 
         if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
+          // Memory motion guarding directives are inserted for UDRs and will be
+          // removed by VPlan framework.
+          if (vpo::VPOAnalysisUtils::getDirectiveID(Call) ==
+              DIR_VPO_GUARD_MEM_MOTION)
+            continue;
+
           // Most probably DIR.OMP.ORDERED, which we have to support in future.
           // But even any other directive is unexpected here, so be safe.
           LLVM_DEBUG(dbgs()

@@ -74,11 +74,12 @@
 ; In-loop instructions
 ; IR:        call %struct.point* [[PVT1]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
 ; IR:        call %struct.point* [[PVT2]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
+; HIR:       %struct.point* {{.*}} = subscript inbounds %struct.point* [[PVT1]]
+; HIR:       %struct.point* {{.*}} = subscript inbounds %struct.point* [[PVT2]]
 ; HIR:       %struct.point* [[PVT1SUB:%.*]] = subscript inbounds %struct.point* [[PVT1]]
 ; HIR:       call %struct.point* [[PVT1SUB]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
 ; HIR:       %struct.point* [[PVT2SUB:%.*]] = subscript inbounds %struct.point* [[PVT2]]
 ; HIR:       call %struct.point* [[PVT2SUB]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
- 
 
 ; Finalization
 ; CHECK:        reduction-final-udr %struct.point* [[PVT1]] %struct.point* %tmpcast.red, Combiner: .omp_combiner.
@@ -101,7 +102,7 @@
 ; IR-NEXT:   [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x %struct.point*> [[TMPCAST_RED_VEC_BASE_ADDR]], i32 1
 ; IR-NEXT:   [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x %struct.point*> [[TMPCAST_RED_VEC_BASE_ADDR]], i32 0
 
-; IR:      VPlannedBB2:                                      ; preds = %VPlannedBB1
+; IR:      VPlannedBB1:                                      ; preds = %VPlannedBB
 ; IR:        call void @.omp_initializer.(%struct.point* [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_0]], %struct.point* %tmpcast.red)
 ; IR-NEXT:   call void @.omp_initializer.(%struct.point* [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_1]], %struct.point* %tmpcast.red)
 ; IR-NEXT:   {{%.*}} = call %struct.point* @point.omp.def_constr(%struct.point* [[TMPCAST21_RED_VEC_BASE_ADDR_EXTRACT_0]])
@@ -109,7 +110,7 @@
 ; IR-NEXT:   call void @.omp_initializer..2(%struct.point* [[TMPCAST21_RED_VEC_BASE_ADDR_EXTRACT_0]], %struct.point* %tmpcast21.red)
 ; IR-NEXT:   call void @.omp_initializer..2(%struct.point* [[TMPCAST21_RED_VEC_BASE_ADDR_EXTRACT_1]], %struct.point* %tmpcast21.red)
 
-; IR:      VPlannedBB4:                                      ; preds = %vector.body
+; IR:      VPlannedBB8:                                      ; preds = %VPlannedBB7
 ; IR:        call void @.omp_combiner.(%struct.point* %tmpcast.red, %struct.point* [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_0]])
 ; IR-NEXT:   call void @.omp_combiner.(%struct.point* %tmpcast.red, %struct.point* [[TMPCAST_RED_VEC_BASE_ADDR_EXTRACT_1]])
 ; IR-NEXT:   call void @.omp_combiner..1(%struct.point* %tmpcast21.red, %struct.point* [[TMPCAST21_RED_VEC_BASE_ADDR_EXTRACT_0]])
@@ -118,6 +119,21 @@
 ; IR-NEXT:   call void @point.omp.destr(%struct.point* [[TMPCAST21_RED_VEC_BASE_ADDR_EXTRACT_1]])
 
 ; ------------------------------------------------------------------------------
+
+; HIR before VPlan
+; BEGIN REGION { }
+;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.UDR(&((%tmpcast.red)[0])nullnull&((@.omp_combiner.)[0])&((@.omp_initializer.)[0])),  QUAL.OMP.REDUCTION.UDR(&((%tmpcast21.red)[0])&((@point.omp.def_constr)[0])&((@point.omp.destr)[0])&((@.omp_combiner..1)[0])&((@.omp_initializer..2)[0])) ]
+;
+;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <simd>
+;       |   %guard.start = @llvm.directive.region.entry(); [ DIR.VPO.GUARD.MEM.MOTION(),  QUAL.OMP.LIVEIN(&((%tmpcast.red)[0])),  QUAL.OMP.LIVEIN(&((%tmpcast21.red)[0])) ]
+;       |   @minproc(&((%tmpcast.red)[0]),  &((%points)[i1]));
+;       |   @maxproc(&((%tmpcast21.red)[0]),  &((%points)[i1]));
+;       |   @llvm.directive.region.exit(%guard.start); [ DIR.VPO.END.GUARD.MEM.MOTION() ]
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; END REGION
+
 
 ; Check HIR CG of UDRs.
 ; HIR-LABEL: Function: find_enclosing_rectangle
@@ -204,16 +220,33 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.164
   %wide.trip.count63 = zext i32 %n to i64
   br label %omp.inner.for.body
 
-omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
-  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
+omp.inner.for.body:                               ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4, %DIR.OMP.SIMD.2
+  %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %DIR.VPO.END.GUARD.MEM.MOTION.4 ]
+  br label %DIR.VPO.GUARD.MEM.MOTION.1
+
+DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %omp.inner.for.body
+  br label %DIR.VPO.GUARD.MEM.MOTION.1.split
+
+DIR.VPO.GUARD.MEM.MOTION.1.split:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(%struct.point* %tmpcast.red), "QUAL.OMP.LIVEIN"(%struct.point* %tmpcast21.red) ]
+  br label %DIR.VPO.GUARD.MEM.MOTION.2
+
+DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.1.split
   %arrayidx = getelementptr inbounds %struct.point, %struct.point* %points, i64 %indvars.iv
   call void @minproc(%struct.point* noundef nonnull %tmpcast.red, %struct.point* noundef %arrayidx) #0
   call void @maxproc(%struct.point* noundef nonnull %tmpcast21.red, %struct.point* noundef %arrayidx) #0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.3
+
+DIR.VPO.END.GUARD.MEM.MOTION.3:                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.4
+
+DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.3
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count63
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
-DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
+DIR.OMP.END.SIMD.2:                               ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2

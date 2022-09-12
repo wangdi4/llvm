@@ -207,13 +207,15 @@ static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
                      TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
                      TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
-                      TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")))
+                      TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")) ||
+                     TagName.equals("DIR.VPO.GUARD.MEM.MOTION"))
                   : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.END.SIMD") ||
                      TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
                      TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
-                      TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")));
+                      TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")) ||
+                     TagName.equals("DIR.VPO.END.GUARD.MEM.MOTION"));
 
   return false;
 }

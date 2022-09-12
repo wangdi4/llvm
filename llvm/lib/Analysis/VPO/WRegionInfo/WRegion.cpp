@@ -1042,6 +1042,15 @@ WRNGuardMemMotionNode::WRNGuardMemMotionNode(BasicBlock *BB)
                     << ">\n");
 }
 
+#if INTEL_CUSTOMIZATION
+// constructor for HIR
+WRNGuardMemMotionNode::WRNGuardMemMotionNode(loopopt::HLNode *EntryHLN)
+    : WRegionNode(WRegionNode::WRNGuardMemMotion), EntryHLNode(EntryHLN) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNGuardMemMotionNode<" << getNumber()
+                    << ">\n");
+}
+#endif // INTEL_CUSTOMIZATION
+
 //
 // Methods for WRNTileNode
 //
