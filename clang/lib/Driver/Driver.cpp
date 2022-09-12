@@ -1699,7 +1699,7 @@ bool Driver::loadConfigFile() {
       // ../bin from the location of the driver, which could be in 'bin-llvm'
       SmallString<128> AltDir(Dir);
       llvm::sys::path::append(AltDir, "..", "bin");
-      if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase)) {
+      if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase, getVFS())) {
         if (!readConfigFile(CfgFilePath)) {
           // The default .cfg file can be empty, allow for more config
           // processing if it is.
