@@ -1432,10 +1432,15 @@ static bool isConstExprSupported(uint8_t Opcode) {
   if (Opcode >= BitcodeConstant::FirstSpecialOpcode)
     return true;
 
+  // If -expand-constant-exprs is set, we want to consider all expressions
+  // as unsupported.
+  if (ExpandConstantExprs)
+    return false;
+
   if (Instruction::isBinaryOp(Opcode))
     return ConstantExpr::isSupportedBinOp(Opcode);
 
-  return !ExpandConstantExprs;
+  return Opcode != Instruction::FNeg;
 }
 
 Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
@@ -1496,8 +1501,6 @@ Expected<Value *> BitcodeReader::materializeValue(unsigned StartValID,
         C = UpgradeBitCastExpr(BC->Opcode, ConstOps[0], BC->getType());
         if (!C)
           C = ConstantExpr::getCast(BC->Opcode, ConstOps[0], BC->getType());
-      } else if (Instruction::isUnaryOp(BC->Opcode)) {
-        C = ConstantExpr::get(BC->Opcode, ConstOps[0], BC->Flags);
       } else if (Instruction::isBinaryOp(BC->Opcode)) {
         C = ConstantExpr::get(BC->Opcode, ConstOps[0], ConstOps[1], BC->Flags);
       } else {
