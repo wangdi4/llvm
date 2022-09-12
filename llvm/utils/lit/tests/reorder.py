@@ -1,15 +1,11 @@
 ## Check that we can reorder test runs.
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Disabled temporarily till further investigation.
 # UNSUPPORTED: system-windows
 # end INTEL_CUSTOMIZATION
 
-# RUN: cp %{inputs}/reorder/.lit_test_times.txt %{inputs}/reorder/.lit_test_times.txt.orig
-=======
 # RUN: cp %{inputs}/reorder/lit_test_times %{inputs}/reorder/.lit_test_times.txt
->>>>>>> 1dbcb79498d0db465234c68adf52b88e7f87a832
 # RUN: not %{lit-no-order-opt} %{inputs}/reorder > %t.out
 # RUN: FileCheck --check-prefix=TIMES < %{inputs}/reorder/.lit_test_times.txt %s
 # RUN: FileCheck < %t.out %s
