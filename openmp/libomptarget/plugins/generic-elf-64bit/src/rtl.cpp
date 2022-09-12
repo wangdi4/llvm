@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <ffi.h>
-#include <gelf.h>
 #if INTEL_COLLAB
 #include <limits>
 #include <unordered_set>
