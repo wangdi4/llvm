@@ -88,8 +88,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[DOTVEC60]])
 
 ; VPVALCG:                      + DO i1 = {{.*}}, sext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>
-; VPVALCG-NEXT:                 |   [[TMP1:%.*]] = ([[A0]])[i1]
-; VPVALCG-NEXT:                 |   [[ACC_0190]] = [[TMP1]]  +  [[ACC_0190]]
+; VPVALCG-NEXT:                 |   [[ACC_0190]] = ([[A0]])[i1]  +  [[ACC_0190]]
 ; VPVALCG-NEXT:                 + END LOOP
 ; VPVALCG:                 END REGION
 ;

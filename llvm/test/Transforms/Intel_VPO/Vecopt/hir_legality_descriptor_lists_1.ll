@@ -14,31 +14,29 @@
 ; }
 
 ; Input HIR
-; <0>     BEGIN REGION { modified }
-; <2>           %3 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LINEAR(&((%ptr.addr)[0])1),  QUAL.OMP.LINEAR(&((%c)[0])1),  QUAL.OMP.REDUCTION.ADD(&((%s)[0])),  QUAL.OMP.NORMALIZED.IV(&((%.omp.iv)[0])),  QUAL.OMP.NORMALIZED.UB(&((%.omp.ub)[0])) ]
-; <3>           (%.omp.iv)[0] = 0;
-; <4>           %4 = (%.omp.ub)[0];
+; <0>          BEGIN REGION { modified }
+; <2>                %3 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LINEAR(&((%ptr.addr)[0])1),  QUAL.OMP.LINEAR(&((%c)[0])1),  QUAL.OMP.REDUCTION.ADD(&((%s)[0])),  QUAL.OMP.NORMALIZED.IV(&((%.omp.iv)[0])),  QUAL.OMP.NORMALIZED.UB(&((%.omp.ub)[0])) ]
+; <3>                (%.omp.iv)[0] = 0;
+; <4>                %4 = (%.omp.ub)[0];
 ; <42>
-; <10>             %ptr.addr.promoted = (%ptr.addr)[0];
-; <11>             %c.promoted = (%c)[0];
-; <12>             %.pre = (%s)[0];
-; <13>             %5 = %.pre;
-; <14>             %inc17 = %c.promoted;
-; <42>          + DO i1 = 0, %4, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648> <simd>
-; <19>          |   %6 = (%ptr.addr.promoted)[i1];
-; <22>          |   %5 = (sext.i8.i32(%inc17) * %6)  +  %5;
-; <23>          |   (%s)[0] = %5;
-; <27>          |   (%.omp.iv)[0] = i1 + 1;
-; <31>          |   %inc17 = i1 + %c.promoted + 1;
-; <42>          + END LOOP
-; <24>             %incdec.ptr = &((%ptr.addr.promoted)[sext.i32.i64(%4) + 1]);
-; <25>             %inc = %c.promoted + trunc.i32.i8(%4)  +  1;
-; <36>             (%ptr.addr)[0] = &((%incdec.ptr)[0]);
-; <37>             (%c)[0] = %inc;
+; <10>                  %ptr.addr.promoted = (%ptr.addr)[0];
+; <11>                  %c.promoted = (%c)[0];
+; <12>                  %5 = (%s)[0];
+; <14>                  %inc17 = %c.promoted;
+; <42>               + DO i1 = 0, %4, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>  <LEGAL_MAX_TC = 2147483648> <simd>
+; <19>               |   %6 = (%ptr.addr.promoted)[i1];
+; <22>               |   %5 = (sext.i8.i32(%inc17) * %6)  +  %5;
+; <23>               |   (%s)[0] = %5;
+; <27>               |   (%.omp.iv)[0] = i1 + 1;
+; <31>               |   %inc17 = i1 + %c.promoted + 1;
+; <42>               + END LOOP
+; <24>                  %incdec.ptr = &((%ptr.addr.promoted)[sext.i32.i64(%4) + 1]);
+; <25>                  %inc = %c.promoted + trunc.i32.i8(%4)  +  1;
+; <36>                  (%ptr.addr)[0] = &((%incdec.ptr)[0]);
+; <37>                  (%c)[0] = %inc;
 ; <42>
-; <40>          @llvm.directive.region.exit(%3); [ DIR.OMP.END.SIMD() ]
-; <0>     END REGION
-
+; <40>               @llvm.directive.region.exit(%3); [ DIR.OMP.END.SIMD() ]
+; <0>          END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
@@ -85,10 +83,6 @@ define dso_local i32 @_Z3fooPiii(i32* %ptr, i32 %step, i32 %n) local_unnamed_add
 ; CHECK-NEXT:  Ref: &(([[S0:%.*]])[0])
 ; CHECK-NEXT:    UpdateInstructions:
 ; CHECK-NEXT:             ([[S0]])[0] = [[TMP5:%.*]];
-; CHECK-EMPTY:
-; CHECK-NEXT:    AliasRef: [[DOTPRE0:%.*]]
-; CHECK-NEXT:    UpdateInstructions:
-; CHECK-NEXT:    none
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef: [[TMP5]]
 ; CHECK-NEXT:    UpdateInstructions:
@@ -197,4 +191,3 @@ attributes #2 = { nounwind }
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !4, i64 0}
 !8 = !{!4, !4, i64 0}
-

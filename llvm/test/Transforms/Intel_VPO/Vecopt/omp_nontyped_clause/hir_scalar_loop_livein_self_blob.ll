@@ -26,13 +26,8 @@
 ; CHECK:              + DO i64 i1 = %lb.tmp, %N + -1, 1   <DO_LOOP>
 ; CHECK:              |   if (i1 == %N + -1)
 ; CHECK:              |   {
-; CHECK:              |      %4 = (%lp)[%N + -1];
-; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %4 {sb:15}
-
-; CHECK:              |      %3 = %4;
-; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %4 {sb:3}
-; CHECK:              |         <BLOB> NON-LINEAR i64 %4 {sb:15}
-; CHECK:              |      <RVAL-REG> NON-LINEAR i64 %4 {sb:15}
+; CHECK:              |      %3 = (%lp)[%N + -1];
+; CHECK:              |      <LVAL-REG> NON-LINEAR i64 %3 {sb:3}
 ; CHECK:              |   }
 ; CHECK:              + END LOOP
 ;
