@@ -1952,13 +1952,12 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Final = Final;
 
     bool UnitStrided = CEIdiom->TotalStride == 1;
-    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode,
-                                  unsigned OpcodeNonu) {
+    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode) {
       for (VPLoadStoreInst *LoadStore : LoadsStores) {
 
         Builder.setInsertPoint(LoadStore);
         VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
-            "", UnitStrided ? Opcode : OpcodeNonu, LoadStore->getType(),
+            "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
         LoadStore->replaceAllUsesWith(CompressExpand);
 
@@ -1978,10 +1977,15 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
       LoadsStores.clear();
     };
 
-    ProcessLoadsStores(CEIdiom->Stores, VPInstruction::CompressStore,
-                       VPInstruction::CompressStoreNonu);
-    ProcessLoadsStores(CEIdiom->Loads, VPInstruction::ExpandLoad,
-                       VPInstruction::ExpandLoadNonu);
+    // Create CompressStore/CompressStoreNonu for each store.
+    ProcessLoadsStores(CEIdiom->Stores, UnitStrided
+                                            ? VPInstruction::CompressStore
+                                            : VPInstruction::CompressStoreNonu);
+
+    // Create ExpandLoad/ExpandLoadNonu for each load.
+    ProcessLoadsStores(CEIdiom->Loads, UnitStrided
+                                           ? VPInstruction::ExpandLoad
+                                           : VPInstruction::ExpandLoadNonu);
 
     std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
         [&](VPUser *User) {
