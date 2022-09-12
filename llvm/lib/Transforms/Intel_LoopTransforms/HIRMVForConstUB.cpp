@@ -324,10 +324,10 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   // multiversioned.
   unsigned DefAtLvl = Ref->getDefinedAtLevel();
 
-  // Bail out for unprofitable TC or no outer loop.
+  // Bail out for unprofitable TC or no outer loop. Initial target was TC = 3.
   uint64_t TC = Loop->getMaxTripCountEstimate();
-  if ((TC < 3) || (TC > 32)) {
-    LLVM_DEBUG(dbgs() << "\t Give up: bad TC.\n");
+  if ((TC < 3) || (TC > 15)) {
+    LLVM_DEBUG(dbgs() << "\t Give up: unprofitable TC.\n");
     return false;
   }
 
