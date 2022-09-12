@@ -358,6 +358,7 @@ define i1 @trunc_ne_i64_i10(i64 %x) {
 }
 
 define i1 @shl1_trunc_eq0(i32 %a) {
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; DL8/64 checks removed
 ; CHECK-LABEL: @shl1_trunc_eq0(
@@ -366,6 +367,11 @@ define i1 @shl1_trunc_eq0(i32 %a) {
 ; CHECK-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 0
 ; CHECK-NEXT:    ret i1 [[R]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @shl1_trunc_eq0(
+; CHECK-NEXT:    [[R:%.*]] = icmp ugt i32 [[A:%.*]], 15
+; CHECK-NEXT:    ret i1 [[R]]
+>>>>>>> d9e1f9d7591b0d3e4df3c0e33ffd8984fb1632a5
 ;
   %shl = shl i32 1, %a
   %t = trunc i32 %shl to i16
@@ -375,9 +381,7 @@ define i1 @shl1_trunc_eq0(i32 %a) {
 
 define <2 x i1> @shl1_trunc_ne0(<2 x i8> %a) {
 ; CHECK-LABEL: @shl1_trunc_ne0(
-; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i8> <i8 1, i8 poison>, [[A:%.*]]
-; CHECK-NEXT:    [[T:%.*]] = trunc <2 x i8> [[SHL]] to <2 x i5>
-; CHECK-NEXT:    [[R:%.*]] = icmp ne <2 x i5> [[T]], zeroinitializer
+; CHECK-NEXT:    [[R:%.*]] = icmp ult <2 x i8> [[A:%.*]], <i8 5, i8 5>
 ; CHECK-NEXT:    ret <2 x i1> [[R]]
 ;
   %shl = shl <2 x i8> <i8 1, i8 poison>, %a
@@ -409,7 +413,7 @@ define i1 @shl1_trunc_ne0_use2(i37 %a) {
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i37 1, [[A:%.*]]
 ; CHECK-NEXT:    [[T:%.*]] = trunc i37 [[SHL]] to i8
 ; CHECK-NEXT:    call void @use(i8 [[T]])
-; CHECK-NEXT:    [[R:%.*]] = icmp ne i8 [[T]], 0
+; CHECK-NEXT:    [[R:%.*]] = icmp ult i37 [[A]], 8
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i37 1, %a
@@ -418,6 +422,8 @@ define i1 @shl1_trunc_ne0_use2(i37 %a) {
   %r = icmp ne i8 %t, 0
   ret i1 %r
 }
+
+; TODO: A > 4
 
 define i1 @shl2_trunc_eq0(i9 %a) {
 ; CHECK-LABEL: @shl2_trunc_eq0(
@@ -432,6 +438,8 @@ define i1 @shl2_trunc_eq0(i9 %a) {
   ret i1 %r
 }
 
+; TODO: A < 5
+
 define i1 @shl1_trunc_sgt0(i9 %a) {
 ; CHECK-LABEL: @shl1_trunc_sgt0(
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i9 1, [[A:%.*]]
@@ -444,6 +452,8 @@ define i1 @shl1_trunc_sgt0(i9 %a) {
   %r = icmp sgt i6 %t, 0
   ret i1 %r
 }
+
+; TODO: A == 0
 
 define i1 @shl1_trunc_eq1(i64 %a) {
 ; CHECK-LABEL: @shl1_trunc_eq1(
@@ -459,6 +469,8 @@ define i1 @shl1_trunc_eq1(i64 %a) {
   %r = icmp eq i8 %t, 1
   ret i1 %r
 }
+
+; TODO: A != 5
 
 define i1 @shl1_trunc_ne32(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_ne32(
