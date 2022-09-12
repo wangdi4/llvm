@@ -71,7 +71,7 @@ public:
   }
 
   constexpr FeatureBitset &operator&=(const FeatureBitset &RHS) {
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I) {
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I) {
       // GCC <6.2 crashes if this is written in a single statement.
       uint32_t NewBits = Bits[I] & RHS.Bits[I];
       Bits[I] = NewBits;
@@ -80,7 +80,7 @@ public:
   }
 
   constexpr FeatureBitset &operator|=(const FeatureBitset &RHS) {
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I) {
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I) {
       // GCC <6.2 crashes if this is written in a single statement.
       uint32_t NewBits = Bits[I] | RHS.Bits[I];
       Bits[I] = NewBits;
@@ -91,7 +91,7 @@ public:
   // gcc 5.3 miscompiles this if we try to write this using operator&=.
   constexpr FeatureBitset operator&(const FeatureBitset &RHS) const {
     FeatureBitset Result;
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I)
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
       Result.Bits[I] = Bits[I] & RHS.Bits[I];
     return Result;
   }
@@ -99,20 +99,20 @@ public:
   // gcc 5.3 miscompiles this if we try to write this using operator&=.
   constexpr FeatureBitset operator|(const FeatureBitset &RHS) const {
     FeatureBitset Result;
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I)
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
       Result.Bits[I] = Bits[I] | RHS.Bits[I];
     return Result;
   }
 
   constexpr FeatureBitset operator~() const {
     FeatureBitset Result;
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I)
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
       Result.Bits[I] = ~Bits[I];
     return Result;
   }
 
   constexpr bool operator!=(const FeatureBitset &RHS) const {
-    for (unsigned I = 0, E = array_lengthof(Bits); I != E; ++I)
+    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
       if (Bits[I] != RHS.Bits[I])
         return true;
     return false;
@@ -1183,7 +1183,7 @@ unsigned llvm::X86::getFeaturePriority(ProcessorFeatures Feat) {
 #include "llvm/Support/X86TargetParser.def"
       std::numeric_limits<unsigned>::max() // Need to consume last comma.
   };
-  std::array<unsigned, array_lengthof(Priorities) - 1> HelperList;
+  std::array<unsigned, std::size(Priorities) - 1> HelperList;
   std::iota(HelperList.begin(), HelperList.end(), 0);
   assert(std::is_permutation(HelperList.begin(), HelperList.end(),
                              std::begin(Priorities),
