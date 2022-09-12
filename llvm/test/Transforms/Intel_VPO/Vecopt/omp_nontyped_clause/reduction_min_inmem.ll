@@ -53,7 +53,6 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; HIR-NEXT:     br [[BB6:BB[0-9]+]]
 ; === Generated HIR code
 ; HIR:       BEGIN REGION { modified }
-; HIR-NEXT:        [[DOTPRE0:%.*]] = ([[MIN0]])[0]
 ; HIR-NEXT:        [[PRIV_MEM_BC0:%.*]] = &((i32*)([[PRIV_MEM0:%.*]])[0])
 ; HIR-NEXT:        [[DOTUNIFLOAD0:%.*]] = ([[MIN0]])[0]
 ; HIR-NEXT:        [[RED_INIT0:%.*]] = [[DOTUNIFLOAD0]]

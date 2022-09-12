@@ -615,7 +615,6 @@ class TempSubstituter final : public HLNodeVisitorBase {
   HIRFramework *HIRF;
   SmallPtrSet<HLInst *, 8> MovedRvalDefs;
   SmallVector<TempInfo, 32> CandidateTemps;
-  bool SIMDDirSeen;
   bool HasEmptyNodes;
 
 private:
@@ -645,7 +644,7 @@ private:
 
 public:
   TempSubstituter(HIRFramework *HIRF)
-      : HIRF(HIRF), SIMDDirSeen(false), HasEmptyNodes(false) {}
+      : HIRF(HIRF), HasEmptyNodes(false) {}
 
   /// Adds/updates temp candidates.
   void visit(HLInst *Inst);
@@ -944,10 +943,6 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 }
 
 void TempSubstituter::visit(HLInst *HInst) {
-  if (HInst->isSIMDDirective()) {
-    SIMDDirSeen = true;
-  }
-
   // 1. Visit the DDRefs of the instruction for substitution opportunity.
   visit(cast<HLDDNode>(HInst));
 
@@ -982,15 +977,6 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
     auto Parent = Temp.getDefInst()->getParent();
 
     if (Temp.isLoad()) {
-      // Suppress temp substitution for regions with simd loops as explicit
-      // reduction recognition fails otherwise. This is a workaround until
-      // we can change explicit reduction recognition to work without relying
-      // on underlying LLVM IR. Since temp cleanup is run currently at start
-      // of HIR framework pass, we only bail out for explicit SIMD cases.
-      if (SIMDDirSeen) {
-        continue;
-      }
-
       // Load temp is substituted once we have traversed the entire region and
       // determined that it has a single use.
       Temp.substituteInUseRef(MovedRvalDefs);
@@ -1060,7 +1046,6 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   }
 
   // Restore flags.
-  SIMDDirSeen = false;
   HasEmptyNodes = false;
 }
 
