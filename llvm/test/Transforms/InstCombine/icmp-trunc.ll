@@ -358,7 +358,6 @@ define i1 @trunc_ne_i64_i10(i64 %x) {
 }
 
 define i1 @shl1_trunc_eq0(i32 %a) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; DL8/64 checks removed
 ; CHECK-LABEL: @shl1_trunc_eq0(
@@ -367,11 +366,6 @@ define i1 @shl1_trunc_eq0(i32 %a) {
 ; CHECK-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 0
 ; CHECK-NEXT:    ret i1 [[R]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-LABEL: @shl1_trunc_eq0(
-; CHECK-NEXT:    [[R:%.*]] = icmp ugt i32 [[A:%.*]], 15
-; CHECK-NEXT:    ret i1 [[R]]
->>>>>>> d9e1f9d7591b0d3e4df3c0e33ffd8984fb1632a5
 ;
   %shl = shl i32 1, %a
   %t = trunc i32 %shl to i16
