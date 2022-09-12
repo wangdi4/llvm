@@ -701,6 +701,7 @@ clang::MakeDeductionFailureInfo(ASTContext &Context,
 
   case Sema::TDK_Success:
   case Sema::TDK_NonDependentConversionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     llvm_unreachable("not a deduction failure");
   }
 
@@ -750,6 +751,7 @@ void DeductionFailureInfo::Destroy() {
 
   // Unhandled
   case Sema::TDK_MiscellaneousDeductionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     break;
   }
 }
@@ -787,6 +789,7 @@ TemplateParameter DeductionFailureInfo::getTemplateParameter() {
 
   // Unhandled
   case Sema::TDK_MiscellaneousDeductionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     break;
   }
 
@@ -822,6 +825,7 @@ TemplateArgumentList *DeductionFailureInfo::getTemplateArgumentList() {
 
   // Unhandled
   case Sema::TDK_MiscellaneousDeductionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     break;
   }
 
@@ -853,6 +857,7 @@ const TemplateArgument *DeductionFailureInfo::getFirstArg() {
 
   // Unhandled
   case Sema::TDK_MiscellaneousDeductionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     break;
   }
 
@@ -884,6 +889,7 @@ const TemplateArgument *DeductionFailureInfo::getSecondArg() {
 
   // Unhandled
   case Sema::TDK_MiscellaneousDeductionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     break;
   }
 
@@ -11538,6 +11544,7 @@ static unsigned RankDeductionFailure(const DeductionFailureInfo &DFI) {
   switch ((Sema::TemplateDeductionResult)DFI.Result) {
   case Sema::TDK_Success:
   case Sema::TDK_NonDependentConversionFailure:
+  case Sema::TDK_AlreadyDiagnosed:
     llvm_unreachable("non-deduction failure while diagnosing bad deduction");
 
   case Sema::TDK_Invalid:
