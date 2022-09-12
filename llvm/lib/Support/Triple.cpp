@@ -24,7 +24,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Triple.h"
-#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -209,7 +208,7 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case loongarch32:
   case loongarch64: return "loongarch";
-  
+
   case dxil:        return "dx";
   }
 }
