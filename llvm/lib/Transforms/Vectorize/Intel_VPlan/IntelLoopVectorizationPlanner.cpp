@@ -1736,12 +1736,12 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
     // Bailouts for user-defined reductions.
     if (Red->getRecurrenceKind() == RecurKind::Udr) {
       // Check if UDR is registerized. This can happen due to hoisting/invariant
-      // code motion done by pre-vectorizer passes. TODO: This should be changed
-      // to assert in future when Paropt is fixed to prohibit registerization of
-      // UDRs.
+      // code motion done by pre-vectorizer passes. Asserts in debug build to
+      // detect accidental registerization during testing.
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
         LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
+        assert(false && "Registerized UDR unexpected.");
         return false;
       }
     }

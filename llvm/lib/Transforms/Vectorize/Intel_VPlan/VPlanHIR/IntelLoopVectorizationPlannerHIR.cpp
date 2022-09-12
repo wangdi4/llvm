@@ -165,6 +165,12 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
         if (UnderlyingCall &&
             vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
+          // Memory motion guarding directives are inserted for UDRs and will be
+          // removed by VPlan framework.
+          if (vpo::VPOAnalysisUtils::getDirectiveID(UnderlyingCall) ==
+              DIR_VPO_GUARD_MEM_MOTION)
+            continue;
+
           LLVM_DEBUG(dbgs() << "LVP: unsupported nested begin directive. "
                             << *UnderlyingCall << "\n");
           return false;

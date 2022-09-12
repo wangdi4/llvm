@@ -2349,6 +2349,11 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     FPM.addPass(EarlyCSEPass());
   }
 
+  // Restore potentially renamed UDR operands before LoopOpt and VPlan
+  // vectorizers. The renaming was done after Paropt to avoid memory motion.
+  if (RunVPOOpt && RunVPOParopt)
+    FPM.addPass(VPORestoreOperandsPass());
+
   // Enable VPlanPragmaOmpSimdIfPass pass only in case VPlan pass will be
   // enabled after that
   if (RunVPOOpt && EnableVPlanDriver)

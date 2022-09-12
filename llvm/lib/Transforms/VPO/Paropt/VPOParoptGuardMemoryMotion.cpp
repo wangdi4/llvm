@@ -26,7 +26,7 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-guard-memory-motion"
 #define PASS_NAME "VPO Paropt Guard Memory Motion"
 
-static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " PASS_NAME " pass"));
 

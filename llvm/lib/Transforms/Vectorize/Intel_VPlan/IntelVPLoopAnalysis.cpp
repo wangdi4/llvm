@@ -1202,10 +1202,35 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 //   reduction-final-udr %udr.vec, %udr.orig, Combiner: @udr.combiner
 //   call @udr.dtor(%udr.vec)
 //
+// Additionally remove any VPO.GUARD.MEM.MOTION directives added by Paropt here.
 void VPLoopEntityList::insertUDRVPInstructions(
     VPUserDefinedReduction *UDR, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  if (!RemovedGuardsForUDRMemMotion) {
+    // Look through VPlan and remove VPO.GUARD.MEM.MOTION directive VPCalls.
+    SmallVector<VPCallInstruction *, 2> GuardInsts;
+    for (auto &I : vpinstructions(&Plan)) {
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&I)) {
+        const CallInst *IRCall = VPCall->getUnderlyingCallInst();
+        if (!IRCall)
+          continue;
+
+        int DirID = VPOAnalysisUtils::getRegionDirectiveID(IRCall);
+        if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
+            DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+          GuardInsts.push_back(VPCall);
+      }
+    }
+
+    assert(GuardInsts.size() == 2 &&
+           "Expected begin/end guard directives for UDRs.");
+    for (auto *I : GuardInsts)
+      I->getParent()->eraseInstruction(I);
+
+    RemovedGuardsForUDRMemMotion = true;
+  }
+
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
 
@@ -1952,13 +1977,12 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Final = Final;
 
     bool UnitStrided = CEIdiom->TotalStride == 1;
-    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode,
-                                  unsigned OpcodeNonu) {
+    auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode) {
       for (VPLoadStoreInst *LoadStore : LoadsStores) {
 
         Builder.setInsertPoint(LoadStore);
         VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
-            "", UnitStrided ? Opcode : OpcodeNonu, LoadStore->getType(),
+            "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
         LoadStore->replaceAllUsesWith(CompressExpand);
 
@@ -1978,10 +2002,15 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
       LoadsStores.clear();
     };
 
-    ProcessLoadsStores(CEIdiom->Stores, VPInstruction::CompressStore,
-                       VPInstruction::CompressStoreNonu);
-    ProcessLoadsStores(CEIdiom->Loads, VPInstruction::ExpandLoad,
-                       VPInstruction::ExpandLoadNonu);
+    // Create CompressStore/CompressStoreNonu for each store.
+    ProcessLoadsStores(CEIdiom->Stores, UnitStrided
+                                            ? VPInstruction::CompressStore
+                                            : VPInstruction::CompressStoreNonu);
+
+    // Create ExpandLoad/ExpandLoadNonu for each load.
+    ProcessLoadsStores(CEIdiom->Loads, UnitStrided
+                                           ? VPInstruction::ExpandLoad
+                                           : VPInstruction::ExpandLoadNonu);
 
     std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
         [&](VPUser *User) {

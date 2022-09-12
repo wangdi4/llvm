@@ -1154,6 +1154,7 @@ public:
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
   void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
+  void visitInsertValueInst(InsertValueInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
     ValueTypeInfo *ResultInfo = analyzeValue(&I);
 
@@ -1539,6 +1540,9 @@ private:
       break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
+      break;
+    case Instruction::InsertValue:
+      analyzeInsertValueInst(cast<InsertValueInst>(I), Info);
       break;
     case Instruction::IntToPtr:
       analyzeIntToPtrInst(cast<IntToPtrInst>(I), Info);
@@ -2281,6 +2285,14 @@ private:
           populateDependencyStack(BasePtr, DependentVals);
         break;
       }
+
+      case Instruction::InsertValue: {
+        Value *Val = cast<InsertValueInst>(I)->getInsertedValueOperand();
+        if (addDependency(Val, DependentVals))
+          populateDependencyStack(Val, DependentVals);
+        break;
+      }
+
       case Instruction::IntToPtr:
       case Instruction::PtrToInt:
         if (addDependency(I->getOperand(0), DependentVals))
@@ -3690,6 +3702,54 @@ private:
 
     if (!PtrInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
+  }
+
+  void analyzeInsertValueInst(InsertValueInst *IV, ValueTypeInfo *ResultInfo) {
+
+    // Returns true if "IV" is transitively used by ResumeInst only
+    // through other InsertValue instructions or no real uses.
+    auto IsUsedByOnlyResumeInst = [] (InsertValueInst *IV) {
+      SmallVector<const User *, 4> WorkList(IV->user_begin(), IV->user_end());
+      while (!WorkList.empty()) {
+        const User *U = WorkList.pop_back_val();
+        if (isa<InsertValueInst>(U))
+          for (const User *UU : U->users())
+            WorkList.push_back(UU);
+	else if (!isa<ResumeInst>(U))
+          return false;
+      }
+      return true;
+    };
+
+    // Currently, only handle cases with a single index value and return
+    // type { i8*, i32 }.
+    if (IV->getNumIndices() > 1 ||
+        IV->getType() != getDTransLandingPadTy()->getLLVMType() ||
+	!IsUsedByOnlyResumeInst(IV)) {
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(
+          dbgs() << "Unhandled InsertValueInst due to number of indices: "
+                 << *IV << "\n");
+      return;
+    }
+
+    ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, getDTransLandingPadTy());
+    Value *Val = IV->getInsertedValueOperand();
+    if (isCompilerConstant(Val))
+      return;
+    // Allow only I8* type for value operand.
+    ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(Val);
+    for (auto Alias :
+         ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (!Alias->isPointerTy())
+        continue;
+      if (Alias != PTA.getDTransI8PtrType()) {
+        ValInfo->setUnhandled();
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unhandled InsertValueInst due to Value type: "
+                          << *IV << "\n");
+      }
+    }
   }
 
   void analyzeIntToPtrInst(IntToPtrInst *ITP, ValueTypeInfo *ResultInfo) {
