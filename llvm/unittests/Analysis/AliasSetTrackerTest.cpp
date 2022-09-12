@@ -76,12 +76,16 @@ TEST(AliasSetTracker, AliasUnknownInst) {
 
   // Directly test aliasesUnknownInst.
   // Now every call instruction should only alias one alias set.
+  BatchAAResults BatchAA(AA);
   for (auto &Inst : *Test->begin()) {
     bool FoundAS = false;
     for (AliasSet &AS : AST) {
       if (!Inst.mayReadOrWriteMemory())
         continue;
+<<<<<<< HEAD
       BatchAAResults BatchAA(AA);
+=======
+>>>>>>> 6d753f9523c6c799de3aa160aff6ee5de47da94e
       if (!AS.aliasesUnknownInst(&Inst, BatchAA))
         continue;
       ASSERT_NE(FoundAS, true);
