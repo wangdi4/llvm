@@ -382,6 +382,7 @@ MODULE_PASS("SPIRITTAnnotations", SPIRITTAnnotationsPass())
 MODULE_PASS("deadargelim-sycl", DeadArgumentEliminationSYCLPass())
 MODULE_PASS("sycllowerwglocalmemory", SYCLLowerWGLocalMemoryPass())
 MODULE_PASS("lower-esimd-kernel-attrs", SYCLFixupESIMDKernelWrapperMDPass())
+<<<<<<< HEAD
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
@@ -400,6 +401,9 @@ MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
 #endif // INTEL_COLLAB
 MODULE_PASS("vpo-paropt-target-inline", VPOParoptTargetInlinePass()) // INTEL
+=======
+MODULE_PASS("sycl-propagate-aspects-usage", SYCLPropagateAspectsUsagePass())
+>>>>>>> a4314ab3736e89f6e5aaeccf497ef7abbcb18e9f
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS
