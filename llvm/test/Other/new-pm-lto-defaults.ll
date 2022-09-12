@@ -286,12 +286,8 @@
 ; CHECK-O23SZ-NEXT-: Running analysis: ScalarEvolutionAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
-<<<<<<< HEAD
 ; Running analysis: PostDominatorTreeAnalysis on foo ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on Loop
-=======
-; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
->>>>>>> 5e3ac7969039678fc017a5599b051ea2b78075a4
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis on foo
@@ -302,7 +298,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
-<<<<<<< HEAD
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on Loop
@@ -378,11 +373,6 @@
 ; CHECK-O23SZ-NEXT:Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
 
-=======
-; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on loop
-; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on loop
-; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on loop
->>>>>>> 5e3ac7969039678fc017a5599b051ea2b78075a4
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
 ; INTEL_CUSTOMIZATION
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
