@@ -1303,9 +1303,7 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 TimeProfilingPassesHandler::TimeProfilingPassesHandler() {}
 
 void TimeProfilingPassesHandler::registerCallbacks(
@@ -1334,7 +1332,6 @@ void TimeProfilingPassesHandler::runBeforePass(StringRef PassID, Any IR) {
 
 void TimeProfilingPassesHandler::runAfterPass() { timeTraceProfilerEnd(); }
 
->>>>>>> 6975ab71260c79ddc7a616814678913e67ea417c
 namespace {
 
 class DisplayNode;
@@ -2271,9 +2268,7 @@ void StandardInstrumentations::registerCallbacks(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
   PrintCrashIR.registerCallbacks(PIC);
-<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   // TimeProfiling records the pass running time cost.
   // Its 'BeforePassCallback' can be appended at the tail of all the
   // BeforeCallbacks by calling `registerCallbacks` in the end.
@@ -2281,7 +2276,6 @@ void StandardInstrumentations::registerCallbacks(
   // AfterCallbacks by its `registerCallbacks`. This is necessary
   // to ensure that other callbacks are not included in the timings.
   TimeProfilingPasses.registerCallbacks(PIC);
->>>>>>> 6975ab71260c79ddc7a616814678913e67ea417c
 }
 
 template class ChangeReporter<std::string>;
