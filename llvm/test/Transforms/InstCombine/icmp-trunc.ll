@@ -466,15 +466,11 @@ define i1 @shl1_trunc_ne32(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_ne32(
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i8 1, [[A:%.*]]
 ; CHECK-NEXT:    call void @use(i8 [[SHL]])
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
 ; CHECK-NEXT:    [[T:%.*]] = trunc i8 [[SHL]] to i6
 ; CHECK-NEXT:    [[R:%.*]] = icmp ne i6 [[T]], -32
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[R:%.*]] = icmp ne i8 [[A]], 5
->>>>>>> 444f08c832c8ba67ad595037b58e3ac616a756f1
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i8 1, %a
