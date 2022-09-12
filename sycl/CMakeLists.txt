@@ -449,6 +449,11 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ioc64)
   endif()
 endif(INTEL_CUSTOMIZATION)
+# Build and install lld as part of the sycl-toolchain if available
+if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain lld)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
+endif()
 
 if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
   # Ensure that libclc is enabled.
@@ -470,14 +475,13 @@ if("hip" IN_LIST SYCL_ENABLE_PLUGINS)
       "HIP support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
   endif()
 
+  if(NOT TARGET lld AND "${SYCL_BUILD_PI_HIP_PLATFORM}" STREQUAL "AMD")
+    message(FATAL_ERROR
+      "HIP support requires adding \"lld\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+  endif()
+
   add_dependencies(sycl-toolchain libspirv-builtins pi_hip)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_hip)
-
-  # On AMD platform lld is also needed
-  if("${SYCL_BUILD_PI_HIP_PLATFORM}" STREQUAL "AMD")
-    add_dependencies(sycl-toolchain lld)
-    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
-  endif()
 endif()
 
 if("esimd_emulator" IN_LIST SYCL_ENABLE_PLUGINS)
