@@ -1303,7 +1303,38 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
 #endif // INTEL_CUSTOMIZATION
 }
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+TimeProfilingPassesHandler::TimeProfilingPassesHandler() {}
+
+void TimeProfilingPassesHandler::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  if (!getTimeTraceProfilerInstance())
+    return;
+  PIC.registerBeforeNonSkippedPassCallback(
+      [this](StringRef P, Any IR) { this->runBeforePass(P, IR); });
+  PIC.registerAfterPassCallback(
+      [this](StringRef P, Any IR, const PreservedAnalyses &) {
+        this->runAfterPass();
+      },
+      true);
+  PIC.registerAfterPassInvalidatedCallback(
+      [this](StringRef P, const PreservedAnalyses &) { this->runAfterPass(); },
+      true);
+  PIC.registerBeforeAnalysisCallback(
+      [this](StringRef P, Any IR) { this->runBeforePass(P, IR); });
+  PIC.registerAfterAnalysisCallback(
+      [this](StringRef P, Any IR) { this->runAfterPass(); }, true);
+}
+
+void TimeProfilingPassesHandler::runBeforePass(StringRef PassID, Any IR) {
+  timeTraceProfilerBegin(PassID, getIRName(IR));
+}
+
+void TimeProfilingPassesHandler::runAfterPass() { timeTraceProfilerEnd(); }
+
+>>>>>>> 6975ab71260c79ddc7a616814678913e67ea417c
 namespace {
 
 class DisplayNode;
@@ -2240,7 +2271,17 @@ void StandardInstrumentations::registerCallbacks(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
   PrintCrashIR.registerCallbacks(PIC);
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+  // TimeProfiling records the pass running time cost.
+  // Its 'BeforePassCallback' can be appended at the tail of all the
+  // BeforeCallbacks by calling `registerCallbacks` in the end.
+  // Its 'AfterPassCallback' is put at the front of all the
+  // AfterCallbacks by its `registerCallbacks`. This is necessary
+  // to ensure that other callbacks are not included in the timings.
+  TimeProfilingPasses.registerCallbacks(PIC);
+>>>>>>> 6975ab71260c79ddc7a616814678913e67ea417c
 }
 
 template class ChangeReporter<std::string>;
