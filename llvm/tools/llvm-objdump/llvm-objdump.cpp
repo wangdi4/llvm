@@ -2232,6 +2232,9 @@ static size_t getMaxSectionNameWidth(const ObjectFile &Obj) {
 }
 
 void objdump::printSectionHeaders(ObjectFile &Obj) {
+  if (Obj.isELF() && Obj.sections().empty())
+    createFakeELFSections(Obj);
+
   size_t NameWidth = getMaxSectionNameWidth(Obj);
   size_t AddressWidth = 2 * Obj.getBytesInAddress();
   bool HasLMAColumn = shouldDisplayLMA(Obj);
@@ -2243,9 +2246,6 @@ void objdump::printSectionHeaders(ObjectFile &Obj) {
   else
     outs() << "Idx " << left_justify("Name", NameWidth) << " Size     "
            << left_justify("VMA", AddressWidth) << " Type\n";
-
-  if (Obj.isELF() && Obj.sections().empty())
-    createFakeELFSections(Obj);
 
   uint64_t Idx;
   for (const SectionRef &Section : ToolSectionFilter(Obj, &Idx)) {
