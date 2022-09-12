@@ -193,6 +193,7 @@ bool llvm::isPassInPrintList(StringRef PassName) {
   return Set.empty() || Set.count(std::string(PassName));
 }
 
+<<<<<<< HEAD
 #else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 #if INTEL_CUSTOMIZATION
 std::vector<std::string> llvm::printBeforePasses() {
@@ -205,6 +206,9 @@ std::vector<std::string> llvm::printAfterPasses() {
 
 #endif // INTEL_CUSTOMIZATION
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+bool llvm::isFilterPassesEmpty() { return FilterPasses.empty(); }
+>>>>>>> f48931f3a86dd8d42eb11fa8ce49fd5c120785a2
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #if defined(NDEBUG) && !defined(LLVM_ENABLE_DUMP) // INTEL
