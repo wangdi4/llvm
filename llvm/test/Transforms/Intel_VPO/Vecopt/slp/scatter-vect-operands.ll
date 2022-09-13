@@ -23,7 +23,7 @@ define void @test(i64 %arg) {
 ; CHECK-NEXT:    [[I1296:%.*]] = load %struct.site*, %struct.site** @lattice, align 8
 ; CHECK-NEXT:    br label [[BB219:%.*]]
 ; CHECK:       bb219:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ undef, [[ENTRY:%.*]] ], [ [[OP_RDX8:%.*]], [[BB220:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ undef, [[ENTRY:%.*]] ], [ [[OP_RDX9:%.*]], [[BB220:%.*]] ]
 ; CHECK-NEXT:    br label [[BB220]]
 ; CHECK:       bb220:
 ; CHECK-NEXT:    [[I221:%.*]] = getelementptr inbounds [[STRUCT_SITE:%.*]], %struct.site* [[I1296]], i64 [[ARG:%.*]], i32 0, i64 2, i32 0, i64 1, i64 2
@@ -51,15 +51,16 @@ define void @test(i64 %arg) {
 ; CHECK-NEXT:    [[I255:%.*]] = bitcast float* [[I254]] to i32*
 ; CHECK-NEXT:    [[I256:%.*]] = load i32, i32* [[I255]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef)
-; CHECK-NEXT:    [[OP_RDX:%.*]] = add i32 [[I223]], [[I226]]
-; CHECK-NEXT:    [[OP_RDX1:%.*]] = add i32 [[I231]], [[I236]]
-; CHECK-NEXT:    [[OP_RDX2:%.*]] = add i32 [[I239]], [[I244]]
-; CHECK-NEXT:    [[OP_RDX3:%.*]] = add i32 [[I249]], [[I256]]
-; CHECK-NEXT:    [[OP_RDX4:%.*]] = add i32 [[OP_RDX]], [[OP_RDX1]]
-; CHECK-NEXT:    [[OP_RDX5:%.*]] = add i32 [[OP_RDX2]], [[OP_RDX3]]
-; CHECK-NEXT:    [[OP_RDX6:%.*]] = add i32 [[OP_RDX4]], [[OP_RDX5]]
-; CHECK-NEXT:    [[OP_RDX7:%.*]] = add i32 [[OP_RDX6]], undef
-; CHECK-NEXT:    [[OP_RDX8]] = add i32 [[TMP0]], [[OP_RDX7]]
+; CHECK-NEXT:    [[OP_RDX:%.*]] = add i32 [[TMP0]], [[I223]]
+; CHECK-NEXT:    [[OP_RDX1:%.*]] = add i32 [[I226]], [[I231]]
+; CHECK-NEXT:    [[OP_RDX2:%.*]] = add i32 [[I236]], [[I239]]
+; CHECK-NEXT:    [[OP_RDX3:%.*]] = add i32 [[I244]], [[I249]]
+; CHECK-NEXT:    [[OP_RDX4:%.*]] = add i32 [[I256]], undef
+; CHECK-NEXT:    [[OP_RDX5:%.*]] = add i32 [[OP_RDX]], [[OP_RDX1]]
+; CHECK-NEXT:    [[OP_RDX6:%.*]] = add i32 [[OP_RDX2]], [[OP_RDX3]]
+; CHECK-NEXT:    [[OP_RDX7:%.*]] = add i32 [[OP_RDX4]], undef
+; CHECK-NEXT:    [[OP_RDX8:%.*]] = add i32 [[OP_RDX5]], [[OP_RDX6]]
+; CHECK-NEXT:    [[OP_RDX9]] = add i32 [[OP_RDX8]], [[OP_RDX7]]
 ; CHECK-NEXT:    br i1 undef, label [[BB219]], label [[BB220]]
 ; CHECK:       bb259:
 ; CHECK-NEXT:    ret void
