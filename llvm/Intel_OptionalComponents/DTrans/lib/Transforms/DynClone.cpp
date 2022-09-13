@@ -4735,14 +4735,6 @@ template <class InfoClass> bool DynCloneImpl<InfoClass>::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
 
-  // Does not support 32-bit DTransDynCloneShrTyWidth and
-  // DTransDynCloneSignShrunkenIntType with opaque pointer yet.
-  if (dtrans::shouldRunOpaquePointerPasses(M)) {
-    if (DTransDynCloneShrTyWidth == 32)
-      DTransDynCloneShrTyWidth = 16;
-    DTransDynCloneSignShrunkenIntType = false;
-  }
-
   ShrunkenIntTy =
             Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth);
 

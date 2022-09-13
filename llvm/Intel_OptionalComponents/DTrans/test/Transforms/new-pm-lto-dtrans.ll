@@ -73,6 +73,8 @@
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
+; CHECK-NEXT: Running pass: dtransOP::ReuseFieldOPPass
+; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtransOP::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
