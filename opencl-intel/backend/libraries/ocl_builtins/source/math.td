@@ -74,7 +74,6 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
     def maxmag_f16 : OclBuiltin<"maxmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def minmag_f16 : OclBuiltin<"minmag", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     // def modf_pas2_f16 : OclBuiltin<"modf_ret2ptr", (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval)>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-    def nextafter_f16 : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def pow_f16 : OclBuiltin<"pow", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def powr_f16 : OclBuiltin<"powr", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
     def remainder_f16 : OclBuiltin<"remainder", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
@@ -96,6 +95,7 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
   def fabs : OclBuiltin<"fabs", (outs gentype:$ret), (ins gentype:$x)>;
   def mad_f16 : OclBuiltin<"mad", (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c)>;
   def nan : OclBuiltin<"nan", (outs gentype:$ret), (ins ugentype:$nancode)>;
+  def nextafter_fp16 : OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
 
   defset list<OclBuiltin> math_builtins_with_i32gentype_arg1 = {
     def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
@@ -253,6 +253,57 @@ def : OclBuiltinImpl<mad_f16, math_f16_types, false, mad_code>, SHARED;
 def : OclBuiltinImpl<nan, nan.Types, false, [{
   return __builtin_astype(($Arg0Type)($Arg0VarName | ($Arg0Type)$ReturnBaseType_QNAN_MASK), $ReturnType);
 }]>, SHARED;
+
+// nextafter fp16 for shared target
+// if from is NaN or to is NaN, return NaN
+// if from == to, return same value
+// if from is +0, to < 0, return smallest negative denormal value
+// if from is -0, to > 0, return smallest positive denormal value
+// else convert to ushort, do +1 or -1
+def : OclBuiltinImpl<nextafter_fp16, math_f16_types, false, [{
+  half$VecLength result = $Arg0VarName;
+  $Arg0ugentype arg0 = __builtin_astype($Arg0VarName, $Arg0ugentype);
+  $Arg1ugentype arg1 = __builtin_astype($Arg1VarName, $Arg1ugentype);
+  ushort$VecLength neg_zero = (ushort$VecLength)(0x8000); // -0
+  ushort$VecLength smallest_neg_denum = (ushort$VecLength)(0x8001); // smallest negative denormal value.
+  ushort$VecLength zero = (ushort$VecLength)(0);
+  ushort$VecLength smallest_denum = (ushort$VecLength)(0x0001); // smallest positive denormal value.
+
+  short$VecLength cond1 = isnan($Arg0VarName);
+  $Arg0ugentype x_nan = arg0 | (ushort$VecLength)(half_QNAN_MASK);
+  result = select(result, __builtin_astype(x_nan, $ReturnType), cond1);
+
+  short$VecLength cond2 = isnan($Arg1VarName);
+  $Arg1ugentype y_nan = arg1 | (ushort$VecLength)(half_QNAN_MASK);
+  result = select(result, __builtin_astype(y_nan, $ReturnType), cond2);
+
+  short$VecLength cond3 = (arg0 == arg1 || (arg0 == zero && arg1 == neg_zero) || (arg0 == neg_zero && arg1 == zero));
+  result = select(result, $Arg1VarName, cond3);
+
+  short$VecLength cond4 = (arg0 == zero && $Arg1VarName < $Arg0VarName);
+  result = select(result, __builtin_astype(smallest_neg_denum, $ReturnType), cond4);
+
+  short$VecLength cond5 = (arg0 == neg_zero && $Arg1VarName > $Arg0VarName);
+  result = select(result, __builtin_astype(smallest_denum, $ReturnType), cond5);
+
+  short$VecLength cond6 = !(cond1 || cond2 || cond3 || cond4 || cond5);
+  $Arg0ugentype temp = select(arg0 - (ushort$VecLength)(1), arg0 + (ushort$VecLength)(1), ($Arg0VarName > 0) == ($Arg0VarName < $Arg1VarName));
+  result = select(result, __builtin_astype(temp, $ReturnType), cond6);
+
+  return result;
+}]>, SHARED;
+
+// nextafter fp16 for AMX
+defvar indices = Range<0, !size(nextafter_fp16.Ins)>.Tout;
+defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
+let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
+def : OclBuiltinImpl<nextafter_fp16, [], false, call_svml_code, [["$Func", nextafter_fp16.Name], ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
+
+defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", indices>.Tout;
+defvar expanded_hi_args = RangeStr<"$Arg#VarName.hi", indices>.Tout;
+let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
+def : OclBuiltinImpl<nextafter_fp16, [], false, expand_code, [["$LOARGLIST", !interleave(expanded_lo_args, ", ")], ["$HIARGLIST", !interleave(expanded_hi_args, ", ")]]>, AMX;
+
 // [MASKED] nan: fill results with zero to avoid potential NaN propagation.
 def : OclBuiltinImpl<nan_mask, nan_mask.Types, false, mask_inactive_res_to_zero>, SHARED;
 
