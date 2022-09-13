@@ -840,6 +840,13 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 
   llvm::Triple Target(llvm::Triple::normalize(TargetTriple));
 
+#if INTEL_CUSTOMIZATION
+  // Any use of NVPTX or AMDGCN is not supported.  This should only be allowed
+  // during offloading compilations.
+  if (D.IsIntelMode() && (Target.isNVPTX() || Target.isAMDGCN()))
+    D.Diag(diag::err_drv_unsupported_target) << Target.str();
+#endif // INTEL_CUSTOMIZATION
+
   // GNU/Hurd's triples should have been -hurd-gnu*, but were historically made
   // -gnu* only, and we can not change this, so we have to detect that case as
   // being the Hurd OS.
