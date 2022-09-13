@@ -198,6 +198,7 @@ MODULE_PASS("debugify", NewPMDebugifyPass())
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
 MODULE_PASS("dtrans-aostosoaop", dtransOP::AOSToSOAOPPass())     // INTEL
 MODULE_PASS("dtrans-reusefield", dtrans::ReuseFieldPass())       // INTEL
+MODULE_PASS("dtrans-reusefieldop", dtransOP::ReuseFieldOPPass()) // INTEL
 MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-deletefieldop", dtransOP::DeleteFieldOPPass()) // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
