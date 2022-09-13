@@ -293,7 +293,6 @@
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
 // FOPENMP_TARGET_SIMD: clang{{.*}} "-triple" "spir64" {{.*}} "-fopenmp-target-simd" "-mllvm" "-vpo-paropt-enable-device-simd-codegen"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-emit-spirv-builtins"
-// FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-gpu-execution-scheme=0"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vplan-target-vf=16"
 // FOPENMP_TARGET_SIMD: "-O2"
