@@ -2041,7 +2041,7 @@ if (INTEL_CUSTOMIZATION)
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
       clang-resource-headers llvm-cov clang-tidy llvm-ml
       # XDEV components
-      xdev-dpcpp xdev-icx xdev-icx-cl xdev-icpx xdev-ifx xdev-fpp xdev-xfortcom
+      xdev-dpcpp xdev-icx xdev-icpx xdev-ifx xdev-fpp xdev-xfortcom
       xdev-fort-target-rtl xdev-compilervars xdev-il0-llvm-common-headers
       xdev-il0-llvm-common-lib xdev-support-scripts xdev-cmake-scripts
       xdev-compiler-conf
