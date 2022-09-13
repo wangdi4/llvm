@@ -734,6 +734,14 @@ public:
     return Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch;
   }
 
+  bool inNestedTargetConstruct() override {
+    if (Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_target)
+      return true;
+    if (!OldCSI)
+      return false;
+    return OldCSI->inNestedTargetConstruct();
+  }
+
   void enterTryStmt() override { ++TryStmts; }
   void exitTryStmt() override {
     assert(TryStmts > 0);

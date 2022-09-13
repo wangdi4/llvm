@@ -14,7 +14,9 @@
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | \
 // RUN:  FileCheck %s --implicit-check-not not_used
 
+#pragma omp begin declare target
 constexpr float array[] = { 0.0f, 1.0f };
+#pragma omp end declare target
 // Verify that both host and target definitions match and are internal
 //CHECK: @_ZL5array = internal {{.*}}constant [2 x float]
 //CHECK-SAME: [float 0.000000e+00, float 1.000000e+00], align 4

@@ -11112,6 +11112,10 @@ def note_omp_marked_device_type_here : Note<"marked as 'device_type(%0)' here">;
 def warn_omp_declare_target_after_first_use : Warning<
   "declaration marked as declare target after first use, it may lead to incorrect results">,
   InGroup<OpenMPTarget>;
+#if INTEL_COLLAB
+def err_omp_used_target_variable_not_marked : Error<
+  "variable %0 used but not marked as declare target">;
+#endif // INTEL_COLLAB
 def err_omp_declare_variant_incompat_attributes : Error<
   "'#pragma omp declare variant' is not compatible with any target-specific attributes">;
 def warn_omp_declare_variant_score_not_constant
