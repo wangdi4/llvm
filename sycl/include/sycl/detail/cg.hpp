@@ -25,7 +25,6 @@
 
 #include <sycl/accessor.hpp>
 #include <sycl/backend_types.hpp>
-#include <sycl/detail/accessor_impl.hpp>
 #include <sycl/detail/cg_types.hpp>
 #include <sycl/detail/common.hpp>
 #include <sycl/detail/export.hpp>
@@ -90,7 +89,7 @@ public:
   CG(CGTYPE Type, std::vector<std::vector<char>> ArgsStorage,
      std::vector<detail::AccessorImplPtr> AccStorage,
      std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-     std::vector<Requirement *> Requirements,
+     std::vector<AccessorImplHost *> Requirements,
      std::vector<detail::EventImplPtr> Events, detail::code_location loc = {})
       : MType(Type), MArgsStorage(std::move(ArgsStorage)),
         MAccStorage(std::move(AccStorage)),
@@ -127,7 +126,7 @@ private:
 public:
   /// List of requirements that specify which memory is needed for the command
   /// group to be executed.
-  std::vector<Requirement *> MRequirements;
+  std::vector<AccessorImplHost *> MRequirements;
   /// List of events that order the execution of this CG
   std::vector<detail::EventImplPtr> MEvents;
   // Member variables to capture the user code-location
@@ -158,7 +157,7 @@ public:
                std::vector<std::vector<char>> ArgsStorage,
                std::vector<detail::AccessorImplPtr> AccStorage,
                std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-               std::vector<Requirement *> Requirements,
+               std::vector<AccessorImplHost *> Requirements,
                std::vector<detail::EventImplPtr> Events,
                std::vector<ArgDesc> Args, std::string KernelName,
                detail::OSModuleHandle OSModuleHandle,
@@ -209,7 +208,7 @@ public:
          std::vector<std::vector<char>> ArgsStorage,
          std::vector<detail::AccessorImplPtr> AccStorage,
          std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-         std::vector<Requirement *> Requirements,
+         std::vector<AccessorImplHost *> Requirements,
          std::vector<detail::EventImplPtr> Events,
          detail::code_location loc = {})
       : CG(CopyType, std::move(ArgsStorage), std::move(AccStorage),
@@ -224,39 +223,39 @@ public:
 class CGFill : public CG {
 public:
   std::vector<char> MPattern;
-  Requirement *MPtr;
+  AccessorImplHost *MPtr;
 
   CGFill(std::vector<char> Pattern, void *Ptr,
          std::vector<std::vector<char>> ArgsStorage,
          std::vector<detail::AccessorImplPtr> AccStorage,
          std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-         std::vector<Requirement *> Requirements,
+         std::vector<AccessorImplHost *> Requirements,
          std::vector<detail::EventImplPtr> Events,
          detail::code_location loc = {})
       : CG(Fill, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
            std::move(Events), std::move(loc)),
-        MPattern(std::move(Pattern)), MPtr((Requirement *)Ptr) {}
-  Requirement *getReqToFill() { return MPtr; }
+        MPattern(std::move(Pattern)), MPtr((AccessorImplHost *)Ptr) {}
+  AccessorImplHost *getReqToFill() { return MPtr; }
 };
 
 /// "Update host" command group class.
 class CGUpdateHost : public CG {
-  Requirement *MPtr;
+  AccessorImplHost *MPtr;
 
 public:
   CGUpdateHost(void *Ptr, std::vector<std::vector<char>> ArgsStorage,
                std::vector<detail::AccessorImplPtr> AccStorage,
                std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-               std::vector<Requirement *> Requirements,
+               std::vector<AccessorImplHost *> Requirements,
                std::vector<detail::EventImplPtr> Events,
                detail::code_location loc = {})
       : CG(UpdateHost, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
            std::move(Events), std::move(loc)),
-        MPtr((Requirement *)Ptr) {}
+        MPtr((AccessorImplHost *)Ptr) {}
 
-  Requirement *getReqToUpdate() { return MPtr; }
+  AccessorImplHost *getReqToUpdate() { return MPtr; }
 };
 
 /// "Copy USM" command group class.
@@ -270,7 +269,7 @@ public:
             std::vector<std::vector<char>> ArgsStorage,
             std::vector<detail::AccessorImplPtr> AccStorage,
             std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-            std::vector<Requirement *> Requirements,
+            std::vector<AccessorImplHost *> Requirements,
             std::vector<detail::EventImplPtr> Events,
             detail::code_location loc = {})
       : CG(CopyUSM, std::move(ArgsStorage), std::move(AccStorage),
@@ -294,7 +293,7 @@ public:
             std::vector<std::vector<char>> ArgsStorage,
             std::vector<detail::AccessorImplPtr> AccStorage,
             std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-            std::vector<Requirement *> Requirements,
+            std::vector<AccessorImplHost *> Requirements,
             std::vector<detail::EventImplPtr> Events,
             detail::code_location loc = {})
       : CG(FillUSM, std::move(ArgsStorage), std::move(AccStorage),
@@ -316,7 +315,7 @@ public:
                 std::vector<std::vector<char>> ArgsStorage,
                 std::vector<detail::AccessorImplPtr> AccStorage,
                 std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-                std::vector<Requirement *> Requirements,
+                std::vector<AccessorImplHost *> Requirements,
                 std::vector<detail::EventImplPtr> Events,
                 detail::code_location loc = {})
       : CG(PrefetchUSM, std::move(ArgsStorage), std::move(AccStorage),
@@ -338,7 +337,7 @@ public:
               std::vector<std::vector<char>> ArgsStorage,
               std::vector<detail::AccessorImplPtr> AccStorage,
               std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-              std::vector<Requirement *> Requirements,
+              std::vector<AccessorImplHost *> Requirements,
               std::vector<detail::EventImplPtr> Events, CGTYPE Type,
               detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
@@ -358,7 +357,7 @@ public:
                 std::vector<std::vector<char>> ArgsStorage,
                 std::vector<detail::AccessorImplPtr> AccStorage,
                 std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-                std::vector<Requirement *> Requirements,
+                std::vector<AccessorImplHost *> Requirements,
                 std::vector<detail::EventImplPtr> Events, CGTYPE Type,
                 detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
@@ -383,7 +382,7 @@ public:
              std::vector<std::vector<char>> ArgsStorage,
              std::vector<detail::AccessorImplPtr> AccStorage,
              std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-             std::vector<Requirement *> Requirements,
+             std::vector<AccessorImplHost *> Requirements,
              std::vector<detail::EventImplPtr> Events, CGTYPE Type,
              detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
@@ -401,7 +400,7 @@ public:
             std::vector<std::vector<char>> ArgsStorage,
             std::vector<detail::AccessorImplPtr> AccStorage,
             std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-            std::vector<Requirement *> Requirements,
+            std::vector<AccessorImplHost *> Requirements,
             std::vector<detail::EventImplPtr> Events, CGTYPE Type,
             detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
