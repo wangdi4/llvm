@@ -5566,8 +5566,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-emit-spirv-builtins");
         CmdArgs.push_back("-mllvm");
-        CmdArgs.push_back("-vpo-paropt-gpu-execution-scheme=0");
-        CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-enable-device-simd");
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-preserve-llvm-intrin");
