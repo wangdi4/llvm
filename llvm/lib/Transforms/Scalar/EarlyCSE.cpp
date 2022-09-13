@@ -152,6 +152,14 @@ struct SimpleValue {
             return false;
           return true;
         }
+#if INTEL_COLLAB
+        case Intrinsic::threadlocal_address:
+          // TLS needs to stay where it is, if there are OpenMP directives.
+          // The active thread may change depending on the OpenMP regions.
+          // CSE/GVN can take care of these after OpenMP lowering.
+          return !llvm::vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(
+              *(Inst->getFunction()));
+#endif // INTEL_COLLAB
         }
       }
       return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy();
