@@ -304,10 +304,10 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, deletefield, dtrans::DeleteFieldPass());
   addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
   addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
-  if (EnableReuseFields)
+  if (EnableReuseFields) {
     addPass(MPM, reusefield, dtrans::ReuseFieldPass());
-  if (EnableDeleteFields)
     addPass(MPM, deletefield, dtrans::DeleteFieldPass());
+  }
   addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
   addPass(MPM, dynclone, dtrans::DynClonePass());
   // End of typed pointer passes
@@ -324,6 +324,12 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
   addPass(MPM, reorderfields, dtransOP::ReorderFieldsOPPass());
   addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());
+
+  if (EnableReuseFields) {
+    addPass(MPM, reusefield, dtransOP::ReuseFieldOPPass());
+    addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
+  }
+
   addPass(MPM, elimrofieldaccess, dtransOP::EliminateROFieldAccessPass());
   addPass(MPM, dynclone, dtransOP::DynClonePass());
 
@@ -380,10 +386,10 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
   addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
   addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
-  if (EnableReuseFields)
+  if (EnableReuseFields) {
     addPass(PM, reusefield, createDTransReuseFieldWrapperPass());
-  if (EnableDeleteFields)
     addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
+  }
 
   addPass(PM, elimrofieldaccess,
           createDTransEliminateROFieldAccessWrapperPass());
