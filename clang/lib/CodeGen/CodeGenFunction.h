@@ -483,6 +483,7 @@ public:
     virtual bool inTargetVariantDispatchRegion() { return false; }
     virtual bool isDispatchTargetCall(SourceLocation Loc) {return false; }
     virtual bool inDispatchRegion() { return false; }
+    virtual bool inNestedTargetConstruct() { return false; }
     virtual void enterTryStmt() { }
     virtual void exitTryStmt() { }
     virtual bool inTryStmt() { assert(false); return false; }

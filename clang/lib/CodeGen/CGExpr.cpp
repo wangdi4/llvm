@@ -2701,6 +2701,25 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
       return CGF.MakeAddrLValue(Addr, T, AlignmentSource::Decl);
   }
 
+#if INTEL_COLLAB
+  // Diagnose uses of globals that are not marked for target. This typically
+  // causes an offload failure at runtime.
+  if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsDevice &&
+      CGF.CGM.inTargetRegion() && E->getExprLoc().isValid() &&
+      !(CGF.CapturedStmtInfo &&
+        CGF.CapturedStmtInfo->inNestedTargetConstruct())) {
+    llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+        OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+    if (!Res) {
+      CGF.CGM.getDiags().Report(E->getExprLoc(),
+                                diag::err_omp_used_target_variable_not_marked)
+          << VD;
+      CGF.CGM.getDiags().Report(VD->getBeginLoc(), diag::note_previous_decl)
+          << VD;
+    }
+  }
+#endif // INTEL_COLLAB
+
   llvm::Value *V = CGF.CGM.GetAddrOfGlobalVar(VD);
 
   if (VD->getTLSKind() != VarDecl::TLS_None)
