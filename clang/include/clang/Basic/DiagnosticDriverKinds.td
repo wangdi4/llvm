@@ -349,6 +349,7 @@ def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
 #if INTEL_CUSTOMIZATION
 def err_drv_opt_requires_opt : Error<"The use of '%0' requires '%1'.">;
 def err_drv_openmp_targets_spir64_unsupported_opt : Error<"The use of '%0' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.">;
+def err_drv_unsupported_target : Error<"target '%0' is not supported">;
 #endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
   "'%0' must be used in conjunction with '-fsycl' to enable offloading">;
