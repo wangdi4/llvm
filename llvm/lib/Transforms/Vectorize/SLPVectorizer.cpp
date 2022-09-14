@@ -139,8 +139,14 @@ static cl::opt<int>
     SLPCostThreshold("slp-threshold", cl::init(0), cl::Hidden,
                      cl::desc("Only vectorize if you gain more than this "
                               "number "));
-
 #if INTEL_CUSTOMIZATION
+namespace llvm {
+namespace slpvectorizer {
+// Enable the formation of Multi-Nodes.
+static bool EnableMultiNodeSLP = true;
+} // namespace slpvectorizer.
+} // namespace llvm.
+
 // Use of this knob is supposed to be limited with LIT tests only.
 // Thus it must remain in its default "false" state for normal compiler use.
 // The whole purpose of this knob is attempt to reduce customizations in LLVM
@@ -190,9 +196,10 @@ static cl::opt<uint32_t>
 // "Look-Ahead SLP: Auto-vectorization in the Presence of Commutative
 // Operations, V. Porpodas, R.C.O. Rocha, L.F.W. Góes, CGO'18."
 // https://doi.org/10.1145/3168807
-static cl::opt<bool> EnableMultiNodeSLP("multi-node-slp", cl::init(true),
-                                        cl::Hidden,
-                                        cl::desc("Enable Multi-Node SLP"));
+static cl::opt<bool, true>
+    EnableMultiNodeOpt("multi-node-slp", cl::Hidden,
+                       cl::location(EnableMultiNodeSLP),
+                       cl::desc("Enable Multi-Node SLP"));
 
 // This is a work-around to avoid compilation time explosion caused by
 // re-scheduling the vectorizableTree. In a future implementation this should be
