@@ -188,6 +188,12 @@ static bool replaceSignedInst(SCCPSolver &Solver,
                               Instruction &Inst) {
   // Determine if a signed value is known to be >= 0.
   auto isNonNegative = [&Solver](Value *V) {
+    // If this value was constant-folded, it may not have a solver entry.
+    // Handle integers. Otherwise, return false.
+    if (auto *C = dyn_cast<Constant>(V)) {
+      auto *CInt = dyn_cast<ConstantInt>(C);
+      return CInt && !CInt->isNegative();
+    }
     const ValueLatticeElement &IV = Solver.getLatticeValueFor(V);
     return IV.isConstantRange(/*UndefAllowed=*/false) &&
            IV.getConstantRange().isAllNonNegative();
