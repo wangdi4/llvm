@@ -47,8 +47,10 @@ class VecCloneImpl {
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value*> PrivateMemory;
-    /// Set of memory locations to mark as uniform for the SIMD loop
-    SetVector<Value*> UniformMemory;
+    /// Set of memory locations to mark as uniform for the SIMD loop. The map
+    /// is from the arg of the function to a pair of values that represent the
+    /// memory location on the stack and the load from that memory.
+    MapVector<Argument*, std::pair<Value*, Value*>>  UniformMemory;
     /// Set of memory locations to mark as linear for the SIMD loop
     /// The non-key value is the stride
     MapVector<Value*, Value*> LinearMemory;
@@ -169,7 +171,7 @@ class VecCloneImpl {
     /// \brief Utility function that generates instructions that calculate the
     /// stride for a linear argument.
     Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
-                                     Instruction *ParmUser, int Stride,
+                                     Instruction *ParmUser, Value *Stride,
                                      PHINode *Phi);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
@@ -177,7 +179,7 @@ class VecCloneImpl {
     void disableLoopUnrolling(BasicBlock *Latch);
 
 #if INTEL_CUSTOMIZATION
-    /// Filter out unsupported R/U/L/s encodings.
+    /// Filter out unsupported R/U/L encodings.
     /// Can be removed once these encodings are supported.
     void filterUnsupportedVectorVariants(Module &M,
                                          SmallVector<Function *, 8> &DiagList,

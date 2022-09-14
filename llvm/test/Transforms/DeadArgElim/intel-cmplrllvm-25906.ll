@@ -5,11 +5,12 @@
 ; Check that dead argument elimination does not happen for @foo because it
 ; has vector variants. The arguments of vector variants cannot be eliminated
 ; because the number of arguments is tied to the function signature of the
-; vector variant.
+; vector variant. In addition, do not turn dead args to poison because args not
+; explicitly used in the function may be used by VecClone to calculate stride.
 
 ; CHECK: DeadArgumentEliminationPass - foo has vector variants
 ; CHECK: define dso_local i32 @main()
-; CHECK: call i32 @foo(i32 %0, i32 poison)
+; CHECK: call i32 @foo(i32 %0, i32 %1)
 ; CHECK: define internal i32 @foo(i32 %i, i32 %x)
 
 @glob1 = dso_local global i32 5, align 4
