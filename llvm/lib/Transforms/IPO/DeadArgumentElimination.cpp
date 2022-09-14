@@ -342,6 +342,14 @@ bool DeadArgumentEliminationPass::removeDeadArgumentsFromCallers(Function &F) {
       !F.getFunctionType()->isVarArg())
     return false;
 
+  #if INTEL_CUSTOMIZATION
+  // Don't eliminate args to vector variant functions. E.g., strides for linear
+  // args can be passed via another arg which may not have explicit uses within
+  // the function.
+  if (F.hasFnAttribute("vector-variants"))
+    return false;
+  #endif // INTEL_CUSTOMIZATION
+
   // Don't touch naked functions. The assembly might be using an argument, or
   // otherwise rely on the frame layout in a way that this analysis will not
   // see.
