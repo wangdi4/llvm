@@ -24,6 +24,7 @@
 #define OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE             "cl_khr_byte_addressable_store"
 
 #define OCL_EXT_KHR_FP64                               "cl_khr_fp64"
+#define OCL_EXT_KHR_FP16                               "cl_khr_fp16"
 
 #define OCL_EXT_KHR_DEPTH_IMAGES                       "cl_khr_depth_images"
 #define OCL_EXT_KHR_3D_IMAGE_WRITES                    "cl_khr_3d_image_writes"
