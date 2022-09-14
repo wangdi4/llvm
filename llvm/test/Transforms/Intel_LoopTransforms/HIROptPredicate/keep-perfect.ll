@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DO"
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DO"
 
-; RUN: opt -hir-opt-predicate-keep-perfect -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DONT"
-; RUN: opt -hir-opt-predicate-keep-perfect -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DONT"
+; RUN: opt -hir-opt-predicate-early-opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DONT"
+; RUN: opt -hir-opt-predicate-early-opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,DONT"
 
 ; Check that hir-opt-predicate will not transform the following loopnest if "keep-perfect" mode is active.
 

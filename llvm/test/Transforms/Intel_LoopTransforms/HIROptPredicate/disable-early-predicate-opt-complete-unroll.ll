@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="REGULAR"
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="REGULAR"
 
-; RUN: opt -hir-opt-predicate-keep-perfect -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="EARLY"
-; RUN: opt -hir-opt-predicate-keep-perfect -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="EARLY"
+; RUN: opt -hir-opt-predicate-early-opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="EARLY"
+; RUN: opt -hir-opt-predicate-early-opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s --check-prefixes="EARLY"
 
 ; Check that hir-opt-predicate will not hoist 'if (i1 >u 50)' out of the
 ; innermost loop if "keep-perfect" (early predicate opt) mode is active because
@@ -57,7 +57,7 @@ for.cond1.preheader:                              ; preds = %for.cond.cleanup3, 
   %cmp5 = icmp ugt i64 %indvars.iv40, 50
   %0 = add nsw i64 %indvars.iv40, -1
   %arrayidx4 = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 %indvars.iv40, i64 0
-  %ld = load i32, i32* %arrayidx4, align 4 
+  %ld = load i32, i32* %arrayidx4, align 4
   %cmp1 = icmp sgt i32 %ld, 4
   br i1 %cmp1, label %if.outer.then, label %if.outer.merge
 
