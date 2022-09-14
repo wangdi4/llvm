@@ -6613,18 +6613,14 @@ static std::pair<size_t, size_t> generateKeySubkey(
   return std::make_pair(Key, SubKey);
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-=======
 /// Checks if the specified instruction \p I is an alternate operation for
 /// the given \p MainOp and \p AltOp instructions.
 static bool isAlternateInstruction(const Instruction *I,
                                    const Instruction *MainOp,
                                    const Instruction *AltOp);
 
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
->>>>>>> 18dde772d6ffbc2b152fc7309bd03900e1517852
+#if INTEL_CUSTOMIZATION
+void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                             const EdgeInfo &UserTreeIdx) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
