@@ -113,9 +113,10 @@ static cl::opt<bool> DisablePartialUnswitch("disable-" OPT_SWITCH "-pu",
                                                      " partial unswitch"));
 
 static cl::opt<bool>
-    KeepLoopnestPerfectOption(OPT_SWITCH "-keep-perfect", cl::init(false),
-                              cl::Hidden,
-                              cl::desc(OPT_DESC " keep loopnests perfect"));
+    EarlyPredicateOptOption(OPT_SWITCH "-early-opt", cl::init(false),
+                            cl::Hidden,
+                            cl::desc(OPT_DESC " with special options during "
+                                     "early pass"));
 
 constexpr unsigned DefaultMaxCasesThreshold = 8;
 
@@ -376,10 +377,10 @@ public:
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                   HIRLoopStatistics &HLS, bool EnablePartialUnswitch,
-                  bool KeepLoopnestPerfect)
+                  bool EarlyPredicateOpt)
       : HIRF(HIRF), DDA(DDA), HLS(HLS), BU(HIRF.getBlobUtils()),
         EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
-        KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
+        EarlyPredicateOpt(EarlyPredicateOpt || EarlyPredicateOptOption) {}
 
   bool run();
 
@@ -390,7 +391,7 @@ private:
   BlobUtils &BU;
 
   bool EnablePartialUnswitch;
-  bool KeepLoopnestPerfect;
+  bool EarlyPredicateOpt;
 
   struct CandidateLookup;
   struct RegionSizeCalculator;
@@ -968,12 +969,10 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     Level = ParentLoop->getNestingLevel();
   }
 
-  if (IsCandidate && Pass.KeepLoopnestPerfect && Level != 0) {
+  if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
     // Suppress single level predicate optimization for complete unroll
     // candidates as it may complicate the analysis for unrolling and subsequent
     // passes.
-    // TODO: Should we rename KeepLoopnestPerfect to EarlyPredicateOpt for
-    // better context?
     uint64_t TC;
     bool IsCompleteUnrollCandidate =
         (ParentLoop->isInnermost() &&
@@ -1197,7 +1196,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 // instruction will be converted into an If/Else which will be unswitched.
 void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
-      Pass.KeepLoopnestPerfect || !TransformLoop)
+      Pass.EarlyPredicateOpt || !TransformLoop)
     return;
 
   // Current loop should be innermost and a Do loop
@@ -2273,7 +2272,7 @@ PreservedAnalyses HIROptPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  EnablePartialUnswitch, KeepLoopnestPerfect)
+                  EnablePartialUnswitch, EarlyPredicateOpt)
       .run();
 
   return PreservedAnalyses::all();
@@ -2281,15 +2280,15 @@ PreservedAnalyses HIROptPredicatePass::runImpl(
 
 class HIROptPredicateLegacyPass : public HIRTransformPass {
   bool EnablePartialUnswitch;
-  bool KeepLoopnestPerfect;
+  bool EarlyPredicateOpt;
 
 public:
   static char ID;
 
   HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true,
-                            bool KeepLoopnestPerfect = false)
+                            bool EarlyPredicateOpt = false)
       : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch),
-        KeepLoopnestPerfect(KeepLoopnestPerfect) {
+        EarlyPredicateOpt(EarlyPredicateOpt) {
     initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -2311,7 +2310,7 @@ public:
     return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                            getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
                            getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                           EnablePartialUnswitch, KeepLoopnestPerfect)
+                           EnablePartialUnswitch, EarlyPredicateOpt)
         .run();
   }
 };
@@ -2326,7 +2325,7 @@ INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 
 FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch,
-                                              bool KeepLoopnestPerfect) {
+                                              bool EarlyPredicateOpt) {
   return new HIROptPredicateLegacyPass(EnablePartialUnswitch,
-                                       KeepLoopnestPerfect);
+                                       EarlyPredicateOpt);
 }
