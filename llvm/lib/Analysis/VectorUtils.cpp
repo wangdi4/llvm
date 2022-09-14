@@ -201,16 +201,21 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       continue;
     }
 
-    // linear->linear matches occur when both args are linear and have same
-    // stride.
-    if (OtherParams[I].isLinear() && Params[I].isLinear() &&
-        OtherParams[I].isConstantStrideLinear() &&
-        Params[I].isConstantStrideLinear() &&
-        OtherParams[I].getStride() == Params[I].getStride()) {
-      ArgScore = Linear2LinearScore;
-      ArgScores.push_back(ArgScore);
-      ParamScore += ArgScore;
-      continue;
+    // linear->linear matches occur when:
+    // 1) both args are linear and have same constant stride
+    // 2) caller side arg is recognized by DA as linear with constant stride
+    //    and available variant is variable integer strided.
+    // 3) both args are linear with variable stride.
+    if (OtherParams[I].isLinear() && Params[I].isLinear()) {
+      if ((OtherParams[I].isConstantStrideLinear() && // Case #1
+           Params[I].isConstantStrideLinear() &&
+           OtherParams[I].getStride() == Params[I].getStride()) ||
+          OtherParams[I].isVariableStride()) {        // Cases #2 and #3
+        ArgScore = Linear2LinearScore;
+        ArgScores.push_back(ArgScore);
+        ParamScore += ArgScore;
+        continue;
+      }
     }
 
     if (OtherParams[I].isUniform() && Params[I].isUniform()) {

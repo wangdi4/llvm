@@ -677,7 +677,7 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
 
 Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
                                                Instruction *ArgUser,
-                                               int Stride, PHINode *Phi) {
+                                               Value *Stride, PHINode *Phi) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -689,8 +689,9 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
     if (!ArgTy->isOpaque()) {
       // Try to make compute nicely looking without byte arithmetic. Purely for
       // aesthetic purposes.
-      auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride),
-                                    Phi, "stride.mul");
+      auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
+      assert(Stride->getType() == Phi->getType() &&
+             "Type of stride and loop index are different");
 
       // Linear updates to pointer arguments involves an address calculation,
       // so use gep. To properly update linear pointers we only need to
@@ -706,29 +707,43 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
 
       return LinearArgGep;
     }
-    auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride), Phi,
-                                  "stride.mul");
+    auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
     auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, Mul,
                                   Arg->getName() + ".gep");
     return Gep;
   }
 
-  Value *PhiCast = Phi;
-  if (Arg->getType() != Phi->getType()) {
-    PhiCast = Builder.CreateCast(
-        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */, Arg->getType(),
+  // If Stride is a constant, then it has already been typed appropriately in
+  // processLinearArgs when creating the constant value. However, if Stride is
+  // in a variable then it may need to be cast to the arg type. The decision to
+  // cast here is done because IRBuilder is needed for correct insertion.
+  Value *StrideCast = Stride;
+  if (Stride->getType() != Arg->getType()) {
+    StrideCast = Builder.CreateCast(
+        CastInst::getCastOpcode(Stride, false /* SrcIsSigned */, Arg->getType(),
                                 false /* DestIsSigned */),
-        Phi, Arg->getType(), "phi.cast");
+        Stride, Arg->getType(), "stride.cast");
+  }
+
+  // Cast the loop index to match the stride type for the multiply part of the
+  // stride calculation. Integer stride is calculated as:
+  // arg + loop idx * stride.
+  Value *PhiCast = Phi;
+  if (StrideCast->getType() != Phi->getType()) {
+    PhiCast = Builder.CreateCast(
+        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */,
+                                StrideCast->getType(),
+                                false /* DestIsSigned */),
+        Phi, StrideCast->getType(), "phi.cast");
   }
 
   Value *Mul =
-      Builder.CreateMul(GeneralUtils::getConstantValue(
-                        Arg->getType(), Clone->getContext(), Stride),
-                        PhiCast, "stride.mul");
+      Builder.CreateMul(StrideCast, PhiCast, "stride.mul");
 
   // Floating point strides are not allowed.
   assert(!Arg->getType()->isFloatingPointTy() &&
          "The value should not be floating point!");
+  // At this point, the loop index, stride, and arg types should match.
   auto Add = Builder.CreateAdd(Arg, Mul, "stride.add");
   return Add;
 }
@@ -782,7 +797,7 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
       Value *ArgVal;
       Value *ArgMemory;
       getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
-      UniformMemory.insert(ArgMemory);
+      UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
     }
   }
 }
@@ -797,25 +812,44 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
   for (Argument &Arg : Clone->args()) {
     const VFParameter Parm = Parms[Arg.getArgNo()];
     if (Parm.isLinear()) {
-      // Apparently, we still don't have support for linear variable strides
-      assert(Parm.isConstantStrideLinear() &&
-             "Need support for variable stride");
-      int Stride = Parm.getStride();
-      if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType()))
-        if (!PtrTy->isOpaque()) {
-          const DataLayout &DL = Clone->getParent()->getDataLayout();
-          unsigned PointeeEltSize =
-              DL.getTypeAllocSize(PtrTy->getPointerElementType());
-          assert(Stride % PointeeEltSize == 0 &&
-                 "Stride is expected to be a multiple of element size!");
-          Stride /= PointeeEltSize;
+      Value *StrideVal = nullptr;
+      Value *ArgVal = nullptr;
+      Value *ArgMemory = nullptr;
+      if (Parm.isConstantStrideLinear()) {
+        int Stride = Parm.getStride();
+        if (auto *PtrTy = dyn_cast<PointerType>(Arg.getType())) {
+          // For pointer types with constant stride, the gep index is the same
+          // type as the phi (loop index), which is i32.
+          if (!PtrTy->isOpaque()) {
+            const DataLayout &DL = Clone->getParent()->getDataLayout();
+            unsigned PointeeEltSize =
+                DL.getTypeAllocSize(PtrTy->getPointerElementType());
+            assert(Stride % PointeeEltSize == 0 &&
+                   "Stride is expected to be a multiple of element size!");
+            Stride /= PointeeEltSize;
+          }
+          StrideVal = ConstantInt::get(Phi->getType(), Stride);
+        } else {
+          assert(Arg.getType()->isIntegerTy() &&
+                 "Expected integer type for arg");
+          // For integer types with constant stride, the value of the stride
+          // must be the same type as the arg.
+          StrideVal =
+              GeneralUtils::getConstantValue(Arg.getType(),
+              Clone->getContext(), Stride);
         }
-      Value *StrideVal =
-          ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
-      Value *ArgVal;
-      Value *ArgMemory;
-      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
-      LinearMemory[ArgMemory] = StrideVal;
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        LinearMemory[ArgMemory] = StrideVal;
+      } else if (Parm.isVariableStride() && Arg.getType()->isIntegerTy()) {
+        // Get the stride value from the argument holding it.
+        int StrideArgPos = Parm.getStrideArgumentPosition();
+        Argument *StrideArg = Clone->getArg(StrideArgPos);
+        StrideVal = UniformMemory[StrideArg].second;
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
+      } else {
+        llvm_unreachable("Unsupported linear modifier");
+      }
 
       // Eventually, this for loop can be removed once we start relying on
       // just marking the allocas as linear and letting VPlan deal with
@@ -824,7 +858,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       for (auto &U:  make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
         Value *StrideInst =
-            generateStrideForArgument(Clone, ArgVal, User, Stride, Phi);
+            generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     }
@@ -960,9 +994,11 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   }
   
   // Mark uniform memory for the SIMD directives
-  for (Value *UniformMem : UniformMemory) {
-    Type *UniformTy = getMemoryType(UniformMem);
-    AddTypedClause(QUAL_OMP_UNIFORM, UniformMem, UniformTy);
+  for (auto UniformMem : UniformMemory) {
+    // The alloca for the arg.
+    Value *ArgMemory = UniformMem.second.first;
+    Type *UniformTy = getMemoryType(ArgMemory);
+    AddTypedClause(QUAL_OMP_UNIFORM, ArgMemory, UniformTy);
   }
 
   // Mark private memory for the SIMD directives
@@ -1184,8 +1220,7 @@ void VecCloneImpl::filterUnsupportedVectorVariants(
                       Encoding = Encoding.take_front(EncodingEnd);
                       bool Unsupported = Encoding.contains('R') ||
                                          Encoding.contains('U') ||
-                                         Encoding.contains('L') ||
-                                         Encoding.contains('s');
+                                         Encoding.contains('L');
                       return !Unsupported;
                     });
 
@@ -1212,7 +1247,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
 #if INTEL_CUSTOMIZATION
-  // This filtering can be removed once R/U/L/s encodings are supported.
+  // This filtering can be removed once R/U/L encodings are supported.
   SmallVector<Function *, 8> FuncDiagList;
   filterUnsupportedVectorVariants(M, FuncDiagList, ORBuilder);
 
@@ -1294,6 +1329,9 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
           Clone, F, Variant, Mask, EntryBlock, LoopHeader, ReturnBlock,
           Phi, VMap);
 
+      // Mark uniform memory for SIMD directives
+      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
+
       // Update any linear variables with the appropriate stride. This function
       // will insert a mul/add sequence before the use of the argument. For
       // linear pointer arguments, the stride calculation is just a mul
@@ -1304,9 +1342,6 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // calculation involving the stride. Also mark linear memory for SIMD
       // directives.
       processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader);
-
-      // Mark uniform memory for SIMD directives
-      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.

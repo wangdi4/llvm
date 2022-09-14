@@ -20,13 +20,13 @@ namespace loopopt {
 
 class HIROptPredicatePass : public HIRPassInfoMixin<HIROptPredicatePass> {
   bool EnablePartialUnswitch;
-  bool KeepLoopnestPerfect;
+  bool EarlyPredicateOpt;
 
 public:
   HIROptPredicatePass(bool EnablePartialUnswitch = true,
-                      bool KeepLoopnestPerfect = false)
+                      bool EarlyPredicateOpt = false)
       : EnablePartialUnswitch(EnablePartialUnswitch),
-        KeepLoopnestPerfect(KeepLoopnestPerfect) {}
+        EarlyPredicateOpt(EarlyPredicateOpt) {}
   static constexpr auto PassName = "hir-opt-predicate";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);

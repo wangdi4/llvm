@@ -104,16 +104,24 @@ VFInfo VPlanCallVecDecisions::getVectorVariantForCallParameters(
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
     auto ParamPos = I - SkippedArgs;
-    if (CallArgShape.isRandom() || CallArgShape.isUndefined())
+    if (CallArgShape.isRandom() || CallArgShape.isUndefined()) {
       Parameters.push_back(VFParameter::vector(ParamPos));
-    else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride())
+    } else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride()) {
       Parameters.push_back(VFParameter::linear(ParamPos, CallArgShape.getStrideVal()));
-    else if (CallArgShape.isAnyStrided() && !CallArgShape.hasKnownStride())
+    } else if (CallArgShape.isAnyStrided() && !CallArgShape.hasKnownStride()) {
+      // Note: this function builds a VFInfo (vector variant encoding) from the
+      // caller side using DA so that later it can be used to find a compatible
+      // match on the callee (function) side. Since there isn't a way on the
+      // caller side to know where the variable stride argument is located, the
+      // same parameter position is used for the stride argument as the current
+      // linear argument. This is accounted for later during the matching
+      // routine.
       Parameters.push_back(VFParameter::variableStrided(ParamPos, ParamPos));
-    else if (CallArgShape.isUniform())
+    } else if (CallArgShape.isUniform()) {
       Parameters.push_back(VFParameter::uniform(ParamPos));
-    else
+    } else {
       llvm_unreachable("Invalid parameter kind");
+    }
   }
 
   Function *F = VPCall->getCalledFunction();

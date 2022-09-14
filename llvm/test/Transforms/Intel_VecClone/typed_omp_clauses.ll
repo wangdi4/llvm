@@ -26,9 +26,9 @@ define i64 @test2(i64 %a) #1 {
 ; CHECK: _ZGVbN4v_test2(<4 x i64> %a)
 ; CHECK:    @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
 ; CHECK: _ZGVbN4l_test2(i64 %a)
-; CHECK:    @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %alloca.a, i64 0, i32 1, i32 1) ]
+; CHECK:    @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %alloca.a, i64 0, i32 1, i64 1) ]
 ; CHECK: _ZGVbN4l4_test2(i64 %a)
-; CHECK:    @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %alloca.a, i64 0, i32 1, i32 4) ]
+; CHECK:    @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %alloca.a, i64 0, i32 1, i64 4) ]
   %add = add i64 %a, 42
   ret i64 %add
 }
