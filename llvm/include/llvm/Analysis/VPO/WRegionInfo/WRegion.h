@@ -1455,6 +1455,8 @@ private:
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
   bool IsAutoVec;
   bool HasVectorAlways;
+  bool HasAligned = false; // SIMD aligned clause was specified
+
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -1480,6 +1482,7 @@ public:
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setIsAutoVec(bool Flag)  override{ IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag)  override{ HasVectorAlways = Flag; }
+  void setHasAligned(bool Flag) override { HasAligned = Flag; }
   void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X)  override{ ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
@@ -1506,6 +1509,7 @@ public:
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   bool getIsAutoVec() const override{ return IsAutoVec; }
   bool getHasVectorAlways() const override{ return HasVectorAlways; }
+  bool getHasAligned() const override { return HasAligned; }
   loopopt::HLNode *getEntryHLNode() const override{ return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const override{ return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const override{ return HLp; }
