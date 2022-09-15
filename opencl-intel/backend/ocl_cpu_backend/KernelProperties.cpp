@@ -145,7 +145,9 @@ void KernelProperties::Deserialize(IInputStream &ist,
   // varies in it's size relating to the platform (32/64 bit)
   unsigned long long int tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-  assert((MAX_WORK_DIM == tmp) && "WORK DIM dont match!");
+  if (MAX_WORK_DIM != tmp)
+    throw Exceptions::DeviceBackendExceptionBase(
+        "invalid MAX WORK DIM in program binary.");
 
   for (int i = 0; i < MAX_WORK_DIM; ++i) {
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);

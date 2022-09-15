@@ -46,14 +46,20 @@ public:
         : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { }
 
     OutputBufferStream &Write(const char *s, size_t count) override {
-      if (m_Pos == m_Size)
-        return *this;
+      if ((m_Pos + count) > m_Size)
+        throw Exceptions::DeviceBackendExceptionBase(
+            "Program serializing count is out of range.");
 
-      size_t copySize = std::min(count, m_Size - m_Pos);
-      std::copy(s, s + copySize, m_pBuffer + m_Pos);
-      m_Pos += copySize;
+      std::copy(s, s + count, m_pBuffer + m_Pos);
+      m_Pos += count;
 
       return *this;
+    }
+
+    void close() {
+      if (m_Pos != m_Size)
+        throw Exceptions::DeviceBackendExceptionBase(
+            "Program serialization isn't complete.");
     }
 
 private:
@@ -69,14 +75,20 @@ public:
         : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { };
 
     InputBufferStream &Read(char *s, size_t count) override {
-      if (m_Pos == m_Size)
-        return *this;
+      if ((m_Pos + count) > m_Size)
+        throw Exceptions::DeviceBackendExceptionBase(
+            "Program deserializing count is out of range.");
 
-      size_t copySize = std::min(count, m_Size - m_Pos);
-      std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + copySize, s);
-      m_Pos += copySize;
+      std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + count, s);
+      m_Pos += count;
 
       return *this;
+    }
+
+    void close() {
+      if (m_Pos != m_Size)
+        throw Exceptions::DeviceBackendExceptionBase(
+            "Program deserialization isn't complete.");
     }
 
 private:
@@ -117,6 +129,7 @@ cl_dev_err_code CPUSerializationService::SerializeProgram(
     SerializationStatus stats;
     stats.SerializeVersion(obs);
     static_cast<const CPUProgram*>(pProgram)->Serialize(obs, &stats);
+    obs.close();
 
     return CL_DEV_SUCCESS;
 }
@@ -138,6 +151,7 @@ cl_dev_err_code CPUSerializationService::ReloadProgram(
     stats.m_binaryVersion = binaryVersion;
 
     static_cast<CPUProgram *>(pProgram)->Deserialize(ibs, &stats);
+    ibs.close();
 
     return CL_DEV_SUCCESS;
   } catch (Exceptions::SerializationException &) {
