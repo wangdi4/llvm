@@ -1,5 +1,5 @@
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -vector-library=SVML \
-; RUN: -vplan-print-after-transformed-library-calls -S %s 2>&1 | FileCheck %s
+; RUN: -vplan-print-after-transformed-library-calls -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after transforming library calls
 ; CHECK:       [[BODY:BB[0-9]+]]:
@@ -26,7 +26,8 @@
 ; CHECK-NEXT:    store <2 x double> [[COS]], <2 x double>* [[COS_WIDE]], align 8
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -vplan-force-vf=2 -vector-library=SVML \
-; RUN: -vplan-print-after-transformed-library-calls -disable-output -S %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: -vplan-print-after-transformed-library-calls -disable-output -print-after=hir-vplan-vec \
+; RUN: -S < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; HIR-LABEL: VPlan after transforming library calls
 ; HIR:       [[BODY:BB[0-9]+]]:
@@ -37,6 +38,16 @@
 ; HIR-NEXT:    double [[VP_COS:%.*]] = soa-extract-value %.vplan.sincos = type { double, double } [[VP_RES]] i64 1
 ; HIR-NEXT:    store double [[VP_SIN]] double* [[SIN_ADDR]]
 ; HIR-NEXT:    store double [[VP_COS]] double* [[COS_ADDR]]
+
+; HIR-LABEL: BEGIN REGION { modified }
+; HIR-NEXT:        + DO i1 = 0, 255, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:        |   [[RES:%.*]] = @__svml_sincos2({{.*}});
+; HIR-NEXT:        |   [[SIN:%.*]] = extractvalue [[RES]], 0;
+; HIR-NEXT:        |   [[COS:%.*]] = extractvalue [[RES]], 1;
+; HIR-NEXT:        |   (<2 x double>*)(%sin.arr)[0][i1] = [[SIN]];
+; HIR-NEXT:        |   (<2 x double>*)(%cos.arr)[0][i1] = [[COS]];
+; HIR-NEXT:        + END LOOP
+; HIR:       END REGION
 
 define dso_local void @test_sincos_transform() {
   %sin.arr = alloca [256 x double], align 16

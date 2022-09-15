@@ -1555,7 +1555,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
 // <7>   |
 // <14>  + END LOOP
 
-void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
+void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
   assert(!isSearchLoop() && "search loops shouldn't have call instructions!");
 
   // Used to remove the original math calls after iterating over them.
@@ -1689,7 +1689,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
 void VPOCodeGenHIR::HIRLoopVisitor::replaceCalls() {
   for (unsigned i = 0; i < CallInsts.size(); i++) {
-    CG->replaceLibCallsInRemainderLoop(CallInsts[i]);
+    CG->replaceLibCallsInScalarLoop(CallInsts[i]);
   }
 }
 
