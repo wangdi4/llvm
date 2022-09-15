@@ -426,6 +426,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.cpp @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.cpp @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.h @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @skozhukh @sguggill @karthik-senthil
 
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @mamasten @turinevgeny @skozhukh
