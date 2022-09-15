@@ -7953,6 +7953,9 @@ private:
 
 #if INTEL_COLLAB
 public:
+  bool isFirstPrivateDecls(const VarDecl *VD) const {
+    return FirstPrivateDecls.count(VD);
+  }
   bool isHasDevAddrsMap(const ValueDecl *VD) const{
     return HasDevAddrsMap.count(VD);
   }
@@ -10401,6 +10404,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       if (CI->capturesVariable())
         MEHandler.generateInfoForLambdaCaptures(CI->getCapturedVar(), *CV,
                                                 CurInfo, LambdaPointers);
+      const VarDecl *VD = nullptr;
+      if (!CI->capturesThis())
+        VD = CI->getCapturedVar();
       if (PartialStruct.Base.isValid()) {
         CombinedInfo.append(PartialStruct.PreliminaryMapData);
         // The partial struct case requires two steps.  The step above generates
@@ -10409,10 +10415,12 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         MEHandler.emitCombinedEntry(
             CombinedInfo, CurInfo.Types, PartialStruct, nullptr,
             !PartialStruct.PreliminaryMapData.BasePointers.empty());
+        if (VD && PartialStruct.HasVTPtr && MEHandler.isFirstPrivateDecls(VD))
+          CombinedInfo.Types.back() =
+              MappableExprsHandler::OMP_MAP_PRIVATE |
+              MappableExprsHandler::OMP_MAP_TARGET_PARAM |
+              MappableExprsHandler::OMP_MAP_TO;
       }
-      const VarDecl *VD = nullptr;
-      if (!CI->capturesThis())
-        VD = CI->getCapturedVar();
       CurInfo.VarChain.push_back(std::make_pair(VD, false));
       for (int I = 1, E = CurInfo.BasePointers.size() +
                           CombinedInfo.BasePointers.size() - SaveSize;
