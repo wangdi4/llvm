@@ -901,9 +901,10 @@ private:
   // Find users of OrigRef and replaces them with NewRef.
   void replaceOrigRef(RegDDRef *OrigRef, RegDDRef *NewRef);
 
-  // Replace math library calls in the remainder loop with the vectorized one
-  // used in the main vector loop.
-  void replaceLibCallsInRemainderLoop(HLInst *HInst);
+  // Replace math library calls in the scalar loop with a call to the vectorized
+  // version, if and only if the same transformation was done in the main vector
+  // loop. This is done to preserve FP consistency across all loops.
+  void replaceLibCallsInScalarLoop(HLInst *HInst);
 
   // Helper function to generate a wide Cmp HLInst for given predicate
   // PredIt found in the HLIf node. VF is used as vector length.
