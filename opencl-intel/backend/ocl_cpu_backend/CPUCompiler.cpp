@@ -176,13 +176,6 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
       m_CpuId->IsFeatureSupported(Intel::OpenCL::Utils::CFS_F16C))
     m_forcedCpuFeatures.push_back("+f16c");
 
-  if (selectedCpuId == Intel::OpenCL::Utils::CPU_KNL) {
-    m_forcedCpuFeatures.push_back("+avx512f");
-    m_forcedCpuFeatures.push_back("+avx512cd");
-    m_forcedCpuFeatures.push_back("+avx512er");
-    m_forcedCpuFeatures.push_back("+avx512pf");
-  }
-
   if (selectedCpuId >= Intel::OpenCL::Utils::CPU_SKX) {
     m_forcedCpuFeatures.push_back("+avx512f");
     m_forcedCpuFeatures.push_back("+avx512cd");

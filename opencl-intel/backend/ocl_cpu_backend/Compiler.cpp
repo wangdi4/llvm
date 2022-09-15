@@ -420,13 +420,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
     validateVectorizerMode(pResult->LogS());
 
-    // Check if given program is valid for the target.
-    if (!isProgramValid(pModule, pResult))
-    {
-        throw Exceptions::CompilerException(
-          "Program is not valid for this target", CL_DEV_INVALID_BINARY);
-    }
-
     CompilerBuildOptions buildOptions(pBuildOptions);
 
     // Record the debug control flags.
@@ -632,18 +625,6 @@ Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
     // module.
     builtinsModules.push_back(std::move(pModuleSvmlShared));
     return builtinsModules;
-}
-
-bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
-{
-    // Check for the limitation: "Images are not supported on Xeon Phi".
-    if (m_CpuId->GetCPU() == Intel::OpenCL::Utils::CPU_KNL &&
-        CompilationUtils::isImagesUsed(*pModule)) {
-      pResult->LogS() << "Images are not supported on given device.\n";
-      return false;
-    }
-
-    return true;
 }
 
 void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const

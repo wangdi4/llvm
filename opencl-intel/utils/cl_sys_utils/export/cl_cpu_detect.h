@@ -48,9 +48,9 @@ enum ECPUFeatureSupport {
   CFS_BMI = 1 << 8,
   CFS_BMI2 = 1 << 9,
   CFS_AVX512F = 1 << 10,
-  CFS_AVX512CD = 1 << 11,       // KNL, SKX
-  CFS_AVX512ER = 1 << 12,       // KNL
-  CFS_AVX512PF = 1 << 13,       // KNL
+  CFS_AVX512CD = 1 << 11,       // SKX
+  // CFS_AVX512ER = 1 << 12,    // KNL (deprecated)
+  // CFS_AVX512PF = 1 << 13,    // KNL (deprecated)
   CFS_AVX512BW = 1 << 14,       // SKX
   CFS_AVX512DQ = 1 << 15,       // SKX
   CFS_AVX512VL = 1 << 16,       // SKX
@@ -80,7 +80,7 @@ enum ECPUBrandFamily {
 
 #define CPU_ARCHS(modificator)                                                 \
   modificator(CPU_COREI7) modificator(CPU_SNB) modificator(CPU_HSW)            \
-      modificator(CPU_KNL) modificator(CPU_SKX) modificator(CPU_ICL)           \
+      modificator(CPU_SKX) modificator(CPU_ICL)                                \
           modificator(CPU_ICX) modificator(CPU_SPR)
 
 enum ECPU {
@@ -172,7 +172,6 @@ public:
         .Case("sapphirerapids", CPU_SPR)
         .Case("icelake-client", CPU_ICL)
         .Case("icelake-server", CPU_ICX)
-        .Case("knl", CPU_KNL)
         .Case("skx", CPU_SKX)
         .Case("core-avx2", CPU_HSW)
         .Case("corei7-avx", CPU_SNB)
@@ -190,8 +189,6 @@ public:
       return "corei7-avx";
     case CPU_HSW:
       return "core-avx2";
-    case CPU_KNL:
-      return "knl";
     case CPU_SKX:
       return "skx";
     case CPU_ICL:
@@ -233,10 +230,10 @@ public:
   bool HasGatherScatter() const { return HasGatherScatter(m_CPUArch); }
 
   static bool HasGatherScatter(ECPU CPU) {
-    return (CPU == CPU_KNL || CPU == CPU_SKX || CPU == CPU_ICL ||
-            CPU == CPU_ICX);
+    return (CPU == CPU_SKX || CPU == CPU_ICL || CPU == CPU_ICX);
   }
-  static bool HasGatherScatterPrefetch(ECPU CPU) { return (CPU == CPU_KNL); }
+  // TODO: remove HasGatherScatterPrefetch() since it always returns false.
+  static bool HasGatherScatterPrefetch(ECPU CPU) { return false; }
   bool HasGatherScatterPrefetch() const {
     return HasGatherScatterPrefetch(m_CPUArch);
   }
