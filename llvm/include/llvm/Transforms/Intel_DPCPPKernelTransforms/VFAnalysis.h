@@ -83,10 +83,9 @@ private:
   /// - "intel_reqd_sub_group_size" metadata
   bool hasMultipleVFConstraints(Function *Kernel);
 
-  /// Deduces VF according to the given constriant. Stores "Kernel" -->
-  /// "VF" mapping into `KernelToVF`.
+  /// Return deduced VF according to the given constriant.
   /// - HeuristicVF Heuristic VF computed by WeightedInstCountAnalysis.
-  void deduceVF(Function *Kernel, unsigned HeuristicVF);
+  unsigned deduceVF(Function *Kernel, unsigned HeuristicVF);
 
   /// Checks whether the function has pattern that can't be vectorized:
   /// - Non-kernel function with byval/byref parameters and "has-sub-groups"
