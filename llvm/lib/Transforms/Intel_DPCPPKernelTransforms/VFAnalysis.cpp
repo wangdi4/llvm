@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -27,6 +28,7 @@
 
 using namespace llvm;
 using namespace CompilationUtils;
+using namespace DPCPPKernelMetadataAPI;
 
 #define DEBUG_TYPE "dpcpp-kernel-vf-analysis"
 
@@ -59,7 +61,7 @@ VFAnalysisInfo::VFAnalysisInfo()
       CanFallBackToDefaultVF(false) {}
 
 bool VFAnalysisInfo::hasMultipleVFConstraints(Function *Kernel) {
-  DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
+  KernelMetadataAPI KMD(Kernel);
   bool MultiConstraint =
       (KMD.VecLenHint.hasValue() && KMD.ReqdIntelSGSize.hasValue()) ||
       (isVFForced() && KMD.hasVecLength());
@@ -68,55 +70,67 @@ bool VFAnalysisInfo::hasMultipleVFConstraints(Function *Kernel) {
   return MultiConstraint;
 }
 
-void VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
+/// Find the minimum VecLength found in the node or its children.
+static std::tuple<bool, bool, unsigned> getMinVecLength(CallGraphNode *Node) {
+  unsigned MinVecLen = std::numeric_limits<unsigned>::max();
+  bool FoundVecLen = false;
+  bool HintOnly = true;
+
+  for (auto *N : depth_first(Node)) {
+    if (Function *F = N->getFunction(); F && !F->isDeclaration()) {
+      KernelMetadataAPI KMD(F);
+      if (KMD.hasVecLength()) {
+        MinVecLen = std::min(MinVecLen, (unsigned)KMD.getVecLength());
+        FoundVecLen = true;
+      }
+      HintOnly &= !KMD.ReqdIntelSGSize.hasValue();
+    }
+  }
+
+  return {FoundVecLen, HintOnly, MinVecLen};
+}
+
+unsigned VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
   LLVM_DEBUG(dbgs() << "Deducing VF with given constraint:\n");
-  DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+  KernelMetadataAPI KMD(Kernel);
+  KernelInternalMetadataAPI KIMD(Kernel);
   CanFallBackToDefaultVF = false;
 
   // optnone --> disable vectorization
   if (Kernel->hasOptNone() || DPCPPForceOptnone) {
-    KernelToVF[Kernel] = 1;
-    LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: " << KernelToVF[Kernel]
-                      << '\n');
-    return;
+    LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: 1\n");
+    return 1;
   }
 
   if (KIMD.MaxWGDimensions.hasValue() && KIMD.MaxWGDimensions.get() == 0 &&
       KIMD.NoBarrierPath.get()) {
     // Workgroup loop won't be created, so there is no need to vectorize kernel.
-    KernelToVF[Kernel] = 1;
-    LLVM_DEBUG(dbgs() << "Initial VF<MaxWGDim is 0>: " << KernelToVF[Kernel]
-                      << '\n');
-    return;
+    LLVM_DEBUG(dbgs() << "Initial VF<MaxWGDim is 0>: 1\n");
+    return 1;
   }
 
   // Allow intel_vec_len_hint and intel_reqd_sub_group_size overriding default
   // VF.
-  if (KMD.hasVecLength()) {
-    KernelToVF[Kernel] = KMD.getVecLength();
+  if (auto [FoundVecLen, HintOnly, VecLen] = getMinVecLength((*CG)[Kernel]);
+      FoundVecLen) {
     // For intel_vec_len_hint, allow falling back to default VF.
-    if (KMD.VecLenHint.hasValue())
+    if (HintOnly)
       CanFallBackToDefaultVF = true;
-
-    LLVM_DEBUG(dbgs() << "Initial VF<From VecLength>: " << KernelToVF[Kernel]
-                      << '\n');
-    return;
+    LLVM_DEBUG(dbgs() << "Initial VF<From VecLength>: " << VecLen << '\n');
+    return VecLen;
   }
 
   if (isVFForced()) {
-    KernelToVF[Kernel] = ForceVF;
-    LLVM_DEBUG(dbgs() << "Initial VF<From ForceVF>: " << KernelToVF[Kernel]
-                      << '\n');
-    return;
+    LLVM_DEBUG(dbgs() << "Initial VF<From ForceVF>: " << ForceVF << '\n');
+    return ForceVF;
   }
 
   // Otherwise, get heuristic VF computed by WeightedInstCountAnalysis.
-  KernelToVF[Kernel] = HeuristicVF;
-  LLVM_DEBUG(dbgs() << "Initial VF<Heuristic>: " << KernelToVF[Kernel] << '\n');
-  return;
+  LLVM_DEBUG(dbgs() << "Initial VF<Heuristic>: " << HeuristicVF << '\n');
+  return HeuristicVF;
 }
 
+/// Detect VPLAN unsupported patterns.
 bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking unsupported patterns:\n");
   CallGraphNode *Node = (*CG)[Kernel];
@@ -155,7 +169,7 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   }
 
   // Unsupported: vec_type_hint on unsupported types.
-  DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
+  KernelMetadataAPI KMD(Kernel);
   if (!KMD.VecLenHint.hasValue() && KMD.VecTypeHint.hasValue()) {
     bool Vectorizable = false;
     auto *HintType = KMD.VecTypeHint.getType();
@@ -200,7 +214,7 @@ bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel,
                                                             16, 32, 64};
   static std::unordered_set<unsigned> SupportedSubGroupVFs{4, 8, 16, 32, 64};
 
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+  KernelInternalMetadataAPI KIMD(Kernel);
   StringRef FuncName;
   auto IsUnimplementedBuiltin = [&](const Function *CalledFunc) {
     // Builtin must be a declaration.
@@ -237,8 +251,8 @@ bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel,
 
 bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking subgroup semantics:\n");
-  DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+  KernelMetadataAPI KMD(Kernel);
+  KernelInternalMetadataAPI KIMD(Kernel);
   if (!KIMD.KernelHasSubgroups.hasValue() || !KIMD.KernelHasSubgroups.get())
     return false;
 
@@ -297,8 +311,8 @@ void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
   // Relax subgroup emulation size, since we don't have scalar implementation
   // for subgroup builtins.
   if (KernelToSGEmuSize[Kernel] == 1) {
-    DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    KernelMetadataAPI KMD(Kernel);
+    KernelInternalMetadataAPI KIMD(Kernel);
     if (KMD.hasVecLength() && KMD.getVecLength() > 1)
       KernelToSGEmuSize[Kernel] = KMD.getVecLength();
     else
@@ -320,9 +334,9 @@ void VFAnalysisInfo::analyzeModule(
     Module &M, function_ref<unsigned(Function &)> GetHeuristicVF) {
   CG = std::make_unique<CallGraph>(M);
 
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
+  auto Kernels = KernelList(M).getList();
   for (auto *Kernel : Kernels) {
-    DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
+    KernelMetadataAPI KMD(Kernel);
     LLVM_DEBUG(dbgs() << "\nProcessing " << Kernel->getName() << '\n');
 
     // Only one VF constraint can be specified.
@@ -338,11 +352,8 @@ void VFAnalysisInfo::analyzeModule(
 
     // Deduce VF from the given constraint.
     unsigned HeuristicVF = GetHeuristicVF(*Kernel);
-    deduceVF(Kernel, HeuristicVF);
-
-    // Detect VPLAN unsupported patterns.
-    if (hasUnsupportedPatterns(Kernel))
-      KernelToVF[Kernel] = 1;
+    KernelToVF[Kernel] =
+        hasUnsupportedPatterns(Kernel) ? 1 : deduceVF(Kernel, HeuristicVF);
 
     // Detect unimplemented WG/SG builtins.
     if (tryFallbackUnimplementedBuiltins(Kernel, HeuristicVF)) {
@@ -363,9 +374,10 @@ void VFAnalysisInfo::analyzeModule(
     // Confirm VF.
     unsigned VF = getVF(Kernel);
     if (!(VF && (VF & (VF - 1)) == 0)) {
-      M.getContext().diagnose(
-          VFAnalysisDiagInfo(*Kernel, "Vectorization width is not a power of 2",
-                             VFDK_Error_VFInvalid));
+
+      M.getContext().diagnose(VFAnalysisDiagInfo(
+          *Kernel, "Vectorization width " + Twine(VF) + " is not a power of 2",
+          VFDK_Error_VFInvalid));
     }
   }
 }
