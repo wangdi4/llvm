@@ -1897,6 +1897,9 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_ALIGNED: {
     // IR: "QUAL.OMP.ALIGNED"(TYPE1** %ptr1, TYPE2** %ptr2, ..., i32 8)
     assert(NumArgs >= 2 && "Expected at least 2 arguments for ALIGNED clause");
+#if INTEL_CUSTOMIZATION
+    setHasAligned(true);
+#endif // INTEL_CUSTOMIZATION
     Value *AlignVal = Args[NumArgs - 1];
     assert(isa<ConstantInt>(AlignVal) &&
            "Alignment in an ALIGNED clause must be constant.");

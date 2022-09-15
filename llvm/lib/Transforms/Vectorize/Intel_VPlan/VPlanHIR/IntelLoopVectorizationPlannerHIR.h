@@ -140,6 +140,12 @@ public:
         TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabledHIR();
     IsDynAlign = readDynAlignEnabledHIR();
+
+    // Temporarily suppress dynamic alignment if the explicit simd loop has
+    // aligned clauses. This will be fixed once HIR path starts consuming
+    // aligned clause information from assumes.
+    if (IsDynAlign && WRLp && WRLp->getHasAligned())
+      IsDynAlign = false;
   }
 
   /// Return Loop Unroll Factor either forced by option or pragma

@@ -656,6 +656,8 @@ public:
   virtual bool getIsAutoVec() const             {WRNERROR("IsAutoVec");       }
   virtual void setHasVectorAlways(bool)         {WRNERROR("HasVectorAlways"); }
   virtual bool getHasVectorAlways() const       {WRNERROR("HasVectorAlways"); }
+  virtual void setHasAligned(bool)              {WRNERROR("HasAligned");      }
+  virtual bool getHasAligned() const            {WRNERROR("HasAligned");      }
 
   // These methods are only available in WRNs constructed from HIR
   virtual void setEntryHLNode(loopopt::HLNode *)  {WRNERROR("EntryHLNode");   }
