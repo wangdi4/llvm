@@ -31,7 +31,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
@@ -80,7 +80,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]

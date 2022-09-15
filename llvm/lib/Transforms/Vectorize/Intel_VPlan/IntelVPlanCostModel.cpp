@@ -1226,6 +1226,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VTy);
     if (VPInst->getNumOperands() > 1) {
       auto *StartVal = VPInst->getOperand(1);
+      // TODO: The constant folding prediction below might be incorrect when
+      // peeling loop presence and for reminder loop.
       if (dyn_cast<VPLiveInValue>(StartVal))
         StartVal = Plan->getExternals().getOriginalIncomingValue(
           cast<VPLiveInValue>(StartVal)->getMergeId());
@@ -1419,6 +1421,28 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       TargetTransformInfo::OP_None);
     Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
                                    -1U /* Non-immediate Index */);
+    return Cost;
+  }
+
+  case VPInstruction::VectorTripCountCalculation: {
+    bool PeelLoopExists = VPInst->getNumOperands() > 1;
+    auto *OrigTC = VPInst->getOperand(0);
+    auto *Ty = OrigTC->getType();
+
+    if (isa<VPConstant>(OrigTC))
+      return 0;
+    if (isPowerOf2_32(VF * UF) && !PeelLoopExists)
+      return TTI.getArithmeticInstrCost(
+        Instruction::And, Ty, TargetTransformInfo::TCK_RecipThroughput);
+
+    VPInstructionCost Cost = 0;
+    if (PeelLoopExists)
+      Cost += TTI.getArithmeticInstrCost(
+        Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+      Instruction::URem, Ty, TargetTransformInfo::TCK_RecipThroughput);
+    Cost += TTI.getArithmeticInstrCost(
+      Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
     return Cost;
   }
   }

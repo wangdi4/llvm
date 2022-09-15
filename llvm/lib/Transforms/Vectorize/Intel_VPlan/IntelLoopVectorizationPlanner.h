@@ -368,10 +368,10 @@ public:
   /// Detects and returns the current type of planning.
   virtual PlannerType getPlannerType() const;
 
-  /// Create and return Plan/VF specific CostModel object based on global
+  /// Create and return Plan/VF/UF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
   std::unique_ptr<VPlanCostModelInterface> createCostModel(
-    const VPlanVector *Plan, unsigned VF) const;
+    const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
 
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
