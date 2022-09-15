@@ -5,8 +5,9 @@
 
 ; This test case checks that multiversioning for virtual functions works with
 ; opaque pointers. The virtual call will be multiversioned into the direct
-; call, and the default case will be added since the DTrans pointer analyzer
-; couldn't collect the dominant type. This test case is for opaque pointers
+; call. PtrTypeAnalyzer is unable to detect dominant type for this example.
+; In such cases, intel_dtrans_type metadata that is attached to indirect call
+; is used to find dominant type. This test case is for opaque pointers
 ; only and it was created from the following C++ example:
 
 ; #include <iostream>
@@ -48,32 +49,22 @@
 
 ; icpx -flto simple.cpp -qopt-mem-layout-trans=4
 
+
 ; Check that the pointer is compared with function Derived::foo
 ; CHECK:   %9 = bitcast ptr @_ZN7Derived3fooEi to ptr
 ; CHECK:   %10 = icmp eq ptr %8, %9
-; CHECK:   br i1 %10, label %BBDevirt__ZN7Derived3fooEi, label %ElseDevirt__ZN7Derived3fooEi
+; CHECK:   br i1 %10, label %BBDevirt__ZN7Derived3fooEi, label %BBDevirt__ZN8Derived23fooEi
 ; CHECK: BBDevirt__ZN7Derived3fooEi:
 ; CHECK:   %11 = tail call zeroext i1 @_ZN7Derived3fooEi(ptr nonnull align 8 dereferenceable(8) %4, i32 %0), !intel_dtrans_type !82
 ; CHECK:   br label %MergeBB
 
-; Check that the pointer was compared with Derived2::foo
-; CHECK: ElseDevirt__ZN7Derived3fooEi:
-; CHECK:   %12 = bitcast ptr @_ZN8Derived23fooEi to ptr
-; CHECK:   %13 = icmp eq ptr %8, %12
-; CHECK:   br i1 %13, label %BBDevirt__ZN8Derived23fooEi, label %DefaultBB
-; CHECK: BBDevirt__ZN8Derived23fooEi:
-; CHECK:   %14 = tail call zeroext i1 @_ZN8Derived23fooEi(ptr nonnull align 8 dereferenceable(8) %4, i32 %0), !intel_dtrans_type !82
+; CHECK: BBDevirt__ZN8Derived23fooEi:                      ; preds = %2
+; CHECK:   %12 = tail call zeroext i1 @_ZN8Derived23fooEi(ptr nonnull align 8 dereferenceable(8) %4, i32 %0), !intel_dtrans_type !82
 ; CHECK:   br label %MergeBB
 
-; Default case
-; DefaultBB:
-;   %15 = tail call zeroext i1 %7(ptr nonnull align 8 dereferenceable(8) %4, i32 %0), !intel_dtrans_type !82
-;   br label %MergeBB
-
-; Merge point
 ; CHECK: MergeBB:
-; CHECK:   %16 = phi i1 [ %11, %BBDevirt__ZN7Derived3fooEi ], [ %14, %BBDevirt__ZN8Derived23fooEi ], [ %15, %DefaultBB ]
-; CHECK:   br label %17
+; CHECK:   %13 = phi i1 [ %11, %BBDevirt__ZN7Derived3fooEi ], [ %12, %BBDevirt__ZN8Derived23fooEi ]
+; CHECK:   br label %14
 
 ; ModuleID = 'simple2.ll'
 source_filename = "ld-temp.o"

@@ -97,9 +97,8 @@ private:
   MDNode *DevirtCallMDNode = nullptr;
 
   // Helper function to generate the branches for multiversioning
-  void
-  multiversionVCallSite(Module &M, CallBase *VCallSite, bool LibFuncFound,
-                        const SetVector<Function *> &TargetFunctions);
+  void multiversionVCallSite(Module &M, CallBase *VCallSite, bool LibFuncFound,
+                             const SetVector<Function *> &TargetFunctions);
 
   // Compute the basic block where all targets will jump after executing
   // the call instruction
@@ -108,9 +107,11 @@ private:
   // Create the call sites and basic blocks for each target. Return false if
   // all the target functions have the same llvm::FunctionType as VCallSite,
   // else return true.
-  bool createCallSiteBasicBlocks(
-      Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-      const SetVector<Function *> &TargetFunctions, MDNode *Node);
+  bool createCallSiteBasicBlocks(Module &M,
+                                 std::vector<TargetData *> &TargetVector,
+                                 CallBase *VCallSite,
+                                 const SetVector<Function *> &TargetFunctions,
+                                 MDNode *Node);
 
   // Build the basic block for the default case
   TargetData *buildDefaultCase(Module &M, CallBase *VCallSite);
@@ -141,22 +142,23 @@ private:
 
   // Structure to store the basic information needed by the multiversioning
   struct VirtualCallsDataForMV {
-    SetVector<Function *> TargetFunctions;        // Vector of Function* with
-                                                 //   the targets
-    std::vector<CallBase *> VirtualCallSites;    // vector of CallBase* with
-                                                 //   the virtual callsites
-    bool HasLibFuncAsTarget;                     // True if at least one target
-                                                 //   is a libfunc or an
-                                                 //   external function , else
-                                                 //   false
+    SetVector<Function *> TargetFunctions;    // Vector of Function* with
+                                              //   the targets
+    std::vector<CallBase *> VirtualCallSites; // vector of CallBase* with
+                                              //   the virtual callsites
+    bool HasLibFuncAsTarget;                  // True if at least one target
+                                              //   is a libfunc or an
+                                              //   external function , else
+                                              //   false
   };
 
   void collectAssumeCallSitesNonOpaque(Function *AssumeFunc,
-      std::vector<CallBase *> &AssumesVector);
+                                       std::vector<CallBase *> &AssumesVector);
 
   void collectAssumeCallSitesOpaque(Function *AssumeFunc,
-    std::vector<CallBase *> &AssumesVector,
-    dtransOP::PtrTypeAnalyzer &Analyzer);
+                                    std::vector<CallBase *> &AssumesVector,
+                                    dtransOP::PtrTypeAnalyzer &Analyzer,
+                                    dtransOP::TypeMetadataReader &MDReader);
 
   VirtualCallsDataForMV VCallsData;
 
