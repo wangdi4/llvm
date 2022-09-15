@@ -454,10 +454,6 @@ add_subdirectory (avx2)
 add_subdirectory (avx512)
 add_subdirectory (amx)
 add_subdirectory (shared)
-if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
-    # includes AVX-512 F, CD, ER, PF.
-  add_subdirectory (avx512phi)
-endif()
 
 # algorithm from compiler-rt for soft types
 add_subdirectory(soft_math)
