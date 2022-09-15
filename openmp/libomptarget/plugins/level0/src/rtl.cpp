@@ -5142,8 +5142,9 @@ int32_t LevelZeroProgramTy::addModule(
       return OFFLOAD_SUCCESS;
     return OFFLOAD_FAIL;
   } else {
-    // Check if module link is required
-    if (!RequiresModuleLink) {
+    // Check if module link is required. We do not need this check for
+    // library module
+    if (!RequiresModuleLink && !IsLibModule) {
       ze_module_properties_t Properties = {
         ZE_STRUCTURE_TYPE_MODULE_PROPERTIES, nullptr, 0
       };
@@ -5688,6 +5689,14 @@ int32_t LevelZeroProgramTy::buildKernels() {
   Entries.resize(NumEntries);
   Kernels.resize(NumEntries);
 
+  Table.EntriesBegin = &(Entries.data()[0]);
+  Table.EntriesEnd = &(Entries.data()[Entries.size()]);
+
+  if (IsLibModule) {
+    // Library module is not supposed to have any entries
+    return OFFLOAD_SUCCESS;
+  }
+
   auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
   if (NumEntries > 0 && EnableTargetGlobals && !loadOffloadTable(NumEntries))
     DP("Warning: could not load offload table.\n");
@@ -5835,9 +5844,6 @@ int32_t LevelZeroProgramTy::buildKernels() {
   // Release unused kernels
   for (auto &K : ModuleKernels)
     CALL_ZE_RET_FAIL(zeKernelDestroy, K.second);
-
-  Table.EntriesBegin = &(Entries.data()[0]);
-  Table.EntriesEnd = &(Entries.data()[Entries.size()]);
 
   return OFFLOAD_SUCCESS;
 }
