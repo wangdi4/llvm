@@ -3656,10 +3656,6 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
   if (Opts.OpenMPCUDAMode)
     GenerateArg(Args, OPT_fopenmp_cuda_mode, SA);
 
-<<<<<<< HEAD
-  if (Opts.OpenMPCUDAForceFullRuntime)
-    GenerateArg(Args, OPT_fopenmp_cuda_force_full_runtime, SA);
-
 #if INTEL_COLLAB
   if (Opts.OpenMPSimdDisabled)
     GenerateArg(Args, OPT_fno_openmp_simd, SA);
@@ -3673,8 +3669,6 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
     GenerateArg(Args, OPT_fopenmp_late_outline, SA);
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> 578617b46f006752360e0df7e79104f404c75c5a
   // The arguments used to set Optimize, OptimizeSize and NoInlineDefine are
   // generated from CodeGenOptions.
 
