@@ -558,7 +558,9 @@ class StandardInstrumentations {
   PrintIRInstrumentation PrintIR;
   PrintPassInstrumentation PrintPass;
   TimePassesHandler TimePasses;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   TimeProfilingPassesHandler TimeProfilingPasses;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptNoneInstrumentation OptNone;
   OptBisectInstrumentation OptBisect;
   LimitingInstrumentation Limiter;        // INTEL

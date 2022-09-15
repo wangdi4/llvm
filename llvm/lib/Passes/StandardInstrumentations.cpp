@@ -2268,7 +2268,6 @@ void StandardInstrumentations::registerCallbacks(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
   PrintCrashIR.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   // TimeProfiling records the pass running time cost.
   // Its 'BeforePassCallback' can be appended at the tail of all the
   // BeforeCallbacks by calling `registerCallbacks` in the end.
@@ -2276,6 +2275,7 @@ void StandardInstrumentations::registerCallbacks(
   // AfterCallbacks by its `registerCallbacks`. This is necessary
   // to ensure that other callbacks are not included in the timings.
   TimeProfilingPasses.registerCallbacks(PIC);
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 template class ChangeReporter<std::string>;
