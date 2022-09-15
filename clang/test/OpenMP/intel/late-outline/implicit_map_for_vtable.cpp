@@ -140,7 +140,7 @@ int main() {
 //HOST: [[VT21:%[^,]+]] = load ptr, ptr [[ADD2]]
 //HOST: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr %d, ptr @_ZTS1D.omp.copy_constr, ptr @_ZTS1D.omp.destr)
-//HOST-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[d]], ptr %d, i64 %30, i64 32, ptr null, ptr null)
+//HOST-SAME: "QUAL.OMP.MAP.TO"(ptr [[d]], ptr %d, i64 %30, i64 161, ptr null, ptr null)
 //HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT18]], i32 8, i64 281474976710673, ptr null, ptr null)
 //HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT19]], i32 8, i64 281474976710673, ptr null, ptr null)
 //HOST-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr [[d]], ptr [[VT21]], i32 8, i64 281474976710673, ptr null, ptr null)
@@ -191,7 +191,7 @@ int main() {
 //TARG: [[VT21:%[^,]+]] = load ptr addrspace(4), ptr addrspace(4) [[ADD]]
 //TARG: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr addrspace(4) [[da]], ptr @_ZTS1D.omp.copy_constr, ptr @_ZTS1D.omp.destr)
-//TARG-SAME: "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) [[da]], ptr addrspace(4) [[da]], i64 %40, i64 32, ptr null, ptr null)
+//TARG-SAME: "QUAL.OMP.MAP.TO"(ptr addrspace(4) [[da]], ptr addrspace(4) [[da]], i64 %40, i64 161, ptr null, ptr null)
 //TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT18]], i32 8, i64 281474976710673, ptr null, ptr null)
 //TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT19]], i32 8, i64 281474976710673, ptr null, ptr null)
 //TARG-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr addrspace(4) [[da]], ptr addrspace(4) [[VT21]], i32 8, i64 281474976710673, ptr null, ptr null)
