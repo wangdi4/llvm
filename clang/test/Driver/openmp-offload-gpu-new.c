@@ -100,7 +100,7 @@
 // CHECK-EMIT-LLVM-IR: "-cc1"{{.*}}"-triple" "nvptx64-nvidia-cuda"{{.*}}"-emit-llvm"
 
 // INTEL_CUSTOMIZATION
-// RUN:   %clang -### -fopenmp=libomp -fopenmp-targets=nvptx64-nvidia-cuda -Xopenmp-target=nvptx64-nvida-cuda -fopenmp-new-driver -march=sm_70 \
+// RUN:   %clang -### -fopenmp=libomp -fopenmp-new-driver -fopenmp-targets=nvptx64-nvidia-cuda -Xopenmp-target=nvptx64-nvida-cuda -march=sm_70 \
 // RUN:          --libomptarget-nvptx-bc-path=%S/Inputs/libomptarget/libomptarget-new-nvptx-test.bc \
 // RUN:          -nogpulib %s -o openmp-offload-gpu 2>&1 \
 // RUN:   | FileCheck -check-prefix=DRIVER_EMBEDDING %s
