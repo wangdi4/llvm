@@ -212,9 +212,8 @@ void IntelDevirtMultiversion::resetData() {
 // and the virtual call uses its base structure. If this function returns true
 // for a particular case where it shouldn't, the it means that the target
 // function was collected incorrectly.
-bool IntelDevirtMultiversion::
-basedDerivedFunctionTypeMatches(FunctionType *VCallType,
-                                FunctionType *TargetFuncType) {
+bool IntelDevirtMultiversion::basedDerivedFunctionTypeMatches(
+    FunctionType *VCallType, FunctionType *TargetFuncType) {
 
   if (!VCallType || !TargetFuncType)
     return false;
@@ -671,9 +670,8 @@ void IntelDevirtMultiversion::multiversionVCallSite(
   std::vector<TargetData *> TargetsVector;
 
   // Generate the BasicBlocks that contain the direct call sites
-  bool DefaultTargetNeeded = createCallSiteBasicBlocks(M, TargetsVector,
-                                                       VCallSite,
-                                                       TargetFunctions, Node);
+  bool DefaultTargetNeeded = createCallSiteBasicBlocks(
+      M, TargetsVector, VCallSite, TargetFunctions, Node);
 
   // If TargetsVector is empty then it means that the virtual call collected
   // doesn't match the target functions. In this case return because there
@@ -899,7 +897,6 @@ void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
         dyn_cast<FunctionType>(GetElemType(TypeCasting->getDestTy()));
     if (!DestType)
       continue;
-
     // Go through each parameter of the virtual function and check
     // if there is a possible downcasting
     unsigned NumParams = DestType->getNumParams();
@@ -925,7 +922,8 @@ void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
 // analysis in order to collect the information.
 void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
     Function *AssumeFunc, std::vector<CallBase *> &AssumesVector,
-    dtransOP::PtrTypeAnalyzer &Analyzer) {
+    dtransOP::PtrTypeAnalyzer &Analyzer,
+    dtransOP::TypeMetadataReader &MDReader) {
 
   auto FindVirtualCall = [](LoadInst *FieldLoaded, Value *Ptr) -> CallBase * {
     for (auto *LU : FieldLoaded->users()) {
@@ -947,8 +945,7 @@ void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
         auto *BcThisPtr = cast<BitCastInst>(ThisPtr);
         if (BcPtr->getOperand(0) == BcThisPtr->getOperand(0))
           return Call;
-      }
-      else if (Ptr == ThisPtr) {
+      } else if (Ptr == ThisPtr) {
         return Call;
       }
     }
@@ -1028,12 +1025,25 @@ void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
     auto *DominantTy = dyn_cast_or_null<DTransPointerType>(
         Analyzer.getDominantType(*Info, ValueTypeInfo::VAT_Decl));
     if (!DominantTy) {
+
+      // PtrTypeAnalyzer doesn't help finding DominantTy, try to get
+      // type of ThisPtr (i.e first argument) from intel_dtrans_type
+      // metadata that is attached to the call.
+      DTransType *ThisArgType = nullptr;
+      DTransType *CallMDType = MDReader.getDTransTypeFromMD(VCall);
+      auto CallFType = dyn_cast_or_null<DTransFunctionType>(CallMDType);
+      if (CallFType && VCall->getFunctionType()->getNumParams() > 0)
+        ThisArgType = CallFType->getArgType(0);
+      DominantTy = dyn_cast_or_null<DTransPointerType>(ThisArgType);
+    }
+
+    if (!DominantTy) {
       VCallsWithDefaultCase.insert(VCall);
       continue;
     }
 
-    StructType *SourceTy =
-      dyn_cast<StructType>(DominantTy->getPointerElementType()->getLLVMType());
+    StructType *SourceTy = dyn_cast<StructType>(
+        DominantTy->getPointerElementType()->getLLVMType());
     if (!SourceTy)
       continue;
 
@@ -1044,7 +1054,7 @@ void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
         continue;
 
       StructType *DstUseType =
-        dyn_cast<StructType>(PtrTy->getPointerElementType()->getLLVMType());
+          dyn_cast<StructType>(PtrTy->getPointerElementType()->getLLVMType());
       if (!DstUseType)
         continue;
 
@@ -1122,7 +1132,8 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
         const DataLayout &DL = M.getDataLayout();
         dtransOP::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
         Analyzer.run(M);
-        collectAssumeCallSitesOpaque(AssumeFunc, AssumesVector, Analyzer);
+        collectAssumeCallSitesOpaque(AssumeFunc, AssumesVector, Analyzer,
+                                     Reader);
       }
     }
   }
@@ -1136,7 +1147,8 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
   // Remove the assumes related to downcasting
   for (CallBase *AssumeCall : AssumesVector) {
     CallBase *TestCall = cast<CallBase>(AssumeCall->getArgOperand(0));
-    Instruction *TestCallArg = dyn_cast<Instruction>(TestCall->getArgOperand(0));
+    Instruction *TestCallArg =
+        dyn_cast<Instruction>(TestCall->getArgOperand(0));
 
     // Delete the call to assume
     AssumeCall->eraseFromParent();
