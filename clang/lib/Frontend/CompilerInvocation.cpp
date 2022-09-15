@@ -3656,6 +3656,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
   if (Opts.OpenMPCUDAMode)
     GenerateArg(Args, OPT_fopenmp_cuda_mode, SA);
 
+<<<<<<< HEAD
   if (Opts.OpenMPCUDAForceFullRuntime)
     GenerateArg(Args, OPT_fopenmp_cuda_force_full_runtime, SA);
 
@@ -3672,6 +3673,8 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
     GenerateArg(Args, OPT_fopenmp_late_outline, SA);
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> 578617b46f006752360e0df7e79104f404c75c5a
   // The arguments used to set Optimize, OptimizeSize and NoInlineDefine are
   // generated from CodeGenOptions.
 
@@ -4339,11 +4342,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   // Set CUDA mode for OpenMP target NVPTX/AMDGCN if specified in options
   Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN()) &&
                         Args.hasArg(options::OPT_fopenmp_cuda_mode);
-
-  // Set CUDA mode for OpenMP target NVPTX/AMDGCN if specified in options
-  Opts.OpenMPCUDAForceFullRuntime =
-      Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN()) &&
-      Args.hasArg(options::OPT_fopenmp_cuda_force_full_runtime);
 
   // FIXME: Eliminate this dependency.
   unsigned Opt = getOptimizationLevel(Args, IK, Diags),
