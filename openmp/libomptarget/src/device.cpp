@@ -610,14 +610,14 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
+int32_t DeviceTy::deleteData(void *TgtPtrBegin, int32_t Kind) {
 #if INTEL_CUSTOMIZATION
   auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtPtrBegin);
-  auto Rc = RTL->data_delete(RTLDeviceID, TgtPtrBegin);
+  auto Rc = RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
   XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtPtrBegin, CorrID);
   return Rc;
 #else // INTEL_CUSTOMIZATION
-  return RTL->data_delete(RTLDeviceID, TgtPtrBegin);
+  return RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
 #endif // INTEL_CUSTOMIZATION
 }
 

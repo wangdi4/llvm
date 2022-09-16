@@ -530,6 +530,12 @@ EXTERN
 #endif  // INTEL_COLLAB
 void *llvm_omp_target_alloc_shared(size_t Size, int DeviceNum);
 
+/// Explicit target memory deallocators
+/// Using the llvm_ prefix until they become part of the OpenMP standard.
+void llvm_omp_target_free_device(void *DevicePtr, int DeviceNum);
+void llvm_omp_target_free_host(void *DevicePtr, int DeviceNum);
+void llvm_omp_target_free_shared(void *DevicePtr, int DeviceNum);
+
 /// Dummy target so we have a symbol for generating host fallback.
 #if INTEL_COLLAB
 EXTERN
