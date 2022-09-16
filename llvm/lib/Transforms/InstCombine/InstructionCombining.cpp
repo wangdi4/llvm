@@ -3121,15 +3121,25 @@ static bool isAllocSiteRemovable(Instruction *AI,
   const Optional<StringRef> Family = getAllocationFamily(AI, &TLI);
   Worklist.push_back(AI);
 
-#if INTEL_CUSTOMIZATION
-  // 35044: If the alloc has a definition in the current compilation unit,
-  // it's not a library function and may have user defined side effects.
+#if INTEL_COLLAB
   if (auto *CI = dyn_cast<CallBase>(AI)) {
     auto *F = CI->getCalledFunction();
+#if INTEL_CUSTOMIZATION
+    // 35044: If the alloc has a definition in the current compilation unit,
+    // it's not a library function and may have user defined side effects.
     if (F && !F->isDeclaration())
       return false;
-  }
+
+    // 39830:
 #endif // INTEL_CUSTOMIZATION
+    // For modules with OpenMP, this code may get offloaded into a target
+    // region (either directly or through function calls).
+    // Offload targets have their own malloc implementations.
+    if (F && F->getParent()->getModuleFlag("openmp") &&
+        !F->getParent()->getTargetDevices().empty())
+      return false;
+#endif // INTEL_COLLAB
+  }
 
   do {
     Instruction *PI = Worklist.pop_back_val();
