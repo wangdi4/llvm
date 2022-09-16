@@ -187,6 +187,18 @@ public:
     return (AllocatorInterfaceFunctions.count(F));
   }
 
+  // Returns true if "Ty" is ReusableArenaBlockType or any class related to
+  // it.
+  bool isRelatedType(StructType *Ty) {
+    if (BlockBaseType->getLLVMType() == Ty ||
+        ReusableArenaBlockType->getLLVMType() == Ty ||
+        ListNodeType->getLLVMType() == Ty || ListType->getLLVMType() == Ty ||
+        ArenaAllocatorType->getLLVMType() == Ty ||
+        ReusableArenaAllocatorType->getLLVMType() == Ty)
+      return true;
+    return false;
+  }
+
   // Returns StringObjectType.
   DTransStructType *getStringObjectType() { return StringObjectType; }
 
