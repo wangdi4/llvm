@@ -1,13 +1,9 @@
-; Check to see that __svml_sinf2 is translated to a __svml_sinf4 medium accuracy variant call. For this test, also check to see
-; that the lower half elements are repeated in the upper half of the vector and that only the lower two elements are selected
-; from the call result vector.
+; Check to see that __svml_sinf2 is translated to a __svml_sinf2 medium accuracy variant call.
 
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
-; CHECK shufflevector <2 x float> %{{.*}}, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK call <4 x float> @__svml_sinf4(
-; CHECK shufflevector <4 x float> %{{.*}}, <4 x float> undef, <2 x i32> <i32 0, i32 1>
+; CHECK call <2 x float> @__svml_sinf2(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
