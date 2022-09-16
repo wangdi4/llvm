@@ -16,10 +16,8 @@
 #ifndef LLVM_ANALYSIS_INTEL_OPANALYSISUTILS_H
 #define LLVM_ANALYSIS_INTEL_OPANALYSISUTILS_H
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/Module.h"
-#include "llvm/ADT/APInt.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 
 namespace llvm {
 //
@@ -27,20 +25,6 @@ namespace llvm {
 // type, or return 'nullptr'.
 //
 extern Type *inferPtrElementType(Value &V);
-
-
-// The class below is a helper which analyses opaque pointer
-// element types and maps Value(opaque pointer)->Type(element type).
-class OpaquePointerTypeMapper {
-private:
-  using TypeAggregator = Optional<const Type *>;
-  using MapType = DenseMap<const Value *, TypeAggregator>;
-  MapType PtrETypeMap;
-
-public:
-  OpaquePointerTypeMapper(Module &M);
-  const Type *getPointerElementType(const Value *) const;
-};
 
 } // namespace llvm
 
