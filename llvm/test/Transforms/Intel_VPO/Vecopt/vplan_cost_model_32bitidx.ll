@@ -24,7 +24,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 341, UF = 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 341, UF = 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
@@ -51,8 +51,8 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP3]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] *GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP18:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP18]], [[BB2]], [[BB3:BB[0-9]+]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP4:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 52
 ; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes GS Cost: 48
 ; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 52
@@ -67,10 +67,8 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 8 resulted Cost = 0
 ;
-
 ; Verify that GS heuristic does not cause penalty on this test with threshold set to 93.
 ; VPLAN-HIR-CM-VF8-GS93-NOT:  Extra cost due to Gather/Scatter heuristic
-
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body

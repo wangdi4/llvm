@@ -95,6 +95,7 @@ public:
 
   const VPlanVector *const Plan;
   const unsigned VF;
+  const unsigned UF;
   const TargetLibraryInfo *const TLI;
   const DataLayout *const DL;
   const TargetTransformInfo &TTI;
@@ -141,10 +142,10 @@ protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
-                    const TargetTransformInfo *TTIin,
+                    const unsigned UF, const TargetTransformInfo *TTIin,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSAin)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
+    : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
       VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
@@ -472,12 +473,13 @@ private:
   // Ctor is private.
   // CM objects should be created using special interface of planner class
   // rather than created directly through the ctor.
-  VPlanCostModelWithHeuristics(const VPlanVector *Plan, const unsigned VF,
+  VPlanCostModelWithHeuristics(const VPlanVector *Plan,
+                               const unsigned VF, const unsigned UF,
                                const TargetTransformInfo *TTI,
                                const TargetLibraryInfo *TLI,
                                const DataLayout *DL,
                                VPlanVLSAnalysis *VLSA = nullptr) :
-    VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+    VPlanTTICostModel(Plan, VF, UF, TTI, TLI, DL, VLSA),
     HeuristicsListVPInst(this), HeuristicsListVPBlock(this),
     HeuristicsListVPlan(this) {}
 
@@ -489,13 +491,14 @@ protected:
 
   // Protected wrapper around ctor to create unique_ptr and to hide unique_ptr
   // creating code and simplify caller's code.
-  static auto makeUniquePtr(const VPlanVector *Plan, const unsigned VF,
+  static auto makeUniquePtr(const VPlanVector *Plan,
+                            const unsigned VF, const unsigned UF,
                             const TargetTransformInfo *TTI,
                             const TargetLibraryInfo *TLI,
                             const DataLayout *DL,
                             VPlanVLSAnalysis *VLSA = nullptr) {
     std::unique_ptr<VPlanCostModelWithHeuristics> CMPtr(
-      new VPlanCostModelWithHeuristics(Plan, VF, TTI, TLI, DL, VLSA));
+      new VPlanCostModelWithHeuristics(Plan, VF, UF, TTI, TLI, DL, VLSA));
     return CMPtr;
   }
 
@@ -536,7 +539,7 @@ public:
     HeuristicsListVPlan.initForVPlan();
 
     CM_DEBUG(OS, *OS << "Cost Model for VPlan " << Plan->getName() <<
-             " with VF = " <<VF << ":\n";);
+             " with VF = " << VF << ":\n";);
 
     VPInstructionCost PreHdrCost =
         getBlockRangeCost(getVPlanPreLoopBeginEndBlocks(),
