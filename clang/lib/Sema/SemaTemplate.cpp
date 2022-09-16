@@ -6304,8 +6304,9 @@ bool Sema::CheckTemplateArgument(TypeSourceInfo *ArgInfo) {
   assert(ArgInfo && "invalid TypeSourceInfo");
   QualType Arg = ArgInfo->getType();
   SourceRange SR = ArgInfo->getTypeLoc().getSourceRange();
+  QualType CanonArg = Context.getCanonicalType(Arg);
 
-  if (Arg->isVariablyModifiedType()) {
+  if (CanonArg->isVariablyModifiedType()) {
     return Diag(SR.getBegin(), diag::err_variably_modified_template_arg) << Arg;
   } else if (Context.hasSameUnqualifiedType(Arg, Context.OverloadTy)) {
     return Diag(SR.getBegin(), diag::err_template_arg_overload_type) << SR;
@@ -6318,9 +6319,9 @@ bool Sema::CheckTemplateArgument(TypeSourceInfo *ArgInfo) {
   //
   // C++11 allows these, and even in C++03 we allow them as an extension with
   // a warning.
-  if (LangOpts.CPlusPlus11 || Arg->hasUnnamedOrLocalType()) {
+  if (LangOpts.CPlusPlus11 || CanonArg->hasUnnamedOrLocalType()) {
     UnnamedLocalNoLinkageFinder Finder(*this, SR);
-    (void)Finder.Visit(Context.getCanonicalType(Arg));
+    (void)Finder.Visit(CanonArg);
   }
 
   return false;
@@ -6907,7 +6908,6 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
     // When checking a deduced template argument, deduce from its type even if
     // the type is dependent, in order to check the types of non-type template
     // arguments line up properly in partial ordering.
-    Optional<unsigned> Depth = Param->getDepth() + 1;
     Expr *DeductionArg = Arg;
     if (auto *PE = dyn_cast<PackExpansionExpr>(DeductionArg))
       DeductionArg = PE->getPattern();
@@ -6923,20 +6923,27 @@ ExprResult Sema::CheckTemplateArgument(NonTypeTemplateParmDecl *Param,
           DeduceTemplateSpecializationFromInitializer(TSI, Entity, Kind, Inits);
       if (ParamType.isNull())
         return ExprError();
-    } else if (DeduceAutoType(
-                   TSI, DeductionArg, ParamType, Depth,
-                   // We do not check constraints right now because the
-                   // immediately-declared constraint of the auto type is also
-                   // an associated constraint, and will be checked along with
-                   // the other associated constraints after checking the
-                   // template argument list.
-                   /*IgnoreConstraints=*/true) == DAR_Failed) {
-      Diag(Arg->getExprLoc(),
-           diag::err_non_type_template_parm_type_deduction_failure)
-        << Param->getDeclName() << Param->getType() << Arg->getType()
-        << Arg->getSourceRange();
-      Diag(Param->getLocation(), diag::note_template_param_here);
-      return ExprError();
+    } else {
+      TemplateDeductionInfo Info(DeductionArg->getExprLoc(),
+                                 Param->getDepth() + 1);
+      ParamType = QualType();
+      TemplateDeductionResult Result =
+          DeduceAutoType(TSI->getTypeLoc(), DeductionArg, ParamType, Info,
+                         /*DependentDeduction=*/true,
+                         // We do not check constraints right now because the
+                         // immediately-declared constraint of the auto type is
+                         // also an associated constraint, and will be checked
+                         // along with the other associated constraints after
+                         // checking the template argument list.
+                         /*IgnoreConstraints=*/true);
+      if (Result != TDK_Success && Result != TDK_AlreadyDiagnosed) {
+        Diag(Arg->getExprLoc(),
+             diag::err_non_type_template_parm_type_deduction_failure)
+            << Param->getDeclName() << Param->getType() << Arg->getType()
+            << Arg->getSourceRange();
+        Diag(Param->getLocation(), diag::note_template_param_here);
+        return ExprError();
+      }
     }
     // CheckNonTypeTemplateParameterType will produce a diagnostic if there's
     // an error. The error message normally references the parameter

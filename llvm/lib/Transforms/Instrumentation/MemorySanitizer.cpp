@@ -205,6 +205,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
@@ -222,6 +223,9 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "msan"
+
+DEBUG_COUNTER(DebugInsertCheck, "msan-insert-check",
+              "Controls which checks to insert");
 
 static const unsigned kOriginSize = 4;
 static const Align kMinOriginAlignment = Align(4);
@@ -2072,6 +2076,12 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     assert(Shadow);
     if (!InsertChecks)
       return;
+
+    if (!DebugCounter::shouldExecute(DebugInsertCheck)) {
+      LLVM_DEBUG(dbgs() << "Skipping check of " << *Shadow << " before "
+                        << *OrigIns << "\n");
+      return;
+    }
 #ifndef NDEBUG
     Type *ShadowTy = Shadow->getType();
     assert((isa<IntegerType>(ShadowTy) || isa<VectorType>(ShadowTy) ||
