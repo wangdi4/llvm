@@ -179,17 +179,13 @@ else()
   list(APPEND bc_flags -DOMPTARGET_DEBUG=0)
 endif()
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   list(APPEND bc_flags -Xclang -disable-intel-proprietary-opts)
 endif(INTEL_CUSTOMIZATION)
 
-function(compileDeviceRTLLibrary target_cpu target_name)
-=======
 # first create an object target
 add_library(omptarget.devicertl.all_objs OBJECT IMPORTED)
 function(compileDeviceRTLLibrary target_cpu target_name target_triple)
->>>>>>> 4b004a0b839cf2f3cede9a07a998657cd33fe75d
   set(target_bc_flags ${ARGN})
 
   set(bc_files "")
@@ -315,68 +311,16 @@ endfunction()
 # Generate a Bitcode library for all the compute capabilities the user requested
 add_custom_target(omptarget.devicertl.nvptx)
 foreach(sm ${nvptx_sm_list})
-<<<<<<< HEAD
-  compileDeviceRTLLibrary(sm_${sm} nvptx -target nvptx64-nvidia-cuda -DLIBOMPTARGET_BC_TARGET -Xclang -target-feature -Xclang +ptx61 "-D__CUDA_ARCH__=${sm}0")
-=======
   compileDeviceRTLLibrary(sm_${sm} nvptx nvptx64-nvidia-cuda -fopenmp-targets=nvptx64-nvidia-cuda -DLIBOMPTARGET_BC_TARGET --cuda-feature=+ptx61)
->>>>>>> 4b004a0b839cf2f3cede9a07a998657cd33fe75d
 endforeach()
 
 add_custom_target(omptarget.devicertl.amdgpu)
 foreach(mcpu ${amdgpu_mcpus})
-<<<<<<< HEAD
-  compileDeviceRTLLibrary(${mcpu} amdgpu -target amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
+  compileDeviceRTLLibrary(${mcpu} amdgpu amdgcn-amd-amdhsa -fopenmp-targets=amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
 endforeach()
 # end INTEL_CUSTOMIZATION
 
-# Set the flags to build the device runtime from clang.
-set(clang_lib_flags -fopenmp -fopenmp-cuda-mode -foffload-lto -fvisibility=hidden -Xopenmp-target=nvptx64-nvidia-cuda --cuda-feature=+ptx61 -nocudalib -nogpulib -nostdinc ${clang_opt_flags})
-foreach(arch ${nvptx_sm_list})
-  set(clang_lib_flags ${clang_lib_flags} --offload-arch=sm_${arch})
-endforeach()
-foreach(arch ${amdgpu_mcpus})
-  set(clang_lib_flags ${clang_lib_flags} --offload-arch=${arch})
-endforeach()
-
 if(NOT INTEL_CUSTOMIZATION)
-# Build the static library version of the device runtime.
-# first create an object target
-add_library(omptarget.devicertl.all_objs OBJECT IMPORTED)
-foreach(src ${src_files})
-  get_filename_component(infile ${src} ABSOLUTE)
-  get_filename_component(outfile ${src} NAME)
-  set(outfile "${outfile}.o")
-  set(outfile_full_path "${CMAKE_CURRENT_BINARY_DIR}/${outfile}")
-
-  add_custom_command(OUTPUT ${outfile_full_path}
-    COMMAND ${CLANG_TOOL} ${clang_lib_flags} --std=c++17 -c
-            -o ${outfile_full_path}
-            -I${include_directory}
-            -I${devicertl_base_directory}/../include
-            ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_DEVICERTL}
-            ${infile}
-    DEPENDS ${infile} ${include_files}
-    IMPLICIT_DEPENDS CXX ${infile}
-    COMMENT "Building device code ${outfile}"
-    VERBATIM
-  )
-  if("${CLANG_TOOL}" STREQUAL "$<TARGET_FILE:clang>")
-    # Add a file-level dependency to ensure that clang is up-to-date.
-    # By default, add_custom_command only builds clang if the
-    # executable is missing.
-    add_custom_command(OUTPUT ${outfile_full_path}
-      DEPENDS clang
-      APPEND
-    )
-  endif()
-  set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${outfile_full_path})
-
-  set_property(TARGET omptarget.devicertl.all_objs APPEND PROPERTY IMPORTED_OBJECTS ${outfile_full_path})
-=======
-  compileDeviceRTLLibrary(${mcpu} amdgpu amdgcn-amd-amdhsa -fopenmp-targets=amdgcn-amd-amdhsa -DLIBOMPTARGET_BC_TARGET -D__AMDGCN__ -nogpulib)
->>>>>>> 4b004a0b839cf2f3cede9a07a998657cd33fe75d
-endforeach()
-
 # Archive all the object files generated above into a static library
 add_library(omptarget.devicertl STATIC)
 set_target_properties(omptarget.devicertl PROPERTIES LINKER_LANGUAGE CXX)
