@@ -90,7 +90,7 @@ class VecCloneImpl {
     /// Updates users of vector arguments with gep/load of lane element.
     void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                   const DataLayout &DL, Argument *Arg,
-                                  Type *ElemType, BitCastInst *VecArgCast,
+                                  Type *ElemType, Instruction *VecArg,
                                   BasicBlock *EntryBlock,
                                   BasicBlock *LoopHeader, PHINode *Phi);
 
