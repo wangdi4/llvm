@@ -268,14 +268,10 @@ int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   return OFFLOAD_SUCCESS;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-=======
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t) {
->>>>>>> 23bc343855fdf6fb7668abadf2b064034b207981
   free(TgtPtr);
 
 #if INTEL_COLLAB

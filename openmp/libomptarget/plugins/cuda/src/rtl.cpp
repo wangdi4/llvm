@@ -1766,14 +1766,10 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcDevId, void *SrcPtr,
   return __tgt_rtl_synchronize(SrcDevId, &AsyncInfo);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-=======
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
->>>>>>> 23bc343855fdf6fb7668abadf2b064034b207981
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
 
   if (DeviceRTL.setContext(DeviceId) != OFFLOAD_SUCCESS)
