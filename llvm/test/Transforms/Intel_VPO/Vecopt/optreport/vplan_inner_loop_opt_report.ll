@@ -11,11 +11,11 @@
 ; IR-NEXT:        remark #15476: scalar cost: 7.000000
 ; IR-NEXT:        remark #15477: vector cost: 5.000000
 ; IR-NEXT:        remark #15478: estimated potential speedup: 1.390625
-; IR-NEXT:        remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; IR-NEXT:        remark #15309: vectorization support: normalized vectorization overhead 0.187500
 ; HIR-NEXT:       remark #15476: scalar cost: 8.000000
 ; HIR-NEXT:       remark #15477: vector cost: 6.000000
 ; HIR-NEXT:       remark #15478: estimated potential speedup: 1.328125
-; HIR-NEXT:       remark #15309: vectorization support: normalized vectorization overhead 0.156250
+; HIR-NEXT:       remark #15309: vectorization support: normalized vectorization overhead 0.328125
 ; CHECK-NEXT:     remark #15482: vectorized math library calls: 0
 ; CHECK-NEXT:     remark #15484: vector function calls: 0
 ; CHECK-NEXT:     remark #15485: serialized function calls: 1

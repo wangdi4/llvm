@@ -11,12 +11,12 @@
 ; CHECK-NEXT:  [[BB0]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP0:%.*]] = add i64 [[VP1:%.*]] i64 1
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
+; CHECK-NEXT:    Cost 1 for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
 ; CHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost 0 for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  [[BB1]]: base cost: 1
-; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 2 resulted Cost = 1
+; CHECK-NEXT:  [[BB1]]: base cost: 2
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 2 resulted Cost = 2
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds %"EXTENT$.btINTVL"* %"A.addr_a0$_fetch.8" i64 [[VP2]] (0 )
