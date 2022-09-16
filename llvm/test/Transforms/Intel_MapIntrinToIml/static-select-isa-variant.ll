@@ -64,8 +64,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_static_avx
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_g9(
-; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_e9(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_g9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -94,8 +93,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_static_avx2
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_s9(
-; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_l9(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_s9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -124,8 +122,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_static_avx512
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8_s9(
-; CHECK-X86_64: call fast svml_avx_avx_impl_cc <8 x float> @__svml_acosf8_l9(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_s9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -154,8 +151,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_static_avx512_high_zmm
-; CHECK-X86: call fast svml_avx512_cc <16 x float> @__svml_acosf16_x0(
-; CHECK-X86_64: call fast svml_avx512_cc <16 x float> @__svml_acosf16_z0(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_x0(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -184,8 +180,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_force_dynamic_avx
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -214,8 +209,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_force_dynamic_avx2
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -244,8 +238,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_force_dynamic_avx512
-; CHECK-X86: call fast svml_avx_cc <8 x float> @__svml_acosf8(
-; CHECK-X86_64: call fast svml_avx_cc <8 x float> @__svml_acosf8(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -274,8 +267,8 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_foo_force_dynamic_avx512_high_zmm
-; CHECK-X86: call fast svml_avx512_cc <16 x float> @__svml_acosf16(
-; CHECK-X86_64: call fast svml_avx512_cc <16 x float> @__svml_acosf16(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4(
+; CHECK-X86_64: call fast svml_cc <4 x float> @__svml_acosf4(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -303,8 +296,61 @@ for.end:                                          ; preds = %vector.body
   ret void
 }
 
+; CHECK-LABEL: @scalar_foo_dynamic
+; CHECK: call fast svml_cc <1 x float> @__svml_acosf1(
+; CHECK: ret
+define <1 x float> @scalar_foo_dynamic(<1 x float> %src) #0 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
+  ret <1 x float> %result
+}
+
+; CHECK-LABEL: @scalar_foo_static_sse42
+; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_g9(
+; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_e9(
+; CHECK: ret
+define <1 x float> @scalar_foo_static_sse42(<1 x float> %src) #2 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
+  ret <1 x float> %result
+}
+
+; CHECK-LABEL: @scalar_foo_static_avx2
+; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_s9(
+; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_l9(
+; CHECK: ret
+define <1 x float> @scalar_foo_static_avx2(<1 x float> %src) #3 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
+  ret <1 x float> %result
+}
+
+; CHECK-LABEL: @scalar_foo_static_avx512
+; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_s9(
+; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_l9(
+; CHECK: ret
+define <1 x float> @scalar_foo_static_avx512(<1 x float> %src) #4 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
+  ret <1 x float> %result
+}
+
+; CHECK-LABEL: @scalar_foo_static_avx512_high_zmm
+; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_x0(
+; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_z0(
+; CHECK: ret
+define <1 x float> @scalar_foo_static_avx512_high_zmm(<1 x float> %src) #5 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
+  ret <1 x float> %result
+}
+
+; CHECK-LABEL: @scalar_foo_force_dynamic_avx2
+; CHECK: call fast svml_cc <1 x float> @__svml_acosf1(
+; CHECK: ret
+define <1 x float> @scalar_foo_force_dynamic_avx2(<1 x float> %src) #3 {
+  %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src) #7
+  ret <1 x float> %result
+}
+
 ; Function Attrs: nounwind readnone
 declare <4 x float> @__svml_acosf4(<4 x float>) #6
+declare <1 x float> @__svml_acosf1(<1 x float>) #6
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="corei7" "target-features"="+cx16,+cx8,+fxsr,+mmx,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
