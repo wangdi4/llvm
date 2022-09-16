@@ -17,90 +17,149 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
+
 
 namespace llvm {
 
-OpaquePointerTypeMapper::OpaquePointerTypeMapper(Module &M) {
-  auto updateType = [](TypeAggregator& A, const Type* Ty) {
-    if (!A.has_value()) {
-      A = Ty;
-      return;
-    }
-    if (!A.value())
-      return;
-    if (A.value() != Ty) {
-      A = nullptr;
-      return;
-    }
-  };
-
-  for (auto &F : M.functions()) {
-    for (auto &I : instructions(F)) {
-      auto *Ty = inferPtrElementType(I);
-      if (!Ty)
-        continue;
-      updateType(PtrETypeMap[&I], Ty);
-      for (auto &Use : I.uses()) {
-        auto *User = Use.getUser();
-        // Propagate types to functions' dummy args.
-        if (auto *CB = dyn_cast<CallBase>(User)) {
-          auto *CalledF = CB->getCalledFunction();
-          if (!CalledF || CalledF->isVarArg())
-            continue;
-          if(!CB->isArgOperand(&Use))
-            continue;
-          unsigned ANo = CB->getArgOperandNo(&Use);
-          auto *A = CalledF->getArg(ANo);
-          updateType(PtrETypeMap[A], Ty);
-        }
-      }
-    }
+// The function searches nested structures for the first matching type
+// in the beginning of a structure.
+// For instance if Outer is struct S {struct Q {int i}; float f;};
+// And Inner is struct Q, then Inner will be returned as a result.
+// The same time search for float should not succeed since "float f"
+// is not a 0 offset struct member.
+// nullptr is returned if no match found  
+static Type* FindFirstZeroOffsetStrucType(Type* Outer, Type* Inner) {
+  while(Outer) {
+    if (Outer == Inner)
+      return Inner;
+    if (auto *S = dyn_cast<StructType>(Outer))
+      Outer = S->getStructElementType(0);
+    else
+      return nullptr;
   }
+  return nullptr;
 }
 
-const Type *OpaquePointerTypeMapper::getPointerElementType(const Value *V) const {
-  auto IT = PtrETypeMap.find(V);
-  if (IT == PtrETypeMap.end())
+//
+// The function merges 2 types. Using Optional allows to implement
+// 3 state logic. When an Optional has no value this denotes any
+// possible type. When it has a value and the value is actual type, it
+// naturally means that type. If an Optional has a value
+// and the value is nullptr this denotes none type, typically
+// this is result of a merge of two conflicting types.
+//
+static Optional<Type *> mergeTypes(const Optional<Type *> &X,
+                                   const Optional<Type *> &Y) {
+  if (!X.hasValue()) {
+    return Y;
+  }
+  if (!Y.hasValue()) {
+    return X;
+  }
+
+  if (!X.value() || !Y.value())
     return nullptr;
-  if (!IT->second.has_value())
+
+  // It may happen that a pointer points to 2 different types
+  // for instance for types like struct S { struct Q {int i}; };
+  // we need to choose which type to return after a merge, since
+  // pointers to &S, &S::Q and &S::Q::i are actually the same.
+  // In the current approach, the least type appeared in the search
+  // will be result of the merge. Probably it needs to be
+  // revised in the future.
+  if (X.value() != Y.value()) {
+    if (auto *RT = FindFirstZeroOffsetStrucType(X.value(), Y.value()))
+      return RT;
+    if (auto *RT = FindFirstZeroOffsetStrucType(Y.value(), X.value()))
+      return RT;
     return nullptr;
-  return IT->second.value();
+  }
+  return X;
 }
 
 //
 // Return the pointer element type of 'V' that can be inferred by checking the
-// types of its uses through various instruction types. Return 'nullptr' if no type
-// can be inferred or the types inferred are inconsistent.
+// types of its uses through various instruction types. 
+// The approaches used to infer a type (in the order of priority).
+// 1. Direct type inference from an instruction.
+// 2. Infer a type from pointer uses.
+// 3. Infer a type from defs.
+// Result of the function is an Optional with a meaning as it described
+// in MergeTypes function
 //
-static Type *inferPtrElementTypeX(Value *V) {
+static Optional<Type *>
+inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
+  constexpr auto AnyTy = Optional<Type*>();
+  auto IT = M.find(V);
+  if (IT != M.end()) {
+    return IT->second;
+  }
+  
+  M[V] = AnyTy;
 
-  auto ResultType = [](Type *OldTy, Type *NewTy) -> Type * {
-    return (!OldTy || NewTy == OldTy) ? NewTy : nullptr;
-  };
-
-  Type *STy = nullptr;
   if (auto AI = dyn_cast<AllocaInst>(V))
-    return AI->getAllocatedType();
-  for (User *U : V->users()) {
-    Type *NTy = nullptr;
-    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
-      NTy = ResultType(STy, GEPI->getSourceElementType());
-    } else if (auto LI = dyn_cast<LoadInst>(U)) {
-      NTy = ResultType(STy, LI->getType());
-    } else if (auto SI = dyn_cast<StoreInst>(U)) {
+    return M[V] = AI->getAllocatedType();
+  
+  auto Ty = AnyTy;
+
+  for (auto &Use : V->uses()) {
+    auto *U = Use.getUser();
+    auto NTy = AnyTy;
+    if (auto GEP = dyn_cast<GEPOperator>(U))
+      NTy = GEP->getSourceElementType();
+    else if (auto LI = dyn_cast<LoadInst>(U))
+      NTy = LI->getType();
+    else if (auto SI = dyn_cast<StoreInst>(U)) {
       if (SI->getPointerOperand() != V)
         continue;
-      NTy = ResultType(STy, SI->getValueOperand()->getType());
+      NTy = SI->getValueOperand()->getType();
     } else if (auto SuI = dyn_cast<SubscriptInst>(U)) {
-      if (SuI->getPointerOperand() == V)
-        if (Type *LSTy = inferPtrElementTypeX(SuI))
-          NTy = ResultType(STy, LSTy);
-    }
-    if (STy && !NTy)
-      return nullptr;
-    STy = NTy;
+      if (SuI->getPointerOperand() != V)
+        continue;
+      NTy = SuI->getElementType();
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      auto *CalledF = CB->getCalledFunction();
+      if (!CalledF || CalledF->isVarArg())
+        continue;
+      if (!CB->isArgOperand(&Use))
+        continue;
+      unsigned ANo = CB->getArgOperandNo(&Use);
+      auto *A = CalledF->getArg(ANo);
+      NTy = inferPtrElementTypeX(A, M);
+    } else
+      continue;
+
+    Ty = mergeTypes(Ty, NTy);
+    if (Ty.hasValue() && Ty.value() == nullptr)
+      break;
   }
-  return STy;
+
+  if (Ty == AnyTy) {
+    if (auto Arg = dyn_cast<Argument>(V)) {
+      auto *F = Arg->getParent();
+      for (auto *U: F->users()) {
+        if (auto *CB = dyn_cast<CallBase>(U)) {
+          auto *ActArg = CB->getArgOperand(Arg->getArgNo());
+          auto NTy = inferPtrElementTypeX(ActArg, M);
+          Ty = mergeTypes(Ty, NTy);
+        }
+      }
+      // We failed to infer a type from the argument defs.
+      // This naturally means that the defs have different types.
+      // In this case, no better type can be deduced than "any" type.
+      if (Ty.hasValue() && Ty.value() == nullptr)
+        Ty = AnyTy;
+    } else if (auto BC = dyn_cast<BitCastOperator>(V))
+    // Failed to infer a BitCast type by uses. In the case if ptr->ptr cast
+    // which is actually dead code, we can try to infer type from
+    // the BitCast argument.
+      if (BC->getSrcTy()->isPointerTy() && BC->getDestTy()->isPointerTy())
+        Ty = inferPtrElementTypeX(BC->getOperand(0), M); 
+  }
+
+  M[V] = Ty;
+  return Ty;
 }
 
 //
@@ -117,7 +176,11 @@ Type *inferPtrElementType(Value &V) {
   llvm::Type *Ty = V.getType();
   if (!Ty->isPointerTy())
     return nullptr;
-  return inferPtrElementTypeX(&V);
+  if (Ty->getContext().supportsTypedPointers())
+    return Ty->getNonOpaquePointerElementType();
+  auto VMap = DenseMap<const Value *, Optional<Type *>>();
+  auto RT = inferPtrElementTypeX(&V, VMap);
+  return RT.hasValue() ? RT.value() : nullptr;
 }
 
 } // namespace llvm
