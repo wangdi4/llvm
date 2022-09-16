@@ -169,6 +169,9 @@ static cl::opt<uint32_t> DeviceMemoryKind(
     cl::desc("Control memory address space setting for device. 0 = private; "
              "1 = global, 2 = constant, 3 (default) = local; 4 = generic."));
 
+extern cl::opt<bool> AtomicFreeReduction;
+extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
+
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
 GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
@@ -7282,6 +7285,24 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
     if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
       return false;
   }
+
+  Value *NumElems = nullptr;
+  std::tie(std::ignore, NumElems, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
+
+  if (NumElems && !isa<Constant>(NumElems))
+    return false;
+
   return true;
+}
+
+bool VPOParoptUtils::isAtomicFreeReductionLocalEnabled() {
+  return AtomicFreeReduction &&
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Local);
+}
+
+bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
+  return AtomicFreeReduction &&
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 #endif // INTEL_COLLAB
