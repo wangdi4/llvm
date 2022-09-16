@@ -60,6 +60,18 @@ class MapIntrinToImlImpl {
                                                 unsigned TargetVL, bool Masked,
                                                 Instruction *I);
 
+  /// Try to find an SVML function for scalar function \p ScalarFuncName, with
+  /// element type sized \p ComponentBitWidth, VL closest to \p TargetVL and
+  /// IMF attributes attached to \p I.  Returns a pair of the name of the
+  /// SVML function and it's VL. If there is no SVML function that satisfies
+  /// the requirement, None is returned. If \p Masked is true, a masked variant
+  /// is returned.
+  Optional<std::pair<StringRef, unsigned>>
+  searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
+                                StringRef ScalarFuncName,
+                                unsigned ComponentBitWidth, unsigned LogicalVL,
+                                bool Masked, Instruction *I);
+
   /// \brief Add an IMF attribute to the attribute list.
   void addAttributeToList(ImfAttr **List, ImfAttr **Tail, ImfAttr *Attr);
 
@@ -69,13 +81,6 @@ class MapIntrinToImlImpl {
   /// \brief Determines if a StringRef representation of an IMF attribute is
   /// legal.
   bool isValidIMFAttribute(std::string AttrName);
-
-  /// \brief Returns the number of registers that must be used for a value
-  /// with a bit width of \p TypeBitWidth and logical vector length of
-  /// \p LogicalVL.
-  /// Also returns the target vector length in \p TargetVL.
-  unsigned calculateNumReturns(TargetTransformInfo *TTI, unsigned TypeBitWidth,
-                               unsigned LogicalVL, unsigned *TargetVL);
 
   /// Combine all of the result values of the target vector length in
   /// \p SplitCalls into a single value of the logical vector length. And

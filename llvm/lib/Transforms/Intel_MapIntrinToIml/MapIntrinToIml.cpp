@@ -123,31 +123,48 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
   return false;
 }
 
-unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
-                                                 unsigned ComponentBitWidth,
-                                                 unsigned LogicalVL,
-                                                 unsigned *TargetVL) {
-  unsigned VectorBitWidth =
+Optional<std::pair<StringRef, unsigned>>
+MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
+                                                  StringRef ScalarFuncName,
+                                                  unsigned ComponentBitWidth,
+                                                  unsigned LogicalVL,
+                                                  bool Masked,
+                                                  Instruction *I) {
+  assert(isPowerOf2_32(LogicalVL) && "Can't handle non-power-of-two VL");
+
+  unsigned MaxVectorBitWidth =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
   // Under x86 architecture, getRegisterBitWidth() may return 0 for vectors
   // if no vector ISA is specified. In this case, there should not be any SVML
   // call in the input IR.
-  assert(VectorBitWidth != 0 && "SVML call is not expected when compiling to a "
+  assert(MaxVectorBitWidth != 0 && "SVML call is not expected when compiling to a "
                                 "target without vector ISA support.");
-  *TargetVL = VectorBitWidth / ComponentBitWidth;
-  unsigned NumRet = LogicalVL / *TargetVL;
+  unsigned MaxVL = MaxVectorBitWidth / ComponentBitWidth;
+  assert(MaxVectorBitWidth % ComponentBitWidth == 0 && isPowerOf2_32(MaxVL) &&
+         "Invalid target vector width or component width");
 
-  // If the logical vector width is smaller than the target vector width,
-  // then we have less than full vector. Thus, just set NumRet = 1.
-  NumRet = NumRet == 0 ? 1 : NumRet;
+  // Don't select VLs larger than target's capability
+  LogicalVL = std::min(LogicalVL, MaxVL);
 
-  LLVM_DEBUG(dbgs() << "Component Bit Width: " << ComponentBitWidth << "\n");
-  LLVM_DEBUG(dbgs() << "Legalizing VL: " << LogicalVL << "\n");
-  LLVM_DEBUG(dbgs() << "Vector Bit Width: " << VectorBitWidth << "\n");
-  LLVM_DEBUG(dbgs() << "Legal Target VL: " << *TargetVL << "\n");
-  LLVM_DEBUG(dbgs() << "Num Regs: " << NumRet << "\n");
+  // First search with VLs larger than LogicalVL. Generally if LogicalVL *
+  // ComponentBitWidth is 128, 256 or 512, we can find a variant for LogicalVL
+  // immediately.
+  for (unsigned TargetVL = LogicalVL; TargetVL <= MaxVL; TargetVL *= 2) {
+    StringRef VariantFuncName = findX86SVMLVariantForScalarFunction(
+        ScalarFuncName, TargetVL, Masked, I);
+    if (!VariantFuncName.empty())
+      return std::make_pair(VariantFuncName, TargetVL);
+  }
 
-  return NumRet;
+  // Then search with smaller VLs
+  for (unsigned TargetVL = LogicalVL; TargetVL >= 2; TargetVL /= 2) {
+    StringRef VariantFuncName = findX86SVMLVariantForScalarFunction(
+        ScalarFuncName, TargetVL, Masked, I);
+    if (!VariantFuncName.empty())
+      return std::make_pair(VariantFuncName, TargetVL);
+  }
+
+  return None;
 }
 
 void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
@@ -854,23 +871,19 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
       if (isa<Constant>(BinOp->getOperand(1)))
         continue;
 
-      // Get the number of library calls that will be required, indicated by
-      // NumRet.
-      unsigned TargetVL = 0;
-      unsigned NumRet =
-          calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
+      // Find an appropriate SVML function to call. If there is none, this
+      // instruction will not be optimized to SVML.
+      std::string FuncName =
+          getSVMLIDivOrRemFuncName(BinOp->getOpcode(), VecTy);
+      auto Variant = searchX86SVMLVariantWithMinVL(
+          TTI, FuncName, ScalarBitWidth, LogicalVL, false, &I);
+      if (!Variant.hasValue())
+        continue;
+      StringRef VariantFuncName = Variant.getValue().first;
+      unsigned TargetVL = Variant.getValue().second;
 
       VectorType *LegalVecTy =
           FixedVectorType::get(VecTy->getScalarType(), TargetVL);
-      // Find an appropriate SVML function to call. If there is none, this
-      // instruction will not be optimized to SVML.
-      std::string FuncName = getSVMLIDivOrRemFuncName(
-          BinOp->getOpcode(), cast<VectorType>(LegalVecTy));
-      StringRef VariantFuncName =
-          findX86SVMLVariantForScalarFunction(FuncName, TargetVL, false, &I);
-      if (VariantFuncName.empty())
-        continue;
-
       FunctionCallee Func = M->getOrInsertFunction(VariantFuncName, LegalVecTy,
                                                    LegalVecTy, LegalVecTy);
 
@@ -878,13 +891,14 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
       SmallVector<Value *, 2> Args(BinOp->operands());
       Builder.SetInsertPoint(BinOp);
 
-      if (NumRet > 1) {
-        // NumRet > 1 means that multiple library calls are required to
-        // support the vector length of the integer division instruction.
+      if (TargetVL < LogicalVL) {
+        // Multiple library calls are required to support the vector length
+        // of the integer division instruction.
 
         // Generate SVML call for each part of the split operands
         SmallVector<Value *, 8> SplitCalls;
-        splitMathLibCalls(NumRet, TargetVL, Func, Args, SplitCalls);
+        splitMathLibCalls(LogicalVL / TargetVL, TargetVL, Func, Args,
+                          SplitCalls);
 
         Result = joinVectors(SplitCalls, Builder, "shuffle.comb");
       } else {
@@ -1108,7 +1122,8 @@ bool MapIntrinToImlImpl::runImpl() {
 
   Triple T(M->getTargetTriple());
   llvm::Triple::ArchType Arch = T.getArch();
-  bool X86Target = (Arch == Triple::x86 || Arch == Triple::x86_64);
+  if (Arch != Triple::x86 && Arch != Triple::x86_64)
+    return false;
 
   // Will be populated with the call instructions that will be replaced with
   // legalized/refined svml calls.
@@ -1192,21 +1207,8 @@ bool MapIntrinToImlImpl::runImpl() {
     unsigned ComponentBitWidth =
         (cast<FixedVectorType>(VecCallType)->getNumElements() / LogicalVL) *
         ScalarBitWidth;
-
-    // Get the number of library calls that will be required, indicated by
-    // NumRet. NumRet is determined by getting the vector type info from the
-    // call signature. See notes in getVectorTypeForSVMLFunction() for more
-    // information.
-    unsigned TargetVL = 0;
-    unsigned NumRet =
-        calculateNumReturns(TTI, ComponentBitWidth, LogicalVL, &TargetVL);
-
-    StringRef VariantFuncName;
-
-    if (X86Target) {
-      VariantFuncName = findX86SVMLVariantForScalarFunction(
-          ScalarFuncName, TargetVL, Masked, CI);
-    }
+    auto Variant = searchX86SVMLVariantWithMinVL(
+        TTI, ScalarFuncName, ComponentBitWidth, LogicalVL, Masked, CI);
 
     // Preserve fast math flag of the original call (if any)
     IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
@@ -1219,7 +1221,9 @@ bool MapIntrinToImlImpl::runImpl() {
     // 1) an appropriate math library function is not found through querying
     //    the function selection interface.
     // 2) the pass is running in stress testing mode.
-    if (!VariantFuncName.empty() && !RunSvmlStressMode) {
+    if (Variant.hasValue() && !RunSvmlStressMode) {
+      StringRef VariantFuncName = Variant.getValue().first;
+      unsigned TargetVL = Variant.getValue().second;
       LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncName << "\n\n");
 
       // Original arguments to the vector call.
@@ -1253,26 +1257,24 @@ bool MapIntrinToImlImpl::runImpl() {
       // functions that are less than full vector.
       SmallVector<Value *, 8> SplitCalls;
 
-      if (NumRet > 1) {
+      if (TargetVL < LogicalVL) {
 
         // NumRet > 1 means that multiple library calls are required to
         // support the vector length of the call.
 
-        splitMathLibCalls(NumRet, TargetVL, FCache, Args, SplitCalls);
+        splitMathLibCalls(LogicalVL / TargetVL, TargetVL, FCache, Args, SplitCalls);
 
         // If the split calls are 512-bit (i.e. it has source argument), then
         // the merge in final join is redundant.
         Value *SourceArgForJoin = NewCallIsAVX512 ? nullptr : SourceArg;
-        Value *FinalResult =
-            joinSplitCallResults(NumRet, SplitCalls, CI->getFunctionType(),
-                                 SourceArgForJoin, MaskArg);
+        Value *FinalResult = joinSplitCallResults(
+            LogicalVL / TargetVL, SplitCalls, CI->getFunctionType(),
+            SourceArgForJoin, MaskArg);
 
         CI->replaceAllUsesWith(FinalResult);
       } else {
-        // NumRet = 1
-
-        // Type legalization still needs to happen for NumRet = 1 when
-        // dealing with less than full vector cases.
+        // Type legalization still needs to happen when dealing with less than
+        // full vector cases.
         // generateNewArgsFromPartialVectors() duplicates the low elements
         // into the upper part of the vector so the math library call operates
         // on safe values. But, the duplicate results are not needed, so
@@ -1356,48 +1358,46 @@ bool MapIntrinToImlImpl::runImpl() {
   // Legalize scalar math function calls
   for (auto *ScalarCI : ScalarCallsToTranslate) {
     LLVM_DEBUG(dbgs() << "ScalarCI: "; ScalarCI->dump());
-    if (X86Target) {
-      // TODO: Can scalar math functions have any prefixes/suffixes?
-      Function *F = ScalarCI->getCalledFunction();
-      std::string ScalarFuncName;
-      assert(ScalarCI->getNumOperands() >= 1 &&
-             "Math function should have at least 1 argument");
-      if (F->isIntrinsic())
-        ScalarFuncName = scalarFPIntrinsicToFuncName(
-            F->getIntrinsicID(), ScalarCI->getOperand(0)->getType());
-      else
-        ScalarFuncName = F->getName().str();
+    // TODO: Can scalar math functions have any prefixes/suffixes?
+    Function *F = ScalarCI->getCalledFunction();
+    std::string ScalarFuncName;
+    assert(ScalarCI->getNumOperands() >= 1 &&
+            "Math function should have at least 1 argument");
+    if (F->isIntrinsic())
+      ScalarFuncName = scalarFPIntrinsicToFuncName(
+          F->getIntrinsicID(), ScalarCI->getOperand(0)->getType());
+    else
+      ScalarFuncName = F->getName().str();
 
-      ImfAttr *AttrList = nullptr;
-      createImfAttributeList(ScalarCI, &AttrList);
+    ImfAttr *AttrList = nullptr;
+    createImfAttributeList(ScalarCI, &AttrList);
 
-      StringRef VariantFuncName = ScalarFuncName;
+    StringRef VariantFuncName = ScalarFuncName;
 
-      // If iml accuracy interface returns a non-null variant then replace
-      // current scalar function with variant function name.
-      if (const char *VariantFuncStr = get_library_function_name(
-              ScalarFuncName.c_str(), AttrList, Arch, T.getOS())) {
-        VariantFuncName = StringRef(VariantFuncStr);
-      }
-
-      deleteAttributeList(&AttrList);
-
-      // Don't perform replacement if variant is same as scalar function
-      if (VariantFuncName.equals(ScalarFuncName))
-        continue;
-      if (VariantFuncName.startswith("__svml"))
-        ScalarCI->setCallingConv(CallingConv::SVML);
-
-      LLVM_DEBUG(dbgs() << "Input Scalar Math Function: " << ScalarFuncName
-                        << "\n");
-      LLVM_DEBUG(dbgs() << "Legalized Scalar Math Function: " << VariantFuncName
-                        << "\n");
-
-      FunctionCallee FCache =
-          M->getOrInsertFunction(VariantFuncName, ScalarCI->getFunctionType());
-      ScalarCI->setCalledFunction(FCache);
-      Dirty = true; // LLVM-IR is changed since function call is updated
+    // If iml accuracy interface returns a non-null variant then replace
+    // current scalar function with variant function name.
+    if (const char *VariantFuncStr = get_library_function_name(
+            ScalarFuncName.c_str(), AttrList, Arch, T.getOS())) {
+      VariantFuncName = StringRef(VariantFuncStr);
     }
+
+    deleteAttributeList(&AttrList);
+
+    // Don't perform replacement if variant is same as scalar function
+    if (VariantFuncName.equals(ScalarFuncName))
+      continue;
+    if (VariantFuncName.startswith("__svml"))
+      ScalarCI->setCallingConv(CallingConv::SVML);
+
+    LLVM_DEBUG(dbgs() << "Input Scalar Math Function: " << ScalarFuncName
+                      << "\n");
+    LLVM_DEBUG(dbgs() << "Legalized Scalar Math Function: " << VariantFuncName
+                      << "\n");
+
+    FunctionCallee FCache =
+        M->getOrInsertFunction(VariantFuncName, ScalarCI->getFunctionType());
+    ScalarCI->setCalledFunction(FCache);
+    Dirty = true; // LLVM-IR is changed since function call is updated
     LLVM_DEBUG(dbgs() << "ScalarCI after legalization: "; ScalarCI->dump());
   }
 

@@ -1,6 +1,9 @@
 ; Check SVML calls absent in the library falls back to scalarized calls with "f16" suffix.
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
 ; CHECK-LABEL: @test_frexp
 ; CHECK: [[ARG1:%.*]] = extractelement <4 x half> %A, i32 0
 ; CHECK: [[RESULT1:%.*]] = call half @frexpf16(half [[ARG1]])
