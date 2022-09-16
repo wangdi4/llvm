@@ -12,7 +12,11 @@
 // CHECK-CORRECT: "-mlink-builtin-bitcode" "{{.*}}/amdgcn/bitcode/oclc_correctly_rounded_sqrt_on.bc"
 
 // RUN: %clang -### \
+<<<<<<< HEAD
 // RUN:   -fsycl -fsycl-targets=amdgcn-amd-amdhsa -fno-sycl-libspirv \
+=======
+// RUN:   -fsycl -fsycl-targets=amdgcn-amd-amdhsa  -fno-sycl-libspirv \
+>>>>>>> 295b4fa585692fb3762c81b0aa8f599c8df8084a
 // RUN:   -Xsycl-target-backend --offload-arch=gfx900 \
 // RUN:   --rocm-path=%S/Inputs/rocm \
 // RUN:   %s \
@@ -21,7 +25,11 @@
 // CHECK-APPROX: "-mlink-builtin-bitcode" "{{.*}}/amdgcn/bitcode/oclc_correctly_rounded_sqrt_off.bc"
 
 // RUN: %clang -### \
+<<<<<<< HEAD
 // RUN:   -fsycl -fsycl-targets=amdgcn-amd-amdhsa -fno-sycl-libspirv \
+=======
+// RUN:   -fsycl -fsycl-targets=amdgcn-amd-amdhsa  -fno-sycl-libspirv \
+>>>>>>> 295b4fa585692fb3762c81b0aa8f599c8df8084a
 // RUN:   -Xsycl-target-backend --offload-arch=gfx900 \
 // RUN:   -fsycl-fp32-prec-sqrt -fno-hip-fp32-correctly-rounded-divide-sqrt \
 // RUN:   --rocm-path=%S/Inputs/rocm \
