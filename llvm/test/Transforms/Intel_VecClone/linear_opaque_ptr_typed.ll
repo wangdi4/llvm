@@ -14,7 +14,6 @@ attributes #0 = { "vector-variants"="_ZGVbN4l4_foo" }
 ; CHECK-NEXT:    [[ALLOCA_P:%.*]] = alloca ptr, align 8
 ; CHECK-NEXT:    store ptr [[P:%.*]], ptr [[ALLOCA_P]], align 8
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <4 x ptr>, align 32
-; CHECK-NEXT:    [[RET_CAST:%.*]] = bitcast ptr [[VEC_RETVAL]] to ptr
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED.PTR_TO_PTR"(ptr [[ALLOCA_P]], i8 0, i32 1, i32 4) ]
@@ -24,7 +23,7 @@ attributes #0 = { "vector-variants"="_ZGVbN4l4_foo" }
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER:%.*]]
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER]] ], [ [[INDVAR:%.*]], [[SIMD_LOOP_LATCH:%.*]] ]
-; CHECK-NEXT:    [[RET_CAST_GEP:%.*]] = getelementptr ptr, ptr [[RET_CAST]], i32 [[INDEX]]
+; CHECK-NEXT:    [[RET_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_RETVAL]], i32 [[INDEX]]
 ; CHECK-NEXT:    [[STRIDE_MUL:%.*]] = mul i32 4, [[INDEX]]
 ; CHECK-NEXT:    [[P_GEP:%.*]] = getelementptr i8, ptr [[LOAD_P]], i32 [[STRIDE_MUL]]
 ; CHECK-NEXT:    store ptr [[P_GEP]], ptr [[RET_CAST_GEP]], align 8
@@ -37,7 +36,6 @@ attributes #0 = { "vector-variants"="_ZGVbN4l4_foo" }
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[VEC_RET_CAST:%.*]] = bitcast ptr [[RET_CAST]] to ptr
-; CHECK-NEXT:    [[VEC_RET:%.*]] = load <4 x ptr>, ptr [[VEC_RET_CAST]], align 32
+; CHECK-NEXT:    [[VEC_RET:%.*]] = load <4 x ptr>, ptr [[VEC_RETVAL]], align 32
 ; CHECK-NEXT:    ret <4 x ptr> [[VEC_RET]]
 ;

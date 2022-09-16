@@ -1351,9 +1351,14 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   unsigned MaxLevel = 0;
   unsigned LoopLevel = CurrLoop->getNestingLevel();
   for (unsigned I = 1; I < 3; I++) {
-    auto *InstDDRef = Inst->getOperandDDRef(I);
+    auto *CmpOp = Inst->getOperandDDRef(I);
+
+    // The operand's type can't be vector type. It isn't supported by HLIf.
+    if (CmpOp->getDestType()->isVectorTy())
+      return;
+
     PUContext PUC;
-    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, InstDDRef, PUC);
+    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp, PUC);
     if (DefLevel >= LoopLevel)
       return;
 
