@@ -368,10 +368,12 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-void VecCloneImpl::updateVectorArgumentUses(
-    Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
-    Type *ElemType, BitCastInst *VecArgCast, BasicBlock *EntryBlock,
-    BasicBlock *LoopLatch, PHINode *Phi) {
+void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
+                                            const DataLayout &DL, Argument *Arg,
+                                            Type *ElemType, Instruction *VecArg,
+                                            BasicBlock *EntryBlock,
+                                            BasicBlock *LoopLatch,
+                                            PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
@@ -389,17 +391,17 @@ void VecCloneImpl::updateVectorArgumentUses(
 
     GetElementPtrInst *VecGep = nullptr;
     if (!isa<PHINode>(User))
-      VecGep = GetElementPtrInst::Create(
-          ElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep", InsertPt);
+      VecGep = GetElementPtrInst::Create(ElemType, VecArg, Phi,
+                                         VecArg->getName() + ".gep", InsertPt);
 
     // Otherwise, we need to load the value from the gep first before
     // using it. This effectively loads the particular element from
     // the vector argument.
     if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
       BasicBlock *IncommingBB = PHIUser->getIncomingBlock(U.getOperandNo());
-      VecGep = GetElementPtrInst::Create(
-          ElemType, VecArgCast, Phi, VecArgCast->getName() + ".gep",
-          IncommingBB->getTerminator());
+      VecGep = GetElementPtrInst::Create(ElemType, VecArg, Phi,
+                                         VecArg->getName() + ".gep",
+                                         IncommingBB->getTerminator());
     }
     assert(VecGep && "Expect VecGep to be a non-null value.");
     Type *LoadTy = VecGep->getResultElementType();
@@ -509,24 +511,27 @@ Instruction *VecCloneImpl::widenVectorArguments(
       ElemType = OrigArgTy;
     }
 
-    PointerType *ElemTypePtr =
-        PointerType::get(ElemType, VecAlloca->getType()->getAddressSpace());
+    Instruction *VecArg = VecAlloca;
+    if (!VecAlloca->getType()->isOpaquePointerTy()) {
+      PointerType *ElemTypePtr =
+          PointerType::get(ElemType, VecAlloca->getType()->getAddressSpace());
 
-    BitCastInst *VecArgCast = nullptr;
-    if (MaskArg) {
-      Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
-      // Mask points to the bitcast of the alloca instruction to element type
-      // pointer. Insert the bitcast after all of the other bitcasts for vector
-      // arguments.
-      Mask->insertBefore(EntryBlock->getTerminator());
-    } else {
-      VecArgCast = new BitCastInst(VecAlloca, ElemTypePtr,
-                                   "vec." + Arg->getName() + ".cast");
-      VecArgCast->insertBefore(EntryBlock->getTerminator());
+      if (MaskArg) {
+        Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+        // Mask points to the bitcast of the alloca instruction to element type
+        // pointer. Insert the bitcast after all of the other bitcasts for
+        // vector arguments.
+        Mask->insertBefore(EntryBlock->getTerminator());
+        return Mask;
+      } else {
+        VecArg = new BitCastInst(VecAlloca, ElemTypePtr,
+                                 "vec." + Arg->getName() + ".cast");
+        VecArg->insertBefore(EntryBlock->getTerminator());
+      }
     }
 
-    if (Mask)
-      return Mask;
+    if (MaskArg)
+      return VecAlloca;
 
     // Store the vector argument into the new VF-widened alloca.
     Value *ArgValue = cast<Value>(Arg);
@@ -534,7 +539,7 @@ Instruction *VecCloneImpl::widenVectorArguments(
                                      DL.getABITypeAlign(ArgValue->getType()));
     Store->insertBefore(EntryBlock->getTerminator());
 
-    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArgCast,
+    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArg,
                              EntryBlock, LoopHeader, Phi);
   }
 
@@ -561,14 +566,16 @@ Instruction *VecCloneImpl::createWidenedReturn(Function *Clone,
     VecAlloca->insertBefore(&EntryBlock->front());
   LastAlloca = VecAlloca;
 
-  auto *ElemTypePtr =
-      PointerType::get(OrigFuncReturnType,
-                       VecAlloca->getType()->getAddressSpace());
+  if (!VecAlloca->getType()->isOpaquePointerTy()) {
+    auto *ElemTypePtr = PointerType::get(
+        OrigFuncReturnType, VecAlloca->getType()->getAddressSpace());
 
-  BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
-  VecCast->insertBefore(EntryBlock->getTerminator());
+    BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
+    VecCast->insertBefore(EntryBlock->getTerminator());
+    return VecCast;
+  }
 
-  return VecCast;
+  return VecAlloca;
 }
 
 Instruction *VecCloneImpl::widenReturn(Function *Clone, Function &F,
@@ -655,7 +662,9 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
   // Insert the mask argument store to alloca and bitcast if this is a masked
   // variant.
   if (Mask) {
-    Value *MaskVector = Mask->getOperand(0);
+    Value *MaskVector = Mask;
+    if (isa<BitCastInst>(Mask))
+      MaskVector = Mask->getOperand(0);
 
     // MaskArg points to the function's mask argument.
     Function::arg_iterator MaskArg = Clone->arg_end();
@@ -895,14 +904,16 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // vector was bitcast to a pointer to the element type, we must bitcast to
   // vector before returning.
   // Operand 0 is the actual alloc reference in the bitcast.
-  AllocaInst *Alloca = cast<AllocaInst>(WidenedReturn->getOperand(0));
-  PointerType *PtrVecType =
-      PointerType::get(Clone->getReturnType(),
-                       Alloca->getType()->getAddressSpace());
-  BitCastInst *BitCast =
-    new BitCastInst(WidenedReturn, PtrVecType,
-                    "vec." + WidenedReturn->getName(),
-                    ReturnBlock);
+  Instruction *WidenedSrc = WidenedReturn;
+  if (!WidenedReturn->getType()->isOpaquePointerTy()) {
+    assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
+    AllocaInst *Alloca = cast<AllocaInst>(WidenedReturn->getOperand(0));
+    PointerType *PtrVecType = PointerType::get(
+        Clone->getReturnType(), Alloca->getType()->getAddressSpace());
+    WidenedSrc =
+        new BitCastInst(WidenedReturn, PtrVecType,
+                        "vec." + WidenedReturn->getName(), ReturnBlock);
+  }
 
   // Return can't be void here due to early exit at the top of this function.
   // Return is expected to be a bitcast instruction because we always create
@@ -915,7 +926,7 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // from above. There doesn't seem to be a good reason to do this extra
   // casting. Leaving for now because this change is NFC.
   LoadInst *VecReturn =
-      new LoadInst(Clone->getReturnType(), BitCast, "vec.ret", ReturnBlock);
+      new LoadInst(Clone->getReturnType(), WidenedSrc, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
@@ -1091,8 +1102,14 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
 
   BranchInst::Create(LoopLatch, LoopElseBlock);
 
-  auto *BitCast = cast<BitCastInst>(Mask);
-  auto *Alloca = cast<AllocaInst>(BitCast->getOperand(0));
+  AllocaInst *Alloca = nullptr;
+  if (isa<BitCastInst>(Mask)) {
+    auto *BitCast = cast<BitCastInst>(Mask);
+    Alloca = cast<AllocaInst>(BitCast->getOperand(0));
+  } else {
+    assert(isa<AllocaInst>(Mask) && "Expected alloca inst");
+    Alloca = cast<AllocaInst>(Mask);
+  }
 
   Type *PointeeType =
       cast<VectorType>(Alloca->getAllocatedType())->getElementType();
