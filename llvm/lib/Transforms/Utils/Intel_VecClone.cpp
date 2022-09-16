@@ -687,11 +687,18 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
   if (auto *ArgTy = dyn_cast<PointerType>(Arg->getType())) {
     // For pointer types the stride is specified in bytes!
     if (!ArgTy->isOpaque()) {
+      // For pointer args with variable stride, cast the Stride to the same
+      // type as the loop index Phi.
+      Value *StrideCast = Stride;
+      if (Stride->getType() != Phi->getType()) {
+        StrideCast = Builder.CreateCast(
+            CastInst::getCastOpcode(Stride, false /* SrcIsSigned */,
+                                    Phi->getType(), false /* DestIsSigned */),
+            Stride, Phi->getType(), "stride.cast");
+      }
       // Try to make compute nicely looking without byte arithmetic. Purely for
       // aesthetic purposes.
-      auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
-      assert(Stride->getType() == Phi->getType() &&
-             "Type of stride and loop index are different");
+      auto *Mul = Builder.CreateMul(StrideCast, Phi, "stride.mul");
 
       // Linear updates to pointer arguments involves an address calculation,
       // so use gep. To properly update linear pointers we only need to
@@ -840,7 +847,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
         }
         getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
         LinearMemory[ArgMemory] = StrideVal;
-      } else if (Parm.isVariableStride() && Arg.getType()->isIntegerTy()) {
+      } else if (Parm.isVariableStride()) {
         // Get the stride value from the argument holding it.
         int StrideArgPos = Parm.getStrideArgumentPosition();
         Argument *StrideArg = Clone->getArg(StrideArgPos);
