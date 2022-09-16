@@ -573,29 +573,8 @@ TEST(Assert, TestAssertServiceKernelHidden) {
 }
 
 TEST(Assert, TestInteropKernelNegative) {
-<<<<<<< HEAD
-  sycl::platform Plt;
-
-  if (Plt.is_host()) {
-    printf("Test is not supported on host, skipping\n");
-    return;
-  }
-
-  const sycl::backend Backend = Plt.get_backend();
-
-  if (Backend == sycl::backend::ext_oneapi_cuda ||
-      Backend == sycl::backend::ext_oneapi_hip ||
-      Backend == sycl::backend::ext_oneapi_level_zero) {
-    printf(
-        "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    return;
-  }
-
-  sycl::unittest::PiMock Mock{Plt};
-=======
   sycl::unittest::PiMock Mock;
   sycl::platform Plt = Mock.getPlatform();
->>>>>>> 9a59ef58a5af7f0877c1ae7a9f1b5b977fb5b281
 
   const sycl::device Dev = Plt.get_devices()[0];
   sycl::context Ctx{Dev};
@@ -616,26 +595,6 @@ TEST(Assert, TestInteropKernelNegative) {
 }
 
 TEST(Assert, TestInteropKernelFromProgramNegative) {
-<<<<<<< HEAD
-  sycl::platform Plt;
-
-  if (Plt.is_host()) {
-    printf("Test is not supported on host, skipping\n");
-    return;
-  }
-
-  const sycl::backend Backend = Plt.get_backend();
-
-  if (Backend == sycl::backend::ext_oneapi_cuda ||
-      Backend == sycl::backend::ext_oneapi_hip ||
-      Backend == sycl::backend::ext_oneapi_level_zero) {
-    printf(
-        "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    return;
-  }
-
-  sycl::unittest::PiMock Mock{Plt};
-=======
   sycl::unittest::PiMock Mock;
   sycl::platform Plt = Mock.getPlatform();
 >>>>>>> 9a59ef58a5af7f0877c1ae7a9f1b5b977fb5b281
