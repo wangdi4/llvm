@@ -1,4 +1,4 @@
-// RUN: %clang --driver-mode=dxc -Tlib_6_7 -fcgl  -Fo - %s | FileCheck %s
+// INTEL RUN: %clang --driver-mode=dxc -Tlib_6_7 -fcgl -Xclang -opaque-pointers -Fo - %s | FileCheck %s
 
 // Make sure float3 is not changed into float4.
 // CHECK:<3 x float> @"?foo@@YAT?$__vector@M$02@__clang@@T12@@Z"(<3 x float> noundef %[[PARAM:[0-9a-zA-Z]+]])
