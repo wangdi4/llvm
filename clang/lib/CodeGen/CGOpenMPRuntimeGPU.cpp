@@ -929,6 +929,7 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
   return false;
 }
 
+<<<<<<< HEAD
 /// Checks if the construct supports lightweight runtime. It must be SPMD
 /// construct + inner loop-based construct with static scheduling.
 static bool supportsLightweightRuntime(ASTContext &Ctx,
@@ -1023,6 +1024,8 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
       "Unknown programming model for OpenMP directive on NVPTX target.");
 }
 
+=======
+>>>>>>> bae1a2cf3cce529b0d03df8bac962d13b407e117
 void CGOpenMPRuntimeGPU::emitNonSPMDKernel(const OMPExecutableDirective &D,
                                              StringRef ParentName,
                                              llvm::Function *&OutlinedFn,
