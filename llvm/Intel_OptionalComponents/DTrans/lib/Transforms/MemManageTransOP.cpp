@@ -21,6 +21,7 @@
 #include "Intel_DTrans/Transforms/MemManageTransOP.h"
 
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -211,9 +212,10 @@ private:
   SmallPtrSet<Function *, 32> RelatedFunctions;
 
   bool gatherCandidates(Module &M, FunctionTypeResolver &TypeResolver);
-  bool analyzeCandidates(Module &M);
+  bool analyzeCandidates(Module &M, const DTransLibraryInfo &DTransLibInfo);
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions();
+  bool checkTypesEscaped(Module &M, const DTransLibraryInfo &DTransLibInfo);
   bool checkCallSiteRestrictions();
   bool categorizeFunctions();
   bool recognizeFunctions();
@@ -521,8 +523,232 @@ bool MemManageTransImpl::checkInterfaceFunctions() {
   return true;
 }
 
+// Returns true if ReusableArenaAllocator or any related type may be used in
+// a function other than the interface/stringObj functions.
+bool MemManageTransImpl::checkTypesEscaped(
+    Module &M, const DTransLibraryInfo &DTransLibInfo) {
+
+  // Returns true if "Ty" is directly or indirectly related to
+  // ReusableArenaAllocator.
+  auto IsCandidateRelatedType = [](MemManageCandidateInfo *Cand,
+                                   DTransType *Ty) {
+    // Go conservative for an unknown type.
+    if (!Ty)
+      return true;
+
+    DTransType *BaseTy = unwrapDTransType(Ty);
+    assert(BaseTy && "Unexpected null from unwrapDTransType");
+    auto *STy = dyn_cast<DTransStructType>(BaseTy);
+    if (!STy)
+      return false;
+    if (!Cand->isRelatedType(cast<llvm::StructType>(STy->getLLVMType())))
+      return false;
+    return true;
+  };
+
+  // Helper class used when checking whether a value potentially references a
+  // structure type directly or indirectly. There are three possibilities when
+  // checking a value:
+  // 1. There is a known structure type involved
+  // 2. There is definitely not a structure type involved
+  // 3. There is not enough information available to determine whether there is
+  //    a structure type because pointers are involved, but there was no DTrans
+  //    type metadata.
+  //
+  // This class is to encapsulate these possibilities for use as a return value
+  // in functions that are to return the type.
+  struct MaybeStructType {
+    bool PossibleStructType;
+    llvm::StructType *Ty;
+
+    MaybeStructType(bool PossibleStructType = false,
+                    llvm::StructType *Ty = nullptr)
+        : PossibleStructType(PossibleStructType), Ty(Ty) {}
+    bool isPossibleStructType() const { return PossibleStructType; }
+    bool maybeUnknownStructType() const {
+      return isPossibleStructType() && getStructType() == nullptr;
+    }
+    llvm::StructType *getStructType() const { return Ty; }
+  };
+
+  // Check whether it can be determined if a Structure type is referenced, and
+  // if so, what type.
+  auto GetStructType = [](DTransType *MDType,
+                          llvm::Type *llvmTy) -> MaybeStructType {
+    if (MDType) {
+      DTransType *BaseTy = unwrapDTransType(MDType);
+      if (BaseTy->isStructTy())
+        return MaybeStructType(true,
+                               cast<llvm::StructType>(BaseTy->getLLVMType()));
+      return MaybeStructType(false, nullptr);
+    }
+
+    if (!dtrans::hasPointerType(llvmTy)) {
+      llvm::Type *BaseTy = llvmTy;
+      while (BaseTy->isArrayTy())
+        BaseTy = BaseTy->getArrayElementType();
+
+      if (auto *StTy = dyn_cast<llvm::StructType>(BaseTy))
+        return MaybeStructType(true, StTy);
+      return MaybeStructType(false, nullptr);
+    }
+
+    return MaybeStructType(true, nullptr);
+  };
+
+  auto GetStructTypeForAlloca = [this, &GetStructType](AllocaInst *AI) {
+    DTransType *DTy = MDReader.getDTransTypeFromMD(AI);
+    llvm::Type *AllocType = AI->getAllocatedType();
+    return GetStructType(DTy, AllocType);
+  };
+
+  auto GetStructTypeForGlobal = [this, &GetStructType](GlobalValue *GV) {
+    DTransType *DTy = MDReader.getDTransTypeFromMD(GV);
+    llvm::Type *ValTy = GV->getValueType();
+    return GetStructType(DTy, ValTy);
+  };
+
+  auto FunctionSignatureHasNoTypeOfInterestUses =
+      [this, &DTransLibInfo, &IsCandidateRelatedType,
+       &GetStructType](MemManageCandidateInfo *Cand, Function &F) {
+        DTransFunctionType *DFnTy = getDTransFunctionType(MDReader, &F);
+        // If there was no metadata, try to lookup a pre-defined signature from
+        // the table of library routines
+        if (!DFnTy)
+          DFnTy = DTransLibInfo.getDTransFunctionType(&F);
+        if (DFnTy) {
+          DTransType *RetTy = DFnTy->getReturnType();
+          if (IsCandidateRelatedType(Cand, RetTy))
+            return false;
+
+          unsigned NumArg = DFnTy->getNumArgs();
+          for (unsigned Idx = 0; Idx < NumArg; ++Idx)
+            if (IsCandidateRelatedType(Cand, DFnTy->getArgType(Idx)))
+              return false;
+
+          return true;
+        }
+
+        // If there are no pointer types, we will still be able to check the
+        // function signature when there is no DTrans metadata.
+        llvm::FunctionType *FnTy = cast<llvm::FunctionType>(F.getValueType());
+        llvm::Type *RetTy = FnTy->getReturnType();
+        MaybeStructType Ty = GetStructType(nullptr, RetTy);
+        if (Ty.maybeUnknownStructType())
+          return false;
+        if (Cand->isRelatedType(Ty.getStructType()))
+          return false;
+        unsigned NumArg = FnTy->getNumParams();
+        for (unsigned Idx = 0; Idx < NumArg; ++Idx) {
+          llvm::Type *ArgTy = FnTy->getParamType(Idx);
+          if (dtrans::hasPointerType(ArgTy))
+            return false;
+          MaybeStructType Ty = GetStructType(nullptr, ArgTy);
+          if (Ty.maybeUnknownStructType())
+            return false;
+          if (Cand->isRelatedType(Ty.getStructType()))
+            return false;
+        }
+
+        return true;
+      };
+
+  // Walk through each instruction of "F" to find if any related type of
+  // ReusableArenaBlock is used in a way that would invalidate the
+  // transformation. Return "false" if it finds one.
+  auto FunctionHasNoTypeOfInterestUses =
+      [&GetStructTypeForAlloca](MemManageCandidateInfo *Cand, Function &F) {
+        for (auto &I : instructions(F)) {
+          if (auto *AI = dyn_cast<AllocaInst>(&I)) {
+            MaybeStructType Ty = GetStructTypeForAlloca(AI);
+            if (Ty.maybeUnknownStructType())
+              return false;
+            if (Cand->isRelatedType(Ty.getStructType()))
+              return false;
+          } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+            if (auto STy =
+                    dyn_cast<llvm::StructType>(GEP->getSourceElementType()))
+              if (Cand->isRelatedType(STy))
+                return false;
+          }
+        }
+        return true;
+      };
+
+  MemManageCandidateInfo *Cand = getCurrentCandidate();
+
+  // Check that no structures, other than the expected ones refer to the
+  // candidate types.
+  std::set<DTransType *> Visited;
+  for (DTransStructType *STy : TM.getIdentifiedStructTypes()) {
+    if (STy == Cand->getStringAllocatorType())
+      continue;
+    if (Cand->isRelatedType(cast<llvm::StructType>(STy->getLLVMType())))
+      continue;
+
+    unsigned NumFields = STy->getNumFields();
+    for (unsigned Idx = 0; Idx < NumFields; ++Idx) {
+      DTransType *FieldType = STy->getFieldType(Idx);
+      assert(FieldType && "DTransTypeManager not initialized successfully");
+      DTransType *BaseTy = unwrapDTransType(FieldType);
+      if (!Visited.insert(BaseTy).second)
+        continue;
+      if (IsCandidateRelatedType(Cand, BaseTy)) {
+        DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                        dbgs() << "    Unknown use by non-candidate type: "
+                               << *STy << "\n";);
+
+        return false;
+      }
+    }
+  }
+
+  // Check whether global variable instantiations use "ReusableArenaAllocator"
+  // or any related type.
+  for (auto &GV : M.globals()) {
+    MaybeStructType Ty = GetStructTypeForGlobal(&GV);
+    if (Ty.maybeUnknownStructType()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      dbgs() << "    Unknown use by global: " << GV << "\n";);
+      return false;
+    }
+    if (Cand->isRelatedType(Ty.getStructType())) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                      dbgs()
+                          << "    Global variable uses candidate related type: "
+                          << GV << "\n";);
+      return false;
+    }
+  }
+
+  // Check whether functions, other than the interface/stringObj functions, use
+  // "ReusableArenaAllocator" or any related type.
+  for (auto &F : M) {
+    if (RelatedFunctions.count(&F))
+      continue;
+
+    if (!FunctionSignatureHasNoTypeOfInterestUses(Cand, F) ||
+        !FunctionHasNoTypeOfInterestUses(Cand, F)) {
+      // If the function uses one of the types related to the Candidate, then
+      // verify the function is not used by virtue of the function only being
+      // referenced by an unused VTable.
+      for (User *U : F.users()) {
+        if (!isUsedOnlyInUnusedVTable(U)) {
+          DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                          dbgs() << "    Type unknown use in Function: "
+                                 << F.getName() << "\n";);
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 // Check legality issues for candidates.
-bool MemManageTransImpl::analyzeCandidates(Module &M) {
+bool MemManageTransImpl::analyzeCandidates(
+    Module &M, const DTransLibraryInfo &DTransLibInfo) {
 
   // Returns true if "Call" is library function call.
   auto IsLibFunction = [](const CallBase *Call, const TargetLibraryInfo &TLI) {
@@ -574,8 +800,13 @@ bool MemManageTransImpl::analyzeCandidates(Module &M) {
     return false;
   }
 
-  // TODO: Makes sure ReusableArenaAllocatorType and all other related
+  // Makes sure ReusableArenaAllocatorType and all other related
   // types are not escaped.
+  if (!checkTypesEscaped(M, DTransLibInfo)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    { dbgs() << "   Failed: Types escaped\n"; });
+    return false;
+  }
 
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                   { dbgs() << "  No issues found with candidate\n"; });
@@ -7609,7 +7840,7 @@ bool MemManageTransImpl::run(Module &M) {
   });
 
   DTAC.populateAllocDeallocTable(M);
-  if (!analyzeCandidates(M))
+  if (!analyzeCandidates(M, DTransLibInfo))
     return false;
 
   // Categorize functions based on signatures.
