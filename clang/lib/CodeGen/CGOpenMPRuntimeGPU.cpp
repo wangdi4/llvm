@@ -746,6 +746,7 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
       "Unknown programming model for OpenMP directive on NVPTX target.");
 }
 
+<<<<<<< HEAD
 /// Check if the directive is loops based and has schedule clause at all or has
 /// static scheduling.
 static bool hasStaticScheduling(const OMPExecutableDirective &D) {
@@ -929,6 +930,8 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
   return false;
 }
 
+=======
+>>>>>>> f6e759bd26b24e046573ac46d3ee3be6eebd5526
 void CGOpenMPRuntimeGPU::emitNonSPMDKernel(const OMPExecutableDirective &D,
                                              StringRef ParentName,
                                              llvm::Function *&OutlinedFn,
