@@ -4800,12 +4800,7 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   // These aren't supported.
   PI_ASSERT(!PFnNotify && !UserData, PI_ERROR_INVALID_VALUE);
 
-<<<<<<< HEAD
-  std::scoped_lock Guard(Program->Mutex);
-
-=======
   std::scoped_lock<pi_shared_mutex> Guard(Program->Mutex);
->>>>>>> 295b4fa585692fb3762c81b0aa8f599c8df8084a
   // Check if device belongs to associated context.
   PI_ASSERT(Program->Context, PI_ERROR_INVALID_PROGRAM);
   PI_ASSERT(Program->Context->isValidDevice(DeviceList[0]),
