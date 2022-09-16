@@ -90,12 +90,20 @@ protected:
                                     std::to_string(ProgramIndex) +
                                     "_[0-9a-f]{16}" + Suffix[I];
       Regex R(FilenamePattern);
-      std::string DumpFilename = findFileInDir(".", R);
-      ASSERT_TRUE(!DumpFilename.empty())
+      std::vector<std::string> DumpFilenames = findFilesInDir(".", R);
+      ASSERT_TRUE(!DumpFilenames.empty())
           << (FilenamePattern + " is not dumped");
-      if (NumPatterns != 0)
-        ASSERT_NO_FATAL_FAILURE(fileContains(DumpFilename, Patterns[I]));
-      m_dumpFilenames.push_back(DumpFilename);
+      if (NumPatterns != 0) {
+        bool contains = llvm::any_of(DumpFilenames, [&](auto &Filename) {
+          return fileContains(Filename, Patterns[I]);
+        });
+        ASSERT_TRUE(contains) << "Pattern \"" << llvm::join(Patterns[I], ";")
+                              << "\" is not found in files "
+                              << llvm::join(DumpFilenames, ";") << "\n";
+        ;
+      }
+      m_dumpFilenames.insert(m_dumpFilenames.end(), DumpFilenames.begin(),
+                             DumpFilenames.end());
     }
   }
 
@@ -161,11 +169,11 @@ TEST_F(DumpEnvTest, OptIRAsm) {
 
   // Check dumped files contain kernel name and section
   std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_NO_FATAL_FAILURE(fileContains(irFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
   m_dumpFilenames.push_back(irFile);
 
   patterns.push_back("Disassembly of section");
-  ASSERT_NO_FATAL_FAILURE(fileContains(asmFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
   m_dumpFilenames.push_back(asmFile);
 }
 
@@ -187,11 +195,11 @@ TEST_F(DumpEnvTest, OptIRAsmDebug) {
 
   // Check dumped files contain kernel name and section
   std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_NO_FATAL_FAILURE(fileContains(irFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
   m_dumpFilenames.push_back(irFile);
 
   patterns.push_back("Disassembly of section .debug");
-  ASSERT_NO_FATAL_FAILURE(fileContains(asmFile, patterns));
+  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
   m_dumpFilenames.push_back(asmFile);
 }
 
@@ -262,13 +270,18 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 
     suffix = {".asm", ".bin"};
     for (auto &s : suffix) {
-      Regex r(prefix + "_2_[0-9a-f]{16}" + s);
-      std::string filename = findFileInDir(".", r);
-      ASSERT_TRUE(!filename.empty()) << ("AOT " + filename + " is not dumped");
-      std::string asmHash = filename.substr(prefix.length() + 3, 16);
-      ASSERT_EQ(hash, asmHash)
-          << ("AOT dump " + filename + " has different hash than " + hash);
-      m_dumpFilenames.push_back(filename);
+      std::string filenamePattern = prefix + "_2_[0-9a-f]{16}" + s;
+      Regex r(filenamePattern);
+      std::vector<std::string> filenames = findFilesInDir(".", r);
+      ASSERT_TRUE(!filenames.empty())
+          << ("AOT " + filenamePattern + " is not dumped");
+      bool found = llvm::any_of(filenames, [&](auto &filename) {
+        return hash == filename.substr(prefix.length() + 3, 16);
+      });
+      ASSERT_TRUE(found) << ("AOT " + filenamePattern + " with hash " + hash +
+                             " is not dumped");
+      m_dumpFilenames.insert(m_dumpFilenames.end(), filenames.begin(),
+                             filenames.end());
     }
   };
   checkAOT();

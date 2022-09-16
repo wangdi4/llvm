@@ -874,8 +874,22 @@ unsigned getMaxNumExternalThreads() {
   return std::min((unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors(), 10u);
 }
 
-void fileContains(const std::string &Filename,
+bool fileContains(const std::string &Filename,
                   const std::vector<std::string> &Patterns) {
+  bool contains = true;
+  std::ifstream IFS(Filename);
+  if (!IFS)
+        return false;
+  std::stringstream SS;
+  SS << IFS.rdbuf();
+  std::string Buffer = SS.str();
+  for (auto &Pattern : Patterns)
+        contains = contains && Buffer.find(Pattern) != std::string::npos;
+  return contains;
+}
+
+void checkFileContains(const std::string &Filename,
+                       const std::vector<std::string> &Patterns) {
   std::ifstream IFS(Filename);
   ASSERT_TRUE(IFS) << "Failed to open file " << Filename;
   std::stringstream SS;
@@ -887,13 +901,15 @@ void fileContains(const std::string &Filename,
         << "\n";
 }
 
-std::string findFileInDir(const std::string &Dir, const Regex &R) {
+std::vector<std::string> findFilesInDir(const std::string &Dir,
+                                        const Regex &R) {
+  std::vector<std::string> FileNames;
   std::error_code EC;
   for (sys::fs::directory_iterator I(Dir, EC), E; I != E && !EC;
        I.increment(EC)) {
     StringRef FileName = sys::path::filename(I->path());
     if (R.match(FileName))
-      return FileName.str();
+      FileNames.push_back(FileName.str());
   }
-  return "";
+  return FileNames;
 }

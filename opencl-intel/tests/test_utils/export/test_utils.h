@@ -149,10 +149,14 @@ cl_ulong trySetStackSize(cl_ulong size);
 /// a test in which each thread launches a separate kernel.
 unsigned getMaxNumExternalThreads();
 
-/// Check whether the file contains all of the pattern strings.
-void fileContains(const std::string &Filename,
+/// Report error if the file doesn't contain all of the pattern strings.
+void checkFileContains(const std::string &Filename,
+                       const std::vector<std::string> &Patterns);
+
+/// Return true if the file contains all of the pattern strings.
+bool fileContains(const std::string &Filename,
                   const std::vector<std::string> &Patterns);
 
-/// Find a file with name matching the regex in a directory.
-/// The first matching filename will be returned.
-std::string findFileInDir(const std::string &Dir, const llvm::Regex &R);
+/// Find all files with name matching the regex in a directory.
+std::vector<std::string> findFilesInDir(const std::string &Dir,
+                                        const llvm::Regex &R);
