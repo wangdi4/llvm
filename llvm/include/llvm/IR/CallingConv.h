@@ -252,6 +252,7 @@ namespace CallingConv {
     /// Used for M68k interrupt routines.
     M68k_INTR = 101,
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// Calling convention for SVML functions. Callee-saved registers are
     /// different for 128-bit, 256-bit and 512-bit SVML functions. We use
@@ -287,6 +288,13 @@ namespace CallingConv {
     // the caller.
     SVML_AVX_AVX_Impl = 112,
 #endif  // INTEL_CUSTOMIZATION
+=======
+    /// Preserve X0-X13, X19-X29, SP, Z0-Z31, P0-P15.
+    AArch64_SME_ABI_Support_Routines_PreserveMost_From_X0 = 102,
+
+    /// Preserve X2-X15, X19-X29, SP, Z0-Z31, P0-P15.
+    AArch64_SME_ABI_Support_Routines_PreserveMost_From_X2 = 103,
+>>>>>>> 45d28779c5dc6c8afa6feb24d68606f01b9800f4
 
     /// The highest possible ID. Must be some 2^k - 1.
     MaxID = 1023
