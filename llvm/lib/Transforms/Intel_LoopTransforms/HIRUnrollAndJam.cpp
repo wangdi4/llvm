@@ -320,12 +320,21 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   // innermost loop so we check whether swapping the corresponding DV elements
   // yields a legal DV.
 
+  // 1. Check if dependence is carried by an outer loop which makes interchange
+  // legal.
+  if (DV.isIndepFromLevel(LoopLevel)) {
+    return true;
+  }
+
   unsigned LastLevel = DV.size();
 
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];
 
-  // 1. If the DV is independent at the candidate loop level (=), we can unroll
+  bool IsInnermostLoopEdge =
+      (SrcLoop->isInnermost() && (LastLevel == SrcLoop->getNestingLevel()));
+
+  // 2. If the DV is independent at the candidate loop level (=), we can unroll
   // if-
   //
   // a) SrcRef is a temp ref which can be renamed, Or
@@ -339,15 +348,13 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   // more akin to unrolling rather than unroll & jam so it doesn't require a)
   // or b) above.
   if (LoopLevelDV == DVKind::EQ) {
-    return (SrcRef->isTerminalRef() ||
-            (SrcRef->isMemRef() && SrcRef->hasIV(LoopLevel))) ||
-           (SrcLoop->isInnermost() &&
-            (LastLevel == SrcLoop->getNestingLevel()));
+    return (IsInnermostLoopEdge || SrcRef->isTerminalRef() ||
+            (SrcRef->isMemRef() && SrcRef->hasIV(LoopLevel)));
   }
 
-  // 2. Any candidate loop edge other than (=) (handled in #1 above) should
+  // 3. Any dependency carried by the candidate loop in an outer loop should
   // prevent unroll & jam.
-  if (LastLevel == LoopLevel) {
+  if (!IsInnermostLoopEdge) {
     return false;
   }
 
@@ -358,7 +365,7 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
     InnermostDV = DVKind::ALL;
   }
 
-  // 3. We can always permute these combinations-
+  // 4. We can always permute these combinations-
   // (<, <)
   // (=, =)
   // (>, >)
@@ -367,12 +374,6 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
         (LoopLevelDV == DVKind::GT)) {
       return true;
     }
-  }
-
-  // 4. Check if dependence is carried by an outer loop which makes interchange
-  // legal.
-  if (DV.isIndepFromLevel(LoopLevel)) {
-    return true;
   }
 
   // 5. We cannot permute outer and inner DV elements if the direction is
