@@ -3041,6 +3041,8 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   // CUDA and HIP don't rely on the frontend to pass an ffp-contract option.
   // If one wasn't given by the user, don't pass it here.
   StringRef FPContract;
+  StringRef LastSeenFfpContractOption;
+  bool SeenFfastMathOption = false;
   if (!JA.isDeviceOffloading(Action::OFK_Cuda) &&
       !JA.isOffloading(Action::OFK_HIP))
     FPContract = "on";
@@ -3244,6 +3246,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         // -ffp-model=precise sets PreciseFPModel to on and Val to
         // "precise". FPContract is set.
         ;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       } else if (Val.equals("on") || Val.equals("off")) {
         FPContract = Val;
@@ -3252,6 +3255,12 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         isFPContractFastByDefault = false;
       } else
 #endif // INTEL_CUSTOMIZATION
+=======
+      } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off")) {
+        FPContract = Val;
+        LastSeenFfpContractOption = Val;
+      } else
+>>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
         D.Diag(diag::err_drv_unsupported_option_argument)
            << A->getOption().getName() << Val;
       break;
@@ -3351,11 +3360,15 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       RoundingFPMath = false;
       // If fast-math is set then set the fp-contract mode to fast.
       FPContract = "fast";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       isFPContractFastByDefault = false;
       DenormalFPMath = llvm::DenormalMode::getPreserveSign();
       DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
 #endif // INTEL_CUSTOMIZATION
+=======
+      SeenFfastMathOption = true;
+>>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
       break;
     case options::OPT_fno_fast_math:
       HonorINFs = true;
@@ -3372,9 +3385,12 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFPMath = DefaultDenormalFPMath;
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
       if (!JA.isDeviceOffloading(Action::OFK_Cuda) &&
-          !JA.isOffloading(Action::OFK_HIP))
-        if (FPContract == "fast") {
+          !JA.isOffloading(Action::OFK_HIP)) {
+        if (LastSeenFfpContractOption != "") {
+          FPContract = LastSeenFfpContractOption;
+        } else if (SeenFfastMathOption)
           FPContract = "on";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           if (!isFPContractFastByDefault)
             D.Diag(clang::diag::warn_drv_overriding_flag_option)
@@ -3382,6 +3398,9 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
                 << "-ffp-contract=on";
 #endif // INTEL_CUSTOMIZATION
         }
+=======
+      }
+>>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
       break;
 
 #if INTEL_CUSTOMIZATION
