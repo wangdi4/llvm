@@ -119,7 +119,6 @@ KnownBits computeKnownBits(const Value *V, const APInt &DemandedElts,
 /// \p KnownOne the set of bits that are known to be one
 void computeKnownBitsFromRangeMetadata(const MDNode &Ranges, KnownBits &Known);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Returns true if the given floating-point value is a whole number.
   bool isFPValueIntegral(const Value *V);
@@ -145,134 +144,30 @@ void computeKnownBitsFromRangeMetadata(const MDNode &Ranges, KnownBits &Known);
                              bool UseInstrInfo = true);
 #endif // INTEL_CUSTOMIZATION
 
-  /// Return true if 'V & Mask' is known to be zero. We use this predicate to
-  /// simplify operations downstream. Mask is known to be zero for bits that V
-  /// cannot have.
-  ///
-  /// This function is defined on values with integer type, values with pointer
-  /// type, and vectors of integers.  In the case
-  /// where V is a vector, the mask, known zero, and known one values are the
-  /// same width as the vector element, and the bit is set only if it is true
-  /// for all of the elements in the vector.
-  bool MaskedValueIsZero(const Value *V, const APInt &Mask,
-                         const DataLayout &DL,
-                         unsigned Depth = 0, AssumptionCache *AC = nullptr,
-=======
 /// Return true if LHS and RHS have no common bits set.
 bool haveNoCommonBitsSet(const Value *LHS, const Value *RHS,
                          const DataLayout &DL, AssumptionCache *AC = nullptr,
->>>>>>> 8cc3bfd13f3135985e5b15ee65f2fc43239fb9fe
                          const Instruction *CxtI = nullptr,
                          const DominatorTree *DT = nullptr,
                          bool UseInstrInfo = true);
 
-<<<<<<< HEAD
-  /// Return the number of times the sign bit of the register is replicated into
-  /// the other bits. We know that at least 1 bit is always equal to the sign
-  /// bit (itself), but other cases can give us information. For example,
-  /// immediately after an "ashr X, 2", we know that the top 3 bits are all
-  /// equal to each other, so we return 3. For vectors, return the number of
-  /// sign bits for the vector element with the mininum number of known sign
-  /// bits.
-  unsigned ComputeNumSignBits(const Value *Op, const DataLayout &DL,
-                              unsigned Depth = 0, AssumptionCache *AC = nullptr,
-                              const Instruction *CxtI = nullptr,
-                              const DominatorTree *DT = nullptr,
-                              bool UseInstrInfo = true,      // INTEL
-                              ScalarEvolution *SE = nullptr, // INTEL
-                              LoopInfo *LI = nullptr);       // INTEL
+#if INTEL_CUSTOMIZATION
+/// Return the number of times the sign bit of the register is replicated into
+/// the other bits. We know that at least 1 bit is always equal to the sign
+/// bit (itself), but other cases can give us information. For example,
+/// immediately after an "ashr X, 2", we know that the top 3 bits are all
+/// equal to each other, so we return 3. For vectors, return the number of
+/// sign bits for the vector element with the mininum number of known sign
+/// bits.
+unsigned ComputeNumSignBits(const Value *Op, const DataLayout &DL,
+                            unsigned Depth = 0, AssumptionCache *AC = nullptr,
+                            const Instruction *CxtI = nullptr,
+                            const DominatorTree *DT = nullptr,
+                            bool UseInstrInfo = true,
+                            ScalarEvolution *SE = nullptr,
+                            LoopInfo *LI = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
-  /// Get the upper bound on bit size for this Value \p Op as a signed integer.
-  /// i.e.  x == sext(trunc(x to MaxSignificantBits) to bitwidth(x)).
-  /// Similar to the APInt::getSignificantBits function.
-  unsigned ComputeMaxSignificantBits(const Value *Op, const DataLayout &DL,
-                                     unsigned Depth = 0,
-                                     AssumptionCache *AC = nullptr,
-                                     const Instruction *CxtI = nullptr,
-                                     const DominatorTree *DT = nullptr);
-
-  /// Map a call instruction to an intrinsic ID.  Libcalls which have equivalent
-  /// intrinsics are treated as-if they were intrinsics.
-  Intrinsic::ID getIntrinsicForCallSite(const CallBase &CB,
-                                        const TargetLibraryInfo *TLI);
-
-  /// Return true if we can prove that the specified FP value is never equal to
-  /// -0.0.
-  bool CannotBeNegativeZero(const Value *V, const TargetLibraryInfo *TLI,
-                            unsigned Depth = 0);
-
-  /// Return true if we can prove that the specified FP value is either NaN or
-  /// never less than -0.0.
-  ///
-  ///      NaN --> true
-  ///       +0 --> true
-  ///       -0 --> true
-  ///   x > +0 --> true
-  ///   x < -0 --> false
-  bool CannotBeOrderedLessThanZero(const Value *V, const TargetLibraryInfo *TLI);
-
-  /// Return true if the floating-point scalar value is not an infinity or if
-  /// the floating-point vector value has no infinities. Return false if a value
-  /// could ever be infinity.
-  bool isKnownNeverInfinity(const Value *V, const TargetLibraryInfo *TLI,
-                            unsigned Depth = 0);
-
-  /// Return true if the floating-point scalar value is not a NaN or if the
-  /// floating-point vector value has no NaN elements. Return false if a value
-  /// could ever be NaN.
-  bool isKnownNeverNaN(const Value *V, const TargetLibraryInfo *TLI,
-                       unsigned Depth = 0);
-
-  /// Return true if we can prove that the specified FP value's sign bit is 0.
-  ///
-  ///      NaN --> true/false (depending on the NaN's sign bit)
-  ///       +0 --> true
-  ///       -0 --> false
-  ///   x > +0 --> true
-  ///   x < -0 --> false
-  bool SignBitMustBeZero(const Value *V, const TargetLibraryInfo *TLI);
-
-  /// If the specified value can be set by repeating the same byte in memory,
-  /// return the i8 value that it is represented with. This is true for all i8
-  /// values obviously, but is also true for i32 0, i32 -1, i16 0xF0F0, double
-  /// 0.0 etc. If the value can't be handled with a repeated byte store (e.g.
-  /// i16 0x1234), return null. If the value is entirely undef and padding,
-  /// return undef.
-  Value *isBytewiseValue(Value *V, const DataLayout &DL);
-
-  /// Given an aggregate and an sequence of indices, see if the scalar value
-  /// indexed is already around as a register, for example if it were inserted
-  /// directly into the aggregate.
-  ///
-  /// If InsertBefore is not null, this function will duplicate (modified)
-  /// insertvalues when a part of a nested struct is extracted.
-  Value *FindInsertedValue(Value *V,
-                           ArrayRef<unsigned> idx_range,
-                           Instruction *InsertBefore = nullptr);
-
-  /// Analyze the specified pointer to see if it can be expressed as a base
-  /// pointer plus a constant offset. Return the base and offset to the caller.
-  ///
-  /// This is a wrapper around Value::stripAndAccumulateConstantOffsets that
-  /// creates and later unpacks the required APInt.
-  inline Value *GetPointerBaseWithConstantOffset(Value *Ptr, int64_t &Offset,
-                                                 const DataLayout &DL,
-                                                 bool AllowNonInbounds = true) {
-    APInt OffsetAPInt(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
-    Value *Base =
-        Ptr->stripAndAccumulateConstantOffsets(DL, OffsetAPInt, AllowNonInbounds);
-
-    Offset = OffsetAPInt.getSExtValue();
-    return Base;
-  }
-  inline const Value *
-  GetPointerBaseWithConstantOffset(const Value *Ptr, int64_t &Offset,
-                                   const DataLayout &DL,
-                                   bool AllowNonInbounds = true) {
-    return GetPointerBaseWithConstantOffset(const_cast<Value *>(Ptr), Offset, DL,
-                                            AllowNonInbounds);
-  }
-=======
 /// Return true if the given value is known to have exactly one bit set when
 /// defined. For vectors return true if every element is known to be a power
 /// of two when defined. Supports values with integer or pointer type and
@@ -311,7 +206,6 @@ bool isKnownNonNegative(const Value *V, const DataLayout &DL,
                         const Instruction *CxtI = nullptr,
                         const DominatorTree *DT = nullptr,
                         bool UseInstrInfo = true);
->>>>>>> 8cc3bfd13f3135985e5b15ee65f2fc43239fb9fe
 
 /// Returns true if the given value is known be positive (i.e. non-negative
 /// and non-zero).
@@ -351,19 +245,6 @@ bool MaskedValueIsZero(const Value *V, const APInt &Mask, const DataLayout &DL,
                        const Instruction *CxtI = nullptr,
                        const DominatorTree *DT = nullptr,
                        bool UseInstrInfo = true);
-
-/// Return the number of times the sign bit of the register is replicated into
-/// the other bits. We know that at least 1 bit is always equal to the sign
-/// bit (itself), but other cases can give us information. For example,
-/// immediately after an "ashr X, 2", we know that the top 3 bits are all
-/// equal to each other, so we return 3. For vectors, return the number of
-/// sign bits for the vector element with the mininum number of known sign
-/// bits.
-unsigned ComputeNumSignBits(const Value *Op, const DataLayout &DL,
-                            unsigned Depth = 0, AssumptionCache *AC = nullptr,
-                            const Instruction *CxtI = nullptr,
-                            const DominatorTree *DT = nullptr,
-                            bool UseInstrInfo = true);
 
 /// Get the upper bound on bit size for this Value \p Op as a signed integer.
 /// i.e.  x == sext(trunc(x to MaxSignificantBits) to bitwidth(x)).
@@ -482,114 +363,6 @@ struct ConstantDataArraySlice {
   uint64_t operator[](unsigned I) const {
     return Array == nullptr ? 0 : Array->getElementAsInteger(I + Offset);
   }
-<<<<<<< HEAD
-
-  /// Return true if the only users of this pointer are lifetime markers.
-  bool onlyUsedByLifetimeMarkers(const Value *V);
-
-  /// Return true if the only users of this pointer are lifetime markers or
-  /// droppable instructions.
-  bool onlyUsedByLifetimeMarkersOrDroppableInsts(const Value *V);
-
-  /// Return true if speculation of the given load must be suppressed to avoid
-  /// ordering or interfering with an active sanitizer.  If not suppressed,
-  /// dereferenceability and alignment must be proven separately.  Note: This
-  /// is only needed for raw reasoning; if you use the interface below
-  /// (isSafeToSpeculativelyExecute), this is handled internally.
-  bool mustSuppressSpeculation(const LoadInst &LI);
-
-  bool onlyUsedByVarAnnot(const Value *V); // INTEL
-
-  /// Return true if the instruction does not have any effects besides
-  /// calculating the result and does not have undefined behavior.
-  ///
-  /// This method never returns true for an instruction that returns true for
-  /// mayHaveSideEffects; however, this method also does some other checks in
-  /// addition. It checks for undefined behavior, like dividing by zero or
-  /// loading from an invalid pointer (but not for undefined results, like a
-  /// shift with a shift amount larger than the width of the result). It checks
-  /// for malloc and alloca because speculatively executing them might cause a
-  /// memory leak. It also returns false for instructions related to control
-  /// flow, specifically terminators and PHI nodes.
-  ///
-  /// If the CtxI is specified this method performs context-sensitive analysis
-  /// and returns true if it is safe to execute the instruction immediately
-  /// before the CtxI.
-  ///
-  /// If the CtxI is NOT specified this method only looks at the instruction
-  /// itself and its operands, so if this method returns true, it is safe to
-  /// move the instruction as long as the correct dominance relationships for
-  /// the operands and users hold.
-  ///
-  /// This method can return true for instructions that read memory;
-  /// for such instructions, moving them may change the resulting value.
-  bool isSafeToSpeculativelyExecute(const Instruction *I,
-                                    const Instruction *CtxI = nullptr,
-                                    const DominatorTree *DT = nullptr,
-                                    const TargetLibraryInfo *TLI = nullptr);
-
-  /// This returns the same result as isSafeToSpeculativelyExecute if Opcode is
-  /// the actual opcode of Inst. If the provided and actual opcode differ, the
-  /// function (virtually) overrides the opcode of Inst with the provided
-  /// Opcode. There are come constraints in this case:
-  /// * If Opcode has a fixed number of operands (eg, as binary operators do),
-  ///   then Inst has to have at least as many leading operands. The function
-  ///   will ignore all trailing operands beyond that number.
-  /// * If Opcode allows for an arbitrary number of operands (eg, as CallInsts
-  ///   do), then all operands are considered.
-  /// * The virtual instruction has to satisfy all typing rules of the provided
-  ///   Opcode.
-  /// * This function is pessimistic in the following sense: If one actually
-  ///   materialized the virtual instruction, then isSafeToSpeculativelyExecute
-  ///   may say that the materialized instruction is speculatable whereas this
-  ///   function may have said that the instruction wouldn't be speculatable.
-  ///   This behavior is a shortcoming in the current implementation and not
-  ///   intentional.
-  bool isSafeToSpeculativelyExecuteWithOpcode(
-      unsigned Opcode, const Instruction *Inst,
-      const Instruction *CtxI = nullptr, const DominatorTree *DT = nullptr,
-      const TargetLibraryInfo *TLI = nullptr);
-
-  /// Returns true if the result or effects of the given instructions \p I
-  /// depend values not reachable through the def use graph.
-  /// * Memory dependence arises for example if the instruction reads from
-  ///   memory or may produce effects or undefined behaviour. Memory dependent
-  ///   instructions generally cannot be reorderd with respect to other memory
-  ///   dependent instructions.
-  /// * Control dependence arises for example if the instruction may fault
-  ///   if lifted above a throwing call or infinite loop.
-  bool mayHaveNonDefUseDependency(const Instruction &I);
-
-  /// Return true if it is an intrinsic that cannot be speculated but also
-  /// cannot trap.
-  bool isAssumeLikeIntrinsic(const Instruction *I);
-
-  /// Return true if it is valid to use the assumptions provided by an
-  /// assume intrinsic, I, at the point in the control-flow identified by the
-  /// context instruction, CxtI.
-  bool isValidAssumeForContext(const Instruction *I, const Instruction *CxtI,
-                               const DominatorTree *DT = nullptr);
-
-  enum class OverflowResult {
-    /// Always overflows in the direction of signed/unsigned min value.
-    AlwaysOverflowsLow,
-    /// Always overflows in the direction of signed/unsigned max value.
-    AlwaysOverflowsHigh,
-    /// May or may not overflow.
-    MayOverflow,
-    /// Never overflows.
-    NeverOverflows,
-  };
-
-  OverflowResult computeOverflowForUnsignedMul(const Value *LHS,
-                                               const Value *RHS,
-                                               const DataLayout &DL,
-                                               AssumptionCache *AC,
-                                               const Instruction *CxtI,
-                                               const DominatorTree *DT,
-                                               bool UseInstrInfo = true);
-  OverflowResult computeOverflowForSignedMul(const Value *LHS, const Value *RHS,
-=======
 };
 
 /// Returns true if the value \p V is a pointer into a ConstantDataArray.
@@ -703,6 +476,10 @@ bool onlyUsedByLifetimeMarkersOrDroppableInsts(const Value *V);
 /// (isSafeToSpeculativelyExecute), this is handled internally.
 bool mustSuppressSpeculation(const LoadInst &LI);
 
+#if INTEL_CUSTOMIZATION
+bool onlyUsedByVarAnnot(const Value *V); // INTEL
+#endif // INTEL_CUSTOMIZATION
+
 /// Return true if the instruction does not have any effects besides
 /// calculating the result and does not have undefined behavior.
 ///
@@ -784,7 +561,6 @@ enum class OverflowResult {
 };
 
 OverflowResult computeOverflowForUnsignedMul(const Value *LHS, const Value *RHS,
->>>>>>> 8cc3bfd13f3135985e5b15ee65f2fc43239fb9fe
                                              const DataLayout &DL,
                                              AssumptionCache *AC,
                                              const Instruction *CxtI,
@@ -899,160 +675,6 @@ void getGuaranteedNonPoisonOps(const Instruction *I,
 void getGuaranteedWellDefinedOps(const Instruction *I,
                                  SmallPtrSetImpl<const Value *> &Ops);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// \brief Matches saturation downconvert idiom.
-  ///
-  /// The following pattern is matched:
-  ///   r = clamp(X, LowerBound, UpperBound)
-  ///   trunc r
-  ///
-  /// Lower and upper bounds of saturation should fit to the range of
-  /// signed or unsigned destination integer type of truncation.
-  ///
-  /// \returns true in case the idiom was matched and provides additional
-  /// information about the idiom in the parameters, false otherwise.
-  bool matchSaturationDownconvert(Value *V, Value *&X, const APInt *&LowerBound,
-                                  const APInt *&UpperBound, Type *&SrcTy,
-                                  Type *&DestTy, bool &Signed);
-
-  /// \brief Matches saturation add/sub idioms.
-  ///
-  /// Match the case when two input integer values are extended to a wider type,
-  /// then the result of add/sub is saturated with further truncation to a
-  /// source integer type. Lower and upper bounds of saturation should fit to
-  /// the range of signed or unsigned destination integer type of truncation.
-  ///
-  /// \param Ty Type of the result and input values.
-  /// \param ExtTy Type of input values after extension.
-  /// \param Opcode of operation (add or sub)
-  ///
-  /// \returns true in case the idiom was matched and provides additional
-  /// information about the idiom in the parameters, false otherwise.
-  bool matchSaturationAddSub(Value *V, Value *&A, Value *&B,
-                             const APInt *&LowerBound, const APInt *&UpperBound,
-                             Type *&Ty, Type *&ExtTy, bool &Signed,
-                             unsigned &Opcode);
-
-  /// If \p Val is a Call with a 'returned' attribute argument, returns that
-  /// argument, else returns original value. This is helpful in tracing through
-  /// llvm.ssa.copy() insts added by HIR.
-  Value *traceThroughReturnedArgCall(Value *Val);
-#endif // INTEL_CUSTOMIZATION
-  /// Determine the pattern that a select with the given compare as its
-  /// predicate and given values as its true/false operands would match.
-  SelectPatternResult matchDecomposedSelectPattern(
-      CmpInst *CmpI, Value *TrueVal, Value *FalseVal, Value *&LHS, Value *&RHS,
-      Instruction::CastOps *CastOp = nullptr, unsigned Depth = 0);
-
-  /// Return the canonical comparison predicate for the specified
-  /// minimum/maximum flavor.
-  CmpInst::Predicate getMinMaxPred(SelectPatternFlavor SPF,
-                                   bool Ordered = false);
-
-  /// Return the inverse minimum/maximum flavor of the specified flavor.
-  /// For example, signed minimum is the inverse of signed maximum.
-  SelectPatternFlavor getInverseMinMaxFlavor(SelectPatternFlavor SPF);
-
-  Intrinsic::ID getInverseMinMaxIntrinsic(Intrinsic::ID MinMaxID);
-
-  /// Return the canonical inverse comparison predicate for the specified
-  /// minimum/maximum flavor.
-  CmpInst::Predicate getInverseMinMaxPred(SelectPatternFlavor SPF);
-
-  /// Return the minimum or maximum constant value for the specified integer
-  /// min/max flavor and type.
-  APInt getMinMaxLimit(SelectPatternFlavor SPF, unsigned BitWidth);
-
-  /// Check if the values in \p VL are select instructions that can be converted
-  /// to a min or max (vector) intrinsic. Returns the intrinsic ID, if such a
-  /// conversion is possible, together with a bool indicating whether all select
-  /// conditions are only used by the selects. Otherwise return
-  /// Intrinsic::not_intrinsic.
-  std::pair<Intrinsic::ID, bool>
-  canConvertToMinOrMaxIntrinsic(ArrayRef<Value *> VL);
-
-  /// Attempt to match a simple first order recurrence cycle of the form:
-  ///   %iv = phi Ty [%Start, %Entry], [%Inc, %backedge]
-  ///   %inc = binop %iv, %step
-  /// OR
-  ///   %iv = phi Ty [%Start, %Entry], [%Inc, %backedge]
-  ///   %inc = binop %step, %iv
-  ///
-  /// A first order recurrence is a formula with the form: X_n = f(X_(n-1))
-  ///
-  /// A couple of notes on subtleties in that definition:
-  /// * The Step does not have to be loop invariant.  In math terms, it can
-  ///   be a free variable.  We allow recurrences with both constant and
-  ///   variable coefficients. Callers may wish to filter cases where Step
-  ///   does not dominate P.
-  /// * For non-commutative operators, we will match both forms.  This
-  ///   results in some odd recurrence structures.  Callers may wish to filter
-  ///   out recurrences where the phi is not the LHS of the returned operator.
-  /// * Because of the structure matched, the caller can assume as a post
-  ///   condition of the match the presence of a Loop with P's parent as it's
-  ///   header *except* in unreachable code.  (Dominance decays in unreachable
-  ///   code.)
-  ///
-  /// NOTE: This is intentional simple.  If you want the ability to analyze
-  /// non-trivial loop conditons, see ScalarEvolution instead.
-  bool matchSimpleRecurrence(const PHINode *P, BinaryOperator *&BO,
-                             Value *&Start, Value *&Step);
-
-  /// Analogous to the above, but starting from the binary operator
-  bool matchSimpleRecurrence(const BinaryOperator *I, PHINode *&P,
-                                    Value *&Start, Value *&Step);
-
-  /// Return true if RHS is known to be implied true by LHS.  Return false if
-  /// RHS is known to be implied false by LHS.  Otherwise, return None if no
-  /// implication can be made.
-  /// A & B must be i1 (boolean) values or a vector of such values. Note that
-  /// the truth table for implication is the same as <=u on i1 values (but not
-  /// <=s!).  The truth table for both is:
-  ///    | T | F (B)
-  ///  T | T | F
-  ///  F | T | T
-  /// (A)
-  Optional<bool> isImpliedCondition(const Value *LHS, const Value *RHS,
-                                    const DataLayout &DL, bool LHSIsTrue = true,
-                                    unsigned Depth = 0);
-  Optional<bool> isImpliedCondition(const Value *LHS,
-                                    CmpInst::Predicate RHSPred,
-                                    const Value *RHSOp0, const Value *RHSOp1,
-                                    const DataLayout &DL, bool LHSIsTrue = true,
-                                    unsigned Depth = 0);
-
-  /// Return the boolean condition value in the context of the given instruction
-  /// if it is known based on dominating conditions.
-  Optional<bool> isImpliedByDomCondition(const Value *Cond,
-                                         const Instruction *ContextI,
-#if INTEL_CUSTOMIZATION
-                                         const DataLayout &DL,
-                                         DominatorTree *DT = nullptr);
-#endif // INTEL_CUSTOMIZATION
-  Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
-                                         const Value *LHS, const Value *RHS,
-                                         const Instruction *ContextI,
-                                         const DataLayout &DL);
-
-  /// If Ptr1 is provably equal to Ptr2 plus a constant offset, return that
-  /// offset. For example, Ptr1 might be &A[42], and Ptr2 might be &A[40]. In
-  /// this case offset would be -8.
-  Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
-                                    const DataLayout &DL);
-#if INTEL_CUSTOMIZATION
-  /// Printer pass for the ComputeNumSignBits ValueTracking utility.
-  class NumSignBitsPrinterPass : public PassInfoMixin<NumSignBitsPrinterPass> {
-    raw_ostream &OS;
-
-  public:
-    explicit NumSignBitsPrinterPass(raw_ostream &OS) : OS(OS) {}
-
-    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-  };
-#endif // INTEL_CUSTOMIZATION
-
-=======
 /// Return true if the given instruction must trigger undefined behavior
 /// when I is executed with any operands which appear in KnownPoison holding
 /// a poison value at the point of execution.
@@ -1182,6 +804,46 @@ inline SelectPatternResult matchSelectPattern(const Value *V, const Value *&LHS,
   return Result;
 }
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Matches saturation downconvert idiom.
+  ///
+  /// The following pattern is matched:
+  ///   r = clamp(X, LowerBound, UpperBound)
+  ///   trunc r
+  ///
+  /// Lower and upper bounds of saturation should fit to the range of
+  /// signed or unsigned destination integer type of truncation.
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationDownconvert(Value *V, Value *&X, const APInt *&LowerBound,
+                                  const APInt *&UpperBound, Type *&SrcTy,
+                                  Type *&DestTy, bool &Signed);
+
+  /// \brief Matches saturation add/sub idioms.
+  ///
+  /// Match the case when two input integer values are extended to a wider type,
+  /// then the result of add/sub is saturated with further truncation to a
+  /// source integer type. Lower and upper bounds of saturation should fit to
+  /// the range of signed or unsigned destination integer type of truncation.
+  ///
+  /// \param Ty Type of the result and input values.
+  /// \param ExtTy Type of input values after extension.
+  /// \param Opcode of operation (add or sub)
+  ///
+  /// \returns true in case the idiom was matched and provides additional
+  /// information about the idiom in the parameters, false otherwise.
+  bool matchSaturationAddSub(Value *V, Value *&A, Value *&B,
+                             const APInt *&LowerBound, const APInt *&UpperBound,
+                             Type *&Ty, Type *&ExtTy, bool &Signed,
+                             unsigned &Opcode);
+
+  /// If \p Val is a Call with a 'returned' attribute argument, returns that
+  /// argument, else returns original value. This is helpful in tracing through
+  /// llvm.ssa.copy() insts added by HIR.
+  Value *traceThroughReturnedArgCall(Value *Val);
+#endif // INTEL_CUSTOMIZATION
+
 /// Determine the pattern that a select with the given compare as its
 /// predicate and given values as its true/false operands would match.
 SelectPatternResult matchDecomposedSelectPattern(
@@ -1263,11 +925,14 @@ Optional<bool> isImpliedCondition(const Value *LHS, CmpInst::Predicate RHSPred,
                                   const DataLayout &DL, bool LHSIsTrue = true,
                                   unsigned Depth = 0);
 
+#if INTEL_CUSTOMIZATION
 /// Return the boolean condition value in the context of the given instruction
 /// if it is known based on dominating conditions.
 Optional<bool> isImpliedByDomCondition(const Value *Cond,
                                        const Instruction *ContextI,
-                                       const DataLayout &DL);
+                                       const DataLayout &DL,
+                                       DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
 Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
                                        const Value *LHS, const Value *RHS,
                                        const Instruction *ContextI,
@@ -1278,7 +943,17 @@ Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
 /// this case offset would be -8.
 Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
                                   const DataLayout &DL);
->>>>>>> 8cc3bfd13f3135985e5b15ee65f2fc43239fb9fe
+#if INTEL_CUSTOMIZATION
+/// Printer pass for the ComputeNumSignBits ValueTracking utility.
+class NumSignBitsPrinterPass : public PassInfoMixin<NumSignBitsPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit NumSignBitsPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_VALUETRACKING_H
