@@ -1674,7 +1674,6 @@ bool Driver::loadConfigFile() {
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (CLOptions && IsIntelMode()) {
     // Process any user defined .cfg files via environment variables.
@@ -1720,12 +1719,6 @@ bool Driver::loadConfigFile() {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // If config file is not specified explicitly, try to deduce configuration
-  // from executable name. For instance, an executable 'armv7l-clang' will
-  // search for config file 'armv7l-clang.cfg'.
-  if (CfgFileName.empty() && !ClangNameParts.TargetPrefix.empty())
-    CfgFileName = ClangNameParts.TargetPrefix + '-' + ClangNameParts.ModeSuffix;
-=======
   if (!(CLOptions && CLOptions->hasArg(options::OPT_no_default_config))) {
     // If config file is not specified explicitly, try to deduce configuration
     // from executable name. For instance, an executable 'armv7l-clang' will
@@ -1734,7 +1727,6 @@ bool Driver::loadConfigFile() {
       CfgFileName =
           ClangNameParts.TargetPrefix + '-' + ClangNameParts.ModeSuffix;
   }
->>>>>>> 587729c3ad78aec6ec5a295331b16f21e340feb1
 
   if (CfgFileName.empty())
     return false;
