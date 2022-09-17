@@ -3949,9 +3949,16 @@ public:
         // allowed as a safe alias type when analyzing instructions that use the
         // value. Other type mismatches should be detected when the value gets
         // used.
+        // Not necessary to set dtrans::BadCasting if Call is Dummy allocation
+        // function that doesn't really allocate any memory.
+        bool NotAllocOrDummyCall =
+            !DTransAllocCollector::isDummyFuncWithThisAndIntArgs(&Call, TLI,
+                                                                 MDReader) &&
+            (AKind == dtrans::AK_NotAlloc);
+
         if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
                 getDTransI8PtrType() &&
-            AKind == dtrans::AK_NotAlloc)
+            NotAllocOrDummyCall)
           setAllAliasedTypeSafetyData(
               Info, dtrans::BadCasting,
               "i8* type returned by call used as aggregate pointer type",
