@@ -1,9 +1,7 @@
-; RUN: opt -slp-vectorizer -enable-intel-advanced-opts -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 < %s | FileCheck %s
+; RUN: opt -slp-vectorizer -enable-intel-advanced-opts -slp-multinode=false -slp-multinode-legacy -S -mtriple=x86_64 -mcpu=skylake-avx512 < %s | FileCheck %s
+; RUN: opt -slp-vectorizer -enable-intel-advanced-opts -slp-multinode -S -mtriple=x86_64 -mcpu=skylake-avx512 < %s | FileCheck %s
 
-; ModuleID = 'ld-temp.o'
-source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 ; Function Attrs: argmemonly nounwind
