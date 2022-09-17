@@ -174,8 +174,6 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
-  if (C.getDriver().IsDPCPPMode())
-    CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
       C.getDriver().IsIntelMode()) {
@@ -201,8 +199,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && C.getDriver().IsDPCPPMode())) {
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ)) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");

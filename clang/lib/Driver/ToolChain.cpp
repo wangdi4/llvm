@@ -1445,14 +1445,6 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
   if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
-    // MKL Cluster library additions not supported for DPC++
-    // MKL Parallel not supported with OpenMP and DPC++
-    if (getDriver().IsDPCPPMode() &&
-        (A->getValue() == StringRef("cluster") ||
-         (A->getValue() == StringRef("parallel") &&
-          Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                       options::OPT_fno_openmp, false))))
-      return;
     SmallVector<StringRef, 8> MKLLibs;
     bool IsMSVC = getTriple().isWindowsMSVCEnvironment();
     if (Args.hasArg(options::OPT_fsycl)) {
@@ -1474,8 +1466,8 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode()) {
-        // Use TBB when -tbb or DPC++
+      if (Args.hasArg(options::OPT_qtbb)) {
+        // Use TBB when -tbb
         SmallString<32> LibName("mkl_tbb_thread");
         if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
           LibName += "d";

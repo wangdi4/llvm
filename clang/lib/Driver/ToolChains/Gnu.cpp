@@ -560,8 +560,7 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qmkl_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && TC.getDriver().IsDPCPPMode()))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
@@ -1003,8 +1002,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     addMKLLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && D.IsDPCPPMode()))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qactypes))
     addACTypesLibs(CmdArgs, Args, ToolChain);

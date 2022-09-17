@@ -5435,12 +5435,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
             << "-fsycl-unnamed-lambda";
       else
         CmdArgs.push_back("-fno-sycl-unnamed-lambda");
-    } else if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
-                            options::OPT_fno_sycl_unnamed_lambda,
-                            D.IsDPCPPMode()))
-      CmdArgs.push_back("-fsycl-unnamed-lambda");
-    else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
-                           options::OPT_fno_sycl_unnamed_lambda, true))
+    } else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+                             options::OPT_fno_sycl_unnamed_lambda, true))
 #endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fno-sycl-unnamed-lambda");
 

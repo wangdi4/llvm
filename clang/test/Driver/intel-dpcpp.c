@@ -2,16 +2,6 @@
 //
 // REQUIRES: x86-registered-target
 
-// --dpcpp -fsycl implies -fsycl-unnamed-lambda
-// RUN: %clang -### -c --dpcpp -fsycl %s 2>&1 \
-// RUN:  | FileCheck -check-prefix CHECK-DPCPP-SYCL %s
-// CHECK-DPCPP-SYCL: clang{{.*}} "-fsycl-is-device" {{.*}} "-fsycl-unnamed-lambda"
-
-// RUN: %clang -### -c --dpcpp -fsycl -fno-sycl-unnamed-lambda %s 2>&1 \
-// RUN:  | FileCheck -check-prefix CHECK-DPCPP-SYCL2 %s
-// CHECK-DPCPP-SYCL2: clang{{.*}} "-fsycl-is-device"
-// CHECK-DPCPP-SYCL2-NOT: "-fsycl-unnamed-lambda"
-
 // --dpcpp implies -fveclib=SVML
 // RUN: %clang -### -c -fsycl --dpcpp %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK-DPCPP-DEFAULTS %s
@@ -56,3 +46,10 @@
 // RUN: %clangxx --dpcpp -i_allow-all-opts -### /Zi -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=DPCPP_ZI_WIN %s
 // DPCPP_ZI_WIN: "-debug-info-kind=limited"
+
+/// Check for deprecation message
+// RUN: %clangxx --dpcpp --intel -### -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DEPRECATED %s -DDPCPP_NAME=dpcpp -DICX_NAME=icpx
+// RUN: %clang_cl --dpcpp --intel -### -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DEPRECATED %s -DDPCPP_NAME=dpcpp-cl -DICX_NAME=icx-cl
+// DEPRECATED: use of '[[DPCPP_NAME]]' is deprecated and will be removed in a future release. Use '[[ICX_NAME]] -fsycl'

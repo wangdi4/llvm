@@ -397,6 +397,9 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
 #if INTEL_CUSTOMIZATION
+def warn_drv_deprecated_driver_use_driver_opt : Warning<
+  "use of '%0' is deprecated and will be removed in a future release. "
+  "Use '%1 %2'">, InGroup<Deprecated>;
 def warn_use_of_debug_turn_off_optimization_level : Warning<
   "Note that use of '%0' without any optimization-level option will turn off "
   "most compiler optimizations similar to use of '%1'">,
