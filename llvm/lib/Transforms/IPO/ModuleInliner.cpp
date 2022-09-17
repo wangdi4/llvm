@@ -246,25 +246,18 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       continue;
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      InlineCost *IC = nullptr;
-      auto Advice = Advisor.getAdvice(*CB, nullptr, nullptr, &IC,
-          /*OnlyMandatory*/ false);
-#endif // INTEL_CUSTOMIZATION
-      // Check whether we want to inline this callsite.
-      if (!Advice->isInliningRecommended()) {
-        Advice->recordUnattemptedInlining();
-        continue;
-      }
-=======
+    InlineCost *IC = nullptr;
+    auto Advice = Advisor.getAdvice(*CB, nullptr, nullptr, &IC,
+        /*OnlyMandatory*/ false);
+#else
     auto Advice = Advisor.getAdvice(*CB, /*OnlyMandatory*/ false);
+#endif // INTEL_CUSTOMIZATION
     // Check whether we want to inline this callsite.
     if (!Advice->isInliningRecommended()) {
       Advice->recordUnattemptedInlining();
       continue;
     }
->>>>>>> 77501bfab85c6620d4eb93af609946086999aa9f
 
     // Setup the data structure used to plumb customization into the
     // `InlineFunction` routine.
