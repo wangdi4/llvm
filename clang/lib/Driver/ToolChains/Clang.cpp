@@ -3048,7 +3048,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     FPContract = "on";
   bool StrictFPModel = false;
 #if INTEL_CUSTOMIZATION
-  bool isFPContractFastByDefault = false;
   // In Intel mode, the default settings should be equivalent to fp-model fast
   if (D.IsIntelMode()) {
     HonorINFs = false;
@@ -3068,7 +3067,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
     }
     FPContract = "fast";
-    isFPContractFastByDefault = true;
   }
 #endif // INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArg(options::OPT_flimited_precision_EQ)) {
@@ -3246,21 +3244,10 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         // -ffp-model=precise sets PreciseFPModel to on and Val to
         // "precise". FPContract is set.
         ;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      } else if (Val.equals("on") || Val.equals("off")) {
-        FPContract = Val;
-      } else if (Val.equals("fast")) {
-        FPContract = Val;
-        isFPContractFastByDefault = false;
-      } else
-#endif // INTEL_CUSTOMIZATION
-=======
       } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off")) {
         FPContract = Val;
         LastSeenFfpContractOption = Val;
       } else
->>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
         D.Diag(diag::err_drv_unsupported_option_argument)
            << A->getOption().getName() << Val;
       break;
@@ -3360,15 +3347,11 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       RoundingFPMath = false;
       // If fast-math is set then set the fp-contract mode to fast.
       FPContract = "fast";
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      isFPContractFastByDefault = false;
       DenormalFPMath = llvm::DenormalMode::getPreserveSign();
       DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
 #endif // INTEL_CUSTOMIZATION
-=======
       SeenFfastMathOption = true;
->>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
       break;
     case options::OPT_fno_fast_math:
       HonorINFs = true;
@@ -3390,17 +3373,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
           FPContract = LastSeenFfpContractOption;
         } else if (SeenFfastMathOption)
           FPContract = "on";
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-          if (!isFPContractFastByDefault)
-            D.Diag(clang::diag::warn_drv_overriding_flag_option)
-                << "-ffp-contract=fast"
-                << "-ffp-contract=on";
-#endif // INTEL_CUSTOMIZATION
-        }
-=======
       }
->>>>>>> 1b69ce1208976c71bf7ee3932aa272462c1feb1b
       break;
 
 #if INTEL_CUSTOMIZATION
