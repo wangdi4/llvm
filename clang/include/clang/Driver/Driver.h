@@ -596,10 +596,10 @@ public:
 
   /// PrintHelp - Print the help text.
   ///
-#if INTEL_CUSTOMIZATION
   /// \param Args - arguments used to control help information
-  void PrintHelp(const llvm::opt::ArgList &Args) const;
+  void PrintHelp(bool ShowHidden) const;
 
+#if INTEL_CUSTOMIZATION
   /// Intel Print formating.
   unsigned IntelPrintOptions : 1;
 
