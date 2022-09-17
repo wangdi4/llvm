@@ -1499,8 +1499,8 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   // unreachable
   //
   auto DummyAllocBBWithCxxThrowException = [&](BasicBlock &BB) {
-    auto CI =
-        dyn_cast<CallInst>(BB.getTerminator()->getPrevNonDebugInstruction());
+    auto CI = dyn_cast_or_null<CallInst>(
+        BB.getTerminator()->getPrevNonDebugInstruction());
     if (!CI)
       return false;
     auto *Func = dtrans::getCalledFunction(*CI);

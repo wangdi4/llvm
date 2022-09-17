@@ -3806,10 +3806,13 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     }
   }
 }
-// The function parses Fortran QNCA encoded dope vector types.
-// With opaque pointers the pointer to data has no type and the
-// type of element is inferred from QNCA type name.
-static std::unique_ptr<std::tuple<Type*, unsigned>> parseQNCADopeVectorElementType(const StructType* Ty) {
+// The function parses Fortran QNCA encoded dope vector types when the type
+// is a struct type. With opaque pointers the pointer to data has no type and
+// the type of element is inferred from QNCA type name.
+// For example: %"QNCA_a0$%PHYSICS_TYPES$.btPHYSICS_STATE*$rank1$" will return
+// the type "%PHYSICS_TYPES$.btPHYSICS_STATE".
+static std::unique_ptr<std::tuple<Type*, unsigned>>
+parseQNCAStructDopeVectorElementType(const StructType* Ty) {
   if (!Ty)
     return nullptr;
 
@@ -3862,7 +3865,7 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
   assert(DVStruct && "Analyzing dope vector without the proper structure");
 
   if (!Glob->getType()->getContext().supportsTypedPointers()) {
-    auto PR = parseQNCADopeVectorElementType(DVStruct);
+    auto PR = parseQNCAStructDopeVectorElementType(DVStruct);
     if (!PR)
       return false;
 
