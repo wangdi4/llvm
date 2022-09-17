@@ -514,7 +514,7 @@ $_ZN11xalanc_1_1023XalanDummyMemoryManager8allocateEm = comdat any
 
 $_ZN11xalanc_1_1023XalanDummyMemoryManager10deallocateEPv = comdat any
 
-@_ZTISt9bad_alloc = external dso_local constant ptr
+@_ZTISt9bad_alloc = external dso_local constant ptr, !intel_dtrans_type !6
 @_ZTVSt9bad_alloc = external dso_local unnamed_addr constant { [5 x ptr] }, align 8, !type !0, !type !1, !type !2, !type !3, !intel_dtrans_type !4
 @_ZTIN11xercesc_2_720OutOfMemoryExceptionE = external hidden constant { ptr, ptr, ptr }, align 8, !intel_dtrans_type !7
 @_ZTVN11xalanc_1_1013XStringCachedE.0 = external hidden constant [19 x ptr], !type !8, !type !9, !type !10, !type !11, !type !12, !type !13, !type !14, !type !15, !type !16, !type !17, !type !18, !type !19, !type !20, !type !21, !type !22, !type !23, !type !24, !type !25, !type !26, !type !27, !type !28, !type !29, !type !30, !type !31, !type !32, !type !33, !type !34, !type !35, !type !36, !type !37, !type !38, !type !39, !type !40, !type !41, !type !42, !type !43, !type !44, !type !45, !type !46, !type !47, !type !48, !type !49, !type !50, !type !51, !type !52, !type !53, !type !54, !type !55, !type !56, !type !57, !type !58, !type !59, !type !60, !type !61, !type !62, !type !63, !type !64, !type !65, !type !66, !type !67, !type !68, !type !69, !type !70, !type !71, !intel_dtrans_type !72

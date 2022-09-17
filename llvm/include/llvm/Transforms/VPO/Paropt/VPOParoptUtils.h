@@ -2425,6 +2425,9 @@ public:
   /// pass when making actual codegen at transform pass.
   /// \param [in] RedI Reduction Item to Check
   static bool supportsAtomicFreeReduction(const ReductionItem *RedI);
+
+  static bool isAtomicFreeReductionLocalEnabled();
+  static bool isAtomicFreeReductionGlobalEnabled();
 };
 
 } // namespace vpo

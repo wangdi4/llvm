@@ -659,7 +659,12 @@ private:
   // Create maps for private/firstprivate VLAs in W, (if not already present).
   bool addMapForPrivateAndFPVLAs(WRNTargetNode *W);
 
-  bool addFastGlobalRedBufMap(WRegionNode *W);
+  /// Add globals for atomic-free GPU reduction global buffers, one per
+  /// reduction item of reduction clause that \p W has (if any), performing all
+  /// necessary checks before that. These globals are going to be turned into
+  /// the kernel arguments by CodeExtractor, staying globals just on the host
+  /// side. This function os only supposed to be called at the prepare pass.
+  bool createAtomicFreeReductionBuffers(WRegionNode *W);
 
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
   // clauses to MAP + PRIVATE.
