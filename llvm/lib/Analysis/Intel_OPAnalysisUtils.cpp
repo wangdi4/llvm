@@ -140,9 +140,11 @@ inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
       auto *F = Arg->getParent();
       for (auto *U: F->users()) {
         if (auto *CB = dyn_cast<CallBase>(U)) {
-          auto *ActArg = CB->getArgOperand(Arg->getArgNo());
-          auto NTy = inferPtrElementTypeX(ActArg, M);
-          Ty = mergeTypes(Ty, NTy);
+          if (CB->getCalledFunction() == F) {
+            auto *ActArg = CB->getArgOperand(Arg->getArgNo());
+            auto NTy = inferPtrElementTypeX(ActArg, M);
+            Ty = mergeTypes(Ty, NTy);
+          }
         }
       }
       // We failed to infer a type from the argument defs.
