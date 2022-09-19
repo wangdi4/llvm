@@ -5594,6 +5594,7 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
     return;
   }
 
+  // Adjust DV for backward dependency between collapsed mem refs.
   if (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed()) {
     int64_t VecLen1 = SrcRegDDRef->getMaxVecLenAllowed();
     int64_t VecLen2 = DstRegDDRef->getMaxVecLenAllowed();
@@ -5604,6 +5605,13 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
           Result, getConstantWithType(Int64Ty, FinalVecLen));
       return;
     }
+  }
+
+  // Adjust DV for mem refs with 0 stride as a result of REDUCE function
+  // (Fortran only).
+  if (HNU.getFunction().isFortran() && SameBase && !SrcRegDDRef->isFake() &&
+      !DstRegDDRef->isFake()) {
+    adjustForZeroStride(Result, SrcRegDDRef, DstRegDDRef);
   }
 
   //  DV cannot be overridden to (=) when
@@ -5727,6 +5735,47 @@ void DDTest::adjustCollapsedDepsForInnermostLoop(Dependences &Result,
     Result.setDirection(InnermostLoopLevel, DVKind::LT);
     Result.setDistance(InnermostLoopLevel, NewDist);
   }
+}
+
+void DDTest::setStarAtIVLevel(const CanonExpr *CE, Dependences &Result) {
+  unsigned ResultLevels = Result.getLevels();
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair)) {
+      unsigned Level = CE->getLevel(CurIVPair);
+      if (Level <= ResultLevels) {
+        Result.setDirection(Level, DVKind::ALL);
+      }
+    }
+  }
+  return;
+}
+
+void DDTest::adjustForZeroStride(Dependences &Result,
+                                 const RegDDRef *SrcRegDDRef,
+                                 const RegDDRef *DstRegDDRef) {
+  int64_t SrcDimStride = -1;
+  int64_t DstDimStride = -1;
+  for (unsigned Dim = 1, MaxDim = SrcRegDDRef->getNumDimensions();
+       Dim <= MaxDim; ++Dim) {
+    if ((DstRegDDRef->getDimensionStride(Dim)->isIntConstant(&DstDimStride) ||
+         SrcRegDDRef->getDimensionStride(Dim)->isIntConstant(&SrcDimStride)) &&
+        ((SrcDimStride == 0) || (DstDimStride == 0))) {
+      unsigned ResultLevels = Result.getLevels();
+      auto *SrcCE = SrcRegDDRef->getDimensionIndex(Dim);
+      auto *DstCE = DstRegDDRef->getDimensionIndex(Dim);
+      if (SrcCE->isNonLinear() || DstCE->isNonLinear()) {
+        for (unsigned II = 1; II <= ResultLevels; ++II) {
+          Result.setDirection(II, DVKind::ALL);
+        }
+        break;
+      }
+
+      setStarAtIVLevel(SrcCE, Result);
+      setStarAtIVLevel(DstCE, Result);
+    }
+  }
+  return;
 }
 
 void DDTest::refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
