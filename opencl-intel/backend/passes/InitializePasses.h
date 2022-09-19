@@ -26,10 +26,8 @@ namespace llvm {
 
 namespace intel {
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
-void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry &);
-void initializeRemovePrefetchPass(llvm::PassRegistry&);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry &);

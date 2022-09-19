@@ -148,7 +148,7 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     if (IsBottom(LB) && IsBottom(ST) && IsBottom(EX))
       return false;
   }
-  return true;
+  return !FirstTime;
 }
 
 //

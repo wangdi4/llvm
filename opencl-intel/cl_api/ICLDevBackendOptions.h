@@ -43,7 +43,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR,           //!< Print IR input to heuristic         |boolean                 |
     CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,             //!< Pointer to preloaded object file    |pointer                 |
     CL_DEV_BACKEND_OPTION_DUMPFILE,                    //!< file name to store the dump into    |string                  |
-    CL_DEV_BACKEND_OPTION_APF_LEVEL,                   //!< select auto-prefetch level          |int                     | 0 - 3
     CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT,             //!< Stops compilation before JITing     |boolean                 | (Used for early AVX3 development)
     CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER,     //!<a pointer to IDeviceCommandManager   | IDeviceCommandManager* | pointer
     CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE,  //!< Set additional memory size          |size_t                  |
