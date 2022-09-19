@@ -2142,6 +2142,18 @@ void VPDecomposerHIR::fixExternalUses() {
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
                                              VPBasicBlock *InsPointVPBB) {
+  // Ignore DIR.VPO.GUARD.MEM.MOTION directives during VPlan CFG construction.
+  // They were introduced by Paropt to prevent memory motion of UDRs before
+  // vectorizer.
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    if (auto *CallI = HInst->getCallInst()) {
+      int DirID = vpo::VPOAnalysisUtils::getDirectiveID(CallI);
+      if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
+          DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+        return nullptr;
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "Generating VPInstructions for "; Node->dump();
              dbgs() << "\n");
   // There should't be any VPValue for Node at this point. Otherwise, we
