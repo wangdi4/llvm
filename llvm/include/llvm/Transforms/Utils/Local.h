@@ -33,12 +33,9 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/Dominators.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
-=======
 #include "llvm/IR/ValueMap.h"
->>>>>>> e5581df60a35fffb0c69589777e4e126c849405f
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>
