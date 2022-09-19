@@ -4193,7 +4193,7 @@ class OffloadingActionBuilder final {
 
     /// Update the state to include the provided host action \a HostAction as a
     /// dependency of the current device action. By default it is inactive.
-    virtual ActionBuilderReturnCode addDeviceDepences(Action *HostAction) {
+    virtual ActionBuilderReturnCode addDeviceDependences(Action *HostAction) {
       return ABRT_Inactive;
     }
 
@@ -4292,7 +4292,7 @@ class OffloadingActionBuilder final {
                           OffloadingActionBuilder &OAB)
         : DeviceActionBuilder(C, Args, Inputs, OFKind, OAB) {}
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
       // While generating code for CUDA, we only depend on the host input action
       // to trigger the creation of all the CUDA device actions.
 
@@ -4996,7 +4996,7 @@ class OffloadingActionBuilder final {
       return ABRT_Success;
     }
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
 
       // If this is an input action replicate it for each OpenMP toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
@@ -5221,7 +5221,7 @@ class OffloadingActionBuilder final {
         auto *DeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(
                 DeviceLibsInputAction);
-        addDeviceDepences(DeviceLibsUnbundleAction);
+        addDeviceDependences(DeviceLibsUnbundleAction);
         DeviceLinkObjects.push_back(DeviceLibsUnbundleAction);
       };
       bool addOmpLibs = false;
@@ -5714,7 +5714,7 @@ class OffloadingActionBuilder final {
       return ABRT_Success;
     }
 
-    ActionBuilderReturnCode addDeviceDepences(Action *HostAction) override {
+    ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
 
       // If this is an input action replicate it for each SYCL toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
@@ -5843,7 +5843,7 @@ class OffloadingActionBuilder final {
             C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
         auto *SYCLDeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
-        addDeviceDepences(SYCLDeviceLibsUnbundleAction);
+        addDeviceDependences(SYCLDeviceLibsUnbundleAction);
 
         auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
             SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
@@ -6911,7 +6911,7 @@ public:
       if (!SB->isValid())
         continue;
 
-      auto RetCode = SB->addDeviceDepences(HostAction);
+      auto RetCode = SB->addDeviceDependences(HostAction);
 
       // Host dependences for device actions are not compatible with that same
       // action being ignored.
