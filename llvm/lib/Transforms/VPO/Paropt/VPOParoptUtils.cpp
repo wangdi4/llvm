@@ -169,6 +169,11 @@ static cl::opt<uint32_t> DeviceMemoryKind(
     cl::desc("Control memory address space setting for device. 0 = private; "
              "1 = global, 2 = constant, 3 (default) = local; 4 = generic."));
 
+// Enables block loads codegen for GPUs.
+static cl::opt<bool> EnableDeviceBlockLoad(
+    "vpo-paropt-enable-device-block-load", cl::Hidden, cl::init(false),
+    cl::desc("Enable GPU block load generation for OpenMP target region"));
+
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
 
@@ -6826,6 +6831,10 @@ bool VPOParoptUtils::enableAsyncHelperThread() {
 
 uint32_t VPOParoptUtils::getDeviceMemoryKind() {
   return DeviceMemoryKind;
+}
+
+bool VPOParoptUtils::enableDeviceBlockLoad() {
+  return EnableDeviceBlockLoad;
 }
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {

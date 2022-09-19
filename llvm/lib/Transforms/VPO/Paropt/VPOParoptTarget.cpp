@@ -687,6 +687,18 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
+
+  // Under this option, adding metadate needed by GPU Back-End compiler to
+  // generate block loads
+  if (VPOParoptUtils::enableDeviceBlockLoad()) {
+    Metadata *AttrMDArgs[] = {
+        ConstantAsMetadata::get(Builder.getInt32(0)),
+        ConstantAsMetadata::get(Builder.getInt32(1)),
+        ConstantAsMetadata::get(Builder.getInt32(2)) };
+    NFn->setMetadata("intel_reqd_workgroup_walk_order",
+                     MDNode::get(NFn->getContext(), AttrMDArgs));
+  }
+
   return NFn;
 }
 
