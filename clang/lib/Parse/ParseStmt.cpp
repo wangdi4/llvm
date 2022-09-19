@@ -964,7 +964,7 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
   } else if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
     // CQ#370084: allow label without statement just before '}'.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-    Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+    Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
         << FixItHint::CreateInsertion(AfterColonLoc, " ;");
     SubStmt = Actions.ActOnNullStmt(ColonLoc);
 #endif // INTEL_CUSTOMIZATION
@@ -1029,20 +1029,15 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
     // Diagnose the common error "switch (X) {... default: }", which is
     // not valid.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // CQ#370084: allow label without statement just before '}'.
     if (getLangOpts().IntelCompat)
-      Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+      Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
         << FixItHint::CreateInsertion(AfterColonLoc, " ;");
     else
 #endif // INTEL_CUSTOMIZATION
-    Diag(AfterColonLoc, diag::err_label_end_of_compound_statement)
-      << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-=======
     Diag(AfterColonLoc, diag::err_switch_label_end_of_compound_statement)
         << FixItHint::CreateInsertion(AfterColonLoc, " ;");
->>>>>>> 510383626fe146e49ae5fa036638e543ce71e5d9
     SubStmt = true;
   }
 
