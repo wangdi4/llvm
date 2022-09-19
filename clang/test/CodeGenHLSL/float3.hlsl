@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 // INTEL RUN: %clang --driver-mode=dxc -Tlib_6_7 -fcgl -Xclang -opaque-pointers -Fo - %s | FileCheck %s
+=======
+// RUN: %clang_cc1 -std=hlsl2021 -finclude-default-header -x hlsl -triple \
+// RUN:   dxil-pc-shadermodel6.3-library %s -fnative-half-type \
+// RUN:   -emit-llvm -disable-llvm-passes -o - | FileCheck %s
+>>>>>>> 8b2f8b309885e872ad98af381ee5459716955877
 
 // Make sure float3 is not changed into float4.
 // CHECK:<3 x float> @"?foo@@YAT?$__vector@M$02@__clang@@T12@@Z"(<3 x float> noundef %[[PARAM:[0-9a-zA-Z]+]])
