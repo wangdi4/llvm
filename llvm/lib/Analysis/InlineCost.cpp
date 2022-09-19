@@ -2221,9 +2221,8 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
 
-<<<<<<< HEAD
-  bool OnlyOneCallAndLocalLinkage =
 #if INTEL_CUSTOMIZATION
+  bool OnlyOneCallAndLocalLinkage =
        (F.hasLocalLinkage()
   // CQ370998: Added link once ODR linkage case.
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
@@ -2240,12 +2239,6 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
 #if INTEL_CUSTOMIZATION
   if (OnlyOneCallAndLocalLinkage) {
-=======
-  // If there is only one call of the function, and it has internal linkage,
-  // the cost of inlining it drops dramatically. It may seem odd to update
-  // Cost in updateThreshold, but the bonus depends on the logic in this method.
-  if (isSoleCallToLocalFunction(Call, F))
->>>>>>> cf355bf36e39f38c08606a5b91a2cc038e28c700
     Cost -= LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall);
   }
@@ -3065,7 +3058,6 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
 
     onBlockAnalyzed(BB);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
@@ -3085,14 +3077,6 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate") // INTEL
         .setIntelInlReason(NinlrDuplicateCall); // INTEL
-=======
-
-  // If this is a noduplicate call, we can still inline as long as
-  // inlining this would cause the removal of the caller (so the instruction
-  // is not actually duplicated, just moved).
-  if (!isSoleCallToLocalFunction(CandidateCall, F) && ContainsNoDuplicateCall)
-    return InlineResult::failure("noduplicate");
->>>>>>> cf355bf36e39f38c08606a5b91a2cc038e28c700
 
   // If the callee's stack size exceeds the user-specified threshold,
   // do not let it be inlined.
