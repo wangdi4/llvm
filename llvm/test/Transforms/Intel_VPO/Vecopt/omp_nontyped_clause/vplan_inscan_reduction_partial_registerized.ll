@@ -62,7 +62,7 @@ define float @_Z3fooPfS_i(float* %A, float* %B, i32 %N) {
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB7:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
-; CHECK-NEXT:     float [[VP_X_REDINSCAN_RED_FINAL]] = reduction-final-inscan float [[VP_RED_LD]]
+; CHECK-NEXT:     float [[VP_X_REDINSCAN_RED_FINAL]] = reduction-final-inscan float [[VP1]]
 ; CHECK-NEXT:     store float [[VP_X_REDINSCAN_RED_FINAL]] float* [[X_RED0]]
 ; CHECK-NEXT:     i8* [[VP2:%.*]] = bitcast float* [[VP_X_RED]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP2]] void (i64, i8*)* @llvm.lifetime.end.p0i8

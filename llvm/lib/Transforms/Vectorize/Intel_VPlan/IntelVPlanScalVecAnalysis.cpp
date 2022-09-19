@@ -424,7 +424,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ReductionFinalInscan: {
-    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     // The instruction itself is vectorized, although it produces a scalar
     // return value.
     setSVAKindForInst(Inst, SVAKind::Vector);

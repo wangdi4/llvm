@@ -72,9 +72,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB160:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[WIDE_LOAD170:%.*]] = load <4 x float>, <4 x float>* [[X_RED_VEC0]], align 1
-; CHECK-NEXT:    [[WIDE_LOAD17_EXTRACT_3_0:%.*]] = extractelement <4 x float> [[WIDE_LOAD170]], i32 3
-; CHECK-NEXT:    store float [[WIDE_LOAD17_EXTRACT_3_0]], float* [[X_RED0]], align 1
+; CHECK-NEXT:    store float [[EXTRACT_LAST_VECTOR_LANE0]], float* [[X_RED0]], align 1
 ; CHECK:         br label [[VPLANNEDBB190:%.*]]
 ;
 entry:
