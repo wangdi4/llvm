@@ -1294,6 +1294,13 @@ public:
   bool wasDecidedByCostThreshold() const { return DecidedByCostThreshold; }
 };
 
+// Return true if CB is the sole call to local function Callee.
+static bool isSoleCallToLocalFunction(const CallBase &CB,
+                                      const Function &Callee) {
+  return Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
+         &Callee == CB.getCalledFunction();
+}
+
 class InlineCostFeaturesAnalyzer final : public CallAnalyzer {
 private:
   InlineCostFeatures Cost = {};
@@ -1480,8 +1487,7 @@ private:
         (F.getCallingConv() == CallingConv::Cold));
 
     set(InlineCostFeatureIndex::LastCallToStaticBonus,
-        (F.hasLocalLinkage() && F.hasOneLiveUse() &&
-         &F == CandidateCall.getCalledFunction()));
+        isSoleCallToLocalFunction(CandidateCall, F));
 
     // FIXME: we shouldn't repeat this logic in both the Features and Cost
     // analyzer - instead, we should abstract it to a common method in the
@@ -2215,8 +2221,8 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
 
-  bool OnlyOneCallAndLocalLinkage =
 #if INTEL_CUSTOMIZATION
+  bool OnlyOneCallAndLocalLinkage =
        (F.hasLocalLinkage()
   // CQ370998: Added link once ODR linkage case.
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
