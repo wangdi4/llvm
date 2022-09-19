@@ -1202,35 +1202,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 //   reduction-final-udr %udr.vec, %udr.orig, Combiner: @udr.combiner
 //   call @udr.dtor(%udr.vec)
 //
-// Additionally remove any VPO.GUARD.MEM.MOTION directives added by Paropt here.
 void VPLoopEntityList::insertUDRVPInstructions(
     VPUserDefinedReduction *UDR, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
-  if (!RemovedGuardsForUDRMemMotion) {
-    // Look through VPlan and remove VPO.GUARD.MEM.MOTION directive VPCalls.
-    SmallVector<VPCallInstruction *, 2> GuardInsts;
-    for (auto &I : vpinstructions(&Plan)) {
-      if (auto *VPCall = dyn_cast<VPCallInstruction>(&I)) {
-        const CallInst *IRCall = VPCall->getUnderlyingCallInst();
-        if (!IRCall)
-          continue;
-
-        int DirID = VPOAnalysisUtils::getRegionDirectiveID(IRCall);
-        if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
-            DirID == DIR_VPO_END_GUARD_MEM_MOTION)
-          GuardInsts.push_back(VPCall);
-      }
-    }
-
-    assert(GuardInsts.size() == 2 &&
-           "Expected begin/end guard directives for UDRs.");
-    for (auto *I : GuardInsts)
-      I->getParent()->eraseInstruction(I);
-
-    RemovedGuardsForUDRMemMotion = true;
-  }
-
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
 
@@ -2515,6 +2490,33 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 // Helper utility to check if given VPValue is used by any call or is stored-to
 // inside the provided VPLoop.
 static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
+  // Check if given instruction is a GEP/subscript with VPValue V as its pointer
+  // operand, followed by a store to the GEP/subscript.
+  auto IsUsedByGEPAndThenStore = [Lp](VPInstruction *UseI,
+                                      const VPValue *V) -> bool {
+    if (UseI->getOpcode() != Instruction::GetElementPtr &&
+        UseI->getOpcode() != VPInstruction::Subscript)
+      return false;
+
+    // GEP should be using V as pointer operand.
+    if (getPointerOperand(UseI) != V)
+      return false;
+
+    for (auto *GepU : UseI->users()) {
+      if (auto *StoreI = dyn_cast<VPLoadStoreInst>(GepU)) {
+        if (StoreI->getOpcode() != Instruction::Store)
+          continue;
+        if (!Lp->contains(StoreI))
+          continue;
+        if (StoreI->getPointerOperand() == UseI)
+          return true;
+      }
+    }
+
+    // Checks failed.
+    return false;
+  };
+
   SmallVector<VPValue *, 4> Worklist;
   Worklist.push_back(V);
   while (!Worklist.empty()) {
@@ -2533,6 +2535,8 @@ static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
           return true;
         if (UserI->getOpcode() == Instruction::Store &&
             cast<VPLoadStoreInst>(UserI)->getPointerOperand() == VPVal)
+          return true;
+        if (IsUsedByGEPAndThenStore(UserI, VPVal))
           return true;
       }
     }
