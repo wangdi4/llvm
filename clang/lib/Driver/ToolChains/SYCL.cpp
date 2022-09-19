@@ -703,6 +703,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
+
+#if INTEL_CUSTOMIZATION
+  auto OclocBin = llvm::sys::findProgramByName("ocloc");
+  if (OclocBin.getError())
+    C.getDriver().Diag(diag::warn_drv_aot_tool_not_found)
+                   << "ocloc";
+#endif // INTEL_CUSTOMIZATION
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
