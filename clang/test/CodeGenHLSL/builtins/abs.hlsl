@@ -1,12 +1,7 @@
 // RUN: %clang_cc1 -opaque-pointers -std=hlsl2021 -finclude-default-header -x hlsl -triple \
 // RUN:   dxil-pc-shadermodel6.3-library %s -fnative-half-type \
-<<<<<<< HEAD
-// RUN:   -emit-llvm -disable-llvm-passes -o - | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -std=hlsl2021 -finclude-default-header -x hlsl -triple \
-=======
 // RUN:   -emit-llvm -disable-llvm-passes -O3 -o - | FileCheck %s
-// RUN: %clang_cc1 -std=hlsl2021 -finclude-default-header -x hlsl -triple \
->>>>>>> edbf36c5e9e84bb0e70ddbcacc20b14217688cba
+// RUN: %clang_cc1 -opaque-pointers -std=hlsl2021 -finclude-default-header -x hlsl -triple \
 // RUN:   dxil-pc-shadermodel6.3-library %s -emit-llvm -disable-llvm-passes \
 // RUN:   -D__HLSL_ENABLE_16_BIT -o - | FileCheck %s --check-prefix=NO_HALF
 
