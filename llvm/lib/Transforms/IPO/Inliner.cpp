@@ -48,11 +48,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/InlineOrder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
-=======
->>>>>>> 6e30a9cc08f11e4a8b41413096b36ddf4c4b3f44
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -1055,11 +1051,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     LazyCallGraph::Node &N = *CG.lookup(F);
     if (CG.lookupSCC(N) != C)
       continue;
-<<<<<<< HEAD
-    }
-=======
 
->>>>>>> 6e30a9cc08f11e4a8b41413096b36ddf4c4b3f44
     LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n"
                       << "    Function size: " << F.getInstructionCount()
                       << "\n");
@@ -1228,15 +1220,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
               if (IsAlwaysInlineRecursive)
                  ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
               if (IsInlineHintRecursive)
                  ICB->addFnAttr(Attribute::InlineHintRecursive);
-              Calls.push({ICB, NewHistoryID});
-=======
+#endif // INTEL_CUSTOMIZATION
               Calls.push_back({ICB, NewHistoryID});
->>>>>>> 6e30a9cc08f11e4a8b41413096b36ddf4c4b3f44
               // Continually inlining through an SCC can result in huge compile
               // times and bloated code since we arbitrarily stop at some point
               // when the inliner decides it's not profitable to inline anymore.
@@ -1271,20 +1261,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (Callee.isDiscardableIfUnused() && Callee.hasZeroLiveUses() &&
           !CG.isLibFunction(Callee)) {
         if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
-<<<<<<< HEAD
-          Calls.erase_if([&](const std::pair<CallBase *, int> &Call) {
-            return Call.first->getCaller() == &Callee;
-          });
-          MDReport->setDead(&Callee); // INTEL
-=======
           Calls.erase(
               std::remove_if(Calls.begin() + I + 1, Calls.end(),
                              [&](const std::pair<CallBase *, int> &Call) {
                                return Call.first->getCaller() == &Callee;
                              }),
               Calls.end());
-
->>>>>>> 6e30a9cc08f11e4a8b41413096b36ddf4c4b3f44
+#if INTEL_CUSTOMIZATION
+          MDReport->setDead(&Callee); // INTEL
+#endif // INTEL_CUSTOMIZATION
           // Clear the body and queue the function itself for deletion when we
           // finish inlining and call graph updates.
           // Note that after this point, it is an error to do anything other
