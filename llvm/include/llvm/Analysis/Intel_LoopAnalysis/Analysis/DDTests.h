@@ -413,8 +413,13 @@ class DDTest {
   void adjustCollapsedDepsForInnermostLoop(Dependences &Result,
                                            const CanonExpr *NewDist);
 
-  /// Map DV to distance
+  /// Assumes ALL dependence on the levels with zero stride (Fortran only).
+  void adjustForZeroStride(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                           const RegDDRef *DstRegDDRef);
+  /// Goe through IVs in CE and put ALL dependence at the corresponding levels.
+  void setStarAtIVLevel(const CanonExpr *CE, Dependences &Result);
 
+  /// Map DV to distance
   DistTy mapDVToDist(DVKind DV, unsigned Level, const Dependences &Result);
 
   /// Subscript - This private struct represents a pair of subscripts from
