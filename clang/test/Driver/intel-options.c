@@ -965,3 +965,20 @@
 // RUN: %clang_cl -### /Qopt-assume-counted-loops /Qopt-assume-counted-loops- %s 2>&1 | FileCheck -check-prefix=NO-ASSUME-COUNTED-LOOPS %s
 // ASSUME-COUNTED-LOOPS: "-cc1"{{.*}} "-fassume-counted-loops"
 // NO-ASSUME-COUNTED-LOOPS-NOT: "-fassume-counted-loops"
+
+// ocloc tool check
+// RUN: env PATH= \
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-OCLOC %s
+// RUN: env PATH= \
+// RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-OCLOC %s
+// CHECK-OCLOC: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
+
+// RUN: rm -rf %t_dir/dummy && mkdir %t_dir/dummy
+// RUN: touch %t_dir/dummy/ocloc
+// RUN: chmod +x %t_dir/dummy/ocloc
+// RUN: env PATH=%t_dir/dummy \
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
+// RUN: env PATH=%t_dir/dummy \
+// RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
+// CHECK-NO-OCLOC-NOT: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
+

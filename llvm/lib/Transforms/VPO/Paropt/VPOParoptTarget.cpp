@@ -1771,6 +1771,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
 
+    // Use weak linkage for x86_64 device compilation, which is needed for NewF
+    // to be visible to the runtime in some cases. For spir64, it is done in
+    // finalizeKernelFunction.
+    if (hasOffloadCompilation() &&
+        Triple(NewF->getParent()->getTargetTriple()).isX86())
+      NewF->setLinkage(GlobalValue::WeakODRLinkage);
+
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
     if (isTargetSPIRV()) {
