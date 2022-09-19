@@ -358,15 +358,16 @@ static InlineResult inlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-  InlineResult IR = InlineFunction(CB, IFI, IRep, MDIRep, &AAR, // INTEL
-                                   InsertLifetime);             // INTEL
+#if INTEL_CUSTOMIZATION
+  InlineResult IR = InlineFunction(CB, IFI, IRep, MDIRep, &AAR,
+                                   InsertLifetime, /*ForwardVarArgsTo=*/nullptr,
+                                   /*MergeAttributes=*/true);
+#endif // INTEL_CUSTOMIZATION
   if (!IR.isSuccess())
     return IR;
 
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.recordInline(*Caller, *Callee);
-
-  AttributeFuncs::mergeAttributesForInlining(*Caller, *Callee);
 
   if (!DisableInlinedAllocaMerging)
     mergeInlinedArrayAllocas(Caller, IFI, InlinedArrayAllocas, InlineHistory);
@@ -1144,7 +1145,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         RecursiveCallCountOld = recursiveCallCount(Caller);
       InlineResult IR =
           InlineFunction(*CB, IFI, Report, MDReport,
-                         &FAM.getResult<AAManager>(*CB->getCaller()));
+                         &FAM.getResult<AAManager>(*CB->getCaller()),
+                         /*InsertLifetime=*/true,
+                         /*ForwardVarArgsTo=*/nullptr,
+                         /*MergeAttributes=*/true);
 #endif // INTEL_CUSTOMIZATION
 
       if (!IR.isSuccess()) {
@@ -1248,9 +1252,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
         }
       }
-
-      // Merge the attributes based on the inlining.
-      AttributeFuncs::mergeAttributesForInlining(F, Callee);
 
       // For local functions or discardable functions without comdats, check
       // whether this makes the callee trivially dead. In that case, we can drop

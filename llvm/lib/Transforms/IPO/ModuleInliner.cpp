@@ -240,8 +240,13 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
         &FAM.getResult<BlockFrequencyAnalysis>(Callee));
 
-    InlineResult IR =
-        InlineFunction(*CB, IFI, &FAM.getResult<AAManager>(*CB->getCaller()));
+#if INTEL_CUSTOMIZATION
+    InlineResult IR = InlineFunction(
+        *CB, IFI, nullptr, nullptr, &FAM.getResult<AAManager>(*CB->getCaller()),
+        /*InsertLifetime=*/true,
+        /*ForwardVarArgsTo=*/nullptr,
+        /*MergeAttributes=*/true);
+#endif // INTEL_CUSTOMIZATION
     if (!IR.isSuccess()) {
       Advice->recordUnsuccessfulInlining(IR);
       continue;
@@ -273,9 +278,6 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
             Calls->push({ICB, NewHistoryID});
       }
     }
-
-    // Merge the attributes based on the inlining.
-    AttributeFuncs::mergeAttributesForInlining(F, Callee);
 
     // For local functions, check whether this makes the callee trivially
     // dead. In that case, we can drop the body of the function eagerly
