@@ -23,7 +23,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 
 add_subdirectory(BuiltinLibInfo)
 add_subdirectory(DebugInfoPass)
-add_subdirectory(Prefetch)
 add_subdirectory(PrintIRPass)
 add_subdirectory(SmartGVN)
 add_subdirectory(StripIntelIP)

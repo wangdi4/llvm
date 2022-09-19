@@ -89,7 +89,6 @@ public:
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetUniformWGSize() const { return m_uniformWGSize; }
-    int  GetAPFLevel()      const { return m_APFLevel; }
     bool GetDenormalsZero() const { return m_denormalsZero;}
 
     void SetDisableOpt(bool disableOpt)       { m_disableOpt = disableOpt; }
@@ -98,7 +97,6 @@ public:
     void SetProfilingFlag(bool profiling)     { m_profiling = profiling; }
     void SetRelaxedMath(bool relaxedMath)     { m_relaxedMath = relaxedMath; }
     void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
-    void SetAPFLevel(int APFLevel)            { m_APFLevel = APFLevel; }
     void SetDenormalsZero(bool denormalsZero) { m_denormalsZero = denormalsZero;}
 
 private:
@@ -109,7 +107,6 @@ private:
     bool m_relaxedMath;
     bool m_denormalsZero;
     bool m_uniformWGSize;
-    int  m_APFLevel;
 };
 
 //*****************************************************************************************
