@@ -16,6 +16,7 @@
 
 #include "IntelVPlanCFGBuilder.h"
 #include "llvm/Analysis/LoopIterator.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -161,6 +162,14 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
             nullptr /* EndVal */, Instruction::Add);
       }
     }
+
+    // Ignore DIR.VPO.GUARD.MEM.MOTION directives during VPlan CFG construction.
+    // They were introduced by Paropt to prevent memory motion of UDRs before
+    // vectorizer.
+    int DirID = vpo::VPOAnalysisUtils::getDirectiveID(Call);
+    if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
+        DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+      return nullptr;
   }
 
   VPInstruction *NewVPInst{nullptr};

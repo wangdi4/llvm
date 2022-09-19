@@ -31,8 +31,11 @@
 ;   }
 ; }
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -enable-new-pm=0 -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -42,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @find_enclosing_rectangle(i32 noundef %n, ptr noundef %points) local_unnamed_addr #0 {
-; CHECK-LABEL: @find_enclosing_rectangle(
+; CHECK:       @find_enclosing_rectangle(
 ; CHECK:       omp.inner.for.body.lr.ph:
 ; CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[MINP_RED:%.*]], %struct.point zeroinitializer, i32 1, ptr null, ptr null, ptr @.omp_combiner., ptr @.omp_initializer.), "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[MAXP_RED:%.*]], %struct.point zeroinitializer, i32 1, ptr null, ptr null, ptr @.omp_combiner..1, ptr @.omp_initializer..2), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I_LINEAR_IV:%.*]], i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0),  "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0) ]
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY:%.*]]
@@ -122,6 +125,10 @@ define dso_local void @find_enclosing_rectangle(i32 noundef %n, ptr noundef %poi
 ; CHECK:       omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP1]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_1:%.*]]
+;
+; Check that after vpo-restore-operands OMP.OPERAND.ADDR clauses are dropped.
+; RESTORE:       @find_enclosing_rectangle(
+; RESTORE:         [[GUARD_START:%.*]] = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %minp.red), "QUAL.OMP.LIVEIN"(ptr %maxp.red) ]
 ;
 entry:
   %maxp.red = alloca %struct.point, align 8
