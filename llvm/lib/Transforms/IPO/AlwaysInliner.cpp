@@ -101,8 +101,14 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
         InlineResult Res = InlineFunction(
+<<<<<<< HEAD
             *CB, IFI, getReport(), getMDReport(),          // INTEL
             &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
+=======
+            *CB, IFI, &FAM.getResult<AAManager>(F), InsertLifetime,
+            /*ForwardVarArgsTo=*/nullptr,
+            /*MergeAttributes=*/true);
+>>>>>>> 284f0397e2779d9de6613c81539367f9b35d460f
         if (!Res.isSuccess()) {
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
@@ -118,9 +124,6 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             ORE, DLoc, Block, F, *Caller,
             InlineCost::getAlways("always inline attribute"),
             /*ForProfileContext=*/false, DEBUG_TYPE);
-
-        // Merge the attributes based on the inlining.
-        AttributeFuncs::mergeAttributesForInlining(*Caller, F);
 
         Changed = true;
       }
