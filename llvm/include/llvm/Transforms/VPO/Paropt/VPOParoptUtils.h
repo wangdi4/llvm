@@ -2101,6 +2101,9 @@ public:
   /// Control data prefetch API generation for GPUs
   static uint32_t dataPrefetchKind();
 
+  /// Returns true if OpenMP needs to perform block load generation
+  static bool enableDeviceBlockLoad();
+
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
