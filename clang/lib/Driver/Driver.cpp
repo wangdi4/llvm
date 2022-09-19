@@ -5221,7 +5221,7 @@ class OffloadingActionBuilder final {
         auto *DeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(
                 DeviceLibsInputAction);
-        addDeviceDepences(DeviceLibsUnbundleAction);
+        addDeviceDependences(DeviceLibsUnbundleAction);
         DeviceLinkObjects.push_back(DeviceLibsUnbundleAction);
       };
       bool addOmpLibs = false;
@@ -5843,7 +5843,7 @@ class OffloadingActionBuilder final {
             C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
         auto *SYCLDeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
-        addDeviceDepences(SYCLDeviceLibsUnbundleAction);
+        addDeviceDependences(SYCLDeviceLibsUnbundleAction);
 
         auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
             SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
