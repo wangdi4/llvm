@@ -1239,11 +1239,13 @@ bool SampleProfileLoader::tryInlineCandidate(
 
   InlineFunctionInfo IFI(nullptr, GetAC);
   IFI.UpdateProfile = false;
-  InlineResult IR = InlineFunction(CB, IFI,
+#if INTEL_CUSTOMIZATION
+  InlineResult IR = InlineFunction(CB, IFI, nullptr, nullptr,
                                    /*CalleeAAR=*/nullptr,
                                    /*InsertLifetime=*/true,
                                    /*ForwardVarArgsTo=*/nullptr,
                                    /*MergeAttributes=*/true);
+#endif // INTEL_CUSTOMIZATION
   if (!IR.isSuccess())
     return false;
 

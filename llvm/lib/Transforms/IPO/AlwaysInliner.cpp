@@ -100,15 +100,13 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             &FAM.getResult<BlockFrequencyAnalysis>(*Caller),
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
+#if INTEL_CUSTOMIZATION
         InlineResult Res = InlineFunction(
-<<<<<<< HEAD
-            *CB, IFI, getReport(), getMDReport(),          // INTEL
-            &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
-=======
-            *CB, IFI, &FAM.getResult<AAManager>(F), InsertLifetime,
+            *CB, IFI, getReport(), getMDReport(),
+            &FAM.getResult<AAManager>(F), InsertLifetime,
             /*ForwardVarArgsTo=*/nullptr,
             /*MergeAttributes=*/true);
->>>>>>> 284f0397e2779d9de6613c81539367f9b35d460f
+#endif // INTEL_CUSTOMIZATION
         if (!Res.isSuccess()) {
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
