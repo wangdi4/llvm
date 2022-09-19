@@ -20,7 +20,6 @@
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
 #include "exceptions.h"
-#include "mic_dev_limits.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -89,7 +88,6 @@ extern bool DPCPPForceOptnone;
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
-llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
@@ -130,9 +128,7 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
 static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             unsigned OptLevel, bool UnitAtATime,
                                             bool UnrollLoops,
-                                            int rtLoopUnrollFactor,
-                                            bool allowAllocaModificationOpt,
-                                            bool /*UseVplan*/) {
+                                            int rtLoopUnrollFactor) {
   if (OptLevel == 0) {
     return;
   }
@@ -208,11 +204,9 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // Clean up after the unroller
   PM->add(llvm::createInstructionCombiningPass());
   PM->add(llvm::createInstSimplifyLegacyPass());
-  if (allowAllocaModificationOpt) {
-    if (OptLevel > 1)
-      PM->add(llvm::createGVNPass());     // Remove redundancies
-    PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
-  }
+  if (OptLevel > 1)
+    PM->add(llvm::createGVNPass());     // Remove redundancies
+  PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
   PM->add(llvm::createSCCPPass()); // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
@@ -247,11 +241,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module & /*M*/, unsigned OptLevel,
                                        const intel::OptimizerConfig &pConfig,
                                        bool isOcl20, bool isFpgaEmulator,
-                                       bool UnrollLoops, bool isSPIRV,
-                                       bool UseVplan) {
-  bool HasGatherScatterPrefetch =
-      pConfig.GetCpuId()->HasGatherScatterPrefetch();
-
+                                       bool UnrollLoops, bool isSPIRV) {
   PM.add(llvm::createSetPreferVectorWidthLegacyPass(
       VectorizerCommon::getCPUIdISA(pConfig.GetCpuId())));
   if (isSPIRV && pConfig.GetRelaxedMath()) {
@@ -308,11 +298,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createDPCPPExternalAliasAnalysisLegacyPass());
   }
 
-  std::string Env;
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
-      DPCPPStatistic::isEnabled())
-    PM.add(createRemovePrefetchPass());
-
   PM.add(llvm::createBuiltinCallToInstLegacyPass());
 
   // When running the standard optimization passes, do not change the
@@ -323,11 +308,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   int rtLoopUnrollFactor = pConfig.GetRTLoopUnrollFactor();
 
-  bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
-
   createStandardLLVMPasses(&PM, OptLevel, UnitAtATime, UnrollLoops,
-                           rtLoopUnrollFactor, allowAllocaModificationOpt,
-                           UseVplan);
+                           rtLoopUnrollFactor);
 
   // check there is no recursion, if there is fail compilation
   PM.add(llvm::createDetectRecursionLegacyPass());
@@ -766,8 +748,7 @@ OptimizerOCLLegacy::OptimizerOCLLegacy(
   materializerPM();
 
   populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, m_IsOcl20,
-                             m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV,
-                             EnableVPlan);
+                             m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV);
 
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
                               m_IsOcl20, m_IsFpgaEmulator,
