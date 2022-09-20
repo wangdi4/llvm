@@ -226,8 +226,32 @@ define dso_local spir_kernel void @test_sg_barrier() {
   ret void
 }
 
+define dso_local spir_kernel void @test_prefetch(i32 addrspace(4)* %ptr) {
+; CHECK: [[PTR_CAST:%.*]] = bitcast i32 addrspace(4)* %ptr to <1 x i32 addrspace(4)*>
+; CHECK-NEXT: call void @llvm.genx.lsc.prefetch.stateless.v1i1.v1p4i32(<1 x i1> <i1 true>, i8 0, i8 0, i8 0, i16 1, i32 0, i8 3, i8 6, i8 2, i8 0, <1 x i32 addrspace(4)*> [[PTR_CAST]], i32 0)
+
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  tail call spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)* %ptr, i32 0, i32 0)
+  ret void
+}
+
 ; Function Attrs: convergent
 declare spir_func void @_Z22__spirv_ControlBarrieriii(i32, i32, i32)
+declare spir_func void @__builtin_IB_lsc_prefetch_global_uint(i32 addrspace(4)*, i32, i32)
 
 declare <8 x double> @llvm.sqrt.v8f64(<8 x double>)
 declare <8 x float> @llvm.sqrt.v8f32(<8 x float>)

@@ -6,9 +6,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -104,6 +104,8 @@ static constexpr char SPIRV_INTRIN_PREF[] = "__spirv_";
 
 static constexpr char GENX_KERNEL_METADATA[] = "genx.kernels";
 static constexpr char GENX_SLM_OFFSET[] = "genx.slm.offset";
+
+static constexpr char BUILTIN_IB_PREF[] = "__builtin_IB_";
 
 #define SYCL_GLOBAL_AS 1
 #define SYCL_SLM_AS 3
@@ -220,7 +222,6 @@ static void translateBarrier(CallInst *CI) {
   }
 }
 
-// This function translates SPIRV intrinsic into GenX intrinsic.
 // TODO: Currently, we do not support mixing SYCL and Simd kernels.
 // Later for Simd and SYCL kernels to coexist, we likely need to
 // clone call graph that lead from Simd kernel to SPIRV intrinsic and
@@ -282,6 +283,202 @@ translateSpirvIntrinsic(CallInst *CI, StringRef SpirvIntrName,
   });
 }
 
+// LSC_LDCC_DEFAULT      = 0,
+// LSC_LDCC_L1UC_L3UC    = 1,   // L1 uncached and L3 uncached
+// LSC_LDCC_L1UC_L3C     = 2,   // L1 uncached and L3 cached
+// LSC_LDCC_L1C_L3UC     = 3,   // L1 cached and L3 uncached
+// LSC_LDCC_L1C_L3C      = 4,   // L1 cached and L3 cached
+// LSC_LDCC_L1S_L3UC     = 5,   // L1 streaming load and L3 uncached
+// LSC_LDCC_L1S_L3C      = 6,   // L1 streaming load and L3 cached
+// LSC_LDCC_L1IAR_L3C    = 7,   // L1 invalidate-after-read and L3 cached
+//
+// ### Cache mappings are:
+//   - 0 -> .df (default)
+//   - 1 -> .uc (uncached)
+//   - 2 -> .ca (cached)
+//   - 3 -> .wb (writeback)
+//   - 4 -> .wt (writethrough)
+//   - 5 -> .st (streaming)
+//   - 6 -> .ri (read-invalidate)
+static void mapCacheControl(unsigned in, unsigned char &outL1,
+                            unsigned char &outL3) {
+  switch (in) {
+  case 0:
+    outL1 = 0;
+    outL3 = 0;
+    break;
+  case 1:
+    outL1 = 1;
+    outL3 = 1;
+    break;
+  case 2:
+    outL1 = 1;
+    outL3 = 2;
+    break;
+  case 3:
+    outL1 = 2;
+    outL3 = 1;
+    break;
+  case 4:
+    outL1 = 2;
+    outL3 = 2;
+    break;
+  case 5:
+    outL1 = 5;
+    outL3 = 1;
+    break;
+  case 6:
+    outL1 = 5;
+    outL3 = 2;
+    break;
+  case 7:
+    outL1 = 6;
+    outL3 = 2;
+    break;
+  default:
+    assert(false);
+  }
+}
+
+// Check if a prefetch builtin call is equivalent to the previous
+static bool isRedundantPrefetch(CallInst *CI) {
+  auto PI = CI->getPrevNonDebugInstruction();
+  if (!PI)
+    return false;
+  auto PCI = dyn_cast<CallInst>(PI);
+  if (!PCI)
+    return false;
+  // check if PI and CI call the same function
+  if (PCI->getCalledFunction() != CI->getCalledFunction())
+    return false;
+  if (PCI->getNumOperands() != CI->getNumOperands())
+    return false;
+  // check if all operands are the same
+  for (unsigned i = 0, n = PCI->getNumOperands(); i < n; i++) {
+    if (PCI->getOperand(i) != CI->getOperand(i))
+      return false;
+  }
+  return true;
+}
+
+// This function translates IGC builtin functions into GenX intrinsic.
+// only prefetch for now.
+static void
+translateBuiltinIBIntrinsic(CallInst *CI, StringRef BuiltinIBIntrName,
+                            SmallVector<Instruction *, 8> &SimdToErases) {
+  if (!BuiltinIBIntrName.consume_front("lsc_prefetch_global"))
+    return;
+  // instruction is the same as the previous instruction
+  if (isRedundantPrefetch(CI)) {
+    SimdToErases.push_back(CI);
+    return;
+  }
+  // count the number of redundant prefetch that follows
+  unsigned count = 1;
+  auto NI = dyn_cast<CallInst>(CI->getNextNonDebugInstruction());
+  while (NI && isRedundantPrefetch(NI)) {
+    count++;
+    NI = dyn_cast<CallInst>(NI->getNextNonDebugInstruction());
+  }
+  // translate the prefetch
+  std::string IntrName = std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+                         "lsc.prefetch.stateless";
+  auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+  // builtin function has 3 operands, ptr, immed-offset, and cache-control
+  assert(CI->getNumOperands() >= 3);
+  LLVMContext &CTX = CI->getContext();
+  IRBuilder<> Builder(CI);
+  auto PtrV = CI->getOperand(0);
+  assert(PtrV->getType()->isPointerTy());
+  auto DL = CI->getModule()->getDataLayout();
+  auto ImmedOffsetV = CI->getOperand(1);
+  auto CacheCtrlV = CI->getOperand(2);
+  assert(isa<ConstantInt>(ImmedOffsetV) && isa<ConstantInt>(CacheCtrlV));
+
+   // arg0: {1,32}Xi1 predicate (overloaded)
+   // arg1: i8 Subopcode, [MBZ]
+   // arg2: i8 Caching behavior for L1, [MBC]
+   // arg3: i8 Caching behavior for L3, [MBC]
+   // arg4: i16 Address scale, [MBC]
+   // arg5: i32 Immediate offset added to each address, [MBC]
+   // arg6: i8 The dataum size, [MBC]
+   // arg7: i8 Number of elements to load per address (vector size), [MBC]
+   // arg8: i8 Indicates if the data is transposed during the transfer, [MBC]
+   // arg9: i8 Channel mask for quad versions, [MBC]
+   // arg10: {1,32}Xi{16,32,64} The vector register holding offsets (overloaded)
+   //       for flat version Base Address + Offset[i] goes here
+   // arg11: i32 surface to use for this operation.
+   //       This can be an immediate or a register
+   //         for flat and bindless version pass zero here
+
+   //  Dataum size mapping is
+   //   - 1 = :u8
+   //   - 2 = :u16
+   //   - 3 = :u32
+   //   - 4 = :u64
+   //   - 5 = :u8u32 (load 8b, zero extend to 32b; store the opposite),
+   //   - 6 = :u16u32 (load 8b, zero extend to 32b; store the opposite),
+   //   - 7 = :u16u32h (load 16b into high 16 of each 32b; store the high 16)
+
+  auto PredV1Ty = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), 1);
+  auto OnePred1 = Constant::getAllOnesValue(PredV1Ty);
+  // zero values
+  auto CIntTy = Type::getInt32Ty(CTX);
+  auto Zeroi32C = ConstantInt::get(CIntTy, 0);
+  auto CI8Ty = Type::getInt8Ty(CTX);
+  auto Zeroi8C = ConstantInt::get(CI8Ty, 0);
+  auto Twoi8C = ConstantInt::get(CI8Ty, 2);
+  auto CI16Ty = Type::getInt16Ty(CTX);
+  auto Onei16C = ConstantInt::get(CI16Ty, 1);
+  //
+  unsigned EnumNumElems = 0;
+  if (count <= 4)
+    EnumNumElems = count;
+  else if (count <= 8)
+    EnumNumElems = 5;
+  else if (count <= 16)
+    EnumNumElems = 6;
+  else if (count <= 32)
+    EnumNumElems = 7;
+  else if (count <= 64)
+    EnumNumElems = 8;
+  else
+    assert(false);
+  auto NumElemsV = ConstantInt::get(CI8Ty, EnumNumElems);
+  //
+  unsigned DatumSize = 0;
+  if (BuiltinIBIntrName == "_uint")
+    DatumSize = 3;
+  else if (BuiltinIBIntrName == "_ulong")
+    DatumSize = 4;
+  else if (BuiltinIBIntrName == "_ushort")
+    DatumSize = 2;
+  else if (BuiltinIBIntrName == "_uchar")
+    DatumSize = 1;
+  else
+    assert(false);
+  auto DatumSizeV = ConstantInt::get(CI8Ty, DatumSize);
+  //
+  unsigned char L1Ctrl = 0, L3Ctrl = 0;
+  unsigned Field =
+      static_cast<unsigned>(cast<ConstantInt>(CacheCtrlV)->getZExtValue());
+  mapCacheControl(Field, L1Ctrl, L3Ctrl);
+  auto L1CtrlV = ConstantInt::get(CI8Ty, L1Ctrl);
+  auto L3CtrlV = ConstantInt::get(CI8Ty, L3Ctrl);
+  // create prefetch intrinsic call
+  auto VPtrTy = llvm::FixedVectorType::get(PtrV->getType(), 1);
+  // create the intrinsic call
+  Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(CI->getModule(), ID,
+                                                         {PredV1Ty, VPtrTy});
+  auto VecPtr =
+      CastInst::CreateBitOrPointerCast(PtrV, VPtrTy, PtrV->getName(), CI);
+  CallInst::Create(NewFDecl,
+                   {OnePred1, Zeroi8C, L1CtrlV, L3CtrlV, Onei16C, ImmedOffsetV,
+                    DatumSizeV, NumElemsV, Twoi8C, Zeroi8C, VecPtr, Zeroi32C},
+                   "", CI);
+  SimdToErases.push_back(CI);
+}
+
 static std::string getMDString(MDNode *N, unsigned I) {
   if (!N)
     return "";
@@ -315,12 +512,14 @@ static Value *translateSqrtOpIntrinsic(CallInst *CI) {
   return RepI;
 }
 
-static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryOps ReduceOp) {
+static Value *translateReduceOpIntrinsic(IntrinsicInst *II,
+                                         Instruction::BinaryOps ReduceOp) {
   auto *CI = cast<CallInst>(II);
   LLVMContext &CTX = CI->getContext();
   // TODO: introduce GenXIRBuilder helper
-  bool IsFloatingPointReduction = CI->getType()->getScalarType()->isDoubleTy() ||
-                                  CI->getType()->getScalarType()->isFloatTy();
+  bool IsFloatingPointReduction =
+      CI->getType()->getScalarType()->isDoubleTy() ||
+      CI->getType()->getScalarType()->isFloatTy();
   auto GetReduceSeq = [&](Value *Src, unsigned Size,
                           unsigned ElemOffset) -> Value * {
     if (Size == 1) {
@@ -339,8 +538,10 @@ static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryO
     Type *Tys[] = {FixedVectorType::get(SrcElementType, Size), SrcType,
                    Type::getInt16Ty(CTX)};
     auto *Decl = GenXIntrinsic::getGenXDeclaration(
-        CI->getModule(), IsFloatingPointReduction ? GenXIntrinsic::genx_rdregionf :
-                                                    GenXIntrinsic::genx_rdregioni, Tys);
+        CI->getModule(),
+        IsFloatingPointReduction ? GenXIntrinsic::genx_rdregionf
+                                 : GenXIntrinsic::genx_rdregioni,
+        Tys);
 
     Value *Args[] = {
         Src,
@@ -370,8 +571,9 @@ static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryO
   if (IsFloatingPointReduction && !CI->hasAllowReassoc()) {
     CurrentReduceRes = CI->getOperand(0);
     for (unsigned i = 0; i < N; i++) {
-        auto *Extract = GetReduceSeq(OperandToReduce, 1, i);
-        CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes, Extract);
+      auto *Extract = GetReduceSeq(OperandToReduce, 1, i);
+      CurrentReduceRes =
+          Builder.CreateBinOp(ReduceOp, CurrentReduceRes, Extract);
     }
     CI->replaceAllUsesWith(CurrentReduceRes);
     return CurrentReduceRes;
@@ -410,8 +612,9 @@ static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryO
   assert(CurrentReduceRes->getType() == CI->getType());
 
   if (IsFloatingPointReduction) {
-    assert (CI->hasAllowReassoc());
-    CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes,  CI->getOperand(0));
+    assert(CI->hasAllowReassoc());
+    CurrentReduceRes =
+        Builder.CreateBinOp(ReduceOp, CurrentReduceRes, CI->getOperand(0));
   }
 
   CI->replaceAllUsesWith(CurrentReduceRes);
@@ -1112,8 +1315,9 @@ static Value *translateLLVMInst(Instruction *Inst) {
   if (auto CastOp = dyn_cast<llvm::CastInst>(Inst)) {
     llvm::Type *DstTy = CastOp->getDestTy();
     auto CastOpcode = CastOp->getOpcode();
-    if (isa<FixedVectorType>(DstTy) && (CastOpcode == llvm::Instruction::FPToUI &&
-         DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
+    if (isa<FixedVectorType>(DstTy) &&
+            (CastOpcode == llvm::Instruction::FPToUI &&
+             DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
         (CastOpcode == llvm::Instruction::FPToSI &&
          DstTy->getScalarType()->getPrimitiveSizeInBits() < 32)) {
       llvm::Value *Src = CastOp->getOperand(0);
@@ -1296,7 +1500,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto CIntTy = Type::getInt32Ty(CTX);
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
         unsigned VL = DTy->getNumElements();
-        Type* EltTy = DTy->getElementType();
+        Type *EltTy = DTy->getElementType();
         auto EltBytes = getElementSizeInBytes(EltTy, DL);
         auto PredV = CallOp->getArgOperand(3);
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
@@ -1626,15 +1830,17 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
       continue;
     StringRef Name = Callee->getName();
 
-    if (!Name.consume_front(SIMD_INTRIN_PREF0))
-      continue;
-    // now skip the digits
-    Name = Name.drop_while([](char C) { return std::isdigit(C); });
+    if (Name.consume_front(SIMD_INTRIN_PREF0)) {
+      // now skip the digits
+      Name = Name.drop_while([](char C) { return std::isdigit(C); });
 
-    if (Name.consume_front(SPIRV_INTRIN_PREF)) {
-      translateSpirvIntrinsic(CI, Name, SimdToErases);
+      if (Name.consume_front(SPIRV_INTRIN_PREF)) {
+        translateSpirvIntrinsic(CI, Name, SimdToErases);
+        // For now: if no match, just let it go untranslated.
+      }
+    } else if (Name.consume_front(BUILTIN_IB_PREF)) {
+      translateBuiltinIBIntrinsic(CI, Name, SimdToErases);
       // For now: if no match, just let it go untranslated.
-      continue;
     }
   }
   for (auto *CI : SimdToErases) {
