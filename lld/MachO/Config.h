@@ -224,6 +224,8 @@ struct Configuration {
 
   llvm::StringRef osoPrefix;
 
+  std::vector<llvm::StringRef> dyldEnvs;
+
   llvm::MachO::Architecture arch() const { return platformInfo.target.Arch; }
 
   llvm::MachO::PlatformType platform() const {
