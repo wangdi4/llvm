@@ -60,6 +60,7 @@ class AllocaInst;
 class AssumptionCache; // INTEL
 class AtomicCmpXchgInst;
 class AtomicRMWInst;
+class AssumptionCache;
 class BasicBlock;
 class BranchInst;
 class CallInst;
@@ -207,7 +208,6 @@ private:
   const TargetMachine &TM;
   ScalarEvolution *SCEV;          // INTEL
   const TargetTransformInfo *TTI; // INTEL
-  AssumptionCache *AC;            // INTEL
   const DominatorTree *DT;        // INTEL
   LoopInfo* LPI;                  // INTEL
 public:
@@ -217,6 +217,7 @@ public:
 
   SelectionDAG &DAG;
   AAResults *AA = nullptr;
+  AssumptionCache *AC = nullptr;
   const TargetLibraryInfo *LibInfo;
 
   class SDAGSwitchLowering : public SwitchCG::SwitchLowering {

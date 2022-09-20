@@ -1049,6 +1049,7 @@ void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
                                ScalarEvolution *scev, // INTEL
                                LoopInfo *lpi) { // INTEL
   AA = aa;
+  AC = ac;
   GFI = gfi;
   LibInfo = li;
   TTI = tti;    // INTEL
@@ -4184,7 +4185,7 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   }
 
   if (isDereferenceableAndAlignedPointer(SV, Ty, Alignment, DAG.getDataLayout(),
-                                         &I, nullptr, nullptr, LibInfo))
+                                         &I, AC, nullptr, LibInfo))
     MMOFlags |= MachineMemOperand::MODereferenceable;
 
   SDLoc dl = getCurSDLoc();
