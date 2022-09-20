@@ -505,6 +505,7 @@ bool onlyUsedByVarAnnot(const Value *V); // INTEL
 /// for such instructions, moving them may change the resulting value.
 bool isSafeToSpeculativelyExecute(const Instruction *I,
                                   const Instruction *CtxI = nullptr,
+                                  AssumptionCache *AC = nullptr,
                                   const DominatorTree *DT = nullptr,
                                   const TargetLibraryInfo *TLI = nullptr);
 
@@ -527,7 +528,8 @@ bool isSafeToSpeculativelyExecute(const Instruction *I,
 ///   intentional.
 bool isSafeToSpeculativelyExecuteWithOpcode(
     unsigned Opcode, const Instruction *Inst, const Instruction *CtxI = nullptr,
-    const DominatorTree *DT = nullptr, const TargetLibraryInfo *TLI = nullptr);
+    AssumptionCache *AC = nullptr, const DominatorTree *DT = nullptr,
+    const TargetLibraryInfo *TLI = nullptr);
 
 /// Returns true if the result or effects of the given instructions \p I
 /// depend values not reachable through the def use graph.
