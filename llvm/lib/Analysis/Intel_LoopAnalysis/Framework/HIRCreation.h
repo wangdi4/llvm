@@ -124,6 +124,9 @@ public:
   /// Returns the src bblock associated with this switch. Asserts if it cannot
   /// be found.
   const BasicBlock *getSrcBBlock(HLSwitch *Switch) const;
+
+  /// Returns HIRRegionIdentification object.
+  const HIRRegionIdentification &getRI() const { return RI; }
 };
 
 } // End namespace loopopt

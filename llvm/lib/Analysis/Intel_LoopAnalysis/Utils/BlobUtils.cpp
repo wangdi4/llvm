@@ -94,8 +94,36 @@ bool BlobUtils::isConstantIntBlob(BlobTy Blob, int64_t *Val) {
     return false;
   }
 
+  if (SConst->getType()->getPrimitiveSizeInBits() > 64) {
+    return false;
+  }
+
   if (Val) {
     *Val = SConst->getValue()->getSExtValue();
+  }
+
+  return true;
+}
+
+bool BlobUtils::isConstantLargeIntBlob(BlobTy Blob, ConstantInt **Val) {
+  auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  auto *IntVal = dyn_cast<ConstantInt>(UnknownSCEV->getValue());
+
+  if (!IntVal) {
+    return false;
+  }
+
+  if (IntVal->getType()->getPrimitiveSizeInBits() <= 64) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = IntVal;
   }
 
   return true;

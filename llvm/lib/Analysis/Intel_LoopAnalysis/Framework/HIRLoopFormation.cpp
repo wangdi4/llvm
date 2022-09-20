@@ -214,42 +214,6 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   return false;
 }
 
-const PHINode *
-HIRLoopFormation::findIVDefInHeader(const Loop &Lp,
-                                    const Instruction *Inst) const {
-
-  // Is this a phi node in the loop header?
-  if (Inst->getParent() == Lp.getHeader()) {
-    if (auto Phi = dyn_cast<PHINode>(Inst)) {
-      return Phi;
-    }
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    if (auto OpInst = dyn_cast<Instruction>(I)) {
-
-      // Instruction lies outside the loop.
-      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
-        continue;
-      }
-
-      // Skip backedges.
-      // This can happen for outer unknown loops.
-      if (DT.dominates(Inst, OpInst)) {
-        continue;
-      }
-
-      auto IVNode = findIVDefInHeader(Lp, OpInst);
-
-      if (IVNode) {
-        return IVNode;
-      }
-    }
-  }
-
-  return nullptr;
-}
-
 void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
@@ -270,7 +234,7 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto *IVNode = findIVDefInHeader(*Lp, cast<Instruction>(Cond));
+  auto *IVNode = HIRCr.getRI().findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
   auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
