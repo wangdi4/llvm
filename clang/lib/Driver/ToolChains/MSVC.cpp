@@ -194,12 +194,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddIPPLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_qmkl_EQ)) {
+  if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) {
     getToolChain().AddMKLLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ)) {
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
+        && C.getDriver().IsDPCPPMode())) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
@@ -416,7 +418,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!StubsAdded && ((Args.hasFlag(options::OPT_fopenmp,
                                    options::OPT_fopenmp_EQ,
                                    options::OPT_fno_openmp, false)) ||
-                      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
+                       Args.hasArg(options::OPT_fiopenmp,
+                                   options::OPT_qmkl_EQ,
+                                   options::OPT_qmkl_ilp64_EQ))) {
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
@@ -915,7 +919,8 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   }
 
   // Add Intel performance library headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ,
+                        clang::driver::options::OPT_qmkl_ilp64_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePathExtra(DriverArgs));
     addSystemInclude(DriverArgs, CC1Args,
