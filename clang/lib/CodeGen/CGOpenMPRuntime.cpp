@@ -7774,14 +7774,20 @@ private:
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       DevPointersMap;
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
+=======
+>>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
   /// Map between device addr declarations and their expression components.
   /// The key value for declarations in 'this' is null.
   llvm::DenseMap<
       const ValueDecl *,
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       HasDevAddrsMap;
+<<<<<<< HEAD
 #endif  // INTEL_COLLAB
+=======
+>>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
 
   /// Map between lambda declarations and their map type.
   llvm::DenseMap<const ValueDecl *, const OMPMapClause *> LambdasMap;
@@ -9335,7 +9341,11 @@ public:
     for (const auto *C : Dir.getClausesOfKind<OMPIsDevicePtrClause>())
       for (auto L : C->component_lists())
         DevPointersMap[std::get<0>(L)].push_back(std::get<1>(L));
+<<<<<<< HEAD
     // Extract has device addr clause information.
+=======
+    // Extract device addr clause information.
+>>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
     for (const auto *C : Dir.getClausesOfKind<OMPHasDeviceAddrClause>())
       for (auto L : C->component_lists())
         HasDevAddrsMap[std::get<0>(L)].push_back(std::get<1>(L));
@@ -9661,7 +9671,7 @@ public:
     // If this declaration appears in a is_device_ptr clause we just have to
     // pass the pointer by value. If it is a reference to a declaration, we just
     // pass its value.
-    if (VD && DevPointersMap.count(VD)) {
+    if (VD && (DevPointersMap.count(VD) || HasDevAddrsMap.count(VD))) {
       CombinedInfo.Exprs.push_back(VD);
       CombinedInfo.BasePointers.emplace_back(Arg, VD);
       CombinedInfo.Pointers.push_back(Arg);
@@ -9682,14 +9692,19 @@ public:
     SmallVector<MapData, 4> DeclComponentLists;
     // For member fields list in is_device_ptr, store it in
     // DeclComponentLists for generating components info.
+    static const OpenMPMapModifierKind Unknown = OMPC_MAP_MODIFIER_unknown;
     auto It = DevPointersMap.find(VD);
     if (It != DevPointersMap.end())
-      for (const auto &MCL : It->second) {
-        static const OpenMPMapModifierKind Unknown = OMPC_MAP_MODIFIER_unknown;
+      for (const auto &MCL : It->second)
         DeclComponentLists.emplace_back(MCL, OMPC_MAP_to, Unknown,
                                         /*IsImpicit = */ true, nullptr,
                                         nullptr);
-      }
+    auto I = HasDevAddrsMap.find(VD);
+    if (I != HasDevAddrsMap.end())
+      for (const auto &MCL : I->second)
+        DeclComponentLists.emplace_back(MCL, OMPC_MAP_tofrom, Unknown,
+                                        /*IsImpicit = */ true, nullptr,
+                                        nullptr);
     assert(CurDir.is<const OMPExecutableDirective *>() &&
            "Expect a executable directive");
     const auto *CurExecDir = CurDir.get<const OMPExecutableDirective *>();
