@@ -1231,6 +1231,31 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isUnconditionallyExecuted(
       // check this accurately as we need redundant node logic.
       // Nevertheless, it seems better to make this assumption as we see
       // some performance regressions without it.
+
+      // Check if Ref is guarded by the 'IF' condition which is Opt Var
+      // Predicate candidate. If so treat it as unconditionally executed.
+      if (HLIf *If = dyn_cast<HLIf>(ParentNode)) {
+        if (If->getNumPredicates() == 1) {
+          if (HLLoop *IfParentLoop = If->getParentLoop()) {
+            auto *PredI = If->pred_begin();
+            const RegDDRef *LHSRef = If->getLHSPredicateOperandDDRef(PredI);
+            const RegDDRef *RHSRef = If->getRHSPredicateOperandDDRef(PredI);
+            unsigned Level;
+            unsigned LoopLevel = IfParentLoop->getNestingLevel();
+
+            if ((LHSRef->isStandAloneIV(true, &Level) && (Level == LoopLevel) &&
+                 RHSRef->isTerminalRef() &&
+                 RHSRef->isStructurallyInvariantAtLevel(Level)) ||
+                (RHSRef->isStandAloneIV(true, &Level) && (Level == LoopLevel) &&
+                 LHSRef->isTerminalRef() &&
+                 LHSRef->isStructurallyInvariantAtLevel(Level))) {
+              ParentNode = ParentNode->getParent();
+              continue;
+            }
+          }
+        }
+      }
+
       return false;
     }
 
