@@ -684,6 +684,30 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
   return true;
 }
 
+// Returns true if the store of the group dominates the loads in the group.
+static bool storeDominatesLoads(const HLLoop *Lp, const MemRefGroup &Group) {
+  if (Group.isStoreOnly()) {
+    return true;
+  }
+
+  const HLNode *LoopTail = Lp->getLastChild();
+
+  // Traverse memrefs in lexical order to check whether we encounter store
+  // before loads.
+  for (const RegDDRef *CurRef : Group) {
+
+    if (CurRef->isRval()) {
+      return false;
+    }
+
+    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
+      return true;
+    }
+  }
+
+  llvm_unreachable("Inconsistent group!");
+}
+
 // A Group is legal IF&F every Ref is legal within the Group
 bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group, bool QueryMode,
                      bool *IsInsideLifetimeIntrinsics) {
@@ -724,18 +748,24 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group, bool QueryMode,
     }
   }
 
+  // It is not guaranteed that an alloca whose lifetime.start intrinsic is
+  // inside multi-exit loop will hit the corresponding lifetime.end intrinsic.
+  // This intrinsic is just placed lexically at the end of the loop
+  // (backedge). The alloca might be accessed in the loop exit blocks so we
+  // should give up on using lifetime intrinsics for multi-exit loops. The
+  // LangRef does not guarantee that lifetime.end intrinsic has to be reached.
   bool IsMultiExit = Lp->isMultiExit();
+
+  // This is a sanity check for handling groups with lifetime intrinsics. If
+  // store doesn't dominate in the group, the alloca is uninitialized. It is
+  // better to not deal with this case.
+  bool AllowLifetimeIntrinsics =
+      (!QueryMode && !IsMultiExit && storeDominatesLoads(Lp, Group));
+
   for (const RegDDRef *Ref : Group) {
-    // It is not guaranteed that an alloca whose lifetime.start intrinsic is
-    // inside multi-exit loop will hit the corresponding lifetime.end intrinsic.
-    // This intrinsic is just placed lexically at the end of the loop
-    // (backedge). The alloca might be accessed in the loop exit blocks so we
-    // should give up on using lifetime intrinsics for multi-exit loops. The
-    // LangRef does not guarantee that lifetime.end intrinsic has to be reached.
     if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts, Group,
-                         (QueryMode || IsMultiExit)
-                             ? nullptr
-                             : IsInsideLifetimeIntrinsics)) {
+                         AllowLifetimeIntrinsics ? IsInsideLifetimeIntrinsics
+                                                 : nullptr)) {
       return false;
     }
   }
@@ -898,35 +928,6 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
   }
 
   return true;
-}
-
-// Check whether we need a Load in the Loops' preheader:
-// - If there is no load (store-only Group), no need for tmp in prehder
-// - Scan the Group from beginning:
-//  . 1st hit a load: need
-//  . 1st hit a store on dom path: no need
-//
-static bool isLoadNeededInPrehder(HLLoop *Lp, const MemRefGroup &Group) {
-  if (Group.isStoreOnly()) {
-    return false;
-  }
-
-  const HLNode *LoopTail = Lp->getLastChild();
-
-  for (const RegDDRef *CurRef : Group) {
-
-    // If hit a Load 1st, need tmp
-    if (CurRef->isRval()) {
-      return true;
-    }
-
-    // If hit a Store (on dominate path) 1st, no need of tmp
-    if (HLNodeUtils::dominates(CurRef->getHLDDNode(), LoopTail)) {
-      return false;
-    }
-  }
-
-  llvm_unreachable("Not expect control to reach here\n");
 }
 
 // Check all the LHS MemRef within the parent loop equals to the LoadRef and
@@ -1132,7 +1133,7 @@ bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
 //  -yes: if there is at least 1 store in Group
 //
 // Decide if a load is needed in Loop's preheader
-//  -details in isLoadNeededInPrehder()
+//  -details in storeDominatesLoads()
 //
 // [Do LIMM Promotion]
 //  - Create a load in preheader if needed
@@ -1159,7 +1160,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Need a Load in prehdr: check algorithm for details
   NeedLoadInPrehdr = !IsInsideLifetimeIntrinsics &&
-                     (IsLoadOnly || isLoadNeededInPrehder(Lp, Group));
+                     (IsLoadOnly || !storeDominatesLoads(Lp, Group));
 
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
