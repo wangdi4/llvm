@@ -10,21 +10,19 @@
 define i32 @_Z9FindFirsty(i64 %b) {
 ; CHECK-LABEL: @_Z9FindFirsty(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = call i64 @llvm.cttz.i64(i64 [[B:%.*]], i1 true), [[RNG0:!range !.*]]
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[B]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP0]] to i32
-; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[TMP1]], i32 0, i32 [[TMP2]]
-; CHECK-NEXT:    ret i32 [[TMP3]]
+; CHECK-NEXT:    [[TMP0:%.*]] = call i64 @llvm.cttz.i64(i64 [[B:%.*]], i1 true), !range [[RNG0:![0-9]+]]
+; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i64 [[B]], 0
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP1]]
+; CHECK-NEXT:    ret i32 [[TMP2]]
 ;
 ; NOBMI-LABEL: @_Z9FindFirsty(
 ; NOBMI-NEXT:  entry:
-; NOBMI-NEXT:    [[SUB:%.*]] = sub i64 0, [[B:%.*]]
-; NOBMI-NEXT:    [[AND:%.*]] = and i64 [[SUB]], [[B]]
-; NOBMI-NEXT:    [[MUL:%.*]] = mul i64 [[AND]], 283881067100198605
-; NOBMI-NEXT:    [[SHR:%.*]] = lshr i64 [[MUL]], 58
-; NOBMI-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [64 x i32], [64 x i32]* @_ZL10magictable, i64 0, i64 [[SHR]]
-; NOBMI-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
-; NOBMI-NEXT:    ret i32 [[TMP0]]
+; NOBMI-NEXT:    [[TMP0:%.*]] = call i64 @llvm.cttz.i64(i64 [[B:%.*]], i1 true), !range [[RNG0:![0-9]+]]
+; NOBMI-NEXT:    [[DOTNOT:%.*]] = icmp eq i64 [[B]], 0
+; NOBMI-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32
+; NOBMI-NEXT:    [[TMP2:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP1]]
+; NOBMI-NEXT:    ret i32 [[TMP2]]
 ;
 entry:
   %sub = sub i64 0, %b
@@ -74,24 +72,23 @@ define i32 @_Z15FindFirstRemovePy(i64* nocapture %b) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], -1
 ; CHECK-NEXT:    [[XOR:%.*]] = and i64 [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    store i64 [[XOR]], i64* [[B]], align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = call i64 @llvm.cttz.i64(i64 [[TMP0]], i1 true), [[RNG0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP0]], 0
-; CHECK-NEXT:    [[TMP4:%.*]] = trunc i64 [[TMP2]] to i32
-; CHECK-NEXT:    [[TMP5:%.*]] = select i1 [[TMP3]], i32 0, i32 [[TMP4]]
-; CHECK-NEXT:    ret i32 [[TMP5]]
+; CHECK-NEXT:    [[TMP2:%.*]] = call i64 @llvm.cttz.i64(i64 [[TMP0]], i1 true), !range [[RNG0]]
+; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i64 [[TMP0]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP3]]
+; CHECK-NEXT:    ret i32 [[TMP4]]
 ;
 ; NOBMI-LABEL: @_Z15FindFirstRemovePy(
 ; NOBMI-NEXT:  entry:
 ; NOBMI-NEXT:    [[TMP0:%.*]] = load i64, i64* [[B:%.*]], align 8
-; NOBMI-NEXT:    [[SUB:%.*]] = sub i64 0, [[TMP0]]
-; NOBMI-NEXT:    [[AND:%.*]] = and i64 [[TMP0]], [[SUB]]
-; NOBMI-NEXT:    [[XOR:%.*]] = xor i64 [[AND]], [[TMP0]]
+; NOBMI-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], -1
+; NOBMI-NEXT:    [[XOR:%.*]] = and i64 [[TMP0]], [[TMP1]]
 ; NOBMI-NEXT:    store i64 [[XOR]], i64* [[B]], align 8
-; NOBMI-NEXT:    [[MUL:%.*]] = mul i64 [[AND]], 283881067100198605
-; NOBMI-NEXT:    [[SHR:%.*]] = lshr i64 [[MUL]], 58
-; NOBMI-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [64 x i32], [64 x i32]* @_ZL10magictable, i64 0, i64 [[SHR]]
-; NOBMI-NEXT:    [[TMP1:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
-; NOBMI-NEXT:    ret i32 [[TMP1]]
+; NOBMI-NEXT:    [[TMP2:%.*]] = call i64 @llvm.cttz.i64(i64 [[TMP0]], i1 true), !range [[RNG0]]
+; NOBMI-NEXT:    [[DOTNOT:%.*]] = icmp eq i64 [[TMP0]], 0
+; NOBMI-NEXT:    [[TMP3:%.*]] = trunc i64 [[TMP2]] to i32
+; NOBMI-NEXT:    [[TMP4:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP3]]
+; NOBMI-NEXT:    ret i32 [[TMP4]]
 ;
 entry:
   %0 = load i64, i64* %b, align 8
@@ -111,21 +108,17 @@ entry:
 define i32 @FindFirst32(i32 %b) {
 ; CHECK-LABEL: @FindFirst32(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.cttz.i32(i32 [[B:%.*]], i1 true), [[RNG1:!range !.*]]
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[B]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP1]], i32 0, i32 [[TMP0]]
-; CHECK-NEXT:    ret i32 [[TMP2]]
+; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.cttz.i32(i32 [[B:%.*]], i1 true), !range [[RNG1:![0-9]+]]
+; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i32 [[B]], 0
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP0]]
+; CHECK-NEXT:    ret i32 [[TMP1]]
 ;
 ; NOBMI-LABEL: @FindFirst32(
 ; NOBMI-NEXT:  entry:
-; NOBMI-NEXT:    [[SUB:%.*]] = sub i32 0, [[B:%.*]]
-; NOBMI-NEXT:    [[AND:%.*]] = and i32 [[SUB]], [[B]]
-; NOBMI-NEXT:    [[MUL:%.*]] = mul i32 [[AND]], 125613361
-; NOBMI-NEXT:    [[SHR:%.*]] = lshr i32 [[MUL]], 27
-; NOBMI-NEXT:    [[EXT:%.*]] = zext i32 [[SHR]] to i64
-; NOBMI-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [32 x i32], [32 x i32]* @magictable32, i64 0, i64 [[EXT]]
-; NOBMI-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
-; NOBMI-NEXT:    ret i32 [[TMP0]]
+; NOBMI-NEXT:    [[TMP0:%.*]] = call i32 @llvm.cttz.i32(i32 [[B:%.*]], i1 true), !range [[RNG1:![0-9]+]]
+; NOBMI-NEXT:    [[DOTNOT:%.*]] = icmp eq i32 [[B]], 0
+; NOBMI-NEXT:    [[TMP1:%.*]] = select i1 [[DOTNOT]], i32 0, i32 [[TMP0]]
+; NOBMI-NEXT:    ret i32 [[TMP1]]
 ;
 entry:
   %sub = sub i32 0, %b
