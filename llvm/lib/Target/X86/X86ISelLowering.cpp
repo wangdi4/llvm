@@ -28272,6 +28272,27 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       return DAG.getBitcast(Op.getSimpleValueType(), And);
     }
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+    case REDUCTION_1OP_MASK: {
+      SDValue Src1 = Op.getOperand(1);
+      SDValue Mask = Op.getOperand(2);
+      int NumElts = Src1.getSimpleValueType().getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
+                         {VMask, Src1});
+    }
+    case REDUCTION_2OP_MASK: {
+      SDValue Src1 = Op.getOperand(1);
+      SDValue Src2 = Op.getOperand(2);
+      SDValue Mask = Op.getOperand(3);
+      int NumElts = Src2.getSimpleValueType().getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
+                         {VMask, Src1, Src2});
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #endif // INTEL_CUSTOMIZATION
     default:
       break;
@@ -35649,6 +35670,33 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VMINMAXS)
   NODE_NAME_CASE(VMINMAXS_SAE)
 #endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+  NODE_NAME_CASE(VPHRADDD)
+  NODE_NAME_CASE(VPHRADDSD)
+  NODE_NAME_CASE(VPHRADD)
+  NODE_NAME_CASE(VPHRADDS)
+  NODE_NAME_CASE(VPHRAND)
+  NODE_NAME_CASE(VPHRANDDQ)
+  NODE_NAME_CASE(VPHRANDQQ)
+  NODE_NAME_CASE(VPHRMAX)
+  NODE_NAME_CASE(VPHRMAXS)
+  NODE_NAME_CASE(VPHRMIN)
+  NODE_NAME_CASE(VPHRMINS)
+  NODE_NAME_CASE(VPHROR)
+  NODE_NAME_CASE(VPHRORDQ)
+  NODE_NAME_CASE(VPHRORQQ)
+  NODE_NAME_CASE(VPHRXOR)
+  NODE_NAME_CASE(VPHRXORDQ)
+  NODE_NAME_CASE(VPHRXORQQ)
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION2
+  NODE_NAME_CASE(VPHRAADDD)
+  NODE_NAME_CASE(VPHRAADDSD)
+  NODE_NAME_CASE(VPHRAAND)
+  NODE_NAME_CASE(VPHRAMAXS)
+  NODE_NAME_CASE(VPHRAMIN)
+  NODE_NAME_CASE(VPHRAMINS)
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)

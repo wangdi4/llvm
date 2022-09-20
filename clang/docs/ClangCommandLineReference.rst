@@ -3970,6 +3970,14 @@ X86
 .. option:: -mavx512raoint, -mno-avx512raoint
 
 .. end INTEL_FEATURE_ISA_AVX512_RAO_INT
+.. INTEL_FEATURE_ISA_AVX512_REDUCTION
+.. option:: -mavx512reduction, -mno-avx512reduction
+
+.. end INTEL_FEATURE_ISA_AVX512_REDUCTION
+.. INTEL_FEATURE_ISA_AVX512_REDUCTION2
+.. option:: -mavx512reduction2, -mno-avx512reduction2
+
+.. end INTEL_FEATURE_ISA_AVX512_REDUCTION2
 .. INTEL_FEATURE_ISA_AVX512_SAT_CVT
 .. option:: -mavx512satcvt, -mno-avx512satcvt
 
