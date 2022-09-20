@@ -7774,20 +7774,12 @@ private:
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       DevPointersMap;
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
   /// Map between device addr declarations and their expression components.
   /// The key value for declarations in 'this' is null.
   llvm::DenseMap<
       const ValueDecl *,
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       HasDevAddrsMap;
-<<<<<<< HEAD
-#endif  // INTEL_COLLAB
-=======
->>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
 
   /// Map between lambda declarations and their map type.
   llvm::DenseMap<const ValueDecl *, const OMPMapClause *> LambdasMap;
@@ -9341,11 +9333,7 @@ public:
     for (const auto *C : Dir.getClausesOfKind<OMPIsDevicePtrClause>())
       for (auto L : C->component_lists())
         DevPointersMap[std::get<0>(L)].push_back(std::get<1>(L));
-<<<<<<< HEAD
-    // Extract has device addr clause information.
-=======
     // Extract device addr clause information.
->>>>>>> 684f766431f3accd1dddc214df270cbdfb877824
     for (const auto *C : Dir.getClausesOfKind<OMPHasDeviceAddrClause>())
       for (auto L : C->component_lists())
         HasDevAddrsMap[std::get<0>(L)].push_back(std::get<1>(L));
