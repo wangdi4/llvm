@@ -1695,6 +1695,10 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
 
   // Copy PrintingEnabled flag
   TargetPlan->setPrintingEnabled(isPrintingEnabled());
+
+  // Set CompressExpandUsed if needed.
+  if (getCompressExpandUsed())
+    TargetPlan->setCompressExpandUsed();
 }
 
 VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {

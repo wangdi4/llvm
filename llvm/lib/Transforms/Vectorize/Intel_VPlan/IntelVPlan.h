@@ -4681,6 +4681,9 @@ public:
   bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
   void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
 
+  bool getCompressExpandUsed() const { return CompressExpandUsed; }
+  void setCompressExpandUsed() { CompressExpandUsed = true; }
+
   // VPBasicBlock iterator forwarding functions
   iterator begin() { return VPBasicBlocks.begin(); }
   const_iterator begin() const { return VPBasicBlocks.begin(); }
@@ -4910,6 +4913,10 @@ private:
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
+
+  /// Flag to indicate that VPlan has compress/expand idiom related
+  /// instructions.
+  bool CompressExpandUsed = false;
 
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.

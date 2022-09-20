@@ -535,9 +535,13 @@ public:
   void visit(HLDDNode *Node);
 
   void visit(HLNode *Node) {
-    // Current CG uses VPlan to generate the code, so Gotos should be ok to
-    // support in CG.
-    if (!CG->isSearchLoop()) {
+    // Current CG uses VPlan to generate the code, so gotos/labels should be ok
+    // to support in CG. However, doing this leads to performance regressions
+    // due to cost modeling issues in cpu2017ref/538@opt_base6_core_avx512 and
+    // sycl_benchmarks_omp/mandelbrot-dpd@opt_O3_ipo_iopenmp_zmm_xH_fast. So,
+    // for now only allow search loops and loops with compress/expand where
+    // we need this support.
+    if (!CG->isSearchLoop() && !CG->getPlan()->getCompressExpandUsed()) {
       DEBUG_WITH_TYPE(
           "VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
