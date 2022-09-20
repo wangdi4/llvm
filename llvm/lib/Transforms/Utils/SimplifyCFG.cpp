@@ -4838,9 +4838,16 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
       Cond->getParent() != BB || !Cond->hasOneUse())
     return false;
 
-  // Below code was moved from bottom of function, the original commit is:
-  // https://reviews.llvm.org/rGb582202
+  // CMPLRLLVM-29144
+  // After commit: https://reviews.llvm.org/rGb582202
+  // Use the old cost model. This counts all insts regardless of cost.
+  // The new cost model has a large (45%) drop in xalancbmk and >20% in others.
+  // 1) With OpenMP enabled, run the old model, even on dead preds. This
+  // is most conservative.
+  // 2) Without OpenMP, run the old model, on preds that will be affected by
+  // hoisting.
 
+  /////// old cost model
   // Only allow this transformation if computing the condition doesn't involve
   // too many instructions and these involved instructions can be executed
   // unconditionally. We denote all involved instructions except the condition
@@ -4870,17 +4877,12 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     return false;
   };
 
-  // CMPLRLLVM-29144
-  // If we may have explicit vectorization, we compute the cost model
-  // early, which has a more conservative result. The branch folding may
-  // prevent efficient vectorization.
-  // Otherwise, we compute the cost model at the end of the function, after
-  // we know which predecessors will be affected.
   Function *F = BB->getParent();
   bool MayHaveOpenMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F);
   if (MayHaveOpenMP && TooManyInsts(pred_size(BB)))
     return false;
 
+  // This is a special check for blender code.
   Value* Operands[2] = { nullptr, nullptr };
   if (isa<SelectInst>(Cond)) {
     SelectInst* SI = cast<SelectInst>(Cond);
@@ -4954,15 +4956,12 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     return false;
 
 #if INTEL_CUSTOMIZATION
-  // Code from this commit:
-  // https://reviews.llvm.org/rGb582202
-  // was moved to the lambda function above. If this code is modified
-  // in llorg, the lambda will need to be modified.
-  // For normal (non-OpenMP) cases, check the cost model after we know
-  // how many preds will actually be affected.
+  // We apply the old cost model here, after the dead preds have been removed.
+  // TODO: We are also running the new cost model afterwards, we may skip it.
   if (!MayHaveOpenMP && TooManyInsts(Preds.size()))
     return false;
 #endif // INTEL_CUSTOMIZATION
+
   // Only allow this transformation if computing the condition doesn't involve
   // too many instructions and these involved instructions can be executed
   // unconditionally. We denote all involved instructions except the condition
