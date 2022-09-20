@@ -51,6 +51,7 @@ Sema::PragmaStackSentinelRAII::PragmaStackSentinelRAII(Sema &S,
     S.BSSSegStack.SentinelAction(PSK_Push, SlotLabel);
     S.ConstSegStack.SentinelAction(PSK_Push, SlotLabel);
     S.CodeSegStack.SentinelAction(PSK_Push, SlotLabel);
+    S.StrictGuardStackCheckStack.SentinelAction(PSK_Push, SlotLabel);
   }
 }
 
@@ -61,6 +62,7 @@ Sema::PragmaStackSentinelRAII::~PragmaStackSentinelRAII() {
     S.BSSSegStack.SentinelAction(PSK_Pop, SlotLabel);
     S.ConstSegStack.SentinelAction(PSK_Pop, SlotLabel);
     S.CodeSegStack.SentinelAction(PSK_Pop, SlotLabel);
+    S.StrictGuardStackCheckStack.SentinelAction(PSK_Pop, SlotLabel);
   }
 }
 
@@ -795,6 +797,17 @@ void Sema::ActOnPragmaMSSeg(SourceLocation PragmaLocation,
   }
 
   Stack->Act(PragmaLocation, Action, StackSlotLabel, SegmentName);
+}
+
+/// Called on well formed \#pragma strict_gs_check().
+void Sema::ActOnPragmaMSStrictGuardStackCheck(SourceLocation PragmaLocation,
+                                              PragmaMsStackAction Action,
+                                              bool Value) {
+  if (Action & PSK_Pop && StrictGuardStackCheckStack.Stack.empty())
+    Diag(PragmaLocation, diag::warn_pragma_pop_failed) << "strict_gs_check"
+                                                       << "stack empty";
+
+  StrictGuardStackCheckStack.Act(PragmaLocation, Action, StringRef(), Value);
 }
 
 /// Called on well formed \#pragma bss_seg().

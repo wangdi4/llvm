@@ -4184,7 +4184,7 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   }
 
   if (isDereferenceableAndAlignedPointer(SV, Ty, Alignment, DAG.getDataLayout(),
-                                         &I, nullptr, LibInfo))
+                                         &I, nullptr, nullptr, LibInfo))
     MMOFlags |= MachineMemOperand::MODereferenceable;
 
   SDLoc dl = getCurSDLoc();
