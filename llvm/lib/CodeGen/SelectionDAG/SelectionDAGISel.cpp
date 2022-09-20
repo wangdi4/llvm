@@ -39,11 +39,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/AssumptionCache.h" // INTEL
-=======
 #include "llvm/Analysis/AssumptionCache.h"
->>>>>>> bcb931c484682dcec35a37c6ba12f9b39a591dfd
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/EHPersonalities.h"
@@ -432,20 +428,16 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   TLI = MF->getSubtarget().getTargetLowering();
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn); // INTEL
   auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE(); // INTEL
-  auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn); // INTEL
 
   RegInfo = &MF->getRegInfo();
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   GFI = Fn.hasGC() ? &getAnalysis<GCModuleInfo>().getFunctionInfo(Fn) : nullptr;
   ORE = std::make_unique<OptimizationRemarkEmitter>(&Fn);
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
   DominatorTree *DT = DTWP ? &DTWP->getDomTree() : nullptr;
 #endif
-=======
   AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(mf.getFunction());
->>>>>>> bcb931c484682dcec35a37c6ba12f9b39a591dfd
   auto *PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   BlockFrequencyInfo *BFI = nullptr;
   if (PSI && PSI->hasProfileSummary() && OptLevel != CodeGenOpt::None)
@@ -473,15 +465,11 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   else
     AA = nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   LoopInfo *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
   SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE, LI);
 #endif // INTEL_CUSTOMIZATION
-=======
-  SDB->init(GFI, AA, AC, LibInfo);
->>>>>>> bcb931c484682dcec35a37c6ba12f9b39a591dfd
 
   MF->setHasInlineAsm(false);
 

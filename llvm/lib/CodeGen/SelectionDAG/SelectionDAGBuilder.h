@@ -208,7 +208,6 @@ private:
   const TargetMachine &TM;
   ScalarEvolution *SCEV;          // INTEL
   const TargetTransformInfo *TTI; // INTEL
-  AssumptionCache *AC;            // INTEL
   const DominatorTree *DT;        // INTEL
   LoopInfo* LPI;                  // INTEL
 public:
@@ -272,7 +271,6 @@ public:
         SL(std::make_unique<SDAGSwitchLowering>(this, funcinfo)), FuncInfo(funcinfo),
         SwiftError(swifterror) {}
 
-<<<<<<< HEAD
   void init(GCFunctionInfo *gfi, AAResults *AA,
             const TargetLibraryInfo *li,                            // INTEL
             const TargetTransformInfo *tti,                         // INTEL
@@ -280,10 +278,6 @@ public:
             const DominatorTree *dt,                                // INTEL
             ScalarEvolution *scev,                                  // INTEL
             LoopInfo *lpi);                                         // INTEL
-=======
-  void init(GCFunctionInfo *gfi, AAResults *AA, AssumptionCache *AC,
-            const TargetLibraryInfo *li);
->>>>>>> bcb931c484682dcec35a37c6ba12f9b39a591dfd
 
   /// Clear out the current SelectionDAG and the associated state and prepare
   /// this SelectionDAGBuilder object to be used for a new block. This doesn't

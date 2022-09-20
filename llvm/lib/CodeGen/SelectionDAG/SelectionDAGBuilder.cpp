@@ -1042,17 +1042,12 @@ RegsForValue::getRegsAndSizes() const {
 }
 
 void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis *aa,
-<<<<<<< HEAD
                                const TargetLibraryInfo *li, // INTEL
                                const TargetTransformInfo *tti, // INTEL
                                AssumptionCache *ac, // INTEL
                                const DominatorTree *dt, // INTEL
                                ScalarEvolution *scev, // INTEL
                                LoopInfo *lpi) { // INTEL
-=======
-                               AssumptionCache *ac,
-                               const TargetLibraryInfo *li) {
->>>>>>> bcb931c484682dcec35a37c6ba12f9b39a591dfd
   AA = aa;
   AC = ac;
   GFI = gfi;
