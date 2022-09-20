@@ -1218,6 +1218,31 @@ def X86vcmpnepbf16 : SDNode<"X86ISD::VCMPNEPBF16",
                                             SDTCisSameAs<0, 3>, SDTCisSameAs<0, 4>, SDTCVecEltisVT<2, i1>,
                                             SDTCisSameNumEltsAs<0, 2>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+def SDTAVX512REDUCTIONTernary  : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i1>,
+                                  SDTCisVec<2>, SDTCisVec<3>, SDTCisSameNumEltsAs<1, 3>]>;
+def SDTAVX512REDUCTIONBinOp : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCVecEltisVT<1, i1>,
+                                SDTCisVec<2>, SDTCisSameNumEltsAs<1, 2>]>;
+def X86vphraddd : SDNode<"X86ISD::VPHRADDD", SDTAVX512REDUCTIONBinOp>;
+def X86vphraddsd : SDNode<"X86ISD::VPHRADDSD", SDTAVX512REDUCTIONBinOp>;
+def X86vphradd : SDNode<"X86ISD::VPHRADD", SDTAVX512REDUCTIONBinOp>;
+def X86vphradds : SDNode<"X86ISD::VPHRADDS", SDTAVX512REDUCTIONBinOp>;
+def X86vphrand : SDNode<"X86ISD::VPHRAND", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmax : SDNode<"X86ISD::VPHRMAX", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmaxs : SDNode<"X86ISD::VPHRMAXS", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmin : SDNode<"X86ISD::VPHRMIN", SDTAVX512REDUCTIONBinOp>;
+def X86vphrmins : SDNode<"X86ISD::VPHRMINS", SDTAVX512REDUCTIONBinOp>;
+def X86vphror : SDNode<"X86ISD::VPHROR", SDTAVX512REDUCTIONBinOp>;
+def X86vphrxor : SDNode<"X86ISD::VPHRXOR", SDTAVX512REDUCTIONBinOp>;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION2
+def X86vphraaddd :  SDNode<"X86ISD::VPHRAADDD", SDTAVX512REDUCTIONTernary>;
+def X86vphraaddsd : SDNode<"X86ISD::VPHRAADDSD", SDTAVX512REDUCTIONTernary>;
+def X86vphraand :  SDNode<"X86ISD::VPHRAAND", SDTAVX512REDUCTIONTernary>;
+def X86vphramaxs : SDNode<"X86ISD::VPHRAMAXS", SDTAVX512REDUCTIONTernary>;
+def X86vphramin : SDNode<"X86ISD::VPHRAMIN", SDTAVX512REDUCTIONTernary>;
+def X86vphramins : SDNode<"X86ISD::VPHRAMINS", SDTAVX512REDUCTIONTernary>;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments
