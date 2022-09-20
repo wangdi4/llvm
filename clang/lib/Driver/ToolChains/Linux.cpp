@@ -631,7 +631,8 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel performance library headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ,
+                        clang::driver::options::OPT_qmkl_ilp64_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePathExtra(DriverArgs));
     addSystemInclude(DriverArgs, CC1Args,

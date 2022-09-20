@@ -558,9 +558,11 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   if (Args.hasArg(options::OPT_qipp_EQ))
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_qmkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
+        && TC.getDriver().IsDPCPPMode()))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
@@ -998,11 +1000,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasArg(options::OPT_qipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_qmkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
     addMKLLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      ((Args.hasArg(options::OPT_qmkl_EQ,
+                    options::OPT_qmkl_ilp64_EQ)) && D.IsDPCPPMode()))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qactypes))
     addACTypesLibs(CmdArgs, Args, ToolChain);
@@ -1038,7 +1042,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
+           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ,
+                                           options::OPT_qmkl_ilp64_EQ))) {
     addIntelLib("-limf", ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
@@ -1048,7 +1053,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
-    if (Args.hasArg(options::OPT_qmkl_EQ) || D.IsIntelMode())
+    if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) ||
+                    D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1109,7 +1115,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
       // Use of -qmkl implies pthread
-      if (Args.hasArg(options::OPT_qmkl_EQ))
+      if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&

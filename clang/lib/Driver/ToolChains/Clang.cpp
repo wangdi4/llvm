@@ -5985,7 +5985,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-D_GLIBCXX_USE_TBB_PAR_BACKEND=0");
   }
   // For MKL and SYCL, set MKL_ILP64
-  if (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT_fsycl))
+  if ((Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT_fsycl)) ||
+       Args.hasArg(options::OPT_qmkl_ilp64_EQ))
     CmdArgs.push_back("-DMKL_ILP64");
 #endif // INTEL_CUSTOMIZATION
 
@@ -9202,10 +9203,10 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     // Add Intel performance libraries
     if (Args.hasArg(options::OPT_qipp_EQ))
       getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
-    if (Args.hasArg(options::OPT_qmkl_EQ))
+    if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
     if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-        (Args.hasArg(options::OPT_qmkl_EQ) &&
+        ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
          getToolChain().getDriver().IsDPCPPMode()))
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
     if (Args.hasArg(options::OPT_qdaal_EQ))
@@ -9225,7 +9226,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
                                      options::OPT_fopenmp_EQ,
                                      options::OPT_fno_openmp, false) ||
-        Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
+        Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ,
+                    options::OPT_qmkl_ilp64_EQ))) {
       switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
       case Driver::OMPRT_OMP:
         CmdArgs.push_back("--dependent-lib=libomp");
