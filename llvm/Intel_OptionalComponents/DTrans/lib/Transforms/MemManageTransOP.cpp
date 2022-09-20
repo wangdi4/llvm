@@ -21,6 +21,7 @@
 #include "Intel_DTrans/Transforms/MemManageTransOP.h"
 
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
@@ -157,6 +158,14 @@ class MemManageTransImpl {
   // in a Block is occupied or not
   constexpr static uint32_t ValidObjStamp = 0xffddffdd;
 
+  // This is used as a heuristic which checks the original BlockSize value used
+  // for the memory management.
+  constexpr static uint32_t MaxBlockSizeHeuristic = 10;
+
+  // BlockSize will be changed to NewBlockSize when this transformation is
+  // applied.
+  constexpr static uint32_t NewBlockSize = 60;
+
 public:
   MemManageTransImpl(DTransTypeManager &TM, TypeMetadataReader &MDReader,
                      llvm::dtransOP::MemManageTransOPPass::MemTLITy GetTLI)
@@ -213,10 +222,12 @@ private:
 
   bool gatherCandidates(Module &M, FunctionTypeResolver &TypeResolver);
   bool analyzeCandidates(Module &M, const DTransLibraryInfo &DTransLibInfo);
+  void transformBlockSize();
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions();
   bool checkTypesEscaped(Module &M, const DTransLibraryInfo &DTransLibInfo);
   bool checkCallSiteRestrictions();
+  bool checkBlockSizeHeuristic();
   bool categorizeFunctions();
   bool recognizeFunctions();
   bool recognizeGetMemManager(Function *);
@@ -742,6 +753,68 @@ bool MemManageTransImpl::checkTypesEscaped(
       }
     }
   }
+
+  return true;
+}
+
+// Finds all possible values of BlockSize and check it against the heuristic
+// value.
+bool MemManageTransImpl::checkBlockSizeHeuristic() {
+  std::function<bool(Value *, SmallPtrSetImpl<ConstantInt *> &)>
+      FindAllPossibleArgumentValues;
+
+  // Finds all possible values of "V" by walking through the callchain. Return
+  // 'false' if a value cannot be analyzed as being a constant.
+  FindAllPossibleArgumentValues =
+      [&FindAllPossibleArgumentValues](
+          Value *V, SmallPtrSetImpl<ConstantInt *> &ConstSet) {
+        if (auto *C = dyn_cast<ConstantInt>(V)) {
+          ConstSet.insert(C);
+          return true;
+        }
+        // Analyze further only if "V" is an argument.
+        auto *Arg = dyn_cast<Argument>(V);
+        if (!Arg)
+          return false;
+        int32_t ArgNo = Arg->getArgNo();
+        Function *Caller = Arg->getParent();
+        for (auto *U : Caller->users()) {
+          if (auto *CB = dyn_cast<CallBase>(U->stripPointerCasts())) {
+            if (!FindAllPossibleArgumentValues(CB->getArgOperand(ArgNo),
+                                               ConstSet))
+              return false;
+          } else if (auto *GA = dyn_cast<GlobalAlias>(U)) {
+            // If "U" is GlobalAlias, find target of alias and then analyze
+            // callsites of the target.
+            auto *Target = dyn_cast<GlobalValue>(GA->stripPointerCasts());
+            if (!Target)
+              return false;
+            for (auto *UU : Target->users()) {
+              auto *CB = dyn_cast<CallBase>(UU->stripPointerCasts());
+              if (!CB)
+                return false;
+              if (!FindAllPossibleArgumentValues(CB->getArgOperand(ArgNo),
+                                                 ConstSet))
+                return false;
+            }
+          } else {
+            return false;
+          }
+        }
+        return true;
+      };
+
+  assert(BlockSizeStoreInst && "BlockSizeStoreInst must be identifed before "
+                               "calling checkBlockSizeHeuristic()\n");
+  Value *Val = BlockSizeStoreInst->getValueOperand();
+  SmallPtrSet<ConstantInt *, 2> ConstSet;
+  if (!FindAllPossibleArgumentValues(Val, ConstSet))
+    return false;
+  if (ConstSet.size() != 1)
+    return false;
+  auto *ConstI = *ConstSet.begin();
+  if (ConstI->getLimitedValue() > MaxBlockSizeHeuristic)
+    return false;
 
   return true;
 }
@@ -7823,9 +7896,41 @@ bool MemManageTransImpl::identifyFreeNodeInLoop(BasicBlock *FreeNodeLoopZTTBB,
   return true;
 }
 
+// Replace the original stored BlockSize value with "NewBlockSize" in
+// "BlockSizeStoreInst".
+void MemManageTransImpl::transformBlockSize() {
+  assert(BlockSizeStoreInst && "Expected store instruction");
+  Value *ValOp = BlockSizeStoreInst->getValueOperand();
+  Value *NewVal = ConstantInt::get(ValOp->getType(), NewBlockSize);
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "   Before transform: " << *BlockSizeStoreInst << "\n";
+  });
+
+  BlockSizeStoreInst->replaceUsesOfWith(ValOp, NewVal);
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP, {
+    dbgs() << "   After transform: " << *BlockSizeStoreInst << "\n";
+  });
+}
+
 bool MemManageTransImpl::run(Module &M) {
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                  { dbgs() << "MemManageTransOP transformation: \n"; });
+                  dbgs() << "MemManageTransOP transformation: \n";);
+
+  // Check for SOAToAOS heuristic.
+  bool SOAToAOSDone = false;
+  for (auto &F : M) {
+    if (dtrans::DTransAnnotator::hasDTransSOAToAOSTypeAnnotation(F)) {
+      SOAToAOSDone = true;
+      break;
+    }
+  }
+
+  if (!SOAToAOSDone && !MemManageIgnoreSOAHeur) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    dbgs() << "  Failed:  SOAToAOS heuristic\n";);
+    return false;
+  }
 
   // Collect candidates.
   DTransLibraryInfo DTransLibInfo(TM, GetTLI);
@@ -7850,19 +7955,25 @@ bool MemManageTransImpl::run(Module &M) {
   // Check callsite restrictions for AllocateBlock and CommitBlock.
   if (!checkCallSiteRestrictions()) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                    { dbgs() << "   Failed: Callsite restrictions\n"; });
+                    dbgs() << "   Failed: Callsite restrictions\n";);
     return false;
   }
 
   // Recognize functionality of each interface function.
   if (!recognizeFunctions()) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                    { dbgs() << "   Failed: Recognizing functionality\n"; });
+                    dbgs() << "   Failed: Recognizing functionality\n";);
     return false;
   }
 
-  // TODO: Implement the pass.
-  return false;
+  if (!checkBlockSizeHeuristic()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
+                    dbgs() << "   Failed: BlockSize heuristic\n";);
+    return false;
+  }
+
+  transformBlockSize();
+  return true;
 }
 
 } // end anonymous namespace

@@ -1,27 +1,12 @@
-; This test verifies the following functionalities are recognized for
-; MemManageTransOP:
-;
-; getMemManager    : _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv
-; Constructor      : _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
-; AllocateBlock    : _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
-; CommitAllocation : _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_
-; Destructor       : _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev
-; Reset            : _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv
-; DestroyObject    : _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
-
-; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
+; This test checks the requirement that the SOA-to-AOS transformation has been
+; applied, by detecting that a function has been marked with the
+; !dtrans-soatoaos metadata, for the memmanage transform to be applied.
 
 ; REQUIRES: asserts
+; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: MemManageTransOP transformation:
-; CHECK:   Considering candidate: %"class._ZTSN11xalanc_1_1022XStringCachedAllocatorE.xalanc_1_10::XStringCachedAllocator"
-; CHECK: Recognized GetMemManager: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv
-; CHECK: Recognized Constructor: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
-; CHECK: Recognized AllocateBlock: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
-; CHECK: Recognized CommitAllocation: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_
-; CHECK: Recognized Destructor: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev
-; CHECK: Recognized Reset: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv
-; CHECK: Recognized DestroyObject: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
+; CHECK:   Failed:  SOAToAOS heuristic
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -669,7 +654,7 @@ bb24:                                             ; preds = %bb20, %bb
 define hidden void @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt(ptr nocapture noundef nonnull writeonly align 8 dereferenceable(48) "intel_dtrans_func_index"="1" %arg, ptr noundef nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %arg1, i16 noundef zeroext %arg2) unnamed_addr #13 align 2 !intel.dtrans.func.type !1085 {
 bb:
   %i = getelementptr inbounds %"class._ZTSN11xalanc_1_1022XStringCachedAllocatorE.xalanc_1_10::XStringCachedAllocator", ptr %arg, i64 0, i32 0
-  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr noundef nonnull align 8 dereferenceable(41) %i, ptr noundef nonnull align 8 dereferenceable(8) %arg1, i16 noundef zeroext %arg2, i1 noundef zeroext false)
+  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr noundef nonnull align 8 dereferenceable(41) %i, ptr noundef nonnull align 8 dereferenceable(8) %arg1, i16 noundef zeroext 10, i1 noundef zeroext false)
   ret void
 }
 
