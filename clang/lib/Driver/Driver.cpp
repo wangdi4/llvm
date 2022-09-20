@@ -3968,7 +3968,7 @@ static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
   // Performance libraries with -fsycl use offload static libs.
   bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
   return Args.hasArg(options::OPT_fsycl) &&
-             ((Args.hasArg(options::OPT_qmkl_EQ) &&
+             ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) &&
                (Args.hasArg(options::OPT_static) || IsMSVC)) ||
          Args.hasArg(options::OPT_qdaal_EQ));
 }
@@ -5841,7 +5841,7 @@ class OffloadingActionBuilder final {
         PerflibAdded = true;
       };
       // Only add the MKL static lib if used with -static or is Windows.
-      if (Args.hasArg(options::OPT_qmkl_EQ) &&
+      if ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
           (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
         SmallString<128> LibName(TC->GetMKLLibPath());
         LibName = TC->GetMKLLibPath();
