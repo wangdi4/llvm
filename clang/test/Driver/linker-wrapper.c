@@ -1,6 +1,10 @@
 // REQUIRES: x86-registered-target
 // REQUIRES: nvptx-registered-target
 // REQUIRES: amdgpu-registered-target
+// INTEL_CUSTOMIZATION
+// Disable the test for Windows, this fails with 32-bit host
+// UNSUPPORTED: system-windows
+// end INTEL_CUSTOMIZATION
 
 // RUN: clang-offload-packager -o %t.out \
 // RUN:   --image=file=%S/Inputs/dummy-elf.o,kind=openmp,triple=nvptx64-nvidia-cuda,arch=sm_70 \
