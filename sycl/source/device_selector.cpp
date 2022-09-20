@@ -172,15 +172,6 @@ __SYCL_EXPORT int default_selector_v(const device &dev) {
   if (dev.is_cpu())
     Score += 300;
 
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
-  if (detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get())
-#endif // INTEL_CUSTOMIZATION
-    if (dev.is_host())
-      Score += 100;
-
-=======
->>>>>>> 5b13d5b6d364917c8ef3a7b51ffd01c8be580095
   // Since we deprecate SYCL_BE and SYCL_DEVICE_TYPE,
   // we should not disallow accelerator to be chosen.
   // But this device type gets the lowest heuristic point.
@@ -253,26 +244,6 @@ int accelerator_selector::operator()(const device &dev) const {
   return accelerator_selector_v(dev);
 }
 
-<<<<<<< HEAD
-int host_selector::operator()(const device &dev) const {
-  int Score = detail::REJECT_DEVICE_SCORE;
-#ifdef INTEL_CUSTOMIZATION
-  bool ShouldSelect =
-      detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get() ||
-              detail::get_forced_type() == info::device_type::host
-          ? dev.is_host()
-          : dev.is_cpu();
-  if (ShouldSelect)
-#endif // INTEL_CUSTOMIZATION
-  {
-    Score = 1000;
-    Score += detail::getDevicePreference(dev);
-  }
-  return Score;
-}
-
-=======
->>>>>>> 5b13d5b6d364917c8ef3a7b51ffd01c8be580095
 namespace ext {
 namespace oneapi {
 
