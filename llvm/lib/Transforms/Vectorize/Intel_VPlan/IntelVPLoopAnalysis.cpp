@@ -1956,6 +1956,7 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   DenseMap<VPBasicBlock *, VPInstruction *> Masks;
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
+    Plan.setCompressExpandUsed();
     // Create Init instruction using live-in instruction as an operand.
     Builder.setInsertPoint(Preheader);
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
