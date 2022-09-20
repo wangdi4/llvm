@@ -240,6 +240,7 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
         &FAM.getResult<BlockFrequencyAnalysis>(Callee));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineResult IR = InlineFunction(
         *CB, IFI, nullptr, nullptr, &FAM.getResult<AAManager>(*CB->getCaller()),
@@ -247,6 +248,11 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         /*ForwardVarArgsTo=*/nullptr,
         /*MergeAttributes=*/true);
 #endif // INTEL_CUSTOMIZATION
+=======
+    InlineResult IR =
+        InlineFunction(*CB, IFI, /*MergeAttributes=*/true,
+                       &FAM.getResult<AAManager>(*CB->getCaller()));
+>>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
     if (!IR.isSuccess()) {
       Advice->recordUnsuccessfulInlining(IR);
       continue;

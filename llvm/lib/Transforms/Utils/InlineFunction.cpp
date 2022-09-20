@@ -2319,12 +2319,15 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
 /// INTEL was not inlined at the call site.
 ///
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
+<<<<<<< HEAD
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
+=======
+                                        bool MergeAttributes,
+>>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
-                                        Function *ForwardVarArgsTo,
-                                        bool MergeAttributes) {
+                                        Function *ForwardVarArgsTo) {
   assert(CB.getParent() && CB.getFunction() && "Instruction not in function!");
 
   // FIXME: we don't inline callbr yet.

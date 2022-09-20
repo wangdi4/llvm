@@ -266,6 +266,7 @@ public:
 /// reason the function was or was not inlined.
 ///
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
+<<<<<<< HEAD
                             InlineReport *IR = nullptr,
                             InlineReportBuilder *MDIR = nullptr,
                             AAResults *CalleeAAR = nullptr,
@@ -273,6 +274,12 @@ InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             Function *ForwardVarArgsTo = nullptr,
                             bool MergeAttributes = false);
 #endif // INTEL_CUSTOMIZATION
+=======
+                            bool MergeAttributes = false,
+                            AAResults *CalleeAAR = nullptr,
+                            bool InsertLifetime = true,
+                            Function *ForwardVarArgsTo = nullptr);
+>>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
 
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
 /// Blocks.
