@@ -2219,6 +2219,10 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
   if (BlUtils.isUndefBlob(Blob))
     return Decomposer.Plan->getVPConstant(UndefValue::get(Blob->getType()));
 
+  ConstantInt *LargeIntConst;
+  if (BlUtils.isConstantLargeIntBlob(Blob, &LargeIntConst))
+    return Decomposer.Plan->getVPConstant(LargeIntConst);
+
   llvm_unreachable("Unsupported non-integer HIR Constant.");
 }
 

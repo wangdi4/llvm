@@ -28,6 +28,7 @@ class SCEV;
 class Constant;
 class ConstantData;
 class ConstantFP;
+class ConstantInt;
 class Function;
 class Module;
 class LLVMContext;
@@ -131,6 +132,11 @@ public:
   /// Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
   static bool isConstantIntBlob(BlobTy Blob, int64_t *Val);
+
+  /// Returns true if \p Blob represents an integer constant whose
+  /// type is > 64 bits. The constant is returned in Val if this is
+  /// the case.
+  static bool isConstantLargeIntBlob(BlobTy Blob, ConstantInt **Val = nullptr);
 
   /// Returns true if Blob is a temp.
   static bool isTempBlob(BlobTy Blob);

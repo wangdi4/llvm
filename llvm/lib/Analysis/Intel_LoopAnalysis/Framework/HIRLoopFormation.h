@@ -95,10 +95,6 @@ private:
   /// Returns true if normalized loop IV has NSW semantics.
   bool hasNSWSemantics(const Loop *Lp, Type *IVType, const SCEV *BECount) const;
 
-  /// Returns IV definition PHINode of the loop.
-  const PHINode *findIVDefInHeader(const Loop &Lp,
-                                   const Instruction *Inst) const;
-
   /// Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 

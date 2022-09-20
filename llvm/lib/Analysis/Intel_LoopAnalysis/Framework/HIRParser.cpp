@@ -1010,7 +1010,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
   // We should not be checking the SCEV of the livein copy instruction as it
   // should inherit the SCEV of the rval.
-  if (!IsLiveInCopy && HIRP->ScopedSE.isSCEVable(CurInst->getType())) {
+  if (!IsLiveInCopy && HIRP->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->ScopedSE.getSCEV(const_cast<Instruction *>(CurInst));
 
     // First instruction can only be an exact match. A partial match means that
@@ -1470,6 +1470,18 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
   return false;
 }
 
+bool HIRParser::isSCEVable(Type *Ty) const {
+  if (!ScopedSE.isSCEVable(Ty)) {
+    return false;
+  }
+
+  auto *IntTy = dyn_cast<IntegerType>(Ty);
+
+  // Force integers larger than 64 bits to be parsed as blobs as CanonExpr's
+  // constant field is int64_t.
+  return (!IntTy || (IntTy->getPrimitiveSizeInBits() <= 64));
+}
+
 bool HIRParser::isEssential(const Instruction *Inst) const {
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
@@ -1488,7 +1500,7 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
     return true;
   }
 
-  if (!ScopedSE.isSCEVable(Inst->getType())) {
+  if (!isSCEVable(Inst->getType())) {
     return true;
   }
 
@@ -2410,7 +2422,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
-  if (!ScopedSE.isSCEVable(ValTy)) {
+  if (!isSCEVable(ValTy)) {
     assert(!FinalIntTy && "Cannot convert value to integer type! ");
     CE = parseAsBlob(Val, Level);
 

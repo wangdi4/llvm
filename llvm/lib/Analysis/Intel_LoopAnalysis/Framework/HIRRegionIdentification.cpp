@@ -591,16 +591,6 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     return false;
   }
 
-  auto IntType = dyn_cast<IntegerType>(Ty);
-  // Integer type greater than 64 bits not supported. This is mainly to throttle
-  // 128 bit integers.
-  if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
-    printOptReportRemark(
-        Lp, Inst,
-        "Integer types greater than 64 bits currently not supported.");
-    return false;
-  }
-
   return true;
 }
 
@@ -1814,6 +1804,42 @@ static const Loop *getOutermostParentLoop(const Loop *Lp) {
   return ParLp;
 }
 
+const PHINode *
+HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
+                                           const Instruction *Inst) const {
+
+  // Is this a phi node in the loop header?
+  if (Inst->getParent() == Lp.getHeader()) {
+    if (auto *Phi = dyn_cast<PHINode>(Inst)) {
+      return Phi;
+    }
+  }
+
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
+    if (auto OpInst = dyn_cast<Instruction>(I)) {
+
+      // Instruction lies outside the loop.
+      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
+        continue;
+      }
+
+      // Skip backedges.
+      // This can happen for outer unknown loops.
+      if (DT.dominates(Inst, OpInst)) {
+        continue;
+      }
+
+      auto *IVNode = findIVDefInHeader(Lp, OpInst);
+
+      if (IVNode) {
+        return IVNode;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
                                               unsigned LoopnestDepth,
                                               bool IsFunctionRegionMode,
@@ -1909,6 +1935,21 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   // function level by the caller.
   if (!IsFunctionRegionMode && !areBBlocksGenerable(Lp)) {
     return false;
+  }
+
+  // We have to perform this check after irreducible check inside
+  // areBBlocksGenerable() above or we can get into an infinite cycle.
+  auto *IVDef = findIVDefInHeader(Lp, LatchCmpInst);
+
+  if (IVDef) {
+    auto *IVTy = dyn_cast<IntegerType>(IVDef->getType());
+
+    if (IVTy && IVTy->getPrimitiveSizeInBits() > 64) {
+      printOptReportRemark(
+          &Lp, IVDef,
+          "Integer IV type greater than 64 bits currently not supported.");
+      return false;
+    }
   }
 
   // We skip cost model throttling for function level region.
