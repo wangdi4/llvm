@@ -570,6 +570,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLNode *SkipNode;
   HIROptPredicate &Pass;
   HIRLoopStatistics &HLS;
+  HLLoop *CurrLoop;
   unsigned MinLevel;
   bool TransformLoop;
   unsigned CostOfRegion;
@@ -579,10 +580,11 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLInst *FirstSelectCandidate;
 
   CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
-      bool TransformLoop = true, unsigned MinLevel = 0,
-      unsigned CostOfRegion = 0) : SkipNode(nullptr), Pass(Pass), HLS(HLS),
-      MinLevel(MinLevel), TransformLoop(TransformLoop),
-      CostOfRegion(CostOfRegion), FirstSelectCandidate(nullptr) {}
+      HLLoop *CurrLoop = nullptr, bool TransformLoop = true,
+      unsigned MinLevel = 0, unsigned CostOfRegion = 0) : SkipNode(nullptr),
+      Pass(Pass), HLS(HLS), CurrLoop(CurrLoop), MinLevel(MinLevel),
+      TransformLoop(TransformLoop), CostOfRegion(CostOfRegion),
+      FirstSelectCandidate(nullptr) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
@@ -925,8 +927,7 @@ public:
 
 void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   // Skip bottom test in unknown loops.
-  HLLoop *ParentLoop = If->getParentLoop();
-  if (!ParentLoop || ParentLoop->getBottomTest() == If) {
+  if (!CurrLoop || CurrLoop->getBottomTest() == If) {
     return;
   }
 
@@ -939,8 +940,7 @@ void HIROptPredicate::CandidateLookup::visit(HLSwitch *Switch) {
 
 template <typename NodeTy>
 void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
-  HLLoop *ParentLoop = Node->getParentLoop();
-  if (!ParentLoop) {
+  if (!CurrLoop) {
     return;
   }
 
@@ -958,7 +958,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // Determine target level to unswitch.
     Level = std::max(Pass.getPossibleDefLevel(Node, PUC), MinLevel);
 
-    if (Level < ParentLoop->getNestingLevel()) {
+    if (Level < CurrLoop->getNestingLevel()) {
       // Check if condition does not depend on both T/F branches at the same
       // time.
       IsCandidate = PUC.isPUCandidate();
@@ -966,7 +966,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
       IsCandidate = false;
     }
   } else {
-    Level = ParentLoop->getNestingLevel();
+    Level = CurrLoop->getNestingLevel();
   }
 
   if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
@@ -975,9 +975,9 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // passes.
     uint64_t TC;
     bool IsCompleteUnrollCandidate =
-        (ParentLoop->isInnermost() &&
-         (Level == ParentLoop->getNestingLevel() - 1) &&
-         ParentLoop->isConstTripLoop(&TC) && TC < 4);
+        (CurrLoop->isInnermost() &&
+         (Level == CurrLoop->getNestingLevel() - 1) &&
+         CurrLoop->isConstTripLoop(&TC) && TC < 4);
 
     // Check if unswitching breaks the existing loopnest perfectness.
     IsCandidate = !IsCompleteUnrollCandidate &&
@@ -986,7 +986,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
 
   if (IsCandidate && PUC.isPURequired()) {
     // HLIf should be unconditionally executed to unswitch.
-    IsCandidate = HLNodeUtils::postDominates(Node, ParentLoop->getFirstChild());
+    IsCandidate = HLNodeUtils::postDominates(Node, CurrLoop->getFirstChild());
   }
 
   // Check for unsafe calls in branches that can modify the condition.
@@ -995,8 +995,8 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     // Implemented for HLIfs only
     HLIf *If = cast<HLIf>(Node);
     UnsafeCallFinder LoopUnsafe(Node), ThenUnsafe, ElseUnsafe;
-    HLNodeUtils::visitRange(LoopUnsafe, ParentLoop->child_begin(),
-                            ParentLoop->child_end());
+    HLNodeUtils::visitRange(LoopUnsafe, CurrLoop->child_begin(),
+                            CurrLoop->child_end());
     HLNodeUtils::visitRange(ThenUnsafe, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(ElseUnsafe, If->else_begin(), If->else_end());
     PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch ||
@@ -1033,7 +1033,8 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
 
   // Collect candidates within HLIf branches.
-  CandidateLookup Lookup(Pass, HLS, WillUnswitchParent, Level, CostOfRegion);
+  CandidateLookup
+      Lookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level, CostOfRegion);
   visitChildren(Lookup, Node);
 
   if (!IsCandidate) {
@@ -1186,7 +1187,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   }
 
   CandidateLookup
-      Lookup(Pass, HLS, TransformCurrentLoop, MinLevel, CostOfRegion);
+      Lookup(Pass, HLS, Loop, TransformCurrentLoop, MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
 }
@@ -1200,7 +1201,6 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
     return;
 
   // Current loop should be innermost and a Do loop
-  HLLoop *CurrLoop = Inst->getLexicalParentLoop();
   if (!FirstSelectCandidate) {
     if (!CurrLoop || !CurrLoop->isInnermost() || !CurrLoop->isDo())
       return;
