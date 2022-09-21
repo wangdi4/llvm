@@ -389,7 +389,6 @@ def delaysign : IntelLLDWarnMessage<"delaysign">;
 def delaysign_args : IntelLLDWarnMessageArgs<"delaysign">;
 def keycontainer : IntelLLDWarnMessageArgs<"keycontainer">;
 def keyfile : IntelLLDWarnMessageArgs<"keyfile">;
-def mapinfo : IntelLLDWarnMessageArgs<"mapinfo">;
 def midl : IntelLLDWarnMessageArgs<"midl">;
 def noassembly : IntelLLDWarnMessage<"noassembly">;
 def release : IntelLLDWarnMessage<"release">;
