@@ -2282,6 +2282,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (SizeLevel == 0)
       PM.add(createHIRMemoryReductionSinkingPass());
     PM.add(createHIRLMMPass());
+
     PM.add(createHIRDeadStoreEliminationPass());
     PM.add(createHIRLastValueComputationPass());
     PM.add(createHIRLoopRerollPass());

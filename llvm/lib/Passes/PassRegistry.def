@@ -789,6 +789,7 @@ FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinking
 FUNCTION_PASS("hir-memory-reduction-sinking", loopopt::HIRMemoryReductionSinkingPass())
 FUNCTION_PASS("hir-rowwise-mv", loopopt::HIRRowWiseMVPass())
 FUNCTION_PASS("hir-cond-ldst-motion", loopopt::HIRConditionalLoadStoreMotionPass())
+FUNCTION_PASS("hir-min-max-blob-to-select", loopopt::HIRMinMaxBlobToSelectPass())
 #if INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("unaligned-nontemporal", NontemporalStorePass())
 #endif // INTEL_FEATURE_SW_ADVANCED
