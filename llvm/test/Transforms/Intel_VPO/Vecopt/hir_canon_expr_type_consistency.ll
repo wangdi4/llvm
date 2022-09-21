@@ -58,16 +58,16 @@ for.end:                                          ; preds = %for.inc
 ; version to maintain precision consistency. We failed to set the src type
 ; of the arg-copy canon expression, which made it appear as if we had
 ; an invalid bitcast. The loop has a call to llvm.exp.f64. When replacing this
-; call by a call to __svml_exp4 in the remainder loop, we create a copy of the
+; call by a call to __svml_exp1 in the remainder loop, we create a copy of the
 ; arg, and the call argument is replaced with a canon expr whose type is set to
-; vector so that we do a broadcast.
+; vector.
 ; The call in the remainder loop is expected to look like the following:
-;    %__svml_exp41 = @__svml_exp4(%copy); <fast>
-;    <RVAL-REG> NON-LINEAR <4 x double> %copy
+;    %__svml_exp1 = @__svml_exp1(%copy); <fast>
+;    <RVAL-REG> NON-LINEAR <1 x double> %copy
 ;
 ; CHECK:  DO i64 i1 = {{.*}}, 97, 1   <DO_LOOP>
-; CHECK:    %{{__svml_exp[0-9]+}} = @__svml_exp4(%copy); <fast>
-; CHECK:    <RVAL-REG> NON-LINEAR <4 x double> %copy
+; CHECK:    %{{__svml_exp[0-9]+}} = @__svml_exp1(%copy); <fast>
+; CHECK:    <RVAL-REG> NON-LINEAR <1 x double> %copy
 ; CHECK:  END LOOP
 
 define dso_local void @foo(double* nocapture %arr) local_unnamed_addr #0 {

@@ -61,9 +61,9 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   // Thus, these min/max values for single/double precision svml variants
   // specify the ranges of vector lengths for which the loop vectorizer can
   // emit svml calls.
-  unsigned MinSinglePrecVL = 2;
+  unsigned MinSinglePrecVL = 1;
   unsigned MaxSinglePrecVL = MaxVL;
-  unsigned MinDoublePrecVL = 2;
+  unsigned MinDoublePrecVL = 1;
   unsigned MaxDoublePrecVL = MaxVL;
 #else
   unsigned MinSinglePrecVL = 4;

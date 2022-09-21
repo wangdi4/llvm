@@ -51,7 +51,7 @@
 ; CHECK:      + DO i1 = {{.*}}, zext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
-; CHECK-NEXT: |   [[RET_REM_UNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
+; CHECK-NEXT: |   [[RET_REM_UNIT:%.*]] = @__svml_sincosf1(%copy);
 ; CHECK-NEXT: |   [[SIN_REM_UNIT:%.*]] = extractvalue [[RET_REM_UNIT]], 0;
 ; CHECK-NEXT: |   [[COS_REM_UNIT:%.*]] = extractvalue [[RET_REM_UNIT]], 1;
 ; CHECK-NEXT: |   [[SIN_SCALAR_REM_UNIT:%.*]] = extractelement [[SIN_REM_UNIT]],  0;
@@ -61,7 +61,7 @@
 ; CHECK-NEXT: |   if (-1 * i1 == 0)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      [[COPY_REM_MASK_UNIT:%.*]] = %conv;
-; CHECK-NEXT: |      [[RET_REM_MASK_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[COPY_REM_MASK_UNIT]]);
+; CHECK-NEXT: |      [[RET_REM_MASK_UNIT:%.*]] = @__svml_sincosf1([[COPY_REM_MASK_UNIT]]);
 ; CHECK-NEXT: |      [[SIN_REM_MASK_UNIT:%.*]] = extractvalue [[RET_REM_MASK_UNIT]], 0;
 ; CHECK-NEXT: |      [[COS_REM_MASK_UNIT:%.*]] = extractvalue [[RET_REM_MASK_UNIT]], 1;
 ; CHECK-NEXT: |      [[SIN_SCALAR_REM_MASK_UNIT:%.*]] = extractelement [[SIN_REM_MASK_UNIT]],  0;
@@ -93,7 +93,7 @@
 ; CHECK:      + DO i1 = {{.*}}, zext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
-; CHECK-NEXT: |   [[RET_REM_NONUNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
+; CHECK-NEXT: |   [[RET_REM_NONUNIT:%.*]] = @__svml_sincosf1(%copy);
 ; CHECK-NEXT: |   [[SIN_REM_NONUNIT:%.*]] = extractvalue [[RET_REM_NONUNIT]], 0;
 ; CHECK-NEXT: |   [[COS_REM_NONUNIT:%.*]] = extractvalue [[RET_REM_NONUNIT]], 1;
 ; CHECK-NEXT: |   [[SIN_SCALAR_REM_NONUNIT:%.*]] = extractelement [[SIN_REM_NONUNIT]],  0;
@@ -103,7 +103,7 @@
 ; CHECK-NEXT: |   if (-1 * i1 == 0)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |      [[COPY_REM_MASK_NONUNIT:%.*]] = %conv;
-; CHECK-NEXT: |      [[RET_REM_MASK_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[COPY_REM_MASK_NONUNIT]]);
+; CHECK-NEXT: |      [[RET_REM_MASK_NONUNIT:%.*]] = @__svml_sincosf1([[COPY_REM_MASK_NONUNIT]]);
 ; CHECK-NEXT: |      [[SIN_REM_MASK_NONUNIT:%.*]] = extractvalue [[RET_REM_MASK_NONUNIT]], 0;
 ; CHECK-NEXT: |      [[COS_REM_MASK_NONUNIT:%.*]] = extractvalue [[RET_REM_MASK_NONUNIT]], 1;
 ; CHECK-NEXT: |      [[SIN_SCALAR_REM_MASK_NONUNIT:%.*]] = extractelement [[SIN_REM_MASK_NONUNIT]],  0;
