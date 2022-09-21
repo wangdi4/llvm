@@ -17,30 +17,30 @@
 
 ; CHECK-LABEL: @test_sinf(
 ; CHECK: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x float> @__svml_sinf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_sin(
 ; CHECK: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x double> @__svml_sin1(<1 x double> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sinf(
 ; FLOAT-LT-512: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> inreg {{%.*}}, <[[VL]] x i32> {{%.*}})
 ; FLOAT-512: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x float> @__svml_sinf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sin(
 ; DOUBLE-LT-512: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> inreg {{%.*}}, <[[VL]] x i64> {{%.*}})
 ; DOUBLE-512: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x double> inreg {{%.*}})
-; CHECK-HIR: call fast svml_cc <[[VL]] x double> @__svml_sin[[VL]](<[[VL]] x double> inreg {{%.*}})
+; CHECK-HIR: call fast svml_cc <1 x double> @__svml_sin1(<1 x double> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_sincosf(
 ; CHECK: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> inreg {{%.*}})
 
 ; CHECK-LABEL: @test_masked_sincosf(
 ; FLOAT-LT-512: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]]_mask(<[[VL]] x float> inreg {{%.*}}, <[[VL]] x i32> {{%.*}})
 ; FLOAT-512: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]]_mask({ <[[VL]] x float>, <[[VL]] x float> } undef, <[[VL]] x i1> {{%.*}}, <[[VL]] x float> inreg {{%.*}})
-; CHECK-HIR: call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> inreg {{%.*}})
+; CHECK-HIR: call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> inreg {{%.*}})
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

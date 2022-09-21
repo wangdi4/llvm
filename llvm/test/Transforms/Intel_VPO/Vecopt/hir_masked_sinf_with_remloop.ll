@@ -51,7 +51,7 @@
 ; CHECK-NEXT:          |   if ([[SRC_REM]] > 3.000000e+00)
 ; CHECK-NEXT:          |   {
 ; CHECK-NEXT:          |      [[SRC_REM_VEC:%.*]] = [[SRC_REM]];
-; CHECK-NEXT:          |      [[RESULT_REM_VEC:%.*]] = @__svml_sinf[[VL]]([[SRC_REM_VEC]]);
+; CHECK-NEXT:          |      [[RESULT_REM_VEC:%.*]] = @__svml_sinf1([[SRC_REM_VEC]]);
 ; CHECK-NEXT:          |      [[RESULT_REM:%.*]] = extractelement [[RESULT_REM_VEC]],  0;
 ; CHECK-NEXT:          |      (%a)[i1] = [[RESULT_REM]]
 ; CHECK-NEXT:          |   }
@@ -72,7 +72,7 @@
 ; CHECK-NEXT:          |   if ([[SRC_REM]] > 3.000000e+00)
 ; CHECK-NEXT:          |   {
 ; CHECK-NEXT:          |      [[SRC_REM_VEC:%.*]] = [[SRC_REM]];
-; CHECK-NEXT:          |      [[RESULT_REM_VEC:%.*]] = @__svml_sin[[VL]]([[SRC_REM_VEC]]);
+; CHECK-NEXT:          |      [[RESULT_REM_VEC:%.*]] = @__svml_sin1([[SRC_REM_VEC]]);
 ; CHECK-NEXT:          |      [[RESULT_REM:%.*]] = extractelement [[RESULT_REM_VEC]],  0;
 ; CHECK-NEXT:          |      (%a)[i1] = [[RESULT_REM]]
 ; CHECK-NEXT:          |   }
