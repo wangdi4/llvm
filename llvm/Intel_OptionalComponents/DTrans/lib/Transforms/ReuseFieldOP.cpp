@@ -890,6 +890,17 @@ bool ReuseFieldOPImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
     return true;
   };
 
+  auto IsLibFunction = [this](const Function *F,
+                          LibFunc LB) {
+    LibFunc LibF;
+    const TargetLibraryInfo &TLI = GetTLI(*F);
+    if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+      return false;
+    if (LibF != LB)
+      return false;
+    return true;
+  };
+
   for (auto GVUseIt = GV->use_begin(), GVUseE = GV->use_end();
        GVUseIt != GVUseE; ++GVUseIt) {
     auto GVUser = GVUseIt->getUser();
@@ -932,11 +943,9 @@ bool ReuseFieldOPImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
                 return false;
 
             } else if (auto CI = dyn_cast<CallInst>(LoadUser)) {
-              Function *F = LI->getFunction();
-
+              Function* Callee = CI->getCalledFunction();
               // It's safe if it is just call free.
-              LibFunc Func;
-              if (!GetTLI(*F).getLibFunc(*CI, Func) || Func != LibFunc_free)
+              if (!IsLibFunction(Callee, LibFunc_free))
                 return false;
             } else if (!isa<CmpInst>(LoadUser))
               return false;
@@ -948,11 +957,35 @@ bool ReuseFieldOPImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
           return false;
         }
       }
-    } else if (auto Caller = dyn_cast<CallInst>(GVUser)) {
-      auto Callee = Caller->getCalledFunction();
+    } else if (auto CI = dyn_cast<CallInst>(GVUser)) {
+      // Our goal is to ensure the program don't read the candidate field's value,
+      // so any read or write for the address is OK.
+      auto Callee = CI->getCalledFunction();
+      if (Callee->isDeclaration()) {
+        // They're safe since they don't write GV's any fields.
+        if (IsLibFunction(Callee, LibFunc_printf) ||
+            IsLibFunction(Callee, LibFunc_fopen))
+          continue;
 
-      if (Callee->isDeclaration())
+        // Callee can be the dest.
+        if (IsLibFunction(Callee, LibFunc_strcpy) && GVPos == 0)
+          continue;
+
+        // Callee can be the dest.
+        if (Callee->getIntrinsicID() == Intrinsic::memset && GVPos == 0)
+          continue;
+
+        return false;
+      }
+
+      // Special checking for variadic function.
+      if (GVPos >= Callee->arg_size()) {
+        // It's safe for "printf".
+        if (!IsLibFunction(Callee, LibFunc_printf))
+          return false;
         continue;
+      }
+
       // FieldAddressTakenCall is active, but the argument
       // doesn't have users.
       if (Callee->getArg(GVPos)->hasNUsesOrMore(1))
@@ -1196,3 +1229,4 @@ PreservedAnalyses ReuseFieldOPPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
+
