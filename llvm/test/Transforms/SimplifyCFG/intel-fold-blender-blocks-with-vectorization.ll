@@ -91,7 +91,7 @@ define hidden fastcc i32 @_ZL17bvh_node_hit_testI8VBVHNodeEiPT_P5Isect(%struct.V
 ; CHECK-NEXT:    [[BVINDEXPTR:%.*]] = bitcast i32* [[ARRAYIDX_I]] to <6 x i32>*
 ; CHECK-NEXT:    [[BVINDEXV:%.*]] = load <6 x i32>, <6 x i32>* [[BVINDEXPTR]], align 1
 ; CHECK-NEXT:    [[BBPTR:%.*]] = getelementptr inbounds [6 x float], [6 x float]* [[BB]], i64 0, <6 x i32> [[BVINDEXV]]
-; CHECK-NEXT:    [[BBV:%.*]] = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(<6 x float*> [[BBPTR]], i32 1, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x float> undef)
+; CHECK-NEXT:    [[BBV:%.*]] = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(<6 x float*> [[BBPTR]], i32 1, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x float> poison)
 ; CHECK-NEXT:    [[STARTPTR:%.*]] = bitcast float* [[ARRAYIDX1_I]] to <3 x float>*
 ; CHECK-NEXT:    [[STARTV:%.*]] = load <3 x float>, <3 x float>* [[STARTPTR]], align 1
 ; CHECK-NEXT:    [[STARTWIDENV:%.*]] = shufflevector <3 x float> [[STARTV]], <3 x float> poison, <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
