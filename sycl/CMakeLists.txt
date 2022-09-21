@@ -47,7 +47,7 @@ set(SYCL_MINOR_VERSION 7)
 set(SYCL_PATCH_VERSION 0)
 # Don't forget to re-enable sycl_symbols_windows.dump once we leave ABI-breaking
 # window!
-set(SYCL_DEV_ABI_VERSION 10)
+set(SYCL_DEV_ABI_VERSION 15)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -68,6 +68,12 @@ if (MSVC)
 # end INTEL_CUSTOMIZATION
 else ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
+  # Temporarily disable warnings for use of implicit CTAD since clang
+  # currently issues them for STL class usage (e.g. lock_guard).
+  check_cxx_compiler_flag("-Wno-ctad-maybe-unsupported" SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+  if (SYCL_CTAD_MAYBE_UNSUPPORTED_FLAG_SUPPORT)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-ctad-maybe-unsupported")
+  endif()
 endif()
 
 # Temporarily disable warnings for use of implicit CTAD since clang

@@ -4590,9 +4590,9 @@ bool SelectionDAG::isGuaranteedNotToBeUndefOrPoison(SDValue Op,
     }
     return true;
 
-  // TODO: Search for noundef attributes from library functions.
+    // TODO: Search for noundef attributes from library functions.
 
-  // TODO: Pointers dereferenced by ISD::LOAD/STORE ops are noundef.
+    // TODO: Pointers dereferenced by ISD::LOAD/STORE ops are noundef.
 
   default:
     // Allow the target to implement this method for its nodes.
@@ -4603,7 +4603,15 @@ bool SelectionDAG::isGuaranteedNotToBeUndefOrPoison(SDValue Op,
     break;
   }
 
-  return false;
+  // If Op can't create undef/poison and none of its operands are undef/poison
+  // then Op is never undef/poison.
+  // NOTE: TargetNodes should handle this in themselves in
+  // isGuaranteedNotToBeUndefOrPoisonForTargetNode.
+  return !canCreateUndefOrPoison(Op, PoisonOnly, /*ConsiderFlags*/ true,
+                                 Depth) &&
+         all_of(Op->ops(), [&](SDValue V) {
+           return isGuaranteedNotToBeUndefOrPoison(V, PoisonOnly, Depth + 1);
+         });
 }
 
 bool SelectionDAG::canCreateUndefOrPoison(SDValue Op, bool PoisonOnly,
@@ -4634,6 +4642,7 @@ bool SelectionDAG::canCreateUndefOrPoison(SDValue Op, const APInt &DemandedElts,
   case ISD::AssertSext:
   case ISD::AssertZext:
   case ISD::FREEZE:
+  case ISD::INSERT_SUBVECTOR:
   case ISD::AND:
   case ISD::OR:
   case ISD::XOR:
@@ -5271,7 +5280,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     break;
   case ISD::FREEZE:
     assert(VT == Operand.getValueType() && "Unexpected VT!");
-    if (isGuaranteedNotToBeUndefOrPoison(Operand))
+    if (isGuaranteedNotToBeUndefOrPoison(Operand, /*PoisonOnly*/ false,
+                                         /*Depth*/ 1))
       return Operand;
     break;
   case ISD::TokenFactor:

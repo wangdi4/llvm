@@ -285,7 +285,7 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
     SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
   return TTI.getArithmeticInstrCost(Opcode, VecTy,
-    TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
+    TargetTransformInfo::TCK_RecipThroughput, {Op1VK, Op1VP}, {Op2VK, Op2VP});
 }
 
 VPInstructionCost
@@ -1066,12 +1066,11 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // ScaledStep cost.
     if (IsAdd)
       Cost += TTI.getArithmeticInstrCost(
-        IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
-        TargetTransformInfo::TCK_RecipThroughput,
-        TargetTransformInfo::OK_AnyValue,
-        TargetTransformInfo::OK_UniformConstantValue,
-        TargetTransformInfo::OP_None,
-        TargetTransformInfo::OP_PowerOf2);
+          IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
+          TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_UniformConstantValue,
+           TargetTransformInfo::OP_PowerOf2});
     else
       Cost += TTI.getArithmeticInstrCost(
         IsFloat ? Instruction::FMul : Instruction::Mul, StepScalTy,
@@ -1146,18 +1145,20 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       if (VPIndFinal->isLastValPreIncrement() && ExactUB)
         // Subtruct one.
         Cost += TTI.getArithmeticInstrCost(
-          Instruction::Sub, VPTripCntVal->getType(),
-          TargetTransformInfo::TCK_RecipThroughput,
-          TargetTransformInfo::OK_AnyValue,
-          TargetTransformInfo::OK_UniformConstantValue);
+            Instruction::Sub, VPTripCntVal->getType(),
+            TargetTransformInfo::TCK_RecipThroughput,
+            {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+            {TargetTransformInfo::OK_UniformConstantValue,
+             TargetTransformInfo::OP_None});
 
       if (!ExactUB && !VPIndFinal->isLastValPreIncrement())
         // Add one.
         Cost += TTI.getArithmeticInstrCost(
-          Instruction::Add, VPTripCntVal->getType(),
-          TargetTransformInfo::TCK_RecipThroughput,
-          TargetTransformInfo::OK_AnyValue,
-          TargetTransformInfo::OK_UniformConstantValue);
+            Instruction::Add, VPTripCntVal->getType(),
+            TargetTransformInfo::TCK_RecipThroughput,
+            {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+            {TargetTransformInfo::OK_UniformConstantValue,
+             TargetTransformInfo::OP_None});
 
       // TODO: int32 -> int64 or other cast are possibly inserted by CG
       // but it is not cost modelled as CastInst::getCastOpcode() needs
@@ -1200,8 +1201,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     if (StepVK == TargetTransformInfo::OK_AnyValue ||
         (TripCountVK == TargetTransformInfo::OK_AnyValue && !StepValIsOne)) {
       Cost += TTI.getArithmeticInstrCost(
-        StepOpc, VPStepScalTy, TargetTransformInfo::TCK_RecipThroughput,
-        StepVK, TripCountVK, StepVP);
+          StepOpc, VPStepScalTy, TargetTransformInfo::TCK_RecipThroughput,
+          {StepVK, StepVP}, {TripCountVK, TargetTransformInfo::OP_None});
       MultVK = TargetTransformInfo::OK_AnyValue;
     }
 
@@ -1216,8 +1217,9 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       // TODO: GEP is to be modelled once supported in TTI.
       if (!IsPtr)
         Cost += TTI.getArithmeticInstrCost(
-          Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
-          IndInitVK, MultVK);
+            Opc, IndInitScalTy, TargetTransformInfo::TCK_RecipThroughput,
+            {IndInitVK, TargetTransformInfo::OP_None},
+            {MultVK, TargetTransformInfo::OP_None});
     return Cost;
   }
 
@@ -1335,14 +1337,14 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         TTI::TCK_RecipThroughput);
     Cost += TTI.getArithmeticInstrCost(
         Instruction::Shl, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-        TargetTransformInfo::OK_UniformConstantValue,
-        TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None,
-        TargetTransformInfo::OP_None);
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     Cost += TTI.getArithmeticInstrCost(
         Instruction::Xor, IntTy, TargetTransformInfo::TCK_RecipThroughput,
-        TargetTransformInfo::OK_AnyValue,
-        TargetTransformInfo::OK_UniformConstantValue,
-        TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_None});
     Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
                                  TTI::CastContextHint::None);
     return Cost;
@@ -1360,7 +1362,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     auto *VecTy = getWidenedType(OpTy, VF);
     if (OpTy->isVectorTy())
       return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
-                                None /* Mask */, VF - 1 /* Index */,
+                                None /* Mask */,
+                                TTI::TCK_RecipThroughput, VF - 1 /* Index */,
                                 cast<FixedVectorType>(OpTy));
     else
       return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
@@ -1414,11 +1417,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
       TTI::TCK_RecipThroughput);
     Cost += TTI.getArithmeticInstrCost(
-      Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
-      TargetTransformInfo::OK_UniformConstantValue,
-      TargetTransformInfo::OK_AnyValue,
-      TargetTransformInfo::OP_PowerOf2_PlusMinus1,
-      TargetTransformInfo::OP_None);
+        Instruction::Sub, IntVFTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_UniformConstantValue,
+         TargetTransformInfo::OP_PowerOf2_PlusMinus1},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
                                    -1U /* Non-immediate Index */);
     return Cost;
@@ -1599,8 +1601,9 @@ VPInstructionCost VPlanTTICostModel::getNonMaskedMemOpCostAdj(
 VPInstructionCost VPlanTTICostModel::getMemoryOpCost(
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, const Instruction *I) const {
-  auto TTICost = TTI.getMemoryOpCost(Opcode, Src, Alignment,
-                                     AddressSpace, CostKind, I);
+  auto TTICost =
+      TTI.getMemoryOpCost(Opcode, Src, Alignment, AddressSpace, CostKind,
+                          {TTI::OK_AnyValue, TTI::OP_None}, I);
   LLVM_DEBUG(dbgs() << "TTICost: " << TTICost << '\n';);
 
   // Return not adjusted scaled up cost for non-vector types.

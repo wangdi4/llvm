@@ -28,7 +28,7 @@
 #include "cpu_logger.h"
 #include "ocl_itt.h"
 #include "task_dispatcher.h"
-#include "llvm/Support/MathExtras.h"
+#include <numeric>
 
 #if defined (_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -1275,7 +1275,7 @@ cl_dev_err_code FillMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 static bool getLCMSize(size_t A, size_t B) {
     assert(A != 0 && B != 0 && "invalid size");
     size_t Mul = A * B;
-    size_t GCD = llvm::greatestCommonDivisor(A, B);
+    size_t GCD = std::gcd(A, B);
     return Mul / GCD;
 }
 

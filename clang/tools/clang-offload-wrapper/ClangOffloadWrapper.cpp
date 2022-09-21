@@ -887,6 +887,7 @@ public:
     MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
 
 private:
+
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -1035,7 +1036,6 @@ private:
     // Create initializer for the images array.
     SmallVector<Constant *, 4u> ImagesInits;
     unsigned ImgId = 0;
-
     for (const auto &ImgPtr : Pack) {
       const BinaryWrapper::Image &Img = *(ImgPtr.get());
       if (Verbose)
@@ -1843,7 +1843,6 @@ public:
     AutoGcBufs.emplace_back(std::move(*BufOrErr));
     return AutoGcBufs.back().get();
   }
-
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               const BinaryWrapper::Image &Img) {
   Out << "\n{\n";
@@ -2061,6 +2060,12 @@ int main(int argc, const char **argv) {
   auto reportError = [argv](Error E) {
     logAllUnhandledErrors(std::move(E), WithColor::error(errs(), argv[0]));
   };
+  if (BatchMode && Inputs.size() != 1) {
+    reportError(
+        createStringError(errc::invalid_argument,
+                          "batch job table file must be the only input file"));
+    return 1;
+  }
   if (Target.empty()) {
     Target = sys::getProcessTriple();
     if (Verbose)

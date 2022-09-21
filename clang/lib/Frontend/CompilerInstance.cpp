@@ -29,6 +29,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/LangStandard.h"
 #include "clang/Basic/SourceManager.h"
@@ -42,6 +43,7 @@
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
 #include "clang/Frontend/LogDiagnosticPrinter.h"
+#include "clang/Frontend/SARIFDiagnosticPrinter.h"
 #include "clang/Frontend/SerializedDiagnosticPrinter.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Frontend/Utils.h"
@@ -368,6 +370,8 @@ CompilerInstance::createDiagnostics(DiagnosticOptions *Opts,
   // implementing -verify.
   if (Client) {
     Diags->setClient(Client, ShouldOwnClient);
+  } else if (Opts->getFormat() == DiagnosticOptions::SARIF) {
+    Diags->setClient(new SARIFDiagnosticPrinter(llvm::errs(), Opts));
   } else
     Diags->setClient(new TextDiagnosticPrinter(llvm::errs(), Opts));
 
@@ -1172,8 +1176,7 @@ compileModuleImpl(CompilerInstance &ImportingInstance, SourceLocation ImportLoc,
 
   // For any options that aren't intended to affect how a module is built,
   // reset them to their default values.
-  Invocation->getLangOpts()->resetNonModularOptions();
-  PPOpts.resetNonModularOptions();
+  Invocation->resetNonModularOptions();
 
   // Remove any macro definitions that are explicitly ignored by the module.
   // They aren't supposed to affect how the module is built anyway.
@@ -2036,8 +2039,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
     // match Foo_Private and emit a warning asking for the user to write
     // @import Foo_Private instead. FIXME: remove this when existing clients
     // migrate off of Foo.Private syntax.
-    if (!Sub && PP->getLangOpts().ImplicitModules && Name == "Private" &&
-        Module == Module->getTopLevelModule()) {
+    if (!Sub && Name == "Private" && Module == Module->getTopLevelModule()) {
       SmallString<128> PrivateModule(Module->Name);
       PrivateModule.append("_Private");
 
@@ -2051,6 +2053,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
         Sub = loadModule(ImportLoc, PrivPath, Visibility, IsInclusionDirective);
       if (Sub) {
         MapPrivateSubModToTopLevel = true;
+        PP->markModuleAsAffecting(Module);
         if (!getDiagnostics().isIgnored(
                 diag::warn_no_priv_submodule_use_toplevel, ImportLoc)) {
           getDiagnostics().Report(Path[I].second,
@@ -2122,7 +2125,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
         << Module->getFullModuleName()
         << SourceRange(Path.front().second, Path.back().second);
 
-      return ModuleLoadResult::MissingExpected;
+      return ModuleLoadResult(Module, ModuleLoadResult::MissingExpected);
     }
 
     // Check whether this module is available.

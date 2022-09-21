@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -62,6 +62,14 @@ using namespace llvm;
 using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "instsimplify"
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableGEP0Removal("xmain-enable-gep0-removal", cl::Hidden,
+                      cl::init(false),
+                      cl::desc("Enable removal of GEP with zero indices"));
+#endif // INTEL_CUSTOMIZATION
+
 
 enum { RecursionLimit = 3 };
 
@@ -3186,6 +3194,12 @@ static Value *simplifyICmpWithBinOpOnLHS(CmpInst::Predicate Pred,
       return getTrue(ITy);
   }
 
+  // (sub C, X) == X, C is odd  --> false
+  // (sub C, X) != X, C is odd  --> true
+  if (match(LBO, m_Sub(m_APIntAllowUndef(C), m_Specific(RHS))) &&
+      (*C & 1) == 1 && ICmpInst::isEquality(Pred))
+    return (Pred == ICmpInst::ICMP_EQ) ? getFalse(ITy) : getTrue(ITy);
+
   return nullptr;
 }
 
@@ -4603,15 +4617,14 @@ static Value *simplifyGEPInst(Type *SrcTy, Value *Ptr,
   }
 
 #if INTEL_CUSTOMIZATION
-#if 0
   // CMPLRLLVM-36462: Need to retain GEPs for DTrans analysis.
   // For opaque pointers an all-zero GEP is a no-op. For typed pointers,
   // it may be equivalent to a bitcast.
-  if (Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
+  if (EnableGEP0Removal &&
+      Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
       Ptr->getType() == GEPTy &&
       all_of(Indices, [](const auto *V) { return match(V, m_Zero()); }))
     return Ptr;
-#endif
 #endif // INTEL_CUSTOMIZATION
 
   // getelementptr poison, idx -> poison
@@ -5080,7 +5093,7 @@ static Value *simplifyShuffleVectorInst(Value *Op0, Value *Op1,
   // value type is same as the input vectors' type.
   if (auto *OpShuf = dyn_cast<ShuffleVectorInst>(Op0))
     if (Q.isUndefValue(Op1) && RetTy == InVecTy &&
-        is_splat(OpShuf->getShuffleMask()))
+        all_equal(OpShuf->getShuffleMask()))
       return Op0;
 
   // All remaining transformation depend on the value of the mask, which is

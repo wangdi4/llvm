@@ -324,7 +324,7 @@ void AggressiveDeadCodeElimination::initialize() {
     }
 
     // This child is something else, like an infinite loop.
-    for (auto DFNode : depth_first(PDTChild))
+    for (auto *DFNode : depth_first(PDTChild))
       markLive(BlockInfo[DFNode->getBlock()].Terminator);
   }
 

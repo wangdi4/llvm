@@ -2541,6 +2541,10 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
       Out << "$halff@";
     break;
 
+  case BuiltinType::BFloat16:
+    mangleArtificialTagType(TTK_Struct, "__bf16", {"__clang"});
+    break;
+
 #define SVE_TYPE(Name, Id, SingletonId) \
   case BuiltinType::Id:
 #include "clang/Basic/AArch64SVEACLETypes.def"
@@ -2573,7 +2577,6 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUShortFract:
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
-  case BuiltinType::BFloat16:
   case BuiltinType::Ibm128:
 #if INTEL_CUSTOMIZATION
   // Float128 warning message is intentionally disabled, since we handle it

@@ -120,6 +120,14 @@ static cl::opt<bool>
                               "always print a module IR"),
                      cl::init(false), cl::Hidden);
 
+// See the description for -print-changed for an explanation of the use
+// of this option.
+static cl::list<std::string> FilterPasses(
+    "filter-passes", cl::value_desc("pass names"),
+    cl::desc("Only consider IR changes for passes whose names "
+             "match the specified value. No-op without -print-changed"),
+    cl::CommaSeparated, cl::Hidden);
+
 static cl::list<std::string>
     PrintFuncsList("filter-print-funcs", cl::value_desc("function names"),
                    cl::desc("Only print IR for functions whose name "
@@ -178,6 +186,13 @@ std::vector<std::string> llvm::printAfterPasses() {
 }
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
+
+bool llvm::isPassInPrintList(StringRef PassName) {
+  static std::unordered_set<std::string> Set(FilterPasses.begin(),
+                                             FilterPasses.end());
+  return Set.empty() || Set.count(std::string(PassName));
+}
+
 
 #else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 #if INTEL_CUSTOMIZATION

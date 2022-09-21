@@ -1,4 +1,4 @@
-// RUN: %clangxx_tsan -O1 %s -o %t && %deflake %run %t |& FileCheck %s
+// RUN: %clangxx_tsan -O1 %s -o %t && %deflake %run %t | FileCheck %s
 #include "test.h"
 
 #include <fcntl.h>
@@ -24,6 +24,6 @@ int main() {
 }
 
 // CHECK: WARNING: ThreadSanitizer: data race
-// CHECK:   Location is file descriptor {{[0-9]+}} destroyed by thread
-// CHECK:     #0 close
-// CHECK:     #1 Thread
+// CHECK:   Location is file descriptor {{[0-9]+}} {{(destroyed by thread|created by main)}} 
+// CHECK:     #0 {{close|open}}
+// CHECK:     #1 {{Thread|main}}

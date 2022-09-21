@@ -3463,7 +3463,7 @@ disables pipelining of the loop or function data path, causing the loop
 or function to be executed serially. Cannot be used on the same loop or
 function, or in conjunction with ``max_interleaving``,
 ``speculated_iterations``, ``max_concurrency``, ``initiation_interval``,
-or ``ivdep``.
+``ivdep``, or ``max_reinvocation_delay``.
 
 .. code-block:: c++
 
@@ -3593,6 +3593,31 @@ loop should not be fused with any adjacent loop.
     }
   }
 
+  }];
+}
+
+def SYCLIntelFPGAMaxReinvocationDelayAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "intel::max_reinvocation_delay";
+  let Content = [{
+This attribute applies to a loop. Specifies the maximum number of cycles allowed
+on the delay between the launch of the last iteration of a loop invocation and
+the launch of the first iteration of a new loop invocation. Parameter N is
+mandatory, and is a positive integer. Cannot be used on the same loop in
+conjunction with disable_loop_pipelining.
+
+.. code-block:: c++
+
+  void foo() {
+    int var = 0;
+    [[intel::max_reinvocation_delay(1)]]
+    for (int i = 0; sycl::log10((float)(x)) < 10; i++) var++;
+  }
+
+  template<int N>
+  void bar() {
+    [[intel::max_reinvocation_delay(N)]] for(;;) { }
+  }
   }];
 }
 
@@ -6295,6 +6320,16 @@ declarations. This attribute informs the compiler that the annotated function
 does not throw an exception. This prevents exception-unwinding. This attribute
 is particularly useful on functions in the C Standard Library that are
 guaranteed to not throw an exception.
+    }];
+}
+
+def NoUwtableDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+Clang supports the ``nouwtable`` attribute which skips emitting
+the unwind table entry for the specified function. This attribute is useful for
+selectively emitting the unwind table entry on some functions when building with
+``-funwind-tables`` compiler option.
     }];
 }
 

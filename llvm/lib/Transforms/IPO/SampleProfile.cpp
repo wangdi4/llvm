@@ -92,6 +92,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/SampleProfileLoaderBaseImpl.h"
 #include "llvm/Transforms/Utils/SampleProfileLoaderBaseUtil.h"
 #include <algorithm>
@@ -1003,7 +1004,7 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
 void SampleProfileLoader::emitOptimizationRemarksForInlineCandidates(
     const SmallVectorImpl<CallBase *> &Candidates, const Function &F,
     bool Hot) {
-  for (auto I : Candidates) {
+  for (auto *I : Candidates) {
     Function *CalledFunction = I->getCalledFunction();
     if (CalledFunction) {
       ORE->emit(OptimizationRemarkAnalysis(getAnnotatedRemarkPassName(),
@@ -1726,10 +1727,7 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
       }
     }
 
-    // FIXME: Re-enable for sample profiling after investigating why the sum
-    // of branch weights can be 0
-    //
-    // misexpect::checkExpectAnnotations(*TI, Weights, /*IsFrontend=*/false);
+    misexpect::checkExpectAnnotations(*TI, Weights, /*IsFrontend=*/false);
 
     uint64_t TempWeight;
     // Only set weights if there is at least one non-zero weight.
@@ -2083,7 +2081,7 @@ bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM,
          "No empty StringRef should be added in SymbolMap");
 
   bool retval = false;
-  for (auto F : buildFunctionOrder(M, CG)) {
+  for (auto *F : buildFunctionOrder(M, CG)) {
     assert(!F->isDeclaration());
     clearFunctionData();
     retval |= runOnFunction(*F, AM);

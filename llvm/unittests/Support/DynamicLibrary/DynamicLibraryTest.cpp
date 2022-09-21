@@ -10,7 +10,6 @@
 #include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "gtest/gtest.h"
 
@@ -65,7 +64,6 @@ std::string StdString(const char *Ptr) { return Ptr ? Ptr : ""; }
 TEST(DynamicLibrary, Overload) {
   {
     std::string Err;
-    llvm_shutdown_obj Shutdown;
     DynamicLibrary DL =
         DynamicLibrary::getPermanentLibrary(LibPath().c_str(), &Err);
     EXPECT_TRUE(DL.isValid());
@@ -113,76 +111,6 @@ TEST(DynamicLibrary, Overload) {
     EXPECT_EQ(GS, &OverloadTestA);
     EXPECT_EQ(StdString(GS()), "OverloadCall");
   }
-  EXPECT_TRUE(FuncPtr<GetString>(DynamicLibrary::SearchForAddressOfSymbol(
-                  "TestA")) == nullptr);
-
-  // Check serach ordering is reset to default after call to llvm_shutdown
-  EXPECT_EQ(DynamicLibrary::SearchOrder, DynamicLibrary::SO_Linker);
-}
-
-TEST(DynamicLibrary, Shutdown) {
-#if INTEL_CUSTOMIZATION
-  std::string A_lib("PipSqueak"), C_lib("SecondLib");
-  int A = State::FIRST_CONSTANT, B = 0, C = State::SECOND_CONSTANT;
-  std::vector<int> Order;
-  Order.reserve(2);
-#endif // INTEL_CUSTOMIZATION
-  {
-    std::string Err;
-    llvm_shutdown_obj Shutdown;
-    DynamicLibrary DL =
-        DynamicLibrary::getPermanentLibrary(LibPath(A_lib).c_str(), &Err); // INTEL
-    EXPECT_TRUE(DL.isValid());
-    EXPECT_TRUE(Err.empty());
-
-    SetStrings SS_0 = FuncPtr<SetStrings>(
-        DynamicLibrary::SearchForAddressOfSymbol("SetStrings"));
-    EXPECT_NE(SS_0, nullptr);
-
-    SS_0(A, B);
-    EXPECT_TRUE(B == State::LOCAL_CONSTRUCTOR_CALL); // INTEL
-
-    TestOrder TO_0 = FuncPtr<TestOrder>(
-        DynamicLibrary::SearchForAddressOfSymbol("TestOrder"));
-    EXPECT_NE(TO_0, nullptr);
-
-    DynamicLibrary DL2 =
-        DynamicLibrary::getPermanentLibrary(LibPath(C_lib).c_str(), &Err); // INTEL
-    EXPECT_TRUE(DL2.isValid());
-    EXPECT_TRUE(Err.empty());
-
-    // Should find latest version of symbols in SecondLib
-    SetStrings SS_1 = FuncPtr<SetStrings>(
-        DynamicLibrary::SearchForAddressOfSymbol("SetStrings"));
-    EXPECT_NE(SS_1, nullptr);
-    EXPECT_NE(SS_0, SS_1);
-
-    TestOrder TO_1 = FuncPtr<TestOrder>(
-        DynamicLibrary::SearchForAddressOfSymbol("TestOrder"));
-    EXPECT_NE(TO_1, nullptr);
-    EXPECT_NE(TO_0, TO_1);
-
-    B = 0;
-    SS_1(C, B);
-    EXPECT_TRUE(B == State::LOCAL_CONSTRUCTOR_CALL); // INTEL
-
-    TO_0(Order);
-    TO_1(Order);
-  }
-#if INTEL_CUSTOMIZATION
-  EXPECT_EQ(A, State::GLOBAL_DESTRUCTOR_CALL);
-  EXPECT_EQ(B, State::LOCAL_DESTRUCTOR_CALL);
-#endif // INTEL_CUSTOMIZATION
-  EXPECT_EQ(FuncPtr<SetStrings>(
-                DynamicLibrary::SearchForAddressOfSymbol("SetStrings")),
-            nullptr);
-
-  // Test unload/destruction ordering
-  EXPECT_EQ(Order.size(), 2UL);
-#if INTEL_CUSTOMIZATION
-  EXPECT_EQ(Order.front(), State::SECOND_CONSTANT);
-  EXPECT_EQ(Order.back(), State::FIRST_CONSTANT);
-#endif // INTEL_CUSTOMIZATION
 }
 
 #else

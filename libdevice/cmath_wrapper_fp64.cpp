@@ -9,7 +9,7 @@
 
 #include "device_math.h"
 
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -466,4 +466,4 @@ double _Sinh(double x, double y) { // compute y * sinh(x), |y| <= 1
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 #endif // defined(_WIN32)
-#endif // __SPIR__
+#endif // __SPIR__ || __NVPTX__

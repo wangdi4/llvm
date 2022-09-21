@@ -1008,6 +1008,9 @@ void AsmPrinter::emitFunctionHeader() {
     }
   }
 
+  // Emit KCFI type information before patchable-function-prefix nops.
+  emitKCFITypeId(*MF);
+
   // Emit M NOPs for -fpatchable-function-entry=N,M where M>0. We arbitrarily
   // place prefix data before NOPs.
   unsigned PatchableFunctionPrefix = 0;
@@ -1106,8 +1109,13 @@ void AsmPrinter::emitFunctionEntryLabel() {
 
   if (TM.getTargetTriple().isOSBinFormatELF()) {
     MCSymbol *Sym = getSymbolPreferLocal(MF->getFunction());
-    if (Sym != CurrentFnSym)
+    if (Sym != CurrentFnSym) {
+      cast<MCSymbolELF>(Sym)->setType(ELF::STT_FUNC);
+      CurrentFnBeginLocal = Sym;
       OutStreamer->emitLabel(Sym);
+      if (MAI->hasDotTypeDotSizeDirective())
+        OutStreamer->emitSymbolAttribute(Sym, MCSA_ELF_TypeFunction);
+    }
   }
 }
 
@@ -1417,6 +1425,30 @@ void AsmPrinter::emitBBAddrMapSection(const MachineFunction &MF) {
     PrevMBBEndSymbol = MBB.getEndSymbol();
   }
   OutStreamer->popSection();
+}
+
+void AsmPrinter::emitKCFITrapEntry(const MachineFunction &MF,
+                                   const MCSymbol *Symbol) {
+  MCSection *Section =
+      getObjFileLowering().getKCFITrapSection(*MF.getSection());
+  if (!Section)
+    return;
+
+  OutStreamer->pushSection();
+  OutStreamer->switchSection(Section);
+
+  MCSymbol *Loc = OutContext.createLinkerPrivateTempSymbol();
+  OutStreamer->emitLabel(Loc);
+  OutStreamer->emitAbsoluteSymbolDiff(Symbol, Loc, 4);
+
+  OutStreamer->popSection();
+}
+
+void AsmPrinter::emitKCFITypeId(const MachineFunction &MF) {
+  const Function &F = MF.getFunction();
+  if (const MDNode *MD = F.getMetadata(LLVMContext::MD_kcfi_type))
+    emitGlobalConstant(F.getParent()->getDataLayout(),
+                       mdconst::extract<ConstantInt>(MD->getOperand(0)));
 }
 
 void AsmPrinter::emitPseudoProbe(const MachineInstr &MI) {
@@ -1858,8 +1890,11 @@ void AsmPrinter::emitFunctionBody() {
   // Emit target-specific gunk after the function body.
   emitFunctionBodyEnd();
 
-  if (needFuncLabelsForEHOrDebugInfo(*MF) ||
-      MAI->hasDotTypeDotSizeDirective()) {
+  // Even though wasm supports .type and .size in general, function symbols
+  // are automatically sized.
+  bool EmitFunctionSize = MAI->hasDotTypeDotSizeDirective() && !TT.isWasm();
+
+  if (needFuncLabelsForEHOrDebugInfo(*MF) || EmitFunctionSize) {
     // Create a symbol for the end of function.
     CurrentFnEnd = createTempSymbol("func_end");
     OutStreamer->emitLabel(CurrentFnEnd);
@@ -1867,13 +1902,15 @@ void AsmPrinter::emitFunctionBody() {
 
   // If the target wants a .size directive for the size of the function, emit
   // it.
-  if (MAI->hasDotTypeDotSizeDirective()) {
+  if (EmitFunctionSize) {
     // We can get the size as difference between the function label and the
     // temp label.
     const MCExpr *SizeExp = MCBinaryExpr::createSub(
         MCSymbolRefExpr::create(CurrentFnEnd, OutContext),
         MCSymbolRefExpr::create(CurrentFnSymForSize, OutContext), OutContext);
     OutStreamer->emitELFSize(CurrentFnSym, SizeExp);
+    if (CurrentFnBeginLocal)
+      OutStreamer->emitELFSize(CurrentFnBeginLocal, SizeExp);
   }
 
   for (const HandlerInfo &HI : Handlers) {
@@ -2405,6 +2442,7 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
 
   CurrentFnSymForSize = CurrentFnSym;
   CurrentFnBegin = nullptr;
+  CurrentFnBeginLocal = nullptr;
   CurrentSectionBeginSym = nullptr;
   MBBSectionRanges.clear();
   MBBSectionExceptionSyms.clear();

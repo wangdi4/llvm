@@ -2417,7 +2417,7 @@ ModuleAddressSanitizer::getRedzoneSizeForGlobal(uint64_t SizeInBytes) const {
     RZ = MinRZ - SizeInBytes;
   } else {
     // Calculate RZ, where MinRZ <= RZ <= MaxRZ, and RZ ~ 1/4 * SizeInBytes.
-    RZ = std::max(MinRZ, std::min(kMaxRZ, (SizeInBytes / MinRZ / 4) * MinRZ));
+    RZ = std::clamp((SizeInBytes / MinRZ / 4) * MinRZ, MinRZ, kMaxRZ);
 
     // Round up to multiple of MinRZ.
     if (SizeInBytes % MinRZ)
@@ -2752,7 +2752,7 @@ bool AddressSanitizer::instrumentFunction(Function &F,
                     F.getParent()->getDataLayout());
     FunctionModified = true;
   }
-  for (auto Inst : IntrinToInstrument) {
+  for (auto *Inst : IntrinToInstrument) {
     if (!suppressInstrumentationSiteForDebug(NumInstrumented))
       instrumentMemIntrinsic(Inst);
     FunctionModified = true;
@@ -2763,12 +2763,12 @@ bool AddressSanitizer::instrumentFunction(Function &F,
 
   // We must unpoison the stack before NoReturn calls (throw, _exit, etc).
   // See e.g. https://github.com/google/sanitizers/issues/37
-  for (auto CI : NoReturnCalls) {
+  for (auto *CI : NoReturnCalls) {
     IRBuilder<> IRB(CI);
     IRB.CreateCall(AsanHandleNoReturnFunc, {});
   }
 
-  for (auto Inst : PointerComparisonsOrSubtracts) {
+  for (auto *Inst : PointerComparisonsOrSubtracts) {
     instrumentPointerComparisonOrSubtraction(Inst);
     FunctionModified = true;
   }
@@ -3361,7 +3361,8 @@ void FunctionStackPoisoner::processStaticAllocas() {
   }
 
   // We are done. Remove the old unused alloca instructions.
-  for (auto AI : AllocaVec) AI->eraseFromParent();
+  for (auto *AI : AllocaVec)
+    AI->eraseFromParent();
 }
 
 void FunctionStackPoisoner::poisonAlloca(Value *V, uint64_t Size,

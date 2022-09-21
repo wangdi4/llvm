@@ -14,7 +14,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <ffi.h>
 #include <gelf.h>
 #if INTEL_COLLAB
@@ -47,7 +46,7 @@
 /// Array of Dynamic libraries loaded for this target.
 struct DynLibTy {
   std::string FileName;
-  void *Handle;
+  void* Handle;
 };
 
 /// Keep entries table per device.

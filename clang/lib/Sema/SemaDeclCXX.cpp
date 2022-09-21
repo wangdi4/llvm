@@ -3616,10 +3616,24 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
   if (getLangOpts().SYCLIsDevice) {
     if (auto Value = dyn_cast<ValueDecl>(Member)) {
       if (isTypeDecoratedWithDeclAttribute<SYCLDeviceGlobalAttr>(
-              Value->getType()) &&
-          Value->getAccess() != AS_public) {
-        Diag(Loc, diag::err_sycl_device_global_not_publicly_accessible)
-            << Value;
+              Value->getType())) {
+        if (Value->getAccess() == AS_private ||
+            Value->getAccess() == AS_protected) {
+          Diag(Loc, diag::err_sycl_device_global_not_publicly_accessible)
+              << Value;
+        }
+        const DeclContext *DC = Member->getDeclContext();
+        while (!DC->isTranslationUnit()) {
+          if (auto Decl = dyn_cast<NamedDecl>(DC)) {
+            if (Decl->getAccess() == AS_private ||
+                Decl->getAccess() == AS_protected) {
+              Diag(Loc, diag::err_sycl_device_global_not_publicly_accessible)
+                  << Value;
+              break;
+            }
+          }
+          DC = DC->getParent();
+        }
       }
     }
   }
@@ -3826,7 +3840,7 @@ namespace {
 
     void CheckInitListExpr(InitListExpr *ILE) {
       InitFieldIndex.push_back(0);
-      for (auto Child : ILE->children()) {
+      for (auto *Child : ILE->children()) {
         if (InitListExpr *SubList = dyn_cast<InitListExpr>(Child)) {
           CheckInitListExpr(SubList);
         } else {
@@ -3897,7 +3911,7 @@ namespace {
       Expr *Callee = E->getCallee();
       if (isa<MemberExpr>(Callee)) {
         HandleValue(Callee, false /*AddressOf*/);
-        for (auto Arg : E->arguments())
+        for (auto *Arg : E->arguments())
           Visit(Arg);
         return;
       }
@@ -3922,7 +3936,7 @@ namespace {
         return Inherited::VisitCXXOperatorCallExpr(E);
 
       Visit(Callee);
-      for (auto Arg : E->arguments())
+      for (auto *Arg : E->arguments())
         HandleValue(Arg->IgnoreParenImpCasts(), false /*AddressOf*/);
     }
 
@@ -6701,7 +6715,7 @@ static bool canPassInRegisters(Sema &S, CXXRecordDecl *D,
     bool CopyCtorIsTrivial = false, CopyCtorIsTrivialForCall = false;
     bool DtorIsTrivialForCall = false;
 
-    // If a class has at least one non-deleted, trivial copy constructor, it
+    // If a class has at least one eligible, trivial copy constructor, it
     // is passed according to the C ABI. Otherwise, it is passed indirectly.
     //
     // Note: This permits classes with non-trivial copy or move ctors to be
@@ -6716,7 +6730,8 @@ static bool canPassInRegisters(Sema &S, CXXRecordDecl *D,
       }
     } else {
       for (const CXXConstructorDecl *CD : D->ctors()) {
-        if (CD->isCopyConstructor() && !CD->isDeleted()) {
+        if (CD->isCopyConstructor() && !CD->isDeleted() &&
+            !CD->isIneligibleOrNotSelected()) {
           if (CD->isTrivial())
             CopyCtorIsTrivial = true;
           if (CD->isTrivialForCall())
@@ -7036,7 +7051,8 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     // Define defaulted constexpr virtual functions that override a base class
     // function right away.
     // FIXME: We can defer doing this until the vtable is marked as used.
-    if (M->isDefaulted() && M->isConstexpr() && M->size_overridden_methods())
+    if (CSM != CXXInvalid && !M->isDeleted() && M->isDefaulted() &&
+        M->isConstexpr() && M->size_overridden_methods())
       DefineDefaultedFunction(*this, M, M->getLocation());
 
     if (!Incomplete)
@@ -15671,7 +15687,7 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
         ClassPattern->lookup(Field->getDeclName());
 
     FieldDecl *Pattern = nullptr;
-    for (auto L : Lookup) {
+    for (auto *L : Lookup) {
       if (isa<FieldDecl>(L)) {
         Pattern = cast<FieldDecl>(L);
         break;
@@ -16020,7 +16036,7 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
                   diag::err_operator_overload_static) << FnDecl->getDeclName();
   } else {
     bool ClassOrEnumParam = false;
-    for (auto Param : FnDecl->parameters()) {
+    for (auto *Param : FnDecl->parameters()) {
       QualType ParamType = Param->getType().getNonReferenceType();
       if (ParamType->isDependentType() || ParamType->isRecordType() ||
           ParamType->isEnumeralType()) {
@@ -16043,7 +16059,7 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
   // operator (CWG2507) allow default arguments.
   if (Op != OO_Call) {
     ParmVarDecl *FirstDefaultedParam = nullptr;
-    for (auto Param : FnDecl->parameters()) {
+    for (auto *Param : FnDecl->parameters()) {
       if (Param->hasDefaultArg()) {
         FirstDefaultedParam = Param;
         break;
@@ -16352,7 +16368,7 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
 
   // A parameter-declaration-clause containing a default argument is not
   // equivalent to any of the permitted forms.
-  for (auto Param : FnDecl->parameters()) {
+  for (auto *Param : FnDecl->parameters()) {
     if (Param->hasDefaultArg()) {
       Diag(Param->getDefaultArgRange().getBegin(),
            diag::err_literal_operator_default_argument)
@@ -18060,7 +18076,7 @@ bool Sema::DefineUsedVTables() {
       // definition.
       bool IsExplicitInstantiationDeclaration =
           ClassTSK == TSK_ExplicitInstantiationDeclaration;
-      for (auto R : Class->redecls()) {
+      for (auto *R : Class->redecls()) {
         TemplateSpecializationKind TSK
           = cast<CXXRecordDecl>(R)->getTemplateSpecializationKind();
         if (TSK == TSK_ExplicitInstantiationDeclaration)
@@ -18275,8 +18291,8 @@ void Sema::CheckDelegatingCtorCycles() {
   llvm::SmallPtrSet<CXXConstructorDecl*, 4> Valid, Invalid, Current;
 
   for (DelegatingCtorDeclsType::iterator
-         I = DelegatingCtorDecls.begin(ExternalSource),
-         E = DelegatingCtorDecls.end();
+           I = DelegatingCtorDecls.begin(ExternalSource.get()),
+           E = DelegatingCtorDecls.end();
        I != E; ++I)
     DelegatingCycleHelper(*I, Valid, Invalid, Current, *this);
 

@@ -435,6 +435,9 @@ def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
 def TargetWebAssembly : TargetArch<["wasm32", "wasm64"]>;
+def TargetWindows : TargetSpec {
+  let OSes = ["Win32"];
+}
 def TargetHasDLLImportExport : TargetSpec {
   let CustomCode = [{ Target.getTriple().hasDLLImportExport() }];
 }
@@ -654,6 +657,9 @@ class DeclOrTypeAttr : InheritableAttr;
 
 /// A attribute is either a declaration attribute or a statement attribute.
 class DeclOrStmtAttr : InheritableAttr;
+
+/// An attribute class for HLSL Annotations.
+class HLSLAnnotationAttr : InheritableAttr;
 
 /// A target-specific attribute.  This class is meant to be used as a mixin
 /// with InheritableAttr or Attr depending on the attribute's needs.
@@ -1283,17 +1289,17 @@ def HLSDevice : InheritableAttr {
 }
 // end INTEL_CUSTOMIZATION
 
-def SYCLDevice : InheritableAttr {
-  let Spellings = [GNU<"sycl_device">];
-  let Subjects = SubjectList<[Function]>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
-  let Documentation = [SYCLDeviceDocs];
-}
-
 def GlobalStorageNonLocalVar : SubsetSubject<Var,
                                              [{S->hasGlobalStorage() &&
                                                !S->isLocalVarDeclOrParm()}],
                                              "global variables">;
+
+def SYCLDevice : InheritableAttr {
+  let Spellings = [GNU<"sycl_device">];
+  let Subjects = SubjectList<[Function, GlobalStorageNonLocalVar]>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let Documentation = [SYCLDeviceDocs];
+}
 
 def SYCLGlobalVar : InheritableAttr {
   let Spellings = [GNU<"sycl_global_var">];
@@ -1315,6 +1321,23 @@ def SYCLSpecialClass: InheritableAttr {
   let Subjects = SubjectList<[CXXRecord]>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLSpecialClassDocs];
+}
+
+def SYCLType: InheritableAttr {
+  let Spellings = [CXX11<"__sycl_detail__", "sycl_type">];
+  let Subjects = SubjectList<[CXXRecord, Enum], ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Args = [EnumArgument<"Type", "SYCLType",
+                           ["accessor", "local_accessor", "spec_constant",
+                            "specialization_id", "kernel_handler", "buffer_location",
+                            "no_alias", "accessor_property_list", "group",
+                            "private_memory", "aspect"],
+                           ["accessor", "local_accessor", "spec_constant",
+                            "specialization_id", "kernel_handler", "buffer_location",
+                            "no_alias", "accessor_property_list", "group",
+                            "private_memory", "aspect"]>];
+  // Only used internally by SYCL implementation
+  let Documentation = [InternalOnly];
 }
 
 def SYCLDeviceHas : InheritableAttr {
@@ -2490,6 +2513,18 @@ def SYCLIntelFPGANofusion : StmtAttr {
   let Documentation = [SYCLIntelFPGANofusionAttrDocs];
 }
 
+def SYCLIntelFPGAMaxReinvocationDelay : StmtAttr {
+  let Spellings = [CXX11<"intel", "max_reinvocation_delay">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
+  let Args = [ExprArgument<"NExpr">];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let IsStmtDependent = 1;
+  let Documentation = [SYCLIntelFPGAMaxReinvocationDelayAttrDocs];
+}
+def : MutualExclusions<[SYCLIntelFPGADisableLoopPipelining,
+                        SYCLIntelFPGAMaxReinvocationDelay]>;
+
 def IntelFPGALocalNonConstVar : SubsetSubject<Var,
                               [{S->hasLocalStorage() &&
                                 S->getKind() != Decl::ImplicitParam &&
@@ -3064,6 +3099,13 @@ def NoThrow : InheritableAttr {
   let Spellings = [GCC<"nothrow">, Declspec<"nothrow">];
   let Subjects = SubjectList<[FunctionLike]>;
   let Documentation = [NoThrowDocs];
+}
+
+def NoUwtable : InheritableAttr {
+  let Spellings = [Clang<"nouwtable">];
+  let Subjects = SubjectList<[FunctionLike]>;
+  let Documentation = [NoUwtableDocs];
+  let SimpleHandler = 1;
 }
 
 def NvWeak : IgnoredAttr {
@@ -4512,10 +4554,10 @@ def MSAllocator : InheritableAttr {
   let Documentation = [MSAllocatorDocs];
 }
 
-def CFGuard : InheritableAttr {
+def CFGuard : InheritableAttr, TargetSpecificAttr<TargetWindows> {
   // Currently only the __declspec(guard(nocf)) modifier is supported. In future
   // we might also want to support __declspec(guard(suppress)).
-  let Spellings = [Declspec<"guard">];
+  let Spellings = [Declspec<"guard">, Clang<"guard">];
   let Subjects = SubjectList<[Function]>;
   let Args = [EnumArgument<"Guard", "GuardArg", ["nocf"], ["nocf"]>];
   let Documentation = [CFGuardDocs];
@@ -5136,7 +5178,7 @@ def HLSLNumThreads: InheritableAttr {
   let Documentation = [NumThreadsDocs];
 }
 
-def HLSLSV_GroupIndex: InheritableAttr {
+def HLSLSV_GroupIndex: HLSLAnnotationAttr {
   let Spellings = [HLSLSemantic<"SV_GroupIndex">];
   let Subjects = SubjectList<[ParmVar, GlobalVar]>;
   let LangOpts = [HLSL];

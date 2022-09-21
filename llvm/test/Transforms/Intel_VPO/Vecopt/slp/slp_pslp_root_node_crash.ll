@@ -54,11 +54,11 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; INTADV-NEXT:    [[DOTNEG321:%.*]] = sub i32 [[DOTNEG320]], [[I12]]
 ; INTADV-NEXT:    [[I26:%.*]] = add i32 [[DOTNEG321]], 50
 ; INTADV-NEXT:    [[TMP8:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP7]])
-; INTADV-NEXT:    [[OP_RDX:%.*]] = or i32 [[I24]], [[I26]]
-; INTADV-NEXT:    [[OP_RDX2:%.*]] = or i32 [[I10]], [[I14]]
-; INTADV-NEXT:    [[OP_RDX3:%.*]] = or i32 [[OP_RDX]], [[OP_RDX2]]
-; INTADV-NEXT:    [[OP_RDX4:%.*]] = or i32 [[OP_RDX3]], undef
-; INTADV-NEXT:    [[OP_RDX5:%.*]] = or i32 [[TMP8]], [[OP_RDX4]]
+; INTADV-NEXT:    [[OP_RDX:%.*]] = or i32 [[TMP8]], [[I24]]
+; INTADV-NEXT:    [[OP_RDX2:%.*]] = or i32 [[I26]], [[I10]]
+; INTADV-NEXT:    [[OP_RDX3:%.*]] = or i32 [[I14]], undef
+; INTADV-NEXT:    [[OP_RDX4:%.*]] = or i32 [[OP_RDX]], [[OP_RDX2]]
+; INTADV-NEXT:    [[OP_RDX5:%.*]] = or i32 [[OP_RDX4]], [[OP_RDX3]]
 ; INTADV-NEXT:    ret i32 [[OP_RDX5]]
 ;
 ; CHECK-LABEL: @foo(
@@ -97,11 +97,11 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; CHECK-NEXT:    [[DOTNEG321:%.*]] = sub i32 [[DOTNEG320]], [[I12]]
 ; CHECK-NEXT:    [[I26:%.*]] = add i32 [[DOTNEG321]], 50
 ; CHECK-NEXT:    [[TMP8:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP7]])
-; CHECK-NEXT:    [[OP_RDX:%.*]] = or i32 [[I24]], [[I26]]
-; CHECK-NEXT:    [[OP_RDX2:%.*]] = or i32 [[I10]], [[I14]]
-; CHECK-NEXT:    [[OP_RDX3:%.*]] = or i32 [[OP_RDX]], [[OP_RDX2]]
-; CHECK-NEXT:    [[OP_RDX4:%.*]] = or i32 [[OP_RDX3]], undef
-; CHECK-NEXT:    [[OP_RDX5:%.*]] = or i32 [[TMP8]], [[OP_RDX4]]
+; CHECK-NEXT:    [[OP_RDX:%.*]] = or i32 [[TMP8]], [[I24]]
+; CHECK-NEXT:    [[OP_RDX2:%.*]] = or i32 [[I26]], [[I10]]
+; CHECK-NEXT:    [[OP_RDX3:%.*]] = or i32 [[I14]], undef
+; CHECK-NEXT:    [[OP_RDX4:%.*]] = or i32 [[OP_RDX]], [[OP_RDX2]]
+; CHECK-NEXT:    [[OP_RDX5:%.*]] = or i32 [[OP_RDX4]], [[OP_RDX3]]
 ; CHECK-NEXT:    ret i32 [[OP_RDX5]]
 ;
 entry:

@@ -3076,9 +3076,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // keep one copy of each constant.
   MPM.addPass(ConstantMergePass());
 
-  // Remove unused arguments from functions.
-  MPM.addPass(DeadArgumentEliminationPass());
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   if (DTransEnabled) {
@@ -3089,6 +3086,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
+  // Remove unused arguments from functions.
+  MPM.addPass(DeadArgumentEliminationPass());
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through

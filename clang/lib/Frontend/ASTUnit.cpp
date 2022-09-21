@@ -722,7 +722,7 @@ void FilterAndStoreDiagnosticConsumer::HandleDiagnostic(
     }
 
     if (StandaloneDiags) {
-      llvm::Optional<StoredDiagnostic> StoredDiag = None;
+      llvm::Optional<StoredDiagnostic> StoredDiag;
       if (!ResultDiag) {
         StoredDiag.emplace(Level, Info);
         ResultDiag = StoredDiag.getPointer();

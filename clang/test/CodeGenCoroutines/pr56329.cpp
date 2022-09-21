@@ -5,6 +5,8 @@
 // becaues it trips on a getelementptr unexpectedly.
 // RUN: %clang_cc1 -no-opaque-pointers -triple %itanium_abi_triple -std=c++20 %s -O3 -S -emit-llvm -o - | FileCheck %s
 // end INTEL_CUSTOMIZATION
+// This test is expected to fail on PowerPC.
+// XFAIL: powerpc
 
 #include "Inputs/coroutine.h"
 

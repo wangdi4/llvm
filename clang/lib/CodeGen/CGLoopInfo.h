@@ -250,6 +250,8 @@ struct LoopAttributes {
   /// Value for count variant (min/max/avg) and count metadata.
   llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
       SYCLIntelFPGAVariantCount;
+  // Value for llvm.loop.intel.max_reinvocation_delay metadata.
+  llvm::Optional<unsigned> SYCLMaxReinvocationDelayNCycles;
 
   /// llvm.unroll.
   unsigned UnrollCount;
@@ -663,6 +665,11 @@ public:
 
   /// Set no progress for the next loop pushed.
   void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }
+
+  /// Set value of max reinvocation delay for the next loop pushed.
+  void setSYCLMaxReinvocationDelayNCycles(unsigned C) {
+    StagedAttrs.SYCLMaxReinvocationDelayNCycles = C;
+  }
 
 private:
   /// Returns true if there is LoopInfo on the stack.

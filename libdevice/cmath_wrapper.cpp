@@ -8,7 +8,7 @@
 
 #include "device_math.h"
 
-#ifdef __SPIR__
+#if defined(__SPIR__) || defined(__NVPTX__)
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -170,4 +170,4 @@ float atanhf(float x) { return __devicelib_atanhf(x); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-#endif // __SPIR__
+#endif // __SPIR__ || __NVPTX__

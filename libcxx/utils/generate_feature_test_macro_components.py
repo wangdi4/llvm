@@ -242,7 +242,7 @@ feature_test_macros = [ add_version_header(x) for x in [
     "headers": ["iterator"],
   }, {
     "name": "__cpp_lib_constexpr_memory",
-    "values": { "c++20": 201811 },
+    "values": { "c++20": 201811, "c++2b": 202202 },
     "headers": ["memory"],
   }, {
     "name": "__cpp_lib_constexpr_numeric",
@@ -322,6 +322,10 @@ feature_test_macros = [ add_version_header(x) for x in [
     "headers": ["format"],
     "test_suite_guard": "!defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_format) && !defined(_LIBCPP_HAS_NO_INCOMPLETE_FORMAT)",
     "libcxx_guard": "!defined(_LIBCPP_AVAILABILITY_DISABLE_FTM___cpp_lib_format) && !defined(_LIBCPP_HAS_NO_INCOMPLETE_FORMAT)",
+  }, {
+    "name": "__cpp_lib_forward_like",
+    "values": { "c++2b": 202207 },
+    "headers": ["utility"],
   }, {
     "name": "__cpp_lib_gcd_lcm",
     "values": { "c++17": 201606 },
@@ -526,8 +530,6 @@ feature_test_macros = [ add_version_header(x) for x in [
     "name": "__cpp_lib_ranges",
     "values": { "c++20": 201811 },
     "headers": ["algorithm", "functional", "iterator", "memory", "ranges"],
-    "test_suite_guard": "!defined(_LIBCPP_HAS_NO_INCOMPLETE_RANGES)",
-    "libcxx_guard": "!defined(_LIBCPP_HAS_NO_INCOMPLETE_RANGES)",
   }, {
     "name": "__cpp_lib_ranges_chunk",
     "values": { "c++2b": 202202 },
@@ -780,7 +782,6 @@ lit_markup = {
   "locale": ["UNSUPPORTED: no-localization"],
   "mutex": ["UNSUPPORTED: no-threads"],
   "ostream": ["UNSUPPORTED: no-localization"],
-  "ranges": ["UNSUPPORTED: libcpp-has-no-incomplete-ranges"],
   "regex": ["UNSUPPORTED: no-localization"],
   "semaphore": ["UNSUPPORTED: no-threads"],
   "shared_mutex": ["UNSUPPORTED: no-threads"],
@@ -985,7 +986,7 @@ test_types = {
 #   endif
 # else
 #   ifdef {name}
-#     error "{name} should not be defined when {test_suite_guard} is not defined!"
+#     error "{name} should not be defined when the requirement '{test_suite_guard}' is not met!"
 #   endif
 # endif
 """,
