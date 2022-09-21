@@ -182,6 +182,13 @@ public:
                              SmallVectorImpl<MCPhysReg> &Hints,
                              const MachineFunction &MF, const VirtRegMap *VRM,
                              const LiveRegMatrix *Matrix) const override;
+#if INTEL_CUSTOMIZATION
+  /// SrcRC and DstRC will be morphed into NewRC if this returns true
+  bool shouldCoalesce(MachineInstr *MI, const TargetRegisterClass *SrcRC,
+                      unsigned SubReg, const TargetRegisterClass *DstRC,
+                      unsigned DstSubReg, const TargetRegisterClass *NewRC,
+                      LiveIntervals &LIS) const override;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace
