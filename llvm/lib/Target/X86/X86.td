@@ -650,6 +650,18 @@ def FeatureAVX256P : SubtargetFeature<"avx256p", "HasAVX256P", "true",
                                       "Support AVX256P instructions",
                                       [FeatureAVX2, FeatureFMA, FeatureF16C]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+def FeatureAVX512NECONVERTFP8 :
+      SubtargetFeature<"avx512neconvertfp8", "HasAVX512NECONVERTFP8", "true",
+                       "Support AVX512-NE-CONVERT-FP8 instructions",
+                       [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+def FeatureAVX512VNNIFP8 :
+      SubtargetFeature<"avx512vnnifp8", "HasAVX512VNNIFP8", "true",
+                       "Support AVX512-VNNI-FP8 instructions",
+                       [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
 def FeatureINVPCID : SubtargetFeature<"invpcid", "HasINVPCID", "true",
                                       "Invalidate Process-Context Identifier">;

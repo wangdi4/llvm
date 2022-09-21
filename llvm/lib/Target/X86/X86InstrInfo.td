@@ -1304,6 +1304,12 @@ def HasAVX256P_Or_HasDQI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->has
 def HasAVX256P_Or_HasBWI_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasBWI()">;
 def HasAVX256P_Or_HasBWI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasBWI() && Subtarget->hasVLX())">;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+def HasAVX512NECONVERTFP8 : Predicate<"Subtarget->hasAVX512NECONVERTFP8()">;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
