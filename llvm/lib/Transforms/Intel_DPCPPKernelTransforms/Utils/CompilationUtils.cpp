@@ -176,7 +176,7 @@ const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
     "sub_group_insert_rowslice_to_matrix";
 } // namespace
 
-static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
+static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info", cl::Hidden,
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 

@@ -20,7 +20,8 @@ using namespace llvm;
 #define DEBUG_TYPE "dpcpp-kernel-builtin-info-analysis"
 
 static cl::list<std::string>
-    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
+    OptBuiltinModuleFiles("dpcpp-kernel-builtin-lib", cl::Hidden,
+                          cl::CommaSeparated,
                           cl::desc("Builtin declarations (bitcode) libraries"),
                           cl::value_desc("filename1,filename2"));
 
