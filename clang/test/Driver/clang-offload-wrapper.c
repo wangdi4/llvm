@@ -248,6 +248,6 @@
 
 // ELF-CONTAINER-WARNING-NOT: notes cannot be added
 // ELF-CONTAINER: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD
-// ELF-CONTAINER-SAME: LLVMOMPOFFLOAD\00\001.0{{.*}}LLVMOMPOFFLOAD\00\00Intel(R) oneAPI DPC++/C++ Compiler{{.*}}LLVMOMPOFFLOAD\00\00202{{[2-9]}}.{{[0-9]}}.0{{.*}}",
+// ELF-CONTAINER-SAME: LLVMOMPOFFLOAD\00\001.0{{.*}}LLVMOMPOFFLOAD\00\00Intel(R) oneAPI DPC++/C++ Compiler{{.*}}LLVMOMPOFFLOAD\00\00202{{[2-9]}}.{{[0-9]}}.{{[0-9]}}{{.*}}",
 // ELF-CONTAINER-SAME: section "__CLANG_OFFLOAD_BUNDLE__openmp-spirv"
 // end INTEL_CUSTOMIZATION
