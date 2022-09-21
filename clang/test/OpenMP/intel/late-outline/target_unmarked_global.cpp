@@ -42,4 +42,15 @@ void bar() {
     x[i] = z + 1; // Not an error, covered by map clauses (implicit and explicit).
   }
 }
+
+float f;
+
+void calc()
+{
+  f = 0.0;
+
+  // No error here. This use of 'f' is not in a target region.
+  #pragma omp target teams distribute parallel for simd reduction(+:f)
+  for (int i=1; i<=8; i++) {}
+}
 // end INTEL_COLLAB
