@@ -1752,8 +1752,9 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 #if INTEL_CUSTOMIZATION
     getInlineReport()->beginUpdate(CB);
     getInlineReport()->setReasonIsInlined(CB, InlrPreferPartialInline);
-    InlineResult IRR = InlineFunction(*CB, IFI, getInlineReport(),
-        nullptr, nullptr, true,
+    InlineResult IRR = InlineFunction(
+        *CB, IFI, getInlineReport(), nullptr, /*MergeAttributes=*/false,
+        nullptr, true,
         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first : nullptr));
     if (!IRR.isSuccess()) {
       InlineReason Reason = IRR.getIntelInlReason();

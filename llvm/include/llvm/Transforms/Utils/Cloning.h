@@ -268,10 +268,10 @@ public:
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             InlineReport *IR = nullptr,
                             InlineReportBuilder *MDIR = nullptr,
+                            bool MergeAttributes = false,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,
-                            Function *ForwardVarArgsTo = nullptr,
-                            bool MergeAttributes = false);
+                            Function *ForwardVarArgsTo = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p

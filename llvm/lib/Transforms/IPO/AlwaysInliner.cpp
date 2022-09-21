@@ -102,10 +102,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
 
 #if INTEL_CUSTOMIZATION
         InlineResult Res = InlineFunction(
-            *CB, IFI, getReport(), getMDReport(),
-            &FAM.getResult<AAManager>(F), InsertLifetime,
-            /*ForwardVarArgsTo=*/nullptr,
-            /*MergeAttributes=*/true);
+            *CB, IFI, getReport(), getMDReport(), /*MergeAttributes=*/true,
+            &FAM.getResult<AAManager>(F), InsertLifetime);
 #endif // INTEL_CUSTOMIZATION
         if (!Res.isSuccess()) {
           ORE.emit([&]() {
