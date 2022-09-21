@@ -1516,6 +1516,29 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
           Induction->getStepType(), Induction->getStepMultiplier()));
       Step = Builder.createMul(Induction->getStep(), VPStepMultiplier);
     }
+
+    // For non-pointer inductions, it's necessary to check to see if Step
+    // is the same type as Start (type of the induction phi) so that type
+    // mismatching can be avoided when creating the closed form expression
+    // for the induction and later when code gen emits new instructions based
+    // on these types. For pointer inductions, type matching isn't necessary
+    // because gep is generated and index is allowed to be a different type.
+    // An additional assumption is made that Step size is always <= to Start
+    // size because the induction Phi will be Start->getType() and this is the
+    // type for which all induction related instructions will be based upon.
+    if (!Ty->isPointerTy() && Step->getType() != Ty) {
+      assert(Start->getType()->getPrimitiveSizeInBits() >=
+             Step->getType()->getPrimitiveSizeInBits() &&
+             "Start type size should be >= Step type size");
+      // TODO: it would be nicer if we had type conversion interfaces similar
+      // to LLVM that can hide the type checking within the conversion
+      // routines, but we're somewhat limited for now. Thus, the simple type
+      // checking here.
+      if (Ty->isIntegerTy())
+        Step = Builder.createIntCast(Step, Ty);
+      else if (Ty->isFloatingPointTy())
+        Step = Builder.createFPCast(Step, Ty);
+    }
     VPInstruction *Init = Builder.create<VPInductionInit>(
         Name + ".ind.init", Start, Step, Induction->getStartVal(),
         Induction->getEndVal(), Opc);
