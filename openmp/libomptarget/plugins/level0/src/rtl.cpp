@@ -2253,6 +2253,30 @@ class MemAllocatorTy {
          BlockCapacity, PoolSizeMax);
     }
 
+    MemPoolTy(MemAllocatorTy *_Allocator) {
+      // Use fixed options
+      AllocKind = TARGET_ALLOC_DEVICE;
+      Allocator = _Allocator;
+      AllocMin = AllocUnit = 1024 << 6; // 64KB
+      AllocMax = 256 << 20; // 256 MB
+      BlockCapacity = 4;
+      PoolSize = 0;
+      PoolSizeMax = 1 << 30; // 1GB
+
+      auto MinSize = getBucketId(AllocMin);
+      auto MaxSize = getBucketId(AllocMax);
+      Buckets.resize(MaxSize - MinSize + 1);
+      BucketStats.resize(Buckets.size(), {0, 0});
+      for (size_t I = 0; I < Buckets.size(); I++) {
+        size_t ChunkSize = AllocMin << I;
+        BucketParams.emplace_back(ChunkSize, ChunkSize * BlockCapacity);
+      }
+
+      DP("Initialized reduction scratch pool for device " DPxMOD
+         ": AllocMin = %zu, AllocMax = %zu, PoolSizeMax = %zu\n",
+         DPxPTR(Allocator->Device), AllocMin, AllocMax, PoolSizeMax);
+    }
+
     void printUsage() {
       auto PrintNum = [](uint64_t Num) {
         if (Num > 1e9)
@@ -2260,27 +2284,35 @@ class MemAllocatorTy {
         else
           fprintf(stderr, "%11" PRIu64, Num);
       };
+
+      bool HasPoolAlloc = false;
+      for (auto &Stat : BucketStats) {
+        if (Stat.first > 0 || Stat.second > 0) {
+          HasPoolAlloc = true;
+          break;
+        }
+      }
+
       DP("MemPool usage for %s, device " DPxMOD "\n",
          ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Allocator->Device));
-      if (Allocator->Stats.count(AllocKind) > 0 &&
-          Allocator->Stats[AllocKind].NumAllocs[1] > 0) {
-        // Has allocation from pool
+
+      if (HasPoolAlloc) {
         DP("-- AllocMax=%zu(MB), Capacity=%" PRIu32
            ", PoolSizeMax=%zu(MB)\n", AllocMax >> 20, BlockCapacity,
            PoolSizeMax >> 20);
         DP("-- %18s:%11s%11s%11s\n", "", "NewAlloc", "Reuse", "Hit(%)");
+        for (auto I = 0; I < Buckets.size(); I++) {
+          auto &Stat = BucketStats[I];
+          if (Stat.first > 0 || Stat.second > 0) {
+            DP("-- Bucket[%10zu]:", BucketParams[I].first);
+            PrintNum(Stat.first);
+            PrintNum(Stat.second);
+            fprintf(stderr, "%11.2f\n",
+                    float(Stat.second) / float(Stat.first + Stat.second) * 100);
+          }
+        }
       } else {
         DP("-- Not used\n");
-      }
-      for (auto I = 0; I < Buckets.size(); I++) {
-        auto &Stat = BucketStats[I];
-        if (Stat.first > 0 || Stat.second > 0) {
-          DP("-- Bucket[%10zu]:", BucketParams[I].first);
-          PrintNum(Stat.first);
-          PrintNum(Stat.second);
-          fprintf(stderr, "%11.2f\n",
-                  float(Stat.second) / float(Stat.first + Stat.second) * 100);
-        }
       }
     }
 
@@ -2443,6 +2475,8 @@ class MemAllocatorTy {
   std::map<int32_t, MemStatTy> Stats;
   /// Map from allocation kind to memory pool
   std::map<int32_t, MemPoolTy> Pools;
+  /// Memory pool dedicated to reduction scratch space
+  std::unique_ptr<MemPoolTy> ReductionPool;
   /// Allocation information map
   MemAllocInfoMapTy AllocInfo;
   /// RTL-owned memory that needs to be freed automatically
@@ -2484,6 +2518,7 @@ public:
           Stats.emplace(std::piecewise_construct, std::forward_as_tuple(Kind),
                         std::tuple<>{});
       }
+      ReductionPool = std::make_unique<MemPoolTy>(this);
     }
   }
 
@@ -2494,6 +2529,7 @@ public:
       dealloc(M);
     // Release resources used in the pool
     Pools.clear();
+    ReductionPool.reset(nullptr);
     // Report memory usage if requested
     if (DebugLevel > 0) {
       for (auto &Stat : Stats) {
@@ -2545,7 +2581,7 @@ public:
     case TARGET_ALLOC_SHARED:
       CALL_ZE_RET_NULL(zeMemAllocShared, Context, &DeviceDesc, &HostDesc, Size,
                        Align, Device, &Mem);
-      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(Mem));
+      DP("Allocated a shared memory " DPxMOD "\n", DPxPTR(Mem));
       break;
     default:
       assert(0 && "Invalid target data allocation kind");
@@ -2558,8 +2594,8 @@ public:
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
-              bool UserAlloc = false, bool Owned = false,
-              uint32_t MemAdvice = UINT32_MAX) {
+              bool UserAlloc, bool Owned, uint32_t MemAdvice,
+              int32_t CachedPool) {
     assert((Kind == TARGET_ALLOC_DEVICE || Kind == TARGET_ALLOC_HOST ||
             Kind == TARGET_ALLOC_SHARED) &&
             "Unknown memory kind while allocating target memory");
@@ -2573,14 +2609,17 @@ public:
     void *Mem = nullptr;
     void *AllocBase = nullptr;
 
-    if (Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) {
+    if ((Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) || CachedPool) {
       // Pool is enabled for the allocation kind, and we do not use any memory
       // advice. We should avoid using pool if there is any meaningful memory
       // advice not to affect sibling allocation in the same block.
       if (Align > 0)
         AllocSize += (Align - 1);
       size_t PoolAllocSize = 0;
-      AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
+      if (CachedPool)
+        AllocBase = ReductionPool->alloc(AllocSize, PoolAllocSize);
+      else
+        AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
       if (AllocBase) {
         uintptr_t Base = (uintptr_t)AllocBase;
         if (Align > 0)
@@ -2619,8 +2658,12 @@ public:
       assert(Pools.count(Info.Kind) > 0 && "Inconsistent memory information\n");
       size_t DeallocSize = Pools[Info.Kind].dealloc(Info.Base);
       if (DeallocSize == 0) {
-        DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
-        return OFFLOAD_FAIL;
+        // Try cached scratch pool
+        DeallocSize = ReductionPool->dealloc(Info.Base);
+        if (DeallocSize == 0) {
+          DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
+          return OFFLOAD_FAIL;
+        }
       }
       log(0, DeallocSize, Info.Kind, true /* Pool */);
       return OFFLOAD_SUCCESS;
@@ -3070,7 +3113,7 @@ struct RTLDeviceInfoTy {
   /// Data alloc
   void *dataAlloc(int32_t DeviceId, size_t Size, size_t Align, int32_t Kind,
                   intptr_t Offset, bool UserAlloc, bool Owned = false,
-                  uint32_t MemAdvice = UINT32_MAX);
+                  uint32_t MemAdvice = UINT32_MAX, int32_t CachedPool = 0);
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
@@ -4596,7 +4639,8 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
 
 void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
                                  int32_t Kind, intptr_t Offset, bool UserAlloc,
-                                 bool Owned, uint32_t MemAdvice) {
+                                 bool Owned, uint32_t MemAdvice,
+                                 int32_t CachedPool) {
   ScopedTimerTy TM(DeviceId, "DataAlloc");
   DeviceId = getInternalDeviceId(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
@@ -4604,13 +4648,15 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
     if (UserAlloc)
       Kind = (Option.TargetAllocKind == TARGET_ALLOC_DEFAULT) ?
              TARGET_ALLOC_DEVICE : Option.TargetAllocKind;
+    else if (CachedPool)
+      Kind = TARGET_ALLOC_DEVICE;
     else
       Kind = AllocKinds[DeviceId];
   }
   auto &Allocator = (Kind == TARGET_ALLOC_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
   return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned,
-                         MemAdvice);
+                         MemAdvice, CachedPool);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
@@ -6265,7 +6311,7 @@ EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
 ///
 
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase) {
+                                void *HstBase, int32_t CachedPool) {
   intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   int64_t AllocSize = Size;
   if (Offset < 0) {
@@ -6281,7 +6327,8 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
       AllocSize = AbsOffset + 1;
   }
   return DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, TARGET_ALLOC_DEFAULT,
-                               Offset, false);
+                               Offset, false/* UserAlloc */, false/* Owned */,
+                               UINT32_MAX/* MemAdvice */, CachedPool);
 }
 
 void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {

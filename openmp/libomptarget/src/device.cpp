@@ -852,16 +852,17 @@ char *DeviceTy::getDeviceName(char *Buffer, size_t BufferMaxSize) {
 }
 
 void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
-                              void *HstPtrBase) {
+                              void *HstPtrBase, int32_t DedicatedPool) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
 #endif // INTEL_CUSTOMIZATION
-  void *Ret =
-      RTL->data_alloc_base
-          ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
-          : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
-                            TARGET_ALLOC_DEFAULT);
+  void *Ret = nullptr;
+  if (RTL->data_alloc_base)
+    Ret = RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase,
+                               DedicatedPool);
+  else
+    Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin, TARGET_ALLOC_DEFAULT);
 #if INTEL_CUSTOMIZATION
   XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
                                  CorrID);
