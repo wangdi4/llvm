@@ -358,17 +358,10 @@ static InlineResult inlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  InlineResult IR = InlineFunction(CB, IFI, IRep, MDIRep, &AAR,
-                                   InsertLifetime, /*ForwardVarArgsTo=*/nullptr,
-                                   /*MergeAttributes=*/true);
+  InlineResult IR = InlineFunction(
+      CB, IFI, IRep, MDIRep, /*MergeAttributes=*/true, &AAR, InsertLifetime);
 #endif // INTEL_CUSTOMIZATION
-=======
-  InlineResult IR =
-      InlineFunction(CB, IFI,
-                     /*MergeAttributes=*/true, &AAR, InsertLifetime);
->>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
   if (!IR.isSuccess())
     return IR;
 
@@ -1150,18 +1143,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
       InlineResult IR =
-<<<<<<< HEAD
-          InlineFunction(*CB, IFI, Report, MDReport,
-                         &FAM.getResult<AAManager>(*CB->getCaller()),
-                         /*InsertLifetime=*/true,
-                         /*ForwardVarArgsTo=*/nullptr,
-                         /*MergeAttributes=*/true);
-#endif // INTEL_CUSTOMIZATION
-
-=======
-          InlineFunction(*CB, IFI, /*MergeAttributes=*/true,
+          InlineFunction(*CB, IFI, Report, MDReport, /*MergeAttributes=*/true,
                          &FAM.getResult<AAManager>(*CB->getCaller()));
->>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
+#endif // INTEL_CUSTOMIZATION
       if (!IR.isSuccess()) {
         Advice->recordUnsuccessfulInlining(IR);
 #if INTEL_CUSTOMIZATION

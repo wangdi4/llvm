@@ -1749,23 +1749,17 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     InlineFunctionInfo IFI(nullptr, GetAssumptionCache, &PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     getInlineReport()->beginUpdate(CB);
     getInlineReport()->setReasonIsInlined(CB, InlrPreferPartialInline);
-    InlineResult IRR = InlineFunction(*CB, IFI, getInlineReport(),
-        nullptr, nullptr, true,
+    InlineResult IRR = InlineFunction(
+        *CB, IFI, getInlineReport(), nullptr, /*MergeAttributes=*/false,
+        nullptr, true,
         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first : nullptr));
     if (!IRR.isSuccess()) {
       InlineReason Reason = IRR.getIntelInlReason();
       getInlineReport()->setReasonNotInlined(CB, Reason);
       getInlineReport()->endUpdate();
-=======
-    if (!InlineFunction(*CB, IFI, /*MergeAttributes=*/false, nullptr, true,
-                        (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
-                                         : nullptr))
-             .isSuccess())
->>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
       continue;
     }
     getInlineReport()->inlineCallSite();

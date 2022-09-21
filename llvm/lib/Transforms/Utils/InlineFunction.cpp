@@ -145,9 +145,9 @@ static cl::opt<unsigned> InlinerAttributeWindow(
 namespace llvm {
 
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR, bool InsertLifetime,
-                            Function *ForwardVarArgsTo) {
-  return InlineFunction(CB, IFI, nullptr, nullptr, CalleeAAR, InsertLifetime,
+                            bool MergeAttributes, AAResults *CalleeAAR,
+                            bool InsertLifetime, Function *ForwardVarArgsTo) {
+  return InlineFunction(CB, IFI, nullptr, nullptr, MergeAttributes, CalleeAAR, InsertLifetime,
                         ForwardVarArgsTo);
 }
 
@@ -2319,12 +2319,9 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
 /// INTEL was not inlined at the call site.
 ///
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
-<<<<<<< HEAD
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
-=======
                                         bool MergeAttributes,
->>>>>>> 00874c48ea4d291908517afaab50d1dcbfb016c3
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
