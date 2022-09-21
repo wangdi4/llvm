@@ -83,6 +83,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
         HIRIfReversal.cpp
+        HIRMinMaxBlobToSelectPass.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp
