@@ -37,6 +37,12 @@ class KernelSet;
 class BitCodeContainer;
 class ObjectCodeContainer;
 
+enum CodeProfilingStatus : unsigned int {
+  PROFILING_NONE = 0x00,
+  PROFILING_CLANG = 0x01,
+  PROFILING_GCOV = 0x02,
+};
+
 class Program: public ICLDevBackendProgram_
 {
 public:
@@ -240,6 +246,8 @@ public:
 
     virtual llvm::orc::LLJIT* GetLLJIT() = 0;
 
+    virtual void LoadProfileLib() const = 0;
+
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
       return m_RuntimeService;
@@ -260,6 +268,17 @@ public:
      * Checks if this program has an object binary to be loaded from
      */
     bool HasCachedExecutable() const;
+
+    /// Set device code profiling status
+    void SetCodeProfilingStatus(unsigned int stats) {
+      m_codeProfilingStatus = stats;
+    }
+
+    /// Get device code profiling status
+    unsigned int GetCodeProfilingStatus(void) const {
+      return m_codeProfilingStatus;
+    }
+
     unsigned int m_binaryVersion;
 
 protected:
@@ -278,6 +297,8 @@ protected:
     std::vector<std::string> m_globalCtors;
     // Names of global dtors sorted by priority
     std::vector<std::string> m_globalDtors;
+    // Whether the device code enabled clang profiling or gcov
+    unsigned int m_codeProfilingStatus;
 
 private:
     // Disable copy ctor and assignment operator
