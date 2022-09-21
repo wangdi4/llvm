@@ -17,13 +17,13 @@
 #include <sstream>
 
 using namespace Intel::OpenCL::Utils;
-#include <fstream>
+#include <assert.h>
 #include <cstdlib>
 #include <cstring>
-#include <time.h>
-#include <assert.h>
-#include <unistd.h>
 #include <dirent.h>
+#include <fstream>
+#include <time.h>
+#include <unistd.h>
 
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
@@ -38,6 +38,7 @@ using namespace Intel::OpenCL::Utils;
 #include "cl_secure_string_linux.h"
 
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/Valgrind.h"
@@ -208,6 +209,20 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 	{
 		szModuleDir[0] = 0;
 	}
+}
+
+std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
+  char ModuleName[MAX_PATH];
+  GetModuleDirectory(ModuleName, MAX_PATH);
+  std::string BaseLibDir =
+    std::string(path::parent_path(path::parent_path(ModuleName)));
+
+  SmallString<128> P(BaseLibDir);
+
+  path::append(P, "clang", CLANG_VERSION_STRING, "lib",
+               llvm::sys::getDefaultTargetTriple());
+
+  return std::string(P.str());
 }
 
 int CharToHexDigit(char c)
