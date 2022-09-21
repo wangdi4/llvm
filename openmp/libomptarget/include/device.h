@@ -461,7 +461,8 @@ struct DeviceTy {
 #if INTEL_COLLAB
   int32_t manifestDataForRegion(void *TgtEntryPtr);
   char *getDeviceName(char *Buffer, size_t BufferMaxSize);
-  void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
+  void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase,
+                      int32_t DedicatedPool = 0);
   int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,
