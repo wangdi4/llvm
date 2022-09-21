@@ -7774,20 +7774,12 @@ private:
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       DevPointersMap;
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> 48ffd40ba295f2cb194237737d9c378348c7b1c9
   /// Map between device addr declarations and their expression components.
   /// The key value for declarations in 'this' is null.
   llvm::DenseMap<
       const ValueDecl *,
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       HasDevAddrsMap;
-<<<<<<< HEAD
-#endif  // INTEL_COLLAB
-=======
->>>>>>> 48ffd40ba295f2cb194237737d9c378348c7b1c9
 
   /// Map between lambda declarations and their map type.
   llvm::DenseMap<const ValueDecl *, const OMPMapClause *> LambdasMap;
