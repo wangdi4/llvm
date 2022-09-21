@@ -27,7 +27,7 @@ using namespace CompilationUtils;
 #define DEBUG_TYPE "dpcpp-kernel-builtin-import"
 
 static cl::opt<std::string>
-    OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::init(""),
+    OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::Hidden, cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
 
 namespace {

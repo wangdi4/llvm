@@ -31,7 +31,7 @@
 using namespace llvm;
 
 cl::list<std::string>
-    DPCPPSpecConstantOpt("dpcpp-spec-constant",
+    DPCPPSpecConstantOpt("dpcpp-spec-constant", cl::Hidden,
                          cl::desc("Specialize specific constant."),
                          cl::value_desc("id:type:value"));
 
