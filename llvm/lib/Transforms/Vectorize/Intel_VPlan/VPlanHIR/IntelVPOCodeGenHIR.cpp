@@ -4374,14 +4374,27 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                                                TripCnt);
           addInstUnmasked(TripInst);
         }
-        assert(TripCnt->getSrcType() == Step->getSrcType() &&
-               "Trip count type must be equal to step type.");
+
+        // If types of step and trip count don't match, then an additional cast
+        // is needed.
+        Type *StepType = Step->getSrcType();
+        if (TripCnt->getSrcType() != StepType) {
+          auto *TCTyUndef = UndefValue::get(TripCnt->getDestType());
+          Instruction::CastOps CastOp = CastInst::getCastOpcode(
+              TCTyUndef, true /*SrcIsSigned*/, StepType, true /*DestIsSigned*/);
+          TripInst = HLNodeUtilities.createCastHLInst(StepType, CastOp, TripCnt,
+                                                      "cast.crd");
+          addInstUnmasked(TripInst);
+          TripCnt = TripInst->getLvalDDRef();
+        }
+
         RegDDRef *MulRef;
         if (Step->isIntConstant(&StepConst) && StepConst == 1) {
           MulRef = TripCnt;
         } else {
           HLInst *MulInst = HLNodeUtilities.createBinaryHLInst(
-              static_cast<Instruction::BinaryOps>(StepOpc), Step, TripCnt);
+              static_cast<Instruction::BinaryOps>(StepOpc), Step,
+              TripCnt->clone());
           addInstUnmasked(MulInst);
           MulRef = MulInst->getLvalDDRef()->clone();
         }
