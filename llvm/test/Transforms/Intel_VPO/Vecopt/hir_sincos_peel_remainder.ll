@@ -31,7 +31,7 @@
 ; RUN:   -disable-output -print-after=hir-vplan-vec 2>&1 | FileCheck %s --check-prefix=LIB
 
 ; LIB-LABEL: + DO i1 = {{.*}} <vector-peel>
-; LIB:       |   [[RES:%.*]] = @__svml_sincos4({{.*}});
+; LIB:       |   [[RES:%.*]] = @__svml_sincos1({{.*}});
 ; LIB-NEXT:  |   [[SIN_V:%sincos.sin[0-9]*]] = extractvalue [[RES]], 0;
 ; LIB-NEXT:  |   [[COS_V:%sincos.cos[0-9]*]] = extractvalue [[RES]], 1;
 ; LIB-NEXT:  |   [[SIN:%.*]] = extractelement [[SIN_V]], 0;
@@ -57,7 +57,7 @@
 ; LIB-NEXT:  + END LOOP
 
 ; LIB-LABEL: + DO i1 = {{.*}} <vector-remainder>
-; LIB:       |   [[RES:%.*]] = @__svml_sincos4({{.*}});
+; LIB:       |   [[RES:%.*]] = @__svml_sincos1({{.*}});
 ; LIB-NEXT:  |   [[SIN_V:%sincos.sin[0-9]*]] = extractvalue [[RES]], 0;
 ; LIB-NEXT:  |   [[COS_V:%sincos.cos[0-9]*]] = extractvalue [[RES]], 1;
 ; LIB-NEXT:  |   [[SIN:%.*]] = extractelement [[SIN_V]], 0;

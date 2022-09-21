@@ -119,6 +119,8 @@ typedef void*                            CONDITION_VAR;
 
 #define OS_DLL_POST(fileName) ((fileName) + ".dll")
 
+#define PROFILE_LIB_NAME "clang_rt.profile-x86_64.lib"
+
 // -----------------------------------------------------------
 //         Linux
 // -----------------------------------------------------------
@@ -256,6 +258,8 @@ typedef cpu_set_t                      affinityMask_t;
 
 #define IsPowerOf2(x)                   (__builtin_popcount((x)) == 1)
 
+#define PROFILE_LIB_NAME "libclang_rt.profile.a"
+
 #endif
 
 // Define compiler static assert
@@ -269,3 +273,4 @@ typedef cpu_set_t                      affinityMask_t;
 #define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what)              &  ((size_t)(alignment) - 1))))
 #define ALIGN_DOWN( what, alignment )    ((size_t)(what)                     & ~((size_t)(alignment) - 1))
 #define ALIGN_UP( what, alignment )      ((size_t)((what) + (alignment) - 1) & ~((size_t)(alignment) - 1))
+

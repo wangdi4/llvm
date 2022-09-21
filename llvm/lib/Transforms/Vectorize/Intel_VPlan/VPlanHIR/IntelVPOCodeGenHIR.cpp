@@ -1575,6 +1575,12 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
   if (VectorizedLibraryCalls.count(Call)) {
     assert(TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF)) &&
            "non-vectorizable call vectorized in main loop?");
+    // SVML provides VL = 1 variant of vector functions for usage in remainder
+    // loops. These functions run lighter instructions, don't require broadcast
+    // and are better choice when available.
+    unsigned RemainderLibCallVF =
+        TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(1)) ? 1
+                                                                       : MaxVF;
 
     // TODO: Call is vectorized in scalar remainder loop, currently ignored
     // since we don't have corresponding VPLoop.
@@ -1602,7 +1608,7 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
       RegDDRef *Ref = *It;
 
       // The resulting type of the widened ref/broadcast.
-      auto VecDestTy = getWidenedType(Ref->getDestType(), MaxVF);
+      auto VecDestTy = getWidenedType(Ref->getDestType(), RemainderLibCallVF);
 
       RegDDRef *WideRef = nullptr;
       HLInst *LoadInst = nullptr;
@@ -1643,7 +1649,8 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF = getOrInsertVectorLibFunction(
-        F, MaxVF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
+        F, RemainderLibCallVF, ArgTys, TLI, Intrinsic::not_intrinsic,
+        false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
     FastMathFlags FMF =

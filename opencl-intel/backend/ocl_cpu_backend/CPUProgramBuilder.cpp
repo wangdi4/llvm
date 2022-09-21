@@ -389,6 +389,11 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram) const
         const llvm::DataLayout &DL = spModule->getDataLayout();
         for (auto &GV : spModule->globals())
         {
+            // If there is a global variable like '__llvm_gcov_ctr.x', it means
+            // that the code was built with profiling enabled.
+            if (GV.getName().contains("__llvm_gcov_ctr"))
+                pProgram->SetCodeProfilingStatus(PROFILING_GCOV);
+
             llvm::PointerType *PT = GV.getType();
             unsigned AS = PT->getAddressSpace();
             if (!IS_ADDR_SPACE_GLOBAL(AS) && !IS_ADDR_SPACE_CONSTANT(AS))
@@ -444,7 +449,12 @@ void CPUProgramBuilder::JitProcessing(
           (static_cast<CPUProgram *>(program))->getLLJITLogStream(),
           "JIT session error: ");
     });
+
     program->SetLLJIT(std::move(LLJIT));
+
+    // Load clang profile library if the code was built with profiling
+    if (program->GetCodeProfilingStatus() != PROFILING_NONE)
+      program->LoadProfileLib();
   }
 
   // Check if we are going to do injection

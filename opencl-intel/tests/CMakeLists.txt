@@ -25,6 +25,7 @@ endif()
 
 set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
 set(GTEST_INCLUDE_DIR "${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include")
+set(CLANG_LIBRARY_DIR "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION}/lib/${LLVM_TARGET_TRIPLE}")
 
 include(itt)
 
