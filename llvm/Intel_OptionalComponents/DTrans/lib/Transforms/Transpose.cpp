@@ -179,44 +179,47 @@ public:
   //   are done on the dope vector elements.
   //
   bool analyzeGlobalVar(const DataLayout &DL) {
+
+    using VecPair = SmallVector<std::pair<Value *, User *>, 8>;
+
+    // Collect pairs of base values and users for analysis.
+    // Skip through GEP(X,0,0)s as they may not be present for
+    // opaque pointers.
+    auto CollectPairs = [](GlobalVariable *GV,
+                           VecPair &Pairs) -> bool {
+      for (auto *U : GV->users()) {
+        if (auto *GepOp = dyn_cast<GEPOperator>(U)) {
+          if (GepOp->hasAllZeroIndices()) {
+            for (auto *UU : GepOp->users())
+              Pairs.push_back({GepOp, UU});
+          } else {
+            return false;
+          }
+        } else {
+          Pairs.push_back({GV, U});
+        }
+      }
+      return true;
+    };
+
     DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                     dbgs() << "\nAnalyzing variable: " << *GV << "\n");
 
-    // Check all the direct uses of the global. This loop will also collect
-    // the functions that take a dope vector which need to be checked.
     IsValid = true;
-    for (auto *U : GV->users()) {
-      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
-                      dbgs() << "Checking global var use: " << *U << "\n");
-
-      // Uses of the global should be in the form of a GEP operator which should
-      // only be getting the base address of the array. For example:
-      //   i32* getelementptr ([9 x [9 x i32]],
-      //                       [9 x [9 x i32]]* @var1, i64 0, i64 0, i64 0)
-
-      auto *GepOp = dyn_cast<GEPOperator>(U);
-      if (!GepOp) {
-        DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
-                        dbgs() << "  Invalid: Unsupported instruction: " << *U
-                               << "\n");
-        IsValid = false;
-        break;
-      }
-
-      if (!GepOp->hasAllZeroIndices()) {
-        DEBUG_WITH_TYPE(
-            DEBUG_ANALYSIS,
-            dbgs() << "  Invalid: Global variable GEP not getting base "
-                      "pointer address\n");
-        IsValid = false;
-        break;
-      }
-
-      // Now check the users of the pointer address for safety
-      for (auto *GepOpUser : GepOp->users()) {
+    VecPair Pairs;
+    // Collect up the uses GV, skipping past GEP(X,0,0) cases. This loop will
+    // also collect the functions that take a dope vector which need to be
+    // checked.
+    if (!CollectPairs(GV, Pairs)) {
+      IsValid = false;
+    } else {
+      for (auto Pair : Pairs) {
+        Value *Base = Pair.first;
+        User *U = Pair.second;
+        // Now check the users of the pointer address for safety
         DEBUG_WITH_TYPE(DEBUG_ANALYSIS, {
-          dbgs() << "  Checking global var address use: " << *GepOpUser << "\n";
-          if (auto *I = dyn_cast<Instruction>(GepOpUser))
+          dbgs() << "  Checking global var address use: " << *U << "\n";
+          if (auto *I = dyn_cast<Instruction>(U))
             dbgs() << "  in function: "
                    << I->getParent()->getParent()->getName() << "\n";
         });
@@ -226,14 +229,14 @@ public:
         // This could be extended in the future to allow other CallInst that
         // take the address without a dope vector, but that is not needed for
         // the case of interest, at the moment.
-        if (auto *Subs = dyn_cast<SubscriptInst>(GepOpUser)) {
+        if (auto *Subs = dyn_cast<SubscriptInst>(U)) {
           // The global variable should only be accessed with a subscript call
           // that uses the rank of the variable, and the array should only be
           // using default values for the lower bound and stride, rather than a
           // user defined value for the lower bound. It should not be required
           // for the transform, but it avoids cases such as:
           //     integer :: my_array(2:10, 9, 11:19)
-          if (!isValidUseOfSubscriptForGlobal(*Subs, *GepOp)) {
+          if (!isValidUseOfSubscriptForGlobal(*Subs, *Base)) {
             DEBUG_WITH_TYPE(
                 DEBUG_ANALYSIS,
                 dbgs() << "  Invalid: Subscript call values not supported\n");
@@ -245,10 +248,10 @@ public:
           // Save the subscript call because we will need this for computing
           // profitability and transforming the arguments later.
           SubscriptCalls.insert(Subs);
-        } else if (auto *SI = dyn_cast<StoreInst>(GepOpUser)) {
+        } else if (auto *SI = dyn_cast<StoreInst>(U)) {
           // The only case the address of the variable may be saved is into a
           // dope vector, check that case here.
-          if (!isValidStoreForGlobal(*SI, GepOp, DL)) {
+          if (!isValidStoreForGlobal(*SI, Base, DL)) {
             DEBUG_WITH_TYPE(
                 DEBUG_ANALYSIS,
                 dbgs()
@@ -260,7 +263,7 @@ public:
         } else {
           // Other uses are not allowed.
           DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
-                          dbgs() << "Unsupported use of global: " << *GepOpUser
+                          dbgs() << "Unsupported use of global: " << *U
                                  << "\n");
           IsValid = false;
           break;
@@ -455,7 +458,7 @@ public:
     uint32_t ArRank;
     Type *ElemType;
     return llvm::dvanalysis::isDopeVectorType(Ty, DL, &ArRank, &ElemType)
-        && ArRank == ArrayRank && ElemType == ElementType;
+        && ArRank == ArrayRank && (!ElemType || ElemType == ElementType);
   }
 
   // A dope vector passed to a function is allowed to have the following uses:
@@ -1125,11 +1128,6 @@ public:
                 GetLI(GetLI), GetTLI(GetTLI) {}
 
   bool run(Module &M) {
-    // TODO: If opaque pointers are enabled then return false. Dope vector
-    // analysis is disabled for this case.
-    if (!M.getContext().supportsTypedPointers())
-      return false;
-
     const DataLayout &DL = M.getDataLayout();
 
     IdentifyCandidates(M);
@@ -1462,10 +1460,6 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool TransposePass::runImpl(Module &M, TransposeLoopInfoFuncType GetLI,
                             dtrans::TransposeTLIType GetTLI) {
-  if (dtrans::shouldRunOpaquePointerPasses(M)) {
-    LLVM_DEBUG(dbgs() << "Transpose inhibited: opaque pointer passes in use\n");
-    return false;
-  }
   TransposeImpl Transpose(GetLI, GetTLI);
   return Transpose.run(M);
 }
