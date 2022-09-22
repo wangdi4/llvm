@@ -53,11 +53,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
-<<<<<<< HEAD
 #include "llvm/IR/IRBuilder.h"
-=======
 #include "llvm/IR/Dominators.h"
->>>>>>> a4cc215190dcdefc9ad97af8fcd96bb891a94677
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -712,13 +709,9 @@ template <class PassClass> bool runModulePass(Module &M) {
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
 bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
 #endif // INTEL_CUSTOMIZATION
-  legacy::PassManager MPM;
-  MPM.add(createSYCLLowerESIMDPass());
-=======
   LoopAnalysisManager LAM;
   CGSCCAnalysisManager CGAM;
   FunctionAnalysisManager FAM;
@@ -734,7 +727,6 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
   ModulePassManager MPM;
   MPM.addPass(SYCLLowerESIMDPass{});
 
->>>>>>> a4cc215190dcdefc9ad97af8fcd96bb891a94677
   if (!OptLevelO0) {
     // Force-inline all functions marked 'alwaysinline' by the LowerESIMD pass.
     MPM.addPass(AlwaysInlinerPass{});
