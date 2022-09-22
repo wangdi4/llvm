@@ -159,9 +159,9 @@ static cl::opt<bool> PutInteropAfterVararg(
 
 // Control data prefetch API generation
 static cl::opt<uint32_t> DataPrefetchKind(
-    "vpo-paropt-data-prefetch-kind", cl::Hidden, cl::init(2),
+    "vpo-paropt-data-prefetch-kind", cl::Hidden, cl::init(1),
     cl::desc("Control prefetch API generation in OpenMP code. 0 = none; "
-             "1 = lsc_prefetch; 2 (default) = OpenCL_prefetch."));
+             "1 (default) = lsc_prefetch; 2 = OpenCL_prefetch."));
 
 // Switch to control memory address-space setting for device.
 static cl::opt<uint32_t> DeviceMemoryKind(
