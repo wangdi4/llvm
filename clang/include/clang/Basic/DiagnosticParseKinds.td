@@ -323,6 +323,7 @@ def note_missing_selector_name : Note<
 def note_force_empty_selector_name : Note<
   "or insert whitespace before ':' to use %0 as parameter name "
   "and have an empty entry in the selector">;
+<<<<<<< HEAD
 def err_switch_label_end_of_compound_statement : Error<
   "label at end of switch compound statement: expected statement">;
 // if INTEL_CUSTOMIZATION
@@ -330,6 +331,8 @@ def err_switch_label_end_of_compound_statement : Error<
 def warn_switch_label_end_of_compound_statement :
   Warning<err_switch_label_end_of_compound_statement.Text>, InGroup<IntelCompat>;
 // endif INTEL_CUSTOMIZATION
+=======
+>>>>>>> 3285f9a2392fd6bc79241b1e97b124079553e48d
 def ext_c_label_end_of_compound_statement : ExtWarn<
   "label at end of compound statement is a C2x extension">,
    InGroup<C2x>;
