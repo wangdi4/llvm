@@ -57,7 +57,9 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @realloc(ptr "intel_dtrans_func_index"="2", i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @realloc(ptr "intel_dtrans_func_index"="2", i64) #0
+
+attributes #0 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

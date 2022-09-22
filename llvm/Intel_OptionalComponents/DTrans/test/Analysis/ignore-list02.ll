@@ -13,7 +13,7 @@
 %__DFDT__struct.str = type { i32, i32 }
 @b.str = internal unnamed_addr global %__DFDT__struct.str zeroinitializer
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
 define %__DFDT__struct.str* @main() {
   %1 = tail call noalias i8* @malloc(i64 10)
@@ -22,6 +22,7 @@ define %__DFDT__struct.str* @main() {
   ret %__DFDT__struct.str* %s
 }
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: dtrans-nosafetychecks-list:
 ; CHECK-NEXT:        Adding   'fsv:mystruct'

@@ -84,16 +84,13 @@ $_ZTS2Ex = comdat any
 $_ZTI2Ex = comdat any
 
 declare dso_local void @_ZNSt9bad_allocD1Ev(%struct.bad_alloc*) unnamed_addr
-
 declare dso_local nonnull i8* @_ZNKSt9bad_alloc4whatEv(%struct.bad_alloc*) unnamed_addr
-
 declare dso_local void @_ZNSt9bad_allocD0Ev(%struct.bad_alloc*) unnamed_addr
-
 declare dso_local noalias nonnull i8* @__cxa_allocate_exception(i64) local_unnamed_addr
-
 declare dso_local void @__cxa_throw(i8*, i8*, i8*) local_unnamed_addr
+declare noalias i8* @malloc(i64) #0
 
-declare noalias i8* @malloc(i64)
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK-LABEL:  LLVMType: %struct.bad = type { i32, i32 }
 ; CHECK:  Name: struct.bad

@@ -147,8 +147,8 @@ eh.resume:                                        ; preds = %catch.dispatch
   resume { i8*, i32 } %lpad.val5
 }
 
-;malloc: declare i8* @malloc(i64)
-;malloc-exc: declare i8* @malloc(i64)
+;malloc: declare i8* @malloc(i64) #0
+;malloc-exc: declare i8* @malloc(i64) #0
 ;new64: declare i8* @_Znam(i64)
 ;new64nt: declare i8* @_ZnwmRKSt9nothrow_t(i64, %"struct.std::nothrow_t"*)
 
@@ -161,3 +161,5 @@ declare i32 @llvm.eh.typeid.for(i8*)
 declare i8* @__cxa_begin_catch(i8*)
 
 declare void @__cxa_end_catch()
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

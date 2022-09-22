@@ -15,7 +15,8 @@
 @mysavestack = external dso_local global ptr, align 8
 @mysavestack_max = external dso_local global i32, align 4
 
-declare noalias ptr @realloc(ptr, i64)
+;declare noalias ptr @realloc(ptr, i64) #0
+declare noalias ptr @realloc(ptr allocptr, i64) #0
 
 define internal noalias ptr @myalloc(ptr, i64) {
   %t0 = tail call ptr @realloc(ptr nonnull %0, i64 %1)
@@ -42,6 +43,8 @@ define dso_local i32 @main() {
   tail call void @mysavestackgrow()
   ret i32 0
 }
+
+attributes #0 = { inaccessiblemem_or_argmemonly mustprogress nounwind willreturn allockind("realloc") allocsize(1) "alloc-family"="malloc" "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 ; CHECK-OLD: COMPILE FUNC: mysavestackgrow
 ; CHECK-OLD: COMPILE FUNC: main

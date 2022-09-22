@@ -67,8 +67,11 @@ define i32 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !in
 ; CHECK: %ra2 = call {{.*}} @realloc({{.*}} %ra1, i64 %sz)
 ; CHECK: icmp eq i32 128, %mul
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @realloc(i8* "intel_dtrans_func_index"="2", i64)
-declare !intel.dtrans.func.type !9 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @realloc(i8* "intel_dtrans_func_index"="2", i64) #0
+declare !intel.dtrans.func.type !9 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

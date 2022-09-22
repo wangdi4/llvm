@@ -230,7 +230,7 @@ bool ArrayTransposeImpl::collectMallocCalls(void) {
   // Returns true if "CInst" is a valid candidate array.
   auto IsCandidateMalloc = [this](CallInst *CInst, const TargetLibraryInfo *TLI,
                                   LoopInfo *LI, Function &F) {
-    if (!isMallocLikeFn(CInst, TLI))
+    if (!IntelMemoryBuiltins::isMallocLikeFn(CInst, TLI))
       return false;
     auto CI = dyn_cast<ConstantInt>(CInst->getArgOperand(0));
     if (!CI)

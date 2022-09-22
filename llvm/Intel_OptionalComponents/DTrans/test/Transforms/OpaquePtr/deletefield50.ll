@@ -48,8 +48,11 @@ define double @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1"
 ; CHECK:   %valB1 = load double, double* %p_test_B1, align 8
 ; CHECK:   %valB2 = load double, double* %p_test_B2, align 8
 
-declare !intel.dtrans.func.type !9 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef)
-declare !intel.dtrans.func.type !10 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #16
+declare !intel.dtrans.func.type !9 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef) #0
+declare !intel.dtrans.func.type !10 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{!"A", i32 3, !2}  ; [3 x double]
 !2 = !{double 0.0e+00, i32 0}  ; double

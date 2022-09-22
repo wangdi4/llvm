@@ -172,15 +172,20 @@ define void @test07f() {
 ; CHECK: End LLVMType: %struct.test07
 
 
-declare !intel.dtrans.func.type !21 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !22 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
-declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" i8* @realloc(i8* "intel_dtrans_func_index"="2", i64)
-declare !intel.dtrans.func.type !24 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !21 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !22 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #1
+declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" i8* @realloc(i8* "intel_dtrans_func_index"="2", i64) #2
+declare !intel.dtrans.func.type !24 void @free(i8* "intel_dtrans_func_index"="1") #3
 
 declare !intel.dtrans.func.type !25 "intel_dtrans_func_index"="1" i8* @_Znwm(i64) ; new(unsigned long)
 declare !intel.dtrans.func.type !26 void @_ZdlPv(i8* "intel_dtrans_func_index"="1") ; delete(void*)
 declare !intel.dtrans.func.type !27 "intel_dtrans_func_index"="1" i8* @_Znam(i64) ;  new[](unsigned long)
 declare !intel.dtrans.func.type !28 void @_ZdaPv(i8* "intel_dtrans_func_index"="1") ; delete(void*)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #2 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }
+attributes #3 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test00 zeroinitializer, i32 2}  ; %struct.test00**

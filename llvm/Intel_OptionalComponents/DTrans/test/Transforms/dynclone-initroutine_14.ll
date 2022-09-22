@@ -47,5 +47,8 @@ define i32 @main() {
 }
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @calloc(i64, i64)
-declare dso_local void @free(i8*)
+declare dso_local noalias i8* @calloc(i64, i64) #0
+declare dso_local void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

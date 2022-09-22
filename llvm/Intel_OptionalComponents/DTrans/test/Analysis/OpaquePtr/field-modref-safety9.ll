@@ -70,7 +70,9 @@ define void @filter01b(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel
 }
 
 declare !intel.dtrans.func.type !14 !callback !0 void @broker(void (%struct.test01*)* "intel_dtrans_func_index"="1", void (%struct.test01*)* "intel_dtrans_func_index"="2", void (i32*, i32*, ...)* "intel_dtrans_func_index"="3", ...)
-declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: ModRef candidate structures after analysis:
 ; CHECK-LABEL: LLVMType: %struct.test01

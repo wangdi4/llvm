@@ -608,7 +608,7 @@ isValidAllocSite(Value *AllocSite,
 
     const TargetLibraryInfo TLI = GetTLI(*Callee);
     // TODO: Maybe in a future we might want to extend this for malloc
-    if (isCallocLikeFn(AllocSite, &TLI)) {
+    if (IntelMemoryBuiltins::isCallocLikeFn(AllocSite, &TLI)) {
       assert((CallSite->arg_size() == 2) && "Calloc uses exactly 2 arguments");
 
       ConstantInt *SecondArg =
@@ -875,7 +875,7 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       Value *Val = LI->getPointerOperand();
       if (auto *BC = dyn_cast<BitCastInst>(Val))
         Val = BC->getOperand(0);
-      if (!isMallocLikeFn(Val, GetTLI))
+      if (!IntelMemoryBuiltins::isMallocLikeFn(Val, &GetTLI(*(LI->getFunction()))))
         return false;
 
       auto *CI = cast<CallInst>(Val);

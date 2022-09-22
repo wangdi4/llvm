@@ -544,4 +544,6 @@ define void @test26(%array.test26* %a) {
 ; CHECK: Safety data: Unhandled use
 
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

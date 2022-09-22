@@ -61,5 +61,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-NOT: store i64 3, i64* %p_test_B
 
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

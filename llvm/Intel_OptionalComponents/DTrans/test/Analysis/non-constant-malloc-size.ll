@@ -79,7 +79,7 @@ define dso_local void @foo6(i64 %n) {
   ret void
 }
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #1
 
 define dso_local i32 @bar1() local_unnamed_addr #0 {
   entry:
@@ -103,6 +103,8 @@ define dso_local i32 @bar2() local_unnamed_addr #0 {
   call void @foo6(i64 2)
   ret i32 0
 }
+
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK:  LLVMType: %struct.S1 = type { i32 }
 ; CHECK:  Safety data: Bad alloc size

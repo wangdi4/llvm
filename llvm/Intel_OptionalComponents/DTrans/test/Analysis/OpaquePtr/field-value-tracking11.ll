@@ -38,7 +38,9 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02(i64 %n) !intel.dtra
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{float 0.0e+00, i32 0}  ; float

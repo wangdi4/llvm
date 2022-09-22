@@ -39,9 +39,10 @@ define void @test(i64 %in) {
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct._ZTS10KernelInfo.KernelInfo
 
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 declare !intel.dtrans.func.type !8 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1 immarg)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64
