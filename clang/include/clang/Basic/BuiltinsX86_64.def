@@ -172,9 +172,9 @@ TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
 TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_BF8
-TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-bf8")
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
+TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 TARGET_BUILTIN(__builtin_ia32_tmovadvise_load, "vIUcvC*zIc", "n", "amx-memadvise")
