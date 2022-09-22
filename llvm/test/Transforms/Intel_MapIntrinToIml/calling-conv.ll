@@ -26,7 +26,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sin4_512
-; CHECK: {{.*}} = call svml_avx_cc <4 x double> @__svml_sin4_ha_z0(<4 x double> {{.*}})
+; CHECK: {{.*}} = call svml_avx_avx_impl_cc <4 x double> @__svml_sin4_ha_l9(<4 x double> {{.*}})
 
 define <4 x double> @test_sin4_512(<4 x double> %A) #2 {
 entry:

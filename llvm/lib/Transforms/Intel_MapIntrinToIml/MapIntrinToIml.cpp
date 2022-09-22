@@ -151,7 +151,7 @@ MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
   // immediately.
   for (unsigned TargetVL = LogicalVL; TargetVL <= MaxVL; TargetVL *= 2) {
     StringRef VariantFuncName = findX86SVMLVariantForScalarFunction(
-        ScalarFuncName, TargetVL, Masked, I);
+        ScalarFuncName, ComponentBitWidth, TargetVL, Masked, I);
     if (!VariantFuncName.empty())
       return std::make_pair(VariantFuncName, TargetVL);
   }
@@ -159,7 +159,7 @@ MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
   // Then search with smaller VLs
   for (unsigned TargetVL = LogicalVL; TargetVL >= 2; TargetVL /= 2) {
     StringRef VariantFuncName = findX86SVMLVariantForScalarFunction(
-        ScalarFuncName, TargetVL, Masked, I);
+        ScalarFuncName, ComponentBitWidth, TargetVL, Masked, I);
     if (!VariantFuncName.empty())
       return std::make_pair(VariantFuncName, TargetVL);
   }
@@ -168,6 +168,8 @@ MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
 }
 
 void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
+                                                unsigned ComponentBitWidth,
+                                                unsigned TargetVL,
                                                 ImfAttr **List) {
 
   // Tail of the linked list of IMF attributes. The head of the list is
@@ -197,6 +199,14 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
   ImfAttr *ISASetAttr = new ImfAttr();
   ISASetAttr->name = "isa-set";
   ISASetAttr->value = TTI->getISASetForIMLFunctions();
+
+  // Don't use high ZMM variants for vector size smaller than 512. These
+  // functions currently introduce extra ZMM instructions which negatively
+  // affect performance.
+  if (StringRef("coreavx512") == ISASetAttr->value &&
+      ComponentBitWidth * TargetVL <= 256)
+    ISASetAttr->value = "avx2";
+
   addAttributeToList(List, &Tail, ISASetAttr);
 
   // Build the linked list of IMF attributes that will be used to query
@@ -726,7 +736,8 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
 }
 
 StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
-    StringRef ScalarFuncName, unsigned TargetVL, bool Masked, Instruction *I) {
+    StringRef ScalarFuncName, unsigned ComponentBitWidth, unsigned TargetVL,
+    bool Masked, Instruction *I) {
 
   std::string TargetVLString = std::to_string(TargetVL);
 
@@ -752,7 +763,7 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   LLVM_DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
 
   ImfAttr *AttrList = nullptr;
-  createImfAttributeList(I, &AttrList);
+  createImfAttributeList(I, ComponentBitWidth, TargetVL, &AttrList);
 
   // External libiml_attr interface that returns the SVML/libm variant if the
   // parent function and IMF attributes match. Return NULL otherwise.
@@ -1370,7 +1381,8 @@ bool MapIntrinToImlImpl::runImpl() {
       ScalarFuncName = F->getName().str();
 
     ImfAttr *AttrList = nullptr;
-    createImfAttributeList(ScalarCI, &AttrList);
+    createImfAttributeList(ScalarCI, ScalarCI->getType()->getScalarSizeInBits(),
+                           1, &AttrList);
 
     StringRef VariantFuncName = ScalarFuncName;
 
