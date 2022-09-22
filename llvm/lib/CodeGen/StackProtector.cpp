@@ -510,14 +510,8 @@ bool StackProtector::InsertStackProtectors() {
     // verifier guarantees that a tail call is either directly before the
     // return or with a single correct bitcast of the return value in between so
     // we don't need to worry about many situations here.
-<<<<<<< HEAD
-    Instruction *CheckLoc = RI;
-    Instruction *Prev = RI->getPrevNonDebugInstruction();
-    if (Prev && isa<CallInst>(Prev) && cast<CallInst>(Prev)->isTailCall())
-=======
     Instruction *Prev = CheckLoc->getPrevNonDebugInstruction(); // INTEL
     if (Prev && isa<CallInst>(Prev) && cast<CallInst>(Prev)->isMustTailCall())
->>>>>>> ee25d3ee385436cdb9113ab2bc617633ca1979c5
       CheckLoc = Prev;
     else if (Prev) {
       Prev = Prev->getPrevNonDebugInstruction();
