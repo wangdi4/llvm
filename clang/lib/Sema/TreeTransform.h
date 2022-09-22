@@ -6577,8 +6577,6 @@ QualType TreeTransform<Derived>::TransformSubstTemplateTypeParmType(
   if (Replacement.isNull())
     return QualType();
 
-  // Always canonicalize the replacement type.
-  Replacement = SemaRef.Context.getCanonicalType(Replacement);
   QualType Result = SemaRef.Context.getSubstTemplateTypeParmType(
       T->getReplacedParameter(), Replacement, T->getPackIndex());
 
