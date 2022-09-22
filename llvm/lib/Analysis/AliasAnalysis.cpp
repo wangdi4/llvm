@@ -353,18 +353,12 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
     ArgMR &= AllArgsMask;
   }
 
-<<<<<<< HEAD
-  // The code was moved above under INTEL_CUSTOMIZATION  // INTEL
-#if !INTEL_CUSTOMIZATION
-=======
   Result &= ArgMR | OtherMR;
 
->>>>>>> ab25ea6d357e0446bc53cbc6a7372fc79f24740d
   // If Loc is a constant memory location, the call definitely could not
   // modify the memory location.
   if (isModSet(Result) && pointsToConstantMemory(Loc, AAQI, /*OrLocal*/ false))
     Result &= ModRefInfo::Ref;
-#endif // INTEL_CUSTOMIZATION
 
   return Result;
 }
