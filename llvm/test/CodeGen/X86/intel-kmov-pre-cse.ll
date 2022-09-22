@@ -94,9 +94,9 @@ define hidden i32 @_ZN3povL23All_Plane_IntersectionsEPNS_13Object_StructEPNS_10R
 ; X86-NEXT:    vaddsd %xmm1, %xmm3, %xmm1
 ; X86-NEXT:    vmovsd {{.*#+}} xmm3 = mem[0],zero
 ; X86-NEXT:    vfmadd231sd {{.*#+}} xmm1 = (xmm3 * xmm2) + xmm1
-; X86-NEXT:    vandpd {{\.LCPI.*}}, %xmm1, %xmm2
+; X86-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}{1to2}, %xmm1, %xmm2
 ; X86-NEXT:    xorl %esi, %esi
-; X86-NEXT:    vucomisd {{\.LCPI.*}}, %xmm2
+; X86-NEXT:    vucomisd {{\.?LCPI[0-9]+_[0-9]+}}, %xmm2
 ; X86-NEXT:    jb .LBB0_11
 ; X86-NEXT:  # %bb.4:
 ; X86-NEXT:    vmovupd (%eax), %ymm2 {%k1} {z}
@@ -128,9 +128,9 @@ define hidden i32 @_ZN3povL23All_Plane_IntersectionsEPNS_13Object_StructEPNS_10R
 ; X86-NEXT:    vaddsd %xmm2, %xmm1, %xmm2
 ; X86-NEXT:    vextractf128 $1, %ymm1, %xmm1
 ; X86-NEXT:    vaddsd %xmm1, %xmm2, %xmm1
-; X86-NEXT:    vandpd {{\.LCPI.*}}, %xmm1, %xmm2
+; X86-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}{1to2}, %xmm1, %xmm2
 ; X86-NEXT:    xorl %esi, %esi
-; X86-NEXT:    vucomisd {{\.LCPI.*}}, %xmm2
+; X86-NEXT:    vucomisd {{\.?LCPI[0-9]+_[0-9]+}}, %xmm2
 ; X86-NEXT:    jb .LBB0_11
 ; X86-NEXT:  # %bb.2:
 ; X86-NEXT:    movb $7, %cl
@@ -143,10 +143,10 @@ define hidden i32 @_ZN3povL23All_Plane_IntersectionsEPNS_13Object_StructEPNS_10R
 ; X86-NEXT:    vaddsd %xmm3, %xmm4, %xmm4
 ; X86-NEXT:  .LBB0_5:
 ; X86-NEXT:    vaddsd 88(%edi), %xmm4, %xmm3
-; X86-NEXT:    vxorpd {{\.LCPI.*}}, %xmm3, %xmm3
+; X86-NEXT:    vxorpd {{\.?LCPI[0-9]+_[0-9]+}}{1to2}, %xmm3, %xmm3
 ; X86-NEXT:    vdivsd %xmm1, %xmm3, %xmm3
 ; X86-NEXT:    xorl %esi, %esi
-; X86-NEXT:    vucomisd {{\.LCPI.*}}, %xmm3
+; X86-NEXT:    vucomisd {{\.?LCPI[0-9]+_[0-9]+}}, %xmm3
 ; X86-NEXT:    jb .LBB0_11
 ; X86-NEXT:  # %bb.6:
 ; X86-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
