@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +amx-bf8  \
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +amx-fp8  \
 // RUN: -emit-llvm -o - -Werror -pedantic | FileCheck %s --check-prefixes=CHECK
-// REQUIRES: intel_feature_isa_amx_bf8
+// REQUIRES: intel_feature_isa_amx_fp8
 #include <immintrin.h>
 
 void test_amx(void *data) {

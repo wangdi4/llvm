@@ -38591,7 +38591,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
   case X86::PTDPBF8PS: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc = X86::TDPBF8PS;
@@ -38605,7 +38605,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
