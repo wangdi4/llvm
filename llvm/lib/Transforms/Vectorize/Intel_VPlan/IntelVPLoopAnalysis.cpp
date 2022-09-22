@@ -3240,6 +3240,12 @@ bool InductionDescr::isDuplicate(const VPlanVector *Plan,
   if (!LE || !InductionOp)
     return false;
 
+  // HIR may identify a FP IV as a safe reduction if it has no other uses in the
+  // loop. Check if instruction was already imported as reduction and ignore
+  // importing it as FP IV in that case.
+  if (auto *OtherRed = LE->getReduction(InductionOp))
+    return true;
+
   const VPInduction *OtherInd = LE->getInduction(InductionOp);
   if (!OtherInd)
     return false;

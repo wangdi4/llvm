@@ -349,6 +349,10 @@ public:
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
 
+  /// Add list of auto-recognized FP inductions into VPInductionHIRList tracked
+  /// for the given \p HLp.
+  void addFPInductionsForLoop(HLLoop *HLp);
+
   /// Create instructions that compute the Ztt check for the given \p HLp.
   /// The instruction that gives the final result to be used for bypassing
   /// the loop is returned.
