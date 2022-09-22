@@ -57,8 +57,10 @@ public:
 
 protected:
   // Calculates the cost of VPlan, without calculating peel/remainder cost. If
-  // there is not a VPlan, returns MAX cost.
-  VPlanCostPair calculatePlanCost(unsigned VF, VPlanVector *Plan);
+  // \p Plan is null returns Invalid cost.
+  // \p AddZtt indicates that TC is not const and ZTT check cost should be added
+  // to overhead-part of the cost.
+  VPlanCostPair calculatePlanCost(unsigned VF, VPlanVector *Plan, bool AddZtt);
 
   LoopVectorizationPlanner &Planner;
   VPInstructionCost ScalarIterCost;
@@ -135,8 +137,9 @@ public:
                           const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI, const DataLayout *DL,
                           VPlanVLSAnalysis *VLSA, uint64_t OrigTC,
-                          unsigned PeelTC, bool PeelIsDynamic,
-                          unsigned MainLoopVF, unsigned MainLoopUF)
+                          bool TCIsUnknownP, unsigned PeelTC,
+                          bool PeelIsDynamic, unsigned MainLoopVF,
+                          unsigned MainLoopUF)
       : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA), PeelTC(PeelTC),
         PeelIsDynamic(PeelIsDynamic), MainLoopVF(MainLoopVF),
         MainLoopUF(MainLoopUF) {
@@ -153,6 +156,7 @@ public:
     RemainderTC = PeelIsDynamic ?
         MainLoopVF * MainLoopUF - 1 : // tc is unknown, but this is the max
         ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
+    TCIsUnknown = TCIsUnknownP || PeelIsDynamic;
     calculateBestVariant();
   }
 
@@ -189,16 +193,25 @@ private:
   VPInstructionCost LoopCost = 0;
   unsigned RemainderVF = 1;
   unsigned PeelTC = 0;
-  VPInstructionCost UnMaskedVectorCost = 0;
+  VPInstructionCost UnmaskedVectorCost = 0;
   bool PeelIsDynamic = false;
   unsigned MainLoopVF = 0;
   unsigned MainLoopUF = 0;
   unsigned NewRemainderTC = 0;
   unsigned RemainderTC = 0;
+  bool TCIsUnknown = true;
 
   RemainderLoopKind calculateBestVariant();
 
   void calculateRemainderVFAndVectorCost();
+
+  // Calculate pumping overhead, which is an artificial coefficient for masked
+  // mode loop. Due to we insert an IF around the whole loop the number
+  // of active iterations may be less than #elements in one register. So the
+  // second register will be fully masked and all operations will be executed
+  // with a 0-mask. To avoid such resources wasting, we increase the cost of
+  // masked remainder for pumped VFs.
+  VPInstructionCost calculatePumpingOverhead(VPlanMasked *MaskedModePlan);
 
   // TODO: Calculate cost of trip count checks.
   // std::vector<VPRTCheck *> RTChecks;
