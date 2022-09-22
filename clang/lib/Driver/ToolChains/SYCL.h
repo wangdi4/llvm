@@ -120,6 +120,18 @@ public:
                     const InputInfo &Output, const InputInfoList &Inputs,
                     const llvm::opt::ArgList &TCArgs,
                     const char *LinkingOutput) const override;
+#if INTEL_CUSTOMIZATION
+private:
+  void constructOclocConcatCommand(Compilation &C, const JobAction &JA,
+                                   const InputInfo &Output,
+                                   const InputInfoList &Inputs,
+                                   llvm::StringRef BaseDir) const;
+  void constructOclocCommand(Compilation &C, const JobAction &JA,
+                             const InputInfo &Output,
+                             const InputInfoList &Inputs,
+                             const llvm::opt::ArgStringList &Args,
+                             llvm::StringRef BaseDir) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace gen

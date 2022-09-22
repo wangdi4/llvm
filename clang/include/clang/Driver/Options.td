@@ -621,6 +621,10 @@ def gen_reproducer: Flag<["-"], "gen-reproducer">, InternalDebugOpt,
   HelpText<"Auto-generates preprocessed source files and a reproduction script">;
 def gen_cdb_fragment_path: Separate<["-"], "gen-cdb-fragment-path">, InternalDebugOpt,
   HelpText<"Emit a compilation database fragment to the specified directory">;
+#if INTEL_CUSTOMIZATION
+def enable_ocloc_split : Flag<["--"], "enable-ocloc-split">, InternalDebugOpt,
+  HelpText<"Allow for ocloc splitting behavior to occur">;
+#endif // INTEL_CUSTOMIZATION
 
 def round_trip_args : Flag<["-"], "round-trip-args">, Flags<[CC1Option, NoDriverOption]>,
   HelpText<"Enable command line arguments round-trip.">;
