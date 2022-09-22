@@ -1321,7 +1321,6 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       CGF.getLangOpts().OpenMPIsDevice &&
       (CGF.CGM.inTargetRegion() ||
        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
-  CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
 
   auto I = Cl->reduction_ops().begin();
   auto IPriv = Cl->privates().begin();
@@ -1340,6 +1339,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       IsUDR = true;
       // If device compile only generate routines used in target regions.
       if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+        CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
         std::pair<llvm::Function *, llvm::Function *> InitCombiner;
         InitCombiner = CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
         CombinerFn = InitCombiner.first;
@@ -1349,6 +1349,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       IsUDR = true;
       // If device compile only generate routines used in target regions.
       if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+        CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
         const auto *LVD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
         const auto *RVD = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
         CombinerFn =
@@ -1496,6 +1497,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       llvm::Value *Init =
           InitFn ? InitFn : llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       if (Private->getInit() || Private->getType().isDestructedType()) {
+        CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
         if (!InitFn)
           Cons = emitOpenMPDefaultConstructor(*IPriv, /*IsUDR=*/true);
         Des = emitOpenMPDestructor(Private->getType(), /*IsUDR=*/true);

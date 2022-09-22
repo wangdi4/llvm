@@ -4583,7 +4583,7 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
 
 // Allocate a base buffer with the given information.
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase) {
+                                void *HstBase, int32_t CachedPool) {
   return dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
 }
 

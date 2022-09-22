@@ -82,7 +82,7 @@ struct RTLInfoTy {
 #if INTEL_COLLAB
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
-  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
+  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *, int32_t);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
