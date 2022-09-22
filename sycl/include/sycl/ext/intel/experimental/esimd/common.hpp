@@ -39,46 +39,9 @@ namespace ext::intel::experimental::esimd {
 /// @addtogroup sycl_esimd_core
 /// @{
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-#ifdef __SYCL_DEVICE_ONLY__
-// TODO map bfloat16 to SYCL's half type storage for now, following CM practice.
-// Will map to native bfloat16 (available since LLVM 11), once supported in BE.
-using bfloat16 = _Float16;
-#else
-// TODO can't map to cl::sycl::detail::half_impl::StorageT, as it is a class on
-// host and can't be a vector element. Implement generic solution for half and
-// bfloat16.
-using bfloat16 = uint16_t;
-#endif // __SYCL_DEVICE_ONLY__
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
-enum class argument_type {
-  U1 = 1,   // unsigned 1 bit
-  S1 = 2,   // signed 1 bit
-  U2 = 3,   // unsigned 2 bits
-  S2 = 4,   // signed 2 bits
-  U4 = 5,   // unsigned 4 bits
-  S4 = 6,   // signed 4 bits
-  U8 = 7,   // unsigned 8 bits
-  S8 = 8,   // signed 8 bits
-  BF16 = 9, // bfloat 16
-  FP16 = 10, // half float
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-  BF8 = 11, // bfloat 8
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-  TF32 = 12 // tensorfloat 32
-};
-=======
 using argument_type
     __SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas_argument_type") =
         __ESIMD_NS::xmx::dpas_argument_type;
->>>>>>> 55bf1a0d627aae6d914d23ccf405f912ab304acd
-
 
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: DG2, PVC

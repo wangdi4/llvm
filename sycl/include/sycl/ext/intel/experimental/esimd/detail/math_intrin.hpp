@@ -491,28 +491,12 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
           ? 1
           : 0;
 
-<<<<<<< HEAD
-#if defined(ESIMD_XE_HPC) || \
-/* INTEL_CUSTOMIZATION */ \
-/* INTEL_FEATURE_ESIMD_EMBARGO */ \
-    defined(ESIMD_XE2_HPC) || \
-/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
-/* end INTEL_CUSTOMIZATION */ \
-    defined(ESIMD_XE_HPG)
-  constexpr bool isPvc = true;
-  constexpr size_t SIMDSize = 16;
-#else
-  constexpr bool isPvc = false;
-  constexpr size_t SIMDSize = 8;
-#endif
-=======
   constexpr uint32_t src1_vec_bit_size = sizeof(T1) * N1 * 8;
   constexpr uint32_t src1_num_elem = src1_vec_bit_size / src1_el_bits;
   constexpr size_t SIMDSize = src1_num_elem / (systolic_depth * ops_per_chan);
   static_assert(SIMDSize == 8 || SIMDSize == 16,
                 "Execution size must be 8 or 16");
   constexpr bool isPvc = SIMDSize == 16;
->>>>>>> 55bf1a0d627aae6d914d23ccf405f912ab304acd
 
   constexpr bool
       pvcHfDest = isPvc && std::is_same<RT, __ESIMD_EMU_DNS::half>::value,
