@@ -1,4 +1,21 @@
 //===- StackProtector.cpp - Stack Protector Insertion ---------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -414,11 +431,13 @@ static Value *getStackGuard(const TargetLoweringBase *TLI, Module *M,
 ///
 /// Returns true if the platform/triple supports the stackprotectorcreate pseudo
 /// node.
-static bool CreatePrologue(Function *F, Module *M, ReturnInst *RI,
+#if INTEL_CUSTOMIZATION
+static bool CreatePrologue(Function *F, Module *M, Instruction *CheckLoc,
                            const TargetLoweringBase *TLI, AllocaInst *&AI) {
   bool SupportsSelectionDAGSP = false;
   IRBuilder<> B(&F->getEntryBlock().front());
-  PointerType *PtrTy = Type::getInt8PtrTy(RI->getContext());
+  PointerType *PtrTy = Type::getInt8PtrTy(CheckLoc->getContext());
+#endif // INTEL_CUSTOMIZATION
   AI = B.CreateAlloca(PtrTy, nullptr, "StackGuardSlot");
 
   Value *GuardSlot = getStackGuard(TLI, M, B, &SupportsSelectionDAGSP);
@@ -442,16 +461,31 @@ bool StackProtector::InsertStackProtectors() {
       (EnableSelectionDAGSP && !TM->Options.EnableFastISel);
   AllocaInst *AI = nullptr; // Place on stack that stores the stack guard.
 
+#if INTEL_CUSTOMIZATION
   for (BasicBlock &BB : llvm::make_early_inc_range(*F)) {
-    ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator());
-    if (!RI)
+    Instruction *CheckLoc = dyn_cast<ReturnInst>(BB.getTerminator());
+    if (!CheckLoc) {
+      for (auto &Inst : BB) {
+        auto *CB = dyn_cast<CallBase>(&Inst);
+        if (!CB)
+          continue;
+        if (!CB->doesNotReturn())
+          continue;
+        // Do stack check before non-return calls (e.g: __cxa_throw)
+        CheckLoc = CB;
+        break;
+      }
+    }
+
+    if (!CheckLoc)
       continue;
 
     // Generate prologue instrumentation if not already generated.
     if (!HasPrologue) {
       HasPrologue = true;
-      SupportsSelectionDAGSP &= CreatePrologue(F, M, RI, TLI, AI);
+      SupportsSelectionDAGSP &= CreatePrologue(F, M, CheckLoc, TLI, AI);
     }
+#endif // INTEL_CUSTOMIZATION
 
     // SelectionDAG based code generation. Nothing else needs to be done here.
     // The epilogue instrumentation is postponed to SelectionDAG.
@@ -476,9 +510,8 @@ bool StackProtector::InsertStackProtectors() {
     // verifier guarantees that a tail call is either directly before the
     // return or with a single correct bitcast of the return value in between so
     // we don't need to worry about many situations here.
-    Instruction *CheckLoc = RI;
-    Instruction *Prev = RI->getPrevNonDebugInstruction();
-    if (Prev && isa<CallInst>(Prev) && cast<CallInst>(Prev)->isTailCall())
+    Instruction *Prev = CheckLoc->getPrevNonDebugInstruction(); // INTEL
+    if (Prev && isa<CallInst>(Prev) && cast<CallInst>(Prev)->isMustTailCall())
       CheckLoc = Prev;
     else if (Prev) {
       Prev = Prev->getPrevNonDebugInstruction();
