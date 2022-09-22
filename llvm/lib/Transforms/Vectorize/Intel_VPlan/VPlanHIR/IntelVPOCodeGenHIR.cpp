@@ -4208,16 +4208,17 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     HLInst *MulInst = nullptr;
     assert(!isMult && "Mutiplication induction is not supported.");
     (void)isMult;
-    RegDDRef *VFVal = nullptr;
+    Constant *VFVal = IsFloat
+                          ? ConstantFP::get(VPInst->getType(), VF)
+                          : ConstantInt::getSigned(StartVal->getSrcType(), VF);
+    RegDDRef *VFRef = DDRefUtilities.createConstDDRef(VFVal);
     if (IsFloat) {
-      VFVal = DDRefUtilities.createConstDDRef(VPInst->getType(), VF);
       MulInst = HLNodeUtilities.createFPMathBinOp(
-          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFVal,
-          IndInitStep->getFastMathFlags(), "ind.step.init");
+          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFRef,
+          FastMathFlags(), "ind.step.init");
     } else {
-      VFVal = DDRefUtilities.createConstDDRef(StartVal->getSrcType(), VF);
       MulInst = HLNodeUtilities.createBinaryHLInst(
-          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFVal,
+          static_cast<Instruction::BinaryOps>(StepOpc), MulVF, VFRef,
           "ind.step.init");
     }
     addInstUnmasked(MulInst);
@@ -4285,7 +4286,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       if (IsFloat) {
         VectorStepInst = HLNodeUtilities.createFPMathBinOp(
             static_cast<Instruction::BinaryOps>(Instruction::FMul), WidenStep,
-            VecConst, VPInst->getFastMathFlags(), "ind.vec.step");
+            VecConst, FastMathFlags(), "ind.vec.step");
       } else {
         VectorStepInst = HLNodeUtilities.createBinaryHLInst(
             static_cast<Instruction::BinaryOps>(Instruction::Mul), WidenStep,

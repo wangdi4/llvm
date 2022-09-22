@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -1366,6 +1367,41 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   IVNext->HIR().setValid();
   BottomTest->HIR().setValid();
   return BottomTest;
+}
+
+void VPDecomposerHIR::addFPInductionsForLoop(HLLoop *HLp) {
+  // Collect all FP induction variables identifed by LoopOpt framework.
+
+  // FP inductions should be collected only for auto-vectorized loop
+  // canidadates.
+  if (OutermostHLp->isSIMD())
+    return;
+
+  SmallVector<FPInductionInfo, 2> LoopFPIVs;
+  DDUtils::populateFPInductions(HLp, DDG, LoopFPIVs);
+  if (LoopFPIVs.empty())
+    return;
+
+  std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
+  assert(IndList && "List for auto-recognized induction descriptors missing.");
+  // Add each FP IV into the list of auto-recognized inductions tracked by
+  // decomposer.
+  for (auto FPIV : LoopFPIVs) {
+    const HLInst *DefInst = FPIV.DefInst;
+    const RegDDRef *StrideRef = FPIV.StrideRef;
+    auto *BinOp = cast<VPInstruction>(getVPValueForNode(DefInst));
+    ConstantFP *ConstStep = nullptr;
+    VPValue *Step = nullptr;
+    // Step can be constant or loop invariant external value.
+    if (StrideRef->isFPConstant(&ConstStep))
+      Step = getVPValueForConst(ConstStep);
+    else
+      Step = getVPExternalDefForDDRef(StrideRef);
+    VPValue *Start = getVPExternalDefForDDRef(DefInst->getLvalDDRef());
+
+    IndList->push_back(std::make_unique<VPInductionHIR>(
+        BinOp, Step, Start, nullptr /*StartVal*/, nullptr /*EndVal*/));
+  }
 }
 
 VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,

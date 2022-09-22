@@ -1476,6 +1476,18 @@ const RegDDRef *DDUtils::getSingleBasePtrLoadRef(const DDGraph &DDG,
   return BasePtrLoadRef;
 }
 
+static bool isRedefined(const RegDDRef *TempDef, const DDGraph &DDG) {
+  assert(TempDef->isLval() && TempDef->isTerminalRef() &&
+         "Lval temp ref expected!");
+
+  auto IsOutputEdge = [](const DDEdge *E) -> bool { return E->isOutput(); };
+
+  // We also need to check for incoming edges here because DD does not create
+  // backward output edges for temps.
+  return llvm::any_of(DDG.outgoing(TempDef), IsOutputEdge) ||
+         llvm::any_of(DDG.incoming(TempDef), IsOutputEdge);
+}
+
 /// Looks for FP IVs in the loop and populates their info in \p FPInductions.
 /// Currently recognizes a single FAdd instruction with a loop invariant stride
 /// and no redefinitions as an FP IV but can be extended to handle a chain.
@@ -1528,17 +1540,8 @@ void DDUtils::populateFPInductions(
     }
 
     // Check that lval is not redefined inside loop.
-    bool IsRedefined = false;
-    for (auto *Edge : DDG.outgoing(LvalRef)) {
-      if (Edge->isOutput()) {
-        IsRedefined = true;
-        break;
-      }
-    }
-
-    if (IsRedefined) {
+    if (isRedefined(LvalRef, DDG))
       continue;
-    }
 
     FPInductions.push_back({Inst, StrideRef});
   }
