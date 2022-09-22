@@ -1,3 +1,21 @@
+<<<<<<< HEAD
+=======
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+>>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 //==----------------- xmx/dpas.hpp - DPC++ Explicit SIMD API ---------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -23,6 +41,14 @@ namespace ext::intel::esimd::xmx {
 
 namespace detail {
 
+<<<<<<< HEAD
+=======
+/* INTEL_CUSTOMIZATION */
+// TODO: remove this line after the next pulldown.
+using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
+/* end INTEL_CUSTOMIZATION */
+
+>>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 template <typename T> constexpr dpas_argument_type dpas_precision_from_type() {
   // TODO: add support for tfloat32 here.
   if constexpr (std::is_same_v<T, sycl::half>)
@@ -45,6 +71,15 @@ template <dpas_argument_type T> constexpr int dpas_bitsize_from_precision() {
     return 4;
   else if constexpr (T == dpas_argument_type::U8 || T == dpas_argument_type::S8)
     return 8;
+<<<<<<< HEAD
+=======
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+  else if constexpr (T == dpas_argument_type::bf8)
+    return 8;
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+>>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
   else if constexpr (T == dpas_argument_type::BF16 ||
                      T == dpas_argument_type::FP16)
     return 16;
@@ -141,6 +176,22 @@ constexpr int verify_parameters_and_deduce_exec_size() {
                     " Result |   C   |   B  |  A  \n"
                     " f, hf  | f, hf |  hf  |  hf \n");
     }
+<<<<<<< HEAD
+=======
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+  } else if constexpr (APrecision == dpas_argument_type::BF8) {
+    static_assert(ExecutionSize == 16,
+                  "bf8 type can be used only with ExecutionSize=16");
+    static_assert(APrecision == BPrecision &&
+                      __ESIMD_DNS::is_type<T, float, sycl::half, bfloat16>() &&
+                      __ESIMD_DNS::is_type<CT, float, sycl::half, bfloat16>(),
+                  "Unsupported DPAS types! The supported types are:\n"
+                  " Result |   C   |   B  |  A        \n"
+                  " f,hf,bf|f,hf,bf|  bf8 |  bf8      \n");
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+>>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
   } else if constexpr (APrecision == dpas_argument_type::BF16 ||
                        BPrecision == dpas_argument_type::BF16) {
     using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
