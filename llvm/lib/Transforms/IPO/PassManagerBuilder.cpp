@@ -277,7 +277,7 @@ cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Enable Std Container Optimization"));
 
-static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
+cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable Tbaa Propagation"));
 

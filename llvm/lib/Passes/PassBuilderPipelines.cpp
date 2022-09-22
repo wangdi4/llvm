@@ -504,6 +504,7 @@ extern cl::opt<bool> EnableArgNoAliasProp;
 extern cl::opt<bool> RunLoopOptFrameworkOnly;
 enum class LoopOptMode { None, LightWeight, Full };
 extern cl::opt<LoopOptMode> RunLoopOpts;
+extern cl::opt<bool> EnableTbaaProp;
 #endif // INTEL_CUSTOMIZATION
 extern cl::opt<bool> ExtraVectorizerPasses;
 
@@ -619,7 +620,8 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
-  FPM.addPass(TbaaMDPropagationPass());
+  if (EnableTbaaProp)
+    FPM.addPass(TbaaMDPropagationPass());
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
@@ -821,7 +823,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
-  FPM.addPass(TbaaMDPropagationPass());
+  if (EnableTbaaProp)
+    FPM.addPass(TbaaMDPropagationPass());
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
