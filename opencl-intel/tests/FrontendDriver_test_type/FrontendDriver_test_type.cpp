@@ -211,6 +211,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
         SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
         SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
         SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+        SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -288,6 +289,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
         SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
         SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
         SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+        SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
@@ -495,6 +497,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -600,6 +603,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       SPIRVOpCapability, spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
+      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
