@@ -26,6 +26,7 @@
 #pragma once
 
 #include <sycl/ext/intel/esimd/common.hpp>
+#include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 /// @cond ESIMD_DETAIL
 
@@ -57,24 +58,9 @@ using bfloat16 = uint16_t;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-enum class argument_type {
-  U1 = 0,   // unsigned 1 bit
-  S1 = 1,   // signed 1 bit
-  U2 = 2,   // unsigned 2 bits
-  S2 = 3,   // signed 2 bits
-  U4 = 4,   // unsigned 4 bits
-  S4 = 5,   // signed 4 bits
-  U8 = 6,   // unsigned 8 bits
-  S8 = 7,   // signed 8 bits
-  BF16 = 8, // bfloat 16
-  FP16 = 9, // half float
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-  BF8 = 10, // bfloat 8
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-  TF32 = 11 // tensorfloat 32
-};
+using argument_type
+    __SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas_argument_type") =
+        __ESIMD_NS::xmx::dpas_argument_type;
 
 
 /// The scope that lsc_fence operation should apply to
