@@ -507,12 +507,8 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
              collectPromotionCandidates(MSSA, AA, L)) {
           LocalPromoted |= promoteLoopAccessesToScalars(
               PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
-<<<<<<< HEAD
-              DT, TLI, TTI, L, MSSAU, &SafetyInfo, ORE, // INTEL + TTI
+              DT, AC, TLI, TTI, L, MSSAU, &SafetyInfo, ORE, // INTEL + TTI
               LicmAllowSpeculation);  // INTEL + TTI
-=======
-              DT, AC, TLI, L, MSSAU, &SafetyInfo, ORE, LicmAllowSpeculation);
->>>>>>> 0d1f04074954014ece64134c8dae044d87e9840e
         }
         Promoted |= LocalPromoted;
       } while (LocalPromoted);
@@ -1967,17 +1963,11 @@ bool llvm::promoteLoopAccessesToScalars(
     SmallVectorImpl<BasicBlock *> &ExitBlocks,
     SmallVectorImpl<Instruction *> &InsertPts,
     SmallVectorImpl<MemoryAccess *> &MSSAInsertPts, PredIteratorCache &PIC,
-<<<<<<< HEAD
-    LoopInfo *LI, DominatorTree *DT, const TargetLibraryInfo *TLI,
+    LoopInfo *LI, DominatorTree *DT, AssumptionCache *AC,
+    const TargetLibraryInfo *TLI,
     const TargetTransformInfo *TTI, // INTEL
     Loop *CurLoop, MemorySSAUpdater &MSSAU, ICFLoopSafetyInfo *SafetyInfo,
     OptimizationRemarkEmitter *ORE, bool AllowSpeculation) {
-=======
-    LoopInfo *LI, DominatorTree *DT, AssumptionCache *AC,
-    const TargetLibraryInfo *TLI, Loop *CurLoop, MemorySSAUpdater &MSSAU,
-    ICFLoopSafetyInfo *SafetyInfo, OptimizationRemarkEmitter *ORE,
-    bool AllowSpeculation) {
->>>>>>> 0d1f04074954014ece64134c8dae044d87e9840e
   // Verify inputs.
   assert(LI != nullptr && DT != nullptr && CurLoop != nullptr &&
          SafetyInfo != nullptr &&

@@ -226,14 +226,10 @@ void breakLoopBackedge(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
 bool promoteLoopAccessesToScalars(
     const SmallSetVector<Value *, 8> &, SmallVectorImpl<BasicBlock *> &,
     SmallVectorImpl<Instruction *> &, SmallVectorImpl<MemoryAccess *> &,
-<<<<<<< HEAD
-    PredIteratorCache &, LoopInfo *, DominatorTree *, const TargetLibraryInfo *,
+    PredIteratorCache &, LoopInfo *, DominatorTree *, AssumptionCache *AC,
+    const TargetLibraryInfo *,
     const TargetTransformInfo *, // INTEL
     Loop *, MemorySSAUpdater &, ICFLoopSafetyInfo *,
-=======
-    PredIteratorCache &, LoopInfo *, DominatorTree *, AssumptionCache *AC,
-    const TargetLibraryInfo *, Loop *, MemorySSAUpdater &, ICFLoopSafetyInfo *,
->>>>>>> 0d1f04074954014ece64134c8dae044d87e9840e
     OptimizationRemarkEmitter *, bool AllowSpeculation);
 
 /// Does a BFS from a given node to all of its children inside a given loop.
