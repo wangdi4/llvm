@@ -67,5 +67,8 @@ define i16 @doSomething(i64 %idx, %struct.test* align 16 %p_test) {
 ; CHECK:   %valB = load i64, i64* %p_test_B, align 8
 ; CHECK:  store i64 %valB, i64* @someValue, align 16
 
-declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef)
-declare dso_local void @free(i8* nocapture noundef) local_unnamed_addr #16
+declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef) #0
+declare dso_local void @free(i8* nocapture noundef) local_unnamed_addr #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

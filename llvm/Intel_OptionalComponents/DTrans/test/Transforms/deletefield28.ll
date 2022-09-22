@@ -58,5 +58,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-SAME:                      [4 x %__DFT_struct.test]* %p_test,
 ; CHECK-SAME:                      i64 0, i32 1, i32 1
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

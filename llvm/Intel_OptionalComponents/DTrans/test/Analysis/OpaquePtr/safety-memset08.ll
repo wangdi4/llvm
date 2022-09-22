@@ -84,7 +84,9 @@ define "intel_dtrans_func_index"="1" %struct.test03** @test03() !intel.dtrans.fu
 
 
 declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
-declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*

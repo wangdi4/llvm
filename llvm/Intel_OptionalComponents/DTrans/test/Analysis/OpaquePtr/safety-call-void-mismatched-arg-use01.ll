@@ -38,8 +38,11 @@ define void @test01() {
 ; CHECK: Safety data: Mismatched argument use{{ *$}}
 ; CHECK: End LLVMType: %struct.test01b
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !6 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !6 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

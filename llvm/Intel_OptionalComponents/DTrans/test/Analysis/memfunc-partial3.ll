@@ -112,5 +112,7 @@ define void @atest02() {
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.atest02 @ not-field ByteOffset: 12
 
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

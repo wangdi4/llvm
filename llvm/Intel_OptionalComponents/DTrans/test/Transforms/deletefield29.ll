@@ -25,7 +25,7 @@ entry:
 if.then:                                          ; preds = %entry
   %exception = call i8* @__cxa_allocate_exception(i64 1) #3
   %tmp = bitcast i8* %exception to %struct.exc*
-  call void @__cxa_throw(i8* %exception, i8* bitcast ({ i8*, i8* }* @_ZTI3exc to i8*), i8* null) #4
+  call void @__cxa_throw(i8* %exception, i8* bitcast ({ i8*, i8* }* @_ZTI3exc to i8*), i8* null) #3
   unreachable
 
 if.end:                                           ; preds = %entry
@@ -111,12 +111,13 @@ entry:
 ; CHECK  store i32 1, i32* %i1, align 8
 ; CHECK  %i11 = getelementptr inbounds %__DFT_struct.test, %__DFT_struct.test* %p, i32 0, i32 0
 
-declare noalias i8* @malloc(i64) #3
+declare noalias i8* @malloc(i64) #4
 
-declare void @free(i8*) #3
+declare void @free(i8*) #5
 
 attributes #0 = { noinline uwtable }
 attributes #1 = { nounwind readnone }
 attributes #2 = { noinline norecurse uwtable }
-attributes #3 = { nounwind }
-attributes #4 = { noreturn }
+attributes #3 = { noreturn }
+attributes #4 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #5 = { allockind("free") "alloc-family"="malloc" }

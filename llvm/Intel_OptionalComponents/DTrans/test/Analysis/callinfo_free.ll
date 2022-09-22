@@ -78,5 +78,8 @@ define void @test04(i32 %size, %struct.test04* %in) {
 ; CHECK:   Aliased types:
 ; CHECK:     Type: Not analyzed
 
-declare noalias i8* @malloc(i64)
-declare void @free(i8*)
+declare noalias i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

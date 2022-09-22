@@ -76,7 +76,9 @@ entry:
   ret void
 }
 
-declare !intel.dtrans.func.type !13 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !13 void @free(i8* "intel_dtrans_func_index"="1") #0
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!0, !1, !5}
 

@@ -912,11 +912,14 @@ cleanup:                                          ; preds = %entry, %for.end24
 declare !intel.dtrans.func.type !28 dso_local nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
 declare !intel.dtrans.func.type !39 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
 declare dso_local void @__cxa_rethrow()
-declare !intel.dtrans.func.type !69 dso_local void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !69 dso_local void @free(i8* "intel_dtrans_func_index"="1") #1
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-declare !intel.dtrans.func.type !66 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !66 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare !intel.dtrans.func.type !66 i1 @llvm.type.test(i8* "intel_dtrans_func_index"="1", metadata)
 declare void @llvm.assume(i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!8, !13, !17, !20, !22, !24}
 

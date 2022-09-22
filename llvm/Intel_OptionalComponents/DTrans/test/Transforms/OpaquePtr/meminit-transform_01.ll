@@ -578,14 +578,16 @@ entry:
 }
 
 declare !intel.dtrans.func.type !20 noalias "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
-declare !intel.dtrans.func.type !40 noalias "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !40 noalias "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare void @__cxa_rethrow()
-declare !intel.dtrans.func.type !44 void @free(i8* "intel_dtrans_func_index"="1" nocapture)
+declare !intel.dtrans.func.type !44 void @free(i8* "intel_dtrans_func_index"="1" nocapture) #1
 declare void @llvm.dbg.value(metadata, metadata, metadata)
 declare i1 @llvm.type.test(i8* , metadata)
 declare void @llvm.assume(i1)
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!3, !7, !11, !14, !16}
 

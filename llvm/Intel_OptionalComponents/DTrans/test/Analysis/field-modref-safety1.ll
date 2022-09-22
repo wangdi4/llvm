@@ -301,5 +301,7 @@ test11_entry:
 ; CHECK: RWState: computed
 
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
