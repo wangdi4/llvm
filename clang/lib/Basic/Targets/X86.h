@@ -176,9 +176,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasINVPCID = false;
   bool HasENQCMD = false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_BF8
-  bool HasAMXBF8 = false;
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
+  bool HasAMXFP8 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   bool HasAMXMEMADVISE = false;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE

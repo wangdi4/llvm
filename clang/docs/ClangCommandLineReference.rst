@@ -3824,10 +3824,10 @@ X86
 .. option:: -mamx-tile, -mno-amx-tile
 
 .. INTEL_CUSTOMIZATION
-.. INTEL_FEATURE_ISA_AMX_BF8
-.. option:: -mamx-bf8, -mno-amx-bf8
+.. INTEL_FEATURE_ISA_AMX_FP8
+.. option:: -mamx-fp8, -mno-amx-fp8
 
-.. end INTEL_FEATURE_ISA_AMX_BF8
+.. end INTEL_FEATURE_ISA_AMX_FP8
 .. INTEL_FEATURE_ISA_AMX_COMPLEX
 .. option:: -mamx-complex, -mno-amx-complex
 

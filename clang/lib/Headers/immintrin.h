@@ -999,14 +999,14 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_CUSTOMIZATION */
 
-/* INTEL_FEATURE_ISA_AMX_BF8 */
-#if defined(__AMXBF8_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_FP8 */
+#if defined(__AMXFP8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXBF8__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxbf8intrin.h>
+    defined(__AMXFP8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxfp8intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_BF8 */
+/* end INTEL_FEATURE_ISA_AMX_FP8 */
 
 /* INTEL_FEATURE_ISA_AMX_MEMADVISE */
 #if defined(__AMXMEMADVISE_SUPPORTED__)
