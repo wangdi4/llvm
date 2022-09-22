@@ -27,10 +27,9 @@
 
 /// @cond ESIMD_DETAIL
 
-#include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
 #include <sycl/ext/intel/esimd/detail/host_util.hpp>
 #include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
-#include <sycl/ext/intel/esimd/detail/types.hpp>
+#include <sycl/ext/intel/experimental/esimd/common.hpp>
 
 #define __ESIMD_raw_vec_t(T, SZ)                                               \
   sycl::ext::intel::esimd::detail::vector_type_t<                              \
@@ -130,7 +129,45 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-#ifndef __SYCL_DEVICE_ONLY__
+#ifdef __SYCL_DEVICE_ONLY__
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+template <int N>
+SYCL_EXTERNAL
+    SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N>
+    __esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src);
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
+__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N> src);
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src);
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src);
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
+             __ESIMD_DNS::vector_type_t<SrcType, N> src2)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return __ESIMD_DNS::vector_type_t<DstType, N>();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+#else // __SYCL_DEVICE_ONLY__
 
 template <typename T0, typename T1, int SZ>
 __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
