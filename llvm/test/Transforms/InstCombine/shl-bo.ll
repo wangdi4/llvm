@@ -51,16 +51,8 @@ define i8 @lshr_sub(i8 %a, i8 %y) {
 define <2 x i8> @lshr_sub_commute_splat(<2 x i8> %a, <2 x i8> %y) {
 ; CHECK-LABEL: @lshr_sub_commute_splat(
 ; CHECK-NEXT:    [[X:%.*]] = srem <2 x i8> [[A:%.*]], <i8 42, i8 42>
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; InstCombineShift lshr optimization
 ; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 3, i8 3>
 ; CHECK-NEXT:    [[R2:%.*]] = sub <2 x i8> [[Y:%.*]], [[B1]]
-; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 3, i8 3>
-; CHECK-NEXT:    [[R2:%.*]] = sub <2 x i8> [[Y:%.*]], [[B1]]
->>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    [[L:%.*]] = and <2 x i8> [[R2]], <i8 -8, i8 -8>
 ; CHECK-NEXT:    ret <2 x i8> [[L]]
 ;
@@ -241,17 +233,9 @@ define i8 @lshr_and_sub(i8 %a, i8 %y)  {
 define <2 x i8> @lshr_and_sub_commute_splat(<2 x i8> %a, <2 x i8> %y)  {
 ; CHECK-LABEL: @lshr_and_sub_commute_splat(
 ; CHECK-NEXT:    [[X:%.*]] = srem <2 x i8> [[A:%.*]], <i8 42, i8 42>
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 2, i8 2>
 ; CHECK-NEXT:    [[Y_MASK:%.*]] = and <2 x i8> [[Y:%.*]], <i8 52, i8 52>
 ; CHECK-NEXT:    [[L:%.*]] = sub <2 x i8> [[Y_MASK]], [[B1]]
-; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 2, i8 2>
-; CHECK-NEXT:    [[Y_MASK:%.*]] = and <2 x i8> [[Y:%.*]], <i8 52, i8 52>
-; CHECK-NEXT:    [[L:%.*]] = sub <2 x i8> [[Y_MASK]], [[B1]]
->>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret <2 x i8> [[L]]
 ;
   %x = srem <2 x i8> %a, <i8 42, i8 42> ; thwart complexity-based canonicalization
