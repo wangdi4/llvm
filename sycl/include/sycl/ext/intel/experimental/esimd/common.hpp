@@ -27,6 +27,7 @@
 
 #include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
 #include <sycl/ext/intel/esimd/native/common.hpp>
+#include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 #include <cstdint>
 #include <type_traits>
@@ -38,6 +39,7 @@ namespace ext::intel::experimental::esimd {
 /// @addtogroup sycl_esimd_core
 /// @{
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -71,6 +73,11 @@ enum class argument_type {
 /* end INTEL_CUSTOMIZATION */
   TF32 = 12 // tensorfloat 32
 };
+=======
+using argument_type
+    __SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas_argument_type") =
+        __ESIMD_NS::xmx::dpas_argument_type;
+>>>>>>> 55bf1a0d627aae6d914d23ccf405f912ab304acd
 
 
 /// The scope that lsc_fence operation should apply to

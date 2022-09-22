@@ -1832,6 +1832,7 @@ __ESIMD_API
 
 /// @} sycl_esimd_math
 
+<<<<<<< HEAD
 /// @cond ESIMD_DETAIL
 // dpas helpers
 namespace detail {
@@ -1916,6 +1917,8 @@ constexpr unsigned get_precision_bits(argument_type src_precision) {
 } // namespace detail
 /// @endcond ESIMD_DETAIL
 
+=======
+>>>>>>> 55bf1a0d627aae6d914d23ccf405f912ab304acd
 /// @defgroup sycl_esimd_systolic_array_api Systolic Array APIs.
 /// APIs below are used to implement dot product accumulate systolic functions
 /// @ingroup sycl_esimd
@@ -1936,6 +1939,7 @@ template <argument_type src1_precision, argument_type src2_precision,
           typename T, int systolic_depth, int repeat_count, typename T0,
           typename T1, typename T2, int N, int N1, int N2,
           typename Sat = __ESIMD_NS::saturation_off_tag>
+<<<<<<< HEAD
 __ESIMD_API __ESIMD_NS::simd<T, N>
 dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
      __ESIMD_NS::simd<T2, N2> src2,
@@ -2075,6 +2079,16 @@ dpas(__ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
                     repeat_count, T, T0, T1, T2, N, N1, N2>(
           src0.data(), src1.data(), src2.data());
 
+=======
+__SYCL_DEPRECATED("use sycl::ext::intel::esimd::native::dpas()")
+__ESIMD_API __ESIMD_NS::simd<T, N> dpas(
+    __ESIMD_NS::simd<T0, N> src0, __ESIMD_NS::simd<T1, N1> src1,
+    __ESIMD_NS::simd<T2, N2> src2,
+    std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
+  auto result =
+      __ESIMD_NS::xmx::dpas<systolic_depth, repeat_count, T, T0, T1, T2,
+                            src1_precision, src2_precision>(src0, src1, src2);
+>>>>>>> 55bf1a0d627aae6d914d23ccf405f912ab304acd
   if constexpr (std::is_same_v<Sat, __ESIMD_NS::saturation_off_tag>)
     return result;
   else
@@ -2095,10 +2109,11 @@ template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2,
           typename Sat = __ESIMD_NS::saturation_off_tag>
-__ESIMD_API __ESIMD_NS::simd<T, N>
-dpas(__ESIMD_NS::simd<T, N> src0, __ESIMD_NS::simd<T1, N1> src1,
-     __ESIMD_NS::simd<T2, N2> src2,
-     std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
+__SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas()")
+__ESIMD_API __ESIMD_NS::simd<T, N> dpas(
+    __ESIMD_NS::simd<T, N> src0, __ESIMD_NS::simd<T1, N1> src1,
+    __ESIMD_NS::simd<T2, N2> src2,
+    std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
   return dpas<src1_precision, src2_precision, T, systolic_depth, repeat_count>(
       src0, src1, src2, sat);
 }
@@ -2115,48 +2130,14 @@ template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2,
           typename Sat = __ESIMD_NS::saturation_off_tag>
-__ESIMD_API __ESIMD_NS::simd<T, N>
-dpas(__ESIMD_NS::simd<T1, N1> src1, __ESIMD_NS::simd<T2, N2> src2,
-     std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
+__SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas()")
+__ESIMD_API __ESIMD_NS::simd<T, N> dpas(
+    __ESIMD_NS::simd<T1, N1> src1, __ESIMD_NS::simd<T2, N2> src2,
+    std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
 
-  static_assert(__ESIMD_DNS::is_fp_or_dword_type<T>::value,
-                "Dst must be FP or DWORD type");
-  static_assert(__ESIMD_DNS::is_dword_type<T1>::value,
-                "Src1 must be DWORD type");
-  static_assert(__ESIMD_DNS::is_dword_type<T2>::value,
-                "Src2 must be DWORD type");
-
-  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
-                "Execution size must be 8 or 16");
-  static_assert(systolic_depth == 8, "systolic_depth must be 8");
-  static_assert((repeat_count >= 1) && (repeat_count <= 8),
-                "repeat_count must be within 1 to 8");
-
-  constexpr auto en_ops_per_channel =
-      detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
-                "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
-
-  constexpr auto src1_precision_bits =
-      detail::get_precision_bits(src1_precision);
-  static_assert(
-      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
-             (repeat_count * sizeof(T1) * 8)),
-      "invalid size for Src1");
-
-  constexpr auto src2_precision_bits =
-      detail::get_precision_bits(src2_precision);
-  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
-                        repeat_count) /
-                       (sizeof(T2) * 8)),
-                "invalid size for Src2");
-
-  constexpr int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
-                            (((int)src2_precision) << 8) + (int)src1_precision;
   __ESIMD_NS::simd<T, N> result =
-      __esimd_dpas_nosrc0<dpas_info, T, T1, T2, N, N1, N2>(src1.data(),
-                                                           src2.data());
+      __ESIMD_NS::xmx::dpas<systolic_depth, repeat_count, T, T1, T2,
+                            src1_precision, src2_precision>(src1, src2);
 
   if constexpr (std::is_same_v<Sat, __ESIMD_NS::saturation_off_tag>)
     return result;
@@ -2178,63 +2159,15 @@ template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2,
           typename Sat = __ESIMD_NS::saturation_off_tag>
-__ESIMD_API __ESIMD_NS::simd<T, N>
-dpasw(__ESIMD_NS::simd<T, N> src0, __ESIMD_NS::simd<T1, N1> src1,
-      __ESIMD_NS::simd<T2, N2> src2,
-      std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
-  constexpr bool is_4xhf =
-      std::is_same_v<T, __ESIMD_DNS::__raw_t<sycl::half>> &&
-      (src1_precision == src2_precision) &&
-      (src1_precision == argument_type::FP16);
+__SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpasw()")
+__ESIMD_API __ESIMD_NS::simd<T, N> dpasw(
+    __ESIMD_NS::simd<T, N> src0, __ESIMD_NS::simd<T1, N1> src1,
+    __ESIMD_NS::simd<T2, N2> src2,
+    std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
 
-  constexpr bool is_4xbf = __ESIMD_DNS::is_word_type<T>::value &&
-                           src1_precision == src2_precision &&
-                           src1_precision == argument_type::BF16;
-
-  constexpr bool is_common_dpas = __ESIMD_DNS::is_fp_or_dword_type<T>::value;
-
-  static_assert((is_4xhf || is_4xbf || is_common_dpas),
-                "unsupported dpas type");
-
-  static_assert(__ESIMD_DNS::is_dword_type<T1>::value,
-                "Src1 must be DWORD type");
-
-  static_assert(__ESIMD_DNS::is_dword_type<T2>::value,
-                "Src2 must be DWORD type");
-
-  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
-                "Execution size must be 8 or 16");
-
-  static_assert(systolic_depth == 8, "systolic_depth must be 8");
-  static_assert((repeat_count >= 1) && (repeat_count <= 8),
-                "repeat_count must be within 1 to 8");
-
-  constexpr auto en_ops_per_channel =
-      detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
-                "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
-
-  constexpr auto src1_precision_bits =
-      detail::get_precision_bits(src1_precision);
-  static_assert(
-      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
-             (repeat_count * sizeof(T1) * 8)),
-      "invalid size for Src1");
-
-  constexpr auto src2_precision_bits =
-      detail::get_precision_bits(src2_precision);
-  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
-                        ((repeat_count + 1) / 2)) /
-                       (sizeof(T2) * 8)),
-                "invalid size for Src2");
-
-  constexpr int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
-                            (((int)src2_precision) << 8) + (int)src1_precision;
   __ESIMD_NS::simd<T, N> result =
-      __esimd_dpasw<dpas_info, T, T1, T2, N, N1, N2>(src0.data(), src1.data(),
-                                                     src2.data());
-
+      __ESIMD_NS::xmx::dpasw<systolic_depth, repeat_count, T, T1, T2,
+                             src1_precision, src2_precision>(src0, src1, src2);
   if constexpr (std::is_same_v<Sat, __ESIMD_NS::saturation_off_tag>)
     return result;
   else
@@ -2253,60 +2186,17 @@ template <argument_type src1_precision, argument_type src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2,
           typename Sat = __ESIMD_NS::saturation_off_tag>
-__ESIMD_API __ESIMD_NS::simd<T, N>
-dpasw2(__ESIMD_NS::simd<T1, N1> src1, __ESIMD_NS::simd<T2, N2> src2,
-       std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
+__SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpasw()")
+__ESIMD_API __ESIMD_NS::simd<T, N> dpasw2(
+    __ESIMD_NS::simd<T1, N1> src1, __ESIMD_NS::simd<T2, N2> src2,
+    std::enable_if_t<__ESIMD_DNS::is_saturation_tag_v<Sat>, Sat> sat = {}) {
   constexpr bool is_4xhf =
       std::is_same_v<T, __ESIMD_DNS::__raw_t<sycl::half>> &&
       src1_precision == src2_precision && src1_precision == argument_type::FP16;
 
-  constexpr bool is_4xbf = __ESIMD_DNS::is_word_type<T>::value &&
-                           src1_precision == src2_precision &&
-                           src1_precision == argument_type::BF16;
-
-  constexpr bool is_common_dpas = __ESIMD_DNS::is_fp_or_dword_type<T>::value;
-
-  static_assert((is_4xhf || is_4xbf || is_common_dpas),
-                "unsupported dpas type");
-
-  static_assert(__ESIMD_DNS::is_dword_type<T1>::value,
-                "Src1 must be DWORD type");
-
-  static_assert(__ESIMD_DNS::is_dword_type<T2>::value,
-                "Src2 must be DWORD type");
-
-  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
-                "Execution size must be 8 or 16");
-
-  static_assert(systolic_depth == 8, "systolic_depth must be 8");
-  static_assert((repeat_count >= 1) && (repeat_count <= 8),
-                "repeat_count must be within 1 to 8");
-
-  constexpr auto en_ops_per_channel =
-      detail::get_ops_per_channel(src1_precision, src2_precision);
-  static_assert(en_ops_per_channel != detail::dpas_ops_per_channel::INVALID,
-                "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
-
-  constexpr auto src1_precision_bits =
-      detail::get_precision_bits(src1_precision);
-  static_assert(
-      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
-             (repeat_count * sizeof(T1) * 8)),
-      "invalid size for Src1");
-
-  constexpr auto src2_precision_bits =
-      detail::get_precision_bits(src2_precision);
-  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
-                        ((repeat_count + 1) / 2)) /
-                       (sizeof(T2) * 8)),
-                "invalid size for Src2");
-
-  constexpr int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
-                            (((int)src2_precision) << 8) + (int)src1_precision;
   __ESIMD_NS::simd<T, N> result =
-      __esimd_dpasw_nosrc0<dpas_info, T, T1, T2, N, N1, N2>(src1.data(),
-                                                            src2.data());
+      __ESIMD_NS::xmx::dpasw<systolic_depth, repeat_count, T, T1, T2,
+                             src1_precision, src2_precision>(src1, src2);
 
   if constexpr (std::is_same_v<Sat, __ESIMD_NS::saturation_off_tag>)
     return result;
