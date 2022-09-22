@@ -25,12 +25,7 @@
 
 #pragma once
 
-<<<<<<< HEAD
-#include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
-#include <sycl/ext/intel/esimd/native/common.hpp>
-=======
 #include <sycl/ext/intel/esimd/common.hpp>
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 #include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 #include <cstdint>
@@ -43,11 +38,6 @@ namespace ext::intel::experimental::esimd {
 /// @addtogroup sycl_esimd_core
 /// @{
 
-<<<<<<< HEAD
-using argument_type
-    __SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas_argument_type") =
-        __ESIMD_NS::xmx::dpas_argument_type;
-=======
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -67,7 +57,6 @@ using argument_type
     __SYCL_DEPRECATED("use sycl::ext::intel::esimd::xmx::dpas_argument_type") =
         __ESIMD_NS::xmx::dpas_argument_type;
 
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 
 /// The scope that lsc_fence operation should apply to
 /// Supported platforms: DG2, PVC

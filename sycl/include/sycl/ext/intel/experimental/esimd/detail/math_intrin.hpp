@@ -27,16 +27,9 @@
 
 /// @cond ESIMD_DETAIL
 
-<<<<<<< HEAD
-#include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
-#include <sycl/ext/intel/esimd/detail/host_util.hpp>
-#include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
-#include <sycl/ext/intel/esimd/detail/types.hpp>
-=======
 #include <sycl/ext/intel/esimd/detail/host_util.hpp>
 #include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
 #include <sycl/ext/intel/experimental/esimd/common.hpp>
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 
 #define __ESIMD_raw_vec_t(T, SZ)                                               \
   sycl::ext::intel::esimd::detail::vector_type_t<                              \
@@ -136,9 +129,6 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-#ifndef __SYCL_DEVICE_ONLY__
-=======
 #ifdef __SYCL_DEVICE_ONLY__
 
 /* INTEL_CUSTOMIZATION */
@@ -178,7 +168,6 @@ __esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
 /* end INTEL_CUSTOMIZATION */
 
 #else // __SYCL_DEVICE_ONLY__
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 
 template <typename T0, typename T1, int SZ>
 __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)

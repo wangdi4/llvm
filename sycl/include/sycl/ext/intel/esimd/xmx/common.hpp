@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 // INTEL_CUSTOMIZATION
 //
 // Modifications, Copyright (C) 2021 Intel Corporation
@@ -15,7 +13,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 //==-------------- xmx/common.hpp - DPC++ Explicit SIMD API ----------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -56,15 +53,12 @@ enum class dpas_argument_type {
   BF16 __SYCL_DEPRECATED("use bf16") = bf16,
   fp16 = 10, // half float
   FP16 __SYCL_DEPRECATED("use fp16") = fp16,
-<<<<<<< HEAD
-=======
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
   bf8 = 11, // bfloat 8
   BF8 __SYCL_DEPRECATED("use bf8") = bf8,
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
   tf32 = 12, // tensorfloat 32
   TF32 __SYCL_DEPRECATED("use tf32") = tf32
 };

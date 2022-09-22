@@ -75,7 +75,6 @@ struct is_saturation_tag {
 template <class T>
 inline constexpr bool is_saturation_tag_v = is_saturation_tag<T>::value;
 
-<<<<<<< HEAD
 /// Check if a given 32 bit positive integer is a power of 2 at compile time.
 ESIMD_INLINE constexpr bool isPowerOf2(unsigned int n) {
   return (n & (n - 1)) == 0;
@@ -88,8 +87,6 @@ ESIMD_INLINE constexpr bool isPowerOf2(unsigned int n, unsigned int limit) {
   return (n & (n - 1)) == 0 && n <= limit;
 }
 
-=======
->>>>>>> b16a245125ea6076cc26e97d9930d7278e907d35
 template <rgba_channel Ch>
 static inline constexpr uint8_t ch = 1 << static_cast<int>(Ch);
 static inline constexpr uint8_t chR = ch<rgba_channel::R>;
