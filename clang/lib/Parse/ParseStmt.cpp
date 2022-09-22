@@ -806,15 +806,7 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributes &Attrs,
 
   // The label may have no statement following it
   if (SubStmt.isUnset() && Tok.is(tok::r_brace)) {
-    if (getLangOpts().CPlusPlus) {
-      Diag(Tok, getLangOpts().CPlusPlus2b
-                    ? diag::warn_cxx20_compat_label_end_of_compound_statement
-                    : diag::ext_cxx_label_end_of_compound_statement);
-    } else {
-      Diag(Tok, getLangOpts().C2x
-                    ? diag::warn_c2x_compat_label_end_of_compound_statement
-                    : diag::ext_c_label_end_of_compound_statement);
-    }
+    DiagnoseLabelAtEndOfCompoundStatement();
     SubStmt = Actions.ActOnNullStmt(ColonLoc);
   }
 
@@ -958,26 +950,23 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
   // If we found a non-case statement, start by parsing it.
   StmtResult SubStmt;
 
-  if (Tok.isNot(tok::r_brace)) {
-    SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
+  if (Tok.is(tok::r_brace)) {
 #if INTEL_CUSTOMIZATION
-  } else if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
-    // CQ#370084: allow label without statement just before '}'.
-    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-    Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
-        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+    if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
+      // CQ#370084: allow label without statement just before '}'.
+      SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+      Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
+          << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+      SubStmt = Actions.ActOnNullStmt(ColonLoc);
+    } else {
+      // "switch (X) { case 4: }", is valid and is treated as if label was
+      // followed by a null statement.
+      DiagnoseLabelAtEndOfCompoundStatement();
+      SubStmt = Actions.ActOnNullStmt(ColonLoc);
+    }
 #endif // INTEL_CUSTOMIZATION
   } else {
-    // Nicely diagnose the common error "switch (X) { case 4: }", which is
-    // not valid.  If ColonLoc doesn't point to a valid text location, there was
-    // another parsing error, so avoid producing extra diagnostics.
-    if (ColonLoc.isValid()) {
-      SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-      Diag(AfterColonLoc, diag::err_switch_label_end_of_compound_statement)
-          << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-    }
-    SubStmt = StmtError();
+    SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
   }
 
   // Install the body into the most deeply-nested case.
@@ -1023,22 +1012,22 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
 
   StmtResult SubStmt;
 
-  if (Tok.isNot(tok::r_brace)) {
-    SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
-  } else {
-    // Diagnose the common error "switch (X) {... default: }", which is
-    // not valid.
-    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+  if (Tok.is(tok::r_brace)) {
+    // "switch (X) {... default: }", is valid and is treated as if label was
+    // followed by a null statement.
 #if INTEL_CUSTOMIZATION
     // CQ#370084: allow label without statement just before '}'.
+    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
     if (getLangOpts().IntelCompat)
       Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
         << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-    else
+    else {
+      DiagnoseLabelAtEndOfCompoundStatement();
+      SubStmt = Actions.ActOnNullStmt(ColonLoc);
+    }
 #endif // INTEL_CUSTOMIZATION
-    Diag(AfterColonLoc, diag::err_switch_label_end_of_compound_statement)
-        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-    SubStmt = true;
+  } else {
+    SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
   }
 
   // Broken sub-stmt shouldn't prevent forming the case statement properly.
@@ -1153,6 +1142,18 @@ void Parser::ParseCompoundStatementLeadingPragmas() {
     }
   }
 
+}
+
+void Parser::DiagnoseLabelAtEndOfCompoundStatement() {
+  if (getLangOpts().CPlusPlus) {
+    Diag(Tok, getLangOpts().CPlusPlus2b
+                  ? diag::warn_cxx20_compat_label_end_of_compound_statement
+                  : diag::ext_cxx_label_end_of_compound_statement);
+  } else {
+    Diag(Tok, getLangOpts().C2x
+                  ? diag::warn_c2x_compat_label_end_of_compound_statement
+                  : diag::ext_c_label_end_of_compound_statement);
+  }
 }
 
 /// Consume any extra semi-colons resulting in null statements,
