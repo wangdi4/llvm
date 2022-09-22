@@ -3448,7 +3448,7 @@ private:
         return false;
       };
 
-      assert(numOfTrunks() >= 0 && "Extending MultiNode without root?");
+      assert(numOfTrunks() > 0 && "Extending MultiNode without root?");
 
       // We can't extend the MultiNode if we reached the maximum size
       // or vector-length does not hold
