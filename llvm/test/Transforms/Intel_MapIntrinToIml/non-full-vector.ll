@@ -42,7 +42,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sinf8
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_sinf8_z0(<8 x float> %A)
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_l9(<8 x float> %A)
 ; CHECK: ret <8 x float> [[RESULT]]
 
 define <8 x float> @test_sinf8(<8 x float> %A) #1 {
@@ -80,7 +80,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8
-; CHECK: [[RESULT:%.*]] = call svml_avx_cc { <8 x float>, <8 x float> } @__svml_sincosf8_ha_z0(<8 x float> %a)
+; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_ha_l9(<8 x float> %a)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
 ; CHECK: store <8 x float> [[COS]], <8 x float>* %p, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
@@ -136,7 +136,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_cexpf4
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_z0(<8 x float> %A)
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_cexpf4_l9(<8 x float> %A)
 ; CHECK: ret <8 x float> [[RESULT]]
 
 define <8 x float> @test_cexpf4(<8 x float> %A) #1 {
@@ -201,7 +201,7 @@ entry:
 
 ; CHECK-LABEL: @test_sincosf2
 ; CHECK: [[ARG:%.*]] = shufflevector <2 x float> %a, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_ha_z0(<4 x float> [[ARG]])
+; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_ha_l9(<4 x float> [[ARG]])
 ; CHECK: [[SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[RESULT]], 0
 ; CHECK: [[SIN_EXTRACT:%.*]] = shufflevector <4 x float> [[SIN]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[TMP1:%.*]] = insertvalue { <2 x float>, <2 x float> } undef, <2 x float> [[SIN_EXTRACT]], 0
