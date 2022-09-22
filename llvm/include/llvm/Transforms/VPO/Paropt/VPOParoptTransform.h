@@ -2213,8 +2213,11 @@ private:
   void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
                             StringRef &NeedDevicePtrStr);
 
-  /// Emit code to handle depend clause for dispatch
-  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall);
+  /// Emit code to handle depend clause for dispatch. If \p SupportOMPTTracing
+  /// is true, also emit the runtime calls __kmpc_omp_task_begin/complete__if0
+  /// which are used only for OMPT tracing.
+  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall,
+                            bool SupportOMPTTracing = true);
 
   /// Emit code for the OMP5.1 \b dispatch construct
   bool genDispatchCode(WRegionNode *W);
