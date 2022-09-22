@@ -156,7 +156,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB7:
 ; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP5]], i32 4, <4 x i1> [[TMP4]], <4 x i32> undef)
+; CG-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP5]], i32 4, <4 x i1> [[TMP4]], <4 x i32> poison)
 ; CG-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD0]], <4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP4]])
 ; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
@@ -185,7 +185,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB14:
 ; CG-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP130]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_MASKED_LOAD150:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP14]], <4 x i32> undef)
+; CG-NEXT:    [[WIDE_MASKED_LOAD150:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP14]], <4 x i32> poison)
 ; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD150]], <4 x i32>* [[TMP16]], i32 4, <4 x i1> [[TMP14]])
 ; CG-NEXT:    br label [[VPLANNEDBB160:%.*]]
@@ -214,7 +214,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB23:
 ; CG-NEXT:    [[TMP25:%.*]] = bitcast i32* [[SCALAR_GEP220]] to <4 x i32>*
-; CG-NEXT:    [[WIDE_MASKED_LOAD240:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP24]], <4 x i32> undef)
+; CG-NEXT:    [[WIDE_MASKED_LOAD240:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP24]], <4 x i32> poison)
 ; CG-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP200]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD240]], <4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP24]])
 ; CG-NEXT:    br label [[VPLANNEDBB250:%.*]]

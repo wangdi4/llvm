@@ -19,7 +19,7 @@
 ; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i32> [[WIDE_LOAD]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[SCALAR_PRIV_VEC]], align 4
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> [[ARR_PRIV_VEC_BASE_ADDR]], <4 x i64> zeroinitializer, <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[WIDE_MASKED_GATHER]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP1]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SCALAR_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0

@@ -44,10 +44,10 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32 (i32)*, i32 (i32)** [[FUNC0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 (i32)** [[SCALAR_GEP0]] to <4 x i32 (i32)*>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32 (i32)*> @llvm.masked.load.v4p0f_i32i32f.p0v4p0f_i32i32f(<4 x i32 (i32)*>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i32 (i32)*> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32 (i32)*> @llvm.masked.load.v4p0f_i32i32f.p0v4p0f_i32i32f(<4 x i32 (i32)*>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i32 (i32)*> poison)
 ; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[C0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP4]], <4 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP4]], <4 x i32> poison)
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP4]] to <4 x i32>
 ; CHECK-NEXT:    [[ORIGINAL_VECTOR_OF_FUNC_PTR0:%.*]] = select <4 x i1> [[TMP4]], <4 x i32 (i32)*> [[WIDE_MASKED_LOAD0]], <4 x i32 (i32)*> zeroinitializer
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]

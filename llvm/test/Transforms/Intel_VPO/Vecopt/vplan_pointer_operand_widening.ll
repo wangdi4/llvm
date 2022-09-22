@@ -6,7 +6,7 @@
 ; CHECK-LABEL:@foo
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS1:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR1]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
+;CHECK-NEXT: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> poison)
 
 ;CHECK: [[VEC_BASE_PTR2:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS2:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR2]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
@@ -54,7 +54,7 @@ DIR.QUAL.LIST.END.2:
 ; CHECK-LABEL: @foo_c
 ; CHECK:         [[VECBASEPTR_0:%.*]] = shufflevector <2 x i32*> [[TMP0:%.*]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[ELEMBASEPTR_0:%.*]] = getelementptr i32, <6 x i32*> [[VECBASEPTR_0]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEMBASEPTR_0]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEMBASEPTR_0]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> poison)
 ; CHECK:         [[MM_VECTORGEP60:%.*]] = getelementptr inbounds [[STRUCT0:%.*]], <2 x %Struct*> [[MM_VECTORGEP0:%.*]], <2 x i32> <i32 1, i32 1>, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; CHECK-EMPTY:

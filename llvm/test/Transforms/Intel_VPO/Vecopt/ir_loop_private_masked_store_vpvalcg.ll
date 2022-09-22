@@ -49,7 +49,7 @@ define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds i64, i64* [[IP2:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i64* [[SCALAR_GEP4]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0v4i64(<4 x i64>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i64> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0v4i64(<4 x i64>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i64> poison)
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[WIDE_MASKED_LOAD]], <4 x i64>* [[VAL_VEC]], i32 8, <4 x i1> [[TMP4]])
 ; CHECK:         [[TMP7]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI]], 4

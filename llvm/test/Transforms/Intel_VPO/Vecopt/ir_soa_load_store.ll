@@ -13,7 +13,7 @@ define void @foo1()  {
 ; CHECK:         [[SCALAR_GEP5:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[TMP0]], i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP5]] to <8 x i32>*
 ; CHECK-NEXT:    [[REPLICATEDMASKELTS_:%.*]] = shufflevector <4 x i1> [[TMP4:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP5]], i32 4, <8 x i1> [[REPLICATEDMASKELTS_]], <8 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP5]], i32 4, <8 x i1> [[REPLICATEDMASKELTS_]], <8 x i32> poison)
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <8 x i32> [[WIDE_MASKED_LOAD]], <i32 5, i32 6, i32 5, i32 6, i32 5, i32 6, i32 5, i32 6>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <8 x i32> [[TMP6]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i64> [[TMP7]], <i64 6688, i64 6688, i64 6688, i64 6688>

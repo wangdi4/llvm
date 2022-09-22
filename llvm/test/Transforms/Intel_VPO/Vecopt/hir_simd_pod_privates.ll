@@ -75,7 +75,7 @@ define void @test_scalar(i32* nocapture readonly %iarr)  {
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i32*> [[DOTSPLATINSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i32*> [[TMP3]] to <4 x i8*>
-; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP4]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> undef)
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP4]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> poison)
 ; CHECK-NEXT:    [[NEXTIVLOOP_23]] = add nuw nsw i64 [[I1_I64_0]], 4
 ; CHECK-NEXT:    [[CONDLOOP_23:%.*]] = icmp sle i64 [[NEXTIVLOOP_23]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_23]], label [[LOOP_23]], label [[AFTERLOOP_23:%.*]], [[LOOP0:!llvm.loop !.*]]

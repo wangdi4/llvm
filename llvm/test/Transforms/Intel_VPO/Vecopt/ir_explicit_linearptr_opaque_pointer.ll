@@ -191,7 +191,7 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:   store <2 x ptr> [[VEC_PHI12:%.*]], ptr [[X_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   store <2 x i32> [[VEC_PHI:%.*]], ptr [[I_LINEAR_IV_PTR_VEC]], align 4
 ; CHECK-NEXT:   [[WIDE_LOAD:%.*]] = load <2 x ptr>, ptr [[Y_LINEAR_PTR_VEC]], align 4
-; CHECK-NEXT:   %wide.masked.gather = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:   %wide.masked.gather = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
 ; CHECK-NEXT:   [[WIDE_LOAD19:%.*]] = load <2 x i32>, ptr [[I_LINEAR_IV_PTR_VEC]], align 4
 ; CHECK-NEXT:   [[MM_VECTORGEP:%.*]] = getelementptr inbounds [10 x i32], <2 x ptr> <ptr @arr, ptr @arr>, <2 x i64> zeroinitializer, <2 x i32> [[WIDE_LOAD19]]
 ; CHECK-NEXT:   call void @llvm.masked.scatter.v2i32.v2p0(<2 x i32> %wide.masked.gather, <2 x ptr> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>)

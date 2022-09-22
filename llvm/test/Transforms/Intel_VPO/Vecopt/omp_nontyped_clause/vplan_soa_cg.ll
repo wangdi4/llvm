@@ -86,11 +86,11 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    [[SOA_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
 ; CHECK-NEXT:    [[MM_VECTORGEP60:%.*]] = getelementptr inbounds <2 x i32>, <2 x <2 x i32>*> [[SOA_VECTORGEP0]], <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP0]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP0]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 20, i32 20>, <2 x i32*> [[MM_VECTORGEP60]], i32 4, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <2 x i32> [[WIDE_LOAD0]] to <2 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP70:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[TMP0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER80:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP70]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER80:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[MM_VECTORGEP70]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 30, i32 30>, <2 x i32*> [[MM_VECTORGEP70]], i32 4, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI0]], 2
