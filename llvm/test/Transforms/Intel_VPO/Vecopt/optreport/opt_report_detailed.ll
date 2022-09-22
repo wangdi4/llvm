@@ -1,10 +1,10 @@
 ; Test to check the functionality of vectorization opt-report for LLVM-IR based vectorizer.
 
-; RUN: opt -enable-new-pm=0 -vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
-; RUN: opt -passes='vplan-vec,intel-ir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -enable-new-pm=0 -vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -passes='vplan-vec,intel-ir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -print-after=hir-vplan-vec < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -22,6 +22,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15477: vector cost: 4.500000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
@@ -57,6 +58,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15477: vector cost: 4.500000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 2
@@ -95,6 +97,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15477: vector cost: 4.500000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
@@ -122,6 +125,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15477: vector cost: 4.500000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 1
 ; HIR-NEXT:      remark #15485: serialized function calls: 0
@@ -159,6 +163,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15477: vector cost: 12.000000
 ; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.578125
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
@@ -188,6 +193,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15477: vector cost: 12.000000
 ; HIR-NEXT:      remark #15478: estimated potential speedup: 2.578125
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 0

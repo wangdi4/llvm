@@ -427,6 +427,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15568, "Scatters are generated due to non-unit stride index of the corresponding stores."},
     {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
             "-mprefer-vector-width=512 to override."},
+    {15570, "using scalar loop trip count: %s"},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},
