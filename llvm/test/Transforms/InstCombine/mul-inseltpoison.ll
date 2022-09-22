@@ -1029,10 +1029,8 @@ define <2 x i32> @mulsub2_vec_nonuniform_undef(<2 x i32> %a0) {
 
 define i32 @muladd2(i32 %a0) {
 ; CHECK-LABEL: @muladd2(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[DOTNEG:%.*]] = shl i32 [[A0:%.*]], 2
-; CHECK-NEXT:    [[MUL:%.*]] = sub i32 -64, [[DOTNEG]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[A0:%.*]], 2
+; CHECK-NEXT:    [[MUL:%.*]] = sub i32 -64, [[TMP1]]
 ; CHECK-NEXT:    ret i32 [[MUL]]
 ;
   %add = add i32 %a0, 16
@@ -1042,10 +1040,8 @@ define i32 @muladd2(i32 %a0) {
 
 define <2 x i32> @muladd2_vec(<2 x i32> %a0) {
 ; CHECK-LABEL: @muladd2_vec(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[DOTNEG:%.*]] = shl <2 x i32> [[A0:%.*]], <i32 2, i32 2>
-; CHECK-NEXT:    [[MUL:%.*]] = sub <2 x i32> <i32 -64, i32 -64>, [[DOTNEG]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[A0:%.*]], <i32 2, i32 2>
+; CHECK-NEXT:    [[MUL:%.*]] = sub <2 x i32> <i32 -64, i32 -64>, [[TMP1]]
 ; CHECK-NEXT:    ret <2 x i32> [[MUL]]
 ;
   %add = add <2 x i32> %a0, <i32 16, i32 16>
