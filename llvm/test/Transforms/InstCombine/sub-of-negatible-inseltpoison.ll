@@ -1217,10 +1217,15 @@ define i8 @negate_left_shift_by_constant(i8 %x, i8 %y, i8 %z, i8 %k) {
 ; CHECK-LABEL: @negate_left_shift_by_constant(
 ; CHECK-NEXT:    [[T0:%.*]] = sub i8 [[K:%.*]], [[Z:%.*]]
 ; CHECK-NEXT:    call void @use8(i8 [[T0]])
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[T1:%.*]] = shl i8 [[T0]], 4
 ; CHECK-NEXT:    [[T2:%.*]] = sub i8 [[X:%.*]], [[T1]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[T1:%.*]] = shl i8 [[T0]], 4
+; CHECK-NEXT:    [[T2:%.*]] = sub i8 [[X:%.*]], [[T1]]
+>>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret i8 [[T2]]
 ;
   %t0 = sub i8 %k, %z
@@ -1331,7 +1336,7 @@ define i8 @negate_select_of_op_vs_negated_op(i8 %x, i8 %y, i1 %c) {
 ; CHECK-LABEL: @negate_select_of_op_vs_negated_op(
 ; CHECK-NEXT:    [[T0:%.*]] = sub i8 0, [[X:%.*]]
 ; CHECK-NEXT:    call void @use8(i8 [[T0]])
-; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[C:%.*]], i8 [[X]], i8 [[T0]], !prof !0
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[C:%.*]], i8 [[X]], i8 [[T0]], !prof [[PROF0:![0-9]+]]
 ; CHECK-NEXT:    [[T2:%.*]] = add i8 [[TMP1]], [[Y:%.*]]
 ; CHECK-NEXT:    ret i8 [[T2]]
 ;

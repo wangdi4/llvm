@@ -180,10 +180,15 @@ define <3 x i64> @shl_sub_i64_vec_undef_bad2(<3 x i64> %x) {
 
 define i32 @shl_const_op1_sub_const_op0(i32 %x) {
 ; CHECK-LABEL: @shl_const_op1_sub_const_op0(
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[X:%.*]], 3
 ; CHECK-NEXT:    [[R:%.*]] = sub i32 336, [[TMP1]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[X:%.*]], 3
+; CHECK-NEXT:    [[R:%.*]] = sub i32 336, [[TMP1]]
+>>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
   %s = sub i32 42, %x
@@ -193,10 +198,15 @@ define i32 @shl_const_op1_sub_const_op0(i32 %x) {
 
 define <2 x i32> @shl_const_op1_sub_const_op0_splat(<2 x i32> %x) {
 ; CHECK-LABEL: @shl_const_op1_sub_const_op0_splat(
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[X:%.*]], <i32 3, i32 3>
 ; CHECK-NEXT:    [[R:%.*]] = sub <2 x i32> <i32 336, i32 336>, [[TMP1]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[X:%.*]], <i32 3, i32 3>
+; CHECK-NEXT:    [[R:%.*]] = sub <2 x i32> <i32 336, i32 336>, [[TMP1]]
+>>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret <2 x i32> [[R]]
 ;
   %s = sub <2 x i32> <i32 42, i32 42>, %x

@@ -1185,10 +1185,15 @@ define i64 @test61([100 x [100 x i8]]* %foo, i64 %i, i64 %j) {
 
 define i32 @test62(i32 %A) {
 ; CHECK-LABEL: @test62(
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[B:%.*]] = shl i32 [[A:%.*]], 1
 ; CHECK-NEXT:    [[C:%.*]] = sub i32 2, [[B]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[A:%.*]], 1
+; CHECK-NEXT:    [[C:%.*]] = sub i32 2, [[TMP1]]
+>>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret i32 [[C]]
 ;
   %B = sub i32 1, %A
@@ -1198,10 +1203,15 @@ define i32 @test62(i32 %A) {
 
 define <2 x i32> @test62vec(<2 x i32> %A) {
 ; CHECK-LABEL: @test62vec(
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[B:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
 ; CHECK-NEXT:    [[C:%.*]] = sub <2 x i32> <i32 2, i32 2>, [[B]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
+; CHECK-NEXT:    [[C:%.*]] = sub <2 x i32> <i32 2, i32 2>, [[TMP1]]
+>>>>>>> 0f32a5dea0e9ef5a52865f9fd285b394d46babaf
 ; CHECK-NEXT:    ret <2 x i32> [[C]]
 ;
   %B = sub <2 x i32> <i32 1, i32 1>, %A
@@ -1211,8 +1221,8 @@ define <2 x i32> @test62vec(<2 x i32> %A) {
 
 define i32 @test63(i32 %A) {
 ; CHECK-LABEL: @test63(
-; CHECK-NEXT:    [[DOTNEG_NEG:%.*]] = shl i32 [[A:%.*]], 1
-; CHECK-NEXT:    ret i32 [[DOTNEG_NEG]]
+; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[A:%.*]], 1
+; CHECK-NEXT:    ret i32 [[TMP1]]
 ;
   %B = sub i32 1, %A
   %C = shl i32 %B, 1
@@ -1222,8 +1232,8 @@ define i32 @test63(i32 %A) {
 
 define <2 x i32> @test63vec(<2 x i32> %A) {
 ; CHECK-LABEL: @test63vec(
-; CHECK-NEXT:    [[DOTNEG_NEG:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
-; CHECK-NEXT:    ret <2 x i32> [[DOTNEG_NEG]]
+; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
+; CHECK-NEXT:    ret <2 x i32> [[TMP1]]
 ;
   %B = sub <2 x i32> <i32 1, i32 1>, %A
   %C = shl <2 x i32> %B, <i32 1, i32 1>
