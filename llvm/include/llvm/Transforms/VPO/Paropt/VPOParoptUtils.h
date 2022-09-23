@@ -2117,14 +2117,6 @@ public:
   /// Returns true, if async-offload helper thread code generation is enabled.
   static bool enableAsyncHelperThread();
 
-  /// Returns device memory address space setting value
-  ///   0: private
-  ///   1: global
-  ///   2: constant
-  ///   3: local (default)
-  ///   4: generic
-  static uint32_t getDeviceMemoryKind();
-
   /// Returns true, if it is allowed to execute "omp target parallel for"
   /// with multiple teams/WGs. According to OpenMP specification only
   /// one team/WG is allowed, which corresponds to false return value.

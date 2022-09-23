@@ -153,7 +153,7 @@ static cl::opt<uint64_t> KernelArgsSizeLimit(
     "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
     cl::desc("Maximum total size in bytes of the arguments for a kernel"));
 
-static cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
+cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
     "vpo-paropt-atomic-free-red-global-buf-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum number of elements (and teams) in the global buffer for "
              "atomic-free reduction"));
@@ -165,6 +165,7 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
 
 
 extern cl::opt<bool> AtomicFreeReduction;
+extern cl::opt<bool> AtomicFreeReductionUseSLM;
 
 // Reset the value in the Map clause to be empty.
 //
@@ -2864,11 +2865,27 @@ bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
   return Changed;
 }
 
+// Add globals for atomic-free GPU reduction global buffers (one per reduction
+// item) and global teams counter (one per kernel)
 bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
   assert(W && "Null WRegionNode.");
 
-  if (!VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() ||
-      !WRegionUtils::supportsGlobalAtomicFreeReduction(W))
+  // Global and local buffers stand for the different stages of the reduction
+  // (global and local respectively), they are both global in terms of
+  // a memory kind (i.e. addrspace(1) from the IR PoV).
+  // AtomicFreeRedLocalBufSize == 0 indicates that no tree pattern is used for
+  // local reduction, so we can reuse the buffer (red_buf right above) used
+  // for global reduction.
+  // NOTE: arrsec reduction doesn't support no-SLM local buffers yet.
+  bool NeedsLocalBuffer = VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
+                          WRegionUtils::supportsLocalAtomicFreeReduction(W) &&
+                          !AtomicFreeReductionUseSLM &&
+                          AtomicFreeRedLocalBufSize;
+  bool NeedsGlobalBuffer =
+      VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() &&
+      WRegionUtils::supportsGlobalAtomicFreeReduction(W);
+
+  if (!NeedsLocalBuffer && !NeedsGlobalBuffer)
     return false;
 
   auto &RedClause = W->getRed();
@@ -2915,8 +2932,10 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     if (NumElems && !isa<ConstantInt>(NumElems))
       continue;
 
+    FoundProperItem = true;
+
     uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
-    uint64_t MapType = TGT_MAP_PRIVATE;
+    uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
 
@@ -2947,37 +2966,56 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       Initializer = Constant::getNullValue(BufTy);
     }
 
-    Value *MapGlobalSize = ConstantInt::get(
-        Type::getInt64Ty(F->getContext()),
-        Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+    if (NeedsGlobalBuffer) {
+      Value *MapGlobalSize = ConstantInt::get(
+          Type::getInt64Ty(F->getContext()),
+          Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
 
-    auto *NewGlobalBuf = new GlobalVariable(
-        *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
-        nullptr, GlobalValue::NotThreadLocal,
-        isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
-    NewGlobalBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
-    addMapForValue(NewGlobalBuf, MapType, MapTypeVal, MapGlobalSize);
-    FoundProperItem = true;
+      auto *GlobalBuf = new GlobalVariable(
+          *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
+          nullptr, GlobalValue::NotThreadLocal,
+          isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
+      GlobalBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
+      addMapForValue(GlobalBuf, MapType, MapTypeVal, MapGlobalSize);
+    }
+
+    bool IsArrayOrArraySection =
+        RedI->getIsArraySection() || BufTy->isArrayTy() || NumElems;
+    if (NeedsLocalBuffer && !IsArrayOrArraySection) {
+      Value *MapLocalSize = ConstantInt::get(
+          Type::getInt64Ty(F->getContext()),
+          Size * AtomicFreeRedLocalBufSize *
+              (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+
+      auto *LocalBuf = new GlobalVariable(
+          *F->getParent(), BufTy, false, BufLinkage, Initializer,
+          "red_local_buf", nullptr, GlobalValue::NotThreadLocal,
+          isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
+      LocalBuf->addAttribute(VPOParoptAtomicFreeReduction::LocalBufferAttr);
+      addMapForValue(LocalBuf, MapType, MapTypeVal, MapLocalSize);
+    }
   }
 
   if (!FoundProperItem)
     return false;
 
-  Type *CounterTy = Type::getInt32Ty(F->getContext());
-  uint64_t Size = DL.getTypeSizeInBits(CounterTy) / 8;
-  uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
-  Value *MapTypeVal =
-      ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
-  Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
+  if (NeedsGlobalBuffer) {
+    Type *CounterTy = Type::getInt32Ty(F->getContext());
+    uint64_t Size = DL.getTypeSizeInBits(CounterTy) / 8;
+    uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
+    Value *MapTypeVal =
+        ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
+    Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
 
-  auto *GlobalCounter = new GlobalVariable(
-      *(F->getParent()), CounterTy, false,
-      GlobalValue::LinkageTypes::PrivateLinkage,
-      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), "teams_counter",
-      nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
-  GlobalCounter->addAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr);
+    auto *GlobalCounter = new GlobalVariable(
+        *(F->getParent()), CounterTy, false,
+        GlobalValue::LinkageTypes::PrivateLinkage,
+        ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), "teams_counter",
+        nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
+    GlobalCounter->addAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr);
 
-  addMapForValue(GlobalCounter, MapType, MapTypeVal, MapSize);
+    addMapForValue(GlobalCounter, MapType, MapTypeVal, MapSize);
+  }
 
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd;
   for (auto &C : NewClauses)

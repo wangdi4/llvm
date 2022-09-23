@@ -1,7 +1,7 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck -check-prefix=MAP %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck -check-prefix=MAP %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck -check-prefix=MAP %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck -check-prefix=MAP %s
 
 ; Test src:
 ;
@@ -75,7 +75,7 @@
 ; CHECK-LABEL: atomic.free.red.global.update.store:
 ; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(4) %
 
-; MAP: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}"QUAL.OMP.MAP.TO"(ptr addrspace(1) @red_buf, ptr addrspace(1) @red_buf, i64 4096, i64 128), "QUAL.OMP.MAP.TO"(ptr addrspace(1) @teams_counter, ptr addrspace(1) @teams_counter, i64 4, i64 129)
+; MAP: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}"QUAL.OMP.MAP.TO"(ptr addrspace(1) @red_buf, ptr addrspace(1) @red_buf, i64 4096, i64 1152), "QUAL.OMP.MAP.TO"(ptr addrspace(1) @teams_counter, ptr addrspace(1) @teams_counter, i64 4, i64 129)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

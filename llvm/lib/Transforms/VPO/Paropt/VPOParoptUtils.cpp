@@ -163,12 +163,6 @@ static cl::opt<uint32_t> DataPrefetchKind(
     cl::desc("Control prefetch API generation in OpenMP code. 0 = none; "
              "1 (default) = lsc_prefetch; 2 = OpenCL_prefetch."));
 
-// Switch to control memory address-space setting for device.
-static cl::opt<uint32_t> DeviceMemoryKind(
-    "vpo-paropt-device-memory-kind", cl::Hidden, cl::init(3),
-    cl::desc("Control memory address space setting for device. 0 = private; "
-             "1 = global, 2 = constant, 3 (default) = local; 4 = generic."));
-
 // Enables block loads codegen for GPUs.
 static cl::opt<bool> EnableDeviceBlockLoad(
     "vpo-paropt-enable-device-block-load", cl::Hidden, cl::init(false),
@@ -6996,10 +6990,6 @@ bool VPOParoptUtils::enableDeviceSimdCodeGen() {
 
 bool VPOParoptUtils::enableAsyncHelperThread() {
   return EnableAsyncHelperThread;
-}
-
-uint32_t VPOParoptUtils::getDeviceMemoryKind() {
-  return DeviceMemoryKind;
 }
 
 bool VPOParoptUtils::enableDeviceBlockLoad() {

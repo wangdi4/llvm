@@ -1376,6 +1376,12 @@ bool WRegionUtils::supportsLocalAtomicFreeReduction(const WRegionNode *W) {
   if (W->getIsParLoop())
     return !W->getWRNLoopInfo().isKnownNDRange();
 
+  if (auto *GW = dyn_cast<WRNGenericLoopNode>(W)) {
+    if (GW->getMappedDir() == DIR_OMP_DISTRIBUTE_PARLOOP ||
+        GW->getMappedDir() == DIR_OMP_PARALLEL_LOOP)
+      return !GW->getWRNLoopInfo().isKnownNDRange();
+  }
+
   // No constructs other than par/parloop are allowed for local atomic-free
   // reduction.
   if (!isa<WRNParallelNode>(W))
