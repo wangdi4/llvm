@@ -82,6 +82,10 @@
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_COLLAB
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -695,6 +699,21 @@ std::string saveModuleSymbolTable(const module_split::EntryPointSet &Es, int I,
   return OutFileName;
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getOptLevel() {
+  constexpr unsigned DefaultOptLevel = 2;
+  if (OptLevelO3)
+    return 3;
+  if (OptLevelO2 || OptLevelOs || OptLevelOz)
+    return 2;
+  if (OptLevelO1)
+    return 1;
+  if (OptLevelO0)
+    return 0;
+  return DefaultOptLevel;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <class PassClass> bool runModulePass(Module &M) {
   ModulePassManager MPM;
   ModuleAnalysisManager MAM;
@@ -709,9 +728,6 @@ template <class PassClass> bool runModulePass(Module &M) {
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
 bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
-#if INTEL_CUSTOMIZATION
-  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
-#endif // INTEL_CUSTOMIZATION
   LoopAnalysisManager LAM;
   CGSCCAnalysisManager CGAM;
   FunctionAnalysisManager FAM;
@@ -725,6 +741,9 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   ModulePassManager MPM;
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(XmainOptLevelAnalysisInit(getOptLevel()));
+#endif // INTEL_CUSTOMIZATION
   MPM.addPass(SYCLLowerESIMDPass{});
 
   if (!OptLevelO0) {

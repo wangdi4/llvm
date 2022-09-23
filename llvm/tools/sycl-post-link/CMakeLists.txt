@@ -25,9 +25,6 @@ include_directories(
 endif()
 
 set(LLVM_LINK_COMPONENTS
-# INTEL_CUSTOMIZATION
-  Analysis
-# end INTEL_CUSTOMIZATION
   BitWriter
   Core
   IPO
