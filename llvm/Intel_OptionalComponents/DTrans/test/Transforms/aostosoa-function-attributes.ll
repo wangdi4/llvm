@@ -156,4 +156,6 @@ define internal void @test05callee(%struct.test01* noalias nonnull %in1) {
   ret void
 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

@@ -135,5 +135,7 @@ define void @test03(%struct.test01* %in1) {
   ret void
 }
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

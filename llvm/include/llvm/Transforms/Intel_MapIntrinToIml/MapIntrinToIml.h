@@ -57,8 +57,9 @@ class MapIntrinToImlImpl {
   /// requirement, empty is returned. If \p Masked is true, a masked variant is
   /// returned.
   StringRef findX86SVMLVariantForScalarFunction(StringRef ScalarFuncName,
-                                                unsigned TargetVL, bool Masked,
-                                                Instruction *I);
+                                                unsigned ComponentBitWidth,
+                                                unsigned TargetVL,
+                                                bool Masked, Instruction *I);
 
   /// Try to find an SVML function for scalar function \p ScalarFuncName, with
   /// element type sized \p ComponentBitWidth, VL closest to \p TargetVL and
@@ -99,7 +100,8 @@ class MapIntrinToImlImpl {
 
   /// \brief Build a linked list of IMF attributes used to query the IML
   /// accuracy interface.
-  void createImfAttributeList(Instruction *I, ImfAttr **List);
+  void createImfAttributeList(Instruction *I, unsigned ComponentBitWidth,
+                              unsigned TargetVL, ImfAttr **List);
 
   /// \brief Performs type legalization on parameter arguments and inserts the
   /// legally typed svml function declaration.

@@ -588,6 +588,17 @@ VPInstructionCost VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
   return getTTICostForVF(VPInst, VF);
 }
 
+VPInstructionCost VPlanTTICostModel::getZTTCost(Type *UBType) const {
+  // Return integer comparison cost + overhead of mispredicted branch.
+  VPInstructionCost JmpOverheadCost = 5;
+
+  VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
+    Instruction::ICmp, UBType, nullptr /* CondTy */,
+    CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+
+  return CmpCost + JmpOverheadCost;
+}
+
 VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
                                                               Type *DestTy) {
   VPInstructionCost CastCost =

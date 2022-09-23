@@ -141,5 +141,7 @@ define void @test04(%struct.test04.a* %p1, %struct.test04.b* %p2) {
 
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
-declare  i8* @malloc(i64)
+declare  i8* @malloc(i64) #0
 declare i32 @__fxstat64(i32, i32, %struct.stat*)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

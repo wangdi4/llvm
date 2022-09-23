@@ -18,10 +18,8 @@
 
 %struct.x264_t = type { i32, [50 x %struct.x264_t*], float }
 
-declare void @free(i8* nocapture)
-
-declare noalias i8* @malloc(i64)
-
+declare void @free(i8* nocapture) #1
+declare noalias i8* @malloc(i64) #0
 declare dso_local i32 @printf(i8* nocapture readonly, ...)
 
 define internal i8* @x264_malloc(i32) {
@@ -78,3 +76,6 @@ define dso_local i32 @main() #2 {
   call void @x264_free(i8* %1)
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

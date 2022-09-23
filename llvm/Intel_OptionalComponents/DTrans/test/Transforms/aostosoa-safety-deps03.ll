@@ -29,5 +29,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; CHECK: %__SOA_struct.test01 = type { i64*, i64* }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
 declare i8* @strcpy(i8*, i8*)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

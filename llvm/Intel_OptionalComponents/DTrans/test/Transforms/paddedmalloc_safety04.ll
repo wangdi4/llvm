@@ -13,12 +13,12 @@
 @arr1 = internal global [10 x i32] zeroinitializer, align 16
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
@@ -77,6 +77,10 @@ AFTER.OMP:
 
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc
 ; CHECK: dtrans-paddedmalloc: Identifying alloc functions

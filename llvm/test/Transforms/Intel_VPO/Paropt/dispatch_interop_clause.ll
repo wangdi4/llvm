@@ -1,6 +1,9 @@
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+
 ; // C++ source
 ; // #include <stdio.h>
 ; #include <omp.h>
@@ -19,6 +22,11 @@
 ;     foo(123);
 ;   return 0;
 ; }
+
+; Since interop clause is present, there should be no calls to create the interop obj,
+; be it __tgt_create_interop_obj (for codegen ver=0) or __tgt_get_interop_obj (ver=1)
+; CHECK-NOT: __tgt_create_interop_obj
+; CHECK-NOT: __tgt_get_interop_obj
 
 ; When interop(iop) clause is specified and device clause is not, the device
 ; is obtained via the runtime call omp_get_interop_int(iop, -5, nullptr)

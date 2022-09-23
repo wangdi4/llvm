@@ -44,7 +44,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.Arr.1 = type <{ i8, [4 x i8], i16**, i32, [4 x i8] }>
 %class.XMLMsgLoader = type opaque
 
-declare !intel.dtrans.func.type !21 dso_local void @free(i8* "intel_dtrans_func_index"="1") local_unnamed_addr
+declare !intel.dtrans.func.type !21 dso_local void @free(i8* "intel_dtrans_func_index"="1") local_unnamed_addr #0
 
 define hidden void @_ZN1FD2Ev(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %arg) personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !intel.dtrans.func.type !12 {
 bb:
@@ -156,6 +156,8 @@ declare !intel.dtrans.func.type !14 hidden void @_ZN3ArrIPfED2Ev(%struct.Arr.0* 
 declare !intel.dtrans.func.type !18 hidden void @_ZN3ArrIPsED2Ev(%struct.Arr.1* nocapture readonly "intel_dtrans_func_index"="1")
 declare !intel.dtrans.func.type !20 void @__clang_call_terminate(i8* "intel_dtrans_func_index"="1")
 declare i32 @__gxx_personality_v0(...)
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!1, !6, !10, !15, !23}
 

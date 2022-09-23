@@ -206,8 +206,10 @@ return:                                           ; preds = %for.end, %if.then
   ret void
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare !intel.dtrans.func.type !13 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!0, !4}
 

@@ -81,8 +81,11 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 1
 
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
 declare void @llvm.memmove.p0i8.p0i8.i64(i8* , i8*, i64, i1)
-declare void @free(i8*)
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

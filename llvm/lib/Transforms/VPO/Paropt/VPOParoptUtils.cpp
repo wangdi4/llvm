@@ -1494,11 +1494,36 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   return Call;
 }
 
+// Construct a global array of unsigned ints from PreferList and return a void*
+// pointing to the array. If PreferList is empty, then return (void*)nullptr.
+static Value *genPreferArray(const SmallVectorImpl<unsigned> &PreferList,
+                             Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  if (PreferList.empty()) {
+    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+    return NullPtr;
+  }
+
+  IRBuilder<> Builder(InsertPt);
+  Constant *PreferListInit = ConstantDataArray::get(C, PreferList);
+  auto *PreferListGblVar = new GlobalVariable(
+      *(F->getParent()), PreferListInit->getType(), true,
+      GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
+  PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  Value *PreferListGblVarCast =
+      Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
+  return PreferListGblVarCast;
+}
+
 // Generate a call to
 // omp_interop_t __tgt_create_interop(
 //    int64_t device_id, int32_t interop_type, int32_t num_prefers,
 //   intptr_t* prefer_ids);
-
 CallInst *
 VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
                                     const SmallVectorImpl<unsigned> &PreferList,
@@ -1526,21 +1551,8 @@ VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
   Args.push_back(CountVal);
   ArgTypes.push_back(Int32Ty);
 
-  if (PreferList.empty()) {
-    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
-    Args.push_back(NullPtr);
-  } else {
-    Constant *PreferListInit =
-        ConstantDataArray::get(Builder.getContext(), PreferList);
-    auto *PreferListGblVar = new GlobalVariable(
-        *(F->getParent()), PreferListInit->getType(), true,
-        GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
-    PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-    Value *PreferListGblVarCast =
-        Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
-    Args.push_back(PreferListGblVarCast);
-  }
+  Value *PreferArray = genPreferArray(PreferList, InsertPt);
+  Args.push_back(PreferArray);
   ArgTypes.push_back(Int8PtrTy);
 
   CallInst *Call =
@@ -1632,6 +1644,163 @@ CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
 }
 
 // Generate a call to
+//   void __tgt_interop_use_async(ident_t *Loc,
+//                                int32_t Tid,
+//                                omp_interop_t InteropObj,
+//                                bool Nowait,
+//                                void *Ptask /*nullptr*/)
+CallInst *VPOParoptUtils::genTgtInteropUseAsync(WRegionNode *W,
+                                                StructType *IdentTy,
+                                                Value *TidPtr,
+                                                Value *InteropObj, bool Nowait,
+                                                Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *VoidTy = Builder.getVoidTy();
+  Type *Int8Ty = Builder.getInt8Ty();
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  SmallVector<Value *, 5> Args;
+  SmallVector<Type *, 5> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: int32_t Tid
+  LoadInst *Tid =
+      Builder.CreateAlignedLoad(Int32Ty, TidPtr, Align(4), "my.tid");
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: omp_interop_t InteropObj
+  Args.push_back(InteropObj);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #4: bool Nowait
+  Value *NowaitVal = ConstantInt::get(Int8Ty, Nowait);
+  Args.push_back(NowaitVal);
+  ArgTypes.push_back(Int8Ty);
+
+  //arg #5: (void*)nullptr
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+  Args.push_back(NullPtr);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_interop_use_async", VoidTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
+//   omp_interopt_t __tgt_get_interop_obj(ident_t *Loc,
+//                                        uint32_t OmpInteropContext,
+//                                        uint32_t NumPrefers,
+//                                        omp_interop_fr_t *PreferList,
+//                                        int64_t DeviceNum,
+//                                        int32_t Tid,
+//                                        void *CurrentTask);
+CallInst *VPOParoptUtils::genTgtGetInteropObj(
+    WRegionNode *W, StructType *IdentTy, unsigned OmpInteropContext,
+    const SmallVectorImpl<unsigned> &PreferList, Value *DeviceNum, Value *Tid,
+    Value *CurrentTask, Instruction *InsertPt) {
+
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  SmallVector<Value *, 7> Args;
+  SmallVector<Type *, 7> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: uint32_t OmpInteropContext
+  Value *OmpInteropContextVal = ConstantInt::get(Int32Ty, OmpInteropContext);
+  Args.push_back(OmpInteropContextVal);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: uint32_t NumPrefers
+  Value *NumPrefers = ConstantInt::get(Int32Ty, PreferList.size());
+  Args.push_back(NumPrefers);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #4: omp_interop_fr_t *PreferList, where omp_interop_fr_t is uint32_t
+  Value *PreferArray = genPreferArray(PreferList, InsertPt);
+  Args.push_back(PreferArray);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #5: int64_t DeviceNum
+  Args.push_back(DeviceNum);
+  ArgTypes.push_back(Int64Ty);
+
+  //arg #6: int32_t Tid
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #7: void *CurrentTask
+  Args.push_back(CurrentTask);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_get_interop_obj", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
+//   void __tgt_target_sync(ident_t *Loc,
+//                          int32_t Tid,
+//                          void *CurrentTask,
+//                          void *Event /*nullptr*/ )
+CallInst *VPOParoptUtils::genTgtTargetSync(WRegionNode *W, StructType *IdentTy,
+                                           Value *Tid, Value *CurrentTask,
+                                           Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *VoidTy = Type::getVoidTy(C);
+  Type *Int32Ty = Type::getInt32Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  SmallVector<Value *, 4> Args;
+  SmallVector<Type *, 4> ArgTypes;
+
+  //arg #1: ident_t *Loc
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+    IdentTy, KMP_IDENT_KMPC, W->getEntryBBlock(), W->getExitBBlock());
+  Args.push_back(Loc);
+  ArgTypes.push_back(PointerType::getUnqual(IdentTy));
+
+  //arg #2: int32_t Tid
+  Args.push_back(Tid);
+  ArgTypes.push_back(Int32Ty);
+
+  //arg #3: void *CurrentTask
+  Args.push_back(CurrentTask);
+  ArgTypes.push_back(Int8PtrTy);
+
+  //arg #4: (void*)nullptr
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+  Args.push_back(NullPtr);
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_target_sync", VoidTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
 //   int omp_get_num_devices()
 CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
   BasicBlock *B = InsertPt->getParent();
@@ -1687,7 +1856,7 @@ CallInst *VPOParoptUtils::genOmpGetInteropInt(Value *InteropObj, int PropertyID,
 
 // Generate a call to omp_get_interop_int(interop, omp_ipr_device_num, nullptr)
 // which extracts the device num (property_id = omp_ipr_device_num = -5) and
-// returns it as an i64 value.
+// returns it as an i64 value (omp_intptr_t in the OMP spec).
 CallInst *VPOParoptUtils::genOmpGetInteropDeviceNum(Value *InteropObj,
                                                     Instruction *InsertPt) {
   return genOmpGetInteropInt(InteropObj, /*omp_ipr_device_num=*/ -5, InsertPt);

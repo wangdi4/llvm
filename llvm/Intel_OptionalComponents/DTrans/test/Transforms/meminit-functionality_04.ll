@@ -433,7 +433,10 @@ entry:
 }
 
 declare noalias i8* @_Znwm(i64)
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 declare void @__cxa_rethrow()
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

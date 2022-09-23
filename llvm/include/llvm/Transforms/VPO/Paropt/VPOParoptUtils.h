@@ -1716,7 +1716,7 @@ public:
   static CallInst *genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
                                 Value *Handle, Instruction *InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_is_device_available`. Example:
   /// \code
   ///    i32 __tgt_is_device_available(int device_num, void *device_type)
   /// \endcode
@@ -1732,21 +1732,21 @@ public:
   static CallInst *genTgtIsDeviceAvailable(Value *DeviceNum, Value *DeviceType,
                                            Instruction *InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_create_buffer`. Example:
   /// \code
   ///    void *__tgt_create_buffer(int device_num, void *host_ptr)
   /// \endcode
   static CallInst *genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
                                       Instruction *InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_release_buffer`. Example:
   /// \code
   ///    int __tgt_release_buffer(int device_num, void *tgt_buffer)
   /// \endcode
   static CallInst *genTgtReleaseBuffer(Value *DeviceNum, Value *TgtBuffer,
                                        Instruction *InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_create_interop_obj`. Example:
   /// \code
   ///    void *__tgt_create_interop_obj(int64_t device_id,
   ///                                   bool    is_async,
@@ -1756,7 +1756,7 @@ public:
                                           Value *AsyncObj,
                                           Instruction *InsertPt);
 
-  /// /// Generate a call to `__tgt_create_interop`.
+  /// Generate a call to `__tgt_create_interop`. Example:
   /// \code
   ///    void *__tgt_create_interop(int64_t device_id,
   ///                               int32_t interop_type,
@@ -1775,25 +1775,60 @@ public:
                                         Instruction *InsertPt,
                                         bool EmitTgtReleaseInteropObj = false);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_use_interop`. Example:
   /// \code
   ///   int __tgt_use_interop(omp_interop_t interop)
   /// \endcode
   static CallInst* genTgtUseInterop(Value* InteropObj, Instruction* InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `__tgt_interop_use_async`. Example:
   /// \code
-  ///   int omp_get_default_device()
+  ///   void __tgt_interop_use_async(ident_t *Loc,
+  ///                                int32_t Tid,
+  ///                                omp_interop_t InteropObj,
+  ///                                bool Nowait,
+  ///                                void *Ptask /*nullptr*/)
   /// \endcode
+  static CallInst *genTgtInteropUseAsync(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *InteropObj,
+                                         bool Nowait, Instruction *InsertPt);
+
+  /// Generate a call to `__tgt_get_interop_obj`. Example:
+  /// \code
+  ///   omp_interopt_t __tgt_get_interop_obj(ident_t *Loc,
+  ///                                        uint32_t OmpInteropContext,
+  ///                                        uint32_t NumPrefers,
+  ///                                        omp_interop_fr_t *PreferList,
+  ///                                        int64_t DeviceNum,
+  ///                                        int32_t Tid,
+  ///                                        void *CurrentTask)
+  /// \endcode
+  /// \p OmpInteropContext is 0 for 'target' and 1 for 'targetsync'.
+  /// The type omp_interop_fr_t is implemented as unsigned int.
+  /// The return type omp_interopt_t is implemented as a void*.
+  static CallInst *genTgtGetInteropObj(
+      WRegionNode *W, StructType *IdentTy, unsigned OmpInteropContext,
+      const SmallVectorImpl<unsigned> &PreferList, Value *DeviceNum, Value *Tid,
+      Value *CurrentTask, Instruction *InsertPt);
+
+  /// Generate a call to `__tgt_target_sync`. Example:
+  /// \code
+  ///   void __tgt_target_sync(ident_t *Loc,
+  ///                          int32_t Tid,
+  ///                          void *CurrentTask,
+  ///                          void *Event /*nullptr*/)
+  /// \endcode
+  static CallInst *genTgtTargetSync(WRegionNode *W, StructType *IdentTy,
+                                    Value *Tid, Value *CurrentTask,
+                                    Instruction *InsertPt);
+
+  /// Generate a call to `int omp_get_default_device()`
   static CallInst *genOmpGetDefaultDevice(Instruction *InsertPt);
 
-  /// Generate a call to
-  /// \code
-  ///   int omp_get_num_devices()
-  /// \endcode
+  /// Generate a call to `int omp_get_num_devices()`
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
 
-  /// Generate a call to
+  /// Generate a call to `omp_get_interop_int`. Example:
   /// \code
   ///   int64 omp_get_interop_int(omp_interop_t interop,
   ///                             omp_get_interop_int property_id,
@@ -1802,11 +1837,8 @@ public:
   static CallInst *genOmpGetInteropInt(Value *InteropObj, int PropertyID,
                                        Instruction *InsertPt);
 
-  /// Generate a call to
-  /// \code
-  ///   omp_get_interop_int(interop, omp_ipr_device_num, nullptr);
-  /// \endcode
-  /// which returns the device number of the interop obj
+  /// Generate a call to `omp_get_interop_int(iop, omp_ipr_device_num, null)`
+  /// which returns the device number of the interop obj `iop`.
   static CallInst *genOmpGetInteropDeviceNum(Value *InteropObj,
                                              Instruction *InsertPt);
 

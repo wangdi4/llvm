@@ -236,7 +236,9 @@ define void @test_bad_cases(%struct.bad.S1* %ps1, %struct.bad.S3* %ps3,
   ret void
 }
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S1 = type { i32, i32, i32 }

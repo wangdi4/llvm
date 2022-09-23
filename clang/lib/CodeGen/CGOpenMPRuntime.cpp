@@ -8236,7 +8236,18 @@ public:
 #endif // INTEL_COLLAB
         if (CGF.CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory() ||
             !VD || VD->hasLocalStorage())
+#if INTEL_COLLAB
+        {
+          QualType PtrTy = Ty;
+          if (VD && RequiresReference)
+            PtrTy = CGF.CGM.getContext().getPointerType(VD->getType());
+          BP = CGF.EmitLoadOfPointer(BP, PtrTy->castAs<PointerType>());
+          if (Ty != PtrTy)
+            BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
+        }
+#else // INTEL_COLLAB
           BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
+#endif // INTEL_COLLAB
         else
           FirstPointerInComplexData = true;
         ++I;

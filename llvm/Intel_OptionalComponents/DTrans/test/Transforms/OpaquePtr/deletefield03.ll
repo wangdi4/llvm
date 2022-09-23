@@ -106,8 +106,11 @@ define i1 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test, %str
 
 
 
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !10 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !10 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!11, !12}
 

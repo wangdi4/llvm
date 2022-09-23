@@ -27,7 +27,9 @@ define void @test01() {
 ; CHECK:     Type: %struct.test01a = type { i32, i32, i32 }
 ; CHECK:     Type: %struct.test01b = type { i16, i16, i16, i16, i16, i16 }
 
-declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)  #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!5, !6}
 

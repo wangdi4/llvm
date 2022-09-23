@@ -52,5 +52,7 @@ define internal i64 @primal_start_artificial.57.87.117() {
   ret i64 0
 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
 declare i64 @llvm.smax.i64(i64, i64)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

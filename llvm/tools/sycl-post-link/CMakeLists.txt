@@ -25,9 +25,6 @@ include_directories(
 endif()
 
 set(LLVM_LINK_COMPONENTS
-# INTEL_CUSTOMIZATION
-  Analysis
-# end INTEL_CUSTOMIZATION
   BitWriter
   Core
   IPO
@@ -43,6 +40,8 @@ set(LLVM_LINK_COMPONENTS
   InstCombine
   ScalarOpts
   Linker
+  Passes
+  Analysis
   )
 
 get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)

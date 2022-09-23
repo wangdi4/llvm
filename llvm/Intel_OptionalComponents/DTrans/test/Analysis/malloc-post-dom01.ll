@@ -9,7 +9,7 @@
 ; CHECK-DAG: Is MallocPostDom x264_malloc0
 ; CHECK-DAG: Is MallocPostDom x264_malloc1
 
-declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef) local_unnamed_addr
+declare dso_local noalias noundef align 16 i8* @malloc(i64 noundef) local_unnamed_addr #0
 
 %struct.x264_t = type { %struct.x264_param_t }
 
@@ -80,4 +80,4 @@ define internal i8* @x264_malloc1(i32 %0) #2 {
   ret i8* %20
 }
 
-
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

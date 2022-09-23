@@ -10,9 +10,8 @@
 
 @globalstruct = internal global %struct.MYSTRUCT zeroinitializer, align 8
 
-declare noalias i8* @malloc(i64)
-
-declare void @free(i8* nocapture)
+declare noalias i8* @malloc(i64) #0
+declare void @free(i8* nocapture) #1
 
 define i32 @main() {
   %1 = tail call noalias i8* @malloc(i64 100)
@@ -21,6 +20,9 @@ define i32 @main() {
   store i8* null, i8** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @globalstruct, i64 0, i32 0), align 8
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYSTRUCT = type { i8* }

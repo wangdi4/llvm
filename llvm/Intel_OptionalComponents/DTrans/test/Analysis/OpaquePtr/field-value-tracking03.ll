@@ -36,7 +36,9 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:  Safety data: Nested structure{{ *$}}
 ; CHECK:  End LLVMType: %struct.test01inner
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{%struct.test01inner zeroinitializer, i32 0}  ; %struct.test01inner
 !2 = !{i32 0, i32 0}  ; i32

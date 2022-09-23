@@ -89,8 +89,11 @@ define void @connect(%struct.test* "intel_dtrans_func_index"="1" %p_test, %struc
 ; CHECK-NONOPAQUE-SAME: %__DFT_struct.test*
 ; CHECK-NONOPAQUE-SAME: %__DFDT_struct.other*
 
-declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !11 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !11 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 ; Verify that the metadata representation was updated.
 ; CHECK-NONOPAQUE: !intel.dtrans.types = !{![[S1MD:[0-9]+]], ![[S2MD:[0-9]+]]}

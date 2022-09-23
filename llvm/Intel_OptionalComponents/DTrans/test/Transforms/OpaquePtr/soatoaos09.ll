@@ -195,7 +195,7 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void
 }
 
-declare !intel.dtrans.func.type !91 dso_local void @free(i8* nocapture noundef "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !91 dso_local void @free(i8* nocapture noundef "intel_dtrans_func_index"="1") #2
 
 define linkonce_odr dso_local void @_ZN3ArrIPfE6resizeEi(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !92 {
 entry:
@@ -581,7 +581,7 @@ entry:
   ret void
 }
 
-declare !intel.dtrans.func.type !63 dso_local noalias noundef "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef)
+declare !intel.dtrans.func.type !63 dso_local noalias noundef "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef) #1
 
 ; Function Attrs: argmemonly nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
@@ -756,6 +756,8 @@ for.body:                                         ; preds = %for.body, %for.body
 }
 
 attributes #0 = { argmemonly nounwind willreturn writeonly }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!2, !7, !11, !14, !16}
 

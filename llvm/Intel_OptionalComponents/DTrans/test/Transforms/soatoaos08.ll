@@ -674,7 +674,7 @@ entry:
   ret void, !dbg !369
 }
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #3
 declare void @__cxa_rethrow()
 
 define void @"Arr<int*>::add(int* const&)"(%struct.Arr* nocapture %this, i32** nocapture readonly dereferenceable(8) %e) align 2 !dbg !370 {
@@ -767,7 +767,7 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void, !dbg !461
 }
 
-declare void @free(i8*)
+declare void @free(i8*) #4
 
 define void @"Arr<float*>::realloc(int)"(%struct.Arr.0* nocapture %this, i32 %inc) align 2 !dbg !462 {
 entry:
@@ -1004,6 +1004,9 @@ declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 attributes #0 = { nounwind readonly }
 attributes #1 = { nounwind readnone speculatable }
 attributes #2 = { nounwind }
+attributes #3 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #4 = { allockind("free") "alloc-family"="malloc" }
+
 
 !llvm.dbg.cu = !{!2}
 !llvm.module.flags = !{!19, !20, !21}

@@ -251,8 +251,8 @@ define linkonce_odr hidden void @__clang_call_terminate(i8* %ptr) local_unnamed_
   unreachable
 }
 
-declare noalias i8* @malloc(i64)
-declare void @free(i8*)
+declare noalias i8* @malloc(i64) #0
+declare void @free(i8*) #1
 
 declare dso_local noalias nonnull i8* @_Znwm(i64) local_unnamed_addr
 declare dso_local void @_ZdlPv(i8*) local_unnamed_addr
@@ -267,3 +267,6 @@ declare void @_Unwind_Resume(i8*)
 declare dso_local void @_ZNSt9bad_allocD1Ev(%class.bad_alloc*) unnamed_addr
 declare dso_local nonnull i8* @_ZNKSt9bad_alloc4whatEv(%class.bad_alloc*) unnamed_addr
 declare dso_local void @_ZNSt9bad_allocD0Ev(%class.bad_alloc*) unnamed_addr
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

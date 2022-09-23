@@ -10,13 +10,15 @@
 
 @coxglobalstruct = internal dso_local global %struct.MYOUTERSTRUCT* null, align 8
 
-declare noalias i8* @calloc(i64, i64)
+declare noalias i8* @calloc(i64, i64) #0
 
 define dso_local i32 @main() {
   %1 = tail call noalias i8* @calloc(i64 1, i64 24) #2
   store i8* %1, i8** bitcast (%struct.MYOUTERSTRUCT** @coxglobalstruct to i8**), align 8
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYINNERSTRUCT = type { i32, float }

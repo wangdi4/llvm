@@ -50,8 +50,10 @@ define internal i64 @primal_start_artificial.57.87.117() {
   ret i64 0
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 declare i64 @llvm.smax.i64(i64, i64)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 1}  ; i64*
 !2 = !{i32 0, i32 1}  ; i32*

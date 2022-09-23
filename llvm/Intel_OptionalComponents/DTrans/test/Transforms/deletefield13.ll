@@ -72,5 +72,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %sub = sub i64 %t2, %t3
 ; CHECK: %offset_idx = sdiv i64 %sub, 8
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

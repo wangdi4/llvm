@@ -57,7 +57,9 @@ define "intel_dtrans_func_index"="1" %struct.test* @test(i64 %num) !intel.dtrans
 ; CHECK: %f3 = getelementptr %__DFT_struct.test, {{.*}} %st_mem1, i64 0, i32 2
 ; CHECK: %res = load {{.*}}, {{.*}} getelementptr inbounds (%__DFT_struct.testdep, {{.*}} @g_testdepptr, i64 0, i32 0)
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i16 0, i32 0}  ; i16
 !2 = !{i64 0, i32 1}  ; i64*

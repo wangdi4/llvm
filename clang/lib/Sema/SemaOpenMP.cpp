@@ -10546,80 +10546,87 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-     SourceLocation UCLoc = IterSpaces[Cnt].InitSrcRange.getBegin();
-     VarDecl *UncollapsedIVDecl =
-         buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.iv");
-     ExprResult UncollapsedIV =
-         buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
-     if (!UncollapsedIV.isUsable()) {
-       HasErrors = true;
-       break;
-      }
-
+      ExprResult UncollapsedIV;
       ExprResult UncollapsedLowerBound;
-      VarDecl *UncollapsedLBDecl =
-          buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.lb");
-      UncollapsedLowerBound =
-          buildDeclRefExpr(SemaRef, UncollapsedLBDecl, VType, UCLoc);
-      SemaRef.AddInitializerToDecl(
-          UncollapsedLBDecl, SemaRef.ActOnIntegerConstant(UCLoc, 0).get(),
-          /*DirectInit*/ false);
-      if (!UncollapsedLowerBound.isUsable()) {
-        HasErrors = true;
-        break;
-      }
-
-      ExprResult UCLastIter = SemaRef.PerformImplicitConversion(
-          IterSpaces[Cnt].NumIterations->IgnoreImpCasts(), VType,
-          Sema::AA_Converting, /*AllowExplicit=*/true);
-
-      UCLastIter = SemaRef.BuildBinOp(
-          CurScope, UCLastIter.get()->getExprLoc(), BO_Sub, UCLastIter.get(),
-          SemaRef.ActOnIntegerConstant(SourceLocation(), 1).get());
-      if (!UCLastIter.isUsable()) {
-        HasErrors = true;
-        break;
-      }
-
       ExprResult UncollapsedUpperBound;
-      VarDecl *UncollapsedUBDecl =
-          buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.ub");
-      UncollapsedUpperBound =
-          buildDeclRefExpr(SemaRef, UncollapsedUBDecl, VType, UCLoc);
-      SemaRef.AddInitializerToDecl(UncollapsedUBDecl, UCLastIter.get(),
-                                   /*DirectInit*/ false);
-      if (!UncollapsedUpperBound.isUsable()) {
-        HasErrors = true;
-        break;
-      }
+      ExprResult UncollapsedInit;
+      ExprResult UncollapsedLoopCond;
+      ExprResult UncollapsedInc;
+      ExprResult UncollapsedUpdate;
+      {
+        Sema::TentativeAnalysisScope Trap(SemaRef);
+        SourceLocation UCLoc = IterSpaces[Cnt].InitSrcRange.getBegin();
+        VarDecl *UncollapsedIVDecl =
+            buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.iv");
+        UncollapsedIV =
+            buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
+        if (!UncollapsedIV.isUsable()) {
+          HasErrors = true;
+          break;
+        }
 
-      UCLoc = AStmt->getBeginLoc();
-      ExprResult UncollapsedInit =
-          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign,
-                             UncollapsedIV.get(), UncollapsedLowerBound.get());
-      UncollapsedInit = SemaRef.ActOnFinishFullExpr(UncollapsedInit.get(),
-                                                    /*DiscardedValue*/ false);
+        VarDecl *UncollapsedLBDecl =
+            buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.lb");
+        UncollapsedLowerBound =
+            buildDeclRefExpr(SemaRef, UncollapsedLBDecl, VType, UCLoc);
+        SemaRef.AddInitializerToDecl(
+            UncollapsedLBDecl, SemaRef.ActOnIntegerConstant(UCLoc, 0).get(),
+            /*DirectInit*/ false);
+        if (!UncollapsedLowerBound.isUsable()) {
+          HasErrors = true;
+          break;
+        }
 
-      ExprResult UncollapsedLoopCond =
-          SemaRef.BuildBinOp(CurScope, UCLoc, BO_LE, UncollapsedIV.get(),
-                             UncollapsedUpperBound.get());
+        ExprResult UCLastIter = SemaRef.PerformImplicitConversion(
+            IterSpaces[Cnt].NumIterations->IgnoreImpCasts(), VType,
+            Sema::AA_Converting, /*AllowExplicit=*/true);
 
-      ExprResult UncollapsedInc =
-          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Add, UncollapsedIV.get(),
-                             SemaRef.ActOnIntegerConstant(UCLoc, 1).get());
-      UncollapsedInc =
-          SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign, UncollapsedIV.get(),
-                             UncollapsedInc.get());
+        UCLastIter = SemaRef.BuildBinOp(
+            CurScope, UCLastIter.get()->getExprLoc(), BO_Sub, UCLastIter.get(),
+            SemaRef.ActOnIntegerConstant(SourceLocation(), 1).get());
+        if (!UCLastIter.isUsable()) {
+          HasErrors = true;
+          break;
+        }
 
-      ExprResult UIV_DRE =
-          buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
+        VarDecl *UncollapsedUBDecl =
+            buildVarDecl(SemaRef, UCLoc, VType, ".omp.uncollapsed.ub");
+        UncollapsedUpperBound =
+            buildDeclRefExpr(SemaRef, UncollapsedUBDecl, VType, UCLoc);
+        SemaRef.AddInitializerToDecl(UncollapsedUBDecl, UCLastIter.get(),
+                                     /*DirectInit*/ false);
+        if (!UncollapsedUpperBound.isUsable()) {
+          HasErrors = true;
+          break;
+        }
 
-      ExprResult UncollapsedUpdate = buildCounterUpdate(
-          SemaRef, CurScope, UpdLoc, CounterVar, IS.CounterInit, UIV_DRE,
-          IS.CounterStep, IS.Subtract, IS.IsNonRectangularLB, &Captures);
-      if (!UncollapsedUpdate.isUsable()) {
-        HasErrors = true;
-        break;
+        UCLoc = AStmt->getBeginLoc();
+        UncollapsedInit =
+            SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign, UncollapsedIV.get(),
+                               UncollapsedLowerBound.get());
+        UncollapsedInit = SemaRef.ActOnFinishFullExpr(UncollapsedInit.get(),
+                                                      /*DiscardedValue*/ false);
+        UncollapsedLoopCond =
+            SemaRef.BuildBinOp(CurScope, UCLoc, BO_LE, UncollapsedIV.get(),
+                               UncollapsedUpperBound.get());
+
+        UncollapsedInc =
+            SemaRef.BuildBinOp(CurScope, UCLoc, BO_Add, UncollapsedIV.get(),
+                               SemaRef.ActOnIntegerConstant(UCLoc, 1).get());
+        UncollapsedInc =
+            SemaRef.BuildBinOp(CurScope, UCLoc, BO_Assign, UncollapsedIV.get(),
+                               UncollapsedInc.get());
+
+        ExprResult UIV_DRE =
+            buildDeclRefExpr(SemaRef, UncollapsedIVDecl, VType, UCLoc);
+
+        UncollapsedUpdate = buildCounterUpdate(
+            SemaRef, CurScope, UpdLoc, CounterVar, IS.CounterInit, UIV_DRE,
+            IS.CounterStep, IS.Subtract, IS.IsNonRectangularLB, &Captures);
+        if (!UncollapsedUpdate.isUsable()) {
+          HasErrors = true;
+          break;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
 

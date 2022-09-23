@@ -47,6 +47,10 @@
 #include "Support.h"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
 #include "llvm/IR/IRBuilder.h"
@@ -57,6 +61,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h" // INTEL
 #include "llvm/Linker/Linker.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/Support/CommandLine.h"
@@ -71,7 +76,14 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
 #include "llvm/ADT/Triple.h"
@@ -686,6 +698,21 @@ std::string saveModuleSymbolTable(const module_split::EntryPointSet &Es, int I,
   return OutFileName;
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getOptLevel() {
+  constexpr unsigned DefaultOptLevel = 2;
+  if (OptLevelO3)
+    return 3;
+  if (OptLevelO2 || OptLevelOs || OptLevelOz)
+    return 2;
+  if (OptLevelO1)
+    return 1;
+  if (OptLevelO0)
+    return 0;
+  return DefaultOptLevel;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <class PassClass> bool runModulePass(Module &M) {
   ModulePassManager MPM;
   ModuleAnalysisManager MAM;
@@ -700,38 +727,61 @@ template <class PassClass> bool runModulePass(Module &M) {
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
 bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
+  LoopAnalysisManager LAM;
+  CGSCCAnalysisManager CGAM;
+  FunctionAnalysisManager FAM;
+  ModuleAnalysisManager MAM;
+
+  PassBuilder PB;
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  ModulePassManager MPM;
 #if INTEL_CUSTOMIZATION
-  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
+  MPM.addPass(XmainOptLevelAnalysisInit(getOptLevel()));
 #endif // INTEL_CUSTOMIZATION
-  legacy::PassManager MPM;
-  MPM.add(createSYCLLowerESIMDPass());
+  MPM.addPass(SYCLLowerESIMDPass{});
+
   if (!OptLevelO0) {
     // Force-inline all functions marked 'alwaysinline' by the LowerESIMD pass.
-    MPM.add(createAlwaysInlinerLegacyPass());
-    MPM.add(createSROAPass());
+    MPM.addPass(AlwaysInlinerPass{});
+    FunctionPassManager FPM;
+    FPM.addPass(SROAPass{});
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
-  MPM.add(createESIMDLowerVecArgPass());
-  MPM.add(createESIMDLowerLoadStorePass());
+  if (!MD.getModule().getContext().supportsTypedPointers()) {
+    MPM.addPass(ESIMDOptimizeVecArgCallConvPass{});
+  } else {
+    MPM.addPass(ESIMDLowerVecArgPass{});
+  }
+  FunctionPassManager MainFPM;
+  MainFPM.addPass(ESIMDLowerLoadStorePass{});
+
   if (!OptLevelO0) {
-    MPM.add(createSROAPass());
-    MPM.add(createEarlyCSEPass(true));
-    MPM.add(createInstructionCombiningPass());
-    MPM.add(createDeadCodeEliminationPass());
+    MainFPM.addPass(SROAPass{});
+    MainFPM.addPass(EarlyCSEPass(true));
+    MainFPM.addPass(InstCombinePass{});
+    MainFPM.addPass(DCEPass{});
     // TODO: maybe remove some passes below that don't affect code quality
-    MPM.add(createSROAPass());
-    MPM.add(createEarlyCSEPass(true));
-    MPM.add(createInstructionCombiningPass());
-    MPM.add(createDeadCodeEliminationPass());
+    MainFPM.addPass(SROAPass{});
+    MainFPM.addPass(EarlyCSEPass(true));
+    MainFPM.addPass(InstCombinePass{});
+    MainFPM.addPass(DCEPass{});
   }
-  MPM.add(createGenXSPIRVWriterAdaptorPass(/*RewriteTypes=*/true));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
+  MPM.addPass(GenXSPIRVWriterAdaptor(/*RewriteTypes=*/true,
+                                     /*RewriteSingleElementVectorsIn*/ false));
   // GenXSPIRVWriterAdaptor pass replaced some functions with "rewritten"
   // versions so the entry point table must be rebuilt.
   // TODO Change entry point search to analysis?
   std::vector<std::string> Names;
   MD.saveEntryPointNames(Names);
-  bool IRChanged = MPM.run(MD.getModule());
+  PreservedAnalyses Res = MPM.run(MD.getModule(), MAM);
   MD.rebuildEntryPoints(Names);
-  return IRChanged;
+  return !Res.areAllPreserved();
 }
 
 // @param MD Module descriptor to save

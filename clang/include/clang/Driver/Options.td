@@ -622,6 +622,10 @@ def gen_reproducer: Flag<["-"], "gen-reproducer">, InternalDebugOpt,
   HelpText<"Auto-generates preprocessed source files and a reproduction script">;
 def gen_cdb_fragment_path: Separate<["-"], "gen-cdb-fragment-path">, InternalDebugOpt,
   HelpText<"Emit a compilation database fragment to the specified directory">;
+#if INTEL_CUSTOMIZATION
+def enable_ocloc_split : Flag<["--"], "enable-ocloc-split">, InternalDebugOpt,
+  HelpText<"Allow for ocloc splitting behavior to occur">;
+#endif // INTEL_CUSTOMIZATION
 
 def round_trip_args : Flag<["-"], "round-trip-args">, Flags<[CC1Option, NoDriverOption]>,
   HelpText<"Enable command line arguments round-trip.">;
@@ -5277,10 +5281,10 @@ def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_BF8
-def mamx_bf8 : Flag<["-"], "mamx-bf8">, Group<m_x86_Features_Group>;
-def mno_amx_bf8 : Flag<["-"], "mno-amx-bf8">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
+def mamx_fp8 : Flag<["-"], "mamx-fp8">, Group<m_x86_Features_Group>;
+def mno_amx_fp8 : Flag<["-"], "mno-amx-fp8">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 def mamx_complex : Flag<["-"], "mamx-complex">, Group<m_x86_Features_Group>;
@@ -8225,10 +8229,10 @@ def : CLFlag<"Qmamx-int8">, Alias<mtamx_int8>;
 def : CLFlag<"Qmno-amx-int8">, Alias<mno_amx_int8>;
 def : CLFlag<"Qmamx-tile">, Alias<mamx_tile>;
 def : CLFlag<"Qmno-amx-tile">, Alias<mno_amx_tile>;
-#if INTEL_FEATURE_ISA_AMX_BF8
-def : CLFlag<"Qmamx-bf8">, Alias<mamx_bf8>;
-def : CLFlag<"Qmno-amx-bf8">, Alias<mno_amx_bf8>;
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
+def : CLFlag<"Qmamx-fp8">, Alias<mamx_fp8>;
+def : CLFlag<"Qmno-amx-fp8">, Alias<mno_amx_fp8>;
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 def : CLFlag<"Qmamx-complex">, Alias<mamx_complex>;
 def : CLFlag<"Qmno-amx-complex">, Alias<mno_amx_complex>;
