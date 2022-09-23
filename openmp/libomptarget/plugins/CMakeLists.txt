@@ -54,6 +54,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
 
       if(INTEL_CUSTOMIZATION)
+        if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND)
+          message(FATAL_ERROR "Required dependency LIBELF is not found")
+        endif()
         add_library(ffi-stub SHARED
           ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
         target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
@@ -68,6 +71,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
           "omptarget.rtl.${tmachine_libname}"
           elf_common
           ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
           dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")

@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ffi.h>
+#include <gelf.h>
 #if INTEL_COLLAB
 #include <limits>
 #include <unordered_set>
@@ -40,7 +41,7 @@
 #include "elf_common.h"
 
 #define NUMBER_OF_DEVICES 4
-#define OFFLOAD_SECTION_NAME "omp_offloading_entries"
+#define OFFLOADSECTIONNAME "omp_offloading_entries"
 
 /// Array of Dynamic libraries loaded for this target.
 struct DynLibTy {
@@ -154,6 +155,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   assert(DeviceId >= 0 && DeviceId < NUMBER_OF_DEVICES && "bad dev id");
 
   size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
+  size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+  DP("Expecting to have %zd entries defined.\n", NumEntries);
 
   // Is the library version incompatible with the header file?
   if (elf_version(EV_CURRENT) == EV_NONE) {
