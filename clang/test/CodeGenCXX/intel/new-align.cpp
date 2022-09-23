@@ -1,5 +1,9 @@
-// RUN: %clang_cc1 -O0 -emit-llvm %s -o - -triple=x86_64-unknown-linux-gnu -fintel-compatibility -faligned-allocation| FileCheck %s
-// This test fails in xmain. CQ376359.
+// RUN: %clang_cc1 -O0 -emit-llvm %s -o - %std_cxx98-14 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -faligned-allocation| FileCheck %s
+
+// This test exercises support for implicit declaration of the std::align_val_t
+// type for compatibility with icc. That implicit compatibility was
+// intentionally discontinued for C++17 and later; inclusion of the
+// <new> header is now required.
 
 struct __declspec(align(4096)) A {
   int a;
