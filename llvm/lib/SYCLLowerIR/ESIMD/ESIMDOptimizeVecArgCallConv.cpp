@@ -353,11 +353,7 @@ optimizeFunction(Function *OldF,
   }
   Instruction *At = &*(NewF->getEntryBlock().begin());
 
-<<<<<<< HEAD
-  for (int I = 0; I < NewInsts.size(); ++I) {
-=======
   for (unsigned I = 0; I < NewInsts.size(); ++I) {
->>>>>>> 5f6a82a25d075ee5929912533c03ac4d68c6f5ff
     NewInsts[I]->insertBefore(At);
   }
   return NewF;
@@ -377,11 +373,7 @@ void optimizeCall(CallInst *CI, Function *OptF,
   int SretInd = -1;
   IRBuilder<> Bld(CI); // insert before CI
 
-<<<<<<< HEAD
-  for (int I = 0; I < OptimizeableParams.size(); ++I) {
-=======
   for (unsigned I = 0; I < OptimizeableParams.size(); ++I) {
->>>>>>> 5f6a82a25d075ee5929912533c03ac4d68c6f5ff
     const auto &PI = OptimizeableParams[I];
     auto ArgNo = PI.getFormalParam().getArgNo();
 

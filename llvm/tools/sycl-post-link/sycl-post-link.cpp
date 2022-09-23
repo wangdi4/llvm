@@ -744,22 +744,6 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
 #if INTEL_CUSTOMIZATION
   MPM.addPass(XmainOptLevelAnalysisInit(getOptLevel()));
 #endif // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-  LoopAnalysisManager LAM;
-  CGSCCAnalysisManager CGAM;
-  FunctionAnalysisManager FAM;
-  ModuleAnalysisManager MAM;
-
-  PassBuilder PB;
-  PB.registerModuleAnalyses(MAM);
-  PB.registerCGSCCAnalyses(CGAM);
-  PB.registerFunctionAnalyses(FAM);
-  PB.registerLoopAnalyses(LAM);
-  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-  ModulePassManager MPM;
-=======
->>>>>>> 5f6a82a25d075ee5929912533c03ac4d68c6f5ff
   MPM.addPass(SYCLLowerESIMDPass{});
 
   if (!OptLevelO0) {
