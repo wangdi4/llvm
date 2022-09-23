@@ -2974,6 +2974,7 @@ FunctionDecl::FunctionDecl(Kind DK, ASTContext &C, DeclContext *DC,
   FunctionDeclBits.IsMultiVersion = false;
   FunctionDeclBits.IsCopyDeductionCandidate = false;
   FunctionDeclBits.HasODRHash = false;
+  FunctionDeclBits.FriendConstraintRefersToEnclosingTemplate = false;
   if (TrailingRequiresClause)
     setTrailingRequiresClause(TrailingRequiresClause);
 }
