@@ -350,7 +350,13 @@ cmake_policy(SET CMP0057 NEW)
 
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
   # INTEL_CUSTOMIZATION
-  add_dependencies(sycl libsycldevice)
+  # matches new naming logic used in sycl/source/CMakeLists.txt
+  if (WIN32)
+     set(LIB_NAME "sycl${SYCL_MAJOR_VERSION}")
+  else()
+     set(LIB_NAME "sycl")
+  endif()
+  add_dependencies(${LIB_NAME} libsycldevice)
   # end INTEL_CUSTOMIZATION
 endif()
 
