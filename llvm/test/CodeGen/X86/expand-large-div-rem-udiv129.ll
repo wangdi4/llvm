@@ -16,7 +16,11 @@ define void @test(i129* %ptr, i129* %out) nounwind {
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ugt i129 [[TMP7]], 128
 ; CHECK-NEXT:    [[TMP9:%.*]] = select i1 [[TMP4]], i1 true, i1 [[TMP8]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i129 [[TMP7]], 128
+<<<<<<< HEAD:llvm/test/CodeGen/X86/expand-large-div-rem-udiv129.ll
 ; CHECK-NEXT:    [[TMP11:%.*]] = select i1 [[TMP9]], i129 0, i129 [[TMP1]]
+=======
+; CHECK-NEXT:    [[TMP11:%.*]] = select i1 [[TMP9]], i129 0, i129 [[TMP2]]
+>>>>>>> 5750ae70f7f7fcc82d335ba0af231a16fe3c7d97:llvm/test/Transforms/ExpandLargeDivRem/srem129.ll
 ; CHECK-NEXT:    [[TMP12:%.*]] = select i1 [[TMP9]], i1 true, i1 [[TMP10]]
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[UDIV_END:%.*]], label [[UDIV_BB1:%.*]]
 ; CHECK:       udiv-loop-exit:
