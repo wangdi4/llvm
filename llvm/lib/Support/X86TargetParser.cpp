@@ -1062,7 +1062,10 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512MINMAX = FeatureAVX512BF16 |
 static constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
 #if INTEL_FEATURE_ISA_AVX512_REDUCTION
-static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F;
+static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION2 = FeatureAVX512F | FeatureAVX512VL | FeatureAVX512BW;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #if INTEL_FEATURE_ISA_AVX256P
 static constexpr FeatureBitset ImpliedFeaturesAVX256P = FeatureAVX2 | FeatureF16C | FeatureFMA;
