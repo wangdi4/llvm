@@ -902,6 +902,7 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void OptBisectInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   if (!getOptBisector().isEnabled())
@@ -926,7 +927,6 @@ void OptBisectInstrumentation::registerCallbacks(
   });
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 raw_ostream &PrintPassInstrumentation::print() {
   if (Opts.Indent) {
     assert(Indent >= 0);
@@ -1006,6 +1006,10 @@ void PrintPassInstrumentation::registerCallbacks(
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
+void OptBisectInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &) {
+  (void)this->HasWrittenIR;
+}
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
