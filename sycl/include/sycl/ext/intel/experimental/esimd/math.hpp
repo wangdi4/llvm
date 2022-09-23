@@ -1691,7 +1691,8 @@ __ESIMD_NS::simd<T, N> dp4(__ESIMD_NS::simd<T, N> v1,
 template <int N>
 __ESIMD_API __ESIMD_NS::simd<bfloat16, N>
 convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
-  return __esimd_bf_cvt<N>(src0.data());
+  return sycl::bit_cast<__ESIMD_NS::simd<bfloat16, N>>(
+    __ESIMD_DNS::convert_vector<bfloat16>(src0.data()));
 }
 
 /// float32->bf16 conversion (scalar version).
@@ -1699,9 +1700,8 @@ convert_to_bf16(__ESIMD_NS::simd<float, N> src0) {
 /// \param src0 scalar float32 value.
 /// \return converted scalar bf16 value.
 __ESIMD_API bfloat16 convert_to_bf16(float src0) {
-  __ESIMD_NS::simd<float, 1> src_0 = src0;
-  __ESIMD_NS::simd<bfloat16, 1> Result = convert_to_bf16<1>(src_0);
-  return Result[0];
+  // convert_scalar uses wrapper type in interfaces, not __raw_t
+  return __ESIMD_DNS::convert_scalar<bfloat16>(src0);
 }
 
 /// bf16->float32 conversion (vector version).
@@ -1712,7 +1712,8 @@ __ESIMD_API bfloat16 convert_to_bf16(float src0) {
 template <int N>
 __ESIMD_API __ESIMD_NS::simd<float, N>
 convert_from_bf16(__ESIMD_NS::simd<bfloat16, N> src0) {
-  return __esimd_bf_cvt<N>(src0.data());
+  // no bitcast needed, as float has the same raw type:
+  return __ESIMD_DNS::convert_vector<float>(src0.data());
 }
 
 /// bf16->float32 conversion (scalar version).
@@ -1720,9 +1721,7 @@ convert_from_bf16(__ESIMD_NS::simd<bfloat16, N> src0) {
 /// \param src0 scalar bf16 value.
 /// \return converted scalar float32 value.
 __ESIMD_API float convert_from_bf16(bfloat16 src0) {
-  __ESIMD_NS::simd<bfloat16, 1> src_0 = src0;
-  __ESIMD_NS::simd<float, 1> Result = convert_from_bf16<1>(src_0);
-  return Result[0];
+  return __ESIMD_DNS::convert_scalar<float>(src0);
 }
 
 /// convert_to_tf32 - converts vector of fp32 values to "tf32" data format.
@@ -1811,7 +1810,7 @@ __ESIMD_API
   constexpr bool is_hf16_fp32 = (DstPrecision == argument_type::FP16) &&
                                 __ESIMD_DNS::is_fp_type<SrcType>::value;
   constexpr bool is_bf8_hf16 = (DstPrecision == argument_type::BF8) &&
-                               detail::is_hf_type<SrcType>::value;
+                               std::is_same_v<SrcType, __ESIMD_DNS::__raw_t<sycl::half>>;
 
   static_assert((is_bf8_fp32 || is_hf16_fp32 || is_bf8_hf16),
                 "unsupported srnd type");

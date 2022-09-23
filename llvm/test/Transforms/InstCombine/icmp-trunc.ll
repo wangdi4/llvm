@@ -6,7 +6,12 @@
 ; should still kick in.
 ; With this change reverted, do not check the DL8 and DL64 prefixes because
 ; there are no marked lines.
+<<<<<<< HEAD
 ;
+=======
+; Entire file is marked INTEL, as every test checks the same (disabled)
+; transform.
+>>>>>>> 5750ae70f7f7fcc82d335ba0af231a16fe3c7d97
 
 ; RUN: opt < %s -passes=instcombine -S -data-layout="n8:16:32:64" | FileCheck %s --check-prefixes=CHECK
 ; RUN: opt < %s -passes=instcombine -S -data-layout="n8"          | FileCheck %s --check-prefixes=CHECK
@@ -357,7 +362,13 @@ define i1 @trunc_ne_i64_i10(i64 %x) {
 define i1 @shl1_trunc_eq0(i32 %a) {
 ; DL8/64 checks removed
 ; CHECK-LABEL: @shl1_trunc_eq0(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[R:%.*]] = icmp ugt i32 [[A:%.*]], 15
+=======
+; CHECK-NEXT:    [[SHL:%.*]] = shl i32 1, [[A:%.*]]
+; CHECK-NEXT:    [[T:%.*]] = trunc i32 [[SHL]] to i16
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i16 [[T]], 0
+>>>>>>> 5750ae70f7f7fcc82d335ba0af231a16fe3c7d97
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i32 1, %a
@@ -381,7 +392,8 @@ define i1 @shl1_trunc_eq0_use1(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_eq0_use1(
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i8 1, [[A:%.*]]
 ; CHECK-NEXT:    call void @use(i8 [[SHL]])
-; CHECK-NEXT:    [[R:%.*]] = icmp ugt i8 [[A]], 5
+; CHECK-NEXT:    [[T:%.*]] = trunc i8 [[SHL]] to i6
+; CHECK-NEXT:    [[R:%.*]] = icmp eq i6 [[T]], 0
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i8 1, %a
@@ -455,7 +467,12 @@ define i1 @shl1_trunc_ne32(i8 %a) {
 ; CHECK-LABEL: @shl1_trunc_ne32(
 ; CHECK-NEXT:    [[SHL:%.*]] = shl i8 1, [[A:%.*]]
 ; CHECK-NEXT:    call void @use(i8 [[SHL]])
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[R:%.*]] = icmp ne i8 [[A]], 5
+=======
+; CHECK-NEXT:    [[T:%.*]] = trunc i8 [[SHL]] to i6
+; CHECK-NEXT:    [[R:%.*]] = icmp ne i6 [[T]], -32
+>>>>>>> 5750ae70f7f7fcc82d335ba0af231a16fe3c7d97
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %shl = shl i8 1, %a

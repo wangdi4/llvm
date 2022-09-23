@@ -38,28 +38,6 @@ constexpr unsigned int roundUpNextMultiple() {
   return ((N + M - 1) / M) * M;
 }
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
-template <typename T>
-struct is_hf_type
-    : std::integral_constant<
-          bool, std::is_same<__ESIMD_DNS::half,
-                             typename sycl::detail::remove_const_t<T>>::value> {
-};
-
-template <typename T, int N>
-struct is_hf_type<__ESIMD_DNS::raw_vector_type<T, N>> {
-  static const bool value = is_hf_type<T>::value;
-};
-
-template <typename T, int N> struct is_hf_type<__ESIMD_NS::simd<T, N>> {
-  static const bool value = is_hf_type<T>::value;
-};
-
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
 /// Compile-time checks if first template parameter is equal for any other
 template <typename...> struct is_one_of {
   static constexpr bool value = false;
