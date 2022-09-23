@@ -43773,12 +43773,25 @@ static SDValue narrowShuffle(ShuffleVectorSDNode *Shuf, SelectionDAG &DAG) {
                                HalfIdx2, false, DAG, /*UseConcat*/true);
 }
 
+#if INTEL_CUSTOMIZATION
+static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
+                                    TargetLowering::DAGCombinerInfo &DCI,
+                                    const X86Subtarget &Subtarget);
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue combineShuffle(SDNode *N, SelectionDAG &DAG,
                               TargetLowering::DAGCombinerInfo &DCI,
                               const X86Subtarget &Subtarget) {
   if (auto *Shuf = dyn_cast<ShuffleVectorSDNode>(N))
     if (SDValue V = narrowShuffle(Shuf, DAG))
       return V;
+
+#if INTEL_CUSTOMIZATION
+  if (DCI.isBeforeLegalize()) {
+    if (SDValue V = combineV16i32Shuffle(N, DAG, DCI, Subtarget))
+      return V;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we have legalized the vector types, look for blends of FADD and FSUB
   // nodes that we can fuse into an ADDSUB, FMADDSUB, or FMSUBADD node.
@@ -57757,6 +57770,150 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
 }
 
 #if INTEL_CUSTOMIZATION
+// Transform add (sub (shl C, 16), (or  (shl D, 16), B)), A
+//        OR add (sub (shl C, 16), (add (shl D, 16), B)), A
+//       -->
+//           sub(<C, A>, <D, B>)
+//      alive: https://alive2.llvm.org/ce/z/UvNC-i
+// Original DAG:
+//               t4/t6/t8/t2: v16i8,ch = CopyFromReg t0, Register:v16i8 %1/%2/%3/%0
+//             t10: v16i32 = zero_extend t4
+//            t16: v16i32 = shl nuw nsw t10, t14
+//          t11: v16i32 = zero_extend t6
+//        t15: v16i32 = shl nuw nsw t11, t14
+//        t12: v16i32 = zero_extend t8
+//      t17: v16i32 = or t15, t12
+//    t18: v16i32 = sub nsw t16, t17
+//    t9: v16i32 = zero_extend t2
+//  t19: v16i32 = add nsw t18, t9
+// To:
+//         t24: v16i8 = vector_shuffle<0,16,1,17,2,18,3,19,4,20,5,21,6,22,7,23>
+//                                    t2, t4
+//       t25: v16i16 = zero_extend t24
+//     t26: v8i32 = bitcast t25
+//         t27: v16i8 = vector_shuffle<0,16,1,17,2,18,3,19,4,20,5,21,6,22,7,23>
+//                                    t8, t6
+//       t28: v16i16 = zero_extend t27
+//     t29: v8i32 = bitcast t28
+//         t30: v16i8 = vector_shuffle<8,24,9,25,10,26,11,27,12,28,13,29,14,30,
+//                                     15,31> t2, t4
+//   t37: v8i32 = sub t26, t29
+//       t31: v16i16 = zero_extend t30
+//     t32: v8i32 = bitcast t31
+//         t33: v16i8 = vector_shuffle<8,24,9,25,10,26,11,27,12,28,13,29,14,30,
+//                                     15,31> t8, t6
+//       t34: v16i16 = zero_extend t33
+//     t35: v8i32 = bitcast t34
+//   t38: v8i32 = sub t32, t35
+// t39: v16i32 = concat_vectors t37, t38
+static SDValue combinePseudoVxi16Add(SDNode *N, SelectionDAG &DAG,
+                                     const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+
+  // Limit this transform to advanced optimizations on avx2 or better.
+  if (!Subtarget.hasAVX2() || !DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  // Look specifically for v16i32.
+  // TODO considering enable MVT::v8i32 for ymm
+  if (VT != MVT::v16i32)
+    return SDValue();
+
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+
+  // Canonicalize SUB to LHS.
+  if (LHS.getOpcode() != ISD::SUB)
+    std::swap(LHS, RHS);
+
+  // TODO Check nsw flag
+  auto IsExtendFromVxI8 = [] (SDValue V) -> bool {
+    if (V.getOpcode() != ISD::ZERO_EXTEND)
+      return false;
+    if (V.getOperand(0).getValueType().getScalarType() != MVT::i8)
+      return false;
+    return true;
+  };
+
+  if (LHS.getOpcode() != ISD::SUB || !LHS.hasOneUse() ||
+      !IsExtendFromVxI8(RHS) || !RHS.hasOneUse())
+    return SDValue();
+  SDValue D = RHS.getOperand(0);
+
+  SDValue V0 = LHS->getOperand(0);
+  SDValue V1 = LHS->getOperand(1);
+  if (V0.getOpcode() != ISD::SHL || !V0.hasOneUse() ||
+      (V1.getOpcode() != ISD::ADD && V1.getOpcode() != ISD::OR) ||
+      !V1.hasOneUse())
+    return SDValue();
+
+  // We need a shift left by 16.
+  ConstantSDNode *ShAmtC = isConstOrConstSplat(V0.getOperand(1));
+  if (!ShAmtC || ShAmtC->getAPIntValue() != 16)
+    return SDValue();
+
+  SDValue V00 = V0.getOperand(0);
+  if (!IsExtendFromVxI8(V00) && !V00.hasOneUse())
+    return SDValue();
+  SDValue A = V00.getOperand(0);
+
+  SDValue V10 = V1.getOperand(0);
+  SDValue V11 = V1.getOperand(1);
+  if (V10.getOpcode() != ISD::SHL)
+    std::swap(V10, V11);
+  if (V10.getOpcode() != ISD::SHL || !V10.hasOneUse() ||
+      !IsExtendFromVxI8(V11) || !V11.hasOneUse())
+    return SDValue();
+  SDValue C = V11.getOperand(0);
+
+  ShAmtC = isConstOrConstSplat(V10.getOperand(1));
+  if (!ShAmtC || ShAmtC->getAPIntValue() != 16)
+    return SDValue();
+
+  SDValue Zext = V10.getOperand(0);
+  if (!IsExtendFromVxI8(Zext) || !Zext.hasOneUse())
+    return SDValue();
+  SDValue B = Zext.getOperand(0);
+
+  // add (sub (shl A, 16), (add (or ((shl B, 16), C)))), D)
+  // -->
+  // sub(<A, D>, <B, C>)
+  // Concatenate the 4 roots in pairs to form 2 v16i8 vectors.
+
+  SDLoc dl(N);
+  // TODO this can be unified depend on element number.
+  //VT == MVT::v16i32
+  // add (sub (shl A, 16), (add (or ((shl B, 16), C)))), D)
+  // -->
+  // sub(<A, D>, <B, C>)
+  SDValue Low0 = DAG.getVectorShuffle(
+    MVT::v16i8, dl, D, A,
+    {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
+  Low0 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Low0);
+  Low0 = DAG.getBitcast(MVT::v8i32, Low0);
+  SDValue Low1 = DAG.getVectorShuffle(
+    MVT::v16i8, dl, C, B,
+    {0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23});
+  Low1 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Low1);
+  Low1 = DAG.getBitcast(MVT::v8i32, Low1);
+  SDValue Hi0 = DAG.getVectorShuffle(
+    MVT::v16i8, dl, D, A,
+    {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
+  Hi0 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Hi0);
+  Hi0 = DAG.getBitcast(MVT::v8i32, Hi0);
+  SDValue Hi1 = DAG.getVectorShuffle(
+    MVT::v16i8, dl, C, B,
+    {8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31});
+  Hi1 = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, Hi1);
+  Hi1 = DAG.getBitcast(MVT::v8i32, Hi1);
+
+  SDValue Sub0 = DAG.getNode(ISD::SUB, dl, MVT::v8i32, Low0, Low1);
+  SDValue Sub1 = DAG.getNode(ISD::SUB, dl, MVT::v8i32, Hi0, Hi1);
+
+  LLVM_DEBUG(dbgs() << "v16i32 done for Add(Sub, Shl) match\n");
+  return DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i32, Sub0, Sub1);
+}
+
 // Look for (vXi32 (add (sub A, B), (shl (sub C, D), 16))). See if we can
 // determine a relationship between A, C, B, and D that would allow us to
 // interleave the lower 16 bits of A and C elements. And B and D elements to
@@ -57765,8 +57922,8 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
 //
 // This is looking for a specific combination of operations that have been
 // observed after SLP vectorization and load coalescing of some real code.
-static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
-                                      const X86Subtarget &Subtarget) {
+static SDValue combinePseudoV8i16Add(SDNode *N, SelectionDAG &DAG,
+                                     const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
 
   // Limit this transform to advanced optimizations on avx2 or better.
@@ -57891,6 +58048,466 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
   RHS = DAG.getBitcast(MVT::v8i32, RHS);
 
   return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
+}
+
+// Combine vectorized (A - B) + ((C - D) << 16) to
+// concat(C, A) - concat(D, B)
+// Its original DAG:
+//                 t46/t45: v4i8 = extract_subvector t27/t26, Constant:i64<4>
+//               t53: v8i8 = concat_vectors t46, t45
+//                 t44/t43: v4i8 = extract_subvector t25/t24, Constant:i64<4>
+//               t52: v8i8 = concat_vectors t44, t43
+//             t56: v16i8 = concat_vectors t53, t52
+//           t59: v16i32 = zero_extend t56
+//                 t42/t41: v4i8 = extract_subvector t23/t22, Constant:i64<4>
+//               t61: v8i8 = concat_vectors t42, t41
+//                 t40/t47: v4i8 = extract_subvector t21/t28, Constant:i64<4>
+//               t62: v8i8 = concat_vectors t40, t47
+//             t63: v16i8 = concat_vectors t61, t62
+//           t64: v16i32 = zero_extend t63
+//         t65: v16i32 = sub nsw t59, t64
+//         t67: v16i32 = BUILD_VECTOR Constant:i32<16>, ... Constant:i32<16>
+//       t68: v16i32 = shl nsw t65, t67
+//                 ...
+//           t58: v16i32 = zero_extend t55  // like t59, but Constant:i64<0>
+//                 ...
+//           t57: v16i32 = zero_extend t54  // like t64, but Constant:i64<0>
+//         t60: v16i32 = sub nsw t58, t57
+//       t69: v16i32 = add nsw t68, t60
+//  New DAG:
+//            t97: v16i8 = concat_vectors t27, t26
+//          t100: v16i8 =
+//                    vector_shuffle<0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15> t97,
+//                                   undef:v16i8
+//        t102: v16i16 = zero_extend t100
+//      t104: v8i32 = bitcast t102
+//            ...
+//      t105: v8i32 = bitcast t103  //the similar as t104, but from t23, t22
+//    t106: v8i32 = sub t104, t105
+//            ...
+//      t113: v8i32 = bitcast t111  //the similar as t104, but from t25, t24
+//            ...
+//      t114: v8i32 = bitcast t112  //the similar as t104, but from t21, t28
+//    t115: v8i32 = sub t113, t114
+//  t116: v16i32 = concat_vectors t106, t115
+static SDValue combinePseudoV16i16Add(SDNode *N, SelectionDAG &DAG,
+                                      const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+
+  // Limit this transform to advanced optimizations on avx2 or better.
+  if (!Subtarget.hasAVX2() || !DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  // Look specifically for v16i32.
+  if (VT != MVT::v16i32)
+    return SDValue();
+
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+
+  // Canonicalize SUB to LHS.
+  if (LHS.getOpcode() != ISD::SUB)
+    std::swap(LHS, RHS);
+
+  // We need SUB and a SHL of another SUB.
+  if (LHS.getOpcode() != ISD::SUB || !LHS.hasOneUse() ||
+      RHS.getOpcode() != ISD::SHL || !RHS.hasOneUse() ||
+      RHS.getOperand(0).getOpcode() != ISD::SUB ||
+      !RHS.getOperand(0).hasOneUse())
+    return SDValue();
+
+  // We need a shift left by 16.
+  ConstantSDNode *ShAmtC = isConstOrConstSplat(RHS.getOperand(1));
+  if (!ShAmtC || ShAmtC->getAPIntValue() != 16)
+    return SDValue();
+
+  SDValue A = LHS.getOperand(0);
+  SDValue B = LHS.getOperand(1);
+  SDValue C = RHS.getOperand(0).getOperand(0);
+  SDValue D = RHS.getOperand(0).getOperand(1);
+
+  // All should be zero extends from v16i8.
+  if (A.getOpcode() != ISD::ZERO_EXTEND || !A.hasOneUse() ||
+      B.getOpcode() != ISD::ZERO_EXTEND || !B.hasOneUse() ||
+      C.getOpcode() != ISD::ZERO_EXTEND || !C.hasOneUse() ||
+      D.getOpcode() != ISD::ZERO_EXTEND || !D.hasOneUse())
+    return SDValue();
+
+  A = A.getOperand(0);
+  B = B.getOperand(0);
+  C = C.getOperand(0);
+  D = D.getOperand(0);
+
+  if (A.getValueType() != MVT::v16i8 ||
+      B.getValueType() != MVT::v16i8 ||
+      C.getValueType() != MVT::v16i8 ||
+      D.getValueType() != MVT::v16i8)
+    return SDValue();
+
+  // Each extend should come from a 2 operand concat_vectors.
+  if (A.getOpcode() != ISD::CONCAT_VECTORS || !A.hasOneUse() ||
+      B.getOpcode() != ISD::CONCAT_VECTORS || !B.hasOneUse() ||
+      C.getOpcode() != ISD::CONCAT_VECTORS || !C.hasOneUse() ||
+      D.getOpcode() != ISD::CONCAT_VECTORS || !D.hasOneUse())
+    return SDValue();
+  if (A.getNumOperands() != 2 || B.getNumOperands() != 2 ||
+      C.getNumOperands() != 2 || D.getNumOperands() != 2)
+    return SDValue();
+
+  // We have our 8 fragments now. Next we need to see if those common from
+  // 4 common roots.
+  SDValue A0 = A.getOperand(0);
+  SDValue A1 = A.getOperand(1);
+  SDValue B0 = B.getOperand(0);
+  SDValue B1 = B.getOperand(1);
+  SDValue C0 = C.getOperand(0);
+  SDValue C1 = C.getOperand(1);
+  SDValue D0 = D.getOperand(0);
+  SDValue D1 = D.getOperand(1);
+
+  // Each should be an concat.
+  if (A0.getOpcode() != ISD::CONCAT_VECTORS || !A0.hasOneUse() ||
+      A1.getOpcode() != ISD::CONCAT_VECTORS || !A1.hasOneUse() ||
+      B0.getOpcode() != ISD::CONCAT_VECTORS || !B0.hasOneUse() ||
+      B1.getOpcode() != ISD::CONCAT_VECTORS || !B1.hasOneUse() ||
+      C0.getOpcode() != ISD::CONCAT_VECTORS || !C0.hasOneUse() ||
+      C1.getOpcode() != ISD::CONCAT_VECTORS || !C1.hasOneUse() ||
+      D0.getOpcode() != ISD::CONCAT_VECTORS || !D0.hasOneUse() ||
+      D1.getOpcode() != ISD::CONCAT_VECTORS || !D1.hasOneUse())
+    return SDValue();
+
+  SDValue A00 = A0.getOperand(0);
+  SDValue A01 = A0.getOperand(1);
+  SDValue A10 = A1.getOperand(0);
+  SDValue A11 = A1.getOperand(1);
+  SDValue B00 = B0.getOperand(0);
+  SDValue B01 = B0.getOperand(1);
+  SDValue B10 = B1.getOperand(0);
+  SDValue B11 = B1.getOperand(1);
+  SDValue C00 = C0.getOperand(0);
+  SDValue C01 = C0.getOperand(1);
+  SDValue C10 = C1.getOperand(0);
+  SDValue C11 = C1.getOperand(1);
+  SDValue D00 = D0.getOperand(0);
+  SDValue D01 = D0.getOperand(1);
+  SDValue D10 = D1.getOperand(0);
+  SDValue D11 = D1.getOperand(1);
+
+  // Each should be an extract_subvector.
+  if (A00.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A00.hasOneUse() ||
+      A10.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A10.hasOneUse() ||
+      B00.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B00.hasOneUse() ||
+      B10.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B10.hasOneUse() ||
+      C00.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C00.hasOneUse() ||
+      C10.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C10.hasOneUse() ||
+      D00.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D00.hasOneUse() ||
+      D10.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D10.hasOneUse() ||
+      A01.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A01.hasOneUse() ||
+      A11.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A11.hasOneUse() ||
+      B01.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B01.hasOneUse() ||
+      B11.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B11.hasOneUse() ||
+      C01.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C01.hasOneUse() ||
+      C11.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C11.hasOneUse() ||
+      D01.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D01.hasOneUse() ||
+      D11.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D11.hasOneUse())
+    return SDValue();
+
+  // Half of the extracts should come from element 0 and half from element 4.
+  if (!isNullConstant(A00.getOperand(1)) ||
+      !isa<ConstantSDNode>(C00.getOperand(1)) ||
+      C00.getConstantOperandAPInt(1) != 4)
+    return SDValue();
+  if (A01.getOperand(1) != A00.getOperand(1) ||
+      A10.getOperand(1) != A00.getOperand(1) ||
+      A11.getOperand(1) != A00.getOperand(1) ||
+      B00.getOperand(1) != A00.getOperand(1) ||
+      B01.getOperand(1) != A00.getOperand(1) ||
+      B10.getOperand(1) != A00.getOperand(1) ||
+      B11.getOperand(1) != A00.getOperand(1) ||
+      C01.getOperand(1) != C00.getOperand(1) ||
+      C10.getOperand(1) != C00.getOperand(1) ||
+      C11.getOperand(1) != C00.getOperand(1) ||
+      D00.getOperand(1) != C00.getOperand(1) ||
+      D01.getOperand(1) != C00.getOperand(1) ||
+      D10.getOperand(1) != C00.getOperand(1) ||
+      D11.getOperand(1) != C00.getOperand(1))
+    return SDValue();
+
+  // Grab our 8 roots and make sure they are each used in one other extract.
+  SDValue Load0 = A00.getOperand(0);
+  SDValue Load1 = A01.getOperand(0);
+  SDValue Load2 = A10.getOperand(0);
+  SDValue Load3 = A11.getOperand(0);
+  SDValue Load4 = B00.getOperand(0);
+  SDValue Load5 = B01.getOperand(0);
+  SDValue Load6 = B10.getOperand(0);
+  SDValue Load7 = B11.getOperand(0);
+
+  if (C00.getOperand(0) != Load0 ||
+      C01.getOperand(0) != Load1 ||
+      C10.getOperand(0) != Load2 ||
+      C11.getOperand(0) != Load3 ||
+      D00.getOperand(0) != Load4 ||
+      D01.getOperand(0) != Load5 ||
+      D10.getOperand(0) != Load6 ||
+      D11.getOperand(0) != Load7)
+    return SDValue();
+
+  // Concatenate the 4 roots in pairs to form 2 v16i8 vectors.
+  SDLoc dl(N);
+  LHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load0, Load1);
+  RHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load4, Load5);
+
+  // Interleave the lower 4 and upper 4 elements of each root in the pair.
+  LHS = DAG.getVectorShuffle(MVT::v16i8, dl, LHS, LHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  RHS = DAG.getVectorShuffle(MVT::v16i8, dl, RHS, RHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  LHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, LHS);
+  RHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, RHS);
+  SDValue LHS0 = DAG.getBitcast(MVT::v8i32, LHS);
+  SDValue RHS0 = DAG.getBitcast(MVT::v8i32, RHS);
+
+  SDValue Sub0 = DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS0, RHS0);
+
+  LHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load2, Load3);
+  RHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load6, Load7);
+
+  // Interleave the lower 4 and upper 4 elements of each root in the pair.
+  LHS = DAG.getVectorShuffle(MVT::v16i8, dl, LHS, LHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  RHS = DAG.getVectorShuffle(MVT::v16i8, dl, RHS, RHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  LHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, LHS);
+  RHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, RHS);
+
+  LHS = DAG.getBitcast(MVT::v8i32, LHS);
+  RHS = DAG.getBitcast(MVT::v8i32, RHS);
+
+
+  SDValue Sub1 = DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
+  return DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i32, Sub0, Sub1);
+}
+
+// Split v16i32 shuffle operations to TWO v8i32 operations to reduce
+// port5 pressure if all operations in v16i32 are among high v8i32 or
+// low v8i32 (no 256 bits cross).
+// Take an example:
+// From:
+// t67: v16i32 = concat_vectors t67_H, t67_L
+// t69: v16i32 = vector_shuffle<1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14> t67,
+//                              undef:v16i32
+// t70: v16i32 = add nsw t69, t67
+// To:
+// t69_H: v8i32 = vector_shuffle<1,0,3,2,5,4,7,6> tt67_H, undef:v8i32
+// t69_L: v8i32 = vector_shuffle<1,0,3,2,5,4,7,6> tt67_L, undef:v8i32
+// t70_H: v8i32 = add t69_H, t67_H
+// t70_L: v8i32 = add t69_L, t67_L
+// t70: v16i32 = concat_vectors t70_H, t70_L
+static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
+                                    TargetLowering::DAGCombinerInfo &DCI,
+                                    const X86Subtarget &Subtarget) {
+  if (!isa<ShuffleVectorSDNode>(N))
+    return SDValue();
+
+  // Limit this transform to advanced optimizations on avx2 or better.
+  if (!Subtarget.hasAVX2() || !DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  // Look specifically for v16i32.
+  if (N->getValueType(0) != MVT::v16i32)
+    return SDValue();
+
+  auto CanSplitShuffle = [](SDNode *N) {
+    ShuffleVectorSDNode *SVOp = cast<ShuffleVectorSDNode>(N);
+    ArrayRef<int> Mask = SVOp->getMask();
+    int NumElts = N->getValueType(0).getVectorNumElements();
+    int Half = NumElts / 2;
+    // The left vector
+    for (int I = 0; I < Half; ++I) {
+      if ((Mask[I] >= Half && Mask[I] < NumElts) || Mask[I] > NumElts + Half)
+        return false;
+    }
+    // The right vector
+    for (int I = Half; I < NumElts; ++I) {
+      if (Mask[I] < Half || (Mask[I] >= NumElts && Mask[I] < NumElts + Half))
+        return false;
+    }
+
+    return true;
+  };
+
+  if (!CanSplitShuffle(N))
+    return SDValue();
+
+  // t67: v16i32 = add nsw t66, t57
+  // t69: v16i32 = vector_shuffle<1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14> t67,
+  //                             undef:v16i32
+  //   t70: v16i32 = add nsw t69, t67 ;V0
+  //   t71: v16i32 = sub nsw t69, t67 ;V1
+  // t72: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31> ;V11
+  //                              t70, t71
+  // t73: v16i32 =
+  // vector_shuffle<2,3,0,1,6,7,4,5,10,11,8,9,14,15,12,13> t72, undef:v16i32 ;V10
+  //   t74: v16i32 = add nsw t73, t72 ;V0
+  //   t75: v16i32 = sub nsw t73, t72 ;V1
+  // t76: v16i32 = vector_shuffle<0,1,18,19,4,5,22,23,8,9,26,27,12,13,30,31>
+  //                             t74, t75
+  // t77: v4i32 = extract_subvector t76, Constant:i64<0>
+  // t79: v4i32 = extract_subvector t76, Constant:i64<4>
+  // t81: v4i32 = extract_subvector t76, Constant:i64<8>
+  // t83: v4i32 = extract_subvector t76, Constant:i64<12>
+
+  // Check it is splited to 4 sub-vector
+  for (auto UI = N->use_begin(), UE = N->use_end(); UI != UE; ++UI) {
+    if (UI->getOpcode() != ISD::EXTRACT_SUBVECTOR)
+      return SDValue();
+    SDValue Idx = UI->getOperand(1);
+    unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+    if (IdxVal % 4) // Can only be 0, 4, 8, 12
+      return SDValue();
+  }
+
+  SDValue V0 = N->getOperand(0);
+  SDValue V1 = N->getOperand(1);
+
+  if (V0.getOpcode() != ISD::ADD || !V0.hasOneUse() ||
+      V1.getOpcode() != ISD::SUB || !V1.hasOneUse() ||
+      V0.getOperand(0) != V1.getOperand(0) ||
+      V0.getOperand(1) != V1.getOperand(1))
+    return SDValue();
+
+  SDValue V10 = V1.getOperand(0);
+  SDValue V11 = V1.getOperand(1);
+  if (V10->getOpcode() != ISD::VECTOR_SHUFFLE ||
+      V11->getOpcode() != ISD::VECTOR_SHUFFLE || V10->getOperand(0) != V11 ||
+      !V10->getOperand(1)->isUndef() || !V10->hasNUsesOfValue(2, 0) ||
+      !V11->hasNUsesOfValue(3, 0) ||
+      !CanSplitShuffle(V10.getNode()) || !CanSplitShuffle(V11.getNode()))
+    return SDValue();
+  SDValue Shuf0 = V10;
+  SDValue Shuf1 = V11;
+
+  V0 = V11->getOperand(0);
+  V1 = V11->getOperand(1);
+  if (V0.getOpcode() != ISD::ADD || !V0.hasOneUse() ||
+      V1.getOpcode() != ISD::SUB || !V1.hasOneUse() ||
+      V0.getOperand(0) != V1.getOperand(0) ||
+      V0.getOperand(1) != V1.getOperand(1))
+    return SDValue();
+
+  V10 = V1.getOperand(0);
+  V11 = V1.getOperand(1);
+  if (V10->getOpcode() != ISD::VECTOR_SHUFFLE || V11->getOpcode() != ISD::ADD ||
+      V10->getOperand(0) != V11 || !V10->getOperand(1)->isUndef() ||
+      !V10->hasNUsesOfValue(2, 0) ||
+      !V11->hasNUsesOfValue(3, 0) || !CanSplitShuffle(V10.getNode()))
+    return SDValue();
+  SDValue Shuf2 = V10;
+
+  // Match (A - B) + ((C - D) << 16) DAG
+  SDValue V = combinePseudoVxi16Add(V11.getNode(), DAG, Subtarget);
+  if (!V)
+    V = combinePseudoV16i16Add(V11.getNode(), DAG, Subtarget);
+  if (!V)
+    return SDValue();
+
+  auto SplitShuffle = [&](SDNode *N, SDValue V0Low, SDValue V0Hi, SDValue V1Low,
+                          SDValue V1Hi) {
+    ShuffleVectorSDNode *SVOp = cast<ShuffleVectorSDNode>(N);
+    ArrayRef<int> Mask = SVOp->getMask();
+    int NumElts = N->getValueType(0).getVectorNumElements();
+    int Half = NumElts / 2;
+    SmallVector<int, 8> MaskLow;
+    SmallVector<int, 8> MaskHi;
+
+    for (int I = 0; I < Half; ++I) {
+      int MaskElt = Mask[I] % Half;
+      if (Mask[I] > NumElts)
+        MaskElt += Half;  //??
+      MaskLow.push_back(MaskElt);
+    }
+    for (int I = Half; I < NumElts; ++I) {
+      int MaskElt = Mask[I] % Half;
+      if (Mask[I] > NumElts)
+        MaskElt += Half;
+      MaskHi.push_back(MaskElt);
+    }
+
+    SDLoc dl(N);
+    EVT NewVT = V0Low->getValueType(0);
+    SDValue ShufLow =
+      DAG.getVectorShuffle(NewVT, dl, V0Low, V1Low, MaskLow);
+    SDValue ShufHi =
+      DAG.getVectorShuffle(NewVT, dl, V0Hi, V1Hi, MaskHi);
+    return std::pair<SDValue, SDValue>{ShufLow, ShufHi};
+  };
+
+  assert(V.getOpcode() == ISD::CONCAT_VECTORS);
+  SDValue Low = V.getOperand(0);
+  SDValue Hi = V.getOperand(1);
+  EVT HalfVT = Low->getValueType(0);
+  SDValue Undef = DAG.getUNDEF(HalfVT);
+  SDValue ShufLow, ShufHi;
+  // t69: v16i32 = vector_shuffle<1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14> t67,
+  //                             undef:v16i32
+  std::tie(ShufLow, ShufHi) =
+    SplitShuffle(Shuf2.getNode(), Low, Hi, Undef, Undef);
+  SDLoc dl(N);
+  // t70: v16i32 = add nsw t69, t67
+  SDValue AddLow = DAG.getNode(ISD::ADD, dl, HalfVT, ShufLow, Low);
+  SDValue AddHi = DAG.getNode(ISD::ADD, dl, HalfVT, ShufHi, Hi);
+  // t71: v16i32 = sub nsw t69, t67
+  SDValue SubLow = DAG.getNode(ISD::SUB, dl, HalfVT, ShufLow, Low);
+  SDValue SubHi = DAG.getNode(ISD::SUB, dl, HalfVT, ShufHi, Hi);
+  // t72: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31>
+  //                             t70, t71
+  std::tie(ShufLow, ShufHi) =
+    SplitShuffle(Shuf1.getNode(), AddLow, AddHi, SubLow, SubHi);
+  SDValue Shuf2Low, Shuf2Hi;
+  // t73: v16i32 = vector_shuffle<2,3,0,1,6,7,4,5,10,11,8,9,14,15,12,13> t72,
+  //                             undef:v16i32
+  std::tie(Shuf2Low, Shuf2Hi) =
+    SplitShuffle(Shuf0.getNode(), ShufLow, ShufHi, Undef, Undef);
+  // t74: v16i32 = add nsw t73, t72
+  AddLow = DAG.getNode(ISD::ADD, dl, HalfVT, Shuf2Low, ShufLow);
+  AddHi = DAG.getNode(ISD::ADD, dl, HalfVT, Shuf2Hi, ShufHi);
+  // t75: v16i32 = sub nsw t73, t72
+  SubLow = DAG.getNode(ISD::SUB, dl, HalfVT, Shuf2Low, ShufLow);
+  SubHi = DAG.getNode(ISD::SUB, dl, HalfVT, Shuf2Hi, ShufHi);
+  // t76: v16i32 = vector_shuffle<0,1,18,19,4,5,22,23,8,9,26,27,12,13,30,31>
+  //                              t74, t75
+  std::tie(ShufLow, ShufHi) = SplitShuffle(N, AddLow, AddHi, SubLow, SubHi);
+
+  // t77: v4i32 = extract_subvector t76, Constant:i64<0>
+  // t79: v4i32 = extract_subvector t76, Constant:i64<4>
+  // t81: v4i32 = extract_subvector t76, Constant:i64<8>
+  // t83: v4i32 = extract_subvector t76, Constant:i64<12>
+  for (auto UI = N->use_begin(), UE = N->use_end(); UI != UE; ++UI) {
+    SDValue Idx = UI->getOperand(1);
+    unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+    EVT QuaterVT = UI->getValueType(0);
+    SDValue Extract;
+    switch (IdxVal) {
+    default:
+      llvm_unreachable("Idx can only be 0, 4, 8, 12");
+    case 0:
+    case 4:
+      Extract =
+        DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, ShufLow,
+                    DAG.getConstant(IdxVal, dl, Idx->getValueType(0)));
+      break;
+    case 8:
+    case 12:
+      Extract =
+        DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, ShufHi,
+                    DAG.getConstant(IdxVal % 8, dl, Idx->getValueType(0)));
+      break;
+    }
+    DCI.CombineTo(*UI, Extract);
+  }
+
+  return SDValue(N, 0);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -58026,9 +58643,14 @@ static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
     return MAdd;
 
 #if INTEL_CUSTOMIZATION
-  if (DCI.isBeforeLegalize() && VT.isVector())
-    if (SDValue V = combinePseudoi16VecAdd(N, DAG, Subtarget))
+  if (DCI.isBeforeLegalize() && VT.isVector()) {
+    if (SDValue V = combinePseudoV8i16Add(N, DAG, Subtarget))
       return V;
+    if (SDValue V = combinePseudoVxi16Add(N, DAG, Subtarget))
+      return V;
+    if (SDValue V = combinePseudoV16i16Add(N, DAG, Subtarget))
+      return V;
+  }
 #endif
 
   // Try to synthesize horizontal adds from adds of shuffles.

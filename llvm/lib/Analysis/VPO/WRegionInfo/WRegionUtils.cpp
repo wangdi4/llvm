@@ -1364,4 +1364,38 @@ ReductionItem *WRegionUtils::getReductionItemForInclusiveExclusiveItem(
   return cast<ReductionItem>(Res);
 }
 
+bool WRegionUtils::supportsLocalAtomicFreeReduction(const WRegionNode *W) {
+  if (!WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+    return false;
+
+  // Presence of KnownNDRange clause should disable atomic-free reduction,
+  // for teams it's handled in fixupKnowNDRange, but for par+loop it'd
+  // be incorrect as well since it may cause spawn of multiple teams w/o
+  // an actual teams clause. Here we also handle of a 'parallel' directive
+  // with an inner 'loop' one with an ndrange clause on the latter.
+  if (W->getIsParLoop())
+    return !W->getWRNLoopInfo().isKnownNDRange();
+
+  // No constructs other than par/parloop are allowed for local atomic-free
+  // reduction.
+  if (!isa<WRNParallelNode>(W))
+    return false;
+
+  auto WLoopIt =
+      std::find_if(W->getChildren().begin(), W->getChildren().end(),
+                   [](WRegionNode *SW) { return SW->getIsOmpLoop(); });
+  if (WLoopIt != W->getChildren().end() &&
+      (*WLoopIt)->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  return true;
+}
+
+bool WRegionUtils::supportsGlobalAtomicFreeReduction(const WRegionNode *W) {
+  if (!WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
+    return false;
+
+  return W->getIsTeams();
+}
+
 #endif // INTEL_COLLAB

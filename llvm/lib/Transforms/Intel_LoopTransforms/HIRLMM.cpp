@@ -724,9 +724,18 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group, bool QueryMode,
     }
   }
 
+  bool IsMultiExit = Lp->isMultiExit();
   for (const RegDDRef *Ref : Group) {
+    // It is not guaranteed that an alloca whose lifetime.start intrinsic is
+    // inside multi-exit loop will hit the corresponding lifetime.end intrinsic.
+    // This intrinsic is just placed lexically at the end of the loop
+    // (backedge). The alloca might be accessed in the loop exit blocks so we
+    // should give up on using lifetime intrinsics for multi-exit loops. The
+    // LangRef does not guarantee that lifetime.end intrinsic has to be reached.
     if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts, Group,
-                         QueryMode ? nullptr : IsInsideLifetimeIntrinsics)) {
+                         (QueryMode || IsMultiExit)
+                             ? nullptr
+                             : IsInsideLifetimeIntrinsics)) {
       return false;
     }
   }

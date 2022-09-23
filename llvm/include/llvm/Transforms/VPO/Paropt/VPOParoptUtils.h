@@ -2101,6 +2101,9 @@ public:
   /// Control data prefetch API generation for GPUs
   static uint32_t dataPrefetchKind();
 
+  /// Returns true if OpenMP needs to perform block load generation
+  static bool enableDeviceBlockLoad();
+
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
@@ -2425,6 +2428,9 @@ public:
   /// pass when making actual codegen at transform pass.
   /// \param [in] RedI Reduction Item to Check
   static bool supportsAtomicFreeReduction(const ReductionItem *RedI);
+
+  static bool isAtomicFreeReductionLocalEnabled();
+  static bool isAtomicFreeReductionGlobalEnabled();
 };
 
 } // namespace vpo

@@ -1,7 +1,7 @@
 ; Check broadcast of a constant. The store of the constant should be moved inside of the loop.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vec-clone -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4_foo
 ; CHECK: simd.loop.header:

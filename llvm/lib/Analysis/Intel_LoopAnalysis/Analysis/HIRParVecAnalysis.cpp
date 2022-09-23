@@ -1261,7 +1261,10 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
 void HIRIdiomAnalyzer::tryAddIncrementNode(HLDDNode *CurNode) {
 
   HLInst *Inst = dyn_cast<HLInst>(CurNode);
-  if (!Inst || !isa<HLIf>(Inst->getParent()))
+
+  // We are effectively looking for an instruction that runs conditionally.
+  // Check that Inst does not postdominate loop's first child.
+  if (!Inst || HLNodeUtils::postDominates(Inst, Loop->getFirstChild()))
     return;
 
   int64_t Stride;
@@ -1296,12 +1299,27 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
 #endif
 
   // All the instructions of one idiom is expected to be located in the same
-  // branch of a single if statement.
+  // branch of a single if statement or in straight line code if outside an
+  // if.
   HLInst *Increment = Increments.front();
   auto CheckParent = [&](HLNode *Node) {
-    HLIf *IfNode = cast<HLIf>(Increment->getParent());
-    return Node->getParent() == IfNode &&
-           IfNode->isThenChild(Node) == IfNode->isThenChild(Increment);
+    if (HLIf *IfNode = dyn_cast<HLIf>(Increment->getParent()))
+      return Node->getParent() == IfNode &&
+        IfNode->isThenChild(Node) == IfNode->isThenChild(Increment);
+
+    // Allow cases such as:
+    // label1:
+    //    a[inc] = val;
+    //    inc = inc + 1;
+    // label2:
+    // HIR creation may fail to place such code under an IF and may
+    // end up using labels and gotos for the same. The checks can
+    // be extended to have any straight line code around the increment
+    // but this is left as a TODO when we see a need.
+    // Only allow increment or the node that immediately precedes the
+    // increment for the case where the parent is not an HLIF.
+    return isa<HLInst>(Node) && (Node == Increment ||
+                                 Increment->getPrevNode() == Node);
   };
 
   SetVector<RegDDRef *> LoadsStores;

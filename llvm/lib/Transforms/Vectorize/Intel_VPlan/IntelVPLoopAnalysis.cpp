@@ -915,20 +915,27 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   //   float %red_load = load float* %red
   //   float %red_init = reduction-init-scalar float 0.0 float %red_load
   // header:
-  //   float %carry-over =
+  //   float %carry_over =
   //       phi float [ %red_init, pre.header ]
-  //                 [ %extract_last_lane, separating.pragma.block ]
+  //                 [ %carry_over.next, separating.pragma.block ]
   //   store float -0.000000e+00 float* %red
   // separating.pragma.block:
   //   float %red_load_run = load float* %red
   //   float %running_red = running-inclusive-reduction float %red_load_run
-  //                                                    float %carry-over
+  //                                                    float %carry_over
   //                                                    float -0.000000e+00
   //   store float %running_red float* %red
-  //   float %extract_last_lane = extract-last-vector-lane float %running_red
+  //   ; for inclusive scan:
+  //   float %carry_over.next = extract-last-vector-lane float %running_red
+  //   ; For exclusive scan, reduce also with the last lane of input:
+  //   ; float %running_red.last = extract-last-vector-lane float %running_red
+  //   ; float %input_last_lane = extract-last-vector-lane float %red_load_run
+  //   ; ; TODO: For masked mode loop the above has to be
+  //   ; ; extract-last-active-vector-lane.
+  //   ; float %carry_over.next = fadd float %running_red.last,
+  //   ;                               float %input_last_lane
   // post.exit:
-  //   float %red_pre_final = load float* %red
-  //   float %final_red = reduction-final-inscan float %red_pre_final
+  //   float %final_red = reduction-final-inscan float %carry_over.next
 
   VPBuilder::InsertPointGuard Guard(Builder);
   for (const VPInscanReduction *InscanRed : InscanReductions) {
@@ -943,7 +950,7 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
     Builder.createStore(Identity, Private);
 
     // When registerized, inscan reduction becomes partially registerized,
-    // it has the recurrence phi used in the intput phase, and memory is used
+    // it has the recurrence phi used in the input phase, and memory is used
     // in the scan phase (scan directives prevent full registerization).
     // The load from the reduction memory would be live out, not the phi.
     // For registerized inscan reduction the recurrence phi needs to be
@@ -977,8 +984,9 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
     Type *Ty = InscanRed->getRecurrenceType();
     auto *InscanInput = Builder.createLoad(Ty, Private);
     unsigned BinOpcode = InscanRed->getReductionOpcode();
-    VPInstruction *RunningReduction =
-      InscanRed->getInscanKind() == InscanReductionKind::Inclusive ?
+    bool IsInclusive =
+      (InscanRed->getInscanKind() == InscanReductionKind::Inclusive);
+    VPInstruction *RunningReduction = IsInclusive ?
         Builder.create<VPRunningInclusiveReduction>(
           "incl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity) :
         Builder.create<VPRunningExclusiveReduction>(
@@ -992,6 +1000,29 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
     auto *CarryOver = Builder.createNaryOp(
       VPInstruction::ExtractLastVectorLane, RunningReduction->getType(),
       {RunningReduction});
+    // If we deal with exclusive scan reduction, reduce carry-over with the
+    // last lane of reduction.
+    if (!IsInclusive) {
+      auto *RedInputLastLane = Builder.createNaryOp(
+        VPInstruction::ExtractLastVectorLane, InscanInput->getType(),
+        {InscanInput});
+      CarryOver = Builder.createNaryOp(BinOpcode, Ty,
+                                       {CarryOver, RedInputLastLane});
+      if (FMF.any())
+        CarryOver->setFastMathFlags(FMF);
+    }
+
+    // Now change the operand of VPReductionFinalInscan to the carry-over.
+    // We could have created the correct operand in the first place, but then
+    // the routine for reduction FinalValue generation will have to be
+    // separated into this routine where we prepare the operand.
+    VPReductionFinal *FinalValue =
+        getLinkedInstruction<VPReductionFinal>(InscanRed);
+    auto *OldFinalValueOp = cast<VPInstruction>(FinalValue->getOperand(0));
+    FinalValue->setOperand(0, CarryOver);
+    // If the Load is dead, remove it.
+    if (OldFinalValueOp->getNumUsers() == 0)
+      OldFinalValueOp->getParent()->eraseInstruction(OldFinalValueOp);
 
     // Initialize the accumulator with the last lane of running
     // reduction for the next iteration.
@@ -1202,35 +1233,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 //   reduction-final-udr %udr.vec, %udr.orig, Combiner: @udr.combiner
 //   call @udr.dtor(%udr.vec)
 //
-// Additionally remove any VPO.GUARD.MEM.MOTION directives added by Paropt here.
 void VPLoopEntityList::insertUDRVPInstructions(
     VPUserDefinedReduction *UDR, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
-  if (!RemovedGuardsForUDRMemMotion) {
-    // Look through VPlan and remove VPO.GUARD.MEM.MOTION directive VPCalls.
-    SmallVector<VPCallInstruction *, 2> GuardInsts;
-    for (auto &I : vpinstructions(&Plan)) {
-      if (auto *VPCall = dyn_cast<VPCallInstruction>(&I)) {
-        const CallInst *IRCall = VPCall->getUnderlyingCallInst();
-        if (!IRCall)
-          continue;
-
-        int DirID = VPOAnalysisUtils::getRegionDirectiveID(IRCall);
-        if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
-            DirID == DIR_VPO_END_GUARD_MEM_MOTION)
-          GuardInsts.push_back(VPCall);
-      }
-    }
-
-    assert(GuardInsts.size() == 2 &&
-           "Expected begin/end guard directives for UDRs.");
-    for (auto *I : GuardInsts)
-      I->getParent()->eraseInstruction(I);
-
-    RemovedGuardsForUDRMemMotion = true;
-  }
-
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
 
@@ -1950,6 +1956,7 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   DenseMap<VPBasicBlock *, VPInstruction *> Masks;
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
+    Plan.setCompressExpandUsed();
     // Create Init instruction using live-in instruction as an operand.
     Builder.setInsertPoint(Preheader);
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
@@ -2515,6 +2522,33 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 // Helper utility to check if given VPValue is used by any call or is stored-to
 // inside the provided VPLoop.
 static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
+  // Check if given instruction is a GEP/subscript with VPValue V as its pointer
+  // operand, followed by a store to the GEP/subscript.
+  auto IsUsedByGEPAndThenStore = [Lp](VPInstruction *UseI,
+                                      const VPValue *V) -> bool {
+    if (UseI->getOpcode() != Instruction::GetElementPtr &&
+        UseI->getOpcode() != VPInstruction::Subscript)
+      return false;
+
+    // GEP should be using V as pointer operand.
+    if (getPointerOperand(UseI) != V)
+      return false;
+
+    for (auto *GepU : UseI->users()) {
+      if (auto *StoreI = dyn_cast<VPLoadStoreInst>(GepU)) {
+        if (StoreI->getOpcode() != Instruction::Store)
+          continue;
+        if (!Lp->contains(StoreI))
+          continue;
+        if (StoreI->getPointerOperand() == UseI)
+          return true;
+      }
+    }
+
+    // Checks failed.
+    return false;
+  };
+
   SmallVector<VPValue *, 4> Worklist;
   Worklist.push_back(V);
   while (!Worklist.empty()) {
@@ -2533,6 +2567,8 @@ static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
           return true;
         if (UserI->getOpcode() == Instruction::Store &&
             cast<VPLoadStoreInst>(UserI)->getPointerOperand() == VPVal)
+          return true;
+        if (IsUsedByGEPAndThenStore(UserI, VPVal))
           return true;
       }
     }

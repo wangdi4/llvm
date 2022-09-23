@@ -5210,7 +5210,8 @@ static bool isManyLoopSpecializationCandidate(Function *F,
       continue;
     }
     Type *Ty = inferPtrElementType(Arg);
-    if (!Ty || Arg.getDereferenceableBytes() < DL.getTypeStoreSize(Ty)) {
+    if (!Ty || !Ty->isSized() ||
+        Arg.getDereferenceableBytes() < DL.getTypeStoreSize(Ty)) {
       LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                         << "Arg missing required attributes\n");
       continue;

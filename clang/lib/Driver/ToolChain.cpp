@@ -1444,7 +1444,8 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ,
+                                     options::OPT_qmkl_ilp64_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
     if (getDriver().IsDPCPPMode() &&
@@ -1461,10 +1462,12 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
         LibName += "d";
       MKLLibs.push_back(Args.MakeArgString(LibName));
     }
-    auto addMKLExt = [&Args, IsMSVC](std::string LN, const llvm::Triple &Triple) {
+    auto addMKLExt = [&Args, IsMSVC, &A](std::string LN,
+                      const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64) {
-        if (Args.hasArg(options::OPT_fsycl))
+        if (A->getOption().matches(options::OPT_qmkl_ilp64_EQ) ||
+                                   Args.hasArg(options::OPT_fsycl))
           LibName.append("_ilp64");
         else
           LibName.append("_lp64");
@@ -1474,8 +1477,8 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode()) {
-        // Use TBB when -tbb or DPC++
+      if (Args.hasArg(options::OPT_qtbb)) {
+        // Use TBB when -tbb
         SmallString<32> LibName("mkl_tbb_thread");
         if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
           LibName += "d";

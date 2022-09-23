@@ -768,6 +768,14 @@ def qmkl_EQ : Joined<["-"], "qmkl=">,
   "and bring in the associated headers (parallel,sequential,cluster)"
   "(\"cluster\" is not supported in DPC++)">;
 def qmkl : Flag<["-"], "qmkl">, Alias<qmkl_EQ>, AliasArgs<["parallel"]>;
+def qmkl_ilp64_EQ : Joined<["-"], "qmkl-ilp64=">,
+  Values<"parallel,sequential,cluster">,
+  HelpText<"Link commonly used Intel(R) Math Kernel ILP64 Variant Library "
+  "(Intel(R) MKL) and bring in the associated headers "
+  "(parallel,sequential,cluster)"
+  "(\"cluster\" is not supported in DPC++)">;
+def qmkl_ilp64 : Flag<["-"], "qmkl-ilp64">, Alias<qmkl_ilp64_EQ>,
+  AliasArgs<["parallel"]>;
 def qtbb : Flag<["-"], "qtbb">, HelpText<"Link Intel(R) Threading Building "
   "Blocks (Intel(R) TBB) libraries and bring in the associated headers">;
 def qdaal_EQ : Joined<["-"], "qdaal=">, Values<"parallel,sequential">,
@@ -8989,6 +8997,13 @@ def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<qmkl_EQ>,
   "(\"cluster\" is not supported in DPC++)">;
 def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<qmkl_EQ>;
 def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<qmkl_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qmkl_ilp64_EQ : CLJoined<"Qmkl-ilp64=">, Alias<qmkl_ilp64_EQ>,
+  HelpText<"Link commonly used Intel(R) Math Kernel ILP64 Variant Library "
+  "(Intel(R) MKL) and bring in the associated headers "
+  "(parallel,sequential,cluster)"
+  "(\"cluster\" is not supported in DPC++)">;
+def _SLASH_Qmkl_ilp64_COL : CLJoined<"Qmkl-ilp64:">, Alias<qmkl_ilp64_EQ>;
+def _SLASH_Qmkl_ilp64 : CLFlag<"Qmkl-ilp64">, Alias<qmkl_ilp64_EQ>, AliasArgs<["parallel"]>;
 def _SLASH_QMP : CLFlag<"QMP">, Alias<MP>, HelpText<"Create phony target for "
   "each dependency (other than main file)">;
 def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<qtbb>,

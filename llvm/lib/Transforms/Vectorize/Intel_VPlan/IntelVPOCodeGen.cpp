@@ -1557,9 +1557,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ReductionFinalInscan: {
-    // We need the last vector lane as the final reduction value is there.
+    // The reduction value for inscan reduction has already been calculated
+    // in the operand.
     // ReductionFinalInscan opcode is needed for correct work of CFG merger.
-    VPScalarMap[VPInst][0] = vectorizeExtractLastVectorLane(VPInst);
+    VPScalarMap[VPInst][0] = getScalarValue(VPInst->getOperand(0), 0);
     return;
   }
   case VPInstruction::InductionInit: {

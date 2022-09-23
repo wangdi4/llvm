@@ -278,13 +278,9 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   // Clean up after the unroller
   FPM3.addPass(InstCombinePass());
   FPM3.addPass(InstSimplifyPass());
-  bool AllowAllocaModificationOpt =
-      !Config.GetCpuId()->HasGatherScatterPrefetch();
-  if (AllowAllocaModificationOpt) {
-    if (Level.getSpeedupLevel() > 1)
-      FPM3.addPass(GVNPass());     // Remove redundancies
-    FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
-  }
+  if (Level.getSpeedupLevel() > 1)
+    FPM3.addPass(GVNPass());     // Remove redundancies
+  FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
   FPM3.addPass(SCCPPass()); // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities

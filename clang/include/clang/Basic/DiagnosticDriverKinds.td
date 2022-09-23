@@ -400,6 +400,9 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
 #if INTEL_CUSTOMIZATION
+def warn_drv_deprecated_driver_use_driver_opt : Warning<
+  "use of '%0' is deprecated and will be removed in a future release. "
+  "Use '%1 %2'">, InGroup<Deprecated>;
 def warn_use_of_debug_turn_off_optimization_level : Warning<
   "Note that use of '%0' without any optimization-level option will turn off "
   "most compiler optimizations similar to use of '%1'">,
@@ -758,4 +761,10 @@ def warn_drv_sarif_format_unstable : Warning<
 
 def err_drv_riscv_unsupported_with_linker_relaxation : Error<
   "%0 is unsupported with RISC-V linker relaxation (-mrelax)">;
+#if INTEL_CUSTOMIZATION
+def warn_drv_aot_tool_not_found : Warning<"%0 tool could not be found and is required for AOT compilation. "
+  "See: https://www.intel.com/content/www/us/en/develop/documentation/"
+  "oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html"
+  " for more information.">, InGroup<DiagGroup<"aot-tool-not-found">>;
+#endif // INTEL_CUSTOMIZATION
 }

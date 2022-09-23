@@ -229,7 +229,6 @@ set( BACKEND_PASSES
     BuiltinLibInfo
     DebugInfoPass
     PrintIRPass
-    Prefetch
     SmartGVN
     StripIntelIP
 )

@@ -152,7 +152,6 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
 
 
 extern cl::opt<bool> AtomicFreeReduction;
-extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
 
 // Reset the value in the Map clause to be empty.
 //
@@ -688,6 +687,18 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
+
+  // Under this option, adding metadate needed by GPU Back-End compiler to
+  // generate block loads
+  if (VPOParoptUtils::enableDeviceBlockLoad()) {
+    Metadata *AttrMDArgs[] = {
+        ConstantAsMetadata::get(Builder.getInt32(0)),
+        ConstantAsMetadata::get(Builder.getInt32(1)),
+        ConstantAsMetadata::get(Builder.getInt32(2)) };
+    NFn->setMetadata("intel_reqd_workgroup_walk_order",
+                     MDNode::get(NFn->getContext(), AttrMDArgs));
+  }
+
   return NFn;
 }
 
@@ -1759,6 +1770,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
+
+    // Use weak linkage for x86_64 device compilation, which is needed for NewF
+    // to be visible to the runtime in some cases. For spir64, it is done in
+    // finalizeKernelFunction.
+    if (hasOffloadCompilation() &&
+        Triple(NewF->getParent()->getTargetTriple()).isX86())
+      NewF->setLinkage(GlobalValue::WeakODRLinkage);
 
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
@@ -2833,26 +2851,14 @@ bool VPOParoptTransform::addMapForPrivateAndFPVLAs(WRNTargetNode *W) {
   return Changed;
 }
 
-// Add globals for fast GPU reduction global buffers (one per reduction item)
-// and global teams counter (one per kernel)
-bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
+bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
   assert(W && "Null WRegionNode.");
 
-  assert(W->getIsTarget());
-
-  auto WTeamsIt =
-      std::find_if(W->getChildren().begin(), W->getChildren().end(),
-                   [](WRegionNode *SW) { return SW->getIsTeams(); });
-  if (WTeamsIt == W->getChildren().end())
+  if (!VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() ||
+      !WRegionUtils::supportsGlobalAtomicFreeReduction(W))
     return false;
 
-  auto *WTeams = *WTeamsIt;
-  if (WTeams->getRed().empty())
-    return false;
-
-  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
-
-  auto &RedClause = WTeams->getRed();
+  auto &RedClause = W->getRed();
   if (RedClause.empty())
     return false;
 
@@ -2860,7 +2866,8 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   SmallVector<std::pair<StringRef, ClauseBundleTy>, 8> NewClauses;
   StringRef MapClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
 
-  MapClause &MapC = W->getMap();
+  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  MapClause &MapC = WTarget->getMap();
 
   auto addMapForValue = [&](Value *V, uint64_t MapType, Value *MapTypeVal,
                             Value *MapSize) {
@@ -2876,6 +2883,8 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   };
   const DataLayout &DL = F->getParent()->getDataLayout();
 
+  CallInst *EntryCI = cast<CallInst>(WTarget->getEntryDirective());
+
   bool FoundProperItem = false;
 
   for (ReductionItem *RedI : RedClause.items()) {
@@ -2883,7 +2892,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
       continue;
 
     if (RedI->getIsArraySection())
-      computeArraySectionTypeOffsetSize(W, *RedI, EntryCI);
+      computeArraySectionTypeOffsetSize(WTarget, *RedI, EntryCI);
 
     Type *BufTy = nullptr;
     Value *NumElems = nullptr;
@@ -2897,9 +2906,6 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     uint64_t MapType = TGT_MAP_PRIVATE;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
-    Value *MapSize = ConstantInt::get(
-        Type::getInt64Ty(F->getContext()),
-        Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
 
     assert(BufTy && "Found untyped reduction item");
     if (RedI->getIsArraySection()) {
@@ -2928,13 +2934,16 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
       Initializer = Constant::getNullValue(BufTy);
     }
 
-    auto *NewBuf = new GlobalVariable(
-        *F->getParent(), BufTy, false,
-        BufLinkage, Initializer, "red_buf",
+    Value *MapGlobalSize = ConstantInt::get(
+        Type::getInt64Ty(F->getContext()),
+        Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+
+    auto *NewGlobalBuf = new GlobalVariable(
+        *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
         nullptr, GlobalValue::NotThreadLocal,
         isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
-    NewBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
-    addMapForValue(NewBuf, MapType, MapTypeVal, MapSize);
+    NewGlobalBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
+    addMapForValue(NewGlobalBuf, MapType, MapTypeVal, MapGlobalSize);
     FoundProperItem = true;
   }
 
@@ -2962,7 +2971,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     OpBundlesToAdd.emplace_back(C.first, C.second);
 
   EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
-  W->setEntryDirective(EntryCI);
+  WTarget->setEntryDirective(EntryCI);
 
   return true;
 }

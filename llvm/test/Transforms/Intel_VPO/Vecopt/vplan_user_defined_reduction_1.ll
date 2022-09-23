@@ -74,8 +74,6 @@
 ; In-loop instructions
 ; IR:        call %struct.point* [[PVT1]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
 ; IR:        call %struct.point* [[PVT2]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @maxproc
-; HIR:       %struct.point* {{.*}} = subscript inbounds %struct.point* [[PVT1]]
-; HIR:       %struct.point* {{.*}} = subscript inbounds %struct.point* [[PVT2]]
 ; HIR:       %struct.point* [[PVT1SUB:%.*]] = subscript inbounds %struct.point* [[PVT1]]
 ; HIR:       call %struct.point* [[PVT1SUB]] %struct.point* {{.*}} void (%struct.point*, %struct.point*)* @minproc
 ; HIR:       %struct.point* [[PVT2SUB:%.*]] = subscript inbounds %struct.point* [[PVT2]]

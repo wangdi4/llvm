@@ -178,8 +178,7 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
     m_disableOpt(false),
     m_relaxedMath(false),
     m_denormalsZero(false),
-    m_uniformWGSize(false),
-    m_APFLevel(0)
+    m_uniformWGSize(false)
 {
     llvm::StringRef buildOptions(pBuildOpts);
 
@@ -202,8 +201,6 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
          m_denormalsZero = true;
        else if (opt.equals("-cl-uniform-work-group-size"))
          m_uniformWGSize = true;
-       else if (opt.compare("-auto-prefetch-level") == 1)
-         opt.substr(opt.find("=") + 1).getAsInteger(10, m_APFLevel);
      }
 }
 
@@ -456,7 +453,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             buildOptions.GetUniformWGSize(),
                                             m_bIsFPGAEmulator,
                                             m_dumpHeuristicIR,
-                                            buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor,
                                             m_streamingAlways,
                                             m_expensiveMemOpts);

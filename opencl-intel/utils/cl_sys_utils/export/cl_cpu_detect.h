@@ -232,11 +232,6 @@ public:
   static bool HasGatherScatter(ECPU CPU) {
     return (CPU == CPU_SKX || CPU == CPU_ICL || CPU == CPU_ICX);
   }
-  // TODO: remove HasGatherScatterPrefetch() since it always returns false.
-  static bool HasGatherScatterPrefetch(ECPU CPU) { return false; }
-  bool HasGatherScatterPrefetch() const {
-    return HasGatherScatterPrefetch(m_CPUArch);
-  }
 
   bool HasAVX1() const { return IsFeatureSupported(CFS_AVX10); }
   bool HasAVX2() const { return IsFeatureSupported(CFS_AVX20); }

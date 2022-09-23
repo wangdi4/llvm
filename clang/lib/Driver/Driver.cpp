@@ -320,7 +320,7 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
   unsigned IncludedFlagsBitmask;
   unsigned ExcludedFlagsBitmask;
 #if INTEL_CUSTOMIZATION
-  if (IsDPCPPMode()) {
+  if (IsIntelMode()) {
     // Check for -i_allow-all-opts.
     bool AllowAllOpts = false;
     for (StringRef Opt : ArgStrings) {
@@ -358,18 +358,11 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 
   // Check for unsupported options.
   for (const Arg *A : Args) {
-#if INTEL_CUSTOMIZATION
-    if (A->getOption().hasFlag(options::Unsupported) ||
-        (A->getOption().hasFlag(options::DpcppUnsupported) && IsDPCPPMode())) {
-#endif // INTEL_CUSTOMIZATION
+    if (A->getOption().hasFlag(options::Unsupported)) {
       unsigned DiagID;
       auto ArgString = A->getAsString(Args);
       std::string Nearest;
-#if INTEL_CUSTOMIZATION
-      // Do not suggest an alternative with DPC++ unsupported options
-      if (A->getOption().hasFlag(options::DpcppUnsupported) ||
-          getOpts().findNearest(
-#endif // INTEL_CUSTOMIZATION
+      if (getOpts().findNearest(
             ArgString, Nearest, IncludedFlagsBitmask,
             ExcludedFlagsBitmask | options::Unsupported) > 1) {
         DiagID = diag::err_drv_unsupported_opt;
@@ -1888,6 +1881,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // additional directory.  Set that directory here.
   if (!Args.hasArg(options::OPT_disable_extra_temp_dir))
     BaseTempDir = GetUserOnlyTemporaryDirectory(Name);
+
+  // Use of 'dpcpp' is deprecated.
+  if (Args.hasArg(options::OPT__dpcpp))
+    Diag(diag::warn_drv_deprecated_driver_use_driver_opt)
+        << (IsCLMode() ? "dpcpp-cl" : "dpcpp") << Name << "-fsycl";
 #endif // INTEL_CUSTOMIZATION
 
   // Check for working directory option before accessing any files
@@ -2610,25 +2608,15 @@ int Driver::ExecuteCompilation(
   return Res;
 }
 
-#if INTEL_CUSTOMIZATION
-void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
-#endif // INTEL_CUSTOMIZATION
+void Driver::PrintHelp(bool ShowHidden) const {
   unsigned IncludedFlagsBitmask;
   unsigned ExcludedFlagsBitmask;
   std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
       getIncludeExcludeOptionFlagMasks(IsCLMode());
 
   ExcludedFlagsBitmask |= options::NoDriverOption;
-#if INTEL_CUSTOMIZATION
-  if (!Args.hasArg(options::OPT__help_hidden))
+  if (!ShowHidden)
     ExcludedFlagsBitmask |= HelpHidden;
-  if (IsDPCPPMode()) {
-    ExcludedFlagsBitmask |= options::DpcppUnsupported;
-    ExcludedFlagsBitmask |= options::DpcppHidden;
-    if (!Args.hasArg(options::OPT_v))
-      IncludedFlagsBitmask |= options::DpcppOption;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (IsFlangMode())
     IncludedFlagsBitmask |= options::FlangOption;
@@ -2639,12 +2627,6 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
   getOpts().printHelp(llvm::outs(), Usage.c_str(), DriverTitle.c_str(),
                       IncludedFlagsBitmask, ExcludedFlagsBitmask,
                       /*ShowAllAliases=*/false);
-#if INTEL_CUSTOMIZATION
-  if (IsDPCPPMode() && !Args.hasArg(options::OPT_v))
-    // Emit additional information for dpcpp -help to enable more verbose output
-    llvm::outs() << "\nHelp displayed is for DPC++ specific options.\n"
-                 << "Use '-help -v' to display more options.\n";
-#endif // INTEL_CUSTOMIZATION
 }
 
 llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
@@ -2869,9 +2851,7 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
 
   if (C.getArgs().hasArg(options::OPT_help) ||
       C.getArgs().hasArg(options::OPT__help_hidden)) {
-#if INTEL_CUSTOMIZATION
-    PrintHelp(C.getArgs());
-#endif // INTEL_CUSTOMIZATION
+    PrintHelp(C.getArgs().hasArg(options::OPT__help_hidden));
     return false;
   }
 
@@ -3995,7 +3975,7 @@ static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
   // Performance libraries with -fsycl use offload static libs.
   bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
   return Args.hasArg(options::OPT_fsycl) &&
-             ((Args.hasArg(options::OPT_qmkl_EQ) &&
+             ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) &&
                (Args.hasArg(options::OPT_static) || IsMSVC)) ||
          Args.hasArg(options::OPT_qdaal_EQ));
 }
@@ -5868,7 +5848,7 @@ class OffloadingActionBuilder final {
         PerflibAdded = true;
       };
       // Only add the MKL static lib if used with -static or is Windows.
-      if (Args.hasArg(options::OPT_qmkl_EQ) &&
+      if ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
           (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
         SmallString<128> LibName(TC->GetMKLLibPath());
         LibName = TC->GetMKLLibPath();

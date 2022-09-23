@@ -3,7 +3,7 @@
 ; function in
 ; _ZN11xalanc_1_1022XStringCachedAllocator12createStringERNS_21XPathExecutionContext25GetAndReleaseCachedStringE.8908
 
-; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
@@ -45,11 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %"XalanDOMString" = type <{ %"XalanVector", i32, [4 x i8] }>
 %"XalanVector" = type { ptr, i64, i64, ptr }
 %"MemoryManager" = type { ptr }
-%"XalanListIteratorBase" = type { ptr }
-%"class.std::reverse_iterator.1" = type { %"XalanListIteratorBase" }
 %"DeleteFunctor" = type { ptr }
-%"XalanListIteratorBase.0" = type { ptr }
-%"class.std::reverse_iterator" = type { %"XalanListIteratorBase.0" }
 %"XalanAllocationGuard" = type { ptr, i8* }
 %"ReusableArenaBlock<XStringCached>::NextBlock" = type { i16, i32 }
 %"struct.std::less" = type { i8 }
@@ -182,8 +178,6 @@ declare dso_local i32 @__gxx_personality_v0(...)
 !34 = !{%"XalanVector" zeroinitializer, i32 0}  ; %"XalanVector"
 !35 = !{i64 0, i32 0}  ; i64
 !36 = !{i16 0, i32 1}  ; i16*
-!37 = !{%"XalanListIteratorBase" zeroinitializer, i32 0}  ; %"XalanListIteratorBase"
-!38 = !{%"XalanListIteratorBase.0" zeroinitializer, i32 0}  ; %"XalanListIteratorBase.0"
 !39 = !{i8 0, i32 1}  ; i8*
 !40 = !{%"ReusableArenaAllocator" zeroinitializer, i32 1}  ; %"ReusableArenaAllocator"*
 !41 = distinct !{!40, !10}
@@ -231,15 +225,11 @@ declare dso_local i32 @__gxx_personality_v0(...)
 !83 = !{!"S", %"XalanDOMString" zeroinitializer, i32 3, !34, !6, !14} ; <{ %"XalanVector", i32, [4 x i8] }>
 !84 = !{!"S", %"XalanVector" zeroinitializer, i32 4, !10, !35, !35, !36} ; { %"MemoryManager"*, i64, i64, i16* }
 !85 = !{!"S", %"MemoryManager" zeroinitializer, i32 1, !7} ; { i32 (...)** }
-!86 = !{!"S", %"XalanListIteratorBase" zeroinitializer, i32 1, !11} ; { %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
-!87 = !{!"S", %"class.std::reverse_iterator.1" zeroinitializer, i32 1, !37} ; { %"XalanListIteratorBase" }
 !88 = !{!"S", %"DeleteFunctor" zeroinitializer, i32 1, !10} ; { %"MemoryManager"* }
-!89 = !{!"S", %"XalanListIteratorBase.0" zeroinitializer, i32 1, !11} ; { %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
-!90 = !{!"S", %"class.std::reverse_iterator" zeroinitializer, i32 1, !38} ; { %"XalanListIteratorBase.0" }
 !91 = !{!"S", %"XalanAllocationGuard" zeroinitializer, i32 2, !10, !39} ; { %"MemoryManager"*, i8* }
 !92 = !{!"S", %"ReusableArenaBlock<XStringCached>::NextBlock" zeroinitializer, i32 2, !8, !6} ; { i16, i32 }
 !93 = !{!"S", %"struct.std::less" zeroinitializer, i32 1, !3} ; { i8 }
 !94 = !{!"S", %"XalanDestroyFunctor" zeroinitializer, i32 1, !3} ; { i8 }
 
-!intel.dtrans.types = !{!60, !61, !62, !63, !64, !65, !66, !67, !68, !69, !70, !71, !72, !73, !74, !75, !76, !77, !78, !79, !80, !81, !82, !83, !84, !85, !86, !87, !88, !89, !90, !91, !92, !93, !94}
+!intel.dtrans.types = !{!60, !61, !62, !63, !64, !65, !66, !67, !68, !69, !70, !71, !72, !73, !74, !75, !76, !77, !78, !79, !80, !81, !82, !83, !84, !85, !88, !91, !92, !93, !94}
 
