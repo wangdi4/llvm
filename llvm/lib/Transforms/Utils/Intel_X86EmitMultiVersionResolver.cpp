@@ -112,7 +112,6 @@ void llvm::emitMultiVersionResolver(
     llvm::X86::emitCPUInit(Builder);
 #endif // INTEL_CUSTOMIZATION
 
-  CurBlock = Builder.GetInsertBlock();
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
 #if INTEL_CUSTOMIZATION
@@ -193,59 +192,11 @@ static Value *emitInit(IRBuilderBase &Builder, StringRef FuncName) {
   F->setDLLStorageClass(GlobalValue::DefaultStorageClass);
   return Builder.CreateCall(F);
 }
-
 Value *llvm::X86::emitCPUInit(IRBuilderBase &Builder) {
   return emitInit(Builder, "__cpu_indicator_init");
 }
-
 void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder) {
-
-  Type *IndicatorTy = ArrayType::get(Builder.getInt64Ty(), 2);
-  Value *IndicatorPtr = getOrCreateGlobal(Builder, "__intel_cpu_feature_indicator",
-                                          IndicatorTy, false /*SetDSOLocal*/);
-
-  Value *IndicatorGep = Builder.CreateConstGEP2_64(IndicatorTy, IndicatorPtr, 0, 0,
-                                                   "cpu_feature_init_ind_gep");
-
-  Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-  Function *ParentFn = Builder.GetInsertBlock()->getParent();
-  auto &Ctx = ParentFn->getContext();
-  BasicBlock *LoopCond = BasicBlock::Create(Ctx, "cpu_feature_init_cmp", ParentFn);
-  BasicBlock *LoopBody = BasicBlock::Create(Ctx, "cpu_feature_init_body", ParentFn);
-  BasicBlock *FunctionRest = BasicBlock::Create(Ctx, "cpu_feature_init_rest", ParentFn);
-  Value *ZeroVal = Constant::getNullValue(Builder.getInt64Ty());
-
-  // Unconditional branch, so we can do this as a 'while' loop.
-  Builder.CreateBr(LoopCond);
-
-  // While loop condition. Load the Indicator value, and check that the 0th
-  // element is 0, if so, branch to the body.
-  Builder.SetInsertPoint(LoopCond);
-  Value *Indicator = Builder.CreateAlignedLoad(Builder.getInt64Ty(), IndicatorGep,
-                                               MaybeAlign(8), // TODO: Verify this.
-                                               "cpu_feature_indicator");
-  Value *CmpResult = Builder.CreateCmp(CmpInst::ICMP_EQ, Indicator, ZeroVal);
-  Builder.CreateCondBr(CmpResult, LoopBody, FunctionRest);
-
-  // While loop body, just call the builtin function, then jump back to the loop
-  // condition.
-  Builder.SetInsertPoint(LoopBody);
-
-  StringRef BuiltinName = "__intel_cpu_features_init";
-  Function *BuiltinFn = M->getFunction(BuiltinName);
-  if (!BuiltinFn) {
-    FunctionType *BuiltinTy = FunctionType::get(Builder.getVoidTy(), /*Variadic*/ false);
-    BuiltinFn = Function::Create(BuiltinTy, Function::ExternalLinkage, BuiltinName, M);
-    BuiltinFn->setDSOLocal(true);
-    BuiltinFn->setDLLStorageClass(GlobalValue::DefaultStorageClass);
-    BuiltinFn->setCallingConv(CallingConv::Intel_Features_Init);
-  }
-
-  Builder.CreateCall(BuiltinFn);
-  Builder.CreateBr(LoopCond);
-
-  // Leave the builder in the 'rest' of the function basic block.
-  Builder.SetInsertPoint(FunctionRest);
+  emitInit(Builder, "__intel_cpu_features_init_x");
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -337,7 +288,7 @@ Value *llvm::X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
 
   Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
   Value *IndicatorPtr = getOrCreateGlobal(
-      Builder, "__intel_cpu_feature_indicator", Ty, false /*SetDSOLocal*/);
+      Builder, "__intel_cpu_feature_indicator_x", Ty, false /*SetDSOLocal*/);
 
   Value *RollingResult = nullptr;
   for (unsigned CurPage = 0; CurPage < Pages.size(); ++CurPage) {
