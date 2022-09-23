@@ -80,10 +80,10 @@ define void @foo() {
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for i32 [[VP_SDIV_BY_POWER2:%.*]] = sdiv i32 [[VP_LD32_2]] i32 16
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i32 [[VP_SDIV:%.*]] = sdiv i32 [[VP_LD32_3]] i32 [[VP_SDIV_BY_POWER2]] *IDiv/IRem*(-77) AdjCost: 3
 ; VPLAN-CM-VF4-NEXT:    Cost 160 for i64 [[VP_UDIV64_BY_CONST:%.*]] = udiv i64 [[VP_LD64_1:%.*]] i64 7 *IDiv/IRem*(-144) AdjCost: 16
-; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP_UDIV64_BY_POWER2:%.*]] = udiv i64 [[VP_LD64_2:%.*]] i64 16
+; VPLAN-CM-VF4-NEXT:    Cost 2 for i64 [[VP_UDIV64_BY_POWER2:%.*]] = udiv i64 [[VP_LD64_2:%.*]] i64 16
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i64 [[VP_UDIV64:%.*]] = udiv i64 [[VP_LD64_3:%.*]] i64 [[VP_UDIV64_BY_POWER2]] *IDiv/IRem*(-72) AdjCost: 8
 ; VPLAN-CM-VF4-NEXT:    Cost 480 for i64 [[VP_SDIV64_BY_CONST:%.*]] = sdiv i64 [[VP_LD64_1]] i64 -7 *IDiv/IRem*(-432) AdjCost: 48
-; VPLAN-CM-VF4-NEXT:    Cost 10 for i64 [[VP_SDIV64_BY_POWER2:%.*]] = sdiv i64 [[VP_LD64_2]] i64 16
+; VPLAN-CM-VF4-NEXT:    Cost 11 for i64 [[VP_SDIV64_BY_POWER2:%.*]] = sdiv i64 [[VP_LD64_2]] i64 16
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i64 [[VP_SDIV64:%.*]] = sdiv i64 [[VP_LD64_3]] i64 [[VP_SDIV64_BY_POWER2]] *IDiv/IRem*(-72) AdjCost: 8
 ;
 ; CM-ANAL-VF1:       Cost Model: Found an estimated cost of 2 for instruction:   [[UDIV_BY_CONST0:%.*]] = udiv i32 [[LD32_10:%.*]], 7
@@ -119,10 +119,10 @@ define void @foo() {
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 4 for instruction:   [[TMP10:%.*]] = sdiv <4 x i32> [[WIDE_LOAD80]], <i32 16, i32 16, i32 16, i32 16>
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 80 for instruction:   [[TMP11:%.*]] = sdiv <4 x i32> [[WIDE_LOAD90]], [[TMP10]]
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 160 for instruction:   [[TMP12:%.*]] = udiv <4 x i64> [[WIDE_LOAD160:%.*]], <i64 7, i64 7, i64 7, i64 7>
-; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP13:%.*]] = lshr <4 x i64> [[WIDE_LOAD170:%.*]], <i64 4, i64 4, i64 4, i64 4>
+; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   [[TMP13:%.*]] = lshr <4 x i64> [[WIDE_LOAD170:%.*]], <i64 4, i64 4, i64 4, i64 4>
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 80 for instruction:   [[TMP14:%.*]] = udiv <4 x i64> [[WIDE_LOAD180:%.*]], [[TMP13]]
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 480 for instruction:   [[TMP15:%.*]] = sdiv <4 x i64> [[WIDE_LOAD160]], <i64 -7, i64 -7, i64 -7, i64 -7>
-; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 10 for instruction:   [[TMP16:%.*]] = sdiv <4 x i64> [[WIDE_LOAD170]], <i64 16, i64 16, i64 16, i64 16>
+; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 11 for instruction:   [[TMP16:%.*]] = sdiv <4 x i64> [[WIDE_LOAD170]], <i64 16, i64 16, i64 16, i64 16>
 ; CM-ANAL-VF4-NEXT:  Cost Model: Found an estimated cost of 80 for instruction:   [[TMP17:%.*]] = sdiv <4 x i64> [[WIDE_LOAD180]], [[TMP16]]
 ;
 entry:
