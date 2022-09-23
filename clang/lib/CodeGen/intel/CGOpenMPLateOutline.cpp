@@ -2686,12 +2686,12 @@ void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in inclusive clause");
     addExplicit(VD, OMPC_inclusive);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, OMPC_inclusive, "QUAL.OMP.INCLUSIVE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (UseTypedClauses)
-      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(getExplicitDeclRefOrNull(E), IsRef);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
   }
 }
@@ -2701,12 +2701,12 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in exclusive clause");
     addExplicit(VD, OMPC_exclusive);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, OMPC_exclusive, "QUAL.OMP.EXCLUSIVE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (UseTypedClauses)
-      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(getExplicitDeclRefOrNull(E), IsRef);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
   }
 }

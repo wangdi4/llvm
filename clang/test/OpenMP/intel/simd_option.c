@@ -49,7 +49,7 @@ void foo1()
   for (int i = 0; i < 1024; ++i) {
     red = red + in[i];
     //CHECK-ONE: DIR.OMP.SCAN
-    //CHECK-ONE-SAME: "QUAL.OMP.INCLUSIVE:TYPED"(ptr [[RED]], i32 0, i32 1, i64 1)
+    //CHECK-ONE-SAME: "QUAL.OMP.INCLUSIVE"(ptr [[RED]], i64 1)
     #pragma omp scan inclusive(red)
     out[i] = red;
   }
