@@ -224,6 +224,9 @@ class HIRParser {
   /// Returns true if this instruction has a user outside the region.
   bool isRegionLiveOut(const Instruction *Inst) const;
 
+  /// Wrapper over ScalarEvolution's version of function with some extra checks.
+  bool isSCEVable(Type *Ty) const;
+
   /// Returns true if this instruction is essential (e.g. load/store) and cannot
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;

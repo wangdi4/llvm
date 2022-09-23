@@ -147,8 +147,8 @@ inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
   if (!Const)
     return false;
 
-  int64_t Val = Const->getSExtValue();
-  return Val != 0 && (!IsSigned || Val != -1);
+  ConstantInt *ConstVal = Const->getConstantInt();
+  return !ConstVal->isZero() && (!IsSigned || !ConstVal->isMinusOne());
 }
 
 /////////// VPValue version of common LLVM load/store utilities ///////////

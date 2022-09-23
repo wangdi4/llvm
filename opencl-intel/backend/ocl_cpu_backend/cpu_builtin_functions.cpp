@@ -166,6 +166,10 @@ extern "C" LLVM_BACKEND_API unsigned __opencl_get_hw_thread_id() {
   return getHWThreadId();
 }
 
+extern "C" LLVM_BACKEND_API int __opencl_atexit(void (*function)(void)) {
+    return 0;
+}
+
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
@@ -190,6 +194,17 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
 {
     llvm::JITSymbolFlags flag;
 
+    // FIXME: Now LLJIT already defined atexit symbol and will call the
+    // registered function when it's destroyed. But we don't know why it
+    // can't work fine with clang profile library. We have a workaround
+    // here until we figure out the reason.
+    if (LLJIT) {
+      if (auto Err = LLJIT->getMainJITDylib().remove(
+                     {LLJIT->mangleAndIntern("atexit")}))
+        return Err;
+    }
+
+    REGISTER_BI_FUNCTION("atexit", __opencl_atexit)
     REGISTER_BI_FUNCTION("__dbg_print", __cpu_dbg_print)
     REGISTER_BI_FUNCTION("__lprefetch", __cpu_lprefetch)
     REGISTER_BI_FUNCTION("__get_time_counter", __cpu_get_time_counter)

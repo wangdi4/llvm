@@ -30,6 +30,13 @@ using namespace Intel::OpenCL::Utils;
 #include <powrprof.h>
 #include <assert.h>
 
+#include "llvm/ADT/Triple.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/Host.h"
+
+using namespace llvm;
+using namespace llvm::sys;
+
 unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 {
 	static unsigned long long vsize = 0;
@@ -204,6 +211,20 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 	{
 		szModuleDir[0] = 0;
 	}
+}
+
+std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
+  char ModuleName[MAX_PATH];
+  GetModuleDirectory(ModuleName, MAX_PATH);
+  std::string BaseLibDir =
+    std::string(path::parent_path(path::parent_path(ModuleName)));
+
+  SmallString<128> P(BaseLibDir);
+  llvm::Triple T(llvm::sys::getDefaultTargetTriple());
+
+  path::append(P, "clang", CLANG_VERSION_STRING, "lib", T.getOSName());
+
+  return std::string(P.str());
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

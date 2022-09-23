@@ -32,6 +32,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern unsigned int          GetProcessId();
     extern void                  GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);
     extern int                   GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
+    extern std::string           GetClangRuntimePath();
     extern unsigned long         GetNumberOfProcessors();
     extern unsigned int          GetNumberOfCpuSockets();
     extern bool                  IsHyperThreadingEnabled();

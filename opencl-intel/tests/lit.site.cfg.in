@@ -10,6 +10,7 @@ config.operating_system = "@CMAKE_SYSTEM_NAME@"
 config.llvm_lib_dir = "@LLVM_LIBRARY_DIR@"
 config.tbb_library_dir = "@TBB_LIBRARY_DIR@"
 config.intree_build = "@OPENCL_INTREE_BUILD@"
+config.clang_lib_dir = "@CLANG_LIBRARY_DIR@"
 
 config.host_arch = "@HOST_ARCH@"
 
