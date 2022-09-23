@@ -1013,12 +1013,6 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ImplicitMap[VD]);
       continue;
     }
-    if (DependIteratorVars.find(VD) != DependIteratorVars.end()) {
-      // Do not create implicit clauses for iterator vars.
-      // These variables generate temps and are handled with Values.
-      assert(VD->isImplicit() && "expect implicit variabe");
-      continue;
-    }
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
       if (!VD->getType()->isConstantSizeType()) {
