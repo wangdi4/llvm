@@ -555,7 +555,13 @@ public:
   void emitImplicit(llvm::Value *V, llvm::Type *ElementType,
                     ImplicitClauseKind K, bool Handled = false);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
-  void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addVariableRef(const VarDecl *VD) {
+    // Don't create references to iterator variables. These are
+    // handled with temps and Values instead.
+    if (DependIteratorVars.find(VD) != DependIteratorVars.end())
+      return;
+    VarRefs.insert(VD);
+  }
   void addDispatchExplicitVar(const VarDecl *VD) {
     DispatchExplicitVars.insert(VD);
   }

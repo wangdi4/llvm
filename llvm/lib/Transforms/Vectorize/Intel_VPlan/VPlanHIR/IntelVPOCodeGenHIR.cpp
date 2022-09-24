@@ -4201,16 +4201,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                   Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
                   Opc == Instruction::FDiv;
     bool IsFloat = VPInst->getType()->isFloatingPointTy();
-    auto *StartVal = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    auto *StepVal = getOrCreateScalarRef(VPInst->getOperand(0), 0);
 
     unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
-    RegDDRef *MulVF = StartVal;
+    RegDDRef *MulVF = StepVal;
     HLInst *MulInst = nullptr;
     assert(!isMult && "Mutiplication induction is not supported.");
     (void)isMult;
     Constant *VFVal = IsFloat
                           ? ConstantFP::get(VPInst->getType(), VF)
-                          : ConstantInt::getSigned(StartVal->getSrcType(), VF);
+                          : ConstantInt::getSigned(VPInst->getType(), VF);
     RegDDRef *VFRef = DDRefUtilities.createConstDDRef(VFVal);
     if (IsFloat) {
       MulInst = HLNodeUtilities.createFPMathBinOp(
@@ -4260,7 +4260,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     int StartConst = isMult ? 1 : 0;
     Constant *StartCoeff =
         IsFloat ? ConstantFP::get(VPInst->getType(), StartConst)
-                : ConstantInt::get(StepVal->getSrcType(), StartConst);
+                : ConstantInt::get(VPInst->getType(), StartConst);
     RegDDRef *VectorStep;
     assert(!isMult && "Mutiplication induction is not supported.");
     // Generate sequence of vector operations:
@@ -4272,7 +4272,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     for (unsigned I = 1; I < VF; I++) {
       Constant *ConstVal =
           IsFloat ? ConstantFP::get(VPInst->getType(), I)
-                  : ConstantInt::getSigned(StepVal->getSrcType(), I);
+                  : ConstantInt::getSigned(VPInst->getType(), I);
       IndStep.push_back(ConstVal);
     }
     RegDDRef *VecConst =

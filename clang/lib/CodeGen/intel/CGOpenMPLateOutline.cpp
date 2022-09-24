@@ -1013,12 +1013,6 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ImplicitMap[VD]);
       continue;
     }
-    if (DependIteratorVars.find(VD) != DependIteratorVars.end()) {
-      // Do not create implicit clauses for iterator vars.
-      // These variables generate temps and are handled with Values.
-      assert(VD->isImplicit() && "expect implicit variabe");
-      continue;
-    }
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
       if (!VD->getType()->isConstantSizeType()) {
@@ -2686,12 +2680,12 @@ void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in inclusive clause");
     addExplicit(VD, OMPC_inclusive);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, OMPC_inclusive, "QUAL.OMP.INCLUSIVE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (UseTypedClauses)
-      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(getExplicitDeclRefOrNull(E), IsRef);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
   }
 }
@@ -2701,12 +2695,12 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in exclusive clause");
     addExplicit(VD, OMPC_exclusive);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, OMPC_exclusive, "QUAL.OMP.EXCLUSIVE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (UseTypedClauses)
-      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(getExplicitDeclRefOrNull(E), IsRef);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
   }
 }

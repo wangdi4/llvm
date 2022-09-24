@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-slm=false -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-slm=false -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -15,62 +15,96 @@
 ;   return 0;
 ; }
 
-; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf.1
-; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}({{.*}}ptr addrspace(1) %[[RED_LOCAL_BUF:red_local_buf.*]], ptr addrspace(1) %[[RED_LOCAL_BUF1:red_local_buf.*]], ptr addrspace(1) %[[RED_GLOBAL_BUF:red_buf.*]], ptr addrspace(1) %[[RED_GLOBAL_BUF1:red_buf.*]], ptr
+; CHECK: call spir_func i64 @_Z12get_group_idj(i32 0)
+; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF1]]
+; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
 ; CHECK-LABEL: omp.loop.exit:
 ; CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP{{[0-9.]*}}:
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
+
+; - Local reduction - tree pattern, see the pseudocode below:
+;
+;   workgroup_barrier();
+;   for (int i = RoundToTheNextPow2(get_local_size(0)); i > 0; i >>= 1) {
+;     if (get_local_id(0) < i && get_local_id(0) + i < get_local_size(0))
+;       local_buf[get_local_id(0)] += local_buf[get_local_id(0) + i]
+;     workgroup_barrier();
+;   }
+;   workgroup_barrier();
+;   if (is_master_thread)
+;     // store local_buf[0] to the actual reditem's target location
+
+; 1) Compute RoundToTheNextPow2(num_threads)
 ; CHECK-COUNT-7: lshr
 ; CHECK: add
-; CHECK: %[[LOCAL_BUF:[^,]+]] = getelementptr inbounds [1024 x i32], ptr addrspace(3) @
+
+; 2) Compute local reduction buffer pointers, i.e.:
+;     ptr = red_local_buf + group_id*1024 + thread_id
+; CHECK: %[[GROUP_ID1:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
+; CHECK: %[[GROUP_ID1_TRUNC:[^,]+]] = trunc i64 %[[GROUP_ID1]] to i32
+; CHECK: %[[OFF1_MUL:[^,]+]] = mul i32 %[[GROUP_ID1_TRUNC]], 1024
+; CHECK: %[[LOCAL_ID_TRUNC1:[^,]+]] = trunc i64 %[[LOCAL_ID]] to i32
+; CHECK: %[[BUF_OFF1:[^,]+]] = add i32 %[[OFF1_MUL]], %[[LOCAL_ID_TRUNC1]]
+; CHECK: %[[TEAM_LOCAL_BUF_PTR:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF]], i32 %[[BUF_OFF1]]
 ; CHECK: load
 ; CHECK: store
-; CHECK: %[[LOCAL_BUF1:[^,]+]] = getelementptr inbounds [1024 x i32], ptr addrspace(3) @
+; CHECK: %[[GROUP_ID2:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
+; CHECK: %[[GROUP_ID2_TRUNC:[^,]+]] = trunc i64 %[[GROUP_ID2]] to i32
+; CHECK: %[[OFF2_MUL:[^,]+]] = mul i32 %[[GROUP_ID2_TRUNC]], 1024
+; CHECK: %[[LOCAL_ID_TRUNC2:[^,]+]] = trunc i64 %[[LOCAL_ID]] to i32
+; CHECK: %[[BUF_OFF2:[^,]+]] = add i32 %[[OFF2_MUL]], %[[LOCAL_ID_TRUNC2]]
+; CHECK: %[[TEAM_LOCAL_BUF_PTR1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_LOCAL_BUF1]], i32 %[[BUF_OFF2]]
 ; CHECK: load
 ; CHECK: store
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+
+; 3) Local reduction loop
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK-LABEL: atomic.free.red.local.update.update.idcheck:
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
-; CHECK: %[[LOCAL_BUF1_ITER:[^,]+]] = getelementptr inbounds i32, ptr addrspace(3) %[[LOCAL_BUF1]], i64 %[[IDX_PHI]]
-; CHECK: %[[LOCAL_BUF_ITER:[^,]+]] = getelementptr inbounds i32, ptr addrspace(3) %[[LOCAL_BUF]], i64 %[[IDX_PHI]]
-; CHECK: %[[V0_RHS:[^,]+]] = load i32, ptr addrspace(3) %[[LOCAL_BUF_ITER]]
-; CHECK: %[[V0_LHS:[^,]+]] = load volatile i32, ptr addrspace(3) %[[LOCAL_BUF]]
+
+;   local_buf[get_local_id(0) + i]
+; CHECK: %[[TEAM_LOCAL_BUF1_ITER:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR1]], i64 %[[IDX_PHI]]
+; CHECK: %[[TEAM_LOCAL_BUF_ITER:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR]], i64 %[[IDX_PHI]]
+
+;   local_buf[get_local_id(0)] += local_buf[get_local_id(0) + i]
+; CHECK: %[[V0_RHS:[^,]+]] = load i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_ITER]]
+; CHECK: %[[V0_LHS:[^,]+]] = load volatile i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR]]
 ; CHECK: %[[V0:[^,]+]] = add i32 %[[V0_LHS]], %[[V0_RHS]]
-; CHECK: store i32 %[[V0]], ptr addrspace(3) %[[LOCAL_BUF]]
-; CHECK: %[[V1_RHS:[^,]+]] = load i32, ptr addrspace(3) %[[LOCAL_BUF1_ITER]]
-; CHECK: %[[V1_LHS:[^,]+]] = load volatile i32, ptr addrspace(3) %[[LOCAL_BUF1]]
+; CHECK: store i32 %[[V0]], ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR]]
+; CHECK: %[[V1_RHS:[^,]+]] = load i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF1_ITER]]
+; CHECK: %[[V1_LHS:[^,]+]] = load volatile i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR1]]
 ; CHECK: %[[V1:[^,]+]] = add i32 %[[V1_LHS]], %[[V1_RHS]]
-; CHECK: store i32 %[[V1]], ptr addrspace(3) %[[LOCAL_BUF1]]
+; CHECK: store i32 %[[V1]], ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR1]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK: lshr i64 %[[IDX_PHI]], 1
 ; CHECK: br label %atomic.free.red.local.update.update.header
+
+; 4) Final master-thread store to the local sum variable (it's where teams reduction expects it to be)
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK: %[[MTT:[^,]+]] = icmp ne i64 %[[LOCAL_ID]], 0
 ; CHECK: br i1 %[[MTT]]
-; CHECK: %[[V0_RHS_FINAL:[^,]+]] = load i32, ptr addrspace(3) %[[LOCAL_BUF]]
-; CHECK: %[[V0_LHS_FINAL:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR:[^,]]]
+; CHECK: %[[V0_RHS_FINAL:[^,]+]] = load i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR]]
+; CHECK: %[[V0_LHS_FINAL:[^,]+]] = load i32, ptr addrspace(1) %[[LOCAL_VAR:[^,]]]
 ; CHECK: %[[V0_FINAL:[^,]+]] = add i32 %[[V0_LHS_FINAL]], %[[V0_RHS_FINAL]]
-; CHECK: store i32 %[[V0_FINAL]], ptr addrspace(3) @[[LOCAL_VAR]]
-; CHECK: %[[V1_RHS_FINAL:[^,]+]] = load i32, ptr addrspace(3) %[[LOCAL_BUF1]],
-; CHECK: %[[V1_LHS_FINAL:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR1:[^,]]]
+; CHECK: store i32 %[[V0_FINAL]], ptr addrspace(1) %[[LOCAL_VAR]]
+; CHECK: %[[V1_RHS_FINAL:[^,]+]] = load i32, ptr addrspace(1) %[[TEAM_LOCAL_BUF_PTR1]],
+; CHECK: %[[V1_LHS_FINAL:[^,]+]] = load i32, ptr addrspace(1) %[[LOCAL_VAR1:[^,]]]
 ; CHECK: %[[V1_FINAL:[^,]+]] = add i32 %[[V1_LHS_FINAL]], %[[V1_RHS_FINAL]]
-; CHECK: store i32 %[[V1_FINAL]], ptr addrspace(3) @[[LOCAL_VAR1]]
-; CHECK: %[[LOCAL_LD:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR]]
-; CHECK: store i32 %[[LOCAL_LD]], ptr addrspace(1) %[[LOCAL_SUM_GEP]]
-; CHECK: %[[LOCAL_LD1:[^,]+]] = load i32, ptr addrspace(3) @[[LOCAL_VAR1]]
-; CHECK: store i32 %[[LOCAL_LD1]], ptr addrspace(1) %[[LOCAL_SUM_GEP1]]
+; CHECK: store i32 %[[V1_FINAL]], ptr addrspace(1) %[[LOCAL_VAR1]]
+
+; - Global reduction:
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
 ; CHECK: %[[SUM_PHI1:[^,]+]] = phi i32
 ; CHECK: %[[SUM_PHI:[^,]+]] = phi i32
-; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf, i64 %[[IDX_PHI]]
-; CHECK: %[[GLOBAL_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %red_buf.1, i64 %[[IDX_PHI]]
+; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]], i64 %[[IDX_PHI]]
+; CHECK: %[[GLOBAL_GEP1:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF1]], i64 %[[IDX_PHI]]
 ; CHECK-LABEL: atomic.free.red.global.update.body:
 ; CHECK: %[[CUR_VAL:[^,]+]] = load i32, ptr addrspace(1) %[[GLOBAL_GEP]]
 ; CHECK: add i32 %[[SUM_PHI]], %[[CUR_VAL]]

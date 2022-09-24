@@ -62,6 +62,7 @@ namespace vpo {
 
 namespace VPOParoptAtomicFreeReduction {
 constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
+constexpr StringRef LocalBufferAttr = "paropt_red_localbuf";
 constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
 constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
 

@@ -414,9 +414,11 @@ public:
     return Plan->getVPConstant(CVal);
   }
 
-  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *Ref) {
-    assert(isExternalDef(Ref) &&
-           "DDRef is not externally defined for the loop.");
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *Ref,
+                                          bool MustBeLiveIn = true) {
+    if (MustBeLiveIn)
+      assert(isExternalDef(Ref) &&
+             "DDRef is not externally defined for the loop.");
     return Plan->getVPExternalDefForDDRef(Ref);
   }
 
@@ -425,6 +427,13 @@ public:
                        HIRLegality.getLinearDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr;
+    if (HIRVectorizationLegality::LinearDescr *LinDescr =
+            HIRLegality.getLinearDescr(Ref)) {
+      // Create a VPExternalDef for variable stride DDRef
+      const DDRef *StepDDRef = LinDescr->Step;
+      if (!StepDDRef->getSingleCanonExpr()->isConstant())
+        Plan->getVPExternalDefForDDRef(StepDDRef);
+    }
     assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
     (void)IsSIMDDescr;
     return Plan->getVPExternalDefForDDRef(Ref);

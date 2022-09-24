@@ -1,9 +1,14 @@
 ; RUN: opt -S -vplan-print-after-vpentity-instrs -vplan-vec < %s | FileCheck %s
 ; RUN: opt -S -vplan-print-after-vpentity-instrs -passes="vplan-vec" < %s | FileCheck %s
+; RUN: opt -S -vplan-print-after-vpentity-instrs -hir-vplan-vec < %s | FileCheck %s
+; RUN: opt -S -vplan-print-after-vpentity-instrs -passes="hir-vplan-vec" < %s | FileCheck %s
 
 ; This test checks to see that external def value %c, representing the stride
 ; of an induction, is promoted to i64 so that type mismatching does not occur
-; when VPlan generates induction related instructions.
+; when VPlan generates induction related instructions. Also, for the HIR side
+; this test checks for proper importing of 'sext i32 %c' is done and is set as
+; an operand of the induction-init and induction-init-step instructions.
+; Before this patch it was assumed that strides were constants.
 
 ; CHECK: i64 [[VAL0:%.*]] = sext i32 %c to i64
 ; CHECK: i64 [[VAL2:%.*]] = induction-init{add} i64 [[VAL1:%.*]] i64 [[VAL0]]
