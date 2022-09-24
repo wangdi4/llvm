@@ -600,6 +600,17 @@ static llvm::MDNode *getAspectsMD(ASTContext &ASTContext,
   return llvm::MDNode::get(Ctx, AspectsMD);
 }
 
+static llvm::MDNode *getAspectEnumValueMD(ASTContext &ASTContext,
+                                          llvm::LLVMContext &Ctx,
+                                          const EnumConstantDecl *ECD) {
+  SmallVector<llvm::Metadata *, 2> AspectEnumValMD;
+  AspectEnumValMD.push_back(llvm::MDString::get(Ctx, ECD->getName()));
+  AspectEnumValMD.push_back(
+      llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(Ctx), ECD->getInitVal().getSExtValue())));
+  return llvm::MDNode::get(Ctx, AspectEnumValMD);
+}
+
 void CodeGenModule::Release() {
   Module *Primary = getContext().getModuleForCodeGen();
   if (CXX20ModuleInits && Primary && !Primary->isHeaderLikeModule())
@@ -1024,6 +1035,15 @@ void CodeGenModule::Release() {
                                            Name,
                                            RD->getAttr<SYCLUsesAspectsAttr>()));
       }
+    }
+
+    // Emit metadata for all aspects defined in the aspects enum.
+    if (AspectsEnumDecl) {
+      llvm::NamedMDNode *AspectEnumValsMD =
+          TheModule.getOrInsertNamedMetadata("sycl_aspects");
+      for (const EnumConstantDecl *ECD : AspectsEnumDecl->enumerators())
+        AspectEnumValsMD->addOperand(
+            getAspectEnumValueMD(Context, TheModule.getContext(), ECD));
     }
   }
 
@@ -5900,6 +5920,16 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
   }
 }
 #endif // INTEL_CUSTOMIZATION
+
+void CodeGenModule::setAspectsEnumDecl(const EnumDecl *ED) {
+  if (AspectsEnumDecl && AspectsEnumDecl != ED) {
+    // Conflicting definitions of the aspect enum are not allowed.
+    Error(ED->getLocation(), "redefinition of aspect enum");
+    getDiags().Report(AspectsEnumDecl->getLocation(),
+                      diag::note_previous_definition);
+  }
+  AspectsEnumDecl = ED;
+}
 
 void CodeGenModule::generateIntelFPGAAnnotation(
     const Decl *D, llvm::SmallString<256> &AnnotStr) {
