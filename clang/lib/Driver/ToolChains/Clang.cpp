@@ -10223,7 +10223,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
                                   Action::OffloadKind DeviceOffloadKind,
                                   const llvm::opt::ArgList &TCArgs,
                                   ArgStringList &CmdArgs,
-                                  const ToolChain &TC) {
+                                  const ToolChain &TC,
+                                  const JobAction &JA) {
   // Grab any Target specific options that need to be added to the wrapper
   // information.
   ArgStringList BuildArgs;
@@ -10254,7 +10255,7 @@ static void addRunTimeWrapperOpts(Compilation &C,
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(), DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
@@ -10316,10 +10317,8 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       if (A->getValue() == StringRef("image"))
         WrapperArgs.push_back(C.getArgs().MakeArgString("--emit-reg-funcs=0"));
     }
-<<<<<<< HEAD
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
-                          getToolChain()); // INTEL
-=======
+                          getToolChain(), JA); // INTEL
     // Grab any Target specific options that need to be added to the wrapper
     // information.
     ArgStringList BuildArgs;
@@ -10348,14 +10347,13 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     if (TC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
       // Only store compile/link opts in the image descriptor for the SPIR-V
       // target; AOT compilation has already been performed otherwise.
-      TC.AddImpliedTargetArgs(TT, TCArgs, BuildArgs, JA);
-      TC.TranslateBackendTargetArgs(TT, TCArgs, BuildArgs);
+      TC.AddImpliedTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs, JA);
+      TC.TranslateBackendTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
       createArgString("-compile-opts=");
       BuildArgs.clear();
-      TC.TranslateLinkerTargetArgs(TT, TCArgs, BuildArgs);
+      TC.TranslateLinkerTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
       createArgString("-link-opts=");
     }
->>>>>>> 5bd5c871e5dd18d94e74e557e017258bf878a0de
 
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
@@ -10473,7 +10471,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       DeviceKind = A->getOffloadingDeviceKind();
       DeviceTC = TC;
     });
-    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC); // INTEL
+    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC, JA); // INTEL
 
 #if INTEL_CUSTOMIZATION
     if (Inputs[I].getType() == types::TY_Tempfiletable ||

@@ -180,23 +180,15 @@ public:
   void AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
                             const llvm::Triple &Triple,
                             const llvm::opt::ArgList &Args,
-<<<<<<< HEAD
-                            llvm::opt::ArgStringList &CmdArgs) const;
+                            llvm::opt::ArgStringList &CmdArgs,
+                            const JobAction &JA) const;
   void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                   const llvm::Triple &Triple,
                                   const llvm::opt::ArgList &Args,
-                                  llvm::opt::ArgStringList &CmdArgs) const;
-  void TranslateLinkerTargetArgs(Action::OffloadKind DeviceOffloadKind,
-                                 const llvm::Triple &Triple,
-=======
-                            llvm::opt::ArgStringList &CmdArgs,
-                            const JobAction &JA) const;
-  void TranslateBackendTargetArgs(const llvm::Triple &Triple,
-                                  const llvm::opt::ArgList &Args,
                                   llvm::opt::ArgStringList &CmdArgs,
                                   StringRef Device = "") const;
-  void TranslateLinkerTargetArgs(const llvm::Triple &Triple,
->>>>>>> 5bd5c871e5dd18d94e74e557e017258bf878a0de
+  void TranslateLinkerTargetArgs(Action::OffloadKind DeviceOffloadKind,
+                                 const llvm::Triple &Triple,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) const;
 #endif // INTEL_CUSTOMIZATION
@@ -230,19 +222,14 @@ protected:
   Tool *buildLinker() const override;
 
 private:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
-      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
-      llvm::opt::OptSpecifier Opt, llvm::opt::OptSpecifier Opt_EQ) const;
-#endif // INTEL_CUSTOMIZATION
-=======
-  void TranslateTargetOpt(const llvm::opt::ArgList &Args,
+                          const llvm::opt::ArgList &Args,
                           llvm::opt::ArgStringList &CmdArgs,
                           llvm::opt::OptSpecifier Opt,
                           llvm::opt::OptSpecifier Opt_EQ,
                           StringRef Device) const;
->>>>>>> 5bd5c871e5dd18d94e74e557e017258bf878a0de
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace toolchains

@@ -1435,14 +1435,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
               << SYCLForceTarget->getAsString(C.getInputArgs());
 
         for (StringRef Val : SYCLTargetsValues->getValues()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           // Strip off any trailing options from the triple which come from
           // -fsycl-targets=<triple>="opts" usage.
           if (SYCLTargets)
             Val = Val.split('=').first;
 #endif // INTEL_CUSTOMIZATION
-=======
           StringRef UserTargetName(Val);
           if (auto Device = isIntelGPUTarget(Val)) {
             if (Device->empty()) {
@@ -1452,7 +1450,6 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
             UserTargetName = "spir64_gen";
           }
 
->>>>>>> 5bd5c871e5dd18d94e74e557e017258bf878a0de
           llvm::Triple TT(MakeSYCLDeviceTriple(Val));
           if (!isValidSYCLTriple(MakeSYCLDeviceTriple(UserTargetName))) {
             Diag(clang::diag::err_drv_invalid_sycl_target) << Val;
@@ -6577,7 +6574,6 @@ class OffloadingActionBuilder final {
                 C.getDriver().MakeSYCLDeviceTriple(UserTargetName));
             if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
               SYCLfpgaTriple = true;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
             // Record that whether the non-spirv path is the real intention.
             // "NonSpirvCPU" is later used to determine whether "llvm-spirv"
@@ -6588,12 +6584,10 @@ class OffloadingActionBuilder final {
                 StringRef(Val).startswith("x86_64"))
               NonSpirvCPU = true;
 #endif // INTEL_CUSTOMIZATION
-=======
             // For user specified spir64_gen, add an empty device value as a
             // placeholder.
             if (TT.getSubArch() == llvm::Triple::SPIRSubArch_gen)
               GpuArchList.emplace_back(TT, nullptr);
->>>>>>> 5bd5c871e5dd18d94e74e557e017258bf878a0de
           }
 
           // Fill GpuArchList, end if there are issues in initializingGpuArchMap
