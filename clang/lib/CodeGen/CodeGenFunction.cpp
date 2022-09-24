@@ -1282,7 +1282,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         AspectsMD.push_back(llvm::ConstantAsMetadata::get(
             Builder.getInt32(AspectInt.getZExtValue())));
       }
-      Fn->setMetadata("intel_declared_aspects",
+      Fn->setMetadata("sycl_declared_aspects",
                       llvm::MDNode::get(getLLVMContext(), AspectsMD));
     }
     if (const auto *A = D->getAttr<SYCLUsesAspectsAttr>()) {
@@ -1292,7 +1292,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         AspectsMD.push_back(llvm::ConstantAsMetadata::get(
             Builder.getInt32(AspectInt.getZExtValue())));
       }
-      Fn->setMetadata("intel_used_aspects",
+      Fn->setMetadata("sycl_used_aspects",
                       llvm::MDNode::get(getLLVMContext(), AspectsMD));
     }
   }
