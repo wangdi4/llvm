@@ -272,7 +272,8 @@ public:
   bool has4KDSB() const override { return DSBSize >= DSB4K; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
-  unsigned getDSBWindowSize() const override { return 32; }
+  // In SPR/GLC, DSB widow size is completely 64B.
+  unsigned getDSBWindowSize() const override { return has4KDSB() ? 64 : 32; }
 #endif // INTEL_CUSTOMIZATION
   bool canUseLAHFSAHF() const { return hasLAHFSAHF64() || !is64Bit(); }
   // These are generic getters that OR together all of the thunk types
