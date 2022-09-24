@@ -43,7 +43,7 @@
 // RUN: touch %t.o
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device *" \
 // RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -ccc-print-phases %t.o \
-// RUN:   -fno-sycl-device-lib=all \
+// RUN:   -fno-sycl-device-lib=all -fno-sycl-instrument-device-code \
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=OCLOC_PHASES
 // OCLOC_PHASES: 0: input, "{{.*}}", object, (host-sycl)
@@ -51,18 +51,10 @@
 // OCLOC_PHASES: 2: linker, {1}, image, (host-sycl)
 // OCLOC_PHASES: 3: spirv-to-ir-wrapper, {1}, ir, (device-sycl)
 // OCLOC_PHASES: 4: linker, {3}, ir, (device-sycl)
-// OCLOC_PHASES: 5: input, "{{.*}}", object
-// OCLOC_PHASES: 6: clang-offload-unbundler, {5}, object
-// OCLOC_PHASES: 7: input, "{{.*}}", object
-// OCLOC_PHASES: 8: clang-offload-unbundler, {7}, object
-// OCLOC_PHASES: 9: input, "{{.*}}", object
-// OCLOC_PHASES: 10: clang-offload-unbundler, {9}, object
-// OCLOC_PHASES: 11: linker, {4, 6, 8, 10}, ir, (device-sycl)
-// OCLOC_PHASES: 12: sycl-post-link, {11}, tempfiletable, (device-sycl)
-// OCLOC_PHASES: 13: file-table-tform, {12}, tempfilelist, (device-sycl)
-// OCLOC_PHASES: 14: llvm-spirv, {13}, tempfilelist, (device-sycl)
-// OCLOC_PHASES: 15: backend-compiler, {14}, image, (device-sycl)
-// OCLOC_PHASES: 16: file-table-tform, {12, 15}, tempfiletable, (device-sycl)
-// OCLOC_PHASES: 17: clang-offload-wrapper, {16}, object, (device-sycl)
-// OCLOC_PHASES: 18: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64_gen-unknown-unknown)" {17}, image
-
+// OCLOC_PHASES: 5: sycl-post-link, {4}, tempfiletable, (device-sycl)
+// OCLOC_PHASES: 6: file-table-tform, {5}, tempfilelist, (device-sycl)
+// OCLOC_PHASES: 7: llvm-spirv, {6}, tempfilelist, (device-sycl)
+// OCLOC_PHASES: 8: backend-compiler, {7}, image, (device-sycl)
+// OCLOC_PHASES: 9: file-table-tform, {5, 8}, tempfiletable, (device-sycl)
+// OCLOC_PHASES: 10: clang-offload-wrapper, {9}, object, (device-sycl)
+// OCLOC_PHASES: 11: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64_gen-unknown-unknown)" {10}, image
