@@ -5815,7 +5815,6 @@ void CodeGenModule::maybeSetTrivialComdat(const Decl &D,
   GO.setComdat(TheModule.getOrInsertComdat(GO.getName()));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
                                            llvm::GlobalVariable *GV,
@@ -5921,7 +5920,7 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
   }
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 void CodeGenModule::setAspectsEnumDecl(const EnumDecl *ED) {
   if (AspectsEnumDecl && AspectsEnumDecl != ED) {
     // Conflicting definitions of the aspect enum are not allowed.
@@ -5931,7 +5930,6 @@ void CodeGenModule::setAspectsEnumDecl(const EnumDecl *ED) {
   }
   AspectsEnumDecl = ED;
 }
->>>>>>> 4d0df2226bf09cf85a0726f85cb0578f361e04fb
 
 void CodeGenModule::generateIntelFPGAAnnotation(
     const Decl *D, llvm::SmallString<256> &AnnotStr) {
