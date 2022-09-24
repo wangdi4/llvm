@@ -502,13 +502,8 @@ if("hip" IN_LIST SYCL_ENABLE_PLUGINS)
       "HIP support requires adding \"lld\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
   endif()
 
-<<<<<<< HEAD
   add_dependencies(sycl-toolchain libspirv-builtins pi_hip)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_hip)
-=======
-  add_dependencies(sycl-toolchain pi_hip)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_hip)
->>>>>>> 0e6125cc8108ed688b4dbe420a8fcbb7d4449d0c
 endif()
 
 if("esimd_emulator" IN_LIST SYCL_ENABLE_PLUGINS)
