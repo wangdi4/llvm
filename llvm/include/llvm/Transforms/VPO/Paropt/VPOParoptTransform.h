@@ -1162,6 +1162,11 @@ private:
   /// Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
 
+  /// Reset the value of NumElements of VLA (including array section) for TYPED
+  /// clauses in private, firstprivate, lastprivate, in_reduction, and
+  /// task_reduction  to be empty.
+  void resetTypedNumElementsInOmpClauses(WRegionNode *W);
+
   /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
 

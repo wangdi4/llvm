@@ -1520,7 +1520,17 @@ public:
     else
       Descriptor.setStart(nullptr);
 
-    int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
+    const DDRef *BasePtrRef =
+        Linear->getBlobDDRef(Linear->getBasePtrBlobIndex());
+    // Add VPExternalDefs for both the BasePtrRef and Step if it is
+    // non-constant. This code should appear before processing Step
+    // below to ensure a VPExternalDef is created (variable stride
+    // cases only)
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+
+    auto *StrideCE = CurrValue.Step->getSingleCanonExpr();
+    int64_t Stride = StrideCE->getConstant();
     if (IndTy->isPointerTy()) {
       const DataLayout &DL = Linear->getDDRefUtils().getDataLayout();
       if (IndTy->isOpaquePointerTy()) {
@@ -1532,16 +1542,23 @@ public:
         int64_t Size =
             static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
         assert(Size > 0 && "Can't determine size of pointed-to type");
+        assert(StrideCE->isConstant() &&
+               "Variable stride for opaque pointer inductions not supported");
         Stride = Stride * Size;
       }
       IndTy = DL.getIntPtrType(IndTy);
     }
-    Descriptor.setStep(
-        Decomposer.getVPValueForConst(ConstantInt::get(IndTy, Stride)));
 
-    const DDRef *BasePtrRef = Linear->getBlobDDRef(Linear->getBasePtrBlobIndex());
-    Descriptor.setAllocaInst(
-        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    if (StrideCE->isConstant()) {
+      Descriptor.setStep(
+        Decomposer.getVPValueForConst(ConstantInt::get(IndTy, Stride)));
+    } else {
+      auto *StrideExtDef =
+          Decomposer.getVPExternalDefForDDRef(CurrValue.Step,
+                                              false /* MustBeLiveIn */);
+      Descriptor.setStep(StrideExtDef);
+    }
+
     Descriptor.setIsExplicitInduction(true);
     // The remaining fields to be determined later during VPInduction entity
     // creation and based on analysis of information in the Descriptor.

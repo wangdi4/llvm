@@ -25,6 +25,7 @@ target device_triples = "spir64"
 
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
 ; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[GROUP_ID]]
+; CHECK: %[[LOCAL_SUM_GEP_AC:[^,]+]] = addrspacecast i32 addrspace(1)* %[[LOCAL_SUM_GEP]] to i32 addrspace(4)*
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
@@ -36,7 +37,7 @@ target device_triples = "spir64"
 ; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
 ; CHECK: %[[PRIV_SUM_VAL:[^,]+]] = load
-; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(4)* %[[LOCAL_SUM_GEP_AC]]
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_VAL]], %[[PRIV_SUM_VAL]]
 ; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch

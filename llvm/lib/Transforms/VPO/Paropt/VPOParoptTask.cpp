@@ -1886,6 +1886,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
     resetValueInOmpClauseGeneric(W, W->getGrainsize());
   }
+  resetTypedNumElementsInOmpClauses(W);
 
   AllocaInst *SharedAggrStruct = genAndPopulateTaskSharedStruct(W, KmpSharedTy);
 

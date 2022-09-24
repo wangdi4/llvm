@@ -183,9 +183,10 @@ cl::opt<uint32_t> AtomicFreeReductionCtrl(
         "reduction code. Bit 1(default on): Global update loop is emitted."));
 cl::opt<bool>
     AtomicFreeReductionUseSLM("vpo-paropt-atomic-free-reduction-slm",
-                              cl::Hidden, cl::init(true),
+                              cl::Hidden, cl::init(false),
                               cl::desc("Keep intra-WG reduction items in SLM"));
 extern cl::opt<uint32_t> AtomicFreeRedLocalBufSize;
+extern cl::opt<uint32_t> AtomicFreeRedGlobalBufSize;
 
 static cl::opt<bool> EmitTargetPrivCtorDtors(
     "vpo-paropt-emit-target-priv-ctor-dtor", cl::Hidden, cl::init(true),
@@ -1955,6 +1956,8 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= callBeginEndSpmdParallelAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
+          if (W->getIsParLoop())
+            Changed |= createAtomicFreeReductionBuffers(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (isLoopOptimizedAway(W)) {
@@ -2699,6 +2702,13 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
           Changed |= fixupKnownNDRange(W);
+          // Although atomic-free reduction is not supported for generic loops,
+          // replaceGenericLoop may turn it into a supported parloop
+          if (cast<WRNGenericLoopNode>(W)->getMappedDir() ==
+                  DIR_OMP_DISTRIBUTE_PARLOOP ||
+              cast<WRNGenericLoopNode>(W)->getMappedDir() ==
+                  DIR_OMP_PARALLEL_LOOP)
+            Changed |= createAtomicFreeReductionBuffers(W);
           RemoveDirectives = false;
         }
         break;
@@ -3206,28 +3216,54 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
       (!IsArraySection || (NumElems && isa<ConstantInt>(NumElems)));
+
+  // Local reduction stage requires a temporary buffer when tree pattern is
+  // enabled in order to keep its temporary results there (see local_buf in the
+  // comment above the function definition). Depending on whether explicit SLM
+  // usage is enabled it either uses a temporary chunk of SLM or the global
+  // buffer passed as a kernel argument.
+  auto GenLocalBufGEP = [this, ElemTy, &Builder](ReductionItem *RedI,
+                                                 Value *LocalId) {
+    SmallVector<Value *, 2> Indices;
+    GlobalVariable *LocalBuf = nullptr;
+    if (AtomicFreeReductionUseSLM) {
+      auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
+      LocalBuf = new GlobalVariable(
+          *F->getParent(), BufTy, false,
+          GlobalValue::LinkageTypes::InternalLinkage,
+          Constant::getNullValue(BufTy), "red_local_buf", nullptr,
+          GlobalValue::NotThreadLocal, isTargetSPIRV() ? 3 : 0);
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(LocalId);
+    } else {
+      // For the global buffer approach it's necessary to
+      // get a pointer to the chunk corresponding to the right WI.
+      // It's basically buf_ptr + group_id * num_teams + thread_id
+      LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
+      assert(LocalBuf && "No local reduction buffer found");
+      Value *GroupId = VPOParoptUtils::genOCLGenericCall(
+          "_Z12get_group_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
+          &*Builder.GetInsertPoint());
+      GroupId = Builder.CreateTruncOrBitCast(GroupId, Builder.getInt32Ty());
+      auto *LocalBufOff = Builder.CreateMul(
+          GroupId, Builder.getInt32(AtomicFreeRedGlobalBufSize));
+      Value *LocalIdTrunc =
+          Builder.CreateTruncOrBitCast(LocalId, Builder.getInt32Ty());
+      LocalBufOff = Builder.CreateAdd(LocalBufOff, LocalIdTrunc);
+      Indices.push_back(LocalBufOff);
+    }
+    return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf,
+                                     {Indices});
+  };
+
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArraySection) {
     if (GenTreeUpdate) {
       assert(AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier &&
              "No existing tree update barrier found");
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier);
-      Type *BufTy = nullptr;
-      std::tie(BufTy, std::ignore, std::ignore) =
-          VPOParoptUtils::getItemInfo(RedI);
-      BufTy = ArrayType::get(BufTy, AtomicFreeRedLocalBufSize);
-
-      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
-
-      auto *LocalBuf =
-          new GlobalVariable(*F->getParent(), BufTy, false,
-                             GlobalValue::LinkageTypes::InternalLinkage,
-                             Constant::getNullValue(BufTy), "red_local_buf",
-                             nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? Addrspace : 0);
-      auto *LocalPtr = Builder.CreateInBoundsGEP(
-          LocalBuf->getValueType(), LocalBuf,
-          {Builder.getInt32(0), AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId});
+      auto *LocalPtr =
+          GenLocalBufGEP(RedI, AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId);
       Rhs1->setOperand(0, LocalPtr);
       auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
       Builder.CreateStore(Rhs2Copy, LocalPtr);
@@ -3331,7 +3367,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
     // HW platform allowing more than MAX_UINT). To support 64 need to add
     // one more (lshr 32 + or) pair.
     // TODO: consider replacing with 1 << (32 - _Z15__spirv_ocl_clzl(x - 1))
-    // whenever possible and benefitial
+    // whenever possible and beneficial
     auto RoundToPow2 = [&Builder](Value *V) {
       V = Builder.CreateSub(V, Builder.getInt64(1));
       for (int i = 1; i <= 32; i <<= 1) {
@@ -3343,18 +3379,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
     };
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
     if (!IsArraySection) {
-      auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
-
-      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
-
-      auto *LocalBuf =
-          new GlobalVariable(*F->getParent(), BufTy, false,
-                             GlobalValue::LinkageTypes::InternalLinkage,
-                             Constant::getNullValue(BufTy), "red_local_buf",
-                             nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? Addrspace : 0);
-      LocalPtr = Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf,
-                                           {Builder.getInt32(0), LocalId});
+      LocalPtr = GenLocalBufGEP(RedI, LocalId);
       Rhs1->setOperand(0, LocalPtr);
       auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
       Builder.CreateStore(Rhs2Copy, LocalPtr);
@@ -3588,16 +3613,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
     MapClause &MapC = WTarget->getMap();
     auto TeamsCntrIt = std::find_if(
-        MapC.items().begin(), MapC.items().end(),
-        [](vpo::MapItem *MItem) {
-          return isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
-                 cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
+        MapC.items().begin(), MapC.items().end(), [](vpo::MapItem *MItem) {
+          return isa<GlobalVariable>(MItem->getOrig()) &&
+                 cast<GlobalVariable>(MItem->getOrig())
                      ->hasAttribute(
                          VPOParoptAtomicFreeReduction::TeamsCounterAttr);
         });
     assert(TeamsCntrIt != MapC.items().end() && "No teams counter found");
-    auto *GlobalCounter =
-        cast<GlobalVariable>((*TeamsCntrIt)->getMapChain()[0]->getBasePtr());
+    auto *GlobalCounter = cast<GlobalVariable>((*TeamsCntrIt)->getOrig());
 
     Builder.SetInsertPoint(StartPoint);
 
@@ -3789,10 +3812,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     assert(IsArraySection);
     PtrUseToFix = SrcPHI;
     PtrToCheck = SrcPHI->getIncomingValue(0);
-    PtrInitToReplace = PtrToCheck->stripPointerCasts();
+    PtrInitToReplace = PtrToCheck;
   }
 
-  if (auto *GepToSkip = dyn_cast<GetElementPtrInst>(PtrInitToReplace)) {
+  if (auto *GepToSkip =
+          dyn_cast<GetElementPtrInst>(PtrInitToReplace->stripPointerCasts())) {
     Builder.SetInsertPoint(HeaderBB->getTerminator());
     auto *GepPtr = GepToSkip->getPointerOperand();
     Value *Idx = IdxPhi;
@@ -4368,19 +4392,18 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   if (MakeCopiesToFromLocalRedBuf) {
     if (AtomicFreeRedLocalBufs.count(RedI)) {
       BufPtr = AtomicFreeRedLocalBufs.lookup(RedI);
-    } else if (isa<ConstantInt>(NumElements)) {
+    } else {
+      assert(isa<ConstantInt>(NumElements));
       auto BufSize = AtomicFreeRedLocalBufSize *
                      cast<ConstantInt>(NumElements)->getZExtValue();
       auto *BufTy = ArrayType::get(DestElementTy, BufSize);
-
-      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
 
       BufPtr =
           new GlobalVariable(*F->getParent(), BufTy, false,
                              GlobalValue::LinkageTypes::InternalLinkage,
                              Constant::getNullValue(BufTy), "red_local_buf",
                              nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? Addrspace : 0);
+                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
       AtomicFreeRedLocalBufs[RedI] = BufPtr;
     }
     // (1) Filling the local array with private values
@@ -5844,17 +5867,17 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     // Generate struct type and related variable for fast reduction.
     std::tie(FastRedStructTy, FastRedInst) = genFastRedTyAndVar(W, FastRedMode);
 
-    int ItemIndex = 0;
+    bool FillGlobalBuffers =
+        VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() && W->getIsTeams();
+    bool FillLocalBuffers =
+        VPOParoptUtils::isAtomicFreeReductionLocalEnabled() && W->getIsPar();
     // Filling the AtomicFreeRedGlobalBufs array to be used for
     // atomic-free reduction generation later
-    if (isTargetSPIRV() &&
-        VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() &&
-        W->getIsTeams()) {
+    if (isTargetSPIRV() && (FillGlobalBuffers || FillLocalBuffers)) {
+      int ItemIndexLocal = 0, ItemIndexGlobal = 0;
       for (ReductionItem *RedI : RedClause.items()) {
-        if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI)) {
-          ItemIndex++;
+        if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI))
           continue;
-        }
 
 #if INTEL_CUSTOMIZATION
         // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
@@ -5906,31 +5929,44 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                 WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
           auto &MapClause = WTarget->getMap();
 
-          int CurBufIdx = 0;
-          bool Found = false;
+          int CurGlobalBufIdx = 0, CurLocalBufIdx = 0;
+
           for (auto &MItem : MapClause.items()) {
-            if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
-                cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
-                    ->hasAttribute(
-                        VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
-              if (CurBufIdx == ItemIndex) {
-                auto *GV = dyn_cast<GlobalVariable>(
-                    MItem->getMapChain()[0]->getBasePtr());
-                assert(GV);
-                AtomicFreeRedGlobalBufs[RedI] = GV;
-                Found = true;
-                break;
+            if (auto *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig())) {
+              auto InsertBuffer =
+                  [RedI](const MapItem *Item, int &BufIdx, int &ItemIdx,
+                         DenseMap<ReductionItem *, GlobalVariable *> &BufMap) {
+                    if (BufIdx == ItemIdx) {
+                      auto *GV = dyn_cast<GlobalVariable>(Item->getOrig());
+                      assert(GV);
+                      BufMap[RedI] = GV;
+                    }
+                    ++BufIdx;
+                  };
+              // NOTE: arrsec reduction doesn't support no-SLM local buffers
+              // yet.
+              if (FillGlobalBuffers &&
+                  MapPtr->hasAttribute(
+                      VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+                InsertBuffer(MItem, CurGlobalBufIdx, ItemIndexGlobal,
+                             AtomicFreeRedGlobalBufs);
+              } else if (FillLocalBuffers &&
+                         MapPtr->hasAttribute(
+                             VPOParoptAtomicFreeReduction::LocalBufferAttr) &&
+                         !RedI->getIsArraySection()) {
+                InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
+                             AtomicFreeRedLocalBufs);
               }
-              ++CurBufIdx;
             }
           }
-          if (Found)
-            ItemIndex++;
+          ItemIndexGlobal++;
+          if (!RedI->getIsArraySection())
+            ItemIndexLocal++;
         }
       }
     }
 
-    ItemIndex = 0;
+    int ItemIndex = 0;
     for (ReductionItem *RedI : RedClause.items()) {
       Value *NewRedInst;
       Value *Orig = RedI->getOrig();
@@ -5978,13 +6014,13 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           if (EmitSPIRVBuiltins) {
             SmallVector<Value *, 1> Arg;
             GroupId0 = VPOParoptUtils::genOCLGenericCall(
-                "_Z21__spirv_WorkgroupId_xv", GeneralUtils::getSizeTTy(F),
-                Arg, InsertPt);
-	  } else {
+                "_Z21__spirv_WorkgroupId_xv", GeneralUtils::getSizeTTy(F), Arg,
+                InsertPt);
+          } else {
             GroupId0 = VPOParoptUtils::genOCLGenericCall(
                 "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
                 Builder.getInt32(0), InsertPt);
-	  }
+          }
 
           Type *ElemTy = nullptr;
           Value *NumElements = nullptr;
@@ -5998,11 +6034,13 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           GlobalBufToReplaceWith =
               Builder.CreateGEP(GlobalBuf->getValueType(), GlobalBuf, Indices);
           // VPOParoptTransform::getArrSecReductionItemReplacementValue expects
-          // arrsec reditem ptr to have addrspace GENERIC
-          if (RedI->getIsArraySection())
-            GlobalBufToReplaceWith = Builder.CreateAddrSpaceCast(
-                GlobalBufToReplaceWith,
-                PointerType::get(ElemTy, vpo::ADDRESS_SPACE_GENERIC));
+          // arrsec reditem ptr to have addrspace GENERIC.
+          // For non-arrsec cases it's also necessary when there are
+          // some users - call instructions, since by default FE generates
+          // generic addrspace pointer arguments.
+          GlobalBufToReplaceWith = Builder.CreateAddrSpaceCast(
+              GlobalBufToReplaceWith,
+              PointerType::get(ElemTy, vpo::ADDRESS_SPACE_GENERIC));
         }
         if (GlobalBufToReplaceWith &&
             (!AtomicFreeReductionUseSLM || RedI->getIsArraySection())) {
@@ -6131,7 +6169,17 @@ static bool removeAllUsesInClauses(IntrinsicInst *Entry, Value *Val) {
                               Entry->bundle_op_info_end())) {
     // Get clause ID and check if it is a clause of interest.
     ClauseSpecifier CS(BOI.Tag->getKey());
-    if (CS.getId() != ClauseID)
+    int TagClauseID = CS.getId();
+
+    if (ClauseID == QUAL_OMP_REDUCTION_ADD &&
+        !VPOAnalysisUtils::isReductionClause(TagClauseID))
+      continue;
+
+    if (ClauseID == QUAL_OMP_INREDUCTION_ADD &&
+        !VPOAnalysisUtils::isInReductionClause(TagClauseID))
+      continue;
+
+    if (TagClauseID != ClauseID)
       continue;
 
     // Check bundle operand uses and zap the ones matching given value.
@@ -12375,6 +12423,58 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
   return Changed;
 }
 
+// Set the NumElements of VLA (including array section) for typed clauses in the
+// omp clauses (private, firstprivate, lastprivate, task_reduction and
+// in_reduction) to be empty.
+void VPOParoptTransform::resetTypedNumElementsInOmpClauses(WRegionNode *W) {
+  assert(W && "resetTypedNumElementsInOmpClauses: Null WRegionNode.");
+  assert(isa_and_nonnull<IntrinsicInst>(W->getEntryDirective()) &&
+         "resetTypedNumElementsInOmpClauses: Null Entry Directive.");
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+
+  // search for TYPED VLA Size in private items
+  if (W->canHavePrivate())
+    for (PrivateItem *PI : W->getPriv().items())
+      if (PI->getIsTyped())
+        if (Value *NumElements = PI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_PRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in firstprivate items
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FI : W->getFpriv().items())
+      if (FI->getIsTyped())
+        if (Value *NumElements = FI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_FIRSTPRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in lastprivate items
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LI : W->getLpriv().items())
+      if (LI->getIsTyped())
+        if (Value *NumElements = LI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_LASTPRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in shared items
+  if (W->canHaveShared())
+    for (SharedItem *SI : W->getShared().items())
+      if (SI->getIsTyped())
+        if (Value *NumElements = SI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_SHARED>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in in_reduction items
+  if (W->canHaveInReduction())
+    for (ReductionItem *RI : W->getInRed().items())
+      if (RI->getIsTyped())
+        if (Value *NumElements = RI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_INREDUCTION_ADD>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in task_reduction items
+  if (W->canHaveReduction())
+    for (ReductionItem *RI : W->getRed().items())
+      if (RI->getIsTyped())
+        if (Value *NumElements = RI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_REDUCTION_ADD>(EntryDir, NumElements);
+}
+
 // Set the values in the private clause to be empty.
 void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
 
@@ -14062,6 +14162,22 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // can't have reduction clauses themselves
   if (WTeams && !WTeams->getRed().items().empty())
     return true;
+
+  // When using tree-pattern local reduction with a global reduction buffer
+  // ND-range should be dropped because local buffer ptr calculations rely
+  // on not having ND-range parallelization.
+  for (auto *Child : W->Children) {
+    bool CanHaveLocalBuffer =
+        VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
+        WRegionUtils::supportsLocalAtomicFreeReduction(Child) &&
+        !AtomicFreeReductionUseSLM && AtomicFreeRedLocalBufSize;
+    if (CanHaveLocalBuffer &&
+        std::any_of(Child->getRed().begin(), Child->getRed().end(),
+                    [](const ReductionItem *RedI) {
+                      return VPOParoptUtils::supportsAtomicFreeReduction(RedI);
+                    }))
+      return true;
+  }
 
   // Detect cases that do not imply "distribute" behavior.
   // We cannot use ND-range partitioning for them.

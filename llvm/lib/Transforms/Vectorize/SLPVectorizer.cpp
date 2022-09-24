@@ -3086,6 +3086,15 @@ private:
       Value *OrigOperand;
       Optional<int> Sibling;
     };
+    // Keeps a vector of scalar values and the edge info for an operand,
+    // the basic information to continue recursion into buildTree_rec.
+    struct OperandInfo {
+      OperandInfo(ArrayRef<Value *> VL, const EdgeInfo &EI)
+          : Scalars(VL), EdgeInfo(EI) {}
+
+      ValueList Scalars;
+      struct EdgeInfo EdgeInfo;
+    };
 
   private:
     /// Set if we used new order for code generation.
@@ -3180,7 +3189,7 @@ private:
     bool Locked = false;
     /// Stores operands which cannot be added as reorderable to the MultiNode
     /// due to a legality reason.
-    SmallVector<std::pair<ValueList, struct EdgeInfo>, 8> PostponedOperands;
+    SmallVector<struct OperandInfo, 8> PostponedOperands;
   public:
     MultiNode(const DataLayout &DL, ScalarEvolution &SE, const BoUpSLP &R,
               const DominatorTree &DT)
@@ -3247,21 +3256,20 @@ private:
 
     /// Append a non-reorderable operand
     void appendNonReorderableOperand(ArrayRef<Value *> VL, const EdgeInfo &EI) {
-      PostponedOperands.emplace_back(ValueList(VL.begin(), VL.end()), EI);
+      PostponedOperands.emplace_back(VL, EI);
     }
 
-    ArrayRef<std::pair<ValueList, struct EdgeInfo>>
-    getNonReorderableOperands() const {
+    ArrayRef<struct OperandInfo> getNonReorderableOperands() const {
       return makeArrayRef(PostponedOperands);
     }
 
-    /// \returns a vector of scalars across all lanes
-    /// for the operand \p OpIdx.
-    ValueList getVL(unsigned OpIdx) const {
+    /// \returns a vector of scalars across all lanes and the edge that
+    ///  corresponds to operand \p OpIdx.
+    struct OperandInfo getOperandInfo(int OpIdx) const {
       ValueList OpVL(getNumLanes());
       for (int Lane : seq<int>(0, getNumLanes()))
         OpVL[Lane] = Operands.getData(OpIdx, Lane).getLeaf();
-      return OpVL;
+      return {OpVL, Edges[OpIdx]};
     }
 
     /// For MultiNode operand index \p OpIdx \returns a bit vector where
@@ -3276,9 +3284,6 @@ private:
           InvertVec.set(Lane);
       return InvertVec;
     }
-
-    /// \returns the edge that corresponds to operand \p OpIdx.
-    const EdgeInfo &getEdge(unsigned OpIdx) const { return Edges[OpIdx]; }
     void lock() { Locked = true; }
     bool isLocked() const { return Locked; }
 
@@ -6815,15 +6820,15 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
       SmallPtrSet<const TreeEntry *, 2> VisitedTEs;
 
       for (int OpIdx : seq<int>(0, CurrMultiNode.getNumOperands())) {
-        const EdgeInfo EI = CurrMultiNode.getEdge(OpIdx);
-        TreeEntry *FrontierTE = EI.UserTE;
+        const MultiNode::OperandInfo Op = CurrMultiNode.getOperandInfo(OpIdx);
+        TreeEntry *FrontierTE = Op.EdgeInfo.UserTE;
         SmallBitVector InvertOpcode =
             CurrMultiNode.getInvertFrontierOpcode(OpIdx);
 
         if (InvertOpcode.any() && VisitedTEs.insert(FrontierTE).second)
           FrontierTE->setOpcodeOverride(InvertOpcode);
 
-        FrontierTE->setOperand(EI.EdgeIdx, CurrMultiNode.getVL(OpIdx));
+        FrontierTE->setOperand(Op.EdgeInfo.EdgeIdx, Op.Scalars);
       }
       CurrMultiNode.setCodeGenState(true);
     }
@@ -6833,13 +6838,13 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
 
     // Resume the recursion towards the operands of the multinode.
     for (unsigned OpIdx : VisitingOrder) {
-      const ValueList OpVL = CurrMultiNode.getVL(OpIdx);
-      buildTree_rec(OpVL, Depth + 1, CurrMultiNode.getEdge(OpIdx));
+      const MultiNode::OperandInfo Op = CurrMultiNode.getOperandInfo(OpIdx);
+      buildTree_rec(Op.Scalars, Depth + 1, Op.EdgeInfo);
     }
 
-    for (const std::pair<ValueList, struct EdgeInfo> &Op :
+    for (const MultiNode::OperandInfo &Op :
          CurrMultiNode.getNonReorderableOperands())
-      buildTree_rec(Op.first, Depth + 1, Op.second);
+      buildTree_rec(Op.Scalars, Depth + 1, Op.EdgeInfo);
   }
 }
 #endif // INTEL_CUSTOMIZATION
