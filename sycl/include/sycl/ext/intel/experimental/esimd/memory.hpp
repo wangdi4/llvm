@@ -630,8 +630,21 @@ lsc_gather(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
 ///
+<<<<<<< HEAD
 /// Collects elements located at specified address and returns them
 /// as a single \ref simd object.
+=======
+/// Accesses contiguous block of memory of `NElts * S` bytes  starting from
+/// given address, where S is a byte size of an "element" defined by the \c DS
+/// template parameter. The maximum size of accessed block is 512 bytes for PVC
+/// and 256 bytes for ACM (DG2).
+/// When \c DS equals \c lsc_data_size::u64, the address must be 8-byte aligned,
+/// otherwise - 4-bytes aligned. Allowed values for the data size are
+/// \c lsc_data_size::u32 and \c lsc_data_size::u64. Allowed NElts values are
+/// 1, 2, 3, 4, 8, 16, 32, 64.
+/// Note that to access 512 bytes, DS must be \c lsc_data_size::u64 and \c NElts
+/// must be 64.
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to load per address.
@@ -648,30 +661,63 @@ template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
 __ESIMD_API __ESIMD_NS::simd<T, NElts>
 lsc_block_load(const T *p, __ESIMD_NS::simd_mask<1> pred = 1) {
+<<<<<<< HEAD
   detail::check_lsc_vector_size<NElts>();
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_cache_hint<detail::lsc_action::load, L1H, L3H>();
   constexpr uint16_t _AddressScale = 1;
   constexpr int _ImmOffset = 0;
   constexpr lsc_data_size _DS = detail::finalize_data_size<T, DS>();
+<<<<<<< HEAD
   static_assert(_DS == lsc_data_size::u32 || _DS == lsc_data_size::u64,
                 "Transposed load is supported only for data size u32 or u64");
   constexpr detail::lsc_vector_size _VS = detail::to_lsc_vector_size<NElts>();
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::transpose;
   constexpr int N = 1;
   __ESIMD_NS::simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
+<<<<<<< HEAD
   return __esimd_lsc_load_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
                                     _VS, _Transposed, N>(pred.data(),
                                                          addrs.data());
 }
 
+=======
+  constexpr int SmallIntFactor =
+      (_DS == lsc_data_size::u16) ? 2 : (_DS == lsc_data_size::u8 ? 4 : 1);
+  static_assert(NElts % SmallIntFactor == 0,
+                "Number of elements is not supported by Transposed load");
+
+  detail::check_lsc_vector_size<NElts / SmallIntFactor>();
+  constexpr detail::lsc_vector_size _VS =
+      detail::to_lsc_vector_size<NElts / SmallIntFactor>();
+  if constexpr (SmallIntFactor == 1) {
+    return __esimd_lsc_load_stateless<T, L1H, L3H, _AddressScale, _ImmOffset,
+                                      _DS, _VS, _Transposed, N>(pred.data(),
+                                                                addrs.data());
+  } else {
+    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> result =
+        __esimd_lsc_load_stateless<uint32_t, L1H, L3H, _AddressScale,
+                                   _ImmOffset, lsc_data_size::u32, _VS,
+                                   _Transposed, N>(pred.data(), addrs.data());
+    return result.template bit_cast_view<T>();
+  }
+}
+
+
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Accessor-based transposed gather with 1 channel.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
 ///
 /// Collects elements located at surface and returns them
 /// as a single \ref simd object.
+/// See comments in the  \ref lsc_block_load API for description and parameter
+/// constraints.
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to load per address.
@@ -692,27 +738,45 @@ template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
 __ESIMD_API std::enable_if_t<!std::is_pointer<AccessorTy>::value,
                              __ESIMD_NS::simd<T, NElts>>
 lsc_block_load(AccessorTy acc, uint32_t offset,
+<<<<<<< HEAD
                __ESIMD_NS::simd_mask<1> pred = 1) {
+=======
+	       __ESIMD_NS::simd_mask<1> pred = 1) {
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 #ifdef __ESIMD_FORCE_STATELESS_MEM
   return lsc_block_load<T, NElts, DS, L1H, L3H>(
       __ESIMD_DNS::accessorToPointer<T>(acc, offset), pred);
 #else
-  detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_cache_hint<detail::lsc_action::load, L1H, L3H>();
   constexpr uint16_t _AddressScale = 1;
   constexpr int _ImmOffset = 0;
   constexpr lsc_data_size _DS = detail::finalize_data_size<T, DS>();
-  static_assert(_DS == lsc_data_size::u32 || _DS == lsc_data_size::u64,
-                "Transposed load is supported only for data size u32 or u64");
-  constexpr detail::lsc_vector_size _VS = detail::to_lsc_vector_size<NElts>();
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::transpose;
   constexpr int N = 1;
   __ESIMD_NS::simd<uint32_t, N> offsets = offset;
   auto si = __ESIMD_NS::get_surface_index(acc);
-  return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                              _Transposed, N>(pred.data(), offsets.data(), si);
+  constexpr int SmallIntFactor =
+      (_DS == lsc_data_size::u16) ? 2 : (_DS == lsc_data_size::u8 ? 4 : 1);
+  static_assert(NElts % SmallIntFactor == 0,
+                "Number of elements is not supported by Transposed load");
+  detail::check_lsc_vector_size<NElts / SmallIntFactor>();
+  constexpr detail::lsc_vector_size _VS =
+      detail::to_lsc_vector_size<NElts / SmallIntFactor>();
+
+  if constexpr (SmallIntFactor == 1) {
+    return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
+                                _VS, _Transposed, N>(pred.data(),
+                                                     offsets.data(), si);
+  } else {
+
+    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> result =
+        __esimd_lsc_load_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
+                             lsc_data_size::u32, _VS, _Transposed, N>(
+            pred.data(), offsets.data(), si);
+    return result.template bit_cast_view<T>();
+  }
 #endif
 }
 
@@ -755,6 +819,7 @@ __ESIMD_API void lsc_prefetch(const T *p, __ESIMD_NS::simd<uint32_t, N> offsets,
                                                            addrs.data());
 }
 
+<<<<<<< HEAD
 /// USM pointer prefetch transposed gather with 1 channel.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
@@ -792,6 +857,8 @@ __ESIMD_API void lsc_prefetch(const T *p) {
                                                       addrs.data());
 }
 
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Accessor-based prefetch gather.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
@@ -957,6 +1024,11 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// VISA instruction: lsc_store.ugm
 ///
 /// Scatters elements to specific address.
+<<<<<<< HEAD
+=======
+/// See comments in the  \ref lsc_block_load API for description and parameter
+/// constraints.
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to store per address.
@@ -968,7 +1040,10 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// @param offsets is the zero-based offsets in bytes.
 /// @param vals is values to store.
 /// @param pred is predicates.
+<<<<<<< HEAD
 ///
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <
     typename T, int NElts = 1, lsc_data_size DS = lsc_data_size::default_size,
     cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none, int N>
@@ -1045,11 +1120,17 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 #endif
 }
 
+<<<<<<< HEAD
 /// USM pointer transposed scatter with 1 channel.
+=======
+/// USM pointer transposed scatter with 1 channel..
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_store.ugm
 ///
 /// Scatters elements to specific address.
+/// See comments in the  \ref lsc_block_load API for description and parameter
+/// constraints.
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to store per address.
@@ -1061,27 +1142,60 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// @param pred is operation predicate. Zero means operation is skipped
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
+<<<<<<< HEAD
 ///
+=======
+//
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
 __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
                                  __ESIMD_NS::simd_mask<1> pred = 1) {
+<<<<<<< HEAD
   detail::check_lsc_vector_size<NElts>();
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_cache_hint<detail::lsc_action::store, L1H, L3H>();
   constexpr uint16_t _AddressScale = 1;
   constexpr int _ImmOffset = 0;
   constexpr lsc_data_size _DS = detail::finalize_data_size<T, DS>();
+<<<<<<< HEAD
   static_assert(_DS == lsc_data_size::u32 || _DS == lsc_data_size::u64,
                 "Transposed store is supported only for data size u32 or u64");
   constexpr detail::lsc_vector_size _VS = detail::to_lsc_vector_size<NElts>();
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::transpose;
   constexpr int N = 1;
   __ESIMD_NS::simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
+<<<<<<< HEAD
   __esimd_lsc_store_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                               _Transposed, N>(pred.data(), addrs.data(),
                                               vals.data());
+=======
+  constexpr int SmallIntFactor =
+      (_DS == lsc_data_size::u16) ? 2 : (_DS == lsc_data_size::u8 ? 4 : 1);
+  static_assert(NElts % SmallIntFactor == 0,
+                "Number of elements is not supported by Transposed store");
+  detail::check_lsc_vector_size<NElts / SmallIntFactor>();
+  constexpr detail::lsc_vector_size _VS =
+      detail::to_lsc_vector_size<NElts / SmallIntFactor>();
+  if constexpr (SmallIntFactor == 1) {
+
+    __esimd_lsc_store_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
+                                _VS, _Transposed, N>(pred.data(), addrs.data(),
+                                                     vals.data());
+  } else {
+    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> tmp =
+        vals.template bit_cast_view<uint32_t>();
+
+    __esimd_lsc_store_stateless<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
+                                lsc_data_size::u32, _VS, _Transposed, N>(
+        pred.data(), addrs.data(), tmp.data());
+  }
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 }
 
 /// Accessor-based transposed scatter with 1 channel.
@@ -1089,6 +1203,11 @@ __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
 /// VISA instruction: lsc_store.ugm
 ///
 /// Scatters elements to surface.
+<<<<<<< HEAD
+=======
+/// See comments in the  \ref lsc_block_load API for description and parameter
+/// constraints.
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to store per address.
@@ -1103,6 +1222,10 @@ __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
 ///
+<<<<<<< HEAD
+=======
+///
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
           typename AccessorTy>
@@ -1114,23 +1237,48 @@ lsc_block_store(AccessorTy acc, uint32_t offset,
   lsc_block_store<T, NElts, DS, L1H>(
       __ESIMD_DNS::accessorToPointer<T>(acc, offset), vals, pred);
 #else
+<<<<<<< HEAD
   detail::check_lsc_vector_size<NElts>();
+=======
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_cache_hint<detail::lsc_action::store, L1H, L3H>();
   constexpr uint16_t _AddressScale = 1;
   constexpr int _ImmOffset = 0;
   constexpr lsc_data_size _DS = detail::finalize_data_size<T, DS>();
-  static_assert(_DS == lsc_data_size::u32 || _DS == lsc_data_size::u64,
-                "Transposed store is supported only for data size u32 or u64");
-  constexpr detail::lsc_vector_size _VS = detail::to_lsc_vector_size<NElts>();
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::transpose;
   constexpr int N = 1;
+<<<<<<< HEAD
   __ESIMD_NS::simd<uint32_t, N> offsets = offset;
   auto si = __ESIMD_NS::get_surface_index(acc);
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                         _Transposed, N>(pred.data(), offsets.data(),
                                         vals.data(), si);
+=======
+
+  __ESIMD_NS::simd<uint32_t, N> offsets = offset;
+  auto si = __ESIMD_NS::get_surface_index(acc);
+  constexpr int SmallIntFactor =
+      (_DS == lsc_data_size::u16) ? 2 : (_DS == lsc_data_size::u8 ? 4 : 1);
+
+  detail::check_lsc_vector_size<NElts / SmallIntFactor>();
+  static_assert(NElts % SmallIntFactor == 0,
+                "Number of elements is not supported by Transposed store");
+  constexpr detail::lsc_vector_size _VS =
+      detail::to_lsc_vector_size<NElts / SmallIntFactor>();
+  if constexpr (SmallIntFactor > 1) {
+    __ESIMD_NS::simd<uint32_t, NElts / SmallIntFactor> Tmp =
+        vals.template bit_cast_view<uint32_t>();
+    __esimd_lsc_store_bti<uint32_t, L1H, L3H, _AddressScale, _ImmOffset,
+                          lsc_data_size::u32, _VS, _Transposed, N>(
+        pred.data(), offsets.data(), Tmp.data(), si);
+  } else {
+    __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
+                          _Transposed, N>(pred.data(), offsets.data(),
+                                          vals.data(), si);
+  }
+>>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 #endif
 }
 
