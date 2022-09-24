@@ -634,11 +634,11 @@ lsc_gather(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// given address, where S is a byte size of an "element" defined by the \c DS
 /// template parameter. The maximum size of accessed block is 512 bytes for PVC
 /// and 256 bytes for ACM (DG2).
-/// When \? DS equals \? lsc_data_size::u64, the address must be 8-byte aligned,
+/// When \c DS equals \c lsc_data_size::u64, the address must be 8-byte aligned,
 /// otherwise - 4-bytes aligned. Allowed values for the data size are
-/// \? lsc_data_size::u32 and \? lsc_data_size::u64. Allowed NElts values are
+/// \c lsc_data_size::u32 and \c lsc_data_size::u64. Allowed NElts values are
 /// 1, 2, 3, 4, 8, 16, 32, 64.
-/// Note that to access 512 bytes, DS must be \? lsc_data_size::u64 and \c NElts
+/// Note that to access 512 bytes, DS must be \c lsc_data_size::u64 and \c NElts
 /// must be 64.
 ///
 /// @tparam T is element type.
@@ -685,6 +685,7 @@ lsc_block_load(const T *p, __ESIMD_NS::simd_mask<1> pred = 1) {
     return result.template bit_cast_view<T>();
   }
 }
+
 
 /// Accessor-based transposed gather with 1 channel.
 /// Supported platforms: DG2, PVC
@@ -995,6 +996,8 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// VISA instruction: lsc_store.ugm
 ///
 /// Scatters elements to specific address.
+/// See comments in the  \ref lsc_block_load API for description and parameter
+/// constraints.
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to store per address.
@@ -1006,7 +1009,6 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// @param offsets is the zero-based offsets in bytes.
 /// @param vals is values to store.
 /// @param pred is predicates.
-///
 template <
     typename T, int NElts = 1, lsc_data_size DS = lsc_data_size::default_size,
     cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none, int N>
@@ -1101,7 +1103,7 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// @param pred is operation predicate. Zero means operation is skipped
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
-///
+//
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
 __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
@@ -1157,6 +1159,7 @@ __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
 /// @param pred is operation predicate. Zero means operation is skipped
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
+///
 ///
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
