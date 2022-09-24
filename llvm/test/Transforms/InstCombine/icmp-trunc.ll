@@ -6,7 +6,8 @@
 ; should still kick in.
 ; With this change reverted, do not check the DL8 and DL64 prefixes because
 ; there are no marked lines.
-;
+; Entire file is marked INTEL, as every test checks the same (disabled)
+; transform.
 
 ; RUN: opt < %s -passes=instcombine -S -data-layout="n8:16:32:64" | FileCheck %s --check-prefixes=CHECK
 ; RUN: opt < %s -passes=instcombine -S -data-layout="n8"          | FileCheck %s --check-prefixes=CHECK
