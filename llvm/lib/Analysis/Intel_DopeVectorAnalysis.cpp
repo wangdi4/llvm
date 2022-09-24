@@ -3722,19 +3722,9 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
                                    Type *DVType) -> NestedDopeVectorInfo * {
     assert(isDopeVectorType(DVType, DL) && "Trying to make a copy dope vector "
                                            "from a non-dope vector type");
-
-
-    auto *PtrAllocType = AI->getType();
-    // NOTE: This won't work for opaque pointers. We need to address collecting
-    // the dope vector for opaque pointers.
-    auto *AllocMainType = PtrAllocType->getNonOpaquePointerElementType();
-    if (AllocMainType != DVType)
-      return nullptr;
-
-    auto CopyNestedDV = new NestedDopeVectorInfo(AI, AllocMainType, FieldNum,
+    auto CopyNestedDV = new NestedDopeVectorInfo(AI, DVType, FieldNum,
         VBase, true /* AllowMultipleFieldAddresses */,
         true /* IsCopyDopeVector */);
-
     CopyNestedDV->addAllocSite(AI);
     return CopyNestedDV;
   };
@@ -3819,14 +3809,13 @@ parseQNCAStructDopeVectorElementType(const StructType* Ty) {
   const std::string QNCAPrefix = "QNCA_a0$";
   const std::string RankPrefix = "$rank";
 
-  const StringRef& name = Ty->getStructName();
+  const StringRef &name = Ty->getStructName();
   if (!name.startswith(QNCAPrefix))
     return nullptr;
   auto SIdx = QNCAPrefix.size();
   auto EIdx = name.rfind(RankPrefix);
   if (EIdx == StringRef::npos)
     return nullptr;
-
   bool isPointer = false;
   if (EIdx > SIdx && name[EIdx-1] == '*') {
     --EIdx;
