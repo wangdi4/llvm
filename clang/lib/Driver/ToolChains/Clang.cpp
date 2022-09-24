@@ -5478,6 +5478,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     // Forward -fsycl-default-sub-group-size if in SYCL mode.
     Args.AddLastArg(CmdArgs, options::OPT_fsycl_default_sub_group_size);
+
+    // Add any predefined macros associated with intel_gpu* type targets
+    // passed in with -fsycl-targets
+    if (RawTriple.isSPIR() &&
+        RawTriple.getSubArch() == llvm::Triple::SPIRSubArch_gen) {
+      StringRef Device = JA.getOffloadingArch();
+      if (!Device.empty())
+        CmdArgs.push_back(Args.MakeArgString(
+            Twine("-D") + SYCL::gen::getGenDeviceMacro(Device)));
+    }
+    if (RawTriple.isSPIR() &&
+        RawTriple.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
+      CmdArgs.push_back("-D__SYCL_TARGET_INTEL_X86_64__");
   }
 #if INTEL_CUSTOMIZATION
   if (enableFuncPointers) {
@@ -10210,7 +10223,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
                                   Action::OffloadKind DeviceOffloadKind,
                                   const llvm::opt::ArgList &TCArgs,
                                   ArgStringList &CmdArgs,
-                                  const ToolChain &TC) {
+                                  const ToolChain &TC,
+                                  const JobAction &JA) {
   // Grab any Target specific options that need to be added to the wrapper
   // information.
   ArgStringList BuildArgs;
@@ -10241,7 +10255,7 @@ static void addRunTimeWrapperOpts(Compilation &C,
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(), DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
@@ -10304,7 +10318,42 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
         WrapperArgs.push_back(C.getArgs().MakeArgString("--emit-reg-funcs=0"));
     }
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
-                          getToolChain()); // INTEL
+                          getToolChain(), JA); // INTEL
+    // Grab any Target specific options that need to be added to the wrapper
+    // information.
+    ArgStringList BuildArgs;
+    auto createArgString = [&](const char *Opt) {
+      if (BuildArgs.empty())
+        return;
+      SmallString<128> AL;
+      for (const char *A : BuildArgs) {
+        if (AL.empty()) {
+          AL = A;
+          continue;
+        }
+        AL += " ";
+        AL += A;
+      }
+      WrapperArgs.push_back(C.getArgs().MakeArgString(Twine(Opt) + AL));
+    };
+    const toolchains::SYCLToolChain &TC =
+              static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+    // TODO: Consider separating the mechanisms for:
+    // - passing standard-defined options to AOT/JIT compilation steps;
+    // - passing AOT-compiler specific options.
+    // This would allow retaining standard language options in the
+    // image descriptor, while excluding tool-specific options that
+    // have been known to confuse RT implementations.
+    if (TC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
+      // Only store compile/link opts in the image descriptor for the SPIR-V
+      // target; AOT compilation has already been performed otherwise.
+      TC.AddImpliedTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs, JA);
+      TC.TranslateBackendTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
+      createArgString("-compile-opts=");
+      BuildArgs.clear();
+      TC.TranslateLinkerTargetArgs(OffloadingKind, TT, TCArgs, BuildArgs);
+      createArgString("-link-opts=");
+    }
 
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
@@ -10422,7 +10471,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       DeviceKind = A->getOffloadingDeviceKind();
       DeviceTC = TC;
     });
-    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC); // INTEL
+    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC, JA); // INTEL
 
 #if INTEL_CUSTOMIZATION
     if (Inputs[I].getType() == types::TY_Tempfiletable ||

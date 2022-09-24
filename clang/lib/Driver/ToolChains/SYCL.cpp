@@ -464,7 +464,7 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   llvm::Triple CPUTriple("spir64_x86_64");
-  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs); // INTEL
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA); // INTEL
   // Add the target args passed in
 #if INTEL_CUSTOMIZATION
   TC.TranslateBackendTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs);
@@ -633,7 +633,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
 #if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA); // INTEL
 
   // Add -Xsycl-target* options.
   TC.TranslateBackendTargetArgs(
@@ -999,7 +999,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   ArgStringList CmdArgs;
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
@@ -1088,15 +1088,17 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   // The next line prevents ocloc from modifying the image name
   CmdArgs.push_back("-output_no_suffix");
   CmdArgs.push_back("-spirv_input");
+  StringRef Device = JA.getOffloadingArch();
+
   // Add -Xsycl-target* options.
   Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 #if INTEL_CUSTOMIZATION
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
   TC.TranslateBackendTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, Device);
   TC.TranslateLinkerTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   // Strip out -cl-no-match-sincospi in case it was used to disable the
@@ -1133,6 +1135,69 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
 #endif // INTEL_CUSTOMIZATION
 }
 
+StringRef SYCL::gen::resolveGenDevice(StringRef DeviceName) {
+  StringRef Device;
+  Device = llvm::StringSwitch<StringRef>(DeviceName)
+               .Cases("bdw", "8_0_0", "bdw")
+               .Cases("skl", "9_0_9", "skl")
+               .Cases("kbl", "9_1_9", "kbl")
+               .Cases("cfl", "9_2_9", "cfl")
+               .Cases("apl", "9_3_0", "apl")
+               .Cases("glk", "9_4_0", "glk")
+               .Cases("whl", "9_5_0", "whl")
+               .Cases("aml", "9_6_0", "aml")
+               .Cases("cml", "9_7_0", "cml")
+               .Cases("icllp", "11_0_0", "icllp")
+               .Cases("ehl", "11_2_0", "ehl")
+               .Cases("tgllp", "12_0_0", "tgllp")
+               .Case("rkl", "rkl")
+               .Case("adl_s", "adl_s")
+               .Case("rpl_s", "rpl_s")
+               .Case("adl_p", "adl_p")
+               .Case("adl_n", "adl_n")
+               .Cases("dg1", "12_10_0", "dg1")
+               .Case("acm_g10", "acm_g10")
+               .Case("acm_g11", "acm_g11")
+               .Case("acm_g12", "acm_g12")
+               .Case("pvc", "pvc")
+               .Default("");
+  return Device;
+}
+
+StringRef SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
+  SmallString<64> Macro;
+  StringRef Ext = llvm::StringSwitch<StringRef>(DeviceName)
+                      .Case("bdw", "BDW")
+                      .Case("skl", "SKL")
+                      .Case("kbl", "KBL")
+                      .Case("cfl", "CFL")
+                      .Case("apl", "APL")
+                      .Case("glk", "GLK")
+                      .Case("whl", "WHL")
+                      .Case("aml", "AML")
+                      .Case("cml", "CML")
+                      .Case("icllp", "ICLLP")
+                      .Case("ehl", "EHL")
+                      .Case("tgllp", "TGLLP")
+                      .Case("rkl", "RKL")
+                      .Case("adl_s", "ADL_S")
+                      .Case("rpl_s", "RPL_S")
+                      .Case("adl_p", "ADL_P")
+                      .Case("adl_n", "ADL_N")
+                      .Case("dg1", "DG1")
+                      .Case("acm_g10", "ACM_G10")
+                      .Case("acm_g11", "ACM_G11")
+                      .Case("acm_g12", "ACM_G12")
+                      .Case("pvc", "PVC")
+                      .Default("");
+  if (!Ext.empty()) {
+    Macro = "__SYCL_TARGET_INTEL_GPU_";
+    Macro += Ext;
+    Macro += "__";
+  }
+  return Macro;
+}
+
 void SYCL::x86_64::BackendCompiler::ConstructJob(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
     const InputInfoList &Inputs, const ArgList &Args,
@@ -1154,7 +1219,7 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
 
 #if INTEL_CUSTOMIZATION
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
@@ -1258,7 +1323,7 @@ static void parseTargetOpts(StringRef ArgString, const llvm::opt::ArgList &Args,
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
-    OptSpecifier Opt, OptSpecifier Opt_EQ) const {
+    OptSpecifier Opt, OptSpecifier Opt_EQ, StringRef Device) const {
 #endif // INTEL_CUSTOMIZATION
   for (auto *A : Args) {
     bool OptNoTriple;
@@ -1271,6 +1336,14 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
 #endif // INTEL_CUSTOMIZATION
         // Provided triple does not match current tool chain.
         continue;
+      if (getTriple().isSPIR() &&
+          getTriple().getSubArch() == llvm::Triple::SPIRSubArch_gen) {
+        if (Device.empty() && StringRef(A->getValue()).startswith("intel_gpu"))
+          continue;
+        if (!Device.empty() &&
+            getDriver().MakeSYCLDeviceTriple(A->getValue()) == getTriple())
+          continue;
+      }
     } else if (!OptNoTriple)
       // Don't worry about any of the other args, we only want to pass what is
       // passed in -X<Opt>
@@ -1312,7 +1385,8 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::AddImpliedTargetArgs(
     Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
-    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
+    const JobAction &JA) const {
 #endif // INTEL_CUSTOMIZATION
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
@@ -1365,6 +1439,34 @@ void SYCLToolChain::AddImpliedTargetArgs(
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION
     BeArgs.push_back("-cl-opt-disable");
+  if (IsGen) {
+    // For GEN (spir64_gen) we have implied -device settings given usage
+    // of intel_gpu_ as a target.  Handle those here, and also check that no
+    // other -device was passed, as that is a conflict.
+    StringRef DepInfo = JA.getOffloadingArch();
+    if (!DepInfo.empty()) {
+      ArgStringList TargArgs;
+      Args.AddAllArgValues(TargArgs, options::OPT_Xs, options::OPT_Xs_separate);
+      Args.AddAllArgValues(TargArgs, options::OPT_Xsycl_backend);
+      // For -Xsycl-target-backend=<triple> we need to scrutinize the triple
+      for (auto *A : Args) {
+        if (!A->getOption().matches(options::OPT_Xsycl_backend_EQ))
+          continue;
+        if (StringRef(A->getValue()).startswith("intel_gpu"))
+          TargArgs.push_back(A->getValue(1));
+      }
+      if (llvm::find_if(TargArgs, [&](auto Cur) {
+            return !strncmp(Cur, "-device", sizeof("-device") - 1);
+          }) != TargArgs.end()) {
+        SmallString<64> Target("intel_gpu_");
+        Target += DepInfo;
+        getDriver().Diag(diag::err_drv_unsupported_opt_for_target)
+            << "-device" << Target;
+      }
+      CmdArgs.push_back("-device");
+      CmdArgs.push_back(Args.MakeArgString(DepInfo));
+    }
+  }
   if (BeArgs.empty())
     return;
   if (Triple.getSubArch() == llvm::Triple::NoSubArch ||
@@ -1389,7 +1491,8 @@ void SYCLToolChain::AddImpliedTargetArgs(
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::TranslateBackendTargetArgs(
     Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
-    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
+    StringRef Device) const {
 #endif // INTEL_CUSTOMIZATION
   // Handle -Xs flags.
   for (auto *A : Args) {
@@ -1430,11 +1533,11 @@ void SYCLToolChain::TranslateBackendTargetArgs(
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-backend.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
-        options::OPT_Xopenmp_backend, options::OPT_Xopenmp_backend_EQ);
+        options::OPT_Xopenmp_backend, options::OPT_Xopenmp_backend_EQ, Device);
   else
     // Handle -Xsycl-target-backend.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
-        options::OPT_Xsycl_backend, options::OPT_Xsycl_backend_EQ);
+        options::OPT_Xsycl_backend, options::OPT_Xsycl_backend_EQ, Device);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1449,11 +1552,11 @@ void SYCLToolChain::TranslateLinkerTargetArgs(
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
-        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ);
+        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ, StringRef());
   else
     // Handle -Xsycl-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
-        options::OPT_Xsycl_linker, options::OPT_Xsycl_linker_EQ);
+        options::OPT_Xsycl_linker, options::OPT_Xsycl_linker_EQ, StringRef());
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -134,6 +134,9 @@ private:
 #endif // INTEL_CUSTOMIZATION
 };
 
+StringRef resolveGenDevice(StringRef DeviceName);
+StringRef getGenDeviceMacro(StringRef DeviceName);
+
 } // end namespace gen
 
 namespace x86_64 {
@@ -177,11 +180,13 @@ public:
   void AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
                             const llvm::Triple &Triple,
                             const llvm::opt::ArgList &Args,
-                            llvm::opt::ArgStringList &CmdArgs) const;
+                            llvm::opt::ArgStringList &CmdArgs,
+                            const JobAction &JA) const;
   void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                   const llvm::Triple &Triple,
                                   const llvm::opt::ArgList &Args,
-                                  llvm::opt::ArgStringList &CmdArgs) const;
+                                  llvm::opt::ArgStringList &CmdArgs,
+                                  StringRef Device = "") const;
   void TranslateLinkerTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                  const llvm::Triple &Triple,
                                  const llvm::opt::ArgList &Args,
@@ -219,8 +224,11 @@ protected:
 private:
 #if INTEL_CUSTOMIZATION
   void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
-      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
-      llvm::opt::OptSpecifier Opt, llvm::opt::OptSpecifier Opt_EQ) const;
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs,
+                          llvm::opt::OptSpecifier Opt,
+                          llvm::opt::OptSpecifier Opt_EQ,
+                          StringRef Device) const;
 #endif // INTEL_CUSTOMIZATION
 };
 
