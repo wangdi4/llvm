@@ -634,19 +634,11 @@ lsc_gather(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// given address, where S is a byte size of an "element" defined by the \c DS
 /// template parameter. The maximum size of accessed block is 512 bytes for PVC
 /// and 256 bytes for ACM (DG2).
-<<<<<<< HEAD
-/// When \? DS equals \? lsc_data_size::u64, the address must be 8-byte aligned,
-/// otherwise - 4-bytes aligned. Allowed values for the data size are
-/// \? lsc_data_size::u32 and \? lsc_data_size::u64. Allowed NElts values are
-/// 1, 2, 3, 4, 8, 16, 32, 64.
-/// Note that to access 512 bytes, DS must be \? lsc_data_size::u64 and \c NElts
-=======
 /// When \c DS equals \c lsc_data_size::u64, the address must be 8-byte aligned,
 /// otherwise - 4-bytes aligned. Allowed values for the data size are
 /// \c lsc_data_size::u32 and \c lsc_data_size::u64. Allowed NElts values are
 /// 1, 2, 3, 4, 8, 16, 32, 64.
 /// Note that to access 512 bytes, DS must be \c lsc_data_size::u64 and \c NElts
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// must be 64.
 ///
 /// @tparam T is element type.
@@ -694,10 +686,7 @@ lsc_block_load(const T *p, __ESIMD_NS::simd_mask<1> pred = 1) {
   }
 }
 
-<<<<<<< HEAD
-=======
 
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Accessor-based transposed gather with 1 channel.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
@@ -726,11 +715,7 @@ template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
 __ESIMD_API std::enable_if_t<!std::is_pointer<AccessorTy>::value,
                              __ESIMD_NS::simd<T, NElts>>
 lsc_block_load(AccessorTy acc, uint32_t offset,
-<<<<<<< HEAD
                __ESIMD_NS::simd_mask<1> pred = 1) {
-=======
-	       __ESIMD_NS::simd_mask<1> pred = 1) {
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 #ifdef __ESIMD_FORCE_STATELESS_MEM
   return lsc_block_load<T, NElts, DS, L1H, L3H>(
       __ESIMD_DNS::accessorToPointer<T>(acc, offset), pred);
@@ -807,7 +792,6 @@ __ESIMD_API void lsc_prefetch(const T *p, __ESIMD_NS::simd<uint32_t, N> offsets,
                                                            addrs.data());
 }
 
-<<<<<<< HEAD
 /// USM pointer prefetch transposed gather with 1 channel.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
@@ -847,8 +831,6 @@ __ESIMD_API void lsc_prefetch(const T *p) {
                                                       addrs.data());
 }
 
-=======
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Accessor-based prefetch gather.
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_load.ugm
@@ -1014,11 +996,8 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// VISA instruction: lsc_store.ugm
 ///
 /// Scatters elements to specific address.
-<<<<<<< HEAD
-=======
 /// See comments in the  \ref lsc_block_load API for description and parameter
 /// constraints.
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 ///
 /// @tparam T is element type.
 /// @tparam NElts is the number of elements to store per address.
@@ -1030,10 +1009,6 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// @param offsets is the zero-based offsets in bytes.
 /// @param vals is values to store.
 /// @param pred is predicates.
-<<<<<<< HEAD
-///
-=======
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <
     typename T, int NElts = 1, lsc_data_size DS = lsc_data_size::default_size,
     cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none, int N>
@@ -1110,11 +1085,7 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 #endif
 }
 
-<<<<<<< HEAD
 /// USM pointer transposed scatter with 1 channel.
-=======
-/// USM pointer transposed scatter with 1 channel..
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 /// Supported platforms: DG2, PVC
 /// VISA instruction: lsc_store.ugm
 ///
@@ -1132,11 +1103,7 @@ lsc_scatter(AccessorTy acc, __ESIMD_NS::simd<uint32_t, N> offsets,
 /// @param pred is operation predicate. Zero means operation is skipped
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
-<<<<<<< HEAD
-///
-=======
 //
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
 __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
@@ -1193,10 +1160,7 @@ __ESIMD_API void lsc_block_store(T *p, __ESIMD_NS::simd<T, NElts> vals,
 /// entirely, non-zero - operation is performed. The default is '1' - perform
 /// the operation.
 ///
-<<<<<<< HEAD
-=======
 ///
->>>>>>> ef26afafb34afdb099987dc006bdb3e85ee7053c
 template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
           typename AccessorTy>
