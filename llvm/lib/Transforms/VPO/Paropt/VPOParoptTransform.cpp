@@ -6131,7 +6131,17 @@ static bool removeAllUsesInClauses(IntrinsicInst *Entry, Value *Val) {
                               Entry->bundle_op_info_end())) {
     // Get clause ID and check if it is a clause of interest.
     ClauseSpecifier CS(BOI.Tag->getKey());
-    if (CS.getId() != ClauseID)
+    int TagClauseID = CS.getId();
+
+    if (ClauseID == QUAL_OMP_REDUCTION_ADD &&
+        !VPOAnalysisUtils::isReductionClause(TagClauseID))
+      continue;
+
+    if (ClauseID == QUAL_OMP_INREDUCTION_ADD &&
+        !VPOAnalysisUtils::isInReductionClause(TagClauseID))
+      continue;
+
+    if (TagClauseID != ClauseID)
       continue;
 
     // Check bundle operand uses and zap the ones matching given value.
@@ -12373,6 +12383,58 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
   }
 
   return Changed;
+}
+
+// Set the NumElements of VLA (including array section) for typed clauses in the
+// omp clauses (private, firstprivate, lastprivate, task_reduction and
+// in_reduction) to be empty.
+void VPOParoptTransform::resetTypedNumElementsInOmpClauses(WRegionNode *W) {
+  assert(W && "resetTypedNumElementsInOmpClauses: Null WRegionNode.");
+  assert(isa_and_nonnull<IntrinsicInst>(W->getEntryDirective()) &&
+         "resetTypedNumElementsInOmpClauses: Null Entry Directive.");
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+
+  // search for TYPED VLA Size in private items
+  if (W->canHavePrivate())
+    for (PrivateItem *PI : W->getPriv().items())
+      if (PI->getIsTyped())
+        if (Value *NumElements = PI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_PRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in firstprivate items
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FI : W->getFpriv().items())
+      if (FI->getIsTyped())
+        if (Value *NumElements = FI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_FIRSTPRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in lastprivate items
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LI : W->getLpriv().items())
+      if (LI->getIsTyped())
+        if (Value *NumElements = LI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_LASTPRIVATE>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in shared items
+  if (W->canHaveShared())
+    for (SharedItem *SI : W->getShared().items())
+      if (SI->getIsTyped())
+        if (Value *NumElements = SI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_SHARED>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in in_reduction items
+  if (W->canHaveInReduction())
+    for (ReductionItem *RI : W->getInRed().items())
+      if (RI->getIsTyped())
+        if (Value *NumElements = RI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_INREDUCTION_ADD>(EntryDir, NumElements);
+
+  // search for TYPED VLA Size in task_reduction items
+  if (W->canHaveReduction())
+    for (ReductionItem *RI : W->getRed().items())
+      if (RI->getIsTyped())
+        if (Value *NumElements = RI->getNumElements())
+          removeAllUsesInClauses<QUAL_OMP_REDUCTION_ADD>(EntryDir, NumElements);
 }
 
 // Set the values in the private clause to be empty.
