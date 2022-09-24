@@ -67,8 +67,10 @@ define i32 @main() {
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !23 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
 declare void @llvm.dbg.value(metadata, metadata, metadata)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

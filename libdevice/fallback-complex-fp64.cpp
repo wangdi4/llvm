@@ -1,5 +1,21 @@
 //==----- fallback-complex-fp64.cpp - double precision complex math functions
 // for SPIR-V device --==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,8 +35,8 @@
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
 
 DEVICE_EXTERN_C_INLINE
 double __devicelib_creal(double __complex__ z) { return __real__(z); }
@@ -436,9 +452,23 @@ double __complex__ __devicelib_catan(double __complex__ z) {
   return CMPLX(__devicelib_cimag(w), -__devicelib_creal(w));
 }
 
+#ifdef INTEL_CUSTOMIZATION
+double __complex__ __devicelib_cexp10(double __complex__ z) {
+  double __complex__ d = __devicelib___muldc3(
+      __devicelib_creal(z), __devicelib_cimag(z), 0x1.26bb1bbb55516p+1, 0.);
+  return __devicelib_cexp(d);
+}
+
+double __complex__ __devicelib_clog10(double __complex__ z) {
+  double __complex__ lz = __devicelib_clog(z);
+  double __complex__ d = __devicelib___muldc3(
+      __devicelib_creal(lz), __devicelib_cimag(lz), 0x1.bcb7b1526e50dp-2, 0.);
+  return d;
+}
+#endif
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
 #endif // __SPIR__

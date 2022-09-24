@@ -95,14 +95,12 @@ define void @dummyDeallocateEPv(%class.XMLMsgLoader* "intel_dtrans_func_index"="
 }
 
 declare i32 @__gxx_personality_v0(...)
-
 declare !intel.dtrans.func.type !12 dso_local void @__clang_call_terminate(i8* "intel_dtrans_func_index"="1") unnamed_addr
-
-declare !intel.dtrans.func.type !17 void @free(i8* "intel_dtrans_func_index"="1")
-
+declare !intel.dtrans.func.type !17 void @free(i8* "intel_dtrans_func_index"="1") #0
 declare !intel.dtrans.func.type !18 "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)
-
 declare !intel.dtrans.func.type !19 void @__cxa_throw(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!0, !1, !5, !9, !11}
 

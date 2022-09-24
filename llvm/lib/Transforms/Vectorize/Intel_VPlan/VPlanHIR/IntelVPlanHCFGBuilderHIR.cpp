@@ -609,6 +609,9 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
   Latch->getTerminator()->setDebugLocation(HLp->getBranchDebugLoc());
 
+  // Add auto-recognized FP inductions for the loop.
+  Decomposer.addFPInductionsForLoop(HLp);
+
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
   ActiveVPBB = nullptr;

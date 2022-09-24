@@ -216,6 +216,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // SPV_INTEL_global_variable_decoration
     case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
     case spv::CapabilityGroupNonUniformBallot:
+    case spv::internal::CapabilityMaskedGatherScatterINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:

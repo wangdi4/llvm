@@ -21,9 +21,9 @@
 ; Verify that the padding was set correctly
 ; CHECK-PROP: [[PADD:@.*]] = private unnamed_addr constant [16 x i8] c"padded 32 bytes\00"
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
 
-declare void @free(i8* nocapture)
+declare void @free(i8* nocapture) #1
 
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
@@ -110,6 +110,10 @@ define i32 @main() {
   call zeroext i1 @searchloop()
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
 
 ; Verify that the interface was created correctly
 ; CHECK: define i1 @__Intel_PaddedMallocInterface() !dtrans.paddedmallocsize !0 {

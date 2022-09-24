@@ -92,10 +92,10 @@ entry:
 declare ptr @llvm.ptr.annotation.p0(ptr %0, ptr %1, ptr %2, i32 %3, ptr %4)
 
 ; Function Attrs: inaccessiblemem_or_argmemonly mustprogress nounwind willreturn
-declare !intel.dtrans.func.type !9 dso_local void @free(ptr "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !9 dso_local void @free(ptr "intel_dtrans_func_index"="1") #1
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
 
 ; Function Attrs: nofree nounwind
 declare !intel.dtrans.func.type !9 dso_local noundef i32 @printf(ptr nocapture noundef readonly "intel_dtrans_func_index"="1" %0, ...) local_unnamed_addr
@@ -108,6 +108,9 @@ declare !intel.dtrans.func.type !22 dso_local "intel_dtrans_func_index"="1" ptr 
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nounwind willreturn writeonly
 declare void @llvm.memset.p0.i64(ptr nocapture writeonly %0, i8 %1, i64 %2, i1 immarg %3)
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

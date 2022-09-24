@@ -194,13 +194,12 @@ entry:
   unreachable
 }
 
-declare !intel.dtrans.func.type !19 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-
+declare !intel.dtrans.func.type !19 "intel_dtrans_func_index"="1" i8* @malloc(i64) #1
 declare !intel.dtrans.func.type !20 dso_local noalias nonnull "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64) local_unnamed_addr
-
 declare !intel.dtrans.func.type !21 void @__cxa_throw(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
 
 attributes #0 = { argmemonly nofree nounwind willreturn writeonly }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!3, !4, !8, !12, !14}
 

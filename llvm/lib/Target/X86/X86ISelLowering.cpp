@@ -38599,7 +38599,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_FP8
   case X86::PTDPBF8PS: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc = X86::TDPBF8PS;
@@ -38613,7 +38613,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_BF8
+#endif // INTEL_FEATURE_ISA_AMX_FP8
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
@@ -58334,6 +58334,7 @@ static SDValue combinePseudoV16i16Add(SDNode *N, SelectionDAG &DAG,
 
 
   SDValue Sub1 = DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
+  LLVM_DEBUG(dbgs() << "combinePseudoV16i16Add done for Add(Sub, Shl) match\n");
   return DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i32, Sub0, Sub1);
 }
 
@@ -58388,78 +58389,152 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
   if (!CanSplitShuffle(N))
     return SDValue();
 
-  // t67: v16i32 = add nsw t66, t57
-  // t69: v16i32 = vector_shuffle<1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14> t67,
-  //                             undef:v16i32
-  //   t70: v16i32 = add nsw t69, t67 ;V0
-  //   t71: v16i32 = sub nsw t69, t67 ;V1
-  // t72: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31> ;V11
-  //                              t70, t71
-  // t73: v16i32 =
-  // vector_shuffle<2,3,0,1,6,7,4,5,10,11,8,9,14,15,12,13> t72, undef:v16i32 ;V10
-  //   t74: v16i32 = add nsw t73, t72 ;V0
-  //   t75: v16i32 = sub nsw t73, t72 ;V1
-  // t76: v16i32 = vector_shuffle<0,1,18,19,4,5,22,23,8,9,26,27,12,13,30,31>
-  //                             t74, t75
-  // t77: v4i32 = extract_subvector t76, Constant:i64<0>
-  // t79: v4i32 = extract_subvector t76, Constant:i64<4>
-  // t81: v4i32 = extract_subvector t76, Constant:i64<8>
-  // t83: v4i32 = extract_subvector t76, Constant:i64<12>
 
-  // Check it is splited to 4 sub-vector
+  //    t23: v16i32 = add t19, t22
+  //    t24: v16i32 = sub t19, t22
+  //  t25: v16i32 = vector_shuffle<0,17,18,3,4,21,22,23,8,25,26,11,12,29,30,31> t23, t24
+  //    t26: v16i32 = vector_shuffle<2,3,0,1,7,4,10,11,8,9,15,12,u,u,u,u> t19, undef:v16i32
+  //  t27: v16i32 = vector_shuffle<0,1,2,3,4,5,4,5,6,7,8,9,10,11,10,11> t26, undef:v16i32
+  //    t28: v16i32 = add t25, t27
+  //    t29: v16i32 = sub t25, t27
+  //  t30: v16i32 = vector_shuffle<0,1,18,19,4,5,22,7,8,9,26,27,12,13,30,15> t28, t29
+  //  t31: v16i32 = vector_shuffle<1,0,3,2,6,7,4,5,9,8,11,10,14,15,12,13> t19, undef:v16i32
+  //    t32: v16i32 = add t30, t31
+  //    t33: v16i32 = sub t30, t31
+  //  t34: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31> t32, t33
+  //    t36: v8i32 = extract_subvector t34, Constant:i64<0>
+  //    t39: v8i32 = extract_subvector t34, Constant:i64<8>
+  // Check N (t34) is splited to 2 or 4 sub-vector: t36 and t39
   for (auto UI = N->use_begin(), UE = N->use_end(); UI != UE; ++UI) {
     if (UI->getOpcode() != ISD::EXTRACT_SUBVECTOR)
       return SDValue();
     SDValue Idx = UI->getOperand(1);
     unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
-    if (IdxVal % 4) // Can only be 0, 4, 8, 12
+    int NumElt = UI->getValueType(0).getVectorNumElements();
+    // Can only be 0,(4),8,(12) to make sure it could be split
+    if ((NumElt == 4 || NumElt == 8) && (IdxVal % NumElt))
       return SDValue();
   }
 
-  SDValue V0 = N->getOperand(0);
-  SDValue V1 = N->getOperand(1);
+  // SplitOpMap is used to record Nodes and their splitted TWO Nodes.
+  DenseMap<SDValue, std::pair<SDValue, SDValue>> SplitOpMap;
+  SmallSet<SDNode *, 16> VisitedSet;
+  SmallVector<SDNode *, 4> DeadNodes;
+  std::queue<SDValue> WorkList;
+  WorkList.push(N->getOperand(0)); //t32
+  WorkList.push(N->getOperand(1)); //t33
+  SDValue Concat, Add;
+  auto IsBinaryOp = [](unsigned Opcode) {
+    SmallVector<unsigned> BinOps = {ISD::ADD, ISD::SUB, ISD::OR};
+    return llvm::any_of(BinOps,
+                        [&](unsigned BinOp) { return Opcode == BinOp; });
+  };
 
-  if (V0.getOpcode() != ISD::ADD || !V0.hasOneUse() ||
-      V1.getOpcode() != ISD::SUB || !V1.hasOneUse() ||
-      V0.getOperand(0) != V1.getOperand(0) ||
-      V0.getOperand(1) != V1.getOperand(1))
+  // Push all Shuffle and BinaryOp into WorkList, and check if all the
+  // Shuffle is CanSplitShuffle that matches pattern.
+  // And insert all the nodes of WorkList into VisitedSet without
+  // duplicate.
+  while (!WorkList.empty()) {
+    SDValue V = WorkList.front();
+    WorkList.pop();
+    // Skip it if it has been visited/poped before.
+    if (!VisitedSet.insert(V.getNode()).second)
+      continue;
+    //pop order: t32, t33, t30, t31, t28, t29, t19, t25, t27, t23, t24, t22
+    LLVM_DEBUG(dbgs() << "\nPop once: "; V.dump(););
+    // Avoid deep searching
+    if (VisitedSet.size() >= 16)
+      return SDValue();
+
+    // Find exit node that it is original ADD but combined to CONCAT.
+    if (V.getOpcode() == ISD::ADD && !Concat &&
+        ((Concat = combinePseudoV16i16Add(V.getNode(), DAG, Subtarget))
+         || (Concat = combinePseudoVxi16Add(V.getNode(), DAG, Subtarget)))) {
+      SplitOpMap[V] = std::make_pair(Concat.getOperand(0), Concat.getOperand(1));
+      Add = V;
+      continue;
+    }
+
+    if (V.getOpcode() == ISD::VECTOR_SHUFFLE) {
+      ShuffleVectorSDNode *SVN = cast<ShuffleVectorSDNode>(V.getNode());
+      // Combine 2 shuffle nodes to a new shuffle node, and then check
+      // if the new shuffle node pass CanSplitShuffle() later.
+      // original SDNode:
+      //    t26: v16i32 = vector_shuffle<2,3,0,1,7,4,10,11,8,9,15,12,u,u,u,u>
+      //                  t19, undef:v16i32
+      //  t27: v16i32 = vector_shuffle<0,1,2,3,4,5,4,5,6,7,8,9,10,11,10,11> t26,
+      //                  undef:v16i32
+      // to:
+      //  t63: v16i32 = vector_shuffle<2,3,0,1,7,4,7,4,10,11,8,9,15,12,15,12>
+      //                  t19, undef:v16i32
+      SDValue V0 = V.getOperand(0); //t26
+      SDValue V1 = V.getOperand(1); //undef:v16i32
+      if (V1->isUndef() && V0.hasOneUse() &&
+          isa<ShuffleVectorSDNode>(V0.getNode())) {
+        SmallVector<int, 16> NewMask;
+        ShuffleVectorSDNode *SVN0 =
+          cast<ShuffleVectorSDNode>(V0.getNode());
+        int NumElt = V.getValueType().getVectorNumElements();
+        for (int I = 0; I < NumElt; ++I) {
+          int Idx = SVN->getMaskElt(I);
+          NewMask.push_back(SVN0->getMaskElt(Idx));
+        }
+        SDValue Shuffle = DAG.getVectorShuffle(V.getValueType(), SDLoc(N),
+                                               SVN0->getOperand(0),
+                                               SVN0->getOperand(1), NewMask);
+        VisitedSet.insert(Shuffle.getNode());  //Visited t27, t22
+        // Not use CombineTo(V.getNode(), Shuffle) but ReplaceAllUsesWith()
+        // instead, since CombineTo might make its memory be reused by
+        // a new Shuffle(t64) in next iteration, which might makes elements in
+        // VisitedSet not clear/correct enough.
+        // To release the replaced nodes (t26, t27), save it into DeadNodes and
+        // then release it after the "while" to avoid memory reuse.
+        DAG.ReplaceAllUsesWith(V.getNode(), Shuffle.getNode());
+        DeadNodes.push_back(V.getNode());
+        V = Shuffle;
+        LLVM_DEBUG(dbgs() << "    --> NewShf: "; V.dump(););
+      }
+
+      LLVM_DEBUG(dbgs() << "Can shuffle Split? "; V.dump(););
+      if (!CanSplitShuffle(V.getNode()))
+        return SDValue();
+      WorkList.push(V.getOperand(0));
+      LLVM_DEBUG(dbgs() << "push: "; V.getOperand(0).dump(););
+      if (!V.getOperand(1)->isUndef()) {
+        WorkList.push(V.getOperand(1));
+        LLVM_DEBUG(dbgs() << "push "; V.getOperand(1).dump(););
+      }
+      continue;
+    }
+    if (IsBinaryOp(V.getOpcode())) {
+      // TODO: Check constant value
+      WorkList.push(V.getOperand(0));
+      LLVM_DEBUG(dbgs() << "push: "; V.getOperand(0).dump(););
+      WorkList.push(V.getOperand(1));
+      LLVM_DEBUG(dbgs() << "push: "; V.getOperand(1).dump(););
+      continue;
+    }
+
+    // If V node is not shuffle or binop, return.
     return SDValue();
+  }
+  // Release dead nodes t27, t26, t21, t22.
+  for (auto *N : DeadNodes)
+    DCI.recursivelyDeleteUnusedNodes(N);
 
-  SDValue V10 = V1.getOperand(0);
-  SDValue V11 = V1.getOperand(1);
-  if (V10->getOpcode() != ISD::VECTOR_SHUFFLE ||
-      V11->getOpcode() != ISD::VECTOR_SHUFFLE || V10->getOperand(0) != V11 ||
-      !V10->getOperand(1)->isUndef() || !V10->hasNUsesOfValue(2, 0) ||
-      !V11->hasNUsesOfValue(3, 0) ||
-      !CanSplitShuffle(V10.getNode()) || !CanSplitShuffle(V11.getNode()))
-    return SDValue();
-  SDValue Shuf0 = V10;
-  SDValue Shuf1 = V11;
+  LLVM_DEBUG(dbgs() << "Check if any use of split nodes would be out of "
+             << "the pattern/VisitedSet\n";);
+  for (SDNode *SDN : llvm::make_early_inc_range(VisitedSet)) {
+    for (auto UI = SDN->use_begin(), UE = SDN->use_end(); UI != UE; ++UI) {
+      if (!VisitedSet.count(*UI) && *UI != N) {
+        LLVM_DEBUG(dbgs() << "    return\n"; UI->dump(););
+        return SDValue();
+      }
+    }
+  }
 
-  V0 = V11->getOperand(0);
-  V1 = V11->getOperand(1);
-  if (V0.getOpcode() != ISD::ADD || !V0.hasOneUse() ||
-      V1.getOpcode() != ISD::SUB || !V1.hasOneUse() ||
-      V0.getOperand(0) != V1.getOperand(0) ||
-      V0.getOperand(1) != V1.getOperand(1))
-    return SDValue();
-
-  V10 = V1.getOperand(0);
-  V11 = V1.getOperand(1);
-  if (V10->getOpcode() != ISD::VECTOR_SHUFFLE || V11->getOpcode() != ISD::ADD ||
-      V10->getOperand(0) != V11 || !V10->getOperand(1)->isUndef() ||
-      !V10->hasNUsesOfValue(2, 0) ||
-      !V11->hasNUsesOfValue(3, 0) || !CanSplitShuffle(V10.getNode()))
-    return SDValue();
-  SDValue Shuf2 = V10;
-
-  // Match (A - B) + ((C - D) << 16) DAG
-  SDValue V = combinePseudoVxi16Add(V11.getNode(), DAG, Subtarget);
-  if (!V)
-    V = combinePseudoV16i16Add(V11.getNode(), DAG, Subtarget);
-  if (!V)
-    return SDValue();
-
+  assert(Concat);
+  //Split vector
   auto SplitShuffle = [&](SDNode *N, SDValue V0Low, SDValue V0Hi, SDValue V1Low,
                           SDValue V1Hi) {
     ShuffleVectorSDNode *SVOp = cast<ShuffleVectorSDNode>(N);
@@ -58472,7 +58547,7 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
     for (int I = 0; I < Half; ++I) {
       int MaskElt = Mask[I] % Half;
       if (Mask[I] > NumElts)
-        MaskElt += Half;  //??
+        MaskElt += Half;
       MaskLow.push_back(MaskElt);
     }
     for (int I = Half; I < NumElts; ++I) {
@@ -58488,73 +58563,160 @@ static SDValue combineV16i32Shuffle(SDNode *N, SelectionDAG &DAG,
       DAG.getVectorShuffle(NewVT, dl, V0Low, V1Low, MaskLow);
     SDValue ShufHi =
       DAG.getVectorShuffle(NewVT, dl, V0Hi, V1Hi, MaskHi);
+    // return its splitted TWO nodes.
     return std::pair<SDValue, SDValue>{ShufLow, ShufHi};
   };
 
-  assert(V.getOpcode() == ISD::CONCAT_VECTORS);
-  SDValue Low = V.getOperand(0);
-  SDValue Hi = V.getOperand(1);
-  EVT HalfVT = Low->getValueType(0);
-  SDValue Undef = DAG.getUNDEF(HalfVT);
-  SDValue ShufLow, ShufHi;
-  // t69: v16i32 = vector_shuffle<1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14> t67,
-  //                             undef:v16i32
-  std::tie(ShufLow, ShufHi) =
-    SplitShuffle(Shuf2.getNode(), Low, Hi, Undef, Undef);
-  SDLoc dl(N);
-  // t70: v16i32 = add nsw t69, t67
-  SDValue AddLow = DAG.getNode(ISD::ADD, dl, HalfVT, ShufLow, Low);
-  SDValue AddHi = DAG.getNode(ISD::ADD, dl, HalfVT, ShufHi, Hi);
-  // t71: v16i32 = sub nsw t69, t67
-  SDValue SubLow = DAG.getNode(ISD::SUB, dl, HalfVT, ShufLow, Low);
-  SDValue SubHi = DAG.getNode(ISD::SUB, dl, HalfVT, ShufHi, Hi);
-  // t72: v16i32 = vector_shuffle<0,17,2,19,4,21,6,23,8,25,10,27,12,29,14,31>
-  //                             t70, t71
-  std::tie(ShufLow, ShufHi) =
-    SplitShuffle(Shuf1.getNode(), AddLow, AddHi, SubLow, SubHi);
-  SDValue Shuf2Low, Shuf2Hi;
-  // t73: v16i32 = vector_shuffle<2,3,0,1,6,7,4,5,10,11,8,9,14,15,12,13> t72,
-  //                             undef:v16i32
-  std::tie(Shuf2Low, Shuf2Hi) =
-    SplitShuffle(Shuf0.getNode(), ShufLow, ShufHi, Undef, Undef);
-  // t74: v16i32 = add nsw t73, t72
-  AddLow = DAG.getNode(ISD::ADD, dl, HalfVT, Shuf2Low, ShufLow);
-  AddHi = DAG.getNode(ISD::ADD, dl, HalfVT, Shuf2Hi, ShufHi);
-  // t75: v16i32 = sub nsw t73, t72
-  SubLow = DAG.getNode(ISD::SUB, dl, HalfVT, Shuf2Low, ShufLow);
-  SubHi = DAG.getNode(ISD::SUB, dl, HalfVT, Shuf2Hi, ShufHi);
-  // t76: v16i32 = vector_shuffle<0,1,18,19,4,5,22,23,8,9,26,27,12,13,30,31>
-  //                              t74, t75
-  std::tie(ShufLow, ShufHi) = SplitShuffle(N, AddLow, AddHi, SubLow, SubHi);
+  auto SplitBinOp = [&](SDNode *N, SDValue V0Low, SDValue V0Hi, SDValue V1Low,
+                        SDValue V1Hi) {
+    SDLoc dl(N);
+    EVT HalfVT = V0Low->getValueType(0);
+    SDValue Low = DAG.getNode(N->getOpcode(), dl, HalfVT, V0Low, V1Low);
+    SDValue Hi = DAG.getNode(N->getOpcode(), dl, HalfVT, V0Hi, V1Hi);
 
-  // t77: v4i32 = extract_subvector t76, Constant:i64<0>
-  // t79: v4i32 = extract_subvector t76, Constant:i64<4>
-  // t81: v4i32 = extract_subvector t76, Constant:i64<8>
-  // t83: v4i32 = extract_subvector t76, Constant:i64<12>
+    return std::pair<SDValue, SDValue>{Low, Hi}; // return its splitted TWO nodes
+  };
+
+  LLVM_DEBUG(dbgs() << "\nPrepare to split all nodes by sorting them in order\n";);
+  std::queue<SDValue> TopoList;     // Push all split nodes in ORDER.
+  DenseMap<SDValue, int> DegreeMap; // Record each node's current degree.
+  // Compute which nodes could be split firstly. Start from Add(t19) node.
+  // Only if its all operands have already splitted, current node could be
+  // splitted.
+  // Degree is used to record how many its operands need to be split before
+  // split current UI. So when Degree == 0, push it into TopoList.
+  for (auto UI = Add->use_begin(), UE = Add->use_end(); UI != UE; ++UI) {
+    LLVM_DEBUG(UI->dump(););
+    int Degree = UI->getNumOperands() - 1;
+    // Iterate all operands of UI to see if they need to be splitted firstly.
+    for (SDValue Op : UI->ops()) {
+      LLVM_DEBUG(dbgs() << "    ";Op->dump(););
+      if (!Op->getNumOperands()) {
+        // eg, undef->getNumOperands == 0, means no need to split. Then Degree--
+        LLVM_DEBUG(dbgs() << "        Op->getNumOperands() == 0\n";);
+        --Degree;
+      }
+    }
+    // Degree == 0 means current UI could be split. Then push it to TopoList.
+    if (!Degree && !UI->use_empty()) {
+      LLVM_DEBUG(dbgs() << "push to TopoList: "; UI->dump(););
+      TopoList.push(SDValue(*UI, 0)); //Add's user nodes (eg, t63)
+    }
+    DegreeMap[SDValue(*UI, 0)] = Degree; // Record current UI's Degree.
+  }
+
+  // Split in topology order from TopoList (generally from top to bottom in DAG.)
+  LLVM_DEBUG(dbgs() << "\nStart to split in TopoList's order\n";);
+  while (!TopoList.empty()) {
+    SDValue V = TopoList.front();
+    TopoList.pop();
+    if (V.getNode() == N)
+      continue;
+    LLVM_DEBUG(dbgs() << "pop from TopoList: "; V->dump(););
+    for (auto UI = V->use_begin(), UE = V->use_end(); UI != UE; ++UI) {
+      LLVM_DEBUG(dbgs() << "    ";UI->dump(););
+      // Compute V's UI's Degree and record it into DegreeMap.
+      if (DegreeMap.find(SDValue(*UI, 0)) == DegreeMap.end()) {
+        // If it is a new UI from DegreeMap, init it by UI->getNumOperands().
+        DegreeMap[SDValue(*UI, 0)] = UI->getNumOperands();
+        LLVM_DEBUG(dbgs() << "        init value " << DegreeMap[SDValue(*UI, 0)]
+                   << "\n";);
+      }
+      //V is going to split, so update current UI's degree by -1.
+      int Degree = --DegreeMap[SDValue(*UI, 0)];
+      LLVM_DEBUG(dbgs() << "        -- value " << DegreeMap[SDValue(*UI, 0)]
+                 << "\n";);
+      for (SDValue Op : UI->ops()) {
+        if (!Op->getNumOperands())
+          --Degree;
+      }
+      LLVM_DEBUG(dbgs() << "        Degree: " << Degree << "\n";);
+
+      if (Degree == 0 && !UI->use_empty())
+        //Push UI into TopoList when it could be splitted.
+        TopoList.push(SDValue(*UI, 0));
+    }
+    // Do shuffle op's split and record its two result nodes into SplitOpMap[V].
+    if (V.getOpcode() == ISD::VECTOR_SHUFFLE) {
+      if (V.getOperand(1).isUndef()) {
+        EVT HalfVT = SplitOpMap[V.getOperand(0)].first.getValueType();
+        SDValue Undef = DAG.getUNDEF(HalfVT);
+        SplitOpMap[V] = SplitShuffle(V.getNode(),
+                                     SplitOpMap[V.getOperand(0)].first,
+                                     SplitOpMap[V.getOperand(0)].second,
+                                     Undef, Undef);
+      } else {
+        SplitOpMap[V] = SplitShuffle(V.getNode(),
+                                     SplitOpMap[V.getOperand(0)].first,
+                                     SplitOpMap[V.getOperand(0)].second,
+                                     SplitOpMap[V.getOperand(1)].first,
+                                     SplitOpMap[V.getOperand(1)].second);
+      }
+      LLVM_DEBUG(dbgs() << "Split shuffle Op into:\n";);
+    } else if (IsBinaryOp(V.getOpcode())) {
+      // Do bin op's split and record its two result nodes into SplitOpMap[V].
+      // FIXME handle constant value
+      SplitOpMap[V] = SplitBinOp(V.getNode(), SplitOpMap[V.getOperand(0)].first,
+                                 SplitOpMap[V.getOperand(0)].second,
+                                 SplitOpMap[V.getOperand(1)].first,
+                                 SplitOpMap[V.getOperand(1)].second);
+      LLVM_DEBUG(dbgs() << "Split bin Op into:\n";);
+    }
+    LLVM_DEBUG(dbgs() << "    "; SplitOpMap[V].first.dump(););
+    LLVM_DEBUG(dbgs() << "    "; SplitOpMap[V].second.dump(););
+  }
+
+  // Split N(t34) node.
+  auto LowHi = SplitShuffle(
+    N, SplitOpMap[N->getOperand(0)].first, SplitOpMap[N->getOperand(0)].second,
+    SplitOpMap[N->getOperand(1)].first, SplitOpMap[N->getOperand(1)].second);
+
   for (auto UI = N->use_begin(), UE = N->use_end(); UI != UE; ++UI) {
     SDValue Idx = UI->getOperand(1);
     unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
-    EVT QuaterVT = UI->getValueType(0);
     SDValue Extract;
-    switch (IdxVal) {
-    default:
-      llvm_unreachable("Idx can only be 0, 4, 8, 12");
-    case 0:
-    case 4:
-      Extract =
-        DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, ShufLow,
-                    DAG.getConstant(IdxVal, dl, Idx->getValueType(0)));
-      break;
-    case 8:
-    case 12:
-      Extract =
-        DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, ShufHi,
-                    DAG.getConstant(IdxVal % 8, dl, Idx->getValueType(0)));
-      break;
+    if (UI->getValueType(0).getVectorNumElements() == 8) {
+      //  t36: v8i32 = extract_subvector t34, Constant:i64<0>
+      //  t39: v8i32 = extract_subvector t34, Constant:i64<8>
+      switch (IdxVal) {
+      default:
+        llvm_unreachable("Idx can only be 0, 8");
+      case 0:
+        Extract = LowHi.first;
+        break;
+      case 8:
+        Extract = LowHi.second;
+        break;
+      }
+      DCI.CombineTo(*UI, Extract);
+    } else if (UI->getValueType(0).getVectorNumElements() == 4) {
+      //  t36: v4i32 = extract_subvector t34, Constant:i64<0>
+      //  t37: v4i32 = extract_subvector t34, Constant:i64<4>
+      //  t39: v4i32 = extract_subvector t34, Constant:i64<8>
+      //  t36: v4i32 = extract_subvector t34, Constant:i64<12>
+      EVT QuaterVT = UI->getValueType(0);
+      SDLoc dl(N);
+      switch (IdxVal) {
+      default:
+        llvm_unreachable("Idx can only be 0, 4, 8, 12");
+      case 0:
+      case 4:
+        Extract =
+          DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, LowHi.first,
+                      DAG.getConstant(IdxVal, dl, Idx->getValueType(0)));
+        break;
+      case 8:
+      case 12:
+        Extract =
+          DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, QuaterVT, LowHi.second,
+                      DAG.getConstant(IdxVal % 8, dl, Idx->getValueType(0)));
+        break;
+      }
+      DCI.CombineTo(*UI, Extract);
     }
-    DCI.CombineTo(*UI, Extract);
   }
 
+  LLVM_DEBUG(dbgs() << "Converted V16i32Shuffle_Add\n";);
   return SDValue(N, 0);
 }
 #endif // INTEL_CUSTOMIZATION

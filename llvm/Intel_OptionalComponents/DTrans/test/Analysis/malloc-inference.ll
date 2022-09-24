@@ -120,4 +120,6 @@ done:
 ; CHECK-LABEL: %struct.test2.P2 = type { i32, %struct.test2.P1* }
 ; CHECK: Safety data: Unsafe pointer store
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

@@ -54,8 +54,11 @@ define i32 @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" al
 ; CHECK:  store i32 2, i32* %p_test_D, align 1
 ; CHECK:  %valD = load i32, i32* %p_test_D, align 1
 
-declare !intel.dtrans.func.type !8 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef)
-declare !intel.dtrans.func.type !9 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef)
+declare !intel.dtrans.func.type !8 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef) #0
+declare !intel.dtrans.func.type !9 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

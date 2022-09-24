@@ -78,7 +78,9 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
 ; CHECK: End LLVMType: %struct.test03b
 
-declare !intel.dtrans.func.type !12 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !12 void @free(i8* "intel_dtrans_func_index"="1") #0
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
 !2 = !{i32 0, i32 0}  ; i32

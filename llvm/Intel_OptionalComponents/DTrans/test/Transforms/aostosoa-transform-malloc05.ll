@@ -83,4 +83,6 @@ define void @test01(i64 %num) {
 ; CHECK:  !2 = !{i32 0, i32 1}
 ; CHECK:  !3 = !{%__SOADT_struct.test01dep zeroinitializer, i32 2}
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

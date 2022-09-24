@@ -90,8 +90,10 @@ done:
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare !intel.dtrans.func.type !5 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i32 0, i32 1}  ; i32*

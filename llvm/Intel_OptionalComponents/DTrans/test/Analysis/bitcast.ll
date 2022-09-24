@@ -686,4 +686,6 @@ define i32 @test39(%struct.test39.f** %ppf) {
 ; CHECK: LLVMType: [16 x %struct.test11.a]
 ; CHECK: Safety data: Bad casting
 
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

@@ -28,4 +28,6 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; Peeling should occur, but the index type should be 64-bits
 ; CHECK: %__SOADT_struct.test01dep = type { i64, i64, i64*, i64 }
 
-declare i8* @calloc(i64, i64)
+declare i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

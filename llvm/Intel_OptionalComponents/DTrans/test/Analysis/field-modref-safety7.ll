@@ -59,4 +59,6 @@ define void @filter01a(%struct.test01* %st) {
 ; CHECK: RWState: computed
 
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

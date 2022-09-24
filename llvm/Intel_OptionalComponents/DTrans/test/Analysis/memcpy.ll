@@ -386,4 +386,6 @@ define void @test20(%struct.test20* %str_in) {
 ; CHECK: Safety data: Unhandled use
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
-declare noalias i8* @malloc(i64)
+declare noalias i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

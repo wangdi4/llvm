@@ -90,7 +90,7 @@ t11:                                     ; preds = %t5, %t1
   ret void
 }
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #2
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #0
 
 define internal fastcc void @init_with_coder2(%struct.mynextcoder* nocapture) unnamed_addr {
   %t2 = getelementptr inbounds %struct.mynextcoder, %struct.mynextcoder* %0, i64 0, i32 0
@@ -148,6 +148,8 @@ define dso_local i32 @main() {
   tail call void @myoperation(%struct.mynextcoder* nonnull @localnextcoder4)
   ret i32 0
 }
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: LLVMType: %struct.mycoder1
 ; CHECK: Safety data: Bad casting | Unsafe pointer store (conditional)

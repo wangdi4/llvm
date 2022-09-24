@@ -341,5 +341,8 @@ define void @test03() {
   ret void
 }
 
-declare void @free(i8* nocapture)
-declare noalias i8* @malloc(i64)
+declare void @free(i8* nocapture) #0
+declare noalias i8* @malloc(i64) #1
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

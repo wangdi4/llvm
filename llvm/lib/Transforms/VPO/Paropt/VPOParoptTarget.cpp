@@ -71,12 +71,9 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
 
-// TODO: The following 2 flags are temporary to support MKL to transiton from
+// TODO: The following flag is temporary to support MKL to transiton from
 // old implementation of target variant dispatch to new implementation.
 // vpo-paropt-use-interop is used to create interop object for synchronous case
-// vpo-paropt-use-raw-dev-ptr is used to send raw device pointer instead of
-// cl_buffer After the new implementation is fully tested, we will purge the
-// old one and remove these flags.
 #if INTEL_CUSTOMIZATION
 // 20200520: Enabled vpo-paropt-use-interop by default as requested by A21.
 #endif // INTEL_CUSTOMIZATION
@@ -84,6 +81,22 @@ static cl::opt<bool>
     UseInterop("vpo-paropt-use-interop", cl::Hidden,
                cl::init(true),
                cl::desc("Use the interop_obj for target variant dispatch."));
+
+// This flag controls various codegen versions for the dispatch construct.
+// Keeping the old codegen is useful for debugging. This is important as
+// the work is in progress and we expect future change(s) to dispatch codegen.
+//   Version 0 (default): original implementation.
+//               Calls __tgt_create_interop_obj() to create interop objs;
+//                 this API does not support prefer_type in append_args.
+//               Calls __tgt_use_interop() for #pragma omp interop use.
+//   Version 1:
+//               Calls __tgt_get_interop_obj() to create interop objs;
+//                 this API supports prefer_type in append_args.
+//               Calls __tgt_interop_use_async() for #pragma omp interop use.
+// TODO: When runtime supporting Version1 is in xmain, enable it by default.
+static cl::opt<uint32_t> DispatchCodegenVersion(
+    "vpo-paropt-dispatch-codegen-version", cl::Hidden, cl::init(0),
+    cl::desc("Codegen version for dispatch construct."));
 
 static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
@@ -5028,8 +5041,12 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
               InteropVar, InsertPt, /*EmitTgtReleaseInteropObj=*/false);
           Builder.CreateStore(ConstantPointerNull::get(Int8PtrTy),
                               InteropVarAddrCast);
-        } else {
-          VPOParoptUtils::genTgtUseInterop(InteropVar, InsertPt);
+        } else { // Item->getIsUse() is true
+          if (DispatchCodegenVersion == 0)
+            VPOParoptUtils::genTgtUseInterop(InteropVar, InsertPt);
+          else // DispatchCodegenVersion > 0
+            VPOParoptUtils::genTgtInteropUseAsync(
+                W, IdentTy, TidPtrHolder, InteropVar, IsAsync, InsertPt);
         }
       } else {
         llvm_unreachable("Unexpected interop action clause item type");
@@ -5460,8 +5477,12 @@ void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
 //   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (2)
 //   VariantCall(...)
 //   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (3)
+//
+// The calls to (2) and (3) are for OMPT tracing only;
+// do not emit them if SupportOMPTTracing==false
 void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
-                                              CallInst *VariantCall) {
+                                              CallInst *VariantCall,
+                                              bool SupportOMPTTracing) {
   // Currently the depend clause of the dispatch construct is attached
   // to the implicit parent task
   WRegionNode *ParentTask = W->getParent();
@@ -5484,13 +5505,15 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
   genTaskDeps(ParentTask, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
               DummyTaskTDependRec, InsertPt, true); //                     (1)
 
-  VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                                      InsertPt); //                        (2)
+  if (SupportOMPTTracing) {
+    VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                        InsertPt); //                      (2)
 
-  // Insert code after VariantCall
-  VPOParoptUtils::genKmpcTaskCompleteIf0(
-      W, IdentTy, TidPtrHolder, TaskAllocCI,
-      InsertPt->getNextNonDebugInstruction()); //                          (3)
+    // Insert code after VariantCall
+    VPOParoptUtils::genKmpcTaskCompleteIf0(
+        W, IdentTy, TidPtrHolder, TaskAllocCI,
+        InsertPt->getNextNonDebugInstruction()); //                        (3)
+  }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDependForDispatch\n");
 }
@@ -5518,6 +5541,48 @@ static bool findDispatchCall(WRegionNode *W) {
   }
   assert(found && "Dispatch call not found");
   return found;
+}
+
+// The input InteropStr is a string for a comma-separated list of items,
+// where each item can be one of these:
+//   - target
+//   - targetsync
+//   - an integer between 1 and 6, inclusive (the prefer type)
+// At least one of the items must be target or targetsync.
+// Examples of InteropStr:
+//   "targetsync"
+//   "target,targetsync"
+//   "targetsync,4,6,1"
+//
+// Input parm: the InteropStr string
+// Output parm: PreferList is populated with integers in the same order as they
+//              appear in the InteropStr
+// Returns 1 if targetsync is seen. Otherwise returns 0.
+static unsigned getInteropOperation(StringRef InteropStr,
+                                    SmallVectorImpl<unsigned> &PreferList) {
+  SmallVector<StringRef, 3> Items;
+  InteropStr.split(Items, ",");
+  int TargetOrTargetsync = -1; // return value; will be 0 or 1
+  int PreferItem = -1;
+  for (StringRef &Item : Items) {
+    if (Item == "target") {
+      TargetOrTargetsync = std::max(TargetOrTargetsync, 0);
+    } else if (Item == "targetsync") {
+      TargetOrTargetsync = std::max(TargetOrTargetsync, 1);
+    } else if (!Item.getAsInteger(/*radix=*/ 10, PreferItem)) {
+      // getAsInteger() returns true on error
+      assert(1 <= PreferItem && PreferItem <= 6 &&
+             "Invalid Prefer Type. Expected to be in [1,6]");
+      PreferList.push_back((unsigned)PreferItem);
+    } else {
+      llvm_unreachable("getInteropOperation: Unknown string in InteropStr");
+    }
+  }
+
+  assert(TargetOrTargetsync > -1 &&
+         "getInteropOperation: Target/Targetsync was not seen ");
+
+  return (unsigned)TargetOrTargetsync;
 }
 
 bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
@@ -5613,16 +5678,58 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   // Emit CFG to hold dispatch code:
   //   if (%available)
   //     // code to setup variant call goes here:
-  //     //  1. create interop obj
+  //     //  1. create interop obj (if not already in an interop clause)
   //     //  2. process need_device_ptr
   //     //  3. handle depend clause
   //     call variant function
+  //     //  4. sync call for NOWAIT (only for DispatchCodegenVersion > 0)
   //   else
   //     call base function
+  //
+  // There are currently two codegen implementations of 1-4 above.
+  // When they differ, they are guarded with DispatchCodegenVersion.
+  //
+  // A. DispatchCodegenVersion == 0 is for the original implementation:
+  //     A1. Call  __tgt_create_interop_obj to create interop objs.
+  //     A2. Processing of need_device_ptr is the same in both versions.
+  //     A3. Call __kmpc_omp_wait_deps, __kmpc_omp_task_begin_if0,
+  //         and __kmpc_omp_task_complete_if0 to handle DEPEND.
+  //     A4. Does not call __tgt_target_sync for NOWAIT.
+  //
+  // B. DispatchCodegenVersion > 0 is for the newer implementation that
+  //    supports creation of interop obj that honors the prefer_type
+  //    specified in append_args. This implementation also invokes a
+  //    runtime that is more efficient at handling asynchronous execution
+  //    (ie when NOWAIT is specified):
+  //     B1. Call  __kpmc_get_current_task and __tgt_get_interop_obj
+  //         to create interop objs.
+  //     B2. Processing of need_device_ptr is the same in both versions.
+  //     B3. Call __kmpc_omp_wait_deps to handle DEPEND, but not
+  //         __kmpc_omp_task_begin_if0 and  __kmpc_omp_task_complete_if0.
+  //     B4. Call __tgt_target_sync for NOWAIT.
   Instruction *ThenTerm, *ElseTerm;
   VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt, DT);
 
   IRBuilder<> Builder(ThenTerm);
+
+  LoadInst *Tid = nullptr;
+  CallInst *CurrentTask = nullptr;
+
+  // Initialize Tid and CurrentTask if still uninitialized
+  auto LoadTidAndCurrentTask = [&]() {
+    Type *Int32Ty = Builder.getInt32Ty();
+    Type *Int8PtrTy = Builder.getInt8PtrTy();
+
+    if (!Tid) // Load Tid from TidPtrHolder
+      Tid =
+          Builder.CreateAlignedLoad(Int32Ty, TidPtrHolder, Align(4), "my.tid");
+
+    if (!CurrentTask) { // Emit call to __kmpc_get_current_task
+      CurrentTask = VPOParoptUtils::genCall(
+          "__kpmc_get_current_task", Int8PtrTy, {Tid}, {Int32Ty}, ThenTerm);
+      CurrentTask->setName("current.task");
+    }
+  };
 
   // Current we only support one interop obj, either interop(target) or
   // interop(targetsync). We use the old-stype interop obj from
@@ -5634,12 +5741,29 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
            "Expected an interop obj for dispatch nowait");
   } else if (InteropClauseObj) {
     InteropObj = InteropClauseObj;
-  } else if (InteropStr == "target" || InteropStr == "targetsync" ||
-           InteropStr == "target,targetsync") {
-    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm); //      (7)
   } else {
-    llvm_unreachable("Unsupported interop type in append_args");
-    // We should never get here because FE should have caught it
+    SmallVector<unsigned> PreferList;
+    unsigned OmpInteropContext = getInteropOperation(InteropStr, PreferList);
+
+    if (DispatchCodegenVersion == 0) {
+      // (A1)
+      assert(PreferList.size() == 0 &&
+             "prefer_type is unsupported in append_args with "
+             "vpo-paropt-dispatch-codegen-version=0. "
+             "Set the flag to 1 to enable support.");
+      InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm); //    (7)
+    }
+    else {
+      // (B1)
+      // For DispatchCodegenVersion > 0, emit this call to get the interop obj:
+      //   InteropObj = __tgt_get_interop_obj(loc, interop_op, num_prefers,
+      //                            prefer_list, device_id, gtid, CurrentTask);
+      LoadTidAndCurrentTask();
+      InteropObj = VPOParoptUtils::genTgtGetInteropObj(
+          W, IdentTy, OmpInteropContext, PreferList, DeviceNum, Tid,
+          CurrentTask, ThenTerm);
+      InteropObj->setName("interop.obj");
+    }
   }
 
   // Create and insert Variant call before ThenTerm
@@ -5649,11 +5773,24 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   if (!IsVoidType)
     VariantCall->setName("variant");
 
-  // Handle need_device_ptr
+  // (A2,B2) Handle need_device_ptr
   processNeedDevicePtr(W, VariantCall, NeedDevicePtrStr);
 
-  // Handle depend clause
-  genDependForDispatch(W, VariantCall);
+  // (A3,B3) Handle depend clause
+  // If DispatchCodegenVersion > 0, do not emit the calls to
+  //   __kmpc_omp_task_begin_if0
+  //   __kmpc_omp_task_complete_if0
+  // which are only used for tracing.
+  bool SupportOMPTTracing = (DispatchCodegenVersion == 0);
+  genDependForDispatch(W, VariantCall, SupportOMPTTracing);
+
+  // (B4) If DispatchCodegenVersion > 0 and the NOWAIT clause is specified,
+  // emit a call to
+  //   __tgt_target_sync(loc, gtid, CurrentTask, nullptr);
+  if (DispatchCodegenVersion > 0 && W->getNowait()) {
+    LoadTidAndCurrentTask();
+    VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
+  }
 
   // Move BaseCall to before ElseTerm
   InsertPt = BaseCall->getNextNode(); // insert PHI before this point later

@@ -21,7 +21,9 @@ define void @test01(i64 %n) {
 ; CHECK:   Aliased types:
 ; CHECK:     Type: [6 x %struct.test01]
 
-declare !intel.dtrans.func.type !3 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !3 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 1}  ; i8*

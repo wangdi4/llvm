@@ -81,5 +81,8 @@ define void @test02(%struct.test02* %in1) {
 ; CHECK:   store i64 %field2_val, i64* %field1_addr
 ; CHECK:   store i64 %field1_val, i64* %field2_addr
 
-declare i8* @malloc(i64)
-declare i8* @calloc(i64, i64)
+declare i8* @malloc(i64) #0
+declare i8* @calloc(i64, i64) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

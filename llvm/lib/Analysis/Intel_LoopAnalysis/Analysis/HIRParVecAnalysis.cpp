@@ -29,6 +29,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 
@@ -145,6 +146,10 @@ class DDWalk final : public HLNodeVisitorBase {
   ParVecInfo *Info;
   /// Indicates whether we have computed safe reduction chain for the loop.
   bool ComputedSafeRedn;
+  /// Indicates whether we have gathered FP IVs for the loop.
+  bool PopulatedFPInductions;
+  /// List of FP IVs identified in loop.
+  SmallVector<FPInductionInfo, 2> LoopFPInductions;
 
   const HIRVectorIdioms &IdiomList;
 
@@ -154,6 +159,10 @@ class DDWalk final : public HLNodeVisitorBase {
   /// \brief Analyze whether the flow dependence edge can be ignored
   /// due to safe reduction.
   bool isSafeReductionFlowDep(const DDEdge *Edge);
+
+  /// Analyze whether the flow dependence edge can be ignored due to FP
+  /// induction idiom.
+  bool isFPInductionFlowDep(const DDEdge *Edge);
 
   /// Returns true if there is an anti edge considered safe as part of a
   /// vconflict idiom.
@@ -165,7 +174,7 @@ public:
          const HIRVectorIdioms &IList)
       : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop)),
         CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false),
-        IdiomList(IList) {}
+        PopulatedFPInductions(false), IdiomList(IList) {}
 
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
@@ -375,6 +384,68 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
          IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastVal;
 }
 
+// Pattern match a loop structure that is known to cause FP computation
+// precision issue when vectorized. The relative tolerance of the benchmark
+// containing such a loop cannot be adjusted hence we need to pattern match to
+// prohibit vectorization. Target loop's structure looks like -
+//
+//   + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+//   |   (%addr)[%dim0][i1] = %fpiv;
+//   |   %fpiv = %fpivstep  +  %fpiv;
+//   + END LOOP
+static bool
+isSuitableForFPIVVectorization(HLLoop *CandidateLoop,
+                               ArrayRef<FPInductionInfo> LoopFPInductions) {
+  if (!CandidateLoop->isDo() || CandidateLoop->isConstTripLoop())
+    return true;
+
+  if (CandidateLoop->getNumChildren() != 2)
+    return true;
+
+  // Checks for first node in loop.
+  HLNode *FirstNode = CandidateLoop->getFirstChild();
+  auto *FirstI = dyn_cast<HLInst>(FirstNode);
+  if (!FirstI || !isa<StoreInst>(FirstI->getLLVMInstruction()))
+    return true;
+
+  // Checks for last/second node in loop.
+  HLNode *LastNode = CandidateLoop->getLastChild();
+  auto *LastI = dyn_cast<HLInst>(LastNode);
+  if (!LastI || LastI->getLLVMInstruction()->getOpcode() != Instruction::FAdd)
+    return true;
+
+  // Check that loop has only one FP IV and the last node represents it.
+  if (LoopFPInductions.size() != 1 || LoopFPInductions[0].DefInst != LastI)
+    return true;
+
+  // All checks failed. Loop is not suitable for FP IV vectorization.
+  return false;
+}
+
+bool DDWalk::isFPInductionFlowDep(const DDEdge *Edge) {
+  assert(Edge->isFlow() && "Flow edge expected.");
+
+  DDRef *SrcRef = Edge->getSrc();
+  const HLDDNode *WriteNode = SrcRef->getHLDDNode();
+  auto Inst = cast<HLInst>(WriteNode);
+
+  if (!PopulatedFPInductions) {
+    DDUtils::populateFPInductions(CandidateLoop, DDG, LoopFPInductions);
+    PopulatedFPInductions = true;
+  }
+
+  if (!isSuitableForFPIVVectorization(CandidateLoop, LoopFPInductions)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "\tLoop is not safe to vectorize (known FP accuracy issues)\n");
+    return false;
+  }
+
+  return llvm::any_of(LoopFPInductions, [Inst](FPInductionInfo FPI) {
+    return FPI.DefInst == Inst;
+  });
+}
+
 bool DDWalk::isSafeVConflictAntiDep(const RegDDRef *SrcRef,
                                     const DDEdge *Edge) {
   // Consider as safe anti edges from vconflict load to vconflict store idiom.
@@ -460,6 +531,11 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   if (Edge->isFlow() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
+    return;
+  }
+
+  if (Edge->isFlow() && isFPInductionFlowDep(Edge)) {
+    LLVM_DEBUG(dbgs() << "\tis safe to vectorize/parallelize (FP induction)\n");
     return;
   }
 

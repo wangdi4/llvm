@@ -168,6 +168,9 @@ protected:
   // manipulate with objects through VPlanTTICostModel type handler.
   ~VPlanTTICostModel() {};
 
+  // Return cost of ZTT check.
+  VPInstructionCost getZTTCost(Type *UBType) const;
+
 private:
   VPlanAlignmentAnalysis VPAA;
 
@@ -324,6 +327,10 @@ public:
   virtual VPInstructionCost getLoadStoreCost(
     const VPLoadStoreInst *LoadOrStore,
     Align Alignment, unsigned VF) const = 0;
+
+  /// Return the cost of ZTT check.
+  /// TODO: Consider adding special VPInstruction and placing it in IR.
+  virtual VPInstructionCost getZTTCost(Type *UBType) const = 0;
 };
 
 // Definition of 'Cost Model with Heuristics' template class. As the name
@@ -569,6 +576,11 @@ public:
   VPInstructionCost getLoadStoreCost(const VPLoadStoreInst *LoadOrStore,
                                      Align Alignment, unsigned VF) const final {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
+  }
+
+  /// Return the cost of ZTT check.
+  VPInstructionCost getZTTCost(Type *UBType) const final {
+    return VPlanTTICostModel::getZTTCost(UBType);
   }
 };
 

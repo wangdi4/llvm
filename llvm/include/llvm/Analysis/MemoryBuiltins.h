@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -74,41 +74,48 @@ bool isAllocationFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
 #if INTEL_CUSTOMIZATION
-/// Tests if a value is a call or invoke to a library function that
+
+class IntelMemoryBuiltins {
+public:
+/// Tests if a value/function is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
-bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-bool isMallocLikeFn(const Value *V,
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
+static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., malloc).
-bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-#endif
-
-#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., calloc).
-bool isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+static bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
-bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// frees memory (e.g., free).
-bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// frees memory (e.g., delete).
-bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
+static bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+static std::pair<unsigned, unsigned>
+getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
+
+/// Returns 'true' if the LibFunc is contained within the list of library
+/// functions that are known to allocate memory. The list is maintained
+/// within MemoryBuiltins.cpp as 'AllocationFnData'.
+static bool isAllocationLibFunc(LibFunc LF);
+};
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -126,18 +133,6 @@ bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// If this is a call to a realloc function, return the reallocated operand.
 Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
-
-#if INTEL_CUSTOMIZATION
-/// Returns indices of size arguments of Malloc-like functions.
-/// All functions except calloc return -1 as a second argument.
-std::pair<unsigned, unsigned>
-getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
-
-/// Returns 'true' if the LibFunc is contained within the list of library
-/// functions that are known to allocate memory. The list is maintained
-/// within MemoryBuiltins.cpp as 'AllocationFnData'.
-bool isAllocationLibFunc(LibFunc LF);
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
