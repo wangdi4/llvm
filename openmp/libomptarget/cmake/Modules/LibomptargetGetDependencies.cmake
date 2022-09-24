@@ -65,6 +65,48 @@ else()
     "Using LLVM include directories: ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}")
 endif()
 
+# INTEL_CUSTOMIZATION
+################################################################################
+# Looking for libelf...
+################################################################################
+
+find_path (
+  LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR
+  NAMES
+    libelf.h
+  PATHS
+    /usr/include
+    /usr/local/include
+    /opt/local/include
+    /sw/include
+    ENV CPATH
+  PATH_SUFFIXES
+    libelf)
+
+find_library (
+  LIBOMPTARGET_DEP_LIBELF_LIBRARIES
+  NAMES
+    elf
+  PATHS
+    /usr/lib
+    /usr/local/lib
+    /opt/local/lib
+    /sw/lib
+    ENV LIBRARY_PATH
+    ENV LD_LIBRARY_PATH)
+
+set(LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
+find_package_handle_standard_args(
+  LIBOMPTARGET_DEP_LIBELF
+  DEFAULT_MSG
+  LIBOMPTARGET_DEP_LIBELF_LIBRARIES
+  LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS)
+
+mark_as_advanced(
+  LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS
+  LIBOMPTARGET_DEP_LIBELF_LIBRARIES)
+# end INTEL_CUSTOMIZATION
+
 ################################################################################
 # Looking for libffi...
 ################################################################################
