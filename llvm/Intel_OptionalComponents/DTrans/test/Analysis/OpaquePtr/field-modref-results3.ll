@@ -89,7 +89,9 @@ define void @filter01b(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel
 }
 
 declare !intel.dtrans.func.type !17 !callback !0 void @broker(%struct.ident_t* "intel_dtrans_func_index"="1" %0, i32 %1, void (i32*, i32*, ...)* "intel_dtrans_func_index"="2" %2, ...)
-declare !intel.dtrans.func.type !18 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !18 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK-TYPED: FieldModRefQuery: - ModRef     : [testbase]   %ld1 = load i32, i32* %fieldaddr, align 4 --   call void @test01()
 ; CHECK-TYPED: FieldModRefQuery: - Ref        : [test01]   store i32 8, i32* %f0, align 4 --   tail call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @broker(%struct.ident_t* @.kmpc_loc.0.0.27, i32 6, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64, %struct.test01*, void (%struct.test01*)*, void (%struct.test01*)*)* @use01a to void (i32*, i32*, ...)*), i64 1, %struct.test01* %st, void (%struct.test01*)* @filter01a, void (%struct.test01*)* @filter01b)

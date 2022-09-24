@@ -1,6 +1,6 @@
 //===----  Intel_IPOUtils.cpp - IPO Utility Functions   --------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -99,11 +99,11 @@ bool IPOUtils::preserveOrSuppressInlineReport(Instruction *I, Instruction *NI) {
 
 static AllocKind getAllocFnKind(const CallBase *Call,
                                 const TargetLibraryInfo &TLI) {
-  if (isNewLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isNewLikeFn(Call, &TLI))
     return AK_New;
-  if (isMallocLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isMallocLikeFn(Call, &TLI))
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
-  if (isCallocLikeFn(Call, &TLI))
+  if (IntelMemoryBuiltins::isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
   if (getReallocatedOperand(Call, &TLI))
     return AK_Realloc;
@@ -203,11 +203,14 @@ bool AllocFreeAnalyzer::collect(void) {
 
     if (IsMallocLike)
       //check malloc-like call: malloc, calloc, realloc, new
-      HasRelevantCall = isMallocLikeFn(&F, &TLI) || isCallocLikeFn(&F, &TLI) ||
-          isReallocLikeFn(&F, &TLI) || isNewLikeFn(&F, &TLI);
+      HasRelevantCall = IntelMemoryBuiltins::isMallocLikeFn(&F, &TLI) ||
+          IntelMemoryBuiltins::isCallocLikeFn(&F, &TLI) ||
+          IntelMemoryBuiltins::isNewLikeFn(&F, &TLI) ||
+          isReallocLikeFn(&F, &TLI);
     else
       //check free-like call: free, delete, etc.
-      HasRelevantCall = isFreeFn(&F, &TLI) || isDeleteFn(&F, &TLI);
+      HasRelevantCall = IntelMemoryBuiltins::isFreeFn(&F, &TLI) || 
+          IntelMemoryBuiltins::isDeleteFn(&F, &TLI);
 
     if (!HasRelevantCall)
       return false;

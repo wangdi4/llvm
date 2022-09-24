@@ -55,4 +55,6 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @realloc(i8*, i64)
+declare noalias i8* @realloc(i8*, i64) #0
+
+attributes #0 = { allockind("realloc") allocsize(1) "alloc-family"="malloc" }

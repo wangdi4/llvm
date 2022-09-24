@@ -92,7 +92,9 @@ define void @test01(i64 %some_val) {
   ret void
 }
 
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i16 0, i32 0}  ; i16
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

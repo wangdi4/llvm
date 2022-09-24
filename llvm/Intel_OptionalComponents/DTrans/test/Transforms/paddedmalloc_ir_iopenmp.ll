@@ -12,12 +12,14 @@
 @arr1 = internal global [10 x i32] zeroinitializer, align 16
 @arr2 = internal global [10 x i32] zeroinitializer, align 16
 
-declare noalias i8* @malloc(i64)
+declare dso_local noalias noundef i8* @malloc(i64 noundef) local_unnamed_addr #0
+
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare void @free(i8* nocapture)
+declare dso_local void @free(i8* allocptr nocapture noundef) local_unnamed_addr #1
+
 
 ; Malloc function
 define internal noalias i8* @mallocFunc(i64) {
@@ -68,6 +70,10 @@ DIR.OMP.END.PARALLEL.EXIT:
   ret i32 0
 }
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+
+
 ; Verify that the counter was set correctly
 ; CHECK-LABEL: define internal noalias i8* @mallocFunc(i64 %0) {
 ; CHECK-NEXT: [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
@@ -110,7 +116,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK: }
 
 ; Verify that the outline function was created
-; CHECK-LABEL: define internal void @main..split(i32* %tid, i32* %bid) #1 {
+; CHECK-LABEL: define internal void @main..split(i32* %tid, i32* %bid) #3 {
 ; CHECK-LABEL: newFuncRoot:
 ; CHECK:   br label %.split
 ;

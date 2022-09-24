@@ -73,8 +73,11 @@ define i64 @user(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" align 16 
 ; CHECK:  %valD = load i32, i32* %p_test_D, align 4
 ; CHECK:  %valE = load i64, i64* %p_test_E, align 8
 
-declare !intel.dtrans.func.type !10 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef)
-declare !intel.dtrans.func.type !11 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #16
+declare !intel.dtrans.func.type !10 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef) #0
+declare !intel.dtrans.func.type !11 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{%struct.inner zeroinitializer, i32 0}  ; %struct.inner
 !2 = !{i32 0, i32 0}  ; i32

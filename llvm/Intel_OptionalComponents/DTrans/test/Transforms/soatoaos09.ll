@@ -185,8 +185,8 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void
 }
 
-declare dso_local void @free(i8* nocapture)
-
+declare dso_local void @free(i8* nocapture) #2
+ 
 define linkonce_odr dso_local void @_ZN3ArrIPfE6resizeEi(%struct.Arr.0* nocapture %this, i32 %inc) {
 entry:
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
@@ -571,7 +571,7 @@ entry:
   ret void
 }
 
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr
+declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #1
 
 ; Function Attrs: argmemonly nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
@@ -746,3 +746,5 @@ for.body:                                         ; preds = %for.body, %for.body
 }
 
 attributes #0 = { argmemonly nounwind willreturn writeonly }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { allockind("free") "alloc-family"="malloc" }

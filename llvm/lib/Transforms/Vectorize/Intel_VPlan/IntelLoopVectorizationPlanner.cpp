@@ -1056,7 +1056,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         isa<VPlanDynamicPeeling>(PeelingVariant) : false;
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
-        PeelEvaluator.getTripCount(), PeelIsDynamic, VF, BestUF);
+        IsTripCountEstimated, PeelEvaluator.getTripCount(), PeelIsDynamic, VF,
+        BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
     // 1 because VPlan's loop unroller is called after selecting the best VF.
@@ -1090,7 +1091,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
-        0 /*Peel trip count */, false /*no dynamic peeling*/, VF, BestUF);
+        IsTripCountEstimated, 0 /*Peel trip count */,
+        false /*no dynamic peeling*/, VF, BestUF);
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
     VPInstructionCost VectorCostWithoutPeel =
@@ -1292,6 +1294,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // Add remark: vectorization support: normalized vectorization overhead
       OptRptStats.CostModelRemarks.emplace_back(
           15309, std::to_string(CostSummary.LoopOverhead.getFloatValue()));
+    }
+    if (!IsTripCountEstimated) {
+      // Add remark: using (estimated) scalar loop trip count
+      OptRptStats.CostModelRemarks.emplace_back(15570,
+                                                std::to_string(OrigTripCount));
     }
   }
 

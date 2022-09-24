@@ -64,8 +64,11 @@ define i64 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !in
   ret i64 %sum
 }
 
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !10 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !10 void @free(i8* "intel_dtrans_func_index"="1") #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{%struct.inner zeroinitializer, i32 0}  ; %struct.inner

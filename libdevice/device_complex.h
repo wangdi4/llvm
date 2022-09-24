@@ -1,5 +1,20 @@
 //==------- device_complex.h - complex devicelib functions declarations-----==//
+// INTEL_CUSTOMIZATION
 //
+// INTEL CONFIDENTIAL
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -165,5 +180,19 @@ double __complex__ __devicelib___divdc3(double a, double b, double c, double d);
 
 DEVICE_EXTERN_C
 float __complex__ __devicelib___divsc3(float a, float b, float c, float d);
+
+#ifdef INTEL_CUSTOMIZATION
+DEVICE_EXTERN_C
+float __complex__ __devicelib_cexp10f(float __complex__ z);
+
+DEVICE_EXTERN_C
+double __complex__ __devicelib_cexp10(double __complex__ z);
+
+DEVICE_EXTERN_C
+float __complex__ __devicelib_clog10f(float __complex__ z);
+
+DEVICE_EXTERN_C
+double __complex__ __devicelib_clog10(double __complex__ z);
+#endif
 #endif // __SPIR__
 #endif // __LIBDEVICE_DEVICE_COMPLEX_H_

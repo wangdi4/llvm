@@ -74,5 +74,8 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-DAG: define internal i32 @doSomething.{{[0-9]+}}(%__DFT_struct.test* %p_test)
 ; CHECK-DAG: define internal void @connect.{{[0-9]+}}(%__DFT_struct.test* %p_test, %__DFDT_struct.other* %p_other)
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare i8* @malloc(i64) #0
+declare void @free(i8*) #1
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }

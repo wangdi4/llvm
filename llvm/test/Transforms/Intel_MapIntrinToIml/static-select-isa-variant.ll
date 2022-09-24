@@ -1,4 +1,4 @@
-; Check to see that SVML function calls are dispatched ISA-specific variants
+; Check to see that SVML function calls are dispatched to ISA-specific variants.
 
 ; RUN: opt -mtriple=i686-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -mattr=+sse2 -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86
 ; RUN: opt -mtriple=x86_64-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86_64
@@ -150,8 +150,10 @@ for.end:                                          ; preds = %vector.body
   ret void
 }
 
+; For AVX512 target with high ZMM, 512-bit SVML functions use high ZMM 512-bit variants, 256-bit and lower ones are dispatched to AVX2 variants.
 ; CHECK-LABEL: @vector_foo_static_avx512_high_zmm
-; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_x0(
+; CHECK-X86: call fast svml_cc <4 x float> @__svml_acosf4_s9(
+; CHECK-X86_64: call fast svml_cc <4 x float> @__svml_acosf4_l9(
 ; CHECK: ret
 
 ; Function Attrs: nounwind uwtable
@@ -173,6 +175,36 @@ vector.body:                                      ; preds = %vector.body, %entry
   store <4 x float> %3, <4 x float>* %5, align 4
   %index.next = add i64 %index, 4
   %6 = icmp eq i64 %index.next, 1000
+  br i1 %6, label %for.end, label %vector.body
+
+for.end:                                          ; preds = %vector.body
+  ret void
+}
+
+; CHECK-LABEL: @vector_foo_512_static_avx512_high_zmm
+; CHECK-X86: call fast svml_avx512_cc <16 x float> @__svml_acosf16_x0(
+; CHECK-X86_64: call fast svml_avx512_cc <16 x float> @__svml_acosf16_z0(
+; CHECK: ret
+
+; Function Attrs: nounwind uwtable
+define void @vector_foo_512_static_avx512_high_zmm(float* nocapture %varray) #5 {
+entry:
+  br label %vector.body
+
+vector.body:                                      ; preds = %vector.body, %entry
+  %index = phi i64 [ 0, %entry ], [ %index.next, %vector.body ]
+  %0 = trunc i64 %index to i32
+  %broadcast.splatinsert7 = insertelement <16 x i32> undef, i32 %0, i32 0
+  %broadcast.splat8 = shufflevector <16 x i32> %broadcast.splatinsert7, <16 x i32> undef, <16 x i32> zeroinitializer
+  %induction9 = add <16 x i32> %broadcast.splat8, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+  %1 = sitofp <16 x i32> %induction9 to <16 x float>
+  %2 = fmul fast <16 x float> %1, <float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000, float 0x3F50624DE0000000>
+  %3 = call fast <16 x float> @__svml_acosf16(<16 x float> %2)
+  %4 = getelementptr inbounds float, float* %varray, i64 %index
+  %5 = bitcast float* %4 to <16 x float>*
+  store <16 x float> %3, <16 x float>* %5, align 4
+  %index.next = add i64 %index, 16
+  %6 = icmp eq i64 %index.next, 1008
   br i1 %6, label %for.end, label %vector.body
 
 for.end:                                          ; preds = %vector.body
@@ -332,8 +364,8 @@ define <1 x float> @scalar_foo_static_avx512(<1 x float> %src) #4 {
 }
 
 ; CHECK-LABEL: @scalar_foo_static_avx512_high_zmm
-; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_x0(
-; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_z0(
+; CHECK-X86: call fast svml_cc <1 x float> @__svml_acosf1_s9(
+; CHECK-X86_64: call fast svml_cc <1 x float> @__svml_acosf1_l9(
 ; CHECK: ret
 define <1 x float> @scalar_foo_static_avx512_high_zmm(<1 x float> %src) #5 {
   %result = call fast svml_cc <1 x float> @__svml_acosf1(<1 x float> %src)
@@ -349,6 +381,7 @@ define <1 x float> @scalar_foo_force_dynamic_avx2(<1 x float> %src) #3 {
 }
 
 ; Function Attrs: nounwind readnone
+declare <16 x float> @__svml_acosf16(<16 x float>) #6
 declare <4 x float> @__svml_acosf4(<4 x float>) #6
 declare <1 x float> @__svml_acosf1(<1 x float>) #6
 

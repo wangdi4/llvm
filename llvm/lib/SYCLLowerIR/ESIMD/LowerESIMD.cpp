@@ -539,6 +539,10 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
+        {"bf_cvt", { "bf.cvt", { a(0) }}},
+        {"tf32_cvt", { "tf32.cvt", { a(0) }}},
+        {"qf_cvt", { "qf.cvt", { a(0) }}},
+        {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"dpas2",
@@ -546,14 +550,6 @@ public:
         {"dpas_nosrc0", {"dpas.nosrc0", {a(0), a(1), t(0)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), t(0)}}},
         {"dpasw_nosrc0", {"dpasw.nosrc0", {a(0), a(1), t(0)}}},
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-        {"bf_cvt", { "bf.cvt", { a(0) }}},
-        {"tf32_cvt", { "tf32.cvt", { a(0) }}},
-        {"qf_cvt", { "qf.cvt", { a(0) }}},
-        {"srnd", {"srnd", {a(0), a(1)}}},
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal",
          {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
@@ -1021,6 +1017,8 @@ static void translateSLMInit(CallInst &CI) {
   assert(NewVal != 0 && "zero slm bytes being requested");
   UpdateUint64MetaDataToMaxValue SetMaxSLMSize{
       *F->getParent(), genx::KernelMDOp::SLMSize, NewVal};
+  // TODO: Keep track of traversed functions (use 4-argument version of
+  // traverseCallgraphUp) to avoid repeating traversals over same function.
   esimd::traverseCallgraphUp(F, SetMaxSLMSize);
 }
 
@@ -1037,6 +1035,8 @@ static void translateNbarrierInit(CallInst &CI) {
   assert(NewVal != 0 && "zero named barrier count being requested");
   UpdateUint64MetaDataToMaxValue SetMaxNBarrierCnt{
       *F->getParent(), genx::KernelMDOp::NBarrierCnt, NewVal};
+  // TODO: Keep track of traversed functions to avoid repeating traversals
+  // over same function.
   esimd::traverseCallgraphUp(F, SetMaxNBarrierCnt);
 }
 

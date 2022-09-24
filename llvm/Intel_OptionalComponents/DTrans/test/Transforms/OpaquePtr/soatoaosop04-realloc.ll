@@ -213,9 +213,11 @@ entry:
   ret i8* %call
 }
 
-declare !intel.dtrans.func.type !14 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !14 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !15 void @free(i8* "intel_dtrans_func_index"="1") #1
 
-declare !intel.dtrans.func.type !15 void @free(i8* "intel_dtrans_func_index"="1")
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!0, !1, !5}
 

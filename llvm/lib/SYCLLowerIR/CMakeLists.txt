@@ -123,12 +123,16 @@ add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/ESIMDUtils.cpp
   ESIMD/ESIMDVerifier.cpp
   ESIMD/LowerESIMDKernelAttrs.cpp
+  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
   LowerInvokeSimd.cpp
   LowerWGScope.cpp
   LowerWGLocalMemory.cpp
   MutatePrintfAddrspace.cpp
+<<<<<<< HEAD
   SYCLPropagateAspectsUsage.cpp
 
+=======
+>>>>>>> 4d2c63253c46a6c7daa361149a76a290534c28c6
   LocalAccessorToSharedMemory.cpp
   GlobalOffset.cpp
   TargetHelpers.cpp

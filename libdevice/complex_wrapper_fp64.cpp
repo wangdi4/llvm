@@ -1,5 +1,21 @@
 //==--- complex_wrapper_fp64.cpp - wrappers for double precision C99 complex
 // math functions ------==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,8 +29,8 @@
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
 
 DEVICE_EXTERN_C_INLINE
 double cimag(double __complex__ z) { return __devicelib_cimag(z); }
@@ -106,9 +122,21 @@ double __complex__ __divdc3(double __a, double __b, double __c, double __d) {
   return __devicelib___divdc3(__a, __b, __c, __d);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// cexp10 is not standard C99 complex API, it is only required by omp libdevice.
+DEVICE_EXTERN_C_INLINE
+double __complex__ cexp10(double __complex__ z) {
+  return __devicelib_cexp10(z);
+}
+
+DEVICE_EXTERN_C_INLINE
+double __complex__ clog10(double __complex__ z) {
+  return __devicelib_clog10(z);
+}
+#endif
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
 #endif // __SPIR__

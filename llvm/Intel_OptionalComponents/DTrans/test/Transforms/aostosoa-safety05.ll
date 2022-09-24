@@ -26,5 +26,6 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; CHECK: DTRANS-AOSTOSOA: Rejecting -- Unsupported allocation function: struct.test01
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

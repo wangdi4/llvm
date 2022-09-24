@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +amx-bf8 -emit-llvm -o - -Wall -Werror -pedantic | FileCheck %s
-// REQUIRES: intel_feature_isa_amx_bf8
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +amx-fp8 -emit-llvm -o - -Wall -Werror -pedantic | FileCheck %s
+// REQUIRES: intel_feature_isa_amx_fp8
 void f_tilemul(short a)
 {
   //CHECK:  call void asm sideeffect "tileloadd 0(%rsi,%r13,4), %tmm0   \0A\09tileloadd 0(%rdx,%r14,4), %tmm6   \0A\09tdpbf8ps %tmm6, %tmm0, %tmm7    \0A\09tilestored %tmm7, 0(%r12,%r15,4) \0A\09", "~{memory},~{tmm0},~{tmm6},~{tmm7},~{dirflag},~{fpsr},~{flags}"()

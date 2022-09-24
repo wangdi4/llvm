@@ -29,6 +29,6 @@ define void @indirect_invoker() {
 
 ; CHECK: DTRANS-AOSTOSOA: Rejecting -- Multiple call paths: struct.test01
 
+declare i8* @calloc(i64, i64) #0
 
-declare i8* @calloc(i64, i64)
-
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

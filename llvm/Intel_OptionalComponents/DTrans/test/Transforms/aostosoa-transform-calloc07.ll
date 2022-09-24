@@ -54,4 +54,6 @@ define void @test01(i32 %count, i32 %some_val) {
   ret void
 }
 
-declare i8* @calloc(i32, i32)
+declare i8* @calloc(i32, i32) #0
+
+attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

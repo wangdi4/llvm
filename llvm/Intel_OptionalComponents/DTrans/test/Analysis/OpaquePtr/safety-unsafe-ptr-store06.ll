@@ -90,8 +90,9 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *$}}
 ; CHECK: End LLVMType: %struct.test04c
 
-declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
 !2 = !{i32 0, i32 0}  ; i32

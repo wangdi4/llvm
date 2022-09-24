@@ -49,7 +49,9 @@ exit:
   ret void
 }
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @malloc(i64)
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !1 = !{!"A", i32 16, !2}  ; [16 x %struct._ZTS9_NodeInfo._NodeInfo*]
 !2 = !{%struct._ZTS9_NodeInfo._NodeInfo zeroinitializer, i32 1}  ; %struct._ZTS9_NodeInfo._NodeInfo*

@@ -28,6 +28,9 @@
 // RUN:   -fintel-openmp-region-early-collapsed-loops \
 // RUN:   | FileCheck %s --check-prefix OFF
 
+// RUN: %clang_cc1 -Wconversion -verify %s -fopenmp -fopenmp-late-outline %s
+// expected-no-diagnostics
+
 void foo(float *, float *, int, int, int, int, int, int);
 
 // CHECK-LABEL: test_one
@@ -338,3 +341,10 @@ void test_five() {
      }
 }
 
+void test_no_diagnostic()
+{
+    int n2 = 10;
+    #pragma omp parallel for
+    for(int i=n2; i<10; ++i)
+      int foo = i;
+}

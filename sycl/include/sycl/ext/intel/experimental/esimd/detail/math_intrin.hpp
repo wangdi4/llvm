@@ -28,6 +28,8 @@
 /// @cond ESIMD_DETAIL
 
 #include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
+#include <sycl/ext/intel/esimd/detail/host_util.hpp>
+#include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
 #include <sycl/ext/intel/esimd/detail/types.hpp>
 
 #define __ESIMD_raw_vec_t(T, SZ)                                               \
@@ -128,8 +130,76 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-#ifndef __SYCL_DEVICE_ONLY__
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+template <int N>
+SYCL_EXTERNAL
+    SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N>
+    __esimd_bf_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<float, N>
+__esimd_bf_cvt(__ESIMD_DNS::vector_type_t<__ESIMD_ENS::bfloat16, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
+             __ESIMD_DNS::vector_type_t<SrcType, N> src2)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+#ifndef __SYCL_DEVICE_ONLY__
 template <typename T0, typename T1, int SZ>
 __ESIMD_INTRIN __ESIMD_raw_vec_t(T0, SZ)
     __esimd_ssshl(__ESIMD_raw_vec_t(T1, SZ) src0,
@@ -489,19 +559,12 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
           ? 1
           : 0;
 
-#if defined(ESIMD_XE_HPC) || \
-/* INTEL_CUSTOMIZATION */ \
-/* INTEL_FEATURE_ESIMD_EMBARGO */ \
-    defined(ESIMD_XE2_HPC) || \
-/* end INTEL_FEATURE_ESIMD_EMBARGO */ \
-/* end INTEL_CUSTOMIZATION */ \
-    defined(ESIMD_XE_HPG)
-  constexpr bool isPvc = true;
-  constexpr size_t SIMDSize = 16;
-#else
-  constexpr bool isPvc = false;
-  constexpr size_t SIMDSize = 8;
-#endif
+  constexpr uint32_t src1_vec_bit_size = sizeof(T1) * N1 * 8;
+  constexpr uint32_t src1_num_elem = src1_vec_bit_size / src1_el_bits;
+  constexpr size_t SIMDSize = src1_num_elem / (systolic_depth * ops_per_chan);
+  static_assert(SIMDSize == 8 || SIMDSize == 16,
+                "Execution size must be 8 or 16");
+  constexpr bool isPvc = SIMDSize == 16;
 
   constexpr bool
       pvcHfDest = isPvc && std::is_same<RT, __ESIMD_EMU_DNS::half>::value,

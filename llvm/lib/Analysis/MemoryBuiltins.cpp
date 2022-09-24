@@ -164,16 +164,7 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_dunder_strdup,                     {StrDupLike,       1, -1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_dunder_strndup,                    {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
-    {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}},
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-39199: Temporarily add these LibFuncs back into the table
-    // until we can converge to the new community methodology
-    {LibFunc_malloc,                            {MallocLike,       1,  0, -1, -1, MallocFamily::Malloc}},
-    {LibFunc_valloc,                            {MallocLike,       1,  0, -1, -1, MallocFamily::Malloc}},
-    {LibFunc_aligned_alloc,                     {AlignedAllocLike, 2,  1, -1,  0, MallocFamily::Malloc}},
-    {LibFunc_calloc,                            {CallocLike,       2,  0,  1, -1, MallocFamily::Malloc}},
-    {LibFunc_realloc,                           {ReallocLike,      2,  1, -1, -1, MallocFamily::Malloc}},
-#endif // INTEL_CUSTOMIZATION
+    {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}}
 };
 // clang-format on
 
@@ -306,7 +297,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
 std::pair<unsigned, unsigned>
-llvm::getAllocSizeArgumentIndices(const Value *I,
+llvm::IntelMemoryBuiltins::getAllocSizeArgumentIndices(const Value *I,
                                   const TargetLibraryInfo *TLI) {
   Optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
   if (!Res)
@@ -316,7 +307,7 @@ llvm::getAllocSizeArgumentIndices(const Value *I,
 }
 
 /// Checks if \p LF is in the AllocationFnData list.
-bool llvm::isAllocationLibFunc(LibFunc LF) {
+bool llvm::IntelMemoryBuiltins::isAllocationLibFunc(LibFunc LF) {
   auto Fns = makeArrayRef(AllocationFnData);
   return std::any_of(
     Fns.begin(), Fns.end(),
@@ -364,27 +355,9 @@ bool llvm::isAllocationFn(
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
-#if INTEL_CUSTOMIZATION
-bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-#else
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-#endif
   return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
 }
-
-#if INTEL_CUSTOMIZATION
-bool llvm::isMallocLikeFn(
-    const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
-  return getAllocationData(V, MallocOrOpNewLike, GetTLI)
-      .has_value();
-}
-
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., malloc).
-bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, MallocLike, TLI).has_value();
-}
-#endif
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory with alignment (such as aligned_alloc).
@@ -392,22 +365,44 @@ static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, AlignedAllocLike, TLI).has_value();
 }
 
-#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
 }
 
+#if INTEL_CUSTOMIZATION
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates uninitialized memory (such as malloc).
+bool llvm::IntelMemoryBuiltins::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, MallocOrOpNewLike, TLI).has_value() ||
+    checkFnAllocKind(V, AllocFnKind::Uninitialized);
+}
+
 /// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., calloc).
-bool llvm::isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, CallocLike, TLI).has_value();
+/// allocates memory (e.g., malloc).
+bool llvm::IntelMemoryBuiltins::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, MallocLike, TLI).has_value() ||
+    checkFnAllocKind(F, AllocFnKind::Uninitialized);
+}
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates zero-filled memory (such as calloc).
+bool llvm::IntelMemoryBuiltins::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, CallocLike, TLI).has_value() ||
+    checkFnAllocKind(V, AllocFnKind::Zeroed);
+}
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+bool llvm::IntelMemoryBuiltins::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return isMallocLikeFn(V, TLI) || isCallocLikeFn(V, TLI);
 }
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+bool llvm::IntelMemoryBuiltins::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
   if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall)) {
     auto Data = getAllocationDataForFunction(Callee, OpNewLike, TLI);
@@ -419,14 +414,15 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
-bool llvm::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+bool llvm::IntelMemoryBuiltins::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, OpNewLike, TLI).has_value();
 }
 
 /// Tests if a function is a call or invoke to free() (specifically).
 /// TODO: this matches current xmain behavior, but we could call
 /// isLibFreeFunction to match all free-like functions instead.
-bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
+bool llvm::IntelMemoryBuiltins::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
+  if (checkFnAllocKind(F, AllocFnKind::Free)) return true;
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*F, TLIFn) || !TLI->has(TLIFn))
     return false;
@@ -445,7 +441,7 @@ bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
 
 /// Tests if a function is a call or invoke to a function in the
 /// delete() family.
-bool llvm::isDeleteFn(const Function *F, const TargetLibraryInfo *TLI) {
+bool llvm::IntelMemoryBuiltins::isDeleteFn(const Function *F, const TargetLibraryInfo *TLI) {
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*F, TLIFn) || !TLI->has(TLIFn))
     return false;
@@ -476,7 +472,8 @@ bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
 
 Value *llvm::getReallocatedOperand(const CallBase *CB,
                                    const TargetLibraryInfo *TLI) {
-  if (getAllocationData(CB, ReallocLike, TLI).has_value()) {
+  if (getAllocationData(CB, ReallocLike, TLI).has_value() ||      // INTEL
+      checkFnAllocKind(CB, AllocFnKind::Realloc)) {               // INTEL
     // All currently supported realloc functions reallocate the first argument.
     return CB->getArgOperand(0);
   }
@@ -644,12 +641,7 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
     {LibFunc_ZdlPvjSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned int, align_val_t)
     {LibFunc_ZdlPvmSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned long, align_val_t)
     {LibFunc_ZdaPvjSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned int, align_val_t)
-    {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned long, align_val_t)
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-39199: Temporarily add these LibFuncs back into the table
-    // until we can converge to the new community methodology
-    {LibFunc_free,                               {1, MallocFamily::Malloc}},
-#endif // INTEL_CUSTOMIZATION
+    {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}  // delete[](void*, unsigned long, align_val_t)
 };
 // clang-format on
 

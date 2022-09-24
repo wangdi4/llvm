@@ -160,8 +160,10 @@ define i32 @main() {
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
 declare !intel.dtrans.func.type !16 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK-TYPED: FieldModRefQuery: - Ref        : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01readers1(%struct.test01* %in)
 ; CHECK-TYPED: FieldModRefQuery: - Ref        : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01readers1(%struct.test01* %in)

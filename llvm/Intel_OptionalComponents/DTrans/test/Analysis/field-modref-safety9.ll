@@ -69,11 +69,12 @@ define void @filter01b(%struct.test01* %st) {
 }
 
 declare !callback !0 void @broker(void (%struct.test01*)*, void (%struct.test01*)*, void (i32*, i32*, ...)*, ...)
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
 
 !0 = !{!1}
 !1 = !{i64 2, i64 -1, i64 -1, i1 true}
 
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 ; CHECK: ModRef candidate structures after analysis:
 ; CHECK-LABEL: LLVMType: %struct.test01 = type { i32, i32*, i64 }

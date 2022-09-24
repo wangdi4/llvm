@@ -66,4 +66,6 @@ define void @test01(%struct.test01* %in) {
   ret void
 }
 
-declare i8* @malloc(i64)
+declare i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

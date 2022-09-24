@@ -53,8 +53,11 @@ define i64 @test() {
   ret i64 %v
 }
 
-declare !intel.dtrans.func.type !5 void @free(i8* "intel_dtrans_func_index"="1")
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !5 void @free(i8* "intel_dtrans_func_index"="1") #1
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i8 0, i32 1}  ; i8*

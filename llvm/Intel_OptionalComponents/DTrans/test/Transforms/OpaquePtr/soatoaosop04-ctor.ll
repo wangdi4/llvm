@@ -123,9 +123,10 @@ entry:
 ; Function Attrs: argmemonly nofree nounwind willreturn writeonly
 declare !intel.dtrans.func.type !13 void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
 
-declare !intel.dtrans.func.type !14 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !14 "intel_dtrans_func_index"="1" i8* @malloc(i64) #1
 
 attributes #0 = { argmemonly nofree nounwind willreturn writeonly }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 
 !intel.dtrans.types = !{!0, !1, !5}
 
