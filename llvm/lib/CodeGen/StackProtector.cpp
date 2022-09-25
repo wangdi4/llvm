@@ -446,20 +446,6 @@ static bool CreatePrologue(Function *F, Module *M, Instruction *CheckLoc,
   return SupportsSelectionDAGSP;
 }
 
-#if INTEL_CUSTOMIZATION
-static Instruction *findNoReturnFunc(BasicBlock &BB) {
-  for (auto &Inst : BB) {
-    auto *CB = dyn_cast<CallBase>(&Inst);
-    if (!CB)
-      continue;
-    // Do stack check before non-return calls (e.g: __cxa_throw)
-    if (CB->doesNotReturn())
-      return CB;
-  }
-  return nullptr;
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// InsertStackProtectors - Insert code into the prologue and epilogue of the
 /// function.
 ///
@@ -478,8 +464,18 @@ bool StackProtector::InsertStackProtectors() {
 #if INTEL_CUSTOMIZATION
   for (BasicBlock &BB : llvm::make_early_inc_range(*F)) {
     Instruction *CheckLoc = dyn_cast<ReturnInst>(BB.getTerminator());
-    if (!CheckLoc)
-      CheckLoc = findNoReturnFunc(BB);
+    if (!CheckLoc) {
+      for (auto &Inst : BB) {
+        auto *CB = dyn_cast<CallBase>(&Inst);
+        if (!CB)
+          continue;
+        if (!CB->doesNotReturn())
+          continue;
+        // Do stack check before non-return calls (e.g: __cxa_throw)
+        CheckLoc = CB;
+        break;
+      }
+    }
 
     if (!CheckLoc)
       continue;
@@ -630,13 +626,7 @@ BasicBlock *StackProtector::CreateFailBB() {
 }
 
 bool StackProtector::shouldEmitSDCheck(const BasicBlock &BB) const {
-#if INTEL_CUSTOMIZATION
-  if (!HasPrologue || HasIRCheck)
-    return false;
-  if (isa<ReturnInst>(BB.getTerminator()))
-    return true;
-  return findNoReturnFunc(const_cast<BasicBlock &>(BB)) != nullptr;
-#endif // INTEL_CUSTOMIZATION
+  return HasPrologue && !HasIRCheck && isa<ReturnInst>(BB.getTerminator());
 }
 
 void StackProtector::copyToMachineFrameInfo(MachineFrameInfo &MFI) const {
