@@ -4459,7 +4459,7 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
   return __tgt_rtl_data_submit(DstId, DstPtr, SrcPtr, Size);
 }
 
-int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
+int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   DeviceInfo->Mutexes[DeviceId].lock();
 
   // Deallocate cl_mem data
@@ -4634,7 +4634,7 @@ void *__tgt_rtl_data_realloc(
     } else {
       std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
     }
-    auto Rc = __tgt_rtl_data_delete(DeviceId, Ptr);
+    auto Rc = __tgt_rtl_data_delete(DeviceId, Ptr, TARGET_ALLOC_DEFAULT);
     if (Rc != OFFLOAD_SUCCESS)
       return nullptr;
   }
