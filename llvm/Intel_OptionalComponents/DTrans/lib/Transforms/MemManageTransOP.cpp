@@ -6685,12 +6685,20 @@ bool MemManageTransImpl::identifyResetCall(BasicBlock *BB, Value *Obj,
   if (!SI)
     return false;
 
-  if (!isVTableAddrInArenaAllocator(SI->getPointerOperand(), Obj))
+  // The VTable address can either use a GEP with zero indices, or be accessed
+  // directly from a pointer without a GEP.
+  Value *PtrOp = SI->getPointerOperand();
+  if (!isVTableAddrInArenaAllocator(PtrOp, Obj) && PtrOp != Obj)
     return false;
   if (!isa<Constant>(SI->getValueOperand()))
     return false;
-  auto *GV = dyn_cast_or_null<GlobalVariable>(
-      SI->getValueOperand()->stripInBoundsConstantOffsets());
+
+  Value *ValOp = SI->getValueOperand();
+  if (auto *GA = dyn_cast<GlobalAlias>(ValOp))
+    ValOp = GA->getAliasee();
+
+  auto *GV =
+      dyn_cast_or_null<GlobalVariable>(ValOp->stripInBoundsConstantOffsets());
   if (!GV)
     return false;
 
@@ -7292,6 +7300,9 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
       //   GEP %class.ReusableArenaAllocator, ptr %0, i64 0, i32 0, i32 0
       if (PtrOp == ThisObj ||
           isVTableAddrInReusableArenaAllocator(PtrOp, ThisObj)) {
+        if (auto *GA = dyn_cast<GlobalAlias>(ValOp))
+          ValOp = GA->getAliasee();
+
         // The stored value should be something with !types attached
         // to it to indicate it is a vtable object.
         auto *GV = dyn_cast_or_null<GlobalVariable>(
