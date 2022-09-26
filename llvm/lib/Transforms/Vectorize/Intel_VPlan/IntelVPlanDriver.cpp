@@ -221,7 +221,18 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
-static bool canProcessMaskedVariant(const VPlan &P) {
+static bool canProcessMaskedVariant(const VPlanVector &P) {
+  // First check that there is nothing between loop latch condition
+  // and branch. Masked mode loop creator may insert inconsistent phi-s
+  // for such instructions.
+  const VPLoop *VLoop = P.getMainLoop(true /* StrictCheck */);
+  const VPBasicBlock *LatchBlock = VLoop->getLoopLatch();
+  assert(LatchBlock && "expected non-null latch");
+  const VPBranchInst *Br = LatchBlock->getTerminator();
+  auto *LatchCond = cast<VPInstruction>(Br->getCondition());
+  if (Br->getPrevNode() != LatchCond)
+    return false;
+
   for (const VPInstruction &I : vpinstructions(&P))
     switch (I.getOpcode()) {
     default:
