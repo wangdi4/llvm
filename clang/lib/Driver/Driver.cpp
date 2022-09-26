@@ -1554,7 +1554,8 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
 /// by Dirs.
 ///
 static bool searchForFile(SmallVectorImpl<char> &FilePath,
-                          ArrayRef<StringRef> Dirs, StringRef FileName) {
+                          ArrayRef<StringRef> Dirs, StringRef FileName,
+                          llvm::vfs::FileSystem &FS) {
   SmallString<128> WPath;
   for (const StringRef &Dir : Dirs) {
     if (Dir.empty())
@@ -1562,7 +1563,8 @@ static bool searchForFile(SmallVectorImpl<char> &FilePath,
     WPath.clear();
     llvm::sys::path::append(WPath, Dir, FileName);
     llvm::sys::path::native(WPath);
-    if (llvm::sys::fs::is_regular_file(WPath)) {
+    auto Status = FS.status(WPath);
+    if (Status && Status->getType() == llvm::sys::fs::file_type::regular_file) {
       FilePath = std::move(WPath);
       return true;
     }
@@ -1573,7 +1575,7 @@ static bool searchForFile(SmallVectorImpl<char> &FilePath,
 bool Driver::readConfigFile(StringRef FileName) {
   // Try reading the given file.
   SmallVector<const char *, 32> NewCfgArgs;
-  if (!llvm::cl::readConfigFile(FileName, Saver, NewCfgArgs)) {
+  if (!llvm::cl::readConfigFile(FileName, Saver, NewCfgArgs, getVFS())) {
     Diag(diag::err_drv_cannot_read_config_file) << FileName;
     return true;
   }
@@ -1613,7 +1615,7 @@ bool Driver::loadConfigFile() {
       SmallString<128> CfgDir;
       CfgDir.append(
           CLOptions->getLastArgValue(options::OPT_config_system_dir_EQ));
-      if (CfgDir.empty() || llvm::sys::fs::make_absolute(CfgDir))
+      if (CfgDir.empty() || getVFS().makeAbsolute(CfgDir))
         SystemConfigDir.clear();
       else
         SystemConfigDir = static_cast<std::string>(CfgDir);
@@ -1622,7 +1624,7 @@ bool Driver::loadConfigFile() {
       SmallString<128> CfgDir;
       CfgDir.append(
           CLOptions->getLastArgValue(options::OPT_config_user_dir_EQ));
-      if (CfgDir.empty() || llvm::sys::fs::make_absolute(CfgDir))
+      if (CfgDir.empty() || getVFS().makeAbsolute(CfgDir))
         UserConfigDir.clear();
       else
         UserConfigDir = static_cast<std::string>(CfgDir);
@@ -1647,13 +1649,16 @@ bool Driver::loadConfigFile() {
       // If argument contains directory separator, treat it as a path to
       // configuration file.
       if (llvm::sys::path::has_parent_path(CfgFileName)) {
-        SmallString<128> CfgFilePath;
-        if (llvm::sys::path::is_relative(CfgFileName))
-          llvm::sys::fs::current_path(CfgFilePath);
-        llvm::sys::path::append(CfgFilePath, CfgFileName);
-        if (!llvm::sys::fs::is_regular_file(CfgFilePath)) {
-          Diag(diag::err_drv_config_file_not_exist) << CfgFilePath;
-          return true;
+        SmallString<128> CfgFilePath(CfgFileName);
+        if (llvm::sys::path::is_relative(CfgFilePath)) {
+          if (getVFS().makeAbsolute(CfgFilePath))
+            return true;
+          auto Status = getVFS().status(CfgFilePath);
+          if (!Status ||
+              Status->getType() != llvm::sys::fs::file_type::regular_file) {
+            Diag(diag::err_drv_config_file_not_exist) << CfgFilePath;
+            return true;
+          }
         }
         return readConfigFile(CfgFilePath);
       }
@@ -1694,7 +1699,7 @@ bool Driver::loadConfigFile() {
       // ../bin from the location of the driver, which could be in 'bin-llvm'
       SmallString<128> AltDir(Dir);
       llvm::sys::path::append(AltDir, "..", "bin");
-      if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase)) {
+      if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase, getVFS())) {
         if (!readConfigFile(CfgFilePath)) {
           // The default .cfg file can be empty, allow for more config
           // processing if it is.
@@ -1757,17 +1762,19 @@ bool Driver::loadConfigFile() {
   // Try to find config file. First try file with corrected architecture.
   llvm::SmallString<128> CfgFilePath;
   if (!FixedConfigFile.empty()) {
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile))
+    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile,
+                      getVFS()))
       return readConfigFile(CfgFilePath);
     // If 'x86_64-clang.cfg' was not found, try 'x86_64.cfg'.
     FixedConfigFile.resize(FixedArchPrefixLen);
     FixedConfigFile.append(".cfg");
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile))
+    if (searchForFile(CfgFilePath, CfgFileSearchDirs, FixedConfigFile,
+                      getVFS()))
       return readConfigFile(CfgFilePath);
   }
 
   // Then try original file name.
-  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName))
+  if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
     return readConfigFile(CfgFilePath);
 
   // Finally try removing driver mode part: 'x86_64-clang.cfg' -> 'x86_64.cfg'.
@@ -1775,7 +1782,7 @@ bool Driver::loadConfigFile() {
       !ClangNameParts.TargetPrefix.empty()) {
     CfgFileName.assign(ClangNameParts.TargetPrefix);
     CfgFileName.append(".cfg");
-    if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName))
+    if (searchForFile(CfgFilePath, CfgFileSearchDirs, CfgFileName, getVFS()))
       return readConfigFile(CfgFilePath);
   }
 
@@ -7887,10 +7894,14 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
 
       auto TCAndArch = TCAndArchs.begin();
       for (Action *&A : DeviceActions) {
+        if (A->getType() == types::TY_Nothing)
+          continue;
+
         A = ConstructPhaseAction(C, Args, Phase, A, Kind);
 
         if (isa<CompileJobAction>(A) && isa<CompileJobAction>(HostAction) &&
-            Kind == Action::OFK_OpenMP) {
+            Kind == Action::OFK_OpenMP &&
+            HostAction->getType() != types::TY_Nothing) {
           // OpenMP offloading has a dependency on the host compile action to
           // identify which declarations need to be emitted. This shouldn't be
           // collapsed with any other actions so we can use it in the device.
@@ -7958,11 +7969,15 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
              nullptr, Action::OFK_None);
   }
 
+  // If we are unable to embed a single device output into the host, we need to
+  // add each device output as a host dependency to ensure they are still built.
+  bool SingleDeviceOutput = !llvm::any_of(OffloadActions, [](Action *A) {
+    return A->getType() == types::TY_Nothing;
+  }) && isa<CompileJobAction>(HostAction);
   OffloadAction::HostDependence HDep(
       *HostAction, *C.getSingleOffloadToolChain<Action::OFK_Host>(),
-      /*BoundArch=*/nullptr, isa<CompileJobAction>(HostAction) ? DDep : DDeps);
-  return C.MakeAction<OffloadAction>(
-      HDep, isa<CompileJobAction>(HostAction) ? DDep : DDeps);
+      /*BoundArch=*/nullptr, SingleDeviceOutput ? DDep : DDeps);
+  return C.MakeAction<OffloadAction>(HDep, SingleDeviceOutput ? DDep : DDeps);
 }
 
 Action *Driver::ConstructPhaseAction(
@@ -9244,15 +9259,18 @@ const char *Driver::CreateTempFile(Compilation &C, StringRef Prefix,
                                    types::ID Type) const {
   SmallString<128> TmpName;
   Arg *A = C.getArgs().getLastArg(options::OPT_fcrash_diagnostics_dir);
-  if (CCGenDiagnostics && A) {
-    SmallString<128> CrashDirectory(A->getValue());
-    if (!getVFS().exists(CrashDirectory))
-      llvm::sys::fs::create_directories(CrashDirectory);
-    llvm::sys::path::append(CrashDirectory, Prefix);
+  Optional<std::string> CrashDirectory =
+      CCGenDiagnostics && A
+          ? std::string(A->getValue())
+          : llvm::sys::Process::GetEnv("CLANG_CRASH_DIAGNOSTICS_DIR");
+  if (CrashDirectory) {
+    if (!getVFS().exists(*CrashDirectory))
+      llvm::sys::fs::create_directories(*CrashDirectory);
+    SmallString<128> Path(*CrashDirectory);
+    llvm::sys::path::append(Path, Prefix);
     const char *Middle = !Suffix.empty() ? "-%%%%%%." : "-%%%%%%";
-    std::error_code EC = llvm::sys::fs::createUniqueFile(
-        CrashDirectory + Middle + Suffix, TmpName);
-    if (EC) {
+    if (std::error_code EC =
+            llvm::sys::fs::createUniqueFile(Path + Middle + Suffix, TmpName)) {
       Diag(clang::diag::err_unable_to_make_temp) << EC.message();
       return "";
     }

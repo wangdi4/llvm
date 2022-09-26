@@ -5,12 +5,9 @@
 # UNSUPPORTED: system-windows
 # end INTEL_CUSTOMIZATION
 
-# RUN: cp %{inputs}/reorder/.lit_test_times.txt %{inputs}/reorder/.lit_test_times.txt.orig
+# RUN: cp %{inputs}/reorder/lit_test_times %{inputs}/reorder/.lit_test_times.txt
 # RUN: not %{lit-no-order-opt} %{inputs}/reorder > %t.out
-# RUN: cp %{inputs}/reorder/.lit_test_times.txt %{inputs}/reorder/.lit_test_times.txt.new
-# RUN: cp %{inputs}/reorder/.lit_test_times.txt.orig %{inputs}/reorder/.lit_test_times.txt
-# RUN: not diff %{inputs}/reorder/.lit_test_times.txt.new %{inputs}/reorder/.lit_test_times.txt.orig
-# RUN: FileCheck --check-prefix=TIMES --implicit-check-not= < %{inputs}/reorder/.lit_test_times.txt.new %s
+# RUN: FileCheck --check-prefix=TIMES < %{inputs}/reorder/.lit_test_times.txt %s
 # RUN: FileCheck < %t.out %s
 # END.
 

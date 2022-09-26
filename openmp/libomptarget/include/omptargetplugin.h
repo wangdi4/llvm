@@ -173,11 +173,12 @@ int32_t __tgt_rtl_data_exchange_async(int32_t SrcID, void *SrcPtr,
                                       __tgt_async_info *AsyncInfo);
 
 // De-allocate the data referenced by target ptr on the device. In case of
-// success, return zero. Otherwise, return an error code.
+// success, return zero. Otherwise, return an error code. Kind dictates what
+// allocator to use (e.g. shared, host, device).
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr);
+int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr, int32_t Kind);
 
 // Transfer control to the offloaded entry Entry on the target device.
 // Args and Offsets are arrays of NumArgs size of target addresses and

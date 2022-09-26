@@ -70,6 +70,18 @@ static lto::Config createConfig() {
   return c;
 }
 
+// If `originalPath` exists, hardlinks `path` to `originalPath`. If that fails,
+// or `originalPath` is not set, saves `buffer` to `path`.
+static void saveOrHardlinkBuffer(StringRef buffer, const Twine &path,
+                                 Optional<StringRef> originalPath) {
+  if (originalPath) {
+    auto err = fs::create_hard_link(*originalPath, path);
+    if (!err)
+      return;
+  }
+  saveBuffer(buffer, path);
+}
+
 BitcodeCompiler::BitcodeCompiler() {
   lto::ThinBackend backend = lto::createInProcessThinBackend(
       heavyweight_hardware_concurrency(config->thinLTOJobs));
@@ -172,10 +184,13 @@ std::vector<ObjFile *> BitcodeCompiler::compile() {
     // not use the cached MemoryBuffer directly to ensure dsymutil does not
     // race with the cache pruner.
     StringRef objBuf;
-    if (files[i])
+    Optional<StringRef> cachePath = llvm::None;
+    if (files[i]) {
       objBuf = files[i]->getBuffer();
-    else
+      cachePath = files[i]->getBufferIdentifier();
+    } else {
       objBuf = buf[i];
+    }
     if (objBuf.empty())
       continue;
 
@@ -192,7 +207,7 @@ std::vector<ObjFile *> BitcodeCompiler::compile() {
         path::append(filePath, Twine(i) + "." +
                                    getArchitectureName(config->arch()) +
                                    ".lto.o");
-      saveBuffer(objBuf, filePath);
+      saveOrHardlinkBuffer(objBuf, filePath, cachePath);
       modTime = getModTime(filePath);
     }
     ret.push_back(make<ObjFile>(

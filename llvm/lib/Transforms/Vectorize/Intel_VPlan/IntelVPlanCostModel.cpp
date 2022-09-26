@@ -1373,8 +1373,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     auto *VecTy = getWidenedType(OpTy, VF);
     if (OpTy->isVectorTy())
       return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
-                                None /* Mask */,
-                                TTI::TCK_RecipThroughput, VF - 1 /* Index */,
+                                None /* Mask */, TTI::TCK_RecipThroughput,
+                                VF - 1 /* Index */,
                                 cast<FixedVectorType>(OpTy));
     else
       return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,

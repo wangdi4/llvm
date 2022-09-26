@@ -53,7 +53,7 @@ void test()
   for(int z2=3; z2<16; ++z2) {
   }
 
-  //CHECK: [[AFOO_ADDR:%.*]] = call i32* @llvm.threadlocal.address.p0i32(i32* @afoo)
+  //CHECK: [[AFOO_ADDR:%.*]] = call align 4 i32* @llvm.threadlocal.address.p0i32(i32* align 4 @afoo)
   //CHECK: "DIR.OMP.PARALLEL"()
   //CHECK-SAME: "QUAL.OMP.COPYIN:TYPED"(i32* [[AFOO_ADDR]], i32 0, i32 1)
   #pragma omp parallel copyin(afoo)

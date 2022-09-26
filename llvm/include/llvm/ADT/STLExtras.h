@@ -19,7 +19,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/identity.h"
@@ -1789,24 +1788,6 @@ template <typename R> bool all_equal(R &&Range) {
 // is empty.
 template <typename T> bool all_equal(std::initializer_list<T> Values) {
   return all_equal<std::initializer_list<T>>(std::move(Values));
-}
-
-/// Returns true if Range consists of the same value repeated multiple times.
-template <typename R>
-LLVM_DEPRECATED(
-    "Use 'all_equal(Range)' or '!empty(Range) && all_equal(Range)' instead.",
-    "all_equal")
-bool is_splat(R &&Range) {
-  return !llvm::empty(Range) && all_equal(Range);
-}
-
-/// Returns true if Values consists of the same value repeated multiple times.
-template <typename T>
-LLVM_DEPRECATED(
-    "Use 'all_equal(Values)' or '!empty(Values) && all_equal(Values)' instead.",
-    "all_equal")
-bool is_splat(std::initializer_list<T> Values) {
-  return is_splat<std::initializer_list<T>>(std::move(Values));
 }
 
 /// Provide a container algorithm similar to C++ Library Fundamentals v2's

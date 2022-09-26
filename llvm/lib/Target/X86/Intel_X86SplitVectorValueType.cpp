@@ -549,7 +549,7 @@ bool SplitWizard::isSplitCandidateBeneficial(const Instruction *I) const {
         return false;
 
       Constant *ScalarC = C->getSplatValue(false);
-      if (!is_splat(M) || !ScalarC)
+      if (!all_equal(M) || !ScalarC)
         return false;
 
       return true;
@@ -637,7 +637,7 @@ bool SplitWizard::isSupportedOp(const Instruction *I) const {
     if (SV->changesLength())
       return false;
 
-    if (!is_splat(M))
+    if (!all_equal(M))
       return false;
 
     unsigned NumElmts = cast<FixedVectorType>(Op0->getType())->getNumElements();
@@ -981,7 +981,7 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
   auto *VTy = cast<FixedVectorType>(I->getType());
   VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
   ArrayRef<int> M = I->getShuffleMask();
-  assert(is_splat(M));
+  assert(all_equal(M));
 
   unsigned NumElmts = VTy->getNumElements();
   unsigned SVIndex = M[0];
@@ -1541,7 +1541,7 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
 
   Constant *ScalarC = C->getSplatValue(false);
 
-  if (HasAnd && is_splat(M) && ScalarC) {
+  if (HasAnd && all_equal(M) && ScalarC) {
     Value *NewSV =
         Builder.CreateShuffleVector(LHS, UndefValue::get(LHS->getType()), M);
 

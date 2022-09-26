@@ -28,7 +28,6 @@
 # Try to detect in the system several dependencies required by the different
 # components of libomptarget. These are the dependencies we have:
 #
-# libelf : required by some targets to handle the ELF files at runtime.
 # libffi : required to launch target kernels given function and argument
 #          pointers.
 # CUDA : required to control offloading to NVIDIA GPUs.
@@ -66,6 +65,7 @@ else()
     "Using LLVM include directories: ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}")
 endif()
 
+# INTEL_CUSTOMIZATION
 ################################################################################
 # Looking for libelf...
 ################################################################################
@@ -105,6 +105,7 @@ find_package_handle_standard_args(
 mark_as_advanced(
   LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS
   LIBOMPTARGET_DEP_LIBELF_LIBRARIES)
+# end INTEL_CUSTOMIZATION
 
 ################################################################################
 # Looking for libffi...

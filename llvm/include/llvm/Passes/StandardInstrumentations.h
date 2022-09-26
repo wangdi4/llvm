@@ -40,6 +40,7 @@
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Transforms/IPO/SampleProfileProbe.h"
 
 #include <string>
@@ -103,6 +104,8 @@ private:
 };
 
 class OptBisectInstrumentation {
+  bool HasWrittenIR = false;
+
 public:
   OptBisectInstrumentation() = default;
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
@@ -211,9 +214,9 @@ public:
 
   // Determine if this pass/IR is interesting and if so, save the IR
   // otherwise it is left on the stack without data.
-  void saveIRBeforePass(Any IR, StringRef PassID);
+  void saveIRBeforePass(Any IR, StringRef PassID, StringRef PassName);
   // Compare the IR from before the pass after the pass.
-  void handleIRAfterPass(Any IR, StringRef PassID);
+  void handleIRAfterPass(Any IR, StringRef PassID, StringRef PassName);
   // Handle the situation where a pass is invalidated.
   void handleInvalidatedPass(StringRef PassID);
 
@@ -439,6 +442,24 @@ public:
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 };
 
+/// This class implements --time-trace functionality for new pass manager.
+/// It provides the pass-instrumentation callbacks that measure the pass
+/// execution time. They collect time tracing info by TimeProfiler.
+class TimeProfilingPassesHandler {
+public:
+  TimeProfilingPassesHandler();
+  // We intend this to be unique per-compilation, thus no copies.
+  TimeProfilingPassesHandler(const TimeProfilingPassesHandler &) = delete;
+  void operator=(const TimeProfilingPassesHandler &) = delete;
+
+  void registerCallbacks(PassInstrumentationCallbacks &PIC);
+
+private:
+  // Implementation of pass instrumentation callbacks.
+  void runBeforePass(StringRef PassID, Any IR);
+  void runAfterPass();
+};
+
 // Class that holds transitions between basic blocks.  The transitions
 // are contained in a map of values to names of basic blocks.
 class DCData {
@@ -539,6 +560,9 @@ class StandardInstrumentations {
   PrintIRInstrumentation PrintIR;
   PrintPassInstrumentation PrintPass;
   TimePassesHandler TimePasses;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  TimeProfilingPassesHandler TimeProfilingPasses;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptNoneInstrumentation OptNone;
   OptBisectInstrumentation OptBisect;
   LimitingInstrumentation Limiter;        // INTEL

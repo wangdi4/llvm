@@ -42,12 +42,12 @@ include(AddSYCLExecutable)
 include(AddSYCL)
 include(SYCLUtils)
 
-set(SYCL_MAJOR_VERSION 5)
-set(SYCL_MINOR_VERSION 7)
+# The change in SYCL_MAJOR_VERSION must be accompanied with the same update in
+# llvm/clang/lib/Driver/CMakeLists.txt.
+set(SYCL_MAJOR_VERSION 6)
+set(SYCL_MINOR_VERSION 0)
 set(SYCL_PATCH_VERSION 0)
-# Don't forget to re-enable sycl_symbols_windows.dump once we leave ABI-breaking
-# window!
-set(SYCL_DEV_ABI_VERSION 15)
+set(SYCL_DEV_ABI_VERSION 0)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -238,9 +238,14 @@ install(DIRECTORY "${sycl_inc_dir}/CL" DESTINATION ${SYCL_INCLUDE_DIR}/sycl COMP
 install(DIRECTORY "${sycl_inc_dir}/std" DESTINATION ${SYCL_INCLUDE_DIR} COMPONENT sycl-headers)
 install(DIRECTORY ${BOOST_MP11_DESTINATION_DIR} DESTINATION ${SYCL_INCLUDE_DIR}/sycl/detail COMPONENT boost_mp11-headers)
 
-set(SYCL_RT_LIBS sycl)
-if (MSVC)
-  list(APPEND SYCL_RT_LIBS sycld)
+if (WIN32)
+  set(SYCL_RT_LIBS sycl${SYCL_MAJOR_VERSION})
+  # Do we really support non-MSVC ABI on WIN?
+  if (MSVC)
+    list(APPEND SYCL_RT_LIBS sycl${SYCL_MAJOR_VERSION}d)
+  endif()
+else()
+  set(SYCL_RT_LIBS sycl)
 endif()
 
 # This function allows building multiple libraries with the same options.
@@ -345,7 +350,13 @@ cmake_policy(SET CMP0057 NEW)
 
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
   # INTEL_CUSTOMIZATION
-  add_dependencies(sycl libsycldevice)
+  # matches new naming logic used in sycl/source/CMakeLists.txt
+  if (WIN32)
+     set(LIB_NAME "sycl${SYCL_MAJOR_VERSION}")
+  else()
+     set(LIB_NAME "sycl")
+  endif()
+  add_dependencies(${LIB_NAME} libsycldevice)
   # end INTEL_CUSTOMIZATION
 endif()
 
@@ -449,6 +460,11 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ioc64)
   endif()
 endif(INTEL_CUSTOMIZATION)
+# Build and install lld as part of the sycl-toolchain if available
+if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain lld)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
+endif()
 
 # Build and install lld as part of the sycl-toolchain if available
 if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
