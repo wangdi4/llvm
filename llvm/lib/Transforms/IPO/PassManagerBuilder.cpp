@@ -381,9 +381,9 @@ cl::opt<bool> EnableVPOParoptTargetInline(
     "enable-vpo-paropt-target-inline", cl::init(false), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable VPO Paropt Target Inline pass."));
 
-static cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
-                                    cl::Hidden, cl::ZeroOrMore,
-                                    cl::desc("Add LSR pass before code gen."));
+cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
+                             cl::Hidden, cl::ZeroOrMore,
+                             cl::desc("Enable early Loop Strength Reduction pass."));
 
 cl::opt<bool>
     EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
@@ -1469,10 +1469,12 @@ void PassManagerBuilder::populateModulePassManager(
   // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
   // result too early.
   MPM.add(createLoopSinkPass());
+
 #if INTEL_CUSTOMIZATION
   if (DisableIntelProprietaryOpts && EnableEarlyLSR)
     MPM.add(createLoopStrengthReducePass());
 #endif // INTEL_CUSTOMIZATION
+
   // Get rid of LCSSA nodes.
   MPM.add(createInstSimplifyLegacyPass());
 
