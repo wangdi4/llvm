@@ -2410,10 +2410,10 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
   VPBasicBlock *LatchBlock = Loop.getLoopLatch();
   assert(LatchBlock && "expected non-null latch");
 
+  VPBranchInst *Br = LatchBlock->getTerminator();
+  auto *LatchCond = cast<VPInstruction>(Br->getCondition());
   if (auto BinOp = Induction->getInductionBinOp()) {
     // Non-memory induction.
-    VPBranchInst *Br = LatchBlock->getTerminator();
-    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
     assert(StartPhi && "null induction StartPhi");
 
@@ -2457,7 +2457,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       Builder.createPhiInstruction(Induction->getStartValue()->getType());
   Builder.createStore(IndPhi, PrivateMem);
   // Then insert increment of induction and update phi.
-  Builder.setInsertPoint(LatchBlock);
+  Builder.setInsertPoint(LatchCond);
   VPInstruction *NewInd = CreateNewInductionOp(IndPhi, &InitStep, Induction);
   // Step is always initialized in loop preheader.
   IndPhi->addIncoming(&Init, Loop.getLoopPreheader());

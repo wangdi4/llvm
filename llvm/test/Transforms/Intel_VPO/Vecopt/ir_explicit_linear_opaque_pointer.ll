@@ -70,9 +70,9 @@ define dso_local void @foo() #0 {
 ; CHECK-NEXT:     ptr [[VP_X_PTR:%.*]] = getelementptr inbounds [10 x i32], ptr @x i64 0 i32 [[VP_I]]
 ; CHECK-NEXT:     store i32 [[VP_Y]] ptr [[VP_X_PTR]]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_COND_EXIT:%.*]] = icmp sgt i32 10 i32 [[VP_IV_NEXT]]
 ; CHECK-NEXT:     i32 [[VP1]] = add i32 [[VP0]] i32 [[VP_Y_LINEAR_PTR_IND_INIT_STEP]]
 ; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP2]] i32 [[VP_I_LINEAR_IV_PTR_IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP_COND_EXIT:%.*]] = icmp sgt i32 10 i32 [[VP_IV_NEXT]]
 ; CHECK-NEXT:     br i1 [[VP_COND_EXIT]], [[BB0]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]

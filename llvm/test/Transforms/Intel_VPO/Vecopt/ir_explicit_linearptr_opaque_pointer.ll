@@ -85,11 +85,11 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:     ptr [[VP_LOAD_Z1]] = load ptr [[VP_Z_LINEAR_PTR]]
 ; CHECK-NEXT:     call ptr [[VP_LOAD_X1]] ptr [[VP_LOAD_Z1]] ptr @_Z3bazPcPc
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_COND_EXIT:%.*]] = icmp sgt i32 10 i32 [[VP_IV_NEXT]]
 ; CHECK-NEXT:     ptr [[VP1_1]] = getelementptr inbounds i8, ptr [[VP0_1]] i64 [[VP_X_LINEAR_PTR_IND_INIT_STEP]]
 ; CHECK-NEXT:     ptr [[VP1_2]] = getelementptr inbounds i8, ptr [[VP0_2]] i64 [[VP_Y_LINEAR_PTR_IND_INIT_STEP]]
 ; CHECK-NEXT:     ptr [[VP1_3]] = getelementptr inbounds i8, ptr [[VP0_3]] i64 [[VP_Z_LINEAR_PTR_IND_INIT_STEP]]
 ; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP2]] i32 [[VP_I_LINEAR_IV_PTR_IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP_COND_EXIT:%.*]] = icmp sgt i32 10 i32 [[VP_IV_NEXT]]
 ; CHECK-NEXT:     br i1 [[VP_COND_EXIT]], [[BB0]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
