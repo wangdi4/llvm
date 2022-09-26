@@ -1301,7 +1301,13 @@ public:
 // Return true if CB is the sole call to local function Callee.
 static bool isSoleCallToLocalFunction(const CallBase &CB,
                                       const Function &Callee) {
-  return Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
+  return (Callee.hasLocalLinkage()
+#if INTEL_CUSTOMIZATION
+         // CQ370998: Added link once ODR linkage case.
+         || (InlineForXmain && Callee.hasLinkOnceODRLinkage())
+#endif
+         ) &&
+         Callee.hasOneLiveUse() &&
          &Callee == CB.getCalledFunction();
 }
 
@@ -2227,10 +2233,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 
 #if INTEL_CUSTOMIZATION
   bool OnlyOneCallAndLocalLinkage =
-       (F.hasLocalLinkage()
-  // CQ370998: Added link once ODR linkage case.
-         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-       F.hasOneLiveUse() && &F == Call.getCalledFunction()
+        isSoleCallToLocalFunction(Call, F)
 #if INTEL_FEATURE_SW_ADVANCED
        && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.value_or(false),
            Params.LinkForLTO.value_or(false), IsSYCLHost,
@@ -2241,19 +2244,13 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (OnlyOneCallAndLocalLinkage) {
     Cost -= LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall);
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
-  if (isSoleCallToLocalFunction(Call, F)) {
-    Cost -= LastCallToStaticBonus;
     StaticBonusApplied = LastCallToStaticBonus;
   }
->>>>>>> e2398a4d7cfc0415c63cc13792bda80045c7c803
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
@@ -3077,15 +3074,11 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
     YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-  bool OnlyOneCallAndLocalLinkage =
-      (F.hasLocalLinkage()
-       || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-      F.hasOneLiveUse() && &F == CandidateCall.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
-  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
+  if (!isSoleCallToLocalFunction(CandidateCall, F) && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate") // INTEL
         .setIntelInlReason(NinlrDuplicateCall); // INTEL
 
@@ -3448,15 +3441,10 @@ InlineCost llvm::getInlineCost(
 
 #if INTEL_CUSTOMIZATION
   if (CA.wasDecidedByCostThreshold())
-<<<<<<< HEAD
     return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
         ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
-        CA.getEarlyExitThreshold());
+        CA.getEarlyExitThreshold(), CA.getStaticBonusApplied());
 #endif // INTEL_CUSTOMIZATION
-=======
-    return InlineCost::get(CA.getCost(), CA.getThreshold(),
-                           CA.getStaticBonusApplied());
->>>>>>> e2398a4d7cfc0415c63cc13792bda80045c7c803
 
   // No details on how the decision was made, simply return always or never.
   return ShouldInline.isSuccess()
