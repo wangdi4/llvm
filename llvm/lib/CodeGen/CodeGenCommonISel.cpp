@@ -1,21 +1,4 @@
 //===-- CodeGenCommonISel.cpp ---------------------------------------------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -143,30 +126,7 @@ static bool MIIsInTerminatorSequence(const MachineInstr &MI) {
 MachineBasicBlock::iterator
 llvm::findSplitPointForStackProtector(MachineBasicBlock *BB,
                                       const TargetInstrInfo &TII) {
-#if INTEL_CUSTOMIZATION
-  MachineBasicBlock::iterator SplitPoint = BB->end();
-  for (MachineBasicBlock::iterator I = BB->begin(), E = BB->end(); I != E;) {
-    if (I->isTerminator()) {
-      SplitPoint = I;
-      break;
-    }
-    // Split before call noreturn function.
-    if (I->isCall()) {
-      MachineOperand &Op = I->getOperand(0);
-      if (Op.isGlobal()) {
-        const GlobalValue *GV = Op.getGlobal();
-        if (auto *Fn = dyn_cast<Function>(GV)) {
-          if (Fn->doesNotReturn()) {
-            SplitPoint = I;
-            break;
-          }
-        }
-      }
-    }
-    I++;
-  }
-#endif // INTEL_CUSTOMIZATION
-
+  MachineBasicBlock::iterator SplitPoint = BB->getFirstTerminator();
   if (SplitPoint == BB->begin())
     return SplitPoint;
 
