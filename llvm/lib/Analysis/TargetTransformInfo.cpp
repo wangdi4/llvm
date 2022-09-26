@@ -780,11 +780,12 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
   OperandValueProperties OpProps = OP_None;
 
   if (isa<ConstantInt>(V) || isa<ConstantFP>(V)) {
-    if (const auto *CI = dyn_cast<ConstantInt>(V))
+    if (const auto *CI = dyn_cast<ConstantInt>(V)) {
       if (CI->getValue().isPowerOf2())
         OpProps = OP_PowerOf2;
       else if (CI->getValue().isNegatedPowerOf2())
         OpProps = OP_NegatedPowerOf2;
+    }
     return {OK_UniformConstantValue, OpProps};
   }
 
